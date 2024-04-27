@@ -14,5 +14,11 @@
     <Setting Name="LastProfile" Type="System.String" Scope="User">
       <Value Profile="(Default)" />
     </Setting>
+    <Setting Name="CanConversions" Type="System.String" Scope="User">
+      <Value Profile="(Default)">
+                &lt;PcmHacking.SerializableStringDictionary&gt;
+                &lt;/PcmHacking.SerializableStringDictionary&gt;
+              </Value>
+    </Setting>
   </Settings>
 </SettingsFile>

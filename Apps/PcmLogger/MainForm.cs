@@ -345,8 +345,7 @@ namespace PcmHacking
             }
         }
 
-        #endregion
 
-        
+        #endregion
     }
 }

@@ -201,7 +201,7 @@ namespace PcmHacking
                     }
 
                     Conversion conversion = parameter.SelectedConversion ?? parameter.Conversions.First();
-                    result.Value = ValueConverter.Convert(rawValue, parameter.Name, parameter.Conversions.First());
+                    result.Value = ValueConverter.Convert(rawValue, parameter.Name, conversion);
                     result.Units = conversion.Units;
                     result.Name = parameter.Name;
                 }

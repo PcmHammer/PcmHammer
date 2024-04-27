@@ -1011,10 +1011,11 @@
       id="TargetAFRatio"
       pid="119E"
       name="Target A/F Ratio"
-      description=""
+      description="Conversions are unproven"
       storageType="uint8"
       bitMapped="False">
-    <Conversion units=":1" expression="(x/10)" format="0.00" />
+    <Conversion units="AFR" expression="(x/10)" format="0.00" />
+    <Conversion units="EQR" expression="(147/x)" format="0.00" />
     <OS id="all" />
   </Parameter>
   <Parameter

@@ -11,6 +11,9 @@ namespace PcmHacking
 {
     public partial class MainForm
     {
+        private static readonly string CanConversionSettingsKey = "CanConversions";
+        private bool initializingCanParameterGrid = false;
+
         private void selectCanButton_Click(object sender, EventArgs e)
         {
             string canPort = DeviceConfiguration.Settings.CanPort;
@@ -91,28 +94,48 @@ namespace PcmHacking
 
         private void FillCanParameterGrid()
         {
+            this.initializingCanParameterGrid = true;
+            this.canParameterGrid.Rows.Clear();
             foreach (CanParameter parameter in this.database.CanParameters)
             {
-                int row = this.canParameterGrid.Rows.Add(parameter);
-                DataGridViewCell cell = this.canParameterGrid.Rows[row].Cells[1];
-                DataGridViewComboBoxCell combo = cell as DataGridViewComboBoxCell;
-                if (combo == null)
-                {
-                    this.AddDebugMessage("Unexpected cell type in CAN parameter grid: " + cell.GetType().Name);
-                    continue;
-                }
+                DataGridViewRow row = new DataGridViewRow();
+                row.CreateCells(this.canParameterGrid);
+                row.Cells[0].Value = parameter;
 
-                combo.Items.AddRange(parameter.Conversions.ToArray());
+                DataGridViewComboBoxCell cell = (DataGridViewComboBoxCell)row.Cells[1];
+                cell.DisplayMember = "Units";
+                cell.ValueMember = "Units";
+
+                foreach(Conversion conversion in parameter.Conversions)
+                {
+                    cell.Items.Add(conversion);
+                }
 
                 Conversion selectedConversion = null;
                 try
                 {
-                    string selectedUnits = Configuration.Settings[this.GetSettingsKey(parameter)] as string;
-                    selectedConversion = parameter.Conversions.Where(x => x.Units == selectedUnits).FirstOrDefault();
+                    SerializableStringDictionary dictionary = Configuration.Settings[CanConversionSettingsKey] as SerializableStringDictionary;
+                    if (dictionary == null)
+                    {
+                        dictionary = new SerializableStringDictionary();
+                        Configuration.Settings[CanConversionSettingsKey] = dictionary;
+                        Configuration.Settings.Save();
+                    }
+
+                    string selectedUnits = dictionary[this.GetSettingsKey(parameter)];
+                    if (selectedUnits != null)
+                    {
+                        selectedConversion = parameter.Conversions.Where(x => x.Units == selectedUnits).FirstOrDefault();
+                    }
                 }
                 catch (SettingsPropertyNotFoundException)
                 {
+                    Configuration.Settings[CanConversionSettingsKey] = new SerializableStringDictionary();
+                }
+                catch (Exception ex)
+                {
                     // this space intentionally left blank
+                    ex.ToString();
                 }
 
                 if (selectedConversion == null)
@@ -120,9 +143,54 @@ namespace PcmHacking
                     selectedConversion = parameter.Conversions.First();
                 }
 
-                combo.Value = selectedConversion;
+                cell.Value = selectedConversion;
                 parameter.SelectedConversion = selectedConversion;
+                this.canParameterGrid.Rows.Add(row);
             }
+            this.initializingCanParameterGrid = false;
+        }
+
+        private void canParameterGrid_CurrentCellDirtyStateChanged(object sender, EventArgs e)
+        {
+            if (this.canParameterGrid.IsCurrentCellDirty)
+            {
+                this.canParameterGrid.CommitEdit(DataGridViewDataErrorContexts.Commit);
+            }
+        }
+
+        private void canParameterGrid_CellValueChanged(object sender, DataGridViewCellEventArgs e)
+        {
+            if (e.RowIndex == -1 || this.initializingCanParameterGrid)
+            {
+                return;
+            }
+
+            DataGridViewRow row = this.canParameterGrid.Rows[e.RowIndex];
+
+            CanParameter parameter = row.Cells[0].Value as CanParameter;
+
+            DataGridViewComboBoxCell cell = row.Cells[e.ColumnIndex] as DataGridViewComboBoxCell;
+            string conversionName = cell.Value as string;
+            foreach (Conversion conversion in parameter.Conversions)
+            {
+                if (conversion.Units == conversionName)
+                {
+                    parameter.SelectedConversion = conversion;
+                    SerializableStringDictionary dictionary = Configuration.Settings[CanConversionSettingsKey] as SerializableStringDictionary;
+                    dictionary[this.GetSettingsKey(parameter)] = conversion.Units;
+                    Configuration.Settings.Save();
+                    this.AddDebugMessage($"Changed CAN parameter ${parameter.Name} units to ${conversion.Units}");
+                    break;
+                }
+            }
+
+        }
+
+
+        private void canParameterGrid_DataError(object sender, DataGridViewDataErrorEventArgs e)
+        {
+            this.AddDebugMessage("CAN parameter grid: " + e.Exception.ToString());
+            e.ThrowException = false;
         }
     }
 }

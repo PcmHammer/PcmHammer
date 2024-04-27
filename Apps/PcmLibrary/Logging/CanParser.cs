@@ -67,12 +67,23 @@ namespace PcmHacking
 
             if (this.state == State.Complete)
             {
-                message = new CanMessage(
-                    this.messageId,
-                    ImmutableArray.Create(this.payload, 0, this.payloadLength),
-                    this.isRemoteFrame);
+                try
+                {
+                    message = new CanMessage(
+                        this.messageId,
+                        ImmutableArray.Create(this.payload, 0, this.payloadLength),
+                        this.isRemoteFrame);
 
-                return true;
+                    return true;
+                }
+                catch(Exception)
+                {
+                    // I haven't seen ImmutableArray.Create() throw an
+                    // exception at runtime, but I have seen it in the
+                    // debugger. We'll just drop the current message
+                    // and wait for the next one.
+                    this.state = State.ExpectAA;
+                }
             }
 
             message = null;

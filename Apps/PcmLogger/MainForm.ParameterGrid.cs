@@ -104,6 +104,14 @@ namespace PcmHacking
             }
         }
 
+        private void parameterGrid_CurrentCellDirtyStateChanged(object sender, EventArgs e)
+        {
+            if (this.parameterGrid.IsCurrentCellDirty)
+            {
+                this.parameterGrid.CommitEdit(DataGridViewDataErrorContexts.Commit);
+            }
+        }
+
         private void parameterGrid_CellValueChanged(object sender, DataGridViewCellEventArgs e)
         {
             this.LogProfileChanged();

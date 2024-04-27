@@ -121,7 +121,7 @@
             this.splitContainer1.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
             | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.splitContainer1.Location = new System.Drawing.Point(6, 80);
+            this.splitContainer1.Location = new System.Drawing.Point(0, 80);
             this.splitContainer1.Name = "splitContainer1";
             // 
             // splitContainer1.Panel1
@@ -131,8 +131,8 @@
             // splitContainer1.Panel2
             // 
             this.splitContainer1.Panel2.Controls.Add(this.logValues);
-            this.splitContainer1.Size = new System.Drawing.Size(1025, 554);
-            this.splitContainer1.SplitterDistance = 498;
+            this.splitContainer1.Size = new System.Drawing.Size(1031, 543);
+            this.splitContainer1.SplitterDistance = 600;
             this.splitContainer1.TabIndex = 9;
             // 
             // tabs
@@ -147,7 +147,7 @@
             this.tabs.Margin = new System.Windows.Forms.Padding(4);
             this.tabs.Name = "tabs";
             this.tabs.SelectedIndex = 0;
-            this.tabs.Size = new System.Drawing.Size(498, 554);
+            this.tabs.Size = new System.Drawing.Size(600, 543);
             this.tabs.TabIndex = 8;
             // 
             // configurationTab
@@ -161,7 +161,7 @@
             this.configurationTab.Location = new System.Drawing.Point(4, 25);
             this.configurationTab.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
             this.configurationTab.Name = "configurationTab";
-            this.configurationTab.Size = new System.Drawing.Size(490, 408);
+            this.configurationTab.Size = new System.Drawing.Size(592, 514);
             this.configurationTab.TabIndex = 3;
             this.configurationTab.Text = "Configuration";
             this.configurationTab.UseVisualStyleBackColor = true;
@@ -173,7 +173,7 @@
             this.disclaimer.Location = new System.Drawing.Point(5, 178);
             this.disclaimer.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.disclaimer.Name = "disclaimer";
-            this.disclaimer.Size = new System.Drawing.Size(482, 172);
+            this.disclaimer.Size = new System.Drawing.Size(584, 172);
             this.disclaimer.TabIndex = 10;
             this.disclaimer.Text = resources.GetString("disclaimer.Text");
             // 
@@ -184,7 +184,7 @@
             this.logFilePath.Location = new System.Drawing.Point(153, 85);
             this.logFilePath.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.logFilePath.Name = "logFilePath";
-            this.logFilePath.Size = new System.Drawing.Size(61, 16);
+            this.logFilePath.Size = new System.Drawing.Size(65, 17);
             this.logFilePath.TabIndex = 7;
             this.logFilePath.Text = "Directory";
             // 
@@ -227,7 +227,7 @@
             this.deviceDescription.Location = new System.Drawing.Point(300, 11);
             this.deviceDescription.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.deviceDescription.Name = "deviceDescription";
-            this.deviceDescription.Size = new System.Drawing.Size(111, 16);
+            this.deviceDescription.Size = new System.Drawing.Size(114, 17);
             this.deviceDescription.TabIndex = 1;
             this.deviceDescription.Text = "[selected device]";
             // 
@@ -242,7 +242,7 @@
             this.profilesTab.Location = new System.Drawing.Point(4, 25);
             this.profilesTab.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
             this.profilesTab.Name = "profilesTab";
-            this.profilesTab.Size = new System.Drawing.Size(490, 525);
+            this.profilesTab.Size = new System.Drawing.Size(592, 514);
             this.profilesTab.TabIndex = 4;
             this.profilesTab.Text = "Profiles";
             this.profilesTab.UseVisualStyleBackColor = true;
@@ -292,7 +292,7 @@
             this.profileList.Location = new System.Drawing.Point(3, 39);
             this.profileList.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
             this.profileList.Name = "profileList";
-            this.profileList.Size = new System.Drawing.Size(481, 480);
+            this.profileList.Size = new System.Drawing.Size(583, 469);
             this.profileList.TabIndex = 2;
             this.profileList.SelectedIndexChanged += new System.EventHandler(this.profileList_SelectedIndexChanged);
             // 
@@ -325,7 +325,7 @@
             this.parametersTab.Location = new System.Drawing.Point(4, 25);
             this.parametersTab.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
             this.parametersTab.Name = "parametersTab";
-            this.parametersTab.Size = new System.Drawing.Size(490, 525);
+            this.parametersTab.Size = new System.Drawing.Size(592, 514);
             this.parametersTab.TabIndex = 2;
             this.parametersTab.Text = "Parameters";
             this.parametersTab.UseVisualStyleBackColor = true;
@@ -337,7 +337,7 @@
             this.parameterSearch.Location = new System.Drawing.Point(4, 4);
             this.parameterSearch.Margin = new System.Windows.Forms.Padding(4);
             this.parameterSearch.Name = "parameterSearch";
-            this.parameterSearch.Size = new System.Drawing.Size(482, 22);
+            this.parameterSearch.Size = new System.Drawing.Size(584, 22);
             this.parameterSearch.TabIndex = 1;
             this.parameterSearch.TextChanged += new System.EventHandler(this.parameterSearch_TextChanged);
             this.parameterSearch.Enter += new System.EventHandler(this.parameterSearch_Enter);
@@ -368,10 +368,11 @@
             this.parameterGrid.ShowCellErrors = false;
             this.parameterGrid.ShowEditingIcon = false;
             this.parameterGrid.ShowRowErrors = false;
-            this.parameterGrid.Size = new System.Drawing.Size(487, 489);
+            this.parameterGrid.Size = new System.Drawing.Size(589, 478);
             this.parameterGrid.TabIndex = 0;
             this.parameterGrid.CellContentClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.parameterGrid_CellContentClick);
             this.parameterGrid.CellValueChanged += new System.Windows.Forms.DataGridViewCellEventHandler(this.parameterGrid_CellValueChanged);
+            this.parameterGrid.CurrentCellDirtyStateChanged += new System.EventHandler(this.parameterGrid_CurrentCellDirtyStateChanged);
             // 
             // enabledColumn
             // 
@@ -381,7 +382,7 @@
             this.enabledColumn.MinimumWidth = 50;
             this.enabledColumn.Name = "enabledColumn";
             this.enabledColumn.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.Automatic;
-            this.enabledColumn.Width = 87;
+            this.enabledColumn.Width = 89;
             // 
             // nameColumn
             // 
@@ -408,7 +409,7 @@
             this.canTab.Controls.Add(this.selectCanButton);
             this.canTab.Location = new System.Drawing.Point(4, 25);
             this.canTab.Name = "canTab";
-            this.canTab.Size = new System.Drawing.Size(490, 525);
+            this.canTab.Size = new System.Drawing.Size(592, 514);
             this.canTab.TabIndex = 5;
             this.canTab.Text = "CAN Bus";
             this.canTab.UseVisualStyleBackColor = true;
@@ -425,14 +426,18 @@
             this.canParameterGrid.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
             this.canParameterNameColumn,
             this.canParameterUnitsColumn});
+            this.canParameterGrid.EditMode = System.Windows.Forms.DataGridViewEditMode.EditOnEnter;
             this.canParameterGrid.Location = new System.Drawing.Point(3, 63);
             this.canParameterGrid.MultiSelect = false;
             this.canParameterGrid.Name = "canParameterGrid";
             this.canParameterGrid.RowHeadersVisible = false;
             this.canParameterGrid.RowHeadersWidth = 51;
             this.canParameterGrid.RowTemplate.Height = 24;
-            this.canParameterGrid.Size = new System.Drawing.Size(484, 459);
+            this.canParameterGrid.Size = new System.Drawing.Size(586, 448);
             this.canParameterGrid.TabIndex = 17;
+            this.canParameterGrid.CellValueChanged += new System.Windows.Forms.DataGridViewCellEventHandler(this.canParameterGrid_CellValueChanged);
+            this.canParameterGrid.CurrentCellDirtyStateChanged += new System.EventHandler(this.canParameterGrid_CurrentCellDirtyStateChanged);
+            this.canParameterGrid.DataError += new System.Windows.Forms.DataGridViewDataErrorEventHandler(this.canParameterGrid_DataError);
             // 
             // canParameterNameColumn
             // 
@@ -457,7 +462,7 @@
             this.disableCanLogging.Checked = true;
             this.disableCanLogging.Location = new System.Drawing.Point(4, 30);
             this.disableCanLogging.Name = "disableCanLogging";
-            this.disableCanLogging.Size = new System.Drawing.Size(158, 20);
+            this.disableCanLogging.Size = new System.Drawing.Size(163, 21);
             this.disableCanLogging.TabIndex = 16;
             this.disableCanLogging.TabStop = true;
             this.disableCanLogging.Text = "&Disable CAN Logging";
@@ -469,7 +474,7 @@
             this.enableCanLogging.AutoSize = true;
             this.enableCanLogging.Location = new System.Drawing.Point(4, 4);
             this.enableCanLogging.Name = "enableCanLogging";
-            this.enableCanLogging.Size = new System.Drawing.Size(154, 20);
+            this.enableCanLogging.Size = new System.Drawing.Size(160, 21);
             this.enableCanLogging.TabIndex = 15;
             this.enableCanLogging.Text = "&Enable CAN Logging";
             this.enableCanLogging.UseVisualStyleBackColor = true;
@@ -482,7 +487,7 @@
             this.canDeviceDescription.Location = new System.Drawing.Point(373, 32);
             this.canDeviceDescription.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.canDeviceDescription.Name = "canDeviceDescription";
-            this.canDeviceDescription.Size = new System.Drawing.Size(111, 16);
+            this.canDeviceDescription.Size = new System.Drawing.Size(114, 17);
             this.canDeviceDescription.TabIndex = 14;
             this.canDeviceDescription.Text = "[selected device]";
             this.canDeviceDescription.Click += new System.EventHandler(this.canDeviceDescription_Click);
@@ -506,7 +511,7 @@
             this.debugTab.Margin = new System.Windows.Forms.Padding(4);
             this.debugTab.Name = "debugTab";
             this.debugTab.Padding = new System.Windows.Forms.Padding(4);
-            this.debugTab.Size = new System.Drawing.Size(490, 408);
+            this.debugTab.Size = new System.Drawing.Size(592, 514);
             this.debugTab.TabIndex = 1;
             this.debugTab.Text = "Debug";
             this.debugTab.UseVisualStyleBackColor = true;
@@ -520,7 +525,7 @@
             this.debugLog.Name = "debugLog";
             this.debugLog.ReadOnly = true;
             this.debugLog.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
-            this.debugLog.Size = new System.Drawing.Size(482, 400);
+            this.debugLog.Size = new System.Drawing.Size(584, 506);
             this.debugLog.TabIndex = 0;
             // 
             // logValues
@@ -531,7 +536,7 @@
             this.logValues.Multiline = true;
             this.logValues.Name = "logValues";
             this.logValues.ReadOnly = true;
-            this.logValues.Size = new System.Drawing.Size(523, 554);
+            this.logValues.Size = new System.Drawing.Size(427, 543);
             this.logValues.TabIndex = 0;
             // 
             // MainForm
