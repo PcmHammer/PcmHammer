@@ -46,11 +46,6 @@ namespace PcmHacking
             }
         }
 
-        private void canDeviceDescription_Click(object sender, EventArgs e)
-        {
-
-        }
-
         private void enableCanLogging_CheckedChanged(object sender, EventArgs e)
         {
             this.enableCanControls(true, true);
