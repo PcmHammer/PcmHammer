@@ -449,7 +449,7 @@ namespace PcmHacking
         /// <summary>
         /// Does everything required to switch to VPW 4x
         /// </summary>
-        public async Task<bool> VehicleSetVPW4x(VpwSpeed newSpeed)
+        public async Task<bool> VehicleSetVPW4x(PcmInfo pcmInfo, VpwSpeed newSpeed)
         {
             if (!device.Supports4X) 
             {
@@ -465,6 +465,19 @@ namespace PcmHacking
             {
                 logger.AddUserMessage("4X communications disabled by configuration.");
                 return true;
+            }
+            // FIXME: This should be in a common library, not here/
+            // OBDX Pro VT should be 1x for the P04 due to P04 VPW bus load not being high enough when
+            // on the bench. The bus load is OK in the car, but car modules wake up and cause bus to
+            // crash to 1x regardless.
+            if (pcmInfo.HardwareType == PcmType.P04)
+            {
+                if (this.device.ToString().Contains("OBDX Pro VT"))
+                {
+                    this.device.Enable4xReadWrite = false;
+                    // DeviceConfiguration.Settings.Enable4xReadWrite = false; // turn off 4x for the VT!
+                    return true;
+                }
             }
 
             // Configure the vehicle bus when switching to 4x

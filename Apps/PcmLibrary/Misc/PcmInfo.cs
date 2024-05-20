@@ -719,7 +719,7 @@ namespace PcmHacking
                     this.KernelFileName = "Kernel-P04.bin";
                     this.KernelBaseAddress = 0xFF8000;
                     this.LoaderFileName = "Loader-P04.bin";
-                    this.LoaderBaseAddress = 0xFF9800;
+                    this.LoaderBaseAddress = 0xFF9890;
                     //this.ImageBaseAddress = 0x0;
                     this.ImageSize = 256 * 1024;
                     //this.RAMSize = 0x0;
@@ -2221,7 +2221,7 @@ namespace PcmHacking
                     this.KernelFileName = "Kernel-P04.bin";
                     this.KernelBaseAddress = 0xFF8000;
                     this.LoaderFileName = "Loader-P04.bin";
-                    this.LoaderBaseAddress = 0xFF9800;
+                    this.LoaderBaseAddress = 0xFF9890;
                     //this.ImageBaseAddress = 0x0;
                     this.ImageSize = 512 * 1024;
                     //this.RAMSize = 0x0;

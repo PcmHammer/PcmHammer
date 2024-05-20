@@ -1515,23 +1515,18 @@ namespace PcmHacking
                         }
                     }
 
-                    if (writeType != WriteType.Compare && (pcmInfo.HardwareType == PcmType.P04))
-                    {
-                        string msg = $"PCMHammer currently does not support writing to the {pcmInfo.HardwareType.ToString()}";
-                        this.AddUserMessage(msg);
-                        MessageBox.Show(msg);
-                        return;
-                    }
-
                     if (pcmInfo.HardwareType == PcmType.P04 || pcmInfo.HardwareType == PcmType.E54)
                     {
-                        string msg = $"WARNING: {pcmInfo.HardwareType.ToString()} Support is still in development.";
+                        string msg = $"WARNING: {pcmInfo.HardwareType.ToString()} support is incomplete, insufficiently tested, or known to be broken. Do you accept the risk of damage to your hardware?";
                         this.AddUserMessage(msg);
                         DialogResult dialogResult = MessageBox.Show(msg, "Continue?", MessageBoxButtons.YesNo);
                         if (dialogResult == DialogResult.No)
                         {
                             this.AddUserMessage("User chose not to proceed.");
                             return;
+                        }else
+                        {
+                            this.AddUserMessage("User accepts the risk of running incomplete or insufficiently tested code.");
                         }
                     }
 

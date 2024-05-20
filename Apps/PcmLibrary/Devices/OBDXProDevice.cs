@@ -101,7 +101,7 @@ namespace PcmHacking
 
         public override string GetDeviceType()
         {
-            return DeviceType;
+            return ToolConnected == "" ? DeviceType : ToolConnected;
         }
 
         public override async Task<bool> Initialize()

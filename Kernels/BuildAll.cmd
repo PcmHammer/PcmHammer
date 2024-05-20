@@ -11,6 +11,7 @@ goto beginning
 * Authored Date: 04/11/2022
 * Revision Date: 03/01/2023 - Merged P04
 * Revision Date: 03/25/2023 - Gampy <pcmhacking.net> Updated for new Assembly Kernels and Loaders.
+* Revision Date: 05/23/2023 - Antus <pcmhacking.net> Update P04 loader address.
 *
 * Authors disclaimer
 *   It is what it is, you can do with it as you please. (with respect)
@@ -54,7 +55,7 @@ REM   "-pP04 -aFF9090 -lFF9890 -x",
 
 for %%A in (
   "-pP01 -aFF8000 -x",
-  "-pP04 -aFF8000 -lFF9800 -x",
+  "-pP04 -aFF8000 -lFF9890 -x",
   "-pP08 -aFFAC00 -x",
   "-pP10 -aFFB800 -x",
   "-pP12 -aFF2000 -x",
