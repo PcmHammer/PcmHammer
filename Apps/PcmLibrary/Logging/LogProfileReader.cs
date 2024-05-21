@@ -66,10 +66,16 @@ namespace PcmHacking
 
         private void AddParameterToProfile<T>(string id, string units) where T : Parameter
         {
-            T parameter = this.database.GetParameter<T>(id);
+            T parameter;
+            if (!this.database.TryGetParameter<T>(id, out parameter))
+            {
+                this.logger.AddUserMessage($"Parameter {id} is not supported by this version of PCM Hammer.");
+                return;
+            }
 
             if (!parameter.IsSupported(this.osid))
             {
+                this.logger.AddUserMessage($"Parameter {id} is not supported by this operating system.");
                 return;
             }
 

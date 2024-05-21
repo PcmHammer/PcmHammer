@@ -40,16 +40,17 @@ namespace PcmHacking
         }
 
         /// <summary>
-        ///Gets a parameter using the specified generic type, with the specified id. Will throw if a parameter is not found.
+        /// Gets a parameter using the specified generic type, with the specified id.
         /// </summary>
         /// <typeparam name="T">The type of parameter, must be subclass of Parameter</typeparam>
         /// <param name="id">the string ID of the parameter to look for</param>
         /// <returns>The parameter, if found.</returns>
-        public T GetParameter<T>(string id) where T : Parameter
+        public bool TryGetParameter<T>(string id, out T result) where T : Parameter
         {
             try
             {
-                return this.parameters.First(p => p is T && p.Id == id) as T;
+                result = this.parameters.First(p => p is T && p.Id == id) as T;
+                return true;
             }
             catch(InvalidOperationException)
             {
@@ -57,14 +58,15 @@ namespace PcmHacking
                 if (typeof(T) == typeof(PidParameter) &&
                     uint.TryParse(id, System.Globalization.NumberStyles.HexNumber, CultureInfo.InvariantCulture, out pid))
                 {
-                    var result = this.parameters.FirstOrDefault(p => (p as PidParameter)?.PID == pid);
+                    result = (T) this.parameters.FirstOrDefault(p => (p as PidParameter)?.PID == pid);
                     if (result != null)
                     {
-                        return result as T;
+                        return true;
                     }                    
                 }
 
-                throw new Exception($"Unable to find matching parameter for ${typeof(T).Name} '{id}'");
+                result = null;
+                return false;
             }
         }
 

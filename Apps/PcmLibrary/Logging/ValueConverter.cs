@@ -7,11 +7,13 @@ namespace PcmHacking
 {
     class ValueConverter
     {
-        public static string Convert(double value, string name, Conversion conversion)
+        public static void Convert(
+            double value, 
+            string name, 
+            Conversion conversion, 
+            out double convertedValue, 
+            out string formattedValue)
         {
-            double convertedValue;
-            string formattedValue;
-
             if (conversion.IsBitMapped)
             {
                 int bits = (int)value;
@@ -47,9 +49,6 @@ namespace PcmHacking
 
                 formattedValue = convertedValue.ToString(format);
             }
-
-            return formattedValue;
-
         }
     }
 }

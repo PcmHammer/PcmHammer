@@ -16,6 +16,11 @@ namespace PcmHacking
     {
         public string ValueAsString { get; set; }
         public double ValueAsDouble { get; set; }
+
+        public override string ToString()
+        {
+            return this.ValueAsString;
+        }
     }
 
     /// <summary>
@@ -184,8 +189,12 @@ namespace PcmHacking
                 {
                     double convertedValue = 0;
                     string formattedValue;
-                    formattedValue = ValueConverter.Convert(value, column.Parameter.Name, column.Conversion);
-
+                    ValueConverter.Convert(
+                        value, 
+                        column.Parameter.Name, 
+                        column.Conversion, 
+                        out convertedValue, 
+                        out formattedValue);
 
                     results.Add(
                         column,

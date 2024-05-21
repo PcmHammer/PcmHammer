@@ -65,56 +65,22 @@ namespace PcmHacking
         public IEnumerable<string> GetMathValues(PcmParameterValues dpidValues)
         {
             List<string> result = new List<string>();
-            foreach(MathColumnAndDependencies value in this.mathColumns)
+            foreach (MathColumnAndDependencies value in this.mathColumns)
             {
-                double xConverted = 0;
-                double yConverted = 0;
-                string error = null;
-
                 try
                 {
                     double xParameterValue = dpidValues[value.XColumn].ValueAsDouble;
-                    Interpreter xConverter = new Interpreter();
-                    xConverter.SetVariable("x", xParameterValue);
-                    xConverted = xConverter.Eval<double>(value.XColumn.Conversion.Expression);
-                }
-                catch (Exception exception)
-                {
-                    error = "X: " + exception.Message;
-                    xConverted = 0;
-                }
-
-                try
-                {
                     double yParameterValue = dpidValues[value.YColumn].ValueAsDouble;
-                    Interpreter yConverter = new Interpreter();
-                    yConverter.SetVariable("x", yParameterValue);
-                    yConverted = yConverter.Eval<double>(value.YColumn.Conversion.Expression);
+
+                    Interpreter finalConverter = new Interpreter();
+                    finalConverter.SetVariable("x", xParameterValue);
+                    finalConverter.SetVariable("y", yParameterValue);
+                    double converted = finalConverter.Eval<double>(value.MathColumn.Conversion.Expression);
+                    result.Add(converted.ToString(value.MathColumn.Conversion.Format));
                 }
                 catch (Exception exception)
                 {
-                    error = "Y: " + exception.Message;
-                    yConverted = 0;
-                }
-
-                if (error != null)
-                {
-                    result.Add(error);
-                }
-                else
-                {
-                    try
-                    {
-                        Interpreter finalConverter = new Interpreter();
-                        finalConverter.SetVariable("x", xConverted);
-                        finalConverter.SetVariable("y", yConverted);
-                        double converted = finalConverter.Eval<double>(value.MathColumn.Conversion.Expression);
-                        result.Add(converted.ToString(value.MathColumn.Conversion.Format));
-                    }
-                    catch (Exception exception)
-                    {
-                        result.Add("Error: " + exception.Message);
-                    }
+                    result.Add("Error: " + exception.Message);
                 }
             }
 
