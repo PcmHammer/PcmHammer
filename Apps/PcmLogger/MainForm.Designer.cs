@@ -490,7 +490,6 @@
             this.canDeviceDescription.Size = new System.Drawing.Size(114, 17);
             this.canDeviceDescription.TabIndex = 14;
             this.canDeviceDescription.Text = "[selected device]";
-            this.canDeviceDescription.Click += new System.EventHandler(this.canDeviceDescription_Click);
             // 
             // selectCanButton
             // 

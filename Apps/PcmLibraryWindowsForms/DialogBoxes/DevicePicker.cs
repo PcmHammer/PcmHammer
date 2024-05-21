@@ -8,7 +8,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
-using J2534;
+using J2534DotNet;
 
 namespace PcmHacking
 {
@@ -156,7 +156,7 @@ namespace PcmHacking
 
             // This is useful for testing without an actual PCM.
             // You'll need to uncomment a line in FillSerialDeviceList as well as this one.
-            this.serialPortList.Items.Add(MockPort.PortName);
+            // this.serialPortList.Items.Add(MockPort.PortName);
         }
 
         /// <summary>
@@ -172,7 +172,7 @@ namespace PcmHacking
 
             // This is useful for testing without an actual PCM.
             // You'll need to uncomment a line in FillPortList as well as this one.
-            this.serialDeviceList.Items.Add(MockDevice.DeviceType);
+            // this.serialDeviceList.Items.Add(MockDevice.DeviceType);
         }
 
         /// <summary>
@@ -183,7 +183,7 @@ namespace PcmHacking
             this.j2534DeviceList.Items.Add(prompt);
             this.j2534DeviceList.SelectedIndex = 0;
 
-            foreach(J2534.J2534Device device in J2534DeviceFinder.FindInstalledJ2534DLLs(this.logger))
+            foreach(J2534DotNet.J2534Device device in J2534DeviceFinder.FindInstalledJ2534DLLs(this.logger))
             {
                 this.j2534DeviceList.Items.Add(device);
             }

@@ -102,19 +102,6 @@ namespace PcmHacking
             }
         }
 
-        /// <summary>
-        /// Is this needed?
-        /// </summary>
-        public void Start()
-        {
-
-        }
-
-        public void Stop()
-        {
-
-        }
-
         private ParameterValue TranslateValue(CanMessage message)
         {
             IReadOnlyDictionary<UInt32, IEnumerable<CanParameter>> canParameters = this.parameterDatabase.GetCanParameters();

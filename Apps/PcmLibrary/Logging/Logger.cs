@@ -2,10 +2,7 @@
 
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
 
 namespace PcmHacking
@@ -261,7 +258,6 @@ namespace PcmHacking
             columns = columns.Concat(this.mathValueProcessor.GetHeaderNames());
             columns = columns.Concat(this.canLogger.GetParameterNames());
             return columns;
-            // return this.dpidConfiguration.GetParameterNames().Concat(this.mathValueProcessor.GetHeaderNames());
         }
 
         /// <summary>
@@ -278,12 +274,6 @@ namespace PcmHacking
 
             // This part differs for the fast and slow loggers.
             await this.StartLoggingInternal();
-
-            // TODO: Is this useful?
-            if (this.canLogger != null)
-            {
-                this.canLogger.Start();
-            }
 
             return true;
         }
