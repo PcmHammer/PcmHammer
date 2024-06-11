@@ -35,7 +35,7 @@ jobs:
         # 2: Kernel Base Address
         # 3: Loader Base Address or NOLOADER if a loader is not used.
         #
-        for p in "P01 FF8000 NOLOADER" "P04 FF9090 FF9890" "P08 FFA800 FFB000" "P10 FFB800 NOLOADER" "P12 FF2000 NOLOADER" "E54 FF8F50 NOLOADER"; do
+        for p in "P01 FF8000 NOLOADER" "P04 FF8000 FF9890" "P08 FFAC00 NOLOADER" "P10 FFB800 NOLOADER" "P12 FF2000 NOLOADER" "E54 FF8F50 NOLOADER"; do
           pcm="${p%% *}";
           p="${p#* }"
           address="${p%% *}"
@@ -48,7 +48,7 @@ jobs:
           cp Kernel-${pcm}.bin ../TemporaryArtifactStorage/
           echo "    Cleanup after Kernel-${pcm}"
           echo
-          make clean
+          make -f makefile-assembly clean
           #
           # Build the Loader if requested
           #
@@ -59,7 +59,7 @@ jobs:
             cp Loader-${pcm}.bin ../TemporaryArtifactStorage/
             echo "    Cleanup after Loader-${pcm}"
             echo
-            make clean
+            make -f makefile-assembly clean
           fi
         done
 

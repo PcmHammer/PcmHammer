@@ -29,5 +29,5 @@ ${name}.bin: ${name}.elf
 	$(OBJCOPY) $(COPYFLAGS) ${name}.elf ${name}-${pcm}.bin
 
 clean:
-	${RM} *.bin *.o *.elf *.asm *.disassembly *.tmp
+	${RM} *.bin *.o *.elf *.tmp
 
