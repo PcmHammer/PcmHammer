@@ -296,7 +296,7 @@ namespace PcmHacking
         /// <summary>
         /// Load the executable payload on the PCM at the supplied address, and execute it.
         /// </summary>
-        public async Task<bool> PCMExecute(PcmInfo info, byte[] payload, CancellationToken cancellationToken)
+        public async Task<bool> PCMExecute(OSIDInfo info, byte[] payload, CancellationToken cancellationToken)
         {
             // Note that we request an upload of 4k maximum, because the PCM will reject anything bigger.
             // But you can request a 4k upload and then send up to 16k if you want, and the PCM will not object.
@@ -428,12 +428,6 @@ namespace PcmHacking
                     return false;
                 }
                 this.logger.AddUserMessage($"{(info.LoaderRequired ? "Loader" : "Kernel")} Version: {kernelVersion.ToString("X8")}");
-
-                // Detect an Assemply Kernel, // Remove with the C Kernels
-                if (kernelVersion > 0x82400000)
-                {
-                    info.AssemblyKernel = true;
-                }
             }
 
             if (info.LoaderRequired)
@@ -449,7 +443,7 @@ namespace PcmHacking
         /// <summary>
         /// Does everything required to switch to VPW 4x
         /// </summary>
-        public async Task<bool> VehicleSetVPW4x(PcmInfo pcmInfo, VpwSpeed newSpeed)
+        public async Task<bool> VehicleSetVPW4x(OSIDInfo pcmInfo, VpwSpeed newSpeed)
         {
             if (!device.Supports4X) 
             {

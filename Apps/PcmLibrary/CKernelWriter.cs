@@ -25,12 +25,12 @@ namespace PcmHacking
     public class CKernelWriter
     {
         private readonly Vehicle vehicle;
-        private readonly PcmInfo pcmInfo;
+        private readonly OSIDInfo pcmInfo;
         private readonly Protocol protocol;
         private readonly WriteType writeType;
         private readonly ILogger logger;
 
-        public CKernelWriter(Vehicle vehicle, PcmInfo pcmInfo, Protocol protocol, WriteType writeType, ILogger logger)
+        public CKernelWriter(Vehicle vehicle, OSIDInfo pcmInfo, Protocol protocol, WriteType writeType, ILogger logger)
         {
             this.vehicle = vehicle;
             this.pcmInfo = pcmInfo;

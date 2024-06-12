@@ -14,11 +14,11 @@ namespace PcmHacking
     public class CKernelReader
     {
         private readonly Vehicle vehicle;
-        private readonly PcmInfo pcmInfo;
+        private readonly OSIDInfo pcmInfo;
         private readonly Protocol protocol;
         private readonly ILogger logger;
 
-        public CKernelReader(Vehicle vehicle, PcmInfo pcmInfo, ILogger logger)
+        public CKernelReader(Vehicle vehicle, OSIDInfo pcmInfo, ILogger logger)
         {
             this.vehicle = vehicle;
             this.pcmInfo = pcmInfo;

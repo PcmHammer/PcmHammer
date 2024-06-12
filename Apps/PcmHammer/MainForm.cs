@@ -796,7 +796,7 @@ namespace PcmHacking
 
             try
             {
-                PcmInfo pcmInfo = null;
+                OSIDInfo pcmInfo = null;
 
                 this.DisableUserInput();
 
@@ -813,7 +813,7 @@ namespace PcmHacking
                 if (osResponse.Status == ResponseStatus.Success)
                 {
                     this.AddUserMessage("OS ID: " + osResponse.Value.ToString());
-                    pcmInfo = new PcmInfo(osResponse.Value);
+                    pcmInfo = new OSIDInfo(osResponse.Value);
                     this.AddUserMessage("Hardware Type: " + pcmInfo.HardwareType.ToString());
                     if (pcmInfo.HardwareType == PcmType.P04)
                     {
@@ -912,7 +912,7 @@ namespace PcmHacking
                     return;
                 }
 
-                PcmInfo info = new PcmInfo(osidResponse.Value);
+                OSIDInfo info = new OSIDInfo(osidResponse.Value);
 
                 var vinResponse = await this.Vehicle.QueryVin();
                 if (vinResponse.Status != ResponseStatus.Success)
@@ -1210,12 +1210,12 @@ namespace PcmHacking
                         }
                     }
 
-                    PcmInfo pcmInfo;
+                    OSIDInfo pcmInfo;
                     if (osidResponse.Status == ResponseStatus.Success)
                     {
                         // Look up the information about this PCM, based on the OSID;
                         this.AddUserMessage("OSID: " + osidResponse.Value);
-                        pcmInfo = new PcmInfo(osidResponse.Value);
+                        pcmInfo = new OSIDInfo(osidResponse.Value);
                     }
                     else
                     {
@@ -1235,7 +1235,7 @@ namespace PcmHacking
                         });
                         await Vehicle.ForceSendToolPresentNotification();
 
-                        pcmInfo = new PcmInfo(OperatingSystemId); // osid
+                        pcmInfo = new OSIDInfo(OperatingSystemId); // osid
 
                         AddUserMessage($"Using OsID: {pcmInfo.OSID}");
                     }
@@ -1426,7 +1426,7 @@ namespace PcmHacking
                     bool needUnlock;
                     int keyAlgorithm = 1;
                     bool shouldHalt;
-                    PcmInfo pcmInfo = null;
+                    OSIDInfo pcmInfo = null;
                     bool needToCheckOperatingSystem =
                         (writeType != WriteType.OsPlusCalibrationPlusBoot) &&
                         (writeType != WriteType.Full) &&
@@ -1436,7 +1436,7 @@ namespace PcmHacking
                     Response<uint> osidResponse = await this.Vehicle.QueryOperatingSystemId(this.cancellationTokenSource.Token);
                     if (osidResponse.Status == ResponseStatus.Success)
                     {
-                        pcmInfo = new PcmInfo(osidResponse.Value);
+                        pcmInfo = new OSIDInfo(osidResponse.Value);
                         keyAlgorithm = pcmInfo.KeyAlgorithm;
                         needUnlock = true;
 
@@ -1482,7 +1482,7 @@ namespace PcmHacking
                                 this.AddUserMessage("Unlock may not work, but we'll try...");
                                 needUnlock = true;
                             }
-                            pcmInfo = new PcmInfo(validator.GetOsidFromImage()); // Prevent Null Reference Exceptions from breaking Recovery Mode
+                            pcmInfo = new OSIDInfo(validator.GetOsidFromImage()); // Prevent Null Reference Exceptions from breaking Recovery Mode
                         }
                         else
                         {
@@ -1508,7 +1508,7 @@ namespace PcmHacking
                                     return;
                                 }
 
-                                pcmInfo = new PcmInfo(osidResponse.Value);
+                                pcmInfo = new OSIDInfo(osidResponse.Value);
                             }
 
                             needToCheckOperatingSystem = false;

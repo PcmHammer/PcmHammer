@@ -10,14 +10,15 @@ namespace PcmHacking
     {
         Undefined = 0, // required for failed osid test on binary file
         P01_P59,
+        P04_256k,
         P04,
         P05,
         P08,
         P10,
         P12,
-        E54,
-        LLY,
-        BLACKBOX
+        E54, //E54 (01-04 LB7 Duramax) 
+        E60, //E60 (04-05 LLY Duramax)
+        BlackBox
     }
 
     /// <summary>
@@ -26,7 +27,7 @@ namespace PcmHacking
     /// <remarks>
     /// This was ported from the LS1 flashing utility originally posted at pcmhacking.net.
     /// </remarks>
-    public class PcmInfo
+    public class OSIDInfo
     {
         /// <summary>
         /// Operating system ID.
@@ -44,6 +45,21 @@ namespace PcmHacking
         public bool IsSupported { get; private set; }
 
         /// <summary>
+        /// Indicates whether this PCM is supported to read
+        /// </summary>
+        public bool IsSupportedRead { get; private set; }
+
+        /// <summary>
+        /// Indicates whether this PCM is supported to write
+        /// </summary>
+        public bool IsSupportedWrite { get; private set; }
+
+        /// <summary>
+        /// Indicates whether this PCM is supported to write by flash segment (later PCMs)
+        /// </summary>
+        public bool IsSupportedWriteBySegment { get; private set; }
+
+        /// <summary>
         /// PCM requires a kernel loader
         /// </summary>
         /// <remarks>
@@ -51,11 +67,6 @@ namespace PcmHacking
         /// we use it as a state switch between Loader and Kernel.
         /// </remarks>
         public bool LoaderRequired { get; set; }
-
-        /// <summary>
-        /// Indicates how to validate files before writing.
-        /// </summary>
-        public PcmType ValidationMethod { get; private set; }
 
         /// <summary>
         /// What type of hardware it is
@@ -93,11 +104,6 @@ namespace PcmHacking
         public int ImageSize { get; private set; }
 
         /// <summary>
-        /// Size of the ROM.
-        /// </summary>
-        public int RAMSize { get; private set; }
-
-        /// <summary>
         /// Which key algorithm to use to unlock the PCM.
         /// </summary>
         public int KeyAlgorithm { get; private set; }
@@ -128,46 +134,223 @@ namespace PcmHacking
         public int KernelMaxBlockSize { get; private set; }
 
         /// <summary>
-        /// Assembly Kernel detected.
+        /// Populate this object based on the given PcmType.
         /// </summary>
-        /// <remarks>
-        /// Bit of a hack to support both the C Kernels and the Assembly Kernels EASILY with minimal changes.
-        /// After the C Kernels are gone this is no longer necessary.
-        /// Also see notes in CKernelVerifier CompareRanges().
-        /// </remarks>
-        public bool AssemblyKernel { get; set; } = false;
+        public bool PCMInfo(PcmType pcmType)
+        {
+            this.IsSupported = false;
+            this.IsSupportedRead = false;
+            this.IsSupportedWrite = false;
+            this.IsSupportedWriteBySegment = false;
+            this.Description = "Not Set";
+            this.LoaderRequired = false;
+            this.HardwareType = PcmType.Undefined;
+            this.KernelFileName = string.Empty;
+            this.KernelBaseAddress = 0x0;
+            this.LoaderFileName = string.Empty;
+            this.LoaderBaseAddress = 0x0;
+            this.ImageBaseAddress = 0x0;
+            this.KeyAlgorithm = 0;
+            this.ChecksumSupport = false;
+            this.FlashCRCSupport = false;
+            this.FlashIDSupport = false;
+            this.KernelVersionSupport = false;
+            this.KernelMaxBlockSize = 4096;
+
+            switch (pcmType)
+            {
+                case PcmType.Undefined:
+                    this.Description = "Undefined";
+                    this.HardwareType = PcmType.Undefined;
+                    break;
+
+                case PcmType.P01_P59:
+                    this.Description = "P01 512Kb or P59 1024Kb";
+                    this.HardwareType = PcmType.P01_P59;
+                    this.IsSupported = true;
+                    this.IsSupportedRead = true;
+                    this.IsSupportedWrite = true;
+                    this.IsSupportedWriteBySegment = true;
+                    this.LoaderRequired = false;
+                    this.KernelFileName = "Kernel-P01.bin";
+                    this.KernelBaseAddress = 0xFF8000;
+                    this.LoaderFileName = string.Empty;
+                    this.LoaderBaseAddress = 0x0;
+                    this.ImageBaseAddress = 0x0;
+                    this.ImageSize = 512 * 1024; //for the P01, override for a P59 by OSID
+                    this.KeyAlgorithm = 40;
+                    this.ChecksumSupport = true;
+                    this.FlashCRCSupport = true;
+                    this.FlashIDSupport = true;
+                    this.KernelVersionSupport = true;
+                    this.KernelMaxBlockSize = 4096;
+                    break;
+
+                case PcmType.P04_256k:
+                    this.Description = "P04 1996/1997 256Kb V6";
+                    this.HardwareType = PcmType.P04; // There is no point using a different hardware type once the configuration is loaded, it's just a 256Kb P04.
+                    this.IsSupported = true;
+                    this.IsSupportedRead = true;
+                    this.IsSupportedWrite = false;
+                    this.IsSupportedWriteBySegment = false;
+                    this.LoaderRequired = true;
+                    this.KernelFileName = "Kernel-P04.bin";
+                    this.KernelBaseAddress = 0xFF8000;
+                    this.LoaderFileName = "Loader-P04.bin";
+                    this.LoaderBaseAddress = 0xFF9890;
+                    this.ImageBaseAddress = 0x0;
+                    this.ImageSize = 256 * 1024;
+                    this.KeyAlgorithm = 6;
+                    this.ChecksumSupport = true;
+                    this.FlashCRCSupport = true;
+                    this.FlashIDSupport = true;
+                    this.KernelVersionSupport = true;
+                    this.KernelMaxBlockSize = 4096;
+                    break;
+
+                case PcmType.P04:
+                    this.Description = "P04 1998+ 512Kb V6";
+                    this.HardwareType = PcmType.P04;
+                    this.IsSupported = true;
+                    this.IsSupportedRead = true;
+                    this.IsSupportedWrite = true;
+                    this.IsSupportedWriteBySegment = false;
+                    this.LoaderRequired = true;
+                    this.KernelFileName = "Kernel-P04.bin";
+                    this.KernelBaseAddress = 0xFF8000;
+                    this.LoaderFileName = "Loader-P04.bin";
+                    this.LoaderBaseAddress = 0xFF9890;
+                    this.ImageBaseAddress = 0x0;
+                    this.ImageSize = 512 * 1024;
+                    this.KeyAlgorithm = 14;
+                    this.ChecksumSupport = true;
+                    this.FlashCRCSupport = true;
+                    this.FlashIDSupport = true;
+                    this.KernelVersionSupport = true;
+                    this.KernelMaxBlockSize = 4096;
+                    break;
+
+                case PcmType.P05:
+                    this.Description = "P05";
+                    this.HardwareType = PcmType.P05;
+                    break;
+
+                case PcmType.P08:
+                    this.Description = "P08 512Kb i4";
+                    this.HardwareType = PcmType.P08;
+                    this.IsSupported = true;
+                    this.IsSupportedRead = true;
+                    this.IsSupportedWrite = true;
+                    this.IsSupportedWriteBySegment = false;
+                    this.LoaderRequired = false;
+                    this.KernelFileName = "Kernel-P08.bin";
+                    this.KernelBaseAddress = 0xFFAC00;
+                    this.LoaderFileName = string.Empty;
+                    this.LoaderBaseAddress = 0x0;
+                    this.ImageBaseAddress = 0x0;
+                    this.ImageSize = 512 * 1024;
+                    this.KeyAlgorithm = 13;
+                    this.ChecksumSupport = true;
+                    this.FlashCRCSupport = true;
+                    this.FlashIDSupport = true;
+                    this.KernelVersionSupport = true;
+                    this.KernelMaxBlockSize = 4096;
+                    break;
+
+                case PcmType.P10:
+                    this.Description = "P10 1Mb";
+                    this.HardwareType = PcmType.P10;
+                    this.IsSupported = true;
+                    this.IsSupportedRead = true;
+                    this.IsSupportedWrite = true;
+                    this.IsSupportedWriteBySegment = true;
+                    this.LoaderRequired = false;
+                    this.KernelFileName = "Kernel-P10.bin";
+                    this.KernelBaseAddress = 0xFFB800;
+                    this.LoaderFileName = string.Empty;
+                    this.LoaderBaseAddress = 0x0;
+                    this.ImageBaseAddress = 0x0;
+                    this.ImageSize = 512 * 1024;
+                    this.KeyAlgorithm = 66;
+                    this.ChecksumSupport = true;
+                    this.FlashCRCSupport = true;
+                    this.FlashIDSupport = true;
+                    this.KernelVersionSupport = true;
+                    this.KernelMaxBlockSize = 4096;
+                    break;
+
+                case PcmType.P12:
+                    this.Description = "P12 1Mb (Atlas I4/I5/I6)";
+                    this.HardwareType = PcmType.P12;
+                    this.IsSupported = true;
+                    this.IsSupportedRead = true;
+                    this.IsSupportedWrite = true;
+                    this.IsSupportedWriteBySegment = true;
+                    this.LoaderRequired = false;
+                    this.KernelFileName = "Kernel-P12.bin";
+                    this.KernelBaseAddress = 0xFF2000; // or FF0000? https://pcmhacking.net/forums/viewtopic.php?f=42&t=7742&start=450#p115622
+                    this.LoaderFileName = string.Empty;
+                    this.LoaderBaseAddress = 0x0;
+                    this.ImageBaseAddress = 0x0;
+                    this.ImageSize = 1024 * 1024;
+                    this.KeyAlgorithm = 91;
+                    this.ChecksumSupport = true;
+                    this.FlashCRCSupport = true;
+                    this.FlashIDSupport = true;
+                    this.KernelVersionSupport = true;
+                    this.KernelMaxBlockSize = 4096;
+                    break;
+
+                case PcmType.E54:
+                    this.Description = "E54 LB7 Duramax";
+                    this.HardwareType = PcmType.E54;
+                    this.IsSupported = true;
+                    this.IsSupportedRead = true;
+                    this.IsSupportedWrite = true;
+                    this.IsSupportedWriteBySegment = true;
+                    this.Description = "E54";
+                    this.LoaderRequired = false;
+                    this.KernelFileName = "Kernel-E54.bin";
+                    this.KernelBaseAddress = 0xFF8F50;
+                    this.LoaderFileName = string.Empty;
+                    this.LoaderBaseAddress = 0x0;
+                    this.ImageBaseAddress = 0x0;
+                    this.ImageSize = 512 * 1024;
+                    this.KeyAlgorithm = 2;
+                    this.ChecksumSupport = true;
+                    this.FlashCRCSupport = true;
+                    this.FlashIDSupport = true;
+                    this.KernelVersionSupport = true;
+                    this.KernelMaxBlockSize = 4096;
+                    break;
+
+                case PcmType.E60:
+                    this.Description = "E60 LLY Duramax";
+                    this.HardwareType = PcmType.E60;
+                    this.KeyAlgorithm = 2;
+                    this.ImageBaseAddress = 0x0;
+                    this.ImageSize = 1024 * 1024;
+                    
+                    break;
+
+                case PcmType.BlackBox:
+                    this.Description = "BlackBox";
+                    this.HardwareType = PcmType.BlackBox;
+                    this.ImageBaseAddress = 0x0;
+                    this.ImageSize = 512 * 1024;
+                    this.KeyAlgorithm = 15;
+                    break;
+                default: return false;
+            }
+            return true;
+        }
 
         /// <summary>
         /// Populate this object based on the given OSID.
         /// </summary>
-        public PcmInfo(uint osid)
+        public OSIDInfo(uint osid)
         {
             this.OSID = osid;
-
-            // These defaults work for P01 and P59 hardware.
-            // Differences are overwriten for other hardware and kernels.
-            //
-            // This is a complete list of PCM related properties and in the same order as the declarations above.
-            // It's a good template to use for each PCM ... Nice neat and ordely.
-            //
-            //this.Description = "";
-            this.IsSupported = true;
-            this.LoaderRequired = false;
-            this.ValidationMethod = PcmType.P01_P59;
-            this.HardwareType = PcmType.P01_P59;
-            this.KernelFileName = "Kernel-P01.bin";
-            this.KernelBaseAddress = 0xFF8000;
-            //this.LoaderFileName = string.Empty;
-            //this.LoaderBaseAddress = 0x0;
-            //this.ImageBaseAddress = 0x0;
-            //this.ImageSize = 0x0;
-            this.RAMSize = 0x4DFF;
-            //this.KeyAlgorithm = 0;
-            this.ChecksumSupport = true;
-            this.FlashCRCSupport = true;
-            this.FlashIDSupport = true;
-            this.KernelVersionSupport = true;
-            this.KernelMaxBlockSize = 4096;
 
             switch (osid)
             {
@@ -186,38 +369,16 @@ namespace PcmHacking
                 case 02600605:
                 case 02685305:
                 case 03904405:
+                    PCMInfo(PcmType.E54);
                     this.Description = "E54 LB7 EFILive COS";
-                    this.IsSupported = false;
-                    this.ValidationMethod = PcmType.E54;
-                    this.HardwareType = PcmType.E54;
-                    this.KernelFileName = "Kernel-E54.bin";
-                    this.KernelBaseAddress = 0xFF8F50;
-                    this.ImageBaseAddress = 0x0;
-                    this.ImageSize = 512 * 1024;
-                    this.KeyAlgorithm = 2;
-                    this.ChecksumSupport = false;
-                    this.FlashCRCSupport = true;
-                    this.FlashIDSupport = true;
-                    this.KernelVersionSupport = true;
                     break;
 
                 // LB7 Duramax service no 9388505
                 case 15063376:
                 case 15188873:
                 case 15097100:
-                    this.Description = "E54 LB7 9388505";
-                    this.IsSupported = false;
-                    this.ValidationMethod = PcmType.E54;
-                    this.HardwareType = PcmType.E54;
-                    this.KernelFileName = "Kernel-E54.bin";
-                    this.KernelBaseAddress = 0xFF8F50;
-                    this.ImageBaseAddress = 0x0;
-                    this.ImageSize = 512 * 1024;
-                    this.KeyAlgorithm = 2;
-                    this.ChecksumSupport = false;
-                    this.FlashCRCSupport = true;
-                    this.FlashIDSupport = true;
-                    this.KernelVersionSupport = true;
+                    PCMInfo(PcmType.E54);
+                    this.Description = "E54 Service No 9388505";
                     break;
 
                 // LB7 Duramax service no 12210729
@@ -226,22 +387,11 @@ namespace PcmHacking
                 case 15166853:
                 case 15186006:
                 case 15189044:
-                    this.Description = "E54 LB7 12210729";
-                    this.IsSupported = false;
-                    this.ValidationMethod = PcmType.E54;
-                    this.HardwareType = PcmType.E54;
-                    this.KernelFileName = "Kernel-E54.bin";
-                    this.KernelBaseAddress = 0xFF8F50;
-                    this.ImageBaseAddress = 0x0;
-                    this.ImageSize = 512 * 1024;
-                    this.KeyAlgorithm = 2;
-                    this.ChecksumSupport = false;
-                    this.FlashCRCSupport = true;
-                    this.FlashIDSupport = true;
-                    this.KernelVersionSupport = true;
+                    PCMInfo(PcmType.E54);
+                    this.Description = "E54 Service No 12210729";
                     break;
 
-                // LLY Duramax service no 12244189 - 1mbyte?
+                // LLY Duramax E60 service no 12244189 - 1mbyte?
                 case 15141668:
                 case 15193885:
                 case 15228758:
@@ -249,12 +399,8 @@ namespace PcmHacking
                 case 15231600:
                 case 15879103:
                 case 15087230:
-                    this.IsSupported = false;
-                    this.KeyAlgorithm = 2;
-                    this.Description = "LLY 12244189";
-                    this.ImageBaseAddress = 0x0;
-                    this.ImageSize = 1024 * 1024;
-                    this.HardwareType = PcmType.LLY;
+                    PCMInfo(PcmType.E60);
+                    this.Description = "E60 Service No 12244189";
                     break;
 
                 // LL7 Duramax EFI Live Cos
@@ -266,104 +412,90 @@ namespace PcmHacking
                 case 05388505:
                 case 05875801:
                 case 05875805:
-                    this.IsSupported = false;
-                    this.KeyAlgorithm = 2;
+                    PCMInfo(PcmType.E60);
                     this.Description = "LLY EFILive COS";
-                    this.ImageBaseAddress = 0x0;
-                    this.ImageSize = 1024 * 1024;
-                    this.HardwareType = PcmType.LLY;
                     break;
 
                 // VCM Suite COS
                 case 1251001:
-                    this.KeyAlgorithm = 3;
+                    PCMInfo(PcmType.P01_P59);
                     this.Description = "VCM Suite 2 Bar";
-                    this.ImageBaseAddress = 0x0;
-                    this.ImageSize = 512 * 1024;
+                    this.KeyAlgorithm = 3;
                     break;
 
                 case 1261001:
-                    this.KeyAlgorithm = 4;
+                    PCMInfo(PcmType.P01_P59);
                     this.Description = "VCM Suite 3 Bar";
-                    this.ImageBaseAddress = 0x0;
-                    this.ImageSize = 512 * 1024;
+                    this.KeyAlgorithm = 4;
                     break;
 
                 case 1271001:
-                    this.KeyAlgorithm = 5;
+                    PCMInfo(PcmType.P01_P59);
                     this.Description = "VCM Suite Mafless";
-                    this.ImageBaseAddress = 0x0;
-                    this.ImageSize = 512 * 1024;
+                    this.KeyAlgorithm = 5;
                     break;
 
                 case 1281001:
-                    this.KeyAlgorithm = 6;
+                    PCMInfo(PcmType.P01_P59);
                     this.Description = "VCM Suite MAF RTT";
-                    this.ImageBaseAddress = 0x0;
-                    this.ImageSize = 512 * 1024;
+                    this.KeyAlgorithm = 6;
                     break;
 
                 case 1271002:
-                    this.KeyAlgorithm = 7;
+                    PCMInfo(PcmType.P01_P59);
                     this.Description = "VCM Suite Mafless";
-                    this.ImageBaseAddress = 0x0;
-                    this.ImageSize = 512 * 1024;
+                    this.KeyAlgorithm = 7;
                     break;
 
                 case 1251002:
-                    this.KeyAlgorithm = 8;
+                    PCMInfo(PcmType.P01_P59);
                     this.Description = "VCM Suite 2 Bar";
-                    this.ImageBaseAddress = 0x0;
-                    this.ImageSize = 512 * 1024;
+                    this.KeyAlgorithm = 8;
                     break;
 
                 case 1261002:
-                    this.KeyAlgorithm = 9;
+                    PCMInfo(PcmType.P01_P59);
                     this.Description = "VCM Suite MAF RTT";
-                    this.ImageBaseAddress = 0x0;
-                    this.ImageSize = 512 * 1024;
+                    this.KeyAlgorithm = 9;
                     break;
 
                 case 1281002:
-                    this.KeyAlgorithm = 10;
+                    PCMInfo(PcmType.P01_P59);
                     this.Description = "VCM Suite 3 Bar";
-                    this.ImageBaseAddress = 0x0;
-                    this.ImageSize = 512 * 1024;
+                    this.KeyAlgorithm = 10;
                     break;
+
                 case 1271003:
-                    this.KeyAlgorithm = 11;
+                    PCMInfo(PcmType.P01_P59);
                     this.Description = "VCM Suite Mafless";
-                    this.ImageBaseAddress = 0x0;
-                    this.ImageSize = 512 * 1024;
+                    this.KeyAlgorithm = 11;
                     break;
 
                 case 1251003:
-                    this.KeyAlgorithm = 12;
+                    PCMInfo(PcmType.P01_P59);
                     this.Description = "VCM Suite 2 Bar";
-                    this.ImageBaseAddress = 0x0;
-                    this.ImageSize = 512 * 1024;
+                    this.KeyAlgorithm = 12;
                     break;
 
                 case 1261003:
-                    this.KeyAlgorithm = 13;
+                    PCMInfo(PcmType.P01_P59);
                     this.Description = "VCM Suite 3 Bar";
-                    this.ImageBaseAddress = 0x0;
-                    this.ImageSize = 512 * 1024;
+                    this.KeyAlgorithm = 13;
                     break;
 
                 case 1281003:
-                    this.KeyAlgorithm = 14;
+                    PCMInfo(PcmType.P01_P59);
                     this.Description = "VCM Suite MAF RTT";
-                    this.ImageBaseAddress = 0x0;
-                    this.ImageSize = 512 * 1024;
+                    this.KeyAlgorithm = 14;
                     break;
 
                 case 1273057:
-                    this.KeyAlgorithm = 40;
+                    PCMInfo(PcmType.P01_P59);
                     this.Description = "VCM Suite COS 1M";
-                    this.ImageBaseAddress = 0x0;
+                    this.KeyAlgorithm = 40;
                     this.ImageSize = 1024 * 1024;
                     break;
+
                 //------- HPT COS -----------
                 case 1250013:
                 case 1250018:
@@ -402,9 +534,8 @@ namespace PcmHacking
                 case 1281014:
                 case 1281016:
                 case 1281918:
+                    PCMInfo(PcmType.P01_P59);
                     this.Description = "Unknown VCM Suite COS";
-                    this.ImageBaseAddress = 0x0;
-                    this.ImageSize = 512 * 1024;
                     break;
 
                 //-------------------------
@@ -423,10 +554,8 @@ namespace PcmHacking
                 case 12593359:
                 case 12597506:
                 case 16253027:
-                    this.KeyAlgorithm = 40;
-                    this.Description = "9354896";
-                    this.ImageBaseAddress = 0x0;
-                    this.ImageSize = 512 * 1024;
+                    PCMInfo(PcmType.P01_P59);
+                    this.Description = "P01 Service No 9354896";
                     break;
 
                 // 12200411
@@ -439,10 +568,8 @@ namespace PcmHacking
                 case 12221588:
                 case 12225074: // main 2003/2004 OS
                 case 12593358:
-                    this.KeyAlgorithm = 40;
-                    this.Description = "12200411";
-                    this.ImageBaseAddress = 0x0;
-                    this.ImageSize = 512 * 1024;
+                    PCMInfo(PcmType.P01_P59);
+                    this.Description = "P01 Service No 12200411";
                     break;
 
                 case 01250001:
@@ -494,32 +621,30 @@ namespace PcmHacking
                 case 04073003:
                 case 04110002:
                 case 05120002:
-                    this.KeyAlgorithm = 40;
+                    PCMInfo(PcmType.P01_P59);
                     string type = osid.ToString();
                     switch (Convert.ToInt32(type, 10))
                     {
                         case 1:
-                            this.Description = "EFI Live COS1";
+                            this.Description = "P01 EFI Live COS1";
                             break;
 
                         case 2:
-                            this.Description = "EFI Live COS2";
+                            this.Description = "P01 EFI Live COS2";
                             break;
 
                         case 3:
-                            this.Description = "EFI Live COS3";
+                            this.Description = "P01 EFI Live COS3";
                             break;
 
                         case 5:
-                            this.Description = "EFI Live COS5";
+                            this.Description = "P01 EFI Live COS5";
                             break;
 
                         default:
-                            this.Description = "EFI Live COS";
+                            this.Description = "P01 EFI Live COS";
                             break;
                     }
-                    this.ImageBaseAddress = 0x0;
-                    this.ImageSize = 512 * 1024;
                     break;
 
                 // 1Mb pcms
@@ -529,8 +654,8 @@ namespace PcmHacking
                 case 12593555:
                 case 12606961:
                 case 12612115:
-                    this.KeyAlgorithm = 40;
-                    this.Description = "12589463";
+                    PCMInfo(PcmType.P01_P59);
+                    this.Description = "P59 Service No 12589463";
                     this.ImageSize = 1024 * 1024;
                     break;
 
@@ -544,8 +669,8 @@ namespace PcmHacking
                 case 12592433: //Aussie
                 case 12606960:
                 case 12612114:
-                    this.KeyAlgorithm = 40;
-                    this.Description = "12586242";
+                    PCMInfo(PcmType.P01_P59);
+                    this.Description = "P59 Service No 12586242";
                     this.ImageSize = 1024 * 1024;
                     break;
 
@@ -559,8 +684,8 @@ namespace PcmHacking
                 case 76030007:
                 case 76030008:
                 case 76030009:
-                    this.KeyAlgorithm = 40;
-                    this.Description = "12586243";
+                    PCMInfo(PcmType.P01_P59);
+                    this.Description = "P59 Service No 12586243";
                     this.ImageSize = 1024 * 1024;
                     break;
 
@@ -569,8 +694,8 @@ namespace PcmHacking
                 case 12579405:
                 case 12580055:
                 case 12593058:
-                    this.KeyAlgorithm = 40;
-                    this.Description = "12582605";
+                    PCMInfo(PcmType.P01_P59);
+                    this.Description = "P59 Service No 12582605";
                     this.ImageSize = 1024 * 1024;
                     break;
 
@@ -583,8 +708,8 @@ namespace PcmHacking
                 case 12613246:
                 case 12613247:
                 case 12619623:
-                    this.KeyAlgorithm = 40;
-                    this.Description = "12582811";
+                    PCMInfo(PcmType.P01_P59);
+                    this.Description = "P59 Service No 12582811";
                     this.ImageSize = 1024 * 1024;
                     break;
 
@@ -592,20 +717,16 @@ namespace PcmHacking
                 case 12597120:
                 case 12613248:
                 case 12619624:
-                    this.KeyAlgorithm = 40;
-                    this.Description = "12602802";
+                    PCMInfo(PcmType.P01_P59);
+                    this.Description = "P59 Service No 12602802";
                     this.ImageSize = 1024 * 1024;
                     break;
 
                 case 9355699:
                 case 9365095:
                 case 16263425: // 9366810 'black box'
-                    this.IsSupported = false;
-                    this.KeyAlgorithm = 15;
-                    this.Description = "'Black Box' 9366810";
-                    this.ImageBaseAddress = 0x0;
-                    this.ImageSize = 512 * 1024;
-                    this.HardwareType = PcmType.BLACKBOX;
+                    PCMInfo(PcmType.BlackBox);
+                    this.Description = "Black Box Service No 9366810";
                     break;
 
                 // 1996/1997 256kb V6 Service number 16207326
@@ -711,24 +832,7 @@ namespace PcmHacking
                 case 16257953:
                 case 16257955:
                 case 16257956:
-                    this.Description = "1996/1997 256Kb V6";
-                    this.IsSupported = true;
-                    this.LoaderRequired = true;
-                    this.ValidationMethod = PcmType.P04;
-                    this.HardwareType = PcmType.P04;
-                    this.KernelFileName = "Kernel-P04.bin";
-                    this.KernelBaseAddress = 0xFF8000;
-                    this.LoaderFileName = "Loader-P04.bin";
-                    this.LoaderBaseAddress = 0xFF9890;
-                    //this.ImageBaseAddress = 0x0;
-                    this.ImageSize = 256 * 1024;
-                    //this.RAMSize = 0x0;
-                    this.KeyAlgorithm = 6;
-                    this.ChecksumSupport = true;
-                    this.FlashCRCSupport = true;
-                    this.FlashIDSupport = true;
-                    this.KernelVersionSupport = true;
-                    //this.KernelMaxBlockSize = 4096;
+                    PCMInfo(PcmType.P04_256k);
                     break;
 
                 // P04 V6 Service number 9374997
@@ -2213,24 +2317,7 @@ namespace PcmHacking
                 case 9392796:
                 case 9393822:
                 case 12221096:
-                    this.Description = "P04 V6";
-                    this.IsSupported = false;
-                    this.LoaderRequired = true;
-                    this.ValidationMethod = PcmType.P04;
-                    this.HardwareType = PcmType.P04;
-                    this.KernelFileName = "Kernel-P04.bin";
-                    this.KernelBaseAddress = 0xFF8000;
-                    this.LoaderFileName = "Loader-P04.bin";
-                    this.LoaderBaseAddress = 0xFF9890;
-                    //this.ImageBaseAddress = 0x0;
-                    this.ImageSize = 512 * 1024;
-                    //this.RAMSize = 0x0;
-                    this.KeyAlgorithm = 14;
-                    this.ChecksumSupport = false;
-                    this.FlashCRCSupport = true;
-                    this.FlashIDSupport = true;
-                    this.KernelVersionSupport = true;
-                    //this.KernelMaxBlockSize = 4096;
+                    PCMInfo(PcmType.P04);
                     break;
 
                 // P08
@@ -2238,22 +2325,7 @@ namespace PcmHacking
                 case 12206029:
                 case 12208154:
                 case 12208773:
-                    this.Description = "P08";
-                    this.IsSupported = true;
-                    this.LoaderRequired = false;
-                    this.ValidationMethod = PcmType.P08;
-                    this.HardwareType = PcmType.P08;
-                    this.KernelFileName = "Kernel-P08.bin";
-                    this.KernelBaseAddress = 0xFFAC00;
-                    this.ImageBaseAddress = 0x0;
-                    this.ImageSize = 512 * 1024;
-                    //this.RAMSize = 0x4DFF;
-                    this.KeyAlgorithm = 13;
-                    this.ChecksumSupport = true;
-                    this.FlashCRCSupport = true;
-                    this.FlashIDSupport = true;
-                    this.KernelVersionSupport = true;
-                    //this.KernelMaxBlockSize = 4096;
+                    PCMInfo(PcmType.P08);
                     break;
 
                 // P10
@@ -2273,16 +2345,7 @@ namespace PcmHacking
                 case 12595726:
                 case 12597031:
                 case 12623317:
-                    this.KernelFileName = "Kernel-P10.bin";
-                    this.KernelBaseAddress = 0xFFB800; // Or FFA000? https://pcmhacking.net/forums/viewtopic.php?f=42&t=7742&start=450#p115622
-                    this.RAMSize = 0x2800; // or 4000?
-                    this.IsSupported = true;
-                    this.KeyAlgorithm = 66;
-                    this.Description = "P10";
-                    this.ImageBaseAddress = 0x0;
-                    this.ImageSize = 512 * 1024;
-                    this.ValidationMethod = PcmType.P10;
-                    this.HardwareType = PcmType.P10;
+                    PCMInfo(PcmType.P10);
                     break;
 
                 // P12 1m
@@ -2318,16 +2381,7 @@ namespace PcmHacking
                 case 12606374: //L52 - Atlas I5 (3500) P12
                 case 12606375: //L52 - Atlas I5 (3500) P12
                 case 12627883:
-                    this.KernelFileName = "Kernel-P12.bin";
-                    this.KernelBaseAddress = 0xFF2000; // or FF0000? https://pcmhacking.net/forums/viewtopic.php?f=42&t=7742&start=450#p115622
-                    this.RAMSize = 0x6000;
-                    this.IsSupported = true;
-                    this.KeyAlgorithm = 91;
-                    this.Description = "P12 1m (Atlas I4/I5/I6)";
-                    this.ImageBaseAddress = 0x0;
-                    this.ImageSize = 1024 * 1024;
-                    this.ValidationMethod = PcmType.P12;
-                    this.HardwareType = PcmType.P12;
+                    PCMInfo(PcmType.P12);
                     break;
 
                 // P12 2m - See: https://pcmhacking.net/forums/viewtopic.php?f=42&t=7742&start=470#p115747
@@ -2336,24 +2390,12 @@ namespace PcmHacking
                 case 12613422: //2007 Chevy Trailblazer 4.2L
                 case 12618164:
                 case 12627885:
-                    this.KernelFileName = "Kernel-P12.bin";
-                    this.KernelBaseAddress = 0xFF2000; // or FF0000? https://pcmhacking.net/forums/viewtopic.php?f=42&t=7742&start=450#p115622
-                    this.RAMSize = 0x6000;
-                    this.IsSupported = true;
-                    this.KeyAlgorithm = 91;
-                    this.Description = "P12 2m (Atlas I4/I5/I6)";
-                    this.ImageBaseAddress = 0x0;
+                    PCMInfo(PcmType.P12);
                     this.ImageSize = 2048 * 1024;
-                    this.ValidationMethod = PcmType.P12;
-                    this.HardwareType = PcmType.P12;
                     break;
 
                 default:
-                    this.IsSupported = false;
-                    this.KeyAlgorithm = 40;
-                    this.Description = "Unknown";
-                    this.ImageBaseAddress = 0x0;
-                    this.ImageSize = 0;
+                    PCMInfo(PcmType.Undefined);
                     break;
             }
         }
