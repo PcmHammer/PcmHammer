@@ -729,6 +729,176 @@ namespace PcmHacking
                     this.Description = "Black Box Service No 9366810";
                     break;
 
+                // 1996/1997 V8 Service number 16238212. Looks like the mid 90s 256k P04
+                case 9350054:
+                case 9350490:
+                case 9350494:
+                case 9350496:
+                case 9350497:
+                case 9352141:
+                case 9352151:
+                case 9352161:
+                case 9352171:
+                case 9352201:
+                case 9352221:
+                case 9352231:
+                case 9352241:
+                case 9352251:
+                case 9352261:
+                case 9352271:
+                case 9352281:
+                case 9352291:
+                case 9352311:
+                case 9352321:
+                case 9352641:
+                case 9352651:
+                case 9354201:
+                case 9354735:
+                case 9354736:
+                case 9354737:
+                case 9354738:
+                case 9354739:
+                case 9354740:
+                case 9355161:
+                case 9355162:
+                case 9355166:
+                case 9355171:
+                case 9355181:
+                case 9355191:
+                case 9355201:
+                case 9355211:
+                case 9355221:
+                case 9355231:
+                case 9359652:
+                case 9359661:
+                case 9365931:
+                case 9365941:
+                case 9365951:
+                case 9365961:
+                case 9365981:
+                case 9366221:
+                case 9369651:
+                case 9375571:
+                case 9375572:
+                case 9375573:
+                case 9375574:
+                case 9375575:
+                case 9375576:
+                case 9375577:
+                case 9375578:
+                case 9375579:
+                case 9375581:
+                case 9375582:
+                case 9375583:
+                case 9375584:
+                case 9375585:
+                case 9375591:
+                case 9375601:
+                case 9375611:
+                case 9375621:
+                case 9375631:
+                case 9375641:
+                case 9375651:
+                case 9384530:
+                case 9384532:
+                case 9384535:
+                case 9384537:
+                case 9384538:
+                case 9384539:
+                case 9384540:
+                case 9384542:
+                case 9384545:
+                case 9384547:
+                case 9384548:
+                case 9384549:
+                case 9384550:
+                case 9384557:
+                case 9384558:
+                case 9384562:
+                case 9384569:
+                case 9384575:
+                case 9384578:
+                case 9384584:
+                case 9384585:
+                case 9384587:
+                case 9384588:
+                case 9384589:
+                case 9384590:
+                case 9384592:
+                case 9393822:
+                case 12480112:
+                case 12593456:
+                case 12593457:
+                case 12593458:
+                case 12593459:
+                case 12593460:
+                case 12596953:
+                case 12596954:
+                case 12596955:
+                case 12596956:
+                case 16238127:
+                case 16238234:
+                case 16238242:
+                case 16238297:
+                case 16238302:
+                case 16238303:
+                case 16238352:
+                case 16238353:
+                case 16238354:
+                case 16238356:
+                case 16238357:
+                case 16238360:
+                case 16238362:
+                case 16244351:
+                case 16244371:
+                case 16244391:
+                case 16255801:
+                case 16256470:
+                case 16256510:
+                case 16256512:
+                case 16256514:
+                case 16256515:
+                case 16256516:
+                case 16256520:
+                case 16256523:
+                case 16256525:
+                case 16256908:
+                case 16264963:
+                case 16264964:
+                case 16264966:
+                case 16265756:
+                case 16266578:
+                case 16266579:
+                case 16266580:
+                case 16266582:
+                case 16266583:
+                case 16266585:
+                case 16267006:
+                case 16267014:
+                case 16267957:
+                case 16267958:
+                case 16267959:
+                case 16267960:
+                case 16267962:
+                case 16267963:
+                case 16267964:
+                case 16267965:
+                case 16267966:
+                case 16267967:
+                case 16267968:
+                case 16267969:
+                case 16268315:
+                case 16268316:
+                case 16268317:
+                case 16268319:
+                case 16268320:
+                case 16268474:
+                case 22480054:
+                case 42480054:
+                    PCMInfo(PcmType.Undefined);
+                    this.Description = "1997, 1998 LS1 Corvette, Camaro, Firebird";
+                    break;
+
                 // 1996/1997 256kb V6 Service number 16207326
                 case 9352140:
                 case 9352142:
@@ -833,6 +1003,7 @@ namespace PcmHacking
                 case 16257955:
                 case 16257956:
                     PCMInfo(PcmType.P04_256k);
+                    this.Description = "P04 256k Service No 16207326";
                     break;
 
                 // P04 V6 Service number 9374997
@@ -997,6 +1168,9 @@ namespace PcmHacking
                 case 16257166:
                 case 16257169:
                 case 16257171:
+                    PCMInfo(PcmType.P04);
+                    this.Description = "P04 Service No 9374997";
+                    break;
 
                 // P04 V6 Service number 9380717
                 case 9354406:
@@ -1283,6 +1457,9 @@ namespace PcmHacking
                 case 16242202:
                 case 16243034:
                 case 16258875:
+                    PCMInfo(PcmType.P04);
+                    this.Description = "P04 Service No 9380717";
+                    break;
 
                 // P04 V6 Service number 12209624
                 case 9354438:
@@ -1826,6 +2003,9 @@ namespace PcmHacking
                 case 12589512:
                 case 12589513:
                 case 12589514:
+                    PCMInfo(PcmType.P04);
+                    this.Description = "P04 Service No 12209624";
+                    break;
 
                 // P04 V6 Service number 12583826
                 case 12573213:
@@ -1917,6 +2097,9 @@ namespace PcmHacking
                 case 12598587:
                 case 12598588:
                 case 12598589:
+                    PCMInfo(PcmType.P04);
+                    this.Description = "P04 Service No 12583826";
+                    break;
 
                 // P04 V6 Service number 12583827
                 /*------------------------------
@@ -2087,6 +2270,9 @@ namespace PcmHacking
                 case 15286085:
                 case 15286245:
                 case 15292691:
+                    PCMInfo(PcmType.P04);
+                    this.Description = "P04 Service No 12583827";
+                    break;
 
                 // P04 V6 Service number 16236757
                 case 9351345:
@@ -2172,7 +2358,6 @@ namespace PcmHacking
                 case 9364358:
                 case 9364360:
                 case 9364361:
-                case 9364367:
                 case 9364368:
                 case 9364369:
                 case 9364371:
@@ -2237,7 +2422,6 @@ namespace PcmHacking
                 case 9384516:
                 case 9384517:
                 case 9384519:
-                case 9384547:
                 case 9384786:
                 case 9384787:
                 case 9386157:
@@ -2310,23 +2494,8 @@ namespace PcmHacking
                 case 16268300:
                 case 16268407:
                 case 49807546:
-
-                // Unknown Service number P04
-                case 9392792:
-                case 9392795:
-                case 9392796:
-                case 9393822:
                     PCMInfo(PcmType.P04);
-                    break;
-
-                // P08 12605873
-                case 12604676:
-                case 12607442:
-                case 12608370:
-                case 12610013:
-                case 12611951:
-                    PCMInfo(PcmType.P08);
-                    this.Description = "P08 Service No 12605873";
+                    this.Description = "P04 Service No 16236757";
                     break;
 
                 // P08 9356249
@@ -2343,6 +2512,65 @@ namespace PcmHacking
                 case 12222134:
                     PCMInfo(PcmType.P08);
                     this.Description = "P08 Service No 9356249";
+                    break;
+
+                    // P08 Service Number 12202203
+                case 9392792:
+                case 9392795:
+                case 9392796:
+                case 12201233:
+                case 12205552:
+                case 12223041:
+                case 12223044:
+                case 12223046:
+                case 12225338:
+                case 12225340:
+                case 12571886:
+                case 12580027:
+                case 12580029:
+                    PCMInfo(PcmType.P08);
+                    this.Description = "P08 Service No 12202203";
+                    break;
+
+                // P08 12605873
+                case 12604676:
+                case 12607442:
+                case 12608370:
+                case 12610013:
+                case 12611951:
+                    PCMInfo(PcmType.P08);
+                    this.Description = "P08 Service No 12605873";
+                    break;
+
+                // P08 Service No 16228016 (Part No 16245305)
+                case 9351310:
+                case 9353727:
+                case 9364359:
+                case 9364362:
+                case 9364367:
+                case 9364370:
+                case 9364966:
+                case 9364974:
+                case 9364976:
+                case 9365280:
+                case 9365284:
+                case 9365286:
+                case 9365312:
+                case 9365338:
+                case 9374332:
+                case 9374334:
+                case 9383061:
+                case 9383064:
+                case 9383067:
+                case 9383076:
+                case 9387885:
+                case 12222105:
+                case 16259649:
+                case 16259657:
+                case 16259706:
+                case 16259718:
+                    PCMInfo(PcmType.P08);
+                    this.Description = "P08 Service No 16228016";
                     break;
 
                 // P10
