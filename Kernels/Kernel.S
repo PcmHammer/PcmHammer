@@ -25,8 +25,13 @@
 .equ SIM_CSORBT,             (SIM_BASE + 0x4A) | (SIM_BASE + 0x4A) (FA4A)
 .equ SIM_CSBAR0,             (SIM_BASE + 0x4C) | (SIM_BASE + 0x4C) (FA4C)
 .equ SIM_CSOR0,              (SIM_BASE + 0x4E) | (SIM_BASE + 0x4E) (FA4E)
-|
-#if defined P08
+
+#if defined P04_256k
+  .equ REG_FFC000,            0xC000
+  .equ REG_FFC002,            0xC002
+  .equ VPP_BIT2,              2
+  .equ VPP_BIT4,              4
+#elif defined P08
   .equ REG_FFF408,            0xF408
   .equ REG_FFF4C8,            0xF4C8
   .equ VPP_BIT,               2
@@ -170,6 +175,8 @@ ProcessKernelID:
     movea.l #KernelIDReply, %a0        | Pointer to KernelIDReply buffer
 #if defined P01
     move.b  #0x01, 8(%a0)              | P01, P59
+#elif defined P04_256k
+    move.b  #0xF4, 8(%a0)              | P04 256k
 #elif defined P04
     move.b  #0x04, 8(%a0)              | P04
 #elif defined P08
@@ -691,6 +698,7 @@ IntelFlashUnlock:
     move.w  #0x0F, (REG_FFF408).w      | Hardware Setup
     move.w  #0x05, (REG_FFF4C8).w      | Hardware Setup
 #endif
+
     move.w  #0x0007, (SIM_CSBARBT).w   | $FFFFFA48
     move.w  #0x6820, (SIM_CSORBT).w    | $FFFFFA4A
     move.w  #0x0007, (SIM_CSBAR0).w    | $FFFFFA4C
@@ -699,7 +707,10 @@ IntelFlashUnlock:
     move.w  #0x7060, (SIM_CSOR0).w     | $FFFFFA4E
 
     | Enable +12v Vpp
-#if defined P08
+#if defined P04_256k
+    bset    #VPP_BIT2, (REG_FFC002).w
+    bset    #VPP_BIT4, (REG_FFC000).w
+#elif defined P08
     bset    #VPP_BIT, (HARDWARE_IO).w  | Does not work on P01, needed for P08
 #else
     move.w  (HARDWARE_IO).w, %d1       | Move Vpp Latch Address value to register
@@ -734,7 +745,10 @@ IntelFlashLock:
     move.w  #0x1060, (SIM_CSOR0).w     | $FFFFFA4E
 
     | Disable +12v Vpp
-#if defined P08
+#if defined P04_256k
+    bclr    #VPP_BIT2, (REG_FFC002).w
+    bclr    #VPP_BIT4, (REG_FFC000).w
+#elif defined P08
     bclr    #VPP_BIT, (HARDWARE_IO).w  | Does not work on P01, needed for P08
 #else
     move.w  (HARDWARE_IO).w, %d1       | Move Vpp Latch Address value to register

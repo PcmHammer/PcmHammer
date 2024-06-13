@@ -154,6 +154,7 @@ namespace PcmHacking
                         break;
 
                     case PcmType.P04:
+                    case PcmType.P04_256k:
                         switch (image.Length)
                         {
                             case 256 * 1024:
@@ -245,6 +246,7 @@ namespace PcmHacking
 
                 // no segment table
                 case PcmType.P04:
+                case PcmType.P04_256k:
                 case PcmType.P05:
                 case PcmType.P08:
                 case PcmType.E54:
@@ -260,6 +262,7 @@ namespace PcmHacking
 
             switch (type)
             {
+                case PcmType.P04_256k:
                 case PcmType.P04:
                 case PcmType.P05:
                     this.logger.AddUserMessage("\tStart\tEnd\tStored\t\tNeeded\t\tVerdict\tSegment Name");
@@ -376,7 +379,7 @@ namespace PcmHacking
                 this.logger.AddDebugMessage("Trying P04 256Kb");
                 if ((image[0x3FFFE] == 0xA5) && (image[0x3FFFF] == 0x5A))
                 {
-                    return PcmType.P04;
+                    return PcmType.P04_256k;
                 }
             }
 

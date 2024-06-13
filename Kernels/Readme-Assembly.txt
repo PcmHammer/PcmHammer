@@ -3,8 +3,9 @@ An Assembly Kernel for J1850VPW speaking PCMs that use a Motorola 68k Processor.
 Supported PCMs.
 P01
 P04
+P04_256k
 P10
-P12
+P12 (1m and 2m)
 P59
 E54
 
@@ -27,6 +28,7 @@ See Build.cmd -h for help and or other options ...
 Load addresses
     -aFF8000 -pP01 (Includes P59)
     -aFF8000 -lFF9890 -pP04
+    -aFF8000 -lFF9890 -pP04_256k
     -aFFB800 -pP10
     -aFF2000 -pP12
     -aFF8F50 -pE54

@@ -188,13 +188,13 @@ namespace PcmHacking
 
                 case PcmType.P04_256k:
                     this.Description = "P04 1996/1997 256Kb V6";
-                    this.HardwareType = PcmType.P04; // There is no point using a different hardware type once the configuration is loaded, it's just a 256Kb P04.
+                    this.HardwareType = PcmType.P04_256k;
                     this.IsSupported = true;
                     this.IsSupportedRead = true;
-                    this.IsSupportedWrite = false;
+                    this.IsSupportedWrite = true;
                     this.IsSupportedWriteBySegment = false;
                     this.LoaderRequired = true;
-                    this.KernelFileName = "Kernel-P04.bin";
+                    this.KernelFileName = "Kernel-P04_256k.bin";
                     this.KernelBaseAddress = 0xFF8000;
                     this.LoaderFileName = "Loader-P04.bin";
                     this.LoaderBaseAddress = 0xFF9890;

@@ -856,7 +856,7 @@ namespace PcmHacking
                 }
 
                 // Disable BCC lookup for those that do not provide it
-                if (pcmInfo != null && pcmInfo.HardwareType != PcmType.P04 && pcmInfo.HardwareType != PcmType.P08)
+                if (pcmInfo != null && pcmInfo.HardwareType != PcmType.P04 && pcmInfo.HardwareType != PcmType.P04_256k && pcmInfo.HardwareType != PcmType.P08)
                 {
                     var bccResponse = await this.Vehicle.QueryBCC();
                     if (bccResponse.Status == ResponseStatus.Success)
@@ -1228,6 +1228,7 @@ namespace PcmHacking
                     {
                         string msg = $"Abort: The connected {pcmInfo.HardwareType.ToString()} PCM is not supported.";
                         this.AddUserMessage(msg);
+                        DialogResult dialogResult = MessageBox.Show(msg, "Abort");
                         return;
                     }
 
@@ -1235,6 +1236,7 @@ namespace PcmHacking
                     {
                         string msg = $"Abort: The connected {pcmInfo.HardwareType.ToString()} PCM is not supported for read operations.";
                         this.AddUserMessage(msg);
+                        DialogResult dialogResult = MessageBox.Show(msg, "Abort");
                         return;
                     }
 
@@ -1508,6 +1510,7 @@ namespace PcmHacking
                     {
                         string msg = $"Abort: The connected {pcmInfo.HardwareType.ToString()} PCM is not supported.";
                         this.AddUserMessage(msg);
+                        DialogResult dialogResult = MessageBox.Show(msg, "Abort");
                         return;
                     }
 
@@ -1515,10 +1518,11 @@ namespace PcmHacking
                     {
                         string msg = $"Abort: The connected {pcmInfo.HardwareType.ToString()} PCM is not supported for write operations.";
                         this.AddUserMessage(msg);
+                        DialogResult dialogResult = MessageBox.Show(msg, "Abort");
                         return;
                     }
 
-                    if (!pcmInfo.IsSupportedWriteBySegment && writeType != WriteType.Full)
+                    if (!pcmInfo.IsSupportedWriteBySegment && ( writeType != WriteType.Full && writeType != WriteType.TestWrite))
                     {
                         string msg = $"Error: The connected {pcmInfo.HardwareType.ToString()} PCM binary format does not support write by segment." + Environment.NewLine +
                                     "You will need to do a Write Full Flash (Clone) instead." + Environment.NewLine;

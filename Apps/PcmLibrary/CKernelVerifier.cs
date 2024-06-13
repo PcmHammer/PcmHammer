@@ -69,6 +69,13 @@ namespace PcmHacking
             {
                 string formatString = "{0:X6}-{1:X6}\t{2:X8}\t{3:X8}\t{4}\t{5}";
 
+                string range_type = "General";
+
+                if (pcmInfo.IsSupportedWriteBySegment)
+                {
+                    range_type = range.Type.ToString();
+                }
+
                 if (((range.Type & blockTypes) == 0) || (range.Address >= this.pcmInfo.ImageSize))
                 {
                     this.logger.AddUserMessage(
@@ -79,7 +86,7 @@ namespace PcmHacking
                         "not needed",
                         "not needed",
                         "n/a",
-                        range.Type));
+                        range_type));
                     continue;
                 }
 
@@ -134,7 +141,7 @@ namespace PcmHacking
                 this.vehicle.ClearDeviceMessageQueue();
 
                 range.ActualCrc = crcResponse.Value;
-
+               
                 this.logger.AddUserMessage(
                     string.Format(
                         formatString,
@@ -143,7 +150,7 @@ namespace PcmHacking
                         range.DesiredCrc,
                         range.ActualCrc,
                         range.DesiredCrc == range.ActualCrc ? "Same" : "Different",
-                        range.Type));
+                        range_type));
             }
 
             await this.vehicle.SendToolPresentNotification();
