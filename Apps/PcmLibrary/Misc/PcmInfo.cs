@@ -2325,6 +2325,9 @@ namespace PcmHacking
                 case 12608370:
                 case 12610013:
                 case 12611951:
+                    PCMInfo(PcmType.P08);
+                    this.Description = "P08 Service No 12605873";
+                    break;
 
                 // P08 9356249
                 case 9364970:
@@ -2339,6 +2342,7 @@ namespace PcmHacking
                 case 12222128:
                 case 12222134:
                     PCMInfo(PcmType.P08);
+                    this.Description = "P08 Service No 9356249";
                     break;
 
                 // P10
@@ -2404,6 +2408,7 @@ namespace PcmHacking
                 case 12618164:
                 case 12627885:
                     PCMInfo(PcmType.P12);
+                    this.Description = "P12b (2Mb)";
                     this.ImageSize = 2048 * 1024;
                     break;
 

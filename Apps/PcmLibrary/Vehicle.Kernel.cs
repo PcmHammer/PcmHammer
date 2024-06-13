@@ -460,7 +460,7 @@ namespace PcmHacking
                 logger.AddUserMessage("4X communications disabled by configuration.");
                 return true;
             }
-            // FIXME: This should be in a common library, not here/
+            // FIXME: This should be in a common library, not here
             // OBDX Pro VT should be 1x for the P04 due to P04 VPW bus load not being high enough when
             // on the bench. The bus load is OK in the car, but car modules wake up and cause bus to
             // crash to 1x regardless.
@@ -468,8 +468,8 @@ namespace PcmHacking
             {
                 if (this.device.ToString().Contains("OBDX Pro VT"))
                 {
+                    logger.AddUserMessage("OBDXPro VT with P04 PCM detected. Reducing interface speed to 1x. Reinit interface to restore 4x");
                     this.device.Enable4xReadWrite = false;
-                    // DeviceConfiguration.Settings.Enable4xReadWrite = false; // turn off 4x for the VT!
                     return true;
                 }
             }

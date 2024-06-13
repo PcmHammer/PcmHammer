@@ -229,8 +229,6 @@ namespace PcmHacking
                     }
                 }
 
-                await this.vehicle.Cleanup(); // Not sure why this does not get called in the finally block on successfull read?
-
                 MemoryStream stream = new MemoryStream(image);
                 return new Response<Stream>(ResponseStatus.Success, stream);
             }
@@ -242,7 +240,6 @@ namespace PcmHacking
             }
             finally
             {
-                // Sending the exit command at both speeds and revert to 1x.
                 await this.vehicle.Cleanup();
                 logger.StatusUpdateReset();
             }

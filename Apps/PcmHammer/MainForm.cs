@@ -812,17 +812,9 @@ namespace PcmHacking
                 var osResponse = await this.Vehicle.QueryOperatingSystemId(CancellationToken.None);
                 if (osResponse.Status == ResponseStatus.Success)
                 {
-                    this.AddUserMessage("OS ID: " + osResponse.Value.ToString());
+                    this.AddUserMessage("OSID: " + osResponse.Value.ToString());
                     pcmInfo = new OSIDInfo(osResponse.Value);
-                    this.AddUserMessage("Hardware Type: " + pcmInfo.HardwareType.ToString());
-                    if (pcmInfo.HardwareType == PcmType.P04)
-                    {
-                        this.AddUserMessage("**********************************************");
-                        this.AddUserMessage("WARNING: P04 Support is still in development.");
-                        this.AddUserMessage("It may or may not read your P04 correctly.");
-                        this.AddUserMessage("There is currently no ETA for P04 Write.");
-                        this.AddUserMessage("**********************************************");
-                    }
+                    this.AddUserMessage("Description: " + pcmInfo.Description);
                 }
                 else
                 {
@@ -1160,16 +1152,6 @@ namespace PcmHacking
                     string path = "";
                     this.Invoke((MethodInvoker)delegate ()
                     {
-                        this.AddUserMessage($"WARNING: This version uses the new Assembly Kernels, USE AT YOUR OWN RISK!");
-                        string msg = $"WARNING!{Environment.NewLine}This version uses the new Assembly Kernels, USE AT YOUR OWN RISK!" +
-                                     $"{Environment.NewLine}{Environment.NewLine}Are you willing to accept the responsibility ?";
-                        DialogResult warnDialogResult = MessageBox.Show(msg, "Continue?", MessageBoxButtons.YesNo);
-                        if (warnDialogResult == DialogResult.No)
-                        {
-                            this.AddUserMessage("User chose not to proceed.");
-                            return;
-                        }
-
                         path = this.ShowSaveAsDialog();
 
                         if (path == null)
@@ -1216,6 +1198,7 @@ namespace PcmHacking
                         // Look up the information about this PCM, based on the OSID;
                         this.AddUserMessage("OSID: " + osidResponse.Value);
                         pcmInfo = new OSIDInfo(osidResponse.Value);
+                        this.AddUserMessage("Description: " + pcmInfo.Description);
                     }
                     else
                     {
@@ -1240,7 +1223,22 @@ namespace PcmHacking
                         AddUserMessage($"Using OsID: {pcmInfo.OSID}");
                     }
 
-                    if (pcmInfo.HardwareType == PcmType.P04 || pcmInfo.HardwareType == PcmType.E54)
+                    // Pre flight checks to block invalid write operations by PCM type.
+                    if (!pcmInfo.IsSupported)
+                    {
+                        string msg = $"Abort: The connected {pcmInfo.HardwareType.ToString()} PCM is not supported.";
+                        this.AddUserMessage(msg);
+                        return;
+                    }
+
+                    if (!pcmInfo.IsSupportedRead)
+                    {
+                        string msg = $"Abort: The connected {pcmInfo.HardwareType.ToString()} PCM is not supported for read operations.";
+                        this.AddUserMessage(msg);
+                        return;
+                    }
+
+                    if (pcmInfo.HardwareType == PcmType.E54)
                     {
                         string msg = $"WARNING: {pcmInfo.HardwareType.ToString()} Support is still in development.";
                         this.AddUserMessage(msg);
@@ -1361,16 +1359,6 @@ namespace PcmHacking
                     {
                         this.DisableUserInput();
                         this.cancelButton.Enabled = true;
-
-                        this.AddUserMessage($"WARNING: This version uses the new Assembly Kernels, USE AT YOUR OWN RISK!");
-                        string msg = $"WARNING!{Environment.NewLine}This version uses the new Assembly Kernels, USE AT YOUR OWN RISK!" +
-                                     $"{Environment.NewLine}{Environment.NewLine}Are you willing to accept the responsibility ?";
-                        DialogResult warnDialogResult = MessageBox.Show(msg, "Continue?", MessageBoxButtons.YesNo);
-                        if (warnDialogResult == DialogResult.No)
-                        {
-                            this.AddUserMessage("User chose not to proceed.");
-                            return;
-                        }
 
                         if (string.IsNullOrWhiteSpace(path))
                         {
@@ -1515,7 +1503,30 @@ namespace PcmHacking
                         }
                     }
 
-                    if (pcmInfo.HardwareType == PcmType.P04 || pcmInfo.HardwareType == PcmType.E54)
+                    // Pre flight checks to block invalid write operations by PCM type.
+                    if (!pcmInfo.IsSupported)
+                    {
+                        string msg = $"Abort: The connected {pcmInfo.HardwareType.ToString()} PCM is not supported.";
+                        this.AddUserMessage(msg);
+                        return;
+                    }
+
+                    if (!pcmInfo.IsSupportedWrite)
+                    {
+                        string msg = $"Abort: The connected {pcmInfo.HardwareType.ToString()} PCM is not supported for write operations.";
+                        this.AddUserMessage(msg);
+                        return;
+                    }
+
+                    if (!pcmInfo.IsSupportedWriteBySegment && writeType != WriteType.Full)
+                    {
+                        string msg = $"Error: The connected {pcmInfo.HardwareType.ToString()} PCM binary format does not support write by segment." + Environment.NewLine +
+                                    "You will need to do a Write Full Flash (Clone) instead." + Environment.NewLine;
+                        DialogResult dialogResult = MessageBox.Show(msg, "Error");
+                        return;
+                    }
+
+                    if (pcmInfo.HardwareType == PcmType.E54)
                     {
                         string msg = $"WARNING: {pcmInfo.HardwareType.ToString()} support is incomplete, insufficiently tested, or known to be broken. Do you accept the risk of damage to your hardware?";
                         this.AddUserMessage(msg);
