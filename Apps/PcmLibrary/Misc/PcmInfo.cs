@@ -2316,15 +2316,28 @@ namespace PcmHacking
                 case 9392795:
                 case 9392796:
                 case 9393822:
-                case 12221096:
                     PCMInfo(PcmType.P04);
                     break;
 
-                // P08
+                // P08 12605873
+                case 12604676:
+                case 12607442:
+                case 12608370:
+                case 12610013:
+                case 12611951:
+
+                // P08 9356249
                 case 9364970:
                 case 12206029:
+                case 12206044:
                 case 12208154:
+                case 12208156:
                 case 12208773:
+                case 12216489:
+                case 12216571:
+                case 12221096:
+                case 12222128:
+                case 12222134:
                     PCMInfo(PcmType.P08);
                     break;
 
