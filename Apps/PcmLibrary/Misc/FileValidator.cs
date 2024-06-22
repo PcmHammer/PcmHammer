@@ -66,19 +66,19 @@ namespace PcmHacking
         {
             if (this.image.Length == 256 * 1024)
             {
-                this.logger.AddUserMessage("Validating 256k file.");
+                this.logger.AddUserMessage("Identifying 256kb file.");
             }
             else if (this.image.Length == 512 * 1024)
             {
-                this.logger.AddUserMessage("Validating 512k file.");
+                this.logger.AddUserMessage("Identifying 512kb file.");
             }
             else if (this.image.Length == 1024 * 1024)
             {
-                this.logger.AddUserMessage("Validating 1024k file.");
+                this.logger.AddUserMessage("Identifying 1024Kb file.");
             }
             else if (this.image.Length == 2048 * 1024)
             {
-                this.logger.AddUserMessage("Validating 2048k file.");
+                this.logger.AddUserMessage("Identifying 2048Kb file.");
             }
             else
             {
@@ -89,6 +89,9 @@ namespace PcmHacking
                         this.image.Length));
                 return false;
             }
+
+            UInt32 fileOsid = this.GetOsidFromImage();
+            this.logger.AddUserMessage("File operating system ID: " + fileOsid);
 
             return this.ValidateChecksums();
         }
@@ -139,7 +142,7 @@ namespace PcmHacking
         /// </summary>
         public uint GetOsidFromImage()
         {
-            int osid = 0;
+            UInt32 osid = 0;
 
             if (image.Length == 256 * 1024 || image.Length == 512 * 1024 || image.Length == 1024 * 1024 || image.Length == 2048 * 1024) // bin valid sizes
             {
@@ -147,10 +150,7 @@ namespace PcmHacking
                 switch (type)
                 {
                     case PcmType.P01_P59:
-                        osid += image[0x504] << 24;
-                        osid += image[0x505] << 16;
-                        osid += image[0x506] << 8;
-                        osid += image[0x507] << 0;
+                        osid = ReadUnsigned(image, 0x504);
                         break;
 
                     case PcmType.P04:
@@ -158,63 +158,45 @@ namespace PcmHacking
                         switch (image.Length)
                         {
                             case 256 * 1024:
-                                osid += image[0x3FFFA] << 24;
-                                osid += image[0x3FFFB] << 16;
-                                osid += image[0x3FFFC] << 8;
-                                osid += image[0x3FFFD] << 0;
+                                osid = ReadUnsigned(image, 0x3FFFA);
                                 break;
 
                             case 512 * 1024:
-                                int offset = 0;
                                 if (image[0x7FFFE] == 0xFF && image[0x7FFFF] == 0xFF)
                                 {
-                                    offset = 2; // some 1998 P04 
+                                    osid = ReadUnsigned(image, 0xFFFF8); // some 1998 P04 
                                 }
-                                osid += image[0x7FFFA - offset] << 24;
-                                osid += image[0x7FFFB - offset] << 16;
-                                osid += image[0x7FFFC - offset] << 8;
-                                osid += image[0x7FFFD - offset] << 0;
+                                else
+                                {
+                                    osid = ReadUnsigned(image, 0xFFFFA);
+                                }
                                 break;
                         }
                         break;
 
                     case PcmType.P05:
-                        osid += image[0xFFFFA] << 24;
-                        osid += image[0xFFFFB] << 16;
-                        osid += image[0xFFFFC] << 8;
-                        osid += image[0xFFFFD] << 0;
+                        osid = ReadUnsigned(image, 0xFFFFA);
                         break;
 
                     case PcmType.P08:
-                        osid += image[0x8000] << 24;
-                        osid += image[0x8001] << 16;
-                        osid += image[0x8002] << 8;
-                        osid += image[0x8003] << 0;
+                        osid = ReadUnsigned(image, 0x8000);
                         break;
 
                     case PcmType.P10:
-                        osid += image[0x52E] << 24;
-                        osid += image[0x52F] << 16;
-                        osid += image[0x530] << 8;
-                        osid += image[0x531] << 0;
+                        osid = ReadUnsigned(image, 0x52E);
                         break;
 
                     case PcmType.P12:
-                        osid += image[0x8004] << 24;
-                        osid += image[0x8005] << 16;
-                        osid += image[0x8006] << 8;
-                        osid += image[0x8007] << 0;
+                        osid = ReadUnsigned(image, 0x8004);
                         break;
 
                     case PcmType.E54:
-                        osid += image[0x20004] << 24;
-                        osid += image[0x20005] << 16;
-                        osid += image[0x20006] << 8;
-                        osid += image[0x20007] << 0;
+                    case PcmType.BlackBox:
+                        osid = ReadUnsigned(image, 0x20004);
                         break;
                 }
             }
-            return (uint)osid;
+            return osid;
         }
 
         /// <summary>
@@ -241,8 +223,16 @@ namespace PcmHacking
                     segments = 5;
                     break;
 
-                // has a segment table, but handled in ValidateRangeP12()
+                // has a special segment table, handled in ValidateRangeP12()
                 case PcmType.P12:
+                    tableAddress = 0x2000C;
+                    segments = 5;
+                    break;
+
+                case PcmType.BlackBox:
+                    tableAddress = 0x2000C;
+                    segments = 5;
+                    break;
 
                 // no segment table
                 case PcmType.P04:
@@ -379,6 +369,7 @@ namespace PcmHacking
                 this.logger.AddDebugMessage("Trying P04 256Kb");
                 if ((image[0x3FFFE] == 0xA5) && (image[0x3FFFF] == 0x5A))
                 {
+                    this.logger.AddUserMessage("File is P04 256Kb.");
                     return PcmType.P04_256k;
                 }
             }
@@ -393,7 +384,22 @@ namespace PcmHacking
                 {
                     if ((image[0x7FFFC] == 0x4A) && (image[0x7FFFD] == 0xFC) && (image[0x7FFFE] == 0x4A) && (image[0x7FFFF] == 0xFC))
                     {
+                        this.logger.AddUserMessage("File is E54 512Kb.");
                         return PcmType.E54;
+                    }
+                }
+
+                // BlackBox 512Kb. Thanks to Universal Patcher team for the logic in autodetect.xml
+                this.logger.AddDebugMessage("Trying Vortec BlackBox 512Kb");
+                if ((image[0x1FFFE] == 0x4A) && (image[0x1FFFF] == 0xFC))
+                {
+                    if ((image[0x7FFFE] == 0x4A) && (image[0x7FFFF] == 0xFC))
+                    {
+                        if ((image[0x20002] == 00) && (image[0x20003] == 01) && (image[0x2000A] == 01) && (image[0x2000B] == 00))
+                        {
+                            this.logger.AddUserMessage("File is Vortec BlackBox 512Kb.");
+                            return PcmType.BlackBox;
+                        }
                     }
                 }
 
@@ -401,8 +407,9 @@ namespace PcmHacking
                 this.logger.AddDebugMessage("Trying P01 512Kb");
                 if ((image[0x1FFFE] == 0x4A) && (image[0x1FFFF] == 0xFC))
                 {
-                    if ((image[0x7FFFE] == 0x4A) || (image[0x7FFFF] == 0xFC))
+                    if ((image[0x7FFFE] == 0x4A) && (image[0x7FFFF] == 0xFC))
                     {
+                        this.logger.AddUserMessage("File is P01 512Kb.");
                         return PcmType.P01_P59;
                     }
                 }
@@ -415,7 +422,8 @@ namespace PcmHacking
                 if (((image[0x7FFFE] == 0xA5) && (image[0x7FFFF] == 0x5A)) || // most P04 OR
                     ((image[0x7FFFC] == 0xA5) && (image[0x7FFFD] == 0x5A) && (image[0x7FFFE] == 0xFF) && (image[0x7FFFF] == 0xFF)))   // Most 1998 512Kb eg Malibu 09369193, Olds 09352676, LeSabre 09379801...
                 {
-                        return PcmType.P04;
+                    this.logger.AddUserMessage("File is P04 512kb.");
+                    return PcmType.P04;
                 }
 
                 this.logger.AddDebugMessage("Trying P10 512Kb");
@@ -423,6 +431,7 @@ namespace PcmHacking
                 {
                     if ((image[0x7FFFC] == 0xA5) && (image[0x7FFFD] == 0x5A) && (image[0x7FFFE] == 0xA5) && (image[0x7FFFF] == 0xA5))
                     {
+                        this.logger.AddUserMessage("File is P10 512Kb.");
                         return PcmType.P10;
                     }
                 }
@@ -431,6 +440,7 @@ namespace PcmHacking
                 this.logger.AddDebugMessage("Trying P08 512Kb");
                 if ((image[0x7FFFC] == 0xA5) && (image[0x7FFFD] == 0x5A) && (image[0x7FFFE] == 0xA5) && (image[0x7FFFF] == 0xA5))
                 {
+                    this.logger.AddUserMessage("File is P08 512Kb.");
                     return PcmType.P08;
                 }
             }
@@ -443,6 +453,7 @@ namespace PcmHacking
                 {
                     if ((image[0xFFFFE] == 0x4A) && (image[0xFFFFF] == 0xFC))
                     {
+                        this.logger.AddUserMessage("File is P59 1Mb.");
                         return PcmType.P01_P59;
                     }
                 }
@@ -451,12 +462,14 @@ namespace PcmHacking
                 this.logger.AddDebugMessage("Trying P05 1Mb");
                 if ((image[0xFFFFE] == 0xA5) && (image[0xFFFFF] == 0x5A))
                 {
+                    this.logger.AddUserMessage("File is P05 1Mb.");
                     return PcmType.P05;
                 }
 
                 this.logger.AddDebugMessage("Trying P12 1Mb");
                 if ((image[0xFFFF8] == 0xAA) && (image[0xFFFF9] == 0x55))
                 {
+                    this.logger.AddUserMessage("File is P12 1Mb.");
                     return PcmType.P12;
                 }
             }
@@ -467,6 +480,7 @@ namespace PcmHacking
                 this.logger.AddDebugMessage("Trying P12 2Mb");
                 if ((image[0x17FFF8] == 0xAA) && (image[0x17FFF9] == 0x55))
                 {
+                    this.logger.AddUserMessage("File is P12 2Mb.");
                     return PcmType.P12;
                 }
             }

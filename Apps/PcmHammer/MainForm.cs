@@ -1522,17 +1522,40 @@ namespace PcmHacking
                         return;
                     }
 
-                    if (!pcmInfo.IsSupportedWriteBySegment && ( writeType != WriteType.Full && writeType != WriteType.TestWrite))
+                    // If the factory binary is not paritioned we cant write by segment, block the non-full write types
+                    if (!pcmInfo.IsSupportedWriteBySegment && (writeType == WriteType.Calibration || writeType == WriteType.OsPlusCalibrationPlusBoot || writeType == WriteType.Parameters))
                     {
-                        string msg = $"Error: The connected {pcmInfo.HardwareType.ToString()} PCM binary format does not support write by segment." + Environment.NewLine +
-                                    "You will need to do a Write Full Flash (Clone) instead." + Environment.NewLine;
+                        string msg = $"Error: The connected {pcmInfo.HardwareType.ToString()} PCM binary format is not partitioned and does not support partial write." + Environment.NewLine +
+                                    "You will need to do a Write Full Flash (Clone) instead.";
+                        this.AddUserMessage(msg);
                         DialogResult dialogResult = MessageBox.Show(msg, "Error");
                         return;
                     }
 
+                    // If we cant write the slave, warn the user of operating system changes
+                    if (pcmInfo.HardwareSlaveCPU == true && !pcmInfo.IsSupportedWriteSlaveCPU && (writeType == WriteType.Full || writeType == WriteType.OsPlusCalibrationPlusBoot))
+                    {
+                        string msg = $"Warning: Writes to the {pcmInfo.HardwareType.ToString()} slave CPU are not supported." + Environment.NewLine +
+                                    "You must have another way to update the slave CPU to match when you change operating system, else electroncic throttle may not work." + Environment.NewLine +
+                                    "Restore this PCM to its original operating system if this happens.";
+                        this.AddUserMessage(msg);
+                        DialogResult dialogResult = MessageBox.Show(msg, "Warning!", MessageBoxButtons.YesNo);
+                        if (dialogResult == DialogResult.No)
+                        {
+                            this.AddUserMessage("User chose not to proceed.");
+                            return;
+                        }
+                        else
+                        {
+                            this.AddUserMessage("User chose to proceed.");
+                        }
+                    }
+
                     if (pcmInfo.HardwareType == PcmType.E54)
                     {
-                        string msg = $"WARNING: {pcmInfo.HardwareType.ToString()} support is incomplete, insufficiently tested, or known to be broken. Do you accept the risk of damage to your hardware?";
+                        string msg = $"WARNING: {pcmInfo.HardwareType.ToString()} support is insufficiently tested, but believed to be working." + Environment.NewLine +
+                                    "Please report success or failure on pcmhacking.net." + Environment.NewLine +
+                                    "Do you accept the risk of damage to your hardware?";
                         this.AddUserMessage(msg);
                         DialogResult dialogResult = MessageBox.Show(msg, "Continue?", MessageBoxButtons.YesNo);
                         if (dialogResult == DialogResult.No)
@@ -1541,7 +1564,7 @@ namespace PcmHacking
                             return;
                         }else
                         {
-                            this.AddUserMessage("User accepts the risk of running incomplete or insufficiently tested code.");
+                            this.AddUserMessage("User accepts the risk of running insufficiently tested code.");
                         }
                     }
 

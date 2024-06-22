@@ -36,6 +36,12 @@
   .equ REG_FFF4C8,            0xF4C8
   .equ VPP_BIT,               2
   .equ HARDWARE_IO,           0xFA11
+#elif defined BlackBox
+  .equ PORTF,                 0xFA19 | Port F for flash, b4 = 1 enables Vpp for flash
+  .equ PORTFDIR,              0xFA1D | Port F data direction reg, b4 = 1 for PF4 output
+  .equ PORTFASN,              0xFA1F | Port F pin assignment, clear b4 for port F assignment
+  .equ VPP_BIT,               4
+  .equ HARDWARE_IO,           0xFA19
 #else
   .equ VPP_BIT,               0
   .equ HARDWARE_IO,           0xE2FA
@@ -160,6 +166,10 @@ ResetWatchdog:
     move.b  #0x55, (COP1).l            | Reset COP1
     move.b  #0xAA, (COP1).l            | Reset COP1
     eori.b  #0x80, (COP2).l            | Reset COP2 ... COP2 ^= 0x80
+#if defined BlackBox
+	move.b  #0x50, (COP3).l            | Vortec BlackBox only
+	move.b  #0xA0, (COP3).l            |
+#endif
     rts
 
 | =============== S U B R O U T I N E =======================================
@@ -697,6 +707,9 @@ IntelFlashUnlock:
 #if defined P08
     move.w  #0x0F, (REG_FFF408).w      | Hardware Setup
     move.w  #0x05, (REG_FFF4C8).w      | Hardware Setup
+#elif defined BlackBox
+    move.w  #0xF8, (PORTFDIR).w        | Port F Direction
+    move.w  #0x00, (PORTFASN).w        | Port F Assignment
 #endif
 
     move.w  #0x0007, (SIM_CSBARBT).w   | $FFFFFA48
@@ -712,6 +725,8 @@ IntelFlashUnlock:
     bset    #VPP_BIT4, (REG_FFC000).w
 #elif defined P08
     bset    #VPP_BIT, (HARDWARE_IO).w  | Does not work on P01, needed for P08
+#elif defined BlackBox
+    move.b  #0x10, (PORTF).w           | Enable VPP signal from on Port F
 #else
     move.w  (HARDWARE_IO).w, %d1       | Move Vpp Latch Address value to register
     bset    #VPP_BIT, %d1              | Set Vpp Latch Bit
@@ -750,6 +765,8 @@ IntelFlashLock:
     bclr    #VPP_BIT4, (REG_FFC000).w
 #elif defined P08
     bclr    #VPP_BIT, (HARDWARE_IO).w  | Does not work on P01, needed for P08
+#elif defined BlackBox
+    move.w  #0x00, (PORTF).w           | Clear VPP signal from on Port F
 #else
     move.w  (HARDWARE_IO).w, %d1       | Move Vpp Latch Address value to register
     bclr    #VPP_BIT, %d1              | Set Vpp Latch Bit
@@ -1139,7 +1156,7 @@ VPWSendBlockWaitForBuffer2:
     rts
 | ---------------------------------------------------------------------------
 .data
-.ascii "(c)2023 pcmhacking.net" | An Antus / Gampy collaboration
+.ascii "(c)2024 pcmhacking.net" | An Antus / Gampy collaboration
 
 | All AA bytes are padding for alignment
 

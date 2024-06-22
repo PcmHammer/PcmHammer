@@ -59,6 +59,7 @@ for %%A in (
   "-pP08 -aFFAC00 -x",
   "-pP10 -aFFB800 -x",
   "-pP12 -aFF2000 -x",
-  "-pE54 -aFF8F50 -x"
+  "-pE54 -aFF8F50 -x",
+  "-pBlackBox -aFFC300 -x"
   ) do call Build.cmd %%~A %*
 

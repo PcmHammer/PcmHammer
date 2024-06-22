@@ -36,6 +36,15 @@
   .equ J1850_RX_FIFO,    0xFFE801
   .equ COP1,             0xFFFA27
   .equ COP2,             0xFFC006
+#elif defined BlackBox
+  .equ J1850_Config,     0xFF9000
+  .equ J1850_Command,    0xFF9000
+  .equ J1850_TX_FIFO,    0xFF9001
+  .equ J1850_Status,     0xFF9000
+  .equ J1850_RX_FIFO,    0xFF9001
+  .equ COP1,             0xFFFA27
+  .equ COP2,             0xFF8806 | Not needed? Is COP3 really COP2?
+  .equ COP3,             0xFFC006
 #endif
 
 | Misc

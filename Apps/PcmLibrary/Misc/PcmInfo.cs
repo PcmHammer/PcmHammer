@@ -55,6 +55,11 @@ namespace PcmHacking
         public bool IsSupportedWrite { get; private set; }
 
         /// <summary>
+        /// Indicates whether this PCM is supports writing the slave CPU. If it cannot, we must block (or warn) OSID change.
+        /// </summary>
+        public bool IsSupportedWriteSlaveCPU { get; private set; }
+
+        /// <summary>
         /// Indicates whether this PCM is supported to write by flash segment (later PCMs)
         /// </summary>
         public bool IsSupportedWriteBySegment { get; private set; }
@@ -72,6 +77,11 @@ namespace PcmHacking
         /// What type of hardware it is
         /// </summary>
         public PcmType HardwareType { get; private set; }
+
+        /// <summary>
+        /// Does it have a slave CPU?
+        /// </summary>
+        public bool HardwareSlaveCPU { get; private set; }
 
         /// <summary>
         /// Name of the kernel file to use.
@@ -141,10 +151,12 @@ namespace PcmHacking
             this.IsSupported = false;
             this.IsSupportedRead = false;
             this.IsSupportedWrite = false;
+            this.IsSupportedWriteSlaveCPU = false;
             this.IsSupportedWriteBySegment = false;
             this.Description = "Not Set";
             this.LoaderRequired = false;
             this.HardwareType = PcmType.Undefined;
+            this.HardwareSlaveCPU = false;
             this.KernelFileName = string.Empty;
             this.KernelBaseAddress = 0x0;
             this.LoaderFileName = string.Empty;
@@ -167,9 +179,11 @@ namespace PcmHacking
                 case PcmType.P01_P59:
                     this.Description = "P01 512Kb or P59 1024Kb";
                     this.HardwareType = PcmType.P01_P59;
+                    this.HardwareSlaveCPU = false;
                     this.IsSupported = true;
                     this.IsSupportedRead = true;
                     this.IsSupportedWrite = true;
+                    this.IsSupportedWriteSlaveCPU = true;
                     this.IsSupportedWriteBySegment = true;
                     this.LoaderRequired = false;
                     this.KernelFileName = "Kernel-P01.bin";
@@ -189,9 +203,11 @@ namespace PcmHacking
                 case PcmType.P04_256k:
                     this.Description = "P04 1996/1997 256Kb V6";
                     this.HardwareType = PcmType.P04_256k;
+                    this.HardwareSlaveCPU = false;
                     this.IsSupported = true;
                     this.IsSupportedRead = true;
                     this.IsSupportedWrite = true;
+                    this.IsSupportedWriteSlaveCPU = true;
                     this.IsSupportedWriteBySegment = false;
                     this.LoaderRequired = true;
                     this.KernelFileName = "Kernel-P04_256k.bin";
@@ -211,9 +227,11 @@ namespace PcmHacking
                 case PcmType.P04:
                     this.Description = "P04 1998+ 512Kb V6";
                     this.HardwareType = PcmType.P04;
+                    this.HardwareSlaveCPU = false;
                     this.IsSupported = true;
                     this.IsSupportedRead = true;
                     this.IsSupportedWrite = true;
+                    this.IsSupportedWriteSlaveCPU = true;
                     this.IsSupportedWriteBySegment = false;
                     this.LoaderRequired = true;
                     this.KernelFileName = "Kernel-P04.bin";
@@ -238,9 +256,11 @@ namespace PcmHacking
                 case PcmType.P08:
                     this.Description = "P08 512Kb i4";
                     this.HardwareType = PcmType.P08;
+                    this.HardwareSlaveCPU = false;
                     this.IsSupported = true;
                     this.IsSupportedRead = true;
                     this.IsSupportedWrite = true;
+                    this.IsSupportedWriteSlaveCPU = true;
                     this.IsSupportedWriteBySegment = false;
                     this.LoaderRequired = false;
                     this.KernelFileName = "Kernel-P08.bin";
@@ -260,9 +280,11 @@ namespace PcmHacking
                 case PcmType.P10:
                     this.Description = "P10 1Mb";
                     this.HardwareType = PcmType.P10;
+                    this.HardwareSlaveCPU = true;
                     this.IsSupported = true;
                     this.IsSupportedRead = true;
                     this.IsSupportedWrite = true;
+                    this.IsSupportedWriteSlaveCPU = false;
                     this.IsSupportedWriteBySegment = true;
                     this.LoaderRequired = false;
                     this.KernelFileName = "Kernel-P10.bin";
@@ -282,9 +304,11 @@ namespace PcmHacking
                 case PcmType.P12:
                     this.Description = "P12 1Mb (Atlas I4/I5/I6)";
                     this.HardwareType = PcmType.P12;
+                    this.HardwareSlaveCPU = true;
                     this.IsSupported = true;
                     this.IsSupportedRead = true;
                     this.IsSupportedWrite = true;
+                    this.IsSupportedWriteSlaveCPU = false;
                     this.IsSupportedWriteBySegment = true;
                     this.LoaderRequired = false;
                     this.KernelFileName = "Kernel-P12.bin";
@@ -304,9 +328,11 @@ namespace PcmHacking
                 case PcmType.E54:
                     this.Description = "E54 LB7 Duramax";
                     this.HardwareType = PcmType.E54;
+                    this.HardwareSlaveCPU = false;
                     this.IsSupported = true;
                     this.IsSupportedRead = true;
                     this.IsSupportedWrite = true;
+                    this.IsSupportedWriteSlaveCPU = true;
                     this.IsSupportedWriteBySegment = true;
                     this.Description = "E54";
                     this.LoaderRequired = false;
@@ -324,22 +350,38 @@ namespace PcmHacking
                     this.KernelMaxBlockSize = 4096;
                     break;
 
+                case PcmType.BlackBox:
+                    this.Description = "Vortec BlackBox";
+                    this.HardwareType = PcmType.BlackBox;
+                    this.HardwareSlaveCPU = false;
+                    this.IsSupported = false;
+                    this.IsSupportedRead = true;
+                    this.IsSupportedWrite = true;
+                    this.IsSupportedWriteSlaveCPU = false;
+                    this.IsSupportedWriteBySegment = true;
+                    this.LoaderRequired = false;
+                    this.KernelFileName = "Kernel-BlackBox.bin";
+                    this.KernelBaseAddress = 0xFFC300;
+                    this.LoaderFileName = string.Empty;
+                    this.LoaderBaseAddress = 0x0;
+                    this.ImageBaseAddress = 0x0;
+                    this.ImageSize = 512 * 1024;
+                    this.KeyAlgorithm = 15;
+                    this.ChecksumSupport = true;
+                    this.FlashCRCSupport = true;
+                    this.FlashIDSupport = true;
+                    this.KernelVersionSupport = true;
+                    this.KernelMaxBlockSize = 4096;
+                    break;
+
                 case PcmType.E60:
                     this.Description = "E60 LLY Duramax";
                     this.HardwareType = PcmType.E60;
                     this.KeyAlgorithm = 2;
                     this.ImageBaseAddress = 0x0;
                     this.ImageSize = 1024 * 1024;
-                    
                     break;
 
-                case PcmType.BlackBox:
-                    this.Description = "BlackBox";
-                    this.HardwareType = PcmType.BlackBox;
-                    this.ImageBaseAddress = 0x0;
-                    this.ImageSize = 512 * 1024;
-                    this.KeyAlgorithm = 15;
-                    break;
                 default: return false;
             }
             return true;
@@ -727,6 +769,17 @@ namespace PcmHacking
                 case 16263425: // 9366810 'black box'
                     PCMInfo(PcmType.BlackBox);
                     this.Description = "Black Box Service No 9366810";
+                    break;
+
+                case 9378495:
+                case 16187577:
+                case 16227245:
+                case 16232915:
+                case 16235505:
+                case 16237015:
+                case 16256445:
+                    PCMInfo(PcmType.BlackBox);
+                    this.Description = "Black Box Service No 16244210";
                     break;
 
                 // 1996/1997 V8 Service number 16238212. Looks like the mid 90s 256k P04
@@ -2510,6 +2563,7 @@ namespace PcmHacking
                 case 12221096:
                 case 12222128:
                 case 12222134:
+                case 16257436:
                     PCMInfo(PcmType.P08);
                     this.Description = "P08 Service No 9356249";
                     break;
