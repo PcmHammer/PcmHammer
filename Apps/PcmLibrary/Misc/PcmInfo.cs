@@ -354,11 +354,11 @@ namespace PcmHacking
                     this.Description = "Vortec BlackBox";
                     this.HardwareType = PcmType.BlackBox;
                     this.HardwareSlaveCPU = false;
-                    this.IsSupported = false;
+                    this.IsSupported = true;
                     this.IsSupportedRead = true;
                     this.IsSupportedWrite = true;
                     this.IsSupportedWriteSlaveCPU = false;
-                    this.IsSupportedWriteBySegment = true;
+                    this.IsSupportedWriteBySegment = false;
                     this.LoaderRequired = false;
                     this.KernelFileName = "Kernel-BlackBox.bin";
                     this.KernelBaseAddress = 0xFFC300;
@@ -366,7 +366,7 @@ namespace PcmHacking
                     this.LoaderBaseAddress = 0x0;
                     this.ImageBaseAddress = 0x0;
                     this.ImageSize = 512 * 1024;
-                    this.KeyAlgorithm = 15;
+                    this.KeyAlgorithm = 16;
                     this.ChecksumSupport = true;
                     this.FlashCRCSupport = true;
                     this.FlashIDSupport = true;
@@ -582,6 +582,13 @@ namespace PcmHacking
 
                 //-------------------------
 
+                // 12583560
+                case 12590777:
+                    PCMInfo(PcmType.P01_P59);
+                    this.Description = "P59a Hybrid Service No 12583560";
+                    this.ImageSize = 1024 * 1024;
+                    break;
+
                 // 9354896
                 case 9360360:
                 case 9360361:
@@ -764,13 +771,7 @@ namespace PcmHacking
                     this.ImageSize = 1024 * 1024;
                     break;
 
-                case 9355699:
-                case 9365095:
-                case 16263425: // 9366810 'black box'
-                    PCMInfo(PcmType.BlackBox);
-                    this.Description = "Black Box Service No 9366810";
-                    break;
-
+                // 96/97 BlackBox is very different to 98+ and is unsupported. It has 2x 128Kb flash chips and talks its own OBD variant.
                 case 9378495:
                 case 16187577:
                 case 16227245:
@@ -778,8 +779,38 @@ namespace PcmHacking
                 case 16235505:
                 case 16237015:
                 case 16256445:
+                    PCMInfo(PcmType.Undefined); 
+                    this.Description = "Vortec Black Box 96/97, 5 Connector, Service No 16244210 (unsupported)";
+                    break;
+
+                // Vortec Black Box 98-02, 4 Plug, Service No 9355699 (TBC)
+                // Vortec Black Box 98-02, 4 Plug, Service No 9360615 (TBC)
+
+                // Vortec Black Box 98-02, 4 Plug, Service No 9366810
+                case 9355699:
+                case 9365095:
+                case 16263425: // 9366810 'black box'
                     PCMInfo(PcmType.BlackBox);
-                    this.Description = "Black Box Service No 16244210";
+                    this.Description = "Vortec Black Box 98/99 Service No 9366810";
+                    break;
+                
+                // Vortec Black Box 98-02, 4 Plug, Service No 16250279 (TBC)
+                // Vortec Black Box 98-02, 4 Plug, Service No 16258815 (TBC)
+                // Vortec Black Box 98-02, 4 Plug, Service No 16258825 (TBC)
+                // Vortec Black Box 98-02, 4 Plug, Service No 16265055 (TBC)
+                // Vortec Black Box 98-02, 4 Plug, Service No 16265065 (TBC)
+                // Vortec Black Box 98-02, 4 Plug, Service No 16266635 (TBC)
+                // Vortec Black Box 98-02, 4 Plug, Service No 16266645 (TBC)
+                // Vortec Black Box 98-02, 4 Plug, Service No 16266655 (TBC)
+
+                // Vortec Black Box Service No 16263494
+                case 9360505:
+                case 9365085:
+                case 9384185:
+                case 16251315:
+                case 16265175:
+                    PCMInfo(PcmType.BlackBox);
+                    this.Description = "Vortec Black Box 98-02, 4 Plug, Service No 16263494";
                     break;
 
                 // 1996/1997 V8 Service number 16238212. Looks like the mid 90s 256k P04

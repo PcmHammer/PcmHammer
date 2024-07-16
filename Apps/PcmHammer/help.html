@@ -39,37 +39,33 @@
     <p>This app currently supports the following types of devices:
 
     <p>
-        <b><a href="http://obdxpro.com/">OBDX Pro</a></b> - This is the best bang-for-the-buck. It supports 4x bus speeds and large data packets, but costs
-        well under $100. Full disclosure: the guys behind this company also helped with PCM Hammer development and testing.
+        <b><a href="http://obdxpro.com/?ref=pcmhacking">OBDX Pro</a></b> - This is the best bang-for-the-buck. It supports 4x bus speeds and large data packets, while costing
+        well under $100. This is the recommended interface. Full disclosure: The guys behind this company have also helped with PCM Hammer development and testing. Buying through this link supports development hardware costs as well as future development.
 
     <p>
         <b><a href="https://www.scantool.net/obdlink-sx/">ObdLink Scantool SX</a></b> - This is inexpensive and superior to ELM knock-off devices,
         however it does not support 4x (high speed) mode, and it only supports relatively short messages, so a full read from a 512kb PCM takes a little over 20 minutes.
 
-    <p><b><a href="https://www.scantool.net/obdlink-mxp/">ObdLink Scantool MX+</a></b> - Similar to the SX, but wireless. Note that the MX (without the "+") is <i>not</i> supported.
+    <p><b><a href="https://www.scantool.net/obdlink-mxp/">ObdLink Scantool MX/MX+</a></b> - Similar to the SX, but Bluetooth wireless. The connection to windows via Bluetooth can be troublesome, but when correctly configured it does work. Not recommended.
 
     <p>
-        <b><a href="https://www.scantool.net/obdlink-lx/">ObdLink Scantool LX</a></b> - It's like an SX or MX+, but wireless and significantly faster
-        because it supports larger messages. But it costs a bit more the SX and is still limited to 1X bus speeds.
-
+        <b><a href="https://www.scantool.net/obdlink-lx/">ObdLink Scantool LX</a></b> - It's like an SX or MX+, but wireless.
     <p>
         <b><a href="http://www.avt-hq.com/852_hw.htm">AVT 852</a></b> - This is the most expensive option, and the company doesn't cater to individual purchasers,
-        but this was one of the first interfaces to properly support J1850 VPW high-speed mode.
-
+        but this was one of the first interfaces to properly support J1850 VPW high-speed mode. No longer in production.
     <p>
         <b>Any J2534-compatible interface that supports J1850 VPW</b> - At least in theory, these should all work. There are quite a few of those on the market,
         and we cannot test them all, but if you have one, give it a try. As time goes by we'll list the ones that are proven to work. The genuine GM MDI is one
-        device which is known to work, though it is not cheap. Over time we hope to confirm that other, less expensive devices will also work.
+        device which is known to work well. Over time we hope to confirm that other, less expensive devices will also work. Usually the sub $25 J2534 tools do not work.
 
-    <P>Note that the Tactrix OpenPort 2.0 does not support J1850 VPW, so it is not supported.
+    <P>Note that the Tactrix OpenPort 2.0 does not support J1850 VPW despite some advertising saying that it does. VPW is required so it is not supported.
 
     <p>
         <b><a href="http://www.obddiag.net/products.html">ObdDiag AllPro</a></b> - Only the USB and dev-board versions are supported (not bluetooth).
-        The AllPro devices were quite inexpensive, and ObdDiag was a great partner in this project, incorporating changes and responding to feedback.
+        The AllPro devices were quite inexpensive, and ObdDiag was an early partner in this project, incorporating changes and responding to feedback.
         However the man behind the company has moved on to other things, so these devices are no longer available.
         Also, note that AllPro devices purchased before early June 2018 will need a firmware update to version 1.21 or later.
-        Updating the firmware on the AllPro adapter requires the FlashMagic tool. Instructions are on the <a href="http://www.obddiag.net/">ObdDiag.Net web site.</a> and a link to the firmware can be found <a href="http://www.obddiag.net/allpro.html">here</a>.
-
+		Not recommended.
     <p>
         Other devices based on the Scantool OBD2 chip may or may not work, depending on their message size limits.
         If you find another one that works (or doesn't), please let us know.

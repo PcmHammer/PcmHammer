@@ -821,14 +821,19 @@ namespace PcmHacking
                     this.AddUserMessage("OS ID query failed: " + osResponse.Status.ToString());
                 }
 
-                var calResponse = await this.Vehicle.QueryCalibrationId();
-                if (calResponse.Status == ResponseStatus.Success)
+                // Disable Calibration ID lookup for those that do not provide it
+                if (pcmInfo != null && pcmInfo.HardwareType != PcmType.BlackBox)
                 {
-                    this.AddUserMessage("Calibration ID: " + calResponse.Value.ToString());
-                }
-                else
-                {
-                    this.AddUserMessage("Calibration ID query failed: " + calResponse.Status.ToString());
+
+                    var calResponse = await this.Vehicle.QueryCalibrationId();
+                    if (calResponse.Status == ResponseStatus.Success)
+                    {
+                        this.AddUserMessage("Calibration ID: " + calResponse.Value.ToString());
+                    }
+                    else
+                    {
+                        this.AddUserMessage("Calibration ID query failed: " + calResponse.Status.ToString());
+                    }
                 }
 
                 // Disable HardwareID lookup for the P10, P12 and E54.
@@ -845,14 +850,19 @@ namespace PcmHacking
                     }
                 }
 
-                var serialResponse = await this.Vehicle.QuerySerial();
-                if (serialResponse.Status == ResponseStatus.Success)
+                // Disable Serial Number lookup for those that do not provide it
+                if (pcmInfo != null && pcmInfo.HardwareType != PcmType.BlackBox)
                 {
-                    this.AddUserMessage("Serial Number: " + serialResponse.Value.ToString());
-                }
-                else
-                {
-                    this.AddUserMessage("Serial Number query failed: " + serialResponse.Status.ToString());
+                    var serialResponse = await this.Vehicle.QuerySerial();
+
+                    if (serialResponse.Status == ResponseStatus.Success)
+                    {
+                        this.AddUserMessage("Serial Number: " + serialResponse.Value.ToString());
+                    }
+                    else
+                    {
+                        this.AddUserMessage("Serial Number query failed: " + serialResponse.Status.ToString());
+                    }
                 }
 
                 // Disable BCC lookup for those that do not provide it

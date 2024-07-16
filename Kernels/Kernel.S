@@ -37,11 +37,10 @@
   .equ VPP_BIT,               2
   .equ HARDWARE_IO,           0xFA11
 #elif defined BlackBox
-  .equ PORTF,                 0xFA19 | Port F for flash, b4 = 1 enables Vpp for flash
   .equ PORTFDIR,              0xFA1D | Port F data direction reg, b4 = 1 for PF4 output
   .equ PORTFASN,              0xFA1F | Port F pin assignment, clear b4 for port F assignment
   .equ VPP_BIT,               4
-  .equ HARDWARE_IO,           0xFA19
+  .equ HARDWARE_IO,           0xFA19 | Port F for flash, VPP bits for flash
 #else
   .equ VPP_BIT,               0
   .equ HARDWARE_IO,           0xE2FA
@@ -213,9 +212,10 @@ ProcessKernelID:
 |   a1 - OsID address buffer
 |
 | TODO: Have request supply address
-|
 ProcessOsID:
-#if defined P04
+#if defined P04_256k
+    movea.l #0x3FFFA, %a1              | Pointer to OsID location in Flash
+#elif defined P04
     movea.l #0x7FFFA, %a1              | Pointer to OsID location in Flash
 #elif defined P08
     movea.l #0x8000, %a1               | Pointer to OsID location in Flash
@@ -223,7 +223,7 @@ ProcessOsID:
     movea.l #0x52E, %a1                | Pointer to OsID location in Flash
 #elif defined P12
     movea.l #0x8004, %a1               | Pointer to OsID location in Flash
-#elif defined E54
+#elif defined E54 || defined BlackBox
     movea.l #0x20004, %a1              | Pointer to OsID location in Flash
 #else
     movea.l #0x504, %a1                | Pointer to OsID location in Flash
@@ -708,8 +708,8 @@ IntelFlashUnlock:
     move.w  #0x0F, (REG_FFF408).w      | Hardware Setup
     move.w  #0x05, (REG_FFF4C8).w      | Hardware Setup
 #elif defined BlackBox
-    move.w  #0xF8, (PORTFDIR).w        | Port F Direction
-    move.w  #0x00, (PORTFASN).w        | Port F Assignment
+    move.b  #0xF8, (PORTFDIR).w        | Port F Direction
+    move.b  #0x00, (PORTFASN).w        | Port F Assignment
 #endif
 
     move.w  #0x0007, (SIM_CSBARBT).w   | $FFFFFA48
@@ -726,13 +726,13 @@ IntelFlashUnlock:
 #elif defined P08
     bset    #VPP_BIT, (HARDWARE_IO).w  | Does not work on P01, needed for P08
 #elif defined BlackBox
-    move.b  #0x10, (PORTF).w           | Enable VPP signal from on Port F
+    bsr.w   WasteTime                  | Twiddle thumbs
+    move.b  #0x18,(HARDWARE_IO).w      | Vortec Blackbox needs it done this way
 #else
     move.w  (HARDWARE_IO).w, %d1       | Move Vpp Latch Address value to register
     bset    #VPP_BIT, %d1              | Set Vpp Latch Bit
     move.w  %d1, (HARDWARE_IO).w       | Move modified value back to Latch Address
 #endif
-
     move.w  #32767, %d1                | 32768 loops
 IntelFlashUnlockWait:                  | Allow Vpp ripple to settle
     bsr.w   ResetWatchdog              | Scratch the dog
@@ -766,7 +766,7 @@ IntelFlashLock:
 #elif defined P08
     bclr    #VPP_BIT, (HARDWARE_IO).w  | Does not work on P01, needed for P08
 #elif defined BlackBox
-    move.w  #0x00, (PORTF).w           | Clear VPP signal from on Port F
+    move.b  #0x00,(HARDWARE_IO).w      | Vortec Blackbox needs it done this way
 #else
     move.w  (HARDWARE_IO).w, %d1       | Move Vpp Latch Address value to register
     bclr    #VPP_BIT, %d1              | Set Vpp Latch Bit
