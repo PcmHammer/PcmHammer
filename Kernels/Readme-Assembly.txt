@@ -8,6 +8,7 @@ P10
 P12 (1m and 2m)
 P59
 E54
+BlackBox (4 connector 1998-2002)
 
 How to build the Assembly Kernels
 
@@ -32,11 +33,12 @@ Load addresses
     -aFFB800 -pP10
     -aFF2000 -pP12
     -aFF8F50 -pE54
+    -aFFC300 -pBlackBox
 
 Assembly kernel filelist
 Kernel.S              The Kernel
 Kernel.ld             Linker Script specific to the Assembly Kernel
 Loader.S              The Loader
 Loader.ld             Linker Script specific to the Assembly Loader
-Common-Assembly.h     Common elements, could not use Common.h due to conflict with the C Kernel
+Common-Assembly.h     Common elements
 Readme-Assembly.txt   Readme
