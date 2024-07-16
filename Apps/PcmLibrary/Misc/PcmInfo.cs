@@ -783,9 +783,6 @@ namespace PcmHacking
                     this.Description = "Vortec Black Box 96/97, 5 Connector, Service No 16244210 (unsupported)";
                     break;
 
-                // Vortec Black Box 98-02, 4 Plug, Service No 9355699 (TBC)
-                // Vortec Black Box 98-02, 4 Plug, Service No 9360615 (TBC)
-
                 // Vortec Black Box 98-02, 4 Plug, Service No 9366810
                 case 9355699:
                 case 9365095:
@@ -794,15 +791,6 @@ namespace PcmHacking
                     this.Description = "Vortec Black Box 98/99 Service No 9366810";
                     break;
                 
-                // Vortec Black Box 98-02, 4 Plug, Service No 16250279 (TBC)
-                // Vortec Black Box 98-02, 4 Plug, Service No 16258815 (TBC)
-                // Vortec Black Box 98-02, 4 Plug, Service No 16258825 (TBC)
-                // Vortec Black Box 98-02, 4 Plug, Service No 16265055 (TBC)
-                // Vortec Black Box 98-02, 4 Plug, Service No 16265065 (TBC)
-                // Vortec Black Box 98-02, 4 Plug, Service No 16266635 (TBC)
-                // Vortec Black Box 98-02, 4 Plug, Service No 16266645 (TBC)
-                // Vortec Black Box 98-02, 4 Plug, Service No 16266655 (TBC)
-
                 // Vortec Black Box Service No 16263494
                 case 9360505:
                 case 9365085:
