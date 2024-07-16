@@ -43,7 +43,7 @@
   .equ J1850_Status,     0xFF9000
   .equ J1850_RX_FIFO,    0xFF9001
   .equ COP1,             0xFFFA27
-  .equ COP2,             0xFF8806 | Not needed? Is COP3 really COP2?
+  .equ COP2,             0xFF8806
   .equ COP3,             0xFFC006
 #endif
 

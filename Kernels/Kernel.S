@@ -1,7 +1,8 @@
 | GM '0411 Kernel for PCMHammer
 | 2018-2023 Antus / PCMHacking.net
 | 2023-03-25 @21:00 Gampy <@pcmhacking.net>
-| 2024-06-11 @21:00 Antus / PCMHacking.net backport Gampy's akernel changes (shared without source), cleanup build system
+| 2024-06-11 @21:00 Antus / PCMHacking.net Backport Gampy's akernel changes (shared without source), cleanup build system
+| 2024-07-16 @19:00 Antus / PCMHacking.net Add P04_256k, BlackBox (98-02 4 connector)
 | ===========================================================================
 |
 | C directives will only work if the source filename is .S, yup, capital S.
