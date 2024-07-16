@@ -186,17 +186,19 @@ ProcessKernelID:
 #if defined P01
     move.b  #0x01, 8(%a0)              | P01, P59
 #elif defined P04_256k
-    move.b  #0xF4, 8(%a0)              | P04 256k
+    move.b  #0x44, 8(%a0)              | P04 256k
 #elif defined P04
     move.b  #0x04, 8(%a0)              | P04
 #elif defined P08
     move.b  #0x08, 8(%a0)              | P08
 #elif defined P10
-    move.b  #0x0A, 8(%a0)              | P10
+    move.b  #0x10, 8(%a0)              | P10
 #elif defined P12
     move.b  #0x0C, 8(%a0)              | P12
 #elif defined E54
     move.b  #0x36, 8(%a0)              | E54
+#elif defined BlackBox
+    move.b  #0x88, 8(%a0)              | BlackBox
 #endif
     move.w  #9, %d0                    | It's 9 bytes long
     bsr.w   VPWSend                    | Send it
