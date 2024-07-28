@@ -164,11 +164,11 @@ namespace PcmHacking
                             case 512 * 1024:
                                 if (image[0x7FFFE] == 0xFF && image[0x7FFFF] == 0xFF)
                                 {
-                                    osid = ReadUnsigned(image, 0xFFFF8); // some 1998 P04 
+                                    osid = ReadUnsigned(image, 0x7FFF8); // some 1998 P04 
                                 }
                                 else
                                 {
-                                    osid = ReadUnsigned(image, 0xFFFFA);
+                                    osid = ReadUnsigned(image, 0x7FFFA);
                                 }
                                 break;
                         }
