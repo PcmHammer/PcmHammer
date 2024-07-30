@@ -101,7 +101,7 @@ namespace PcmHacking
 
         public override string GetDeviceType()
         {
-            return DeviceType;
+            return ToolConnected == "" ? DeviceType : ToolConnected;
         }
 
         public override async Task<bool> Initialize()
@@ -201,7 +201,7 @@ namespace PcmHacking
         {
             if (timeout == 0)
             {
-                timeout = 500;
+                timeout = 1000;
             }
 
             int TempCount = 0;

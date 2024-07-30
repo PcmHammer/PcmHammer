@@ -25,12 +25,12 @@ namespace PcmHacking
     public class CKernelWriter
     {
         private readonly Vehicle vehicle;
-        private readonly PcmInfo pcmInfo;
+        private readonly OSIDInfo pcmInfo;
         private readonly Protocol protocol;
         private readonly WriteType writeType;
         private readonly ILogger logger;
 
-        public CKernelWriter(Vehicle vehicle, PcmInfo pcmInfo, Protocol protocol, WriteType writeType, ILogger logger)
+        public CKernelWriter(Vehicle vehicle, OSIDInfo pcmInfo, Protocol protocol, WriteType writeType, ILogger logger)
         {
             this.vehicle = vehicle;
             this.pcmInfo = pcmInfo;
@@ -65,7 +65,7 @@ namespace PcmHacking
                     if (this.vehicle.Enable4xReadWrite)
                     {
                         // if the vehicle bus switches but the device does not, the bus will need to time out to revert back to 1x, and the next steps will fail.
-                        if (!await this.vehicle.VehicleSetVPW4x(VpwSpeed.FourX))
+                        if (!await this.vehicle.VehicleSetVPW4x(this.pcmInfo, VpwSpeed.FourX))
                         {
                             this.logger.AddUserMessage("Stopping here because we were unable to switch to 4X.");
                             return false;
@@ -104,7 +104,7 @@ namespace PcmHacking
                             return false;
                         }
 
-                        logger.AddUserMessage("Loader uploaded to PCM succesfully.");
+                        logger.AddUserMessage("Loader uploaded to PCM successfully.");
                     }
 
                     response = await this.vehicle.LoadKernelFromFile(this.pcmInfo.KernelFileName);
@@ -126,7 +126,7 @@ namespace PcmHacking
                         return false;
                     }
 
-                    logger.AddUserMessage("Kernel uploaded to PCM succesfully.");
+                    logger.AddUserMessage("Kernel uploaded to PCM successfully.");
                 }
 
                 // Confirm operating system match
@@ -247,7 +247,12 @@ namespace PcmHacking
             logger.AddUserMessage("Flash chip: " + flashChip.ToString());
 
             // This is the only thing preventing a P01 os write to a P59 or vice-versa because of the shared P01_P59 type
-            if (pcmInfo.ImageSize != image.Length)
+            // But a P10 has a 1Mb chip that is only 512Kb used, so that can be allowed.
+            if ((pcmInfo.HardwareType == PcmType.P10 && image.Length == 512 * 1024 || flashChip.Size == 1024 * 1024))
+            {
+                this.logger.AddUserMessage(string.Format("File size {0:n0} for flash chip size {1:n0}. Allowable for P10.", image.Length, flashChip.Size));
+            }
+            else if (flashChip.Size != image.Length)
             {
                 this.logger.AddUserMessage(string.Format("File size {0:n0} does not match PCM size {1:n0}. This image is not compatible with this PCM.", image.Length, pcmInfo.ImageSize));
                 await this.vehicle.Cleanup();

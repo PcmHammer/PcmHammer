@@ -208,7 +208,6 @@ namespace PcmHacking
             {
                 logger.AddUserMessage(operation + "-request messages had to be re-sent " + retryCount + " times.");
             }
-            logger.AddUserMessage("Please help by sharing your results in the PCM Hammer thread at pcmhacking.net.");
         }
 
         /// <summary>

@@ -209,42 +209,6 @@ rem * Create PCM specific object file list from CFiles-<PCM>.list
 
 rem *** All that for this ...
 
-if not defined ASSEMBLY_KERNEL (
-  rem ***
-  rem *** C Kernel
-  rem ***
-  "%GCC_LOCATION%\m68k-elf-gcc.exe" -c -D=%PCM% -fomit-frame-pointer -std=gnu99 -mcpu=68332 -O0 Kernel-%PCM%.c @CFiles-%PCM%.list
-  if %errorlevel% neq 0 goto :EOF
-
-  rem * Create PCM specific Linker Script (.ld).
-  rem *** WARNING! Redirections (>) break inside if statements and do ugly things to the environment!
-  rem *** If you get brave and test the above mentioned issue, be sure to use a new command interpreter each time, for it does corrupt it!
-  rem *** To get around this, we'll do it in another environment, thus no if statement, thus no issue.
-  call CreateCKernelPCMSpecificLinkerScript.cmd %PCM%
-
-  "%GCC_LOCATION%\m68k-elf-ld.exe" --section-start .kernel_code=0x%BASE_ADDRESS% -T LinkerScript.tmp %DUMPMAP% -o Kernel-%PCM%.elf Kernel-%PCM%.o %OLIST%
-  if %errorlevel% neq 0 goto :EOF
-
-  del /f LinkerScript.tmp
-
-  "%GCC_LOCATION%\m68k-elf-objcopy.exe" -O binary --only-section=.kernel_code --only-section=.rodata Kernel-%PCM%.elf Kernel-%PCM%.bin
-  if %errorlevel% neq 0 goto :EOF
-
-  if defined DUMP_ELF (
-    "%GCC_LOCATION%\m68k-elf-objdump.exe" -d -S Kernel-%PCM%.elf > Kernel-%PCM%.disassembly
-    if %errorlevel% neq 0 goto :EOF
-  )
-
-  if defined COPY_BIN (
-    echo Copying Kernel-%PCM%.bin -^> %BIN_LOCATION%\Kernel-%PCM%.bin
-    copy Kernel-%PCM%.bin "%BIN_LOCATION%" 1>nul
-  )
-) else (
-
-  rem ***
-  rem *** Assembly Kernel and or Loader
-  rem ***
-
   rem *** Builds the Assembly kernel
   "%GCC_LOCATION%\m68k-elf-gcc.exe" -c -D=%PCM% -fomit-frame-pointer -std=gnu99 -mcpu=68332 -O0 Kernel.S
   if %errorlevel% neq 0 goto :EOF

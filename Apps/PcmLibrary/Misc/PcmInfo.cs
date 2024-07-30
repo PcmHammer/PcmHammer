@@ -10,14 +10,15 @@ namespace PcmHacking
     {
         Undefined = 0, // required for failed osid test on binary file
         P01_P59,
+        P04_256k,
         P04,
         P05,
         P08,
         P10,
         P12,
-        E54,
-        LLY,
-        BLACKBOX
+        E54, //E54 (01-04 LB7 Duramax) 
+        E60, //E60 (04-05 LLY Duramax)
+        BlackBox
     }
 
     /// <summary>
@@ -26,7 +27,7 @@ namespace PcmHacking
     /// <remarks>
     /// This was ported from the LS1 flashing utility originally posted at pcmhacking.net.
     /// </remarks>
-    public class PcmInfo
+    public class OSIDInfo
     {
         /// <summary>
         /// Operating system ID.
@@ -44,6 +45,26 @@ namespace PcmHacking
         public bool IsSupported { get; private set; }
 
         /// <summary>
+        /// Indicates whether this PCM is supported to read
+        /// </summary>
+        public bool IsSupportedRead { get; private set; }
+
+        /// <summary>
+        /// Indicates whether this PCM is supported to write
+        /// </summary>
+        public bool IsSupportedWrite { get; private set; }
+
+        /// <summary>
+        /// Indicates whether this PCM is supports writing the slave CPU. If it cannot, we must block (or warn) OSID change.
+        /// </summary>
+        public bool IsSupportedWriteSlaveCPU { get; private set; }
+
+        /// <summary>
+        /// Indicates whether this PCM is supported to write by flash segment (later PCMs)
+        /// </summary>
+        public bool IsSupportedWriteBySegment { get; private set; }
+
+        /// <summary>
         /// PCM requires a kernel loader
         /// </summary>
         /// <remarks>
@@ -53,14 +74,14 @@ namespace PcmHacking
         public bool LoaderRequired { get; set; }
 
         /// <summary>
-        /// Indicates how to validate files before writing.
-        /// </summary>
-        public PcmType ValidationMethod { get; private set; }
-
-        /// <summary>
         /// What type of hardware it is
         /// </summary>
         public PcmType HardwareType { get; private set; }
+
+        /// <summary>
+        /// Does it have a slave CPU?
+        /// </summary>
+        public bool HardwareSlaveCPU { get; private set; }
 
         /// <summary>
         /// Name of the kernel file to use.
@@ -93,11 +114,6 @@ namespace PcmHacking
         public int ImageSize { get; private set; }
 
         /// <summary>
-        /// Size of the ROM.
-        /// </summary>
-        public int RAMSize { get; private set; }
-
-        /// <summary>
         /// Which key algorithm to use to unlock the PCM.
         /// </summary>
         public int KeyAlgorithm { get; private set; }
@@ -128,46 +144,255 @@ namespace PcmHacking
         public int KernelMaxBlockSize { get; private set; }
 
         /// <summary>
-        /// Assembly Kernel detected.
+        /// Populate this object based on the given PcmType.
         /// </summary>
-        /// <remarks>
-        /// Bit of a hack to support both the C Kernels and the Assembly Kernels EASILY with minimal changes.
-        /// After the C Kernels are gone this is no longer necessary.
-        /// Also see notes in CKernelVerifier CompareRanges().
-        /// </remarks>
-        public bool AssemblyKernel { get; set; } = false;
+        public bool PCMInfo(PcmType pcmType)
+        {
+            this.IsSupported = false;
+            this.IsSupportedRead = false;
+            this.IsSupportedWrite = false;
+            this.IsSupportedWriteSlaveCPU = false;
+            this.IsSupportedWriteBySegment = false;
+            this.Description = "Not Set";
+            this.LoaderRequired = false;
+            this.HardwareType = PcmType.Undefined;
+            this.HardwareSlaveCPU = false;
+            this.KernelFileName = string.Empty;
+            this.KernelBaseAddress = 0x0;
+            this.LoaderFileName = string.Empty;
+            this.LoaderBaseAddress = 0x0;
+            this.ImageBaseAddress = 0x0;
+            this.KeyAlgorithm = 0;
+            this.ChecksumSupport = false;
+            this.FlashCRCSupport = false;
+            this.FlashIDSupport = false;
+            this.KernelVersionSupport = false;
+            this.KernelMaxBlockSize = 4096;
+
+            switch (pcmType)
+            {
+                case PcmType.Undefined:
+                    this.Description = "unknown";
+                    this.HardwareType = PcmType.Undefined;
+                    break;
+
+                case PcmType.P01_P59:
+                    this.Description = "P01 512KiB or P59 1024KiB";
+                    this.HardwareType = PcmType.P01_P59;
+                    this.HardwareSlaveCPU = false;
+                    this.IsSupported = true;
+                    this.IsSupportedRead = true;
+                    this.IsSupportedWrite = true;
+                    this.IsSupportedWriteSlaveCPU = true;
+                    this.IsSupportedWriteBySegment = true;
+                    this.LoaderRequired = false;
+                    this.KernelFileName = "Kernel-P01.bin";
+                    this.KernelBaseAddress = 0xFF8000;
+                    this.LoaderFileName = string.Empty;
+                    this.LoaderBaseAddress = 0x0;
+                    this.ImageBaseAddress = 0x0;
+                    this.ImageSize = 512 * 1024; //for the P01, override for a P59 by OSID
+                    this.KeyAlgorithm = 40;
+                    this.ChecksumSupport = true;
+                    this.FlashCRCSupport = true;
+                    this.FlashIDSupport = true;
+                    this.KernelVersionSupport = true;
+                    this.KernelMaxBlockSize = 4096;
+                    break;
+
+                case PcmType.P04_256k:
+                    this.Description = "P04 1996/1997 256KiB V6";
+                    this.HardwareType = PcmType.P04_256k;
+                    this.HardwareSlaveCPU = false;
+                    this.IsSupported = true;
+                    this.IsSupportedRead = true;
+                    this.IsSupportedWrite = true;
+                    this.IsSupportedWriteSlaveCPU = true;
+                    this.IsSupportedWriteBySegment = false;
+                    this.LoaderRequired = true;
+                    this.KernelFileName = "Kernel-P04_256k.bin";
+                    this.KernelBaseAddress = 0xFF8000;
+                    this.LoaderFileName = "Loader-P04.bin";
+                    this.LoaderBaseAddress = 0xFF9890;
+                    this.ImageBaseAddress = 0x0;
+                    this.ImageSize = 256 * 1024;
+                    this.KeyAlgorithm = 6;
+                    this.ChecksumSupport = true;
+                    this.FlashCRCSupport = true;
+                    this.FlashIDSupport = true;
+                    this.KernelVersionSupport = true;
+                    this.KernelMaxBlockSize = 4096;
+                    break;
+
+                case PcmType.P04:
+                    this.Description = "P04 1998+ 512KiB V6";
+                    this.HardwareType = PcmType.P04;
+                    this.HardwareSlaveCPU = false;
+                    this.IsSupported = true;
+                    this.IsSupportedRead = true;
+                    this.IsSupportedWrite = true;
+                    this.IsSupportedWriteSlaveCPU = true;
+                    this.IsSupportedWriteBySegment = false;
+                    this.LoaderRequired = true;
+                    this.KernelFileName = "Kernel-P04.bin";
+                    this.KernelBaseAddress = 0xFF8000;
+                    this.LoaderFileName = "Loader-P04.bin";
+                    this.LoaderBaseAddress = 0xFF9890;
+                    this.ImageBaseAddress = 0x0;
+                    this.ImageSize = 512 * 1024;
+                    this.KeyAlgorithm = 14;
+                    this.ChecksumSupport = true;
+                    this.FlashCRCSupport = true;
+                    this.FlashIDSupport = true;
+                    this.KernelVersionSupport = true;
+                    this.KernelMaxBlockSize = 4096;
+                    break;
+
+                case PcmType.P05:
+                    this.Description = "P05";
+                    this.HardwareType = PcmType.P05;
+                    break;
+
+                case PcmType.P08:
+                    this.Description = "P08 512KiB i4";
+                    this.HardwareType = PcmType.P08;
+                    this.HardwareSlaveCPU = false;
+                    this.IsSupported = true;
+                    this.IsSupportedRead = true;
+                    this.IsSupportedWrite = true;
+                    this.IsSupportedWriteSlaveCPU = true;
+                    this.IsSupportedWriteBySegment = false;
+                    this.LoaderRequired = false;
+                    this.KernelFileName = "Kernel-P08.bin";
+                    this.KernelBaseAddress = 0xFFAC00;
+                    this.LoaderFileName = string.Empty;
+                    this.LoaderBaseAddress = 0x0;
+                    this.ImageBaseAddress = 0x0;
+                    this.ImageSize = 512 * 1024;
+                    this.KeyAlgorithm = 13;
+                    this.ChecksumSupport = true;
+                    this.FlashCRCSupport = true;
+                    this.FlashIDSupport = true;
+                    this.KernelVersionSupport = true;
+                    this.KernelMaxBlockSize = 4096;
+                    break;
+
+                case PcmType.P10:
+                    this.Description = "P10 1Mb";
+                    this.HardwareType = PcmType.P10;
+                    this.HardwareSlaveCPU = true;
+                    this.IsSupported = true;
+                    this.IsSupportedRead = true;
+                    this.IsSupportedWrite = true;
+                    this.IsSupportedWriteSlaveCPU = false;
+                    this.IsSupportedWriteBySegment = true;
+                    this.LoaderRequired = false;
+                    this.KernelFileName = "Kernel-P10.bin";
+                    this.KernelBaseAddress = 0xFFB800;
+                    this.LoaderFileName = string.Empty;
+                    this.LoaderBaseAddress = 0x0;
+                    this.ImageBaseAddress = 0x0;
+                    this.ImageSize = 512 * 1024;
+                    this.KeyAlgorithm = 66;
+                    this.ChecksumSupport = true;
+                    this.FlashCRCSupport = true;
+                    this.FlashIDSupport = true;
+                    this.KernelVersionSupport = true;
+                    this.KernelMaxBlockSize = 4096;
+                    break;
+
+                case PcmType.P12:
+                    this.Description = "P12 1Mb (Atlas I4/I5/I6)";
+                    this.HardwareType = PcmType.P12;
+                    this.HardwareSlaveCPU = true;
+                    this.IsSupported = true;
+                    this.IsSupportedRead = true;
+                    this.IsSupportedWrite = true;
+                    this.IsSupportedWriteSlaveCPU = false;
+                    this.IsSupportedWriteBySegment = true;
+                    this.LoaderRequired = false;
+                    this.KernelFileName = "Kernel-P12.bin";
+                    this.KernelBaseAddress = 0xFF2000; // or FF0000? https://pcmhacking.net/forums/viewtopic.php?f=42&t=7742&start=450#p115622
+                    this.LoaderFileName = string.Empty;
+                    this.LoaderBaseAddress = 0x0;
+                    this.ImageBaseAddress = 0x0;
+                    this.ImageSize = 1024 * 1024;
+                    this.KeyAlgorithm = 91;
+                    this.ChecksumSupport = true;
+                    this.FlashCRCSupport = true;
+                    this.FlashIDSupport = true;
+                    this.KernelVersionSupport = true;
+                    this.KernelMaxBlockSize = 4096;
+                    break;
+
+                case PcmType.E54:
+                    this.Description = "E54 LB7 Duramax";
+                    this.HardwareType = PcmType.E54;
+                    this.HardwareSlaveCPU = false;
+                    this.IsSupported = true;
+                    this.IsSupportedRead = true;
+                    this.IsSupportedWrite = true;
+                    this.IsSupportedWriteSlaveCPU = true;
+                    this.IsSupportedWriteBySegment = true;
+                    this.Description = "E54";
+                    this.LoaderRequired = false;
+                    this.KernelFileName = "Kernel-E54.bin";
+                    this.KernelBaseAddress = 0xFF8F50;
+                    this.LoaderFileName = string.Empty;
+                    this.LoaderBaseAddress = 0x0;
+                    this.ImageBaseAddress = 0x0;
+                    this.ImageSize = 512 * 1024;
+                    this.KeyAlgorithm = 2;
+                    this.ChecksumSupport = true;
+                    this.FlashCRCSupport = true;
+                    this.FlashIDSupport = true;
+                    this.KernelVersionSupport = true;
+                    this.KernelMaxBlockSize = 4096;
+                    break;
+
+                case PcmType.BlackBox:
+                    this.Description = "Vortec BlackBox";
+                    this.HardwareType = PcmType.BlackBox;
+                    this.HardwareSlaveCPU = false;
+                    this.IsSupported = true;
+                    this.IsSupportedRead = true;
+                    this.IsSupportedWrite = true;
+                    this.IsSupportedWriteSlaveCPU = false;
+                    this.IsSupportedWriteBySegment = false;
+                    this.LoaderRequired = false;
+                    this.KernelFileName = "Kernel-BlackBox.bin";
+                    this.KernelBaseAddress = 0xFFC300;
+                    this.LoaderFileName = string.Empty;
+                    this.LoaderBaseAddress = 0x0;
+                    this.ImageBaseAddress = 0x0;
+                    this.ImageSize = 512 * 1024;
+                    this.KeyAlgorithm = 16;
+                    this.ChecksumSupport = true;
+                    this.FlashCRCSupport = true;
+                    this.FlashIDSupport = true;
+                    this.KernelVersionSupport = true;
+                    this.KernelMaxBlockSize = 4096;
+                    break;
+
+                case PcmType.E60:
+                    this.Description = "E60 LLY Duramax";
+                    this.HardwareType = PcmType.E60;
+                    this.KeyAlgorithm = 2;
+                    this.ImageBaseAddress = 0x0;
+                    this.ImageSize = 1024 * 1024;
+                    break;
+
+                default: return false;
+            }
+            return true;
+        }
 
         /// <summary>
         /// Populate this object based on the given OSID.
         /// </summary>
-        public PcmInfo(uint osid)
+        public OSIDInfo(uint osid)
         {
             this.OSID = osid;
-
-            // These defaults work for P01 and P59 hardware.
-            // Differences are overwriten for other hardware and kernels.
-            //
-            // This is a complete list of PCM related properties and in the same order as the declarations above.
-            // It's a good template to use for each PCM ... Nice neat and ordely.
-            //
-            //this.Description = "";
-            this.IsSupported = true;
-            this.LoaderRequired = false;
-            this.ValidationMethod = PcmType.P01_P59;
-            this.HardwareType = PcmType.P01_P59;
-            this.KernelFileName = "Kernel-P01.bin";
-            this.KernelBaseAddress = 0xFF8000;
-            //this.LoaderFileName = string.Empty;
-            //this.LoaderBaseAddress = 0x0;
-            //this.ImageBaseAddress = 0x0;
-            //this.ImageSize = 0x0;
-            this.RAMSize = 0x4DFF;
-            //this.KeyAlgorithm = 0;
-            this.ChecksumSupport = true;
-            this.FlashCRCSupport = true;
-            this.FlashIDSupport = true;
-            this.KernelVersionSupport = true;
-            this.KernelMaxBlockSize = 4096;
 
             switch (osid)
             {
@@ -186,38 +411,16 @@ namespace PcmHacking
                 case 02600605:
                 case 02685305:
                 case 03904405:
+                    PCMInfo(PcmType.E54);
                     this.Description = "E54 LB7 EFILive COS";
-                    this.IsSupported = false;
-                    this.ValidationMethod = PcmType.E54;
-                    this.HardwareType = PcmType.E54;
-                    this.KernelFileName = "Kernel-E54.bin";
-                    this.KernelBaseAddress = 0xFF8F50;
-                    this.ImageBaseAddress = 0x0;
-                    this.ImageSize = 512 * 1024;
-                    this.KeyAlgorithm = 2;
-                    this.ChecksumSupport = false;
-                    this.FlashCRCSupport = true;
-                    this.FlashIDSupport = true;
-                    this.KernelVersionSupport = true;
                     break;
 
                 // LB7 Duramax service no 9388505
                 case 15063376:
                 case 15188873:
                 case 15097100:
-                    this.Description = "E54 LB7 9388505";
-                    this.IsSupported = false;
-                    this.ValidationMethod = PcmType.E54;
-                    this.HardwareType = PcmType.E54;
-                    this.KernelFileName = "Kernel-E54.bin";
-                    this.KernelBaseAddress = 0xFF8F50;
-                    this.ImageBaseAddress = 0x0;
-                    this.ImageSize = 512 * 1024;
-                    this.KeyAlgorithm = 2;
-                    this.ChecksumSupport = false;
-                    this.FlashCRCSupport = true;
-                    this.FlashIDSupport = true;
-                    this.KernelVersionSupport = true;
+                    PCMInfo(PcmType.E54);
+                    this.Description = "E54 Service No 9388505";
                     break;
 
                 // LB7 Duramax service no 12210729
@@ -226,22 +429,11 @@ namespace PcmHacking
                 case 15166853:
                 case 15186006:
                 case 15189044:
-                    this.Description = "E54 LB7 12210729";
-                    this.IsSupported = false;
-                    this.ValidationMethod = PcmType.E54;
-                    this.HardwareType = PcmType.E54;
-                    this.KernelFileName = "Kernel-E54.bin";
-                    this.KernelBaseAddress = 0xFF8F50;
-                    this.ImageBaseAddress = 0x0;
-                    this.ImageSize = 512 * 1024;
-                    this.KeyAlgorithm = 2;
-                    this.ChecksumSupport = false;
-                    this.FlashCRCSupport = true;
-                    this.FlashIDSupport = true;
-                    this.KernelVersionSupport = true;
+                    PCMInfo(PcmType.E54);
+                    this.Description = "E54 Service No 12210729";
                     break;
 
-                // LLY Duramax service no 12244189 - 1mbyte?
+                // LLY Duramax E60 service no 12244189 - 1mbyte?
                 case 15141668:
                 case 15193885:
                 case 15228758:
@@ -249,12 +441,8 @@ namespace PcmHacking
                 case 15231600:
                 case 15879103:
                 case 15087230:
-                    this.IsSupported = false;
-                    this.KeyAlgorithm = 2;
-                    this.Description = "LLY 12244189";
-                    this.ImageBaseAddress = 0x0;
-                    this.ImageSize = 1024 * 1024;
-                    this.HardwareType = PcmType.LLY;
+                    PCMInfo(PcmType.E60);
+                    this.Description = "E60 Service No 12244189";
                     break;
 
                 // LL7 Duramax EFI Live Cos
@@ -266,104 +454,90 @@ namespace PcmHacking
                 case 05388505:
                 case 05875801:
                 case 05875805:
-                    this.IsSupported = false;
-                    this.KeyAlgorithm = 2;
+                    PCMInfo(PcmType.E60);
                     this.Description = "LLY EFILive COS";
-                    this.ImageBaseAddress = 0x0;
-                    this.ImageSize = 1024 * 1024;
-                    this.HardwareType = PcmType.LLY;
                     break;
 
                 // VCM Suite COS
                 case 1251001:
-                    this.KeyAlgorithm = 3;
+                    PCMInfo(PcmType.P01_P59);
                     this.Description = "VCM Suite 2 Bar";
-                    this.ImageBaseAddress = 0x0;
-                    this.ImageSize = 512 * 1024;
+                    this.KeyAlgorithm = 3;
                     break;
 
                 case 1261001:
-                    this.KeyAlgorithm = 4;
+                    PCMInfo(PcmType.P01_P59);
                     this.Description = "VCM Suite 3 Bar";
-                    this.ImageBaseAddress = 0x0;
-                    this.ImageSize = 512 * 1024;
+                    this.KeyAlgorithm = 4;
                     break;
 
                 case 1271001:
-                    this.KeyAlgorithm = 5;
+                    PCMInfo(PcmType.P01_P59);
                     this.Description = "VCM Suite Mafless";
-                    this.ImageBaseAddress = 0x0;
-                    this.ImageSize = 512 * 1024;
+                    this.KeyAlgorithm = 5;
                     break;
 
                 case 1281001:
-                    this.KeyAlgorithm = 6;
+                    PCMInfo(PcmType.P01_P59);
                     this.Description = "VCM Suite MAF RTT";
-                    this.ImageBaseAddress = 0x0;
-                    this.ImageSize = 512 * 1024;
+                    this.KeyAlgorithm = 6;
                     break;
 
                 case 1271002:
-                    this.KeyAlgorithm = 7;
+                    PCMInfo(PcmType.P01_P59);
                     this.Description = "VCM Suite Mafless";
-                    this.ImageBaseAddress = 0x0;
-                    this.ImageSize = 512 * 1024;
+                    this.KeyAlgorithm = 7;
                     break;
 
                 case 1251002:
-                    this.KeyAlgorithm = 8;
+                    PCMInfo(PcmType.P01_P59);
                     this.Description = "VCM Suite 2 Bar";
-                    this.ImageBaseAddress = 0x0;
-                    this.ImageSize = 512 * 1024;
+                    this.KeyAlgorithm = 8;
                     break;
 
                 case 1261002:
-                    this.KeyAlgorithm = 9;
+                    PCMInfo(PcmType.P01_P59);
                     this.Description = "VCM Suite MAF RTT";
-                    this.ImageBaseAddress = 0x0;
-                    this.ImageSize = 512 * 1024;
+                    this.KeyAlgorithm = 9;
                     break;
 
                 case 1281002:
-                    this.KeyAlgorithm = 10;
+                    PCMInfo(PcmType.P01_P59);
                     this.Description = "VCM Suite 3 Bar";
-                    this.ImageBaseAddress = 0x0;
-                    this.ImageSize = 512 * 1024;
+                    this.KeyAlgorithm = 10;
                     break;
+
                 case 1271003:
-                    this.KeyAlgorithm = 11;
+                    PCMInfo(PcmType.P01_P59);
                     this.Description = "VCM Suite Mafless";
-                    this.ImageBaseAddress = 0x0;
-                    this.ImageSize = 512 * 1024;
+                    this.KeyAlgorithm = 11;
                     break;
 
                 case 1251003:
-                    this.KeyAlgorithm = 12;
+                    PCMInfo(PcmType.P01_P59);
                     this.Description = "VCM Suite 2 Bar";
-                    this.ImageBaseAddress = 0x0;
-                    this.ImageSize = 512 * 1024;
+                    this.KeyAlgorithm = 12;
                     break;
 
                 case 1261003:
-                    this.KeyAlgorithm = 13;
+                    PCMInfo(PcmType.P01_P59);
                     this.Description = "VCM Suite 3 Bar";
-                    this.ImageBaseAddress = 0x0;
-                    this.ImageSize = 512 * 1024;
+                    this.KeyAlgorithm = 13;
                     break;
 
                 case 1281003:
-                    this.KeyAlgorithm = 14;
+                    PCMInfo(PcmType.P01_P59);
                     this.Description = "VCM Suite MAF RTT";
-                    this.ImageBaseAddress = 0x0;
-                    this.ImageSize = 512 * 1024;
+                    this.KeyAlgorithm = 14;
                     break;
 
                 case 1273057:
-                    this.KeyAlgorithm = 40;
+                    PCMInfo(PcmType.P01_P59);
                     this.Description = "VCM Suite COS 1M";
-                    this.ImageBaseAddress = 0x0;
+                    this.KeyAlgorithm = 40;
                     this.ImageSize = 1024 * 1024;
                     break;
+
                 //------- HPT COS -----------
                 case 1250013:
                 case 1250018:
@@ -402,12 +576,18 @@ namespace PcmHacking
                 case 1281014:
                 case 1281016:
                 case 1281918:
+                    PCMInfo(PcmType.P01_P59);
                     this.Description = "Unknown VCM Suite COS";
-                    this.ImageBaseAddress = 0x0;
-                    this.ImageSize = 512 * 1024;
                     break;
 
                 //-------------------------
+
+                // 12583560
+                case 12590777:
+                    PCMInfo(PcmType.P01_P59);
+                    this.Description = "P59a Hybrid Service No 12583560";
+                    this.ImageSize = 1024 * 1024;
+                    break;
 
                 // 9354896
                 case 9360360:
@@ -423,10 +603,8 @@ namespace PcmHacking
                 case 12593359:
                 case 12597506:
                 case 16253027:
-                    this.KeyAlgorithm = 40;
-                    this.Description = "9354896";
-                    this.ImageBaseAddress = 0x0;
-                    this.ImageSize = 512 * 1024;
+                    PCMInfo(PcmType.P01_P59);
+                    this.Description = "P01 Service No 9354896";
                     break;
 
                 // 12200411
@@ -439,10 +617,8 @@ namespace PcmHacking
                 case 12221588:
                 case 12225074: // main 2003/2004 OS
                 case 12593358:
-                    this.KeyAlgorithm = 40;
-                    this.Description = "12200411";
-                    this.ImageBaseAddress = 0x0;
-                    this.ImageSize = 512 * 1024;
+                    PCMInfo(PcmType.P01_P59);
+                    this.Description = "P01 Service No 12200411";
                     break;
 
                 case 01250001:
@@ -494,32 +670,30 @@ namespace PcmHacking
                 case 04073003:
                 case 04110002:
                 case 05120002:
-                    this.KeyAlgorithm = 40;
+                    PCMInfo(PcmType.P01_P59);
                     string type = osid.ToString();
                     switch (Convert.ToInt32(type, 10))
                     {
                         case 1:
-                            this.Description = "EFI Live COS1";
+                            this.Description = "P01 EFI Live COS1";
                             break;
 
                         case 2:
-                            this.Description = "EFI Live COS2";
+                            this.Description = "P01 EFI Live COS2";
                             break;
 
                         case 3:
-                            this.Description = "EFI Live COS3";
+                            this.Description = "P01 EFI Live COS3";
                             break;
 
                         case 5:
-                            this.Description = "EFI Live COS5";
+                            this.Description = "P01 EFI Live COS5";
                             break;
 
                         default:
-                            this.Description = "EFI Live COS";
+                            this.Description = "P01 EFI Live COS";
                             break;
                     }
-                    this.ImageBaseAddress = 0x0;
-                    this.ImageSize = 512 * 1024;
                     break;
 
                 // 1Mb pcms
@@ -529,8 +703,8 @@ namespace PcmHacking
                 case 12593555:
                 case 12606961:
                 case 12612115:
-                    this.KeyAlgorithm = 40;
-                    this.Description = "12589463";
+                    PCMInfo(PcmType.P01_P59);
+                    this.Description = "P59 Service No 12589463";
                     this.ImageSize = 1024 * 1024;
                     break;
 
@@ -544,8 +718,8 @@ namespace PcmHacking
                 case 12592433: //Aussie
                 case 12606960:
                 case 12612114:
-                    this.KeyAlgorithm = 40;
-                    this.Description = "12586242";
+                    PCMInfo(PcmType.P01_P59);
+                    this.Description = "P59 Service No 12586242";
                     this.ImageSize = 1024 * 1024;
                     break;
 
@@ -559,8 +733,8 @@ namespace PcmHacking
                 case 76030007:
                 case 76030008:
                 case 76030009:
-                    this.KeyAlgorithm = 40;
-                    this.Description = "12586243";
+                    PCMInfo(PcmType.P01_P59);
+                    this.Description = "P59 Service No 12586243";
                     this.ImageSize = 1024 * 1024;
                     break;
 
@@ -569,8 +743,8 @@ namespace PcmHacking
                 case 12579405:
                 case 12580055:
                 case 12593058:
-                    this.KeyAlgorithm = 40;
-                    this.Description = "12582605";
+                    PCMInfo(PcmType.P01_P59);
+                    this.Description = "P59 Service No 12582605";
                     this.ImageSize = 1024 * 1024;
                     break;
 
@@ -583,8 +757,8 @@ namespace PcmHacking
                 case 12613246:
                 case 12613247:
                 case 12619623:
-                    this.KeyAlgorithm = 40;
-                    this.Description = "12582811";
+                    PCMInfo(PcmType.P01_P59);
+                    this.Description = "P59 Service No 12582811";
                     this.ImageSize = 1024 * 1024;
                     break;
 
@@ -592,20 +766,541 @@ namespace PcmHacking
                 case 12597120:
                 case 12613248:
                 case 12619624:
-                    this.KeyAlgorithm = 40;
-                    this.Description = "12602802";
+                    PCMInfo(PcmType.P01_P59);
+                    this.Description = "P59 Service No 12602802";
                     this.ImageSize = 1024 * 1024;
                     break;
 
+                // 96/97 BlackBox is very different to 98+ and is unsupported. It has 2x 128KiB flash chips and talks its own OBD variant.
+                case 9378495:
+                case 16187577:
+                case 16227245:
+                case 16232915:
+                case 16235505:
+                case 16237015:
+                case 16256445:
+                    PCMInfo(PcmType.Undefined); 
+                    this.Description = "Vortec Black Box 96/97, 5 Connector, Service No 16244210 (unsupported)";
+                    break;
+
+                // Vortec Black Box 98-02, 4 Plug, Service No 9366810
                 case 9355699:
                 case 9365095:
                 case 16263425: // 9366810 'black box'
-                    this.IsSupported = false;
-                    this.KeyAlgorithm = 15;
-                    this.Description = "'Black Box' 9366810";
-                    this.ImageBaseAddress = 0x0;
-                    this.ImageSize = 512 * 1024;
-                    this.HardwareType = PcmType.BLACKBOX;
+                    PCMInfo(PcmType.BlackBox);
+                    this.Description = "Vortec Black Box 98/99 Service No 9366810";
+                    break;
+                
+                // Vortec Black Box Service No 16263494
+                case 9360505:
+                case 9365085:
+                case 9384185:
+                case 16251315:
+                case 16265175:
+                    PCMInfo(PcmType.BlackBox);
+                    this.Description = "Vortec Black Box 98-02, 4 Plug, Service No 16263494";
+                    break;
+
+                // 1996/1997 V8 Service number 16238212. Looks like the mid 90s 256k P04
+                case 9350054:
+                case 9350490:
+                case 9350494:
+                case 9350496:
+                case 9350497:
+                case 9352141:
+                case 9352151:
+                case 9352161:
+                case 9352171:
+                case 9352201:
+                case 9352221:
+                case 9352231:
+                case 9352241:
+                case 9352251:
+                case 9352261:
+                case 9352271:
+                case 9352281:
+                case 9352291:
+                case 9352311:
+                case 9352321:
+                case 9352641:
+                case 9352651:
+                case 9354201:
+                case 9354735:
+                case 9354736:
+                case 9354737:
+                case 9354738:
+                case 9354739:
+                case 9354740:
+                case 9355161:
+                case 9355162:
+                case 9355166:
+                case 9355171:
+                case 9355181:
+                case 9355191:
+                case 9355201:
+                case 9355211:
+                case 9355221:
+                case 9355231:
+                case 9359652:
+                case 9359661:
+                case 9365931:
+                case 9365941:
+                case 9365951:
+                case 9365961:
+                case 9365981:
+                case 9366221:
+                case 9369651:
+                case 9375571:
+                case 9375572:
+                case 9375573:
+                case 9375574:
+                case 9375575:
+                case 9375576:
+                case 9375577:
+                case 9375578:
+                case 9375579:
+                case 9375581:
+                case 9375582:
+                case 9375583:
+                case 9375584:
+                case 9375585:
+                case 9375591:
+                case 9375601:
+                case 9375611:
+                case 9375621:
+                case 9375631:
+                case 9375641:
+                case 9375651:
+                case 9384530:
+                case 9384532:
+                case 9384535:
+                case 9384537:
+                case 9384538:
+                case 9384539:
+                case 9384540:
+                case 9384542:
+                case 9384545:
+                case 9384547:
+                case 9384548:
+                case 9384549:
+                case 9384550:
+                case 9384557:
+                case 9384558:
+                case 9384562:
+                case 9384569:
+                case 9384575:
+                case 9384578:
+                case 9384584:
+                case 9384585:
+                case 9384587:
+                case 9384588:
+                case 9384589:
+                case 9384590:
+                case 9384592:
+                case 9393822:
+                case 12480112:
+                case 12593456:
+                case 12593457:
+                case 12593458:
+                case 12593459:
+                case 12593460:
+                case 12596953:
+                case 12596954:
+                case 12596955:
+                case 12596956:
+                case 16238127:
+                case 16238234:
+                case 16238242:
+                case 16238297:
+                case 16238302:
+                case 16238303:
+                case 16238352:
+                case 16238353:
+                case 16238354:
+                case 16238356:
+                case 16238357:
+                case 16238360:
+                case 16238362:
+                case 16244351:
+                case 16244371:
+                case 16244391:
+                case 16255801:
+                case 16256470:
+                case 16256510:
+                case 16256512:
+                case 16256514:
+                case 16256515:
+                case 16256516:
+                case 16256520:
+                case 16256523:
+                case 16256525:
+                case 16256908:
+                case 16264963:
+                case 16264964:
+                case 16264966:
+                case 16265756:
+                case 16266578:
+                case 16266579:
+                case 16266580:
+                case 16266582:
+                case 16266583:
+                case 16266585:
+                case 16267006:
+                case 16267014:
+                case 16267957:
+                case 16267958:
+                case 16267959:
+                case 16267960:
+                case 16267962:
+                case 16267963:
+                case 16267964:
+                case 16267965:
+                case 16267966:
+                case 16267967:
+                case 16267968:
+                case 16267969:
+                case 16268315:
+                case 16268316:
+                case 16268317:
+                case 16268319:
+                case 16268320:
+                case 16268474:
+                case 22480054:
+                case 42480054:
+                    PCMInfo(PcmType.Undefined);
+                    this.Description = "1997, 1998 LS1 Corvette, Camaro, Firebird";
+                    break;
+
+                // 1996/1997 256KiB V6 Service number 16207326
+                case 9352140:
+                case 9352142:
+                case 9352143:
+                case 9352146:
+                case 9352149:
+                case 9352150:
+                case 9352340:
+                case 9352342:
+                case 9352346:
+                case 9352347:
+                case 9352553:
+                case 9354241:
+                case 9354242:
+                case 9355430:
+                case 9355433:
+                case 9355435:
+                case 9365005:
+                case 9365007:
+                case 9365012:
+                case 9365017:
+                case 9365650:
+                case 9365651:
+                case 9365652:
+                case 9365655:
+                case 9367092:
+                case 16210002:
+                case 16210010:
+                case 16219361:
+                case 16219368:
+                case 16226502:
+                case 16227925:
+                case 16230131:
+                case 16230375:
+                case 16230378:
+                case 16230380:
+                case 16230383:
+                case 16230385:
+                case 16231872:
+                case 16231877:
+                case 16231889:
+                case 16231890:
+                case 16231940:
+                case 16231941:
+                case 16232010:
+                case 16232466:
+                case 16232477:
+                case 16233470:
+                case 16233471:
+                case 16233472:
+                case 16233478:
+                case 16234097:
+                case 16234124:
+                case 16234438:
+                case 16234440:
+                case 16234441:
+                case 16234751:
+                case 16235667:
+                case 16238373:
+                case 16238443:
+                case 16238446:
+                case 16238447:
+                case 16238448:
+                case 16238450:
+                case 16238452:
+                case 16238453:
+                case 16238456:
+                case 16238457:
+                case 16238458:
+                case 16238517:
+                case 16238518:
+                case 16238519:
+                case 16238520:
+                case 16238523:
+                case 16238525:
+                case 16238532:
+                case 16238533:
+                case 16240637:
+                case 16241229:
+                case 16245321:
+                case 16246063:
+                case 16246066:
+                case 16249992:
+                case 16249995:
+                case 16251203:
+                case 16251205:
+                case 16251975:
+                case 16257917:
+                case 16257918:
+                case 16257922:
+                case 16257926:
+                case 16257935:
+                case 16257936:
+                case 16257937:
+                case 16257938:
+                case 16257940:
+                case 16257942:
+                case 16257947:
+                case 16257950:
+                case 16257952:
+                case 16257953:
+                case 16257955:
+                case 16257956:
+                    PCMInfo(PcmType.P04_256k);
+                    this.Description = "P04 256KiB Service No 16207326";
+                    break;
+
+                case 16252952: // equivalent to Service No 16227797
+                    PCMInfo(PcmType.P04_256k);
+                    this.Description = "P04 256KiB Service No 16217058";
+                    break;
+
+
+                // Service number 16227797, equivalent to Service No 16217058
+                case 9350560:
+                case 9355202:
+                case 9355203:
+                case 9355205:
+                case 9355206:
+                case 9355207:
+                case 9355208:
+                case 9355440:
+                case 9355441:
+                case 9355443:
+                case 9355445:
+                case 9355488:
+                case 9355496:
+                case 9355497:
+                case 9355498:
+                case 9355503:
+                case 9355506:
+                case 9359551:
+                case 9359552:
+                case 9359553:
+                case 9359555:
+                case 9359556:
+                case 9359557:
+                case 9359635:
+                case 9359636:
+                case 9359757:
+                case 9359758:
+                case 9359760:
+                case 9359762:
+                case 9362998:
+                case 9363007:
+                case 9363080:
+                case 9363082:
+                case 9363090:
+                case 9363091:
+                case 9363101:
+                case 9363102:
+                case 9363104:
+                case 9363106:
+                case 9363107:
+                case 9363108:
+                case 9363110:
+                case 9363381:
+                case 9364942:
+                case 9364943:
+                case 9364945:
+                case 9364967:
+                case 9364968:
+                case 9364972:
+                case 9364975:
+                case 9364977:
+                case 9364978:
+                case 9365041:
+                case 9365077:
+                case 9365078:
+                case 9365081:
+                case 9365088:
+                case 9365091:
+                case 9365092:
+                case 9365093:
+                case 9365096:
+                case 9365097:
+                case 9365281:
+                case 9365282:
+                case 9365287:
+                case 9365302:
+                case 9365304:
+                case 9365308:
+                case 9365310:
+                case 9365311:
+                case 9365314:
+                case 9365316:
+                case 9365340:
+                case 9365341:
+                case 9365342:
+                case 9365346:
+                case 9365347:
+                case 9365348:
+                case 9365350:
+                case 9365351:
+                case 9365355:
+                case 9365356:
+                case 9365357:
+                case 9365358:
+                case 9365360:
+                case 9383352:
+                case 12201561:
+                case 16221445:
+                case 16231196:
+                case 16231303:
+                case 16231321:
+                case 16234305:
+                case 16235290:
+                case 16242720:
+                case 16243381:
+                case 16243385:
+                case 16243643:
+                case 16243648:
+                case 16243817:
+                case 16243821:
+                case 16243822:
+                case 16243823:
+                case 16243826:
+                case 16243827:
+                case 16244313:
+                case 16244314:
+                case 16244316:
+                case 16244317:
+                case 16244318:
+                case 16244323:
+                case 16244324:
+                case 16244906:
+                case 16245158:
+                case 16245167:
+                case 16245315:
+                case 16245318:
+                case 16245478:
+                case 16245480:
+                case 16245670:
+                case 16248316:
+                case 16248320:
+                case 16251789:
+                case 16252225:
+                case 16252227:
+                case 16252720:
+                case 16252943:
+                case 16252946:
+                case 16252951:
+                case 16252955:
+                case 16252956:
+                case 16252957:
+                case 16252958:
+                case 16252960:
+                case 16252961:
+                case 16252962:
+                case 16252963:
+                case 16252965:
+                case 16252966:
+                case 16253035:
+                case 16254062:
+                case 16254063:
+                case 16254333:
+                case 16254337:
+                case 16254467:
+                case 16254468:
+                case 16254712:
+                case 16254718:
+                case 16254720:
+                case 16255967:
+                case 16257407:
+                case 16257531:
+                case 16257532:
+                case 16257533:
+                case 16257536:
+                case 16257537:
+                case 16257725:
+                case 16257726:
+                case 16257963:
+                case 16257965:
+                case 16257966:
+                case 16259008:
+                case 16259012:
+                case 16259016:
+                case 16259018:
+                case 16259195:
+                case 16259652:
+                case 16259654:
+                case 16259659:
+                case 16259660:
+                case 16259664:
+                case 16259666:
+                case 16259667:
+                case 16259669:
+                case 16259670:
+                case 16259672:
+                case 16259676:
+                case 16259677:
+                case 16259682:
+                case 16259686:
+                case 16259687:
+                case 16259688:
+                case 16259694:
+                case 16259696:
+                case 16259697:
+                case 16259698:
+                case 16259702:
+                case 16259704:
+                case 16259705:
+                case 16259708:
+                case 16259710:
+                case 16259712:
+                case 16259714:
+                case 16259715:
+                case 16259716:
+                case 16259717:
+                case 16259720:
+                case 16259906:
+                case 16265837:
+                case 16266038:
+                case 16266902:
+                case 16268480:
+                case 16268483:
+                case 16268485:
+                case 16268488:
+                case 24233869:
+                case 24233870:
+                case 24234035:
+                case 24234036:
+                case 24234037:
+                case 24234038:
+                case 28004945:
+                case 28029988:
+                case 93802333:
+                case 93802334:
+                    PCMInfo(PcmType.P04_256k);
+                    this.Description = "P04 256KiB Service No 16227797";
                     break;
 
                 // P04 V6 Service number 9374997
@@ -770,6 +1465,9 @@ namespace PcmHacking
                 case 16257166:
                 case 16257169:
                 case 16257171:
+                    PCMInfo(PcmType.P04);
+                    this.Description = "P04 Service No 9374997";
+                    break;
 
                 // P04 V6 Service number 9380717
                 case 9354406:
@@ -1056,6 +1754,9 @@ namespace PcmHacking
                 case 16242202:
                 case 16243034:
                 case 16258875:
+                    PCMInfo(PcmType.P04);
+                    this.Description = "P04 Service No 9380717";
+                    break;
 
                 // P04 V6 Service number 12209624
                 case 9354438:
@@ -1599,6 +2300,9 @@ namespace PcmHacking
                 case 12589512:
                 case 12589513:
                 case 12589514:
+                    PCMInfo(PcmType.P04);
+                    this.Description = "P04 Service No 12209624";
+                    break;
 
                 // P04 V6 Service number 12583826
                 case 12573213:
@@ -1690,6 +2394,9 @@ namespace PcmHacking
                 case 12598587:
                 case 12598588:
                 case 12598589:
+                    PCMInfo(PcmType.P04);
+                    this.Description = "P04 Service No 12583826";
+                    break;
 
                 // P04 V6 Service number 12583827
                 /*------------------------------
@@ -1860,6 +2567,9 @@ namespace PcmHacking
                 case 15286085:
                 case 15286245:
                 case 15292691:
+                    PCMInfo(PcmType.P04);
+                    this.Description = "P04 Service No 12583827";
+                    break;
 
                 // P04 V6 Service number 16236757
                 case 9351345:
@@ -1945,7 +2655,6 @@ namespace PcmHacking
                 case 9364358:
                 case 9364360:
                 case 9364361:
-                case 9364367:
                 case 9364368:
                 case 9364369:
                 case 9364371:
@@ -2010,7 +2719,6 @@ namespace PcmHacking
                 case 9384516:
                 case 9384517:
                 case 9384519:
-                case 9384547:
                 case 9384786:
                 case 9384787:
                 case 9386157:
@@ -2083,56 +2791,84 @@ namespace PcmHacking
                 case 16268300:
                 case 16268407:
                 case 49807546:
+                    PCMInfo(PcmType.P04);
+                    this.Description = "P04 Service No 16236757";
+                    break;
 
-                // Unknown Service number P04
+                // P08 9356249
+                case 9364970:
+                case 12206029:
+                case 12206044:
+                case 12208154:
+                case 12208156:
+                case 12208773:
+                case 12216489:
+                case 12216571:
+                case 12221096:
+                case 12222128:
+                case 12222134:
+                case 16257436:
+                    PCMInfo(PcmType.P08);
+                    this.Description = "P08 Service No 9356249";
+                    break;
+
+                    // P08 Service Number 12202203
                 case 9392792:
                 case 9392795:
                 case 9392796:
-                case 9393822:
-                case 12221096:
-                    this.Description = "P04 V6";
-                    this.IsSupported = false;
-                    this.LoaderRequired = true;
-                    this.ValidationMethod = PcmType.P04;
-                    this.HardwareType = PcmType.P04;
-                    this.KernelFileName = "Kernel-P04.bin";
-                    this.KernelBaseAddress = 0xFF9090;
-                    this.LoaderFileName = "Loader-P04.bin";
-                    this.LoaderBaseAddress = 0xFF9890;
-                    //this.ImageBaseAddress = 0x0;
-                    this.ImageSize = 512 * 1024;
-                    //this.RAMSize = 0x0;
-                    this.KeyAlgorithm = 14;
-                    this.ChecksumSupport = false;
-                    this.FlashCRCSupport = true;
-                    this.FlashIDSupport = true;
-                    this.KernelVersionSupport = true;
-                    //this.KernelMaxBlockSize = 4096;
+                case 12201233:
+                case 12205552:
+                case 12223041:
+                case 12223044:
+                case 12223046:
+                case 12225338:
+                case 12225340:
+                case 12571886:
+                case 12580027:
+                case 12580029:
+                    PCMInfo(PcmType.P08);
+                    this.Description = "P08 Service No 12202203";
                     break;
 
-                // P08
-                case 9364970:
-                case 12206029:
-                case 12208154:
-                case 12208773:
-                    this.Description = "P08";
-                    this.IsSupported = false;
-                    this.LoaderRequired = true;
-                    this.ValidationMethod = PcmType.P08;
-                    this.HardwareType = PcmType.P08;
-                    this.KernelFileName = "Kernel-P08.bin";
-                    this.KernelBaseAddress = 0xFFA800;
-                    this.LoaderFileName = "Loader-P08.bin";
-                    this.LoaderBaseAddress = 0xFFB000;
-                    this.ImageBaseAddress = 0x0;
-                    this.ImageSize = 512 * 1024;
-                    //this.RAMSize = 0x4DFF;
-                    this.KeyAlgorithm = 13;
-                    this.ChecksumSupport = false;
-                    this.FlashCRCSupport = true;
-                    this.FlashIDSupport = true;
-                    this.KernelVersionSupport = true;
-                    //this.KernelMaxBlockSize = 4096;
+                // P08 12605873
+                case 12604676:
+                case 12607442:
+                case 12608370:
+                case 12610013:
+                case 12611951:
+                    PCMInfo(PcmType.P08);
+                    this.Description = "P08 Service No 12605873";
+                    break;
+
+                // P08 Service No 16228016 (Part No 16245305)
+                case 9351310:
+                case 9353727:
+                case 9364359:
+                case 9364362:
+                case 9364367:
+                case 9364370:
+                case 9364966:
+                case 9364974:
+                case 9364976:
+                case 9365280:
+                case 9365284:
+                case 9365286:
+                case 9365312:
+                case 9365338:
+                case 9374332:
+                case 9374334:
+                case 9383061:
+                case 9383064:
+                case 9383067:
+                case 9383076:
+                case 9387885:
+                case 12222105:
+                case 16259649:
+                case 16259657:
+                case 16259706:
+                case 16259718:
+                    PCMInfo(PcmType.P08);
+                    this.Description = "P08 Service No 16228016";
                     break;
 
                 // P10
@@ -2152,16 +2888,7 @@ namespace PcmHacking
                 case 12595726:
                 case 12597031:
                 case 12623317:
-                    this.KernelFileName = "Kernel-P10.bin";
-                    this.KernelBaseAddress = 0xFFB800; // Or FFA000? https://pcmhacking.net/forums/viewtopic.php?f=42&t=7742&start=450#p115622
-                    this.RAMSize = 0x2800; // or 4000?
-                    this.IsSupported = true;
-                    this.KeyAlgorithm = 66;
-                    this.Description = "P10";
-                    this.ImageBaseAddress = 0x0;
-                    this.ImageSize = 512 * 1024;
-                    this.ValidationMethod = PcmType.P10;
-                    this.HardwareType = PcmType.P10;
+                    PCMInfo(PcmType.P10);
                     break;
 
                 // P12 1m
@@ -2197,16 +2924,7 @@ namespace PcmHacking
                 case 12606374: //L52 - Atlas I5 (3500) P12
                 case 12606375: //L52 - Atlas I5 (3500) P12
                 case 12627883:
-                    this.KernelFileName = "Kernel-P12.bin";
-                    this.KernelBaseAddress = 0xFF2000; // or FF0000? https://pcmhacking.net/forums/viewtopic.php?f=42&t=7742&start=450#p115622
-                    this.RAMSize = 0x6000;
-                    this.IsSupported = true;
-                    this.KeyAlgorithm = 91;
-                    this.Description = "P12 1m (Atlas I4/I5/I6)";
-                    this.ImageBaseAddress = 0x0;
-                    this.ImageSize = 1024 * 1024;
-                    this.ValidationMethod = PcmType.P12;
-                    this.HardwareType = PcmType.P12;
+                    PCMInfo(PcmType.P12);
                     break;
 
                 // P12 2m - See: https://pcmhacking.net/forums/viewtopic.php?f=42&t=7742&start=470#p115747
@@ -2215,24 +2933,13 @@ namespace PcmHacking
                 case 12613422: //2007 Chevy Trailblazer 4.2L
                 case 12618164:
                 case 12627885:
-                    this.KernelFileName = "Kernel-P12.bin";
-                    this.KernelBaseAddress = 0xFF2000; // or FF0000? https://pcmhacking.net/forums/viewtopic.php?f=42&t=7742&start=450#p115622
-                    this.RAMSize = 0x6000;
-                    this.IsSupported = true;
-                    this.KeyAlgorithm = 91;
-                    this.Description = "P12 2m (Atlas I4/I5/I6)";
-                    this.ImageBaseAddress = 0x0;
+                    PCMInfo(PcmType.P12);
+                    this.Description = "P12b (2Mb)";
                     this.ImageSize = 2048 * 1024;
-                    this.ValidationMethod = PcmType.P12;
-                    this.HardwareType = PcmType.P12;
                     break;
 
                 default:
-                    this.IsSupported = false;
-                    this.KeyAlgorithm = 40;
-                    this.Description = "Unknown";
-                    this.ImageBaseAddress = 0x0;
-                    this.ImageSize = 0;
+                    PCMInfo(PcmType.Undefined);
                     break;
             }
         }

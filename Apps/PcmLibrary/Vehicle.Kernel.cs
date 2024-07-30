@@ -296,7 +296,7 @@ namespace PcmHacking
         /// <summary>
         /// Load the executable payload on the PCM at the supplied address, and execute it.
         /// </summary>
-        public async Task<bool> PCMExecute(PcmInfo info, byte[] payload, CancellationToken cancellationToken)
+        public async Task<bool> PCMExecute(OSIDInfo info, byte[] payload, CancellationToken cancellationToken)
         {
             // Note that we request an upload of 4k maximum, because the PCM will reject anything bigger.
             // But you can request a 4k upload and then send up to 16k if you want, and the PCM will not object.
@@ -429,12 +429,6 @@ namespace PcmHacking
                     return false;
                 }
                 this.logger.AddUserMessage($"{(info.LoaderRequired ? "Loader" : "Kernel")} Version: {kernelVersion.ToString("X8")}");
-
-                // Detect an Assemply Kernel, // Remove with the C Kernels
-                if (kernelVersion > 0x82400000)
-                {
-                    info.AssemblyKernel = true;
-                }
             }
 
             if (info.LoaderRequired)
@@ -450,7 +444,7 @@ namespace PcmHacking
         /// <summary>
         /// Does everything required to switch to VPW 4x
         /// </summary>
-        public async Task<bool> VehicleSetVPW4x(VpwSpeed newSpeed)
+        public async Task<bool> VehicleSetVPW4x(OSIDInfo pcmInfo, VpwSpeed newSpeed)
         {
             if (!device.Supports4X) 
             {
@@ -466,6 +460,19 @@ namespace PcmHacking
             {
                 logger.AddUserMessage("4X communications disabled by configuration.");
                 return true;
+            }
+            // FIXME: This should be in a common library, not here
+            // OBDX Pro VT should be 1x for the P04 due to P04 VPW bus load not being high enough when
+            // on the bench. The bus load is OK in the car, but car modules wake up and cause bus to
+            // crash to 1x regardless.
+            if (pcmInfo.HardwareType == PcmType.P04 || pcmInfo.HardwareType == PcmType.P04_256k)
+            {
+                if (this.device.ToString().Contains("OBDX Pro VT"))
+                {
+                    logger.AddUserMessage("OBDXPro VT with P04 PCM detected. Reducing interface speed to 1x. Reinit interface to restore 4x");
+                    this.device.Enable4xReadWrite = false;
+                    return true;
+                }
             }
 
             // Configure the vehicle bus when switching to 4x

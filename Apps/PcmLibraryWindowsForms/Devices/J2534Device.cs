@@ -360,12 +360,14 @@ namespace PcmHacking
         /// </summary>
         private Response<J2534Err> DisconnectTool()
         {
-            OBDError = J2534Port.Functions.Close((int)DeviceID);
-            if (OBDError != J2534Err.STATUS_NOERROR)
-            {
-                // Big problems, do something here
-            }
-            IsJ2534Open = false;
+            if (IsJ2534Open == true) {
+                OBDError = J2534Port.Functions.Close((int)DeviceID);
+                if (OBDError != J2534Err.STATUS_NOERROR)
+                {
+                    // Big problems, do something here
+                }
+                IsJ2534Open = false;
+                }
             return Response.Create(ResponseStatus.Success, OBDError);
         }
 

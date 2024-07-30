@@ -14,11 +14,11 @@ namespace PcmHacking
     public class CKernelReader
     {
         private readonly Vehicle vehicle;
-        private readonly PcmInfo pcmInfo;
+        private readonly OSIDInfo pcmInfo;
         private readonly Protocol protocol;
         private readonly ILogger logger;
 
-        public CKernelReader(Vehicle vehicle, PcmInfo pcmInfo, ILogger logger)
+        public CKernelReader(Vehicle vehicle, OSIDInfo pcmInfo, ILogger logger)
         {
             this.vehicle = vehicle;
             this.pcmInfo = pcmInfo;
@@ -49,7 +49,7 @@ namespace PcmHacking
                 if (this.vehicle.Enable4xReadWrite)
                 {
                     // if the vehicle bus switches but the device does not, the bus will need to time out to revert back to 1x, and the next steps will fail.
-                    if (!await this.vehicle.VehicleSetVPW4x(VpwSpeed.FourX))
+                    if (!await this.vehicle.VehicleSetVPW4x(this.pcmInfo, VpwSpeed.FourX))
                     {
                         this.logger.AddUserMessage("Stopping here because we were unable to switch to 4X.");
                         return Response.Create(ResponseStatus.Error, (Stream)null);
@@ -90,7 +90,7 @@ namespace PcmHacking
                             null);
                     }
 
-                    logger.AddUserMessage("Loader uploaded to PCM succesfully.");
+                    logger.AddUserMessage("Loader uploaded to PCM successfully.");
                 }
 
                 // execute read kernel
@@ -117,7 +117,7 @@ namespace PcmHacking
                         null);
                 }
 
-                logger.AddUserMessage("Kernel uploaded to PCM succesfully. Requesting data...");
+                logger.AddUserMessage("Kernel uploaded to PCM successfully. Requesting data...");
 
                 // Which flash chip?
                 await this.vehicle.SendToolPresentNotification();
@@ -132,10 +132,16 @@ namespace PcmHacking
 
                 await this.vehicle.SetDeviceTimeout(TimeoutScenario.ReadMemoryBlock);
 
-                byte[] image = new byte[pcmInfo.ImageSize];
+                
+                int imageSize = pcmInfo.ImageSize;
                 int retryCount = 0;
                 int startAddress = 0;
-                int bytesRemaining = pcmInfo.ImageSize;
+
+                //startAddress = 0x0000; //uncomment to read a portion only when testing
+                //imageSize = 0xFFFF;
+
+                byte[] image = new byte[imageSize];
+                int bytesRemaining = imageSize;
                 int blockSize = this.vehicle.DeviceMaxReceiveSize - 10 - 2; // allow space for the header and block checksum
                 if (blockSize > this.pcmInfo.KernelMaxBlockSize)
                 {
@@ -143,7 +149,7 @@ namespace PcmHacking
                 }
 
                 DateTime startTime = DateTime.MaxValue;
-                while (startAddress < pcmInfo.ImageSize)
+                while (startAddress < imageSize)
                 {
                     if (cancellationToken.IsCancellationRequested)
                     {
@@ -153,9 +159,9 @@ namespace PcmHacking
                     // The read kernel needs a short message here for reasons unknown. Without it, it will RX 2 messages then drop one.
                     await this.vehicle.ForceSendToolPresentNotification();
 
-                    if (startAddress + blockSize > pcmInfo.ImageSize)
+                    if (startAddress + blockSize > imageSize)
                     {
-                        blockSize = pcmInfo.ImageSize - startAddress;
+                        blockSize = imageSize - startAddress;
                     }
 
                     if (blockSize < 1)
@@ -223,8 +229,6 @@ namespace PcmHacking
                     }
                 }
 
-                await this.vehicle.Cleanup(); // Not sure why this does not get called in the finally block on successfull read?
-
                 MemoryStream stream = new MemoryStream(image);
                 return new Response<Stream>(ResponseStatus.Success, stream);
             }
@@ -236,7 +240,6 @@ namespace PcmHacking
             }
             finally
             {
-                // Sending the exit command at both speeds and revert to 1x.
                 await this.vehicle.Cleanup();
                 logger.StatusUpdateReset();
             }

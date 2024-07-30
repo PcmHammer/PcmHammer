@@ -56,64 +56,66 @@ namespace PcmHacking
             try
             {
                 this.device.ClearMessageQueue();
-
-                Response<byte[]> response = await LoadKernelFromFile("test-kernel.bin");
-                if (response.Status != ResponseStatus.Success)
+                if (File.Exists("test-kernel.bin"))
                 {
-                    // The cleanup code in the finally block will exit the kernel.
-                    return true;
+                    Response<byte[]> response = await LoadKernelFromFile("test-kernel.bin");
+                    if (response.Status != ResponseStatus.Success)
+                    {
+                        // The cleanup code in the finally block will exit the kernel.
+                        return true;
+                    }
+
+                    logger.AddUserMessage("Test kernel found.");
+
+                    UInt32 kernelVersion = 0;
+                    int keyAlgorithm = 1; // default, will work for most factory operating systems.
+                    Response<uint> osidResponse = await this.QueryOperatingSystemId(cancellationToken);
+                    if (osidResponse.Status != ResponseStatus.Success)
+                    {
+                        kernelVersion = await this.GetKernelVersion();
+
+                        // TODO: Check for recovery mode.                    
+                        // TODO: Load the tiny kernel, then use that to load the test kernel.
+                        // Just to see whether we could potentially use that technique to assist 
+                        // a user whose flash is corrupted and regular flashing isn't working.
+                    }
+                    else
+                    {
+                        OSIDInfo pi = new OSIDInfo(osidResponse.Value);
+                        keyAlgorithm = pi.KeyAlgorithm;
+                    }
+
+                    this.logger.AddUserMessage("Unlocking PCM...");
+                    bool unlocked = await this.UnlockEcu(keyAlgorithm);
+                    if (!unlocked)
+                    {
+                        this.logger.AddUserMessage("Unlock was not successful.");
+                        return false;
+                    }
+
+                    this.logger.AddUserMessage("Unlock succeeded.");
+
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        return false;
+                    }
+
+                    OSIDInfo info = new OSIDInfo(12202088); // todo, make selectable
+                    if (!await PCMExecute(info, response.Value, cancellationToken))
+                    {
+                        logger.AddUserMessage("Failed to upload kernel to PCM");
+
+                        return false;
+                    }
+
+                    logger.AddUserMessage("Kernel uploaded to PCM successfully.");
+
+                    //await this.InvestigateDataCorruption(cancellationToken);
+                    //await this.InvestigateKernelVersionQueryTiming();
+                    //await this.InvestigateCrc(cancellationToken);
+                    //await this.InvestigateDataRelayCorruption(cancellationToken);
+                    await this.InvestigateFlashChipId();
                 }
-
-                logger.AddUserMessage("Test kernel found.");
-
-                UInt32 kernelVersion = 0;
-                int keyAlgorithm = 1; // default, will work for most factory operating systems.
-                Response<uint> osidResponse = await this.QueryOperatingSystemId(cancellationToken);
-                if (osidResponse.Status != ResponseStatus.Success)
-                {
-                    kernelVersion = await this.GetKernelVersion();
-
-                    // TODO: Check for recovery mode.                    
-                    // TODO: Load the tiny kernel, then use that to load the test kernel.
-                    // Just to see whether we could potentially use that technique to assist 
-                    // a user whose flash is corrupted and regular flashing isn't working.
-                }
-                else
-                {
-                    PcmInfo pi = new PcmInfo(osidResponse.Value);
-                    keyAlgorithm = pi.KeyAlgorithm;
-                }
-
-                this.logger.AddUserMessage("Unlocking PCM...");
-                bool unlocked = await this.UnlockEcu(keyAlgorithm);
-                if (!unlocked)
-                {
-                    this.logger.AddUserMessage("Unlock was not successful.");
-                    return false;
-                }
-
-                this.logger.AddUserMessage("Unlock succeeded.");
-
-                if (cancellationToken.IsCancellationRequested)
-                {
-                    return false;
-                }
-
-                PcmInfo info = new PcmInfo(12202088); // todo, make selectable
-                if (!await PCMExecute(info, response.Value, cancellationToken))
-                {
-                    logger.AddUserMessage("Failed to upload kernel to PCM");
-
-                    return false;
-                }
-
-                logger.AddUserMessage("Kernel uploaded to PCM succesfully.");
-
-                //await this.InvestigateDataCorruption(cancellationToken);
-                //await this.InvestigateKernelVersionQueryTiming();
-                //await this.InvestigateCrc(cancellationToken);
-                //await this.InvestigateDataRelayCorruption(cancellationToken);
-                await this.InvestigateFlashChipId();
                 return true;
             }
             catch (Exception exception)

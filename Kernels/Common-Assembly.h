@@ -28,7 +28,7 @@
     .equ COP1,           0xFFFA27
     .equ COP2,           0xFFD006
   #endif
-#elif defined P04
+#elif defined P04 || defined P04_256k
   .equ J1850_Config,     0xFFE800
   .equ J1850_Command,    0xFFE800
   .equ J1850_TX_FIFO,    0xFFE801
@@ -36,6 +36,15 @@
   .equ J1850_RX_FIFO,    0xFFE801
   .equ COP1,             0xFFFA27
   .equ COP2,             0xFFC006
+#elif defined BlackBox
+  .equ J1850_Config,     0xFF9000
+  .equ J1850_Command,    0xFF9000
+  .equ J1850_TX_FIFO,    0xFF9001
+  .equ J1850_Status,     0xFF9000
+  .equ J1850_RX_FIFO,    0xFF9001
+  .equ COP1,             0xFFFA27
+  .equ COP2,             0xFF8806
+  .equ COP3,             0xFFC006
 #endif
 
 | Misc
@@ -43,7 +52,8 @@
 .equ pcmid,              0x10
 
 | Modes supported
-.equ KernelID_3D00,      0x3D00        | Return the Kernel version (Id).
+.equ KernelMode,         0x3D          | Mode for Kernel functions
+.equ KernelID_3D00,      0x00          | Return the Kernel version (Id).
 .equ Halt_20,            0x20          | Reset PCM (Halt Kernel)
 .equ Mode_34,            0x34          | Request Permission to upload X bytes to Address
 .equ Mode_36,            0x36          | Tool sending data for writing to RAM or Flash.
