@@ -66,25 +66,25 @@ namespace PcmHacking
         {
             if (this.image.Length == 256 * 1024)
             {
-                this.logger.AddUserMessage("Identifying 256kb file.");
+                this.logger.AddUserMessage("Identifying 256KiB file.");
             }
             else if (this.image.Length == 512 * 1024)
             {
-                this.logger.AddUserMessage("Identifying 512kb file.");
+                this.logger.AddUserMessage("Identifying 512KiB file.");
             }
             else if (this.image.Length == 1024 * 1024)
             {
-                this.logger.AddUserMessage("Identifying 1024Kb file.");
+                this.logger.AddUserMessage("Identifying 1024KiB file.");
             }
             else if (this.image.Length == 2048 * 1024)
             {
-                this.logger.AddUserMessage("Identifying 2048Kb file.");
+                this.logger.AddUserMessage("Identifying 2048KiB file.");
             }
             else
             {
                 this.logger.AddUserMessage(
                     string.Format(
-                        "Files must be 256k, 512k, 1024k or 2048k. This file is {0} / {1:X} bytes long.",
+                        "Files must be 256KiB, 512KiB, 1024KiB or 2048KiB. This file is {0} / {1:X} bytes long.",
                         this.image.Length,
                         this.image.Length));
                 return false;
@@ -366,10 +366,10 @@ namespace PcmHacking
             // P04 512Kb
             if (image.Length == 256 * 1024)
             {
-                this.logger.AddDebugMessage("Trying P04 256Kb");
+                this.logger.AddDebugMessage("Trying P04 256KiB");
                 if ((image[0x3FFFE] == 0xA5) && (image[0x3FFFF] == 0x5A))
                 {
-                    this.logger.AddUserMessage("File is P04 256Kb.");
+                    this.logger.AddUserMessage("File is P04 256KiB.");
                     return PcmType.P04_256k;
                 }
             }
@@ -379,70 +379,70 @@ namespace PcmHacking
             {
                 // E54 512Kb
                 // Must be before P01, P01 can pass for a E54, but an E54 cannot pass as a P01
-                this.logger.AddDebugMessage("Trying E54 512Kb");
+                this.logger.AddDebugMessage("Trying E54 512KiB");
                 if ((image[0x1FFFE] == 0x4A) && (image[0x1FFFF] == 0xFC))
                 {
                     if ((image[0x7FFFC] == 0x4A) && (image[0x7FFFD] == 0xFC) && (image[0x7FFFE] == 0x4A) && (image[0x7FFFF] == 0xFC))
                     {
                         if ((image[0x3FFC] == 0) && (image[0x3FFD] == 0) && (image[0x3FFE] == 0) && (image[0x3FFF] == 0)) { // This prevents 98/99 Black Box being detected at E54
-                            this.logger.AddUserMessage("File is E54 512Kb.");
+                            this.logger.AddUserMessage("File is E54 512KiB.");
                             return PcmType.E54;
                         }
                     }
                 }
 
                 // BlackBox 512Kb. Thanks to Universal Patcher team for the logic in autodetect.xml
-                this.logger.AddDebugMessage("Trying Vortec BlackBox 512Kb");
+                this.logger.AddDebugMessage("Trying Vortec BlackBox 512KiB");
                 if ((image[0x1FFFE] == 0x4A) && (image[0x1FFFF] == 0xFC))
                 {
                     if ((image[0x7FFFE] == 0x4A) && (image[0x7FFFF] == 0xFC))
                     {
                         if ((image[0x20002] == 00) && (image[0x20003] == 01) && (image[0x2000A] == 01) && (image[0x2000B] == 00))
                         {
-                            this.logger.AddUserMessage("File is Vortec BlackBox 512Kb.");
+                            this.logger.AddUserMessage("File is Vortec BlackBox 512KiB.");
                             return PcmType.BlackBox;
                         }
                     }
                 }
 
                 // P01 512Kb
-                this.logger.AddDebugMessage("Trying P01 512Kb");
+                this.logger.AddDebugMessage("Trying P01 512KiB");
                 if ((image[0x1FFFE] == 0x4A) && (image[0x1FFFF] == 0xFC))
                 {
                     if ((image[0x7FFFE] == 0x4A) && (image[0x7FFFF] == 0xFC))
                     {
-                        this.logger.AddUserMessage("File is P01 512Kb.");
+                        this.logger.AddUserMessage("File is P01 512KiB.");
                         return PcmType.P01_P59;
                     }
                 }
 
                 // P04 512Kb
-                this.logger.AddDebugMessage("Trying P04 512Kb");
+                this.logger.AddDebugMessage("Trying P04 512KiB");
                 // Last 4 bytes:
                 // A5 5A FF FF = P04
                 // XX XX XX XX A5 5A = P04 (XX is the OSID)
                 if (((image[0x7FFFE] == 0xA5) && (image[0x7FFFF] == 0x5A)) || // most P04 OR
                     ((image[0x7FFFC] == 0xA5) && (image[0x7FFFD] == 0x5A) && (image[0x7FFFE] == 0xFF) && (image[0x7FFFF] == 0xFF)))   // Most 1998 512Kb eg Malibu 09369193, Olds 09352676, LeSabre 09379801...
                 {
-                    this.logger.AddUserMessage("File is P04 512kb.");
+                    this.logger.AddUserMessage("File is P04 512KiB.");
                     return PcmType.P04;
                 }
 
-                this.logger.AddDebugMessage("Trying P10 512Kb");
+                this.logger.AddDebugMessage("Trying P10 512KiB");
                 if ((image[0x17FFE] == 0x55) && (image[0x17FFF] == 0x55))
                 {
                     if ((image[0x7FFFC] == 0xA5) && (image[0x7FFFD] == 0x5A) && (image[0x7FFFE] == 0xA5) && (image[0x7FFFF] == 0xA5))
                     {
-                        this.logger.AddUserMessage("File is P10 512Kb.");
+                        this.logger.AddUserMessage("File is P10 512KiB.");
                         return PcmType.P10;
                     }
                 }
 
                 // P08 512Kb
-                this.logger.AddDebugMessage("Trying P08 512Kb");
+                this.logger.AddDebugMessage("Trying P08 512KiB");
                 if ((image[0x7FFFC] == 0xA5) && (image[0x7FFFD] == 0x5A) && (image[0x7FFFE] == 0xA5) && (image[0x7FFFF] == 0xA5))
                 {
-                    this.logger.AddUserMessage("File is P08 512Kb.");
+                    this.logger.AddUserMessage("File is P08 512KiB.");
                     return PcmType.P08;
                 }
             }
@@ -450,28 +450,28 @@ namespace PcmHacking
             // 1Mb types
             if (image.Length == 1024 * 1024)
             {
-                this.logger.AddDebugMessage("Trying P59 1Mb");
+                this.logger.AddDebugMessage("Trying P59 1024KiB");
                 if ((image[0x1FFFE] == 0x4A) && (image[0x1FFFF] == 0xFC))
                 {
                     if ((image[0xFFFFE] == 0x4A) && (image[0xFFFFF] == 0xFC))
                     {
-                        this.logger.AddUserMessage("File is P59 1Mb.");
+                        this.logger.AddUserMessage("File is P59 1024KiB.");
                         return PcmType.P01_P59;
                     }
                 }
 
                 // P05 1Mb
-                this.logger.AddDebugMessage("Trying P05 1Mb");
+                this.logger.AddDebugMessage("Trying P05 1024KiB");
                 if ((image[0xFFFFE] == 0xA5) && (image[0xFFFFF] == 0x5A))
                 {
-                    this.logger.AddUserMessage("File is P05 1Mb.");
+                    this.logger.AddUserMessage("File is P05 1024KiB.");
                     return PcmType.P05;
                 }
 
-                this.logger.AddDebugMessage("Trying P12 1Mb");
+                this.logger.AddDebugMessage("Trying P12 1024MiB");
                 if ((image[0xFFFF8] == 0xAA) && (image[0xFFFF9] == 0x55))
                 {
-                    this.logger.AddUserMessage("File is P12 1Mb.");
+                    this.logger.AddUserMessage("File is P12 1024MiB.");
                     return PcmType.P12;
                 }
             }
@@ -479,10 +479,10 @@ namespace PcmHacking
             // 2Mb types
             if (image.Length == 2048 * 1024)
             {
-                this.logger.AddDebugMessage("Trying P12 2Mb");
+                this.logger.AddDebugMessage("Trying P12 2048MiB");
                 if ((image[0x17FFF8] == 0xAA) && (image[0x17FFF9] == 0x55))
                 {
-                    this.logger.AddUserMessage("File is P12 2Mb.");
+                    this.logger.AddUserMessage("File is P12 2048MiB.");
                     return PcmType.P12;
                 }
             }

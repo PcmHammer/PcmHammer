@@ -172,12 +172,12 @@ namespace PcmHacking
             switch (pcmType)
             {
                 case PcmType.Undefined:
-                    this.Description = "Undefined";
+                    this.Description = "unknown";
                     this.HardwareType = PcmType.Undefined;
                     break;
 
                 case PcmType.P01_P59:
-                    this.Description = "P01 512Kb or P59 1024Kb";
+                    this.Description = "P01 512KiB or P59 1024KiB";
                     this.HardwareType = PcmType.P01_P59;
                     this.HardwareSlaveCPU = false;
                     this.IsSupported = true;
@@ -201,7 +201,7 @@ namespace PcmHacking
                     break;
 
                 case PcmType.P04_256k:
-                    this.Description = "P04 1996/1997 256Kb V6";
+                    this.Description = "P04 1996/1997 256KiB V6";
                     this.HardwareType = PcmType.P04_256k;
                     this.HardwareSlaveCPU = false;
                     this.IsSupported = true;
@@ -225,7 +225,7 @@ namespace PcmHacking
                     break;
 
                 case PcmType.P04:
-                    this.Description = "P04 1998+ 512Kb V6";
+                    this.Description = "P04 1998+ 512KiB V6";
                     this.HardwareType = PcmType.P04;
                     this.HardwareSlaveCPU = false;
                     this.IsSupported = true;
@@ -254,7 +254,7 @@ namespace PcmHacking
                     break;
 
                 case PcmType.P08:
-                    this.Description = "P08 512Kb i4";
+                    this.Description = "P08 512KiB i4";
                     this.HardwareType = PcmType.P08;
                     this.HardwareSlaveCPU = false;
                     this.IsSupported = true;
@@ -771,7 +771,7 @@ namespace PcmHacking
                     this.ImageSize = 1024 * 1024;
                     break;
 
-                // 96/97 BlackBox is very different to 98+ and is unsupported. It has 2x 128Kb flash chips and talks its own OBD variant.
+                // 96/97 BlackBox is very different to 98+ and is unsupported. It has 2x 128KiB flash chips and talks its own OBD variant.
                 case 9378495:
                 case 16187577:
                 case 16227245:
@@ -971,7 +971,7 @@ namespace PcmHacking
                     this.Description = "1997, 1998 LS1 Corvette, Camaro, Firebird";
                     break;
 
-                // 1996/1997 256kb V6 Service number 16207326
+                // 1996/1997 256KiB V6 Service number 16207326
                 case 9352140:
                 case 9352142:
                 case 9352143:
@@ -1075,7 +1075,232 @@ namespace PcmHacking
                 case 16257955:
                 case 16257956:
                     PCMInfo(PcmType.P04_256k);
-                    this.Description = "P04 256k Service No 16207326";
+                    this.Description = "P04 256KiB Service No 16207326";
+                    break;
+
+                case 16252952: // equivalent to Service No 16227797
+                    PCMInfo(PcmType.P04_256k);
+                    this.Description = "P04 256KiB Service No 16217058";
+                    break;
+
+
+                // Service number 16227797, equivalent to Service No 16217058
+                case 9350560:
+                case 9355202:
+                case 9355203:
+                case 9355205:
+                case 9355206:
+                case 9355207:
+                case 9355208:
+                case 9355440:
+                case 9355441:
+                case 9355443:
+                case 9355445:
+                case 9355488:
+                case 9355496:
+                case 9355497:
+                case 9355498:
+                case 9355503:
+                case 9355506:
+                case 9359551:
+                case 9359552:
+                case 9359553:
+                case 9359555:
+                case 9359556:
+                case 9359557:
+                case 9359635:
+                case 9359636:
+                case 9359757:
+                case 9359758:
+                case 9359760:
+                case 9359762:
+                case 9362998:
+                case 9363007:
+                case 9363080:
+                case 9363082:
+                case 9363090:
+                case 9363091:
+                case 9363101:
+                case 9363102:
+                case 9363104:
+                case 9363106:
+                case 9363107:
+                case 9363108:
+                case 9363110:
+                case 9363381:
+                case 9364942:
+                case 9364943:
+                case 9364945:
+                case 9364967:
+                case 9364968:
+                case 9364972:
+                case 9364975:
+                case 9364977:
+                case 9364978:
+                case 9365041:
+                case 9365077:
+                case 9365078:
+                case 9365081:
+                case 9365088:
+                case 9365091:
+                case 9365092:
+                case 9365093:
+                case 9365096:
+                case 9365097:
+                case 9365281:
+                case 9365282:
+                case 9365287:
+                case 9365302:
+                case 9365304:
+                case 9365308:
+                case 9365310:
+                case 9365311:
+                case 9365314:
+                case 9365316:
+                case 9365340:
+                case 9365341:
+                case 9365342:
+                case 9365346:
+                case 9365347:
+                case 9365348:
+                case 9365350:
+                case 9365351:
+                case 9365355:
+                case 9365356:
+                case 9365357:
+                case 9365358:
+                case 9365360:
+                case 9383352:
+                case 12201561:
+                case 16221445:
+                case 16231196:
+                case 16231303:
+                case 16231321:
+                case 16234305:
+                case 16235290:
+                case 16242720:
+                case 16243381:
+                case 16243385:
+                case 16243643:
+                case 16243648:
+                case 16243817:
+                case 16243821:
+                case 16243822:
+                case 16243823:
+                case 16243826:
+                case 16243827:
+                case 16244313:
+                case 16244314:
+                case 16244316:
+                case 16244317:
+                case 16244318:
+                case 16244323:
+                case 16244324:
+                case 16244906:
+                case 16245158:
+                case 16245167:
+                case 16245315:
+                case 16245318:
+                case 16245478:
+                case 16245480:
+                case 16245670:
+                case 16248316:
+                case 16248320:
+                case 16251789:
+                case 16252225:
+                case 16252227:
+                case 16252720:
+                case 16252943:
+                case 16252946:
+                case 16252951:
+                case 16252955:
+                case 16252956:
+                case 16252957:
+                case 16252958:
+                case 16252960:
+                case 16252961:
+                case 16252962:
+                case 16252963:
+                case 16252965:
+                case 16252966:
+                case 16253035:
+                case 16254062:
+                case 16254063:
+                case 16254333:
+                case 16254337:
+                case 16254467:
+                case 16254468:
+                case 16254712:
+                case 16254718:
+                case 16254720:
+                case 16255967:
+                case 16257407:
+                case 16257531:
+                case 16257532:
+                case 16257533:
+                case 16257536:
+                case 16257537:
+                case 16257725:
+                case 16257726:
+                case 16257963:
+                case 16257965:
+                case 16257966:
+                case 16259008:
+                case 16259012:
+                case 16259016:
+                case 16259018:
+                case 16259195:
+                case 16259652:
+                case 16259654:
+                case 16259659:
+                case 16259660:
+                case 16259664:
+                case 16259666:
+                case 16259667:
+                case 16259669:
+                case 16259670:
+                case 16259672:
+                case 16259676:
+                case 16259677:
+                case 16259682:
+                case 16259686:
+                case 16259687:
+                case 16259688:
+                case 16259694:
+                case 16259696:
+                case 16259697:
+                case 16259698:
+                case 16259702:
+                case 16259704:
+                case 16259705:
+                case 16259708:
+                case 16259710:
+                case 16259712:
+                case 16259714:
+                case 16259715:
+                case 16259716:
+                case 16259717:
+                case 16259720:
+                case 16259906:
+                case 16265837:
+                case 16266038:
+                case 16266902:
+                case 16268480:
+                case 16268483:
+                case 16268485:
+                case 16268488:
+                case 24233869:
+                case 24233870:
+                case 24234035:
+                case 24234036:
+                case 24234037:
+                case 24234038:
+                case 28004945:
+                case 28029988:
+                case 93802333:
+                case 93802334:
+                    PCMInfo(PcmType.P04_256k);
+                    this.Description = "P04 256KiB Service No 16227797";
                     break;
 
                 // P04 V6 Service number 9374997

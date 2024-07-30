@@ -90,7 +90,7 @@ namespace PcmHacking
                             null);
                     }
 
-                    logger.AddUserMessage("Loader uploaded to PCM succesfully.");
+                    logger.AddUserMessage("Loader uploaded to PCM successfully.");
                 }
 
                 // execute read kernel
@@ -117,7 +117,7 @@ namespace PcmHacking
                         null);
                 }
 
-                logger.AddUserMessage("Kernel uploaded to PCM succesfully. Requesting data...");
+                logger.AddUserMessage("Kernel uploaded to PCM successfully. Requesting data...");
 
                 // Which flash chip?
                 await this.vehicle.SendToolPresentNotification();

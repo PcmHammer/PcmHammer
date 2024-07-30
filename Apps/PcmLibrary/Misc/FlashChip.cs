@@ -77,7 +77,7 @@ namespace PcmHacking
                 // This is not a real chip, its used as a default value, then overwritten with real data if the kernel supprot flashchipid.
                 case 0x12345678:
                     size = 512 * 1024;
-                    description = "Default 512Kb";
+                    description = "Default 512KiB";
                     memoryRanges = new MemoryRange[]
                     {
                         // Used by CKernelReader to initialise FlashChip default value
@@ -95,7 +95,7 @@ namespace PcmHacking
                 case 0x00892274:
                 case 0x00892275:
                     size = 256 * 1024;
-                    description = "Intel 28F200BX, 256kb";
+                    description = "Intel 28F200BX, 256KiB";
                     memoryRanges = new MemoryRange[]
                     {
                         // These addresses are for a bottom fill chip (B) in byte mode (not word)
@@ -110,7 +110,7 @@ namespace PcmHacking
                 // Intel 28F400B
                 case 0x00894471:
                     size = 512 * 1024;
-                    description = "Intel 28F400B, 512kb";
+                    description = "Intel 28F400B, 512KiB";
                     memoryRanges = new MemoryRange[]
                     {
                         // These addresses are for a bottom fill chip (B) in byte mode (not word)
@@ -127,7 +127,7 @@ namespace PcmHacking
                 // Intel 28F800B
                 case 0x0089889D:
                     size = 1024 * 1024;
-                    description = "Intel 28F800B, 1mb";
+                    description = "Intel 28F800B, 1024KiB";
                     memoryRanges = new MemoryRange[]
                     {
                         // These addresses are for a bottom fill chip (B) in byte mode (not word)
@@ -148,7 +148,7 @@ namespace PcmHacking
                 // AM29F400BB
                 case 0x000122AB:
                     size = 512 * 1024;
-                    description = "AMD AM29F400BB, 512kb";
+                    description = "AMD AM29F400BB, 512KiB";
                     memoryRanges = new MemoryRange[]
                     {
                         new MemoryRange(0x70000, 0x10000, BlockType.OperatingSystem), //  64kb main block
@@ -168,7 +168,7 @@ namespace PcmHacking
                 // AM29F800BB   
                 case 0x00012258:
                     size = 1024 * 1024;
-                    description = "AMD AM29F800BB, 1mb";
+                    description = "AMD AM29F800BB, 1024KiB";
                     memoryRanges = new MemoryRange[]
                     {
                         new MemoryRange(0xF0000, 0x10000, BlockType.OperatingSystem), //  64kb main block
@@ -196,7 +196,7 @@ namespace PcmHacking
                 // AM29BL802C
                 case 0x00012281:
                     size = 1024 * 1024;
-                    description = "AMD AM29BL802C, 1mb";
+                    description = "AMD AM29BL802C, 1024KiB";
                     memoryRanges = new MemoryRange[]
                     {          // Start address, Size in Bytes
                         new MemoryRange(0xC0000, 0x40000, BlockType.OperatingSystem), // 256kb main block
@@ -214,7 +214,7 @@ namespace PcmHacking
                 // AM29BL162C
                 case 0x00012203:
                     size = 2048 * 1024;
-                    description = "AMD AM29BL162C, 2mb";
+                    description = "AMD AM29BL162C, 2048KiB";
                     memoryRanges = new MemoryRange[]
                     {           // Start address, Size in Bytes
                         new MemoryRange(0x1C0000, 0x40000, BlockType.OperatingSystem), // 256kb main block
@@ -273,7 +273,7 @@ namespace PcmHacking
                     UInt32 top = memoryRanges[index].Address + memoryRanges[index].Size;
                     if ((top != 256 * 1024) && (top != 512 * 1024) && (top != 1024 * 1024) && (top != 2048 * 1024))
                     {
-                        throw new InvalidOperationException(chipIdString + " - Upper end of memory range must be 256k, 512k, 1024k or 2048k, is " + (top / 1024).ToString() + "k");
+                        throw new InvalidOperationException(chipIdString + " - Upper end of memory range must be 256KiB, 512KiB, 1024KiB or 2048KiB, is " + (top / 1024).ToString() + "KiB");
                     }
 
                     if (size != top)

@@ -104,7 +104,7 @@ namespace PcmHacking
                             return false;
                         }
 
-                        logger.AddUserMessage("Loader uploaded to PCM succesfully.");
+                        logger.AddUserMessage("Loader uploaded to PCM successfully.");
                     }
 
                     response = await this.vehicle.LoadKernelFromFile(this.pcmInfo.KernelFileName);
@@ -126,7 +126,7 @@ namespace PcmHacking
                         return false;
                     }
 
-                    logger.AddUserMessage("Kernel uploaded to PCM succesfully.");
+                    logger.AddUserMessage("Kernel uploaded to PCM successfully.");
                 }
 
                 // Confirm operating system match

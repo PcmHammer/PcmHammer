@@ -108,7 +108,7 @@ namespace PcmHacking
                         return false;
                     }
 
-                    logger.AddUserMessage("Kernel uploaded to PCM succesfully.");
+                    logger.AddUserMessage("Kernel uploaded to PCM successfully.");
 
                     //await this.InvestigateDataCorruption(cancellationToken);
                     //await this.InvestigateKernelVersionQueryTiming();
