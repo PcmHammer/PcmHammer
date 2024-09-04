@@ -1079,12 +1079,12 @@ namespace PcmHacking
                     break;
 
                 case 16252952: // equivalent to Service No 16227797
-                    PCMInfo(PcmType.P04_256k);
-                    this.Description = "P04 256KiB Service No 16217058";
+                    PCMInfo(PcmType.P04);
+                    this.Description = "P04 512KiB Service No 16217058";
                     break;
 
 
-                // Service number 16227797 (Needs Confirmation on bin size), equivalent to Service No 16217058 (Confirmed 512KiB)
+                // Service number 16227797, equivalent to Service No 16217058
                 case 9350560:
                 case 9355202:
                 case 9355203:
@@ -1300,7 +1300,7 @@ namespace PcmHacking
                 case 93802333:
                 case 93802334:
                     PCMInfo(PcmType.P04);
-                    this.Description = "P04 512KiB Service No 16227797 or 16217058";
+                    this.Description = "P04 512KiB Service No 16227797";
                     break;
 
                 // P04 V6 Service number 9374997

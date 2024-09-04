@@ -1260,7 +1260,7 @@ namespace PcmHacking
                         return;
                     }
 
-                    if (pcmInfo.HardwareType == PcmType.E54)
+                    if (pcmInfo.HardwareType == PcmType.P05)
                     {
                         string msg = $"WARNING: {pcmInfo.HardwareType.ToString()} Support is still in development.";
                         this.AddUserMessage(msg);
@@ -1571,7 +1571,7 @@ namespace PcmHacking
                         }
                     }
 
-                    if (pcmInfo.HardwareType == PcmType.E54)
+                    /*if (pcmInfo.HardwareType == PcmType.E54)
                     {
                         string msg = $"WARNING: {pcmInfo.HardwareType.ToString()} support is insufficiently tested, but believed to be working." + Environment.NewLine +
                                     "Please report success or failure on pcmhacking.net." + Environment.NewLine +
@@ -1586,7 +1586,7 @@ namespace PcmHacking
                         {
                             this.AddUserMessage("User accepts the risk of running insufficiently tested code.");
                         }
-                    }
+                    }*/
 
                     await this.Vehicle.SuppressChatter();
 
