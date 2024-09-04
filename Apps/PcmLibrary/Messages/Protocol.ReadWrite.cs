@@ -91,6 +91,7 @@ namespace PcmHacking
         {
             switch (info.HardwareType)
             {
+                // TODO: Both of these appear the same. Do we need a switch here at all? Remove and re-test against all platforms.
                 case PcmType.P10:
                 case PcmType.P12:
                     Response<bool> response = this.DoSimpleValidation(message, Priority.Physical0, Mode.PCMUploadRequest);

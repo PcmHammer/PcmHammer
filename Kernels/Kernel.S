@@ -93,8 +93,8 @@
 start:
     ori     #0x700, %sr                | Disable Interrupts
 
-#if defined P08
-    movea.w #0xB800, %sp               | Move the stack out the way
+#if defined P08 | defined E54
+    movea.w #0xB800, %sp               | Move the stack out the way P08/E54
 #endif
 
     move.b  #0x03, (J1850_Command).l   | Flush frame except for completion code
@@ -1157,7 +1157,9 @@ VPWSendBlockWaitForBuffer2:
     move.b  #0xC, (J1850_Command).l    | BTAD ...0 11.. "Load as last byte of transmit data"
     move.b  %d1, (J1850_TX_FIFO).l     | Move the Second checksum byte  to the TX FIFO
     rts
+
 | ---------------------------------------------------------------------------
+
 .data
 .ascii "(c)2024 pcmhacking.net" | An Antus / Gampy collaboration
 

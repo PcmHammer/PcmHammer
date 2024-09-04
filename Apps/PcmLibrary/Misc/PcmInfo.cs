@@ -337,12 +337,12 @@ namespace PcmHacking
                     this.Description = "E54";
                     this.LoaderRequired = false;
                     this.KernelFileName = "Kernel-E54.bin";
-                    this.KernelBaseAddress = 0xFF8F50;
+                    this.KernelBaseAddress = 0xFF9100;
                     this.LoaderFileName = string.Empty;
                     this.LoaderBaseAddress = 0x0;
                     this.ImageBaseAddress = 0x0;
                     this.ImageSize = 512 * 1024;
-                    this.KeyAlgorithm = 2;
+                    this.KeyAlgorithm = 54;
                     this.ChecksumSupport = true;
                     this.FlashCRCSupport = true;
                     this.FlashIDSupport = true;
@@ -424,8 +424,8 @@ namespace PcmHacking
                     break;
 
                 // LB7 Duramax service no 12210729
-                case 15094441:
                 case 15085499:
+                case 15094441:
                 case 15166853:
                 case 15186006:
                 case 15189044:
@@ -1084,7 +1084,7 @@ namespace PcmHacking
                     break;
 
 
-                // Service number 16227797, equivalent to Service No 16217058
+                // Service number 16227797 (Needs Confirmation on bin size), equivalent to Service No 16217058 (Confirmed 512KiB)
                 case 9350560:
                 case 9355202:
                 case 9355203:
@@ -1299,8 +1299,8 @@ namespace PcmHacking
                 case 28029988:
                 case 93802333:
                 case 93802334:
-                    PCMInfo(PcmType.P04_256k);
-                    this.Description = "P04 256KiB Service No 16227797";
+                    PCMInfo(PcmType.P04);
+                    this.Description = "P04 512KiB Service No 16227797 or 16217058";
                     break;
 
                 // P04 V6 Service number 9374997
@@ -1825,7 +1825,7 @@ namespace PcmHacking
                 case 12205325:
                 case 12205330:
                 case 12205333:
-                case 12205335:
+                case 12205335: // Could be service number 16217058. Have 1 recport of this.
                 case 12205340:
                 case 12205341:
                 case 12205345:
@@ -2795,7 +2795,7 @@ namespace PcmHacking
                     this.Description = "P04 Service No 16236757";
                     break;
 
-                // P08 9356249
+                // P08 Service Number 9356249
                 case 9364970:
                 case 12206029:
                 case 12206044:
@@ -2863,8 +2863,10 @@ namespace PcmHacking
                 case 9383076:
                 case 9387885:
                 case 12222105:
+                case 16254764:
                 case 16259649:
                 case 16259657:
+                case 16259674:
                 case 16259706:
                 case 16259718:
                     PCMInfo(PcmType.P08);

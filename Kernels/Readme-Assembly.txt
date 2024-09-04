@@ -32,7 +32,7 @@ Load addresses
     -aFF8000 -lFF9890 -pP04_256k
     -aFFB800 -pP10
     -aFF2000 -pP12
-    -aFF8F50 -pE54
+    -aFF9100 -pE54
     -aFFC300 -pBlackBox
 
 Assembly kernel filelist

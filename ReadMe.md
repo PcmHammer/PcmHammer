@@ -1,10 +1,10 @@
 ## Overview
 
-These tools are a work in progress. They currently support reading, writing, and data logging with General Motors P01, P10, P12 and P59 Powertrain Control Modules (PCMs). 
+These tools currently support reading, writing, and data logging with General Motors P01, P04, P08, P10, P12, P59, 4 connector 98-02 Black Box and E54 Powertrain Control Modules (PCMs). 
 
 ## Installation
 
-Go here: https://github.com/LegacyNsfw/PcmHacks/releases
+Go here: https://github.com/PcmHammer/PcmHammer/releases
 
 The most recent release will be at the top of that page.
 
@@ -13,8 +13,6 @@ Click "Assets" (below the description of the release) and download the .zip file
 Extract the contents of the zip file, and run PcmHammer.exe or PcmLogger.exe.
 
 ## Links
-
-[The wiki for this project](https://github.com/LegacyNsfw/PcmHacks/wiki)
 
 [The GM section of pcmhacking.net](https://pcmhacking.net/forums/viewforum.php?f=42)
 

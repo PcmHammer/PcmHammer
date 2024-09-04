@@ -46,3 +46,8 @@ $ make clean
 $ make pcm=P12 address=FF2000
 $ make clean
 
+$ make pcm=E54 address=FF9100
+$ make clean
+
+$ make pcm=BlackBox address=FFC300
+$ make clean
