@@ -3,6 +3,7 @@
 # 03/01/2023 - GampyG28 <github.com> major overhaul, renamed and updated.
 # 04/16/2023 - GampyG28 <github.com> Added Assembly Kernels and Loaders
 # 07/16/2023 - GampyG28 <github.com> Removed C Kernel builds
+# 09/05/2024 - Antus <pcmhacking.net> Update actions
 #
 name: CheckBuild
 
@@ -11,11 +12,11 @@ on: [ pull_request, push ]
 jobs:
 
   Kernels:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
 
     steps:
     - name: Checkout Code
-      uses: actions/checkout@v3.3.0
+      uses: actions/checkout@v4
 
     - name: Update Package Repository
       run: sudo apt-get update
@@ -64,7 +65,7 @@ jobs:
         done
 
     - name: Upload artifacts
-      uses: actions/upload-artifact@v3.1.2
+      uses: actions/upload-artifact@v4
       with:
         name: Kernels_${{github.sha}}
         path: TemporaryArtifactStorage
@@ -76,25 +77,25 @@ jobs:
 
     steps:
     - name: Checkout Code
-      uses: actions/checkout@v3.3.0
+      uses: actions/checkout@v4.1.7
 
     - name: Setup MSBuild Path
-      uses: microsoft/setup-msbuild@v1.3.1
+      uses: microsoft/setup-msbuild@v2.0.0
 
     - name: Setup NuGet
-      uses: NuGet/setup-nuget@v1.1.1
+      uses: NuGet/setup-nuget@v2.0.0
 
     - name: Restore NuGet Packages
       run: nuget restore Apps/PcmApps.sln
 
     - name: Download Kernels artifact
-      uses: actions/download-artifact@v3.0.2
+      uses: actions/download-artifact@v4.1.8
       with:
         name: Kernels_${{github.sha}}
         path: TemporaryArtifactStorage
 
     - name: Remove Stale Kernels artifact
-      uses: geekyeggo/delete-artifact@v2
+      uses: geekyeggo/delete-artifact@v5.1.0
       with:
         name: Kernels_${{github.sha}}
 
@@ -125,7 +126,7 @@ jobs:
       run: ls -l TemporaryArtifactStorage/
 
     - name: Upload artifacts
-      uses: actions/upload-artifact@v3.1.2
+      uses: actions/upload-artifact@v4.4.0
       with:
         name: PCMHacks_${{github.sha}}
         path: TemporaryArtifactStorage
