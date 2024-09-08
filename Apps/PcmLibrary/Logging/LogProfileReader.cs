@@ -59,12 +59,13 @@ namespace PcmHacking
                 {
                     string id = parameterElement.Attribute("id").Value;
                     string units = parameterElement.Attribute("units").Value;
-                    this.AddParameterToProfile<T>(id, units);
+                    bool zoom = parameterElement.Attribute("zoom").Value == "true";
+                    this.AddParameterToProfile<T>(id, units, zoom);
                 }
             }
         }
 
-        private void AddParameterToProfile<T>(string id, string units) where T : Parameter
+        private void AddParameterToProfile<T>(string id, string units, bool zoom) where T : Parameter
         {
             T parameter;
             if (!this.database.TryGetParameter<T>(id, out parameter))
@@ -86,7 +87,7 @@ namespace PcmHacking
                 throw new Exception(String.Format("Conversion {0} for parameter {1} not found when loading profile.", units, id));
             }
 
-            LogColumn column = new LogColumn(parameter, conversion);
+            LogColumn column = new LogColumn(parameter, conversion, zoom);
 
             this.profile.AddColumn(column);
         }

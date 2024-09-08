@@ -65,6 +65,7 @@ namespace PcmHacking
                 foreach (DataGridViewRow row in this.parameterGrid.Rows)
                 {
                     row.Cells[0].Value = false;
+                    row.Cells[1].Value = false;
                 }
 
                 foreach (LogColumn column in this.currentProfile.Columns)
@@ -74,6 +75,10 @@ namespace PcmHacking
                     if (row != null)
                     {
                         row.Cells[0].Value = true;
+                        if (column.Zoom)
+                        {
+                            row.Cells[1].Value = true;
+                        }
 
                         DataGridViewComboBoxCell cell = (DataGridViewComboBoxCell)(row.Cells[2]);
                         Conversion profileConversion = column.Conversion;
@@ -126,6 +131,8 @@ namespace PcmHacking
  
             this.ResetProfile();
 
+            this.ClearZoomPanel();
+
             this.CreateProfileFromGrid();
 
             this.SetDirtyFlag(true);
@@ -155,12 +162,14 @@ namespace PcmHacking
                         }
                     }
 
-                    LogColumn column = new LogColumn(parameter, conversion);
+                    bool zoom = (bool)row.Cells[1].Value;
+                    LogColumn column = new LogColumn(parameter, conversion, zoom);
                     this.currentProfile.AddColumn(column);
                 }
             }
         }
 
+        #region Parameter search
         private bool showSearchPrompt = true;
 
         private void ShowSearchPrompt()
@@ -214,5 +223,6 @@ namespace PcmHacking
                 }
             }
         }
+        #endregion
     }
 }

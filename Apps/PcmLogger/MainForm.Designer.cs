@@ -51,9 +51,6 @@
             this.parametersTab = new System.Windows.Forms.TabPage();
             this.parameterSearch = new System.Windows.Forms.TextBox();
             this.parameterGrid = new System.Windows.Forms.DataGridView();
-            this.enabledColumn = new System.Windows.Forms.DataGridViewCheckBoxColumn();
-            this.nameColumn = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.unitsColumn = new System.Windows.Forms.DataGridViewComboBoxColumn();
             this.canTab = new System.Windows.Forms.TabPage();
             this.canParameterGrid = new System.Windows.Forms.DataGridView();
             this.canParameterNameColumn = new System.Windows.Forms.DataGridViewTextBoxColumn();
@@ -64,7 +61,12 @@
             this.selectCanButton = new System.Windows.Forms.Button();
             this.debugTab = new System.Windows.Forms.TabPage();
             this.debugLog = new System.Windows.Forms.TextBox();
+            this.splitContainer2 = new System.Windows.Forms.SplitContainer();
             this.logValues = new System.Windows.Forms.TextBox();
+            this.enabledColumn = new System.Windows.Forms.DataGridViewCheckBoxColumn();
+            this.Zoom = new System.Windows.Forms.DataGridViewCheckBoxColumn();
+            this.nameColumn = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.unitsColumn = new System.Windows.Forms.DataGridViewComboBoxColumn();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).BeginInit();
             this.splitContainer1.Panel1.SuspendLayout();
             this.splitContainer1.Panel2.SuspendLayout();
@@ -77,6 +79,9 @@
             this.canTab.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.canParameterGrid)).BeginInit();
             this.debugTab.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.splitContainer2)).BeginInit();
+            this.splitContainer2.Panel1.SuspendLayout();
+            this.splitContainer2.SuspendLayout();
             this.SuspendLayout();
             // 
             // loggerProgress
@@ -88,7 +93,7 @@
             this.loggerProgress.Margin = new System.Windows.Forms.Padding(4);
             this.loggerProgress.MarqueeAnimationSpeed = 0;
             this.loggerProgress.Name = "loggerProgress";
-            this.loggerProgress.Size = new System.Drawing.Size(692, 58);
+            this.loggerProgress.Size = new System.Drawing.Size(791, 58);
             this.loggerProgress.Step = 0;
             this.loggerProgress.Style = System.Windows.Forms.ProgressBarStyle.Marquee;
             this.loggerProgress.TabIndex = 5;
@@ -130,9 +135,9 @@
             // 
             // splitContainer1.Panel2
             // 
-            this.splitContainer1.Panel2.Controls.Add(this.logValues);
-            this.splitContainer1.Size = new System.Drawing.Size(1031, 543);
-            this.splitContainer1.SplitterDistance = 600;
+            this.splitContainer1.Panel2.Controls.Add(this.splitContainer2);
+            this.splitContainer1.Size = new System.Drawing.Size(1130, 609);
+            this.splitContainer1.SplitterDistance = 577;
             this.splitContainer1.TabIndex = 9;
             // 
             // tabs
@@ -147,7 +152,7 @@
             this.tabs.Margin = new System.Windows.Forms.Padding(4);
             this.tabs.Name = "tabs";
             this.tabs.SelectedIndex = 0;
-            this.tabs.Size = new System.Drawing.Size(600, 543);
+            this.tabs.Size = new System.Drawing.Size(577, 609);
             this.tabs.TabIndex = 8;
             // 
             // configurationTab
@@ -161,7 +166,7 @@
             this.configurationTab.Location = new System.Drawing.Point(4, 25);
             this.configurationTab.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
             this.configurationTab.Name = "configurationTab";
-            this.configurationTab.Size = new System.Drawing.Size(592, 514);
+            this.configurationTab.Size = new System.Drawing.Size(569, 580);
             this.configurationTab.TabIndex = 3;
             this.configurationTab.Text = "Configuration";
             this.configurationTab.UseVisualStyleBackColor = true;
@@ -173,7 +178,7 @@
             this.disclaimer.Location = new System.Drawing.Point(5, 178);
             this.disclaimer.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.disclaimer.Name = "disclaimer";
-            this.disclaimer.Size = new System.Drawing.Size(584, 172);
+            this.disclaimer.Size = new System.Drawing.Size(485, 172);
             this.disclaimer.TabIndex = 10;
             this.disclaimer.Text = resources.GetString("disclaimer.Text");
             // 
@@ -184,7 +189,7 @@
             this.logFilePath.Location = new System.Drawing.Point(153, 85);
             this.logFilePath.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.logFilePath.Name = "logFilePath";
-            this.logFilePath.Size = new System.Drawing.Size(65, 17);
+            this.logFilePath.Size = new System.Drawing.Size(61, 16);
             this.logFilePath.TabIndex = 7;
             this.logFilePath.Text = "Directory";
             // 
@@ -227,7 +232,7 @@
             this.deviceDescription.Location = new System.Drawing.Point(300, 11);
             this.deviceDescription.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.deviceDescription.Name = "deviceDescription";
-            this.deviceDescription.Size = new System.Drawing.Size(114, 17);
+            this.deviceDescription.Size = new System.Drawing.Size(111, 16);
             this.deviceDescription.TabIndex = 1;
             this.deviceDescription.Text = "[selected device]";
             // 
@@ -242,7 +247,7 @@
             this.profilesTab.Location = new System.Drawing.Point(4, 25);
             this.profilesTab.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
             this.profilesTab.Name = "profilesTab";
-            this.profilesTab.Size = new System.Drawing.Size(592, 514);
+            this.profilesTab.Size = new System.Drawing.Size(569, 580);
             this.profilesTab.TabIndex = 4;
             this.profilesTab.Text = "Profiles";
             this.profilesTab.UseVisualStyleBackColor = true;
@@ -292,7 +297,7 @@
             this.profileList.Location = new System.Drawing.Point(3, 39);
             this.profileList.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
             this.profileList.Name = "profileList";
-            this.profileList.Size = new System.Drawing.Size(583, 469);
+            this.profileList.Size = new System.Drawing.Size(642, 535);
             this.profileList.TabIndex = 2;
             this.profileList.SelectedIndexChanged += new System.EventHandler(this.profileList_SelectedIndexChanged);
             // 
@@ -325,7 +330,7 @@
             this.parametersTab.Location = new System.Drawing.Point(4, 25);
             this.parametersTab.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
             this.parametersTab.Name = "parametersTab";
-            this.parametersTab.Size = new System.Drawing.Size(592, 514);
+            this.parametersTab.Size = new System.Drawing.Size(569, 580);
             this.parametersTab.TabIndex = 2;
             this.parametersTab.Text = "Parameters";
             this.parametersTab.UseVisualStyleBackColor = true;
@@ -337,7 +342,7 @@
             this.parameterSearch.Location = new System.Drawing.Point(4, 4);
             this.parameterSearch.Margin = new System.Windows.Forms.Padding(4);
             this.parameterSearch.Name = "parameterSearch";
-            this.parameterSearch.Size = new System.Drawing.Size(584, 22);
+            this.parameterSearch.Size = new System.Drawing.Size(561, 22);
             this.parameterSearch.TabIndex = 1;
             this.parameterSearch.TextChanged += new System.EventHandler(this.parameterSearch_TextChanged);
             this.parameterSearch.Enter += new System.EventHandler(this.parameterSearch_Enter);
@@ -356,6 +361,7 @@
             this.parameterGrid.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
             this.parameterGrid.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
             this.enabledColumn,
+            this.Zoom,
             this.nameColumn,
             this.unitsColumn});
             this.parameterGrid.Location = new System.Drawing.Point(0, 34);
@@ -368,37 +374,11 @@
             this.parameterGrid.ShowCellErrors = false;
             this.parameterGrid.ShowEditingIcon = false;
             this.parameterGrid.ShowRowErrors = false;
-            this.parameterGrid.Size = new System.Drawing.Size(589, 478);
+            this.parameterGrid.Size = new System.Drawing.Size(565, 546);
             this.parameterGrid.TabIndex = 0;
             this.parameterGrid.CellContentClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.parameterGrid_CellContentClick);
             this.parameterGrid.CellValueChanged += new System.Windows.Forms.DataGridViewCellEventHandler(this.parameterGrid_CellValueChanged);
             this.parameterGrid.CurrentCellDirtyStateChanged += new System.EventHandler(this.parameterGrid_CurrentCellDirtyStateChanged);
-            // 
-            // enabledColumn
-            // 
-            this.enabledColumn.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.ColumnHeader;
-            this.enabledColumn.FillWeight = 1F;
-            this.enabledColumn.HeaderText = "Enabled";
-            this.enabledColumn.MinimumWidth = 50;
-            this.enabledColumn.Name = "enabledColumn";
-            this.enabledColumn.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.Automatic;
-            this.enabledColumn.Width = 89;
-            // 
-            // nameColumn
-            // 
-            this.nameColumn.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.Fill;
-            this.nameColumn.HeaderText = "Name";
-            this.nameColumn.MinimumWidth = 100;
-            this.nameColumn.Name = "nameColumn";
-            this.nameColumn.ReadOnly = true;
-            // 
-            // unitsColumn
-            // 
-            this.unitsColumn.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.ColumnHeader;
-            this.unitsColumn.FillWeight = 1F;
-            this.unitsColumn.HeaderText = "Units";
-            this.unitsColumn.MinimumWidth = 100;
-            this.unitsColumn.Name = "unitsColumn";
             // 
             // canTab
             // 
@@ -409,7 +389,7 @@
             this.canTab.Controls.Add(this.selectCanButton);
             this.canTab.Location = new System.Drawing.Point(4, 25);
             this.canTab.Name = "canTab";
-            this.canTab.Size = new System.Drawing.Size(592, 514);
+            this.canTab.Size = new System.Drawing.Size(569, 580);
             this.canTab.TabIndex = 5;
             this.canTab.Text = "CAN Bus";
             this.canTab.UseVisualStyleBackColor = true;
@@ -433,7 +413,7 @@
             this.canParameterGrid.RowHeadersVisible = false;
             this.canParameterGrid.RowHeadersWidth = 51;
             this.canParameterGrid.RowTemplate.Height = 24;
-            this.canParameterGrid.Size = new System.Drawing.Size(586, 448);
+            this.canParameterGrid.Size = new System.Drawing.Size(645, 514);
             this.canParameterGrid.TabIndex = 17;
             this.canParameterGrid.CellValueChanged += new System.Windows.Forms.DataGridViewCellEventHandler(this.canParameterGrid_CellValueChanged);
             this.canParameterGrid.CurrentCellDirtyStateChanged += new System.EventHandler(this.canParameterGrid_CurrentCellDirtyStateChanged);
@@ -462,7 +442,7 @@
             this.disableCanLogging.Checked = true;
             this.disableCanLogging.Location = new System.Drawing.Point(4, 30);
             this.disableCanLogging.Name = "disableCanLogging";
-            this.disableCanLogging.Size = new System.Drawing.Size(163, 21);
+            this.disableCanLogging.Size = new System.Drawing.Size(158, 20);
             this.disableCanLogging.TabIndex = 16;
             this.disableCanLogging.TabStop = true;
             this.disableCanLogging.Text = "&Disable CAN Logging";
@@ -474,7 +454,7 @@
             this.enableCanLogging.AutoSize = true;
             this.enableCanLogging.Location = new System.Drawing.Point(4, 4);
             this.enableCanLogging.Name = "enableCanLogging";
-            this.enableCanLogging.Size = new System.Drawing.Size(160, 21);
+            this.enableCanLogging.Size = new System.Drawing.Size(154, 20);
             this.enableCanLogging.TabIndex = 15;
             this.enableCanLogging.Text = "&Enable CAN Logging";
             this.enableCanLogging.UseVisualStyleBackColor = true;
@@ -487,7 +467,7 @@
             this.canDeviceDescription.Location = new System.Drawing.Point(373, 32);
             this.canDeviceDescription.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.canDeviceDescription.Name = "canDeviceDescription";
-            this.canDeviceDescription.Size = new System.Drawing.Size(114, 17);
+            this.canDeviceDescription.Size = new System.Drawing.Size(111, 16);
             this.canDeviceDescription.TabIndex = 14;
             this.canDeviceDescription.Text = "[selected device]";
             // 
@@ -510,7 +490,7 @@
             this.debugTab.Margin = new System.Windows.Forms.Padding(4);
             this.debugTab.Name = "debugTab";
             this.debugTab.Padding = new System.Windows.Forms.Padding(4);
-            this.debugTab.Size = new System.Drawing.Size(592, 514);
+            this.debugTab.Size = new System.Drawing.Size(569, 580);
             this.debugTab.TabIndex = 1;
             this.debugTab.Text = "Debug";
             this.debugTab.UseVisualStyleBackColor = true;
@@ -524,8 +504,23 @@
             this.debugLog.Name = "debugLog";
             this.debugLog.ReadOnly = true;
             this.debugLog.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
-            this.debugLog.Size = new System.Drawing.Size(584, 506);
+            this.debugLog.Size = new System.Drawing.Size(561, 572);
             this.debugLog.TabIndex = 0;
+            // 
+            // splitContainer2
+            // 
+            this.splitContainer2.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.splitContainer2.Location = new System.Drawing.Point(0, 0);
+            this.splitContainer2.Name = "splitContainer2";
+            // 
+            // splitContainer2.Panel1
+            // 
+            this.splitContainer2.Panel1.Controls.Add(this.logValues);
+            this.splitContainer2.Panel1MinSize = 200;
+            this.splitContainer2.Panel2MinSize = 200;
+            this.splitContainer2.Size = new System.Drawing.Size(549, 609);
+            this.splitContainer2.SplitterDistance = 250;
+            this.splitContainer2.TabIndex = 1;
             // 
             // logValues
             // 
@@ -535,14 +530,50 @@
             this.logValues.Multiline = true;
             this.logValues.Name = "logValues";
             this.logValues.ReadOnly = true;
-            this.logValues.Size = new System.Drawing.Size(427, 543);
+            this.logValues.Size = new System.Drawing.Size(250, 609);
             this.logValues.TabIndex = 0;
+            // 
+            // enabledColumn
+            // 
+            this.enabledColumn.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.ColumnHeader;
+            this.enabledColumn.FillWeight = 1F;
+            this.enabledColumn.HeaderText = "Enable";
+            this.enabledColumn.MinimumWidth = 70;
+            this.enabledColumn.Name = "enabledColumn";
+            this.enabledColumn.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.Automatic;
+            this.enabledColumn.Width = 79;
+            // 
+            // Zoom
+            // 
+            this.Zoom.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.ColumnHeader;
+            this.Zoom.HeaderText = "Zoom";
+            this.Zoom.MinimumWidth = 70;
+            this.Zoom.Name = "Zoom";
+            this.Zoom.Resizable = System.Windows.Forms.DataGridViewTriState.True;
+            this.Zoom.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.Automatic;
+            this.Zoom.Width = 71;
+            // 
+            // nameColumn
+            // 
+            this.nameColumn.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.Fill;
+            this.nameColumn.HeaderText = "Name";
+            this.nameColumn.MinimumWidth = 200;
+            this.nameColumn.Name = "nameColumn";
+            this.nameColumn.ReadOnly = true;
+            // 
+            // unitsColumn
+            // 
+            this.unitsColumn.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.ColumnHeader;
+            this.unitsColumn.FillWeight = 1F;
+            this.unitsColumn.HeaderText = "Units";
+            this.unitsColumn.MinimumWidth = 100;
+            this.unitsColumn.Name = "unitsColumn";
             // 
             // MainForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(1033, 622);
+            this.ClientSize = new System.Drawing.Size(1132, 688);
             this.Controls.Add(this.splitContainer1);
             this.Controls.Add(this.loggerProgress);
             this.Controls.Add(this.startStopSaving);
@@ -553,7 +584,6 @@
             this.Load += new System.EventHandler(this.MainForm_Load);
             this.splitContainer1.Panel1.ResumeLayout(false);
             this.splitContainer1.Panel2.ResumeLayout(false);
-            this.splitContainer1.Panel2.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).EndInit();
             this.splitContainer1.ResumeLayout(false);
             this.tabs.ResumeLayout(false);
@@ -568,6 +598,10 @@
             ((System.ComponentModel.ISupportInitialize)(this.canParameterGrid)).EndInit();
             this.debugTab.ResumeLayout(false);
             this.debugTab.PerformLayout();
+            this.splitContainer2.Panel1.ResumeLayout(false);
+            this.splitContainer2.Panel1.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.splitContainer2)).EndInit();
+            this.splitContainer2.ResumeLayout(false);
             this.ResumeLayout(false);
 
         }
@@ -591,9 +625,6 @@
         private System.Windows.Forms.TabPage parametersTab;
         private System.Windows.Forms.TextBox parameterSearch;
         private System.Windows.Forms.DataGridView parameterGrid;
-        private System.Windows.Forms.DataGridViewCheckBoxColumn enabledColumn;
-        private System.Windows.Forms.DataGridViewTextBoxColumn nameColumn;
-        private System.Windows.Forms.DataGridViewComboBoxColumn unitsColumn;
         private System.Windows.Forms.TextBox logValues;
         private System.Windows.Forms.TabPage profilesTab;
         private System.Windows.Forms.Button removeProfileButton;
@@ -610,6 +641,11 @@
         private System.Windows.Forms.Button setDirectory;
         private System.Windows.Forms.Label deviceDescription;
         private System.Windows.Forms.TabControl tabs;
+        private System.Windows.Forms.SplitContainer splitContainer2;
+        private System.Windows.Forms.DataGridViewCheckBoxColumn enabledColumn;
+        private System.Windows.Forms.DataGridViewCheckBoxColumn Zoom;
+        private System.Windows.Forms.DataGridViewTextBoxColumn nameColumn;
+        private System.Windows.Forms.DataGridViewComboBoxColumn unitsColumn;
     }
 }
 

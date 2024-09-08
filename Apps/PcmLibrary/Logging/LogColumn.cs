@@ -20,13 +20,16 @@ namespace PcmHacking
         /// </summary>
         public Conversion Conversion { get; private set; }
 
+        public bool Zoom { get; private set; }
+
         /// <summary>
         /// Constructor.
         /// </summary>
-        public LogColumn(Parameter parameter, Conversion conversion)
+        public LogColumn(Parameter parameter, Conversion conversion, bool zoom)
         {
             this.Parameter = parameter;
             this.Conversion = conversion;
+            this.Zoom = zoom;
         }
 
         /// <summary>

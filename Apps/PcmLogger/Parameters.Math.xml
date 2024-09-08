@@ -8,7 +8,7 @@
       xParameterConversion="g/s"
       yParameterId="EngineSpeed"
       yParameterConversion="RPM">
-    <Conversion units="g/cyl" expression="x*15.0/(y*2)" format="0.00" />
+    <Conversion units="g/cyl" expression="x*30.0/y" format="0.00" />
   </MathParameter>
  <MathParameter
       id="MathIdcBank1"
