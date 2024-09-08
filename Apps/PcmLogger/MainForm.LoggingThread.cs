@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Runtime.CompilerServices;
 using System.Data;
+using System.Data.Common;
 
 namespace PcmHacking
 {
@@ -93,7 +94,19 @@ namespace PcmHacking
                 builder.Append(mathColumn.Conversion.Units);
                 builder.Append('\t');
                 builder.AppendLine(mathColumn.Parameter.Name);
+
+                if (mathColumn.Zoom)
+                {
+                    zoomedParameters.Add(
+                    new ZoomedParameter(
+                            mathColumn,
+                            rowValueEnumerator.Current,
+                            mathColumn.Parameter.Name,
+                            mathColumn.Conversion.Units));
+                }
             }
+
+
 
             foreach (CanLogger.ParameterValue pv in logger.CanLogger.GetParameterValues())
             {
@@ -102,8 +115,21 @@ namespace PcmHacking
                 builder.Append(pv.Units);
                 builder.Append('\t');
                 builder.AppendLine(pv.Name);
+
+
+                /* TODO: How to make this work for CAN?
+                 * 
+                 * if (column.Zoom)
+                {
+                    zoomedParameters.Add(
+                        new ZoomedParameter(
+                            column,
+                            rowValueEnumerator.Current,
+                            column.Parameter.Name,
+                            column.Conversion.Units));
+                }*/
             }
-        
+
             DateTime now = DateTime.Now;
             builder.AppendLine((now - lastLogTime).TotalMilliseconds.ToString("0.00") + "\tms\tQuery time");
             lastLogTime = now;

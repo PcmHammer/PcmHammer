@@ -10,8 +10,8 @@ namespace PcmHacking
     public partial class MainForm
     {
         private static Brush textBrush = Brushes.White;
-        private static Font bigFont = new Font("Arial", 32);
-        private static Font littleFont = new Font("Arial", 16);
+        private static Font bigFont = new Font("Arial", 80);
+        private static Font littleFont = new Font("Arial", 20);
         private const int topMargin = 10;
         private const int bottomMargin = -10;
 
@@ -26,17 +26,12 @@ namespace PcmHacking
 
         public void DrawZoomedParameters(List<ZoomedParameter> list)
         {
-            if (list.Count == 0)
-            {
-                return;
-            }
-
             var canvas = this.splitContainer2.Panel2;
             using (Graphics graphics = canvas.CreateGraphics())
             using (BufferedGraphics buffer = BufferedGraphicsManager.Current.Allocate(graphics, canvas.DisplayRectangle))
             {
                 buffer.Graphics.FillRectangle(new SolidBrush(Color.Black), canvas.DisplayRectangle);
-                int rowHeight = canvas.DisplayRectangle.Height / list.Count;
+                int rowHeight = canvas.DisplayRectangle.Height / Math.Max(1, list.Count);
 
                 for(int row = 0; row < list.Count; row++)
                 {
