@@ -59,7 +59,8 @@ namespace PcmHacking
                 {
                     string id = parameterElement.Attribute("id").Value;
                     string units = parameterElement.Attribute("units").Value;
-                    bool zoom = parameterElement.Attribute("zoom").Value == "true";
+                    string zoomAttributeValue = parameterElement.Attribute("zoom")?.Value;
+                    bool zoom = string.Equals(zoomAttributeValue, "true", StringComparison.OrdinalIgnoreCase);
                     this.AddParameterToProfile<T>(id, units, zoom);
                 }
             }
