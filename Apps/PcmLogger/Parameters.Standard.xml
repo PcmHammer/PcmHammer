@@ -651,7 +651,7 @@
       storageType="uint8"
       bitMapped="True"
       bitIndex="6">
-    <Conversion units="Boolean" expression="Presed,Relased" format="0" />
+    <Conversion units="Boolean" expression="Pressed,Relased" format="0" />
     <OS id="all" />
   </Parameter>
   <Parameter
@@ -984,7 +984,7 @@
       description=""
       storageType="uint8"
       bitMapped="False">
-    <Conversion units="Boolean" expression="x" format="0.00" />
+    <Conversion units="Index" expression="x" format="0.00" />
     <OS id="all" />
   </Parameter>
   <Parameter

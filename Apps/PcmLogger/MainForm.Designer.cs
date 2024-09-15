@@ -420,7 +420,7 @@
             this.canTab.Location = new System.Drawing.Point(4, 22);
             this.canTab.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
             this.canTab.Name = "canTab";
-            this.canTab.Size = new System.Drawing.Size(459, 522);
+            this.canTab.Size = new System.Drawing.Size(392, 522);
             this.canTab.TabIndex = 5;
             this.canTab.Text = "CAN Bus";
             this.canTab.UseVisualStyleBackColor = true;
@@ -445,7 +445,7 @@
             this.canParameterGrid.RowHeadersVisible = false;
             this.canParameterGrid.RowHeadersWidth = 51;
             this.canParameterGrid.RowTemplate.Height = 24;
-            this.canParameterGrid.Size = new System.Drawing.Size(518, 473);
+            this.canParameterGrid.Size = new System.Drawing.Size(451, 473);
             this.canParameterGrid.TabIndex = 17;
             this.canParameterGrid.CellValueChanged += new System.Windows.Forms.DataGridViewCellEventHandler(this.canParameterGrid_CellValueChanged);
             this.canParameterGrid.CurrentCellDirtyStateChanged += new System.EventHandler(this.canParameterGrid_CurrentCellDirtyStateChanged);

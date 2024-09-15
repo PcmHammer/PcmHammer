@@ -54,10 +54,13 @@ namespace PcmHacking
         CanLogger canLogger;
 
         /// <summary>
-        /// Create a string that will look reasonable in the UI's main text box.
-        /// TODO: Use a grid instead.
+        /// Create a string that will look reasonable in the UI's main text box, and
+        /// build a list of parameters to show in a larger format.
+        /// 
+        /// TODO: Instead of a string for a text box, make a list of objects, and render
+        /// them as a grid.
         /// </summary>
-        private Tuple<string, List<ZoomedParameter>> FormatValuesForTextBox(Logger logger, IEnumerable<string> rowValues)
+        private Tuple<string, List<ZoomedParameter>> FormatValuesForDisplay(Logger logger, IEnumerable<string> rowValues)
         {
             List<ZoomedParameter> zoomedParameters = new List<ZoomedParameter>();
 
@@ -431,7 +434,7 @@ namespace PcmHacking
                             row.Item2.WriteLine(row.Item3);
                         }
 
-                        Tuple<string, List<ZoomedParameter>> values = FormatValuesForTextBox(
+                        Tuple<string, List<ZoomedParameter>> values = FormatValuesForDisplay(
                             row.Item1, // logger
                             row.Item3); // row values
 
