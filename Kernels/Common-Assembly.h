@@ -28,7 +28,7 @@
     .equ COP1,           0xFFFA27
     .equ COP2,           0xFFD006
   #endif
-#elif defined P04 || defined P04_256k
+#elif defined P04 || defined P04_Early
   .equ J1850_Config,     0xFFE800
   .equ J1850_Command,    0xFFE800
   .equ J1850_TX_FIFO,    0xFFE801

@@ -465,7 +465,7 @@ namespace PcmHacking
             // OBDX Pro VT should be 1x for the P04 due to P04 VPW bus load not being high enough when
             // on the bench. The bus load is OK in the car, but car modules wake up and cause bus to
             // crash to 1x regardless.
-            if (pcmInfo.HardwareType == PcmType.P04 || pcmInfo.HardwareType == PcmType.P04_256k)
+            if (pcmInfo.HardwareType == PcmType.P04 || pcmInfo.HardwareType == PcmType.P04_Early)
             {
                 if (this.device.ToString().Contains("OBDX Pro VT"))
                 {

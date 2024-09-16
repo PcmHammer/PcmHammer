@@ -2,7 +2,7 @@
 | 2018-2023 Antus / PCMHacking.net
 | 2023-03-25 @21:00 Gampy <@pcmhacking.net>
 | 2024-06-11 @21:00 Antus / PCMHacking.net Backport Gampy's akernel changes (shared without source), cleanup build system
-| 2024-07-16 @19:00 Antus / PCMHacking.net Add P04_256k, BlackBox (98-02 4 connector)
+| 2024-07-16 @19:00 Antus / PCMHacking.net Add P04_Early, BlackBox (98-02 4 connector)
 | ===========================================================================
 |
 | C directives will only work if the source filename is .S, yup, capital S.
@@ -27,7 +27,7 @@
 .equ SIM_CSBAR0,             (SIM_BASE + 0x4C) | (SIM_BASE + 0x4C) (FA4C)
 .equ SIM_CSOR0,              (SIM_BASE + 0x4E) | (SIM_BASE + 0x4E) (FA4E)
 
-#if defined P04_256k
+#if defined P04_Early
   .equ REG_FFC000,            0xC000
   .equ REG_FFC002,            0xC002
   .equ VPP_BIT2,              2
@@ -185,7 +185,7 @@ ProcessKernelID:
     movea.l #KernelIDReply, %a0        | Pointer to KernelIDReply buffer
 #if defined P01
     move.b  #0x01, 8(%a0)              | P01, P59
-#elif defined P04_256k
+#elif defined P04_Early
     move.b  #0x44, 8(%a0)              | P04 256k
 #elif defined P04
     move.b  #0x04, 8(%a0)              | P04
@@ -216,7 +216,7 @@ ProcessKernelID:
 |
 | TODO: Have request supply address
 ProcessOsID:
-#if defined P04_256k
+#if defined P04_Early
     movea.l #0x3FFFA, %a1              | Pointer to OsID location in Flash
 #elif defined P04
     movea.l #0x7FFFA, %a1              | Pointer to OsID location in Flash
@@ -723,7 +723,7 @@ IntelFlashUnlock:
     move.w  #0x7060, (SIM_CSOR0).w     | $FFFFFA4E
 
     | Enable +12v Vpp
-#if defined P04_256k
+#if defined P04_Early
     bset    #VPP_BIT2, (REG_FFC002).w
     bset    #VPP_BIT4, (REG_FFC000).w
 #elif defined P08
@@ -763,7 +763,7 @@ IntelFlashLock:
     move.w  #0x1060, (SIM_CSOR0).w     | $FFFFFA4E
 
     | Disable +12v Vpp
-#if defined P04_256k
+#if defined P04_Early
     bclr    #VPP_BIT2, (REG_FFC002).w
     bclr    #VPP_BIT4, (REG_FFC000).w
 #elif defined P08

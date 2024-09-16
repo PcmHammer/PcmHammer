@@ -10,7 +10,7 @@ namespace PcmHacking
     {
         Undefined = 0, // required for failed osid test on binary file
         P01_P59,
-        P04_256k,
+        P04_Early,
         P04,
         P05,
         P08,
@@ -200,9 +200,9 @@ namespace PcmHacking
                     this.KernelMaxBlockSize = 4096;
                     break;
 
-                case PcmType.P04_256k:
+                case PcmType.P04_Early:
                     this.Description = "P04 1996/1997 256KiB V6";
-                    this.HardwareType = PcmType.P04_256k;
+                    this.HardwareType = PcmType.P04_Early;
                     this.HardwareSlaveCPU = false;
                     this.IsSupported = true;
                     this.IsSupportedRead = true;
@@ -210,7 +210,7 @@ namespace PcmHacking
                     this.IsSupportedWriteSlaveCPU = true;
                     this.IsSupportedWriteBySegment = false;
                     this.LoaderRequired = true;
-                    this.KernelFileName = "Kernel-P04_256k.bin";
+                    this.KernelFileName = "Kernel-P04_Early.bin";
                     this.KernelBaseAddress = 0xFF8000;
                     this.LoaderFileName = "Loader-P04.bin";
                     this.LoaderBaseAddress = 0xFF9890;
@@ -1074,7 +1074,7 @@ namespace PcmHacking
                 case 16257953:
                 case 16257955:
                 case 16257956:
-                    PCMInfo(PcmType.P04_256k);
+                    PCMInfo(PcmType.P04_Early);
                     this.Description = "P04 Early 256KiB Service No 16207326";
                     break;
 
@@ -1136,7 +1136,7 @@ namespace PcmHacking
                 case 28029988:
                 case 93802333:
                 case 93802334:
-                    PCMInfo(PcmType.P04_256k);
+                    PCMInfo(PcmType.P04_Early);
                     this.KeyAlgorithm = 0x06;
                     this.ImageSize = 512 * 1024;
                     this.Description = "P04 Early 512KiB Service No 16207326 or 16217058"; // SN 16217058 testing
@@ -1302,7 +1302,7 @@ namespace PcmHacking
                 case 16257537:
                 case 16257725:
                 case 16257726:
-                    PCMInfo(PcmType.P04_256k);
+                    PCMInfo(PcmType.P04_Early);
                     this.ImageSize = 512 * 1024;
                     this.Description = "P04 Early 512KiB Service No 16227797";
                     break;
