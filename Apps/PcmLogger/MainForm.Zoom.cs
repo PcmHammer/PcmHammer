@@ -33,8 +33,14 @@ namespace PcmHacking
                 buffer.Graphics.FillRectangle(new SolidBrush(Color.Black), canvas.DisplayRectangle);
                 int rowHeight = canvas.DisplayRectangle.Height / Math.Max(1, list.Count);
 
-                for(int row = 0; row < list.Count; row++)
+                for (int row = 0; row < list.Count; row++)
                 {
+                    if ((row & 1) > 0)
+                    {
+                        int topY = row * rowHeight;
+                        buffer.Graphics.FillRectangle(new SolidBrush(Color.FromArgb(32, 32, 32)), 0, topY, canvas.Width, rowHeight);
+                    }
+                    
                     int centerX = canvas.DisplayRectangle.Width / 2;
                     int centerY = ((rowHeight) / 2) + row * rowHeight;
 
