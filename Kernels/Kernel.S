@@ -91,7 +91,11 @@
 |.equ Mode_36             0x36          | Moved to Common-Assembly.s
 
 start:
+#if defined E54
+    move    #0x2700, %sr               | Configure CPU
+#else
     ori     #0x700, %sr                | Disable Interrupts
+#endif
 
 #if defined P08 | defined E54
     movea.w #0xB800, %sp               | Move the stack out the way P08/E54

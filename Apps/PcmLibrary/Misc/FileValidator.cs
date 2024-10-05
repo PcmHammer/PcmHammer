@@ -382,7 +382,7 @@ namespace PcmHacking
                 this.logger.AddDebugMessage("Trying E54 512KiB");
                 if ((image[0x1FFFE] == 0x4A) && (image[0x1FFFF] == 0xFC))
                 {
-                    if ((image[0x7FFFC] == 0x4A) && (image[0x7FFFD] == 0xFC) && (image[0x7FFFE] == 0x4A) && (image[0x7FFFF] == 0xFC))
+                    if ((image[0x7FFFE] == 0x4A) && (image[0x7FFFF] == 0xFC))
                     {
                         if ((image[0x3FFC] == 0) && (image[0x3FFD] == 0) && (image[0x3FFE] == 0) && (image[0x3FFF] == 0)) { // This prevents 98/99 Black Box being detected at E54
                             this.logger.AddUserMessage("File is E54 512KiB.");
