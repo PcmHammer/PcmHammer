@@ -16,13 +16,15 @@ namespace Tests
             LogColumn rpm = new LogColumn(
                 new PidParameter("EngSpeed", "Engine Speed", "", "uint16", false, 
                     new Conversion[] { rpmConversion }, 0x3456, new List<uint>()),
-                rpmConversion);
+                rpmConversion,
+                false);
 
             Conversion mafConversion = new Conversion("RPM", "x", "0");
             LogColumn maf = new LogColumn(
                 new PidParameter("MAF", "Mass Air Flow", "", "uint16", false,
                     new Conversion[] { mafConversion }, 0x1234, new List<uint>()),
-                mafConversion);
+                mafConversion,
+                false);
 
             MathParameter load = new MathParameter(
                 "id",
@@ -32,7 +34,7 @@ namespace Tests
                 rpm,
                 maf);
 
-            LogColumn mathColumn = new LogColumn(load, load.Conversions.First());
+            LogColumn mathColumn = new LogColumn(load, load.Conversions.First(), false);
 
             DpidConfiguration profile = new DpidConfiguration();
             profile.ParameterGroups.Add(new ParameterGroup(0xFE));

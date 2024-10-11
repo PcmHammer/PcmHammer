@@ -272,7 +272,7 @@ namespace PcmHacking
                 throw new Exception(String.Format("No conversion found for {0} in {1}", units, parameterName));
             }
 
-            return new LogColumn(xParameter, xConversion);
+            return new LogColumn(xParameter, xConversion, false);
         }
 
         List<Conversion> GetConversions(XElement parameterElement)

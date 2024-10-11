@@ -27,10 +27,10 @@ namespace Tests
             Parameter signed16 =   new RamParameter("U8",  "signed 16-bit",   "", "int16",  false, conversions, GetAddress(0));
             Parameter unsigned16 = new RamParameter("U16", "unsigned 16-bit", "", "uint16", false, conversions, GetAddress(0));
 
-            LogColumn signed8Column = new LogColumn(signed8, conversion);
-            LogColumn unsigned8Column = new LogColumn(unsigned8, conversion);
-            LogColumn signed16Column = new LogColumn(signed16, conversion);
-            LogColumn unsigned16Column = new LogColumn(unsigned16, conversion);
+            LogColumn signed8Column = new LogColumn(signed8, conversion, false);
+            LogColumn unsigned8Column = new LogColumn(unsigned8, conversion, false);
+            LogColumn signed16Column = new LogColumn(signed16, conversion, false);
+            LogColumn unsigned16Column = new LogColumn(unsigned16, conversion, false);
 
             ParameterGroup group = new ParameterGroup(0);
 

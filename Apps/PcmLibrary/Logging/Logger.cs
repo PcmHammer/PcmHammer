@@ -131,14 +131,14 @@ namespace PcmHacking
 
                 if (xColumn == null)
                 {
-                    xColumn = new LogColumn(mathParameter.XColumn.Parameter, mathParameter.XColumn.Conversion);
+                    xColumn = new LogColumn(mathParameter.XColumn.Parameter, mathParameter.XColumn.Conversion, false);
                     pcmColumns.Add(xColumn);
                 }
 
                 LogColumn yColumn = pcmColumns.Where(y => y.Parameter == mathParameter.YColumn.Parameter).FirstOrDefault();
                 if (yColumn == null)
                 {
-                    yColumn = new LogColumn(mathParameter.YColumn.Parameter, mathParameter.YColumn.Conversion);
+                    yColumn = new LogColumn(mathParameter.YColumn.Parameter, mathParameter.YColumn.Conversion, false);
                     pcmColumns.Add(yColumn);
                 }
 

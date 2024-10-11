@@ -50,6 +50,7 @@ namespace PcmHacking
                     XElement element = new XElement(parameterType);
                     element.SetAttributeValue("id", column.Parameter.Id);
                     element.SetAttributeValue("units", column.Conversion.Units);
+                    element.SetAttributeValue("zoom", column.Zoom.ToString());
                     parameterListElement.Add(element);
                 }
             }

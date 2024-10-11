@@ -651,7 +651,7 @@
       storageType="uint8"
       bitMapped="True"
       bitIndex="6">
-    <Conversion units="Boolean" expression="Presed,Relased" format="0" />
+    <Conversion units="Boolean" expression="Pressed,Relased" format="0" />
     <OS id="all" />
   </Parameter>
   <Parameter
@@ -984,7 +984,7 @@
       description=""
       storageType="uint8"
       bitMapped="False">
-    <Conversion units="Boolean" expression="x" format="0.00" />
+    <Conversion units="Index" expression="x" format="0.00" />
     <OS id="all" />
   </Parameter>
   <Parameter
@@ -1070,13 +1070,53 @@
   </Parameter>
 
   <Parameter
+      id="MisfireCurrentCyl1"
+      pid="1201"
+      name="Misfire Current Cyl 1"
+      description=""
+      storageType="uint8"
+      bitMapped="False">
+    <Conversion units="Raw" expression="x" format="0" />
+    <OS id="all" />
+  </Parameter>
+  <Parameter
+      id="MisfireCurrentCyl2"
+      pid="1202"
+      name="Misfire Current Cyl 2"
+      description=""
+      storageType="uint8"
+      bitMapped="False">
+    <Conversion units="Raw" expression="x" format="0" />
+    <OS id="all" />
+  </Parameter>
+  <Parameter
+      id="MisfireCurrentCyl3"
+      pid="1203"
+      name="Misfire Current Cyl 3"
+      description=""
+      storageType="uint8"
+      bitMapped="False">
+    <Conversion units="Raw" expression="x" format="0" />
+    <OS id="all" />
+  </Parameter>
+  <Parameter
+      id="MisfireCurrentCyl4"
+      pid="1204"
+      name="Misfire Current Cyl 4"
+      description=""
+      storageType="uint8"
+      bitMapped="False">
+    <Conversion units="Raw" expression="x" format="0" />
+    <OS id="all" />
+  </Parameter>
+  <Parameter
       id="MisfireCurrentCyl5"
       pid="11EA"
       name="Misfire Current Cyl 5"
       description=""
       storageType="uint8"
       bitMapped="False">
-    <Conversion units="Boolean" expression="x" format="0.00" />
+    <Conversion units="Raw" expression="x" format="0" />
     <OS id="all" />
   </Parameter>
   <Parameter
@@ -1086,7 +1126,7 @@
       description=""
       storageType="uint8"
       bitMapped="False">
-    <Conversion units="Boolean" expression="x" format="0.00" />
+    <Conversion units="Raw" expression="x" format="0" />
     <OS id="all" />
   </Parameter>
   <Parameter
@@ -1096,7 +1136,7 @@
       description=""
       storageType="uint8"
       bitMapped="False">
-    <Conversion units="Boolean" expression="x" format="0.00" />
+    <Conversion units="Raw" expression="x" format="0" />
     <OS id="all" />
   </Parameter>
   <Parameter
@@ -1145,46 +1185,6 @@
       name="Misfire History Cyl 8"
       description=""
       storageType="uint16"
-      bitMapped="False">
-    <Conversion units="Raw" expression="x" format="0" />
-    <OS id="all" />
-  </Parameter>
-  <Parameter
-      id="MisfireCurrentCyl1"
-      pid="1201"
-      name="Misfire Current Cyl 1"
-      description=""
-      storageType="uint8"
-      bitMapped="False">
-    <Conversion units="Raw" expression="x" format="0" />
-    <OS id="all" />
-  </Parameter>
-  <Parameter
-      id="MisfireCurrentCyl2"
-      pid="1202"
-      name="Misfire Current Cyl 2"
-      description=""
-      storageType="uint8"
-      bitMapped="False">
-    <Conversion units="Raw" expression="x" format="0" />
-    <OS id="all" />
-  </Parameter>
-  <Parameter
-      id="MisfireCurrentCyl3"
-      pid="1203"
-      name="Misfire Current Cyl 3"
-      description=""
-      storageType="uint8"
-      bitMapped="False">
-    <Conversion units="Raw" expression="x" format="0" />
-    <OS id="all" />
-  </Parameter>
-  <Parameter
-      id="MisfireCurrentCyl4"
-      pid="1204"
-      name="Misfire Current Cyl 4"
-      description=""
-      storageType="uint8"
       bitMapped="False">
     <Conversion units="Raw" expression="x" format="0" />
     <OS id="all" />

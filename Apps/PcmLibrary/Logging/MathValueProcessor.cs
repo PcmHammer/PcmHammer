@@ -76,6 +76,10 @@ namespace PcmHacking
                     finalConverter.SetVariable("x", xParameterValue);
                     finalConverter.SetVariable("y", yParameterValue);
                     double converted = finalConverter.Eval<double>(value.MathColumn.Conversion.Expression);
+                    if (double.IsNaN(converted))
+                    {
+                        converted = 0;
+                    }
                     result.Add(converted.ToString(value.MathColumn.Conversion.Format));
                 }
                 catch (Exception exception)

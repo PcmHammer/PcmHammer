@@ -8,6 +8,11 @@ namespace PcmHacking
 {
     public partial class MainForm
     {
+        const int CellIndexEnable = 0;
+        const int CellIndexZoom = 1;
+        const int CellIndexParameter = 2;
+        const int CellIndexUnits = 3;
+
         //private Dictionary<string, DataGridViewRow> parameterIdsToRows;
         private ParameterDatabase database;
         private bool suspendSelectionEvents = true;
@@ -30,20 +35,21 @@ namespace PcmHacking
 
                 row.CreateCells(this.parameterGrid);
 
-                row.Cells[0].Value = false; // enabled
-                row.Cells[1].Value = parameter;
+                row.Cells[CellIndexEnable].Value = false; // enabled
+                row.Cells[CellIndexZoom].Value = false; // zoom
+                row.Cells[CellIndexParameter].Value = parameter;
 
-                DataGridViewComboBoxCell cell = (DataGridViewComboBoxCell)row.Cells[2];
+                DataGridViewComboBoxCell unitsCell = (DataGridViewComboBoxCell)row.Cells[CellIndexUnits];
 
-                cell.DisplayMember = "Units";
-                cell.ValueMember = "Units";
+                unitsCell.DisplayMember = "Units";
+                unitsCell.ValueMember = "Units";
 
                 foreach (Conversion conversion in parameter.Conversions)
                 {
-                    cell.Items.Add(conversion);
+                    unitsCell.Items.Add(conversion);
                 }
 
-                row.Cells[2].Value = parameter.Conversions.First();
+                unitsCell.Value = parameter.Conversions.First();
 
                 this.parameterGrid.Rows.Add(row);
             }
@@ -64,18 +70,24 @@ namespace PcmHacking
 
                 foreach (DataGridViewRow row in this.parameterGrid.Rows)
                 {
-                    row.Cells[0].Value = false;
+                    row.Cells[CellIndexEnable].Value = false;
+                    row.Cells[CellIndexZoom].Value = false;
                 }
 
                 foreach (LogColumn column in this.currentProfile.Columns)
                 {
-                    DataGridViewRow row = this.parameterGrid.Rows.Cast<DataGridViewRow>().FirstOrDefault(r => r.Cells[1].Value == column.Parameter);
+                    DataGridViewRow row = this.parameterGrid.Rows.Cast<DataGridViewRow>().FirstOrDefault(
+                        r => r.Cells[CellIndexParameter].Value == column.Parameter);
 
                     if (row != null)
                     {
-                        row.Cells[0].Value = true;
+                        row.Cells[CellIndexEnable].Value = true;
+                        if (column.Zoom)
+                        {
+                            row.Cells[CellIndexZoom].Value = true;
+                        }
 
-                        DataGridViewComboBoxCell cell = (DataGridViewComboBoxCell)(row.Cells[2]);
+                        DataGridViewComboBoxCell cell = (DataGridViewComboBoxCell)(row.Cells[CellIndexUnits]);
                         Conversion profileConversion = column.Conversion;
                         string profileUnits = column.Conversion.Units;
 
@@ -97,6 +109,8 @@ namespace PcmHacking
 
         private void parameterGrid_CellContentClick(object sender, DataGridViewCellEventArgs e)
         {
+            // This ensures that checkbox changes are committed immediately.
+            // By default they are on committed when focus leaves the cell.
             DataGridViewCheckBoxCell checkBoxCell = this.parameterGrid.CurrentCell as DataGridViewCheckBoxCell;
             if ((checkBoxCell != null) && checkBoxCell.IsInEditMode && this.parameterGrid.IsCurrentCellDirty)
             {
@@ -106,6 +120,22 @@ namespace PcmHacking
 
         private void parameterGrid_CurrentCellDirtyStateChanged(object sender, EventArgs e)
         {
+            // Prevent the user from checking the Zoom box if the parameter is not
+            // enabled. I had hoped to disable the Zoom boxes until the corresponding
+            // parameter is enabled, but DataGridView doesn't support that.
+            if (this.parameterGrid.CurrentCell.ColumnIndex == CellIndexZoom)
+            {
+                int rowIndex = this.parameterGrid.CurrentCell.RowIndex;
+                DataGridViewCell enabledCell = this.parameterGrid.Rows[rowIndex].Cells[CellIndexEnable];
+                if ((bool)enabledCell.Value == false)
+                {
+                    this.parameterGrid.CancelEdit();
+                    return;
+                }
+            }
+
+            // This ensures that checkbox changes are committed immediately.
+            // By default they are on committed when focus leaves the cell.
             if (this.parameterGrid.IsCurrentCellDirty)
             {
                 this.parameterGrid.CommitEdit(DataGridViewDataErrorContexts.Commit);
@@ -126,6 +156,8 @@ namespace PcmHacking
  
             this.ResetProfile();
 
+            this.ClearZoomPanel();
+
             this.CreateProfileFromGrid();
 
             this.SetDirtyFlag(true);
@@ -137,12 +169,12 @@ namespace PcmHacking
 
             foreach (DataGridViewRow row in this.parameterGrid.Rows)
             {
-                if ((bool)row.Cells[0].Value == true)
+                if ((bool)row.Cells[CellIndexEnable].Value == true)
                 {
-                    Parameter parameter = (Parameter)row.Cells[1].Value;
+                    Parameter parameter = (Parameter)row.Cells[CellIndexParameter].Value;
                     Conversion conversion = null;
 
-                    DataGridViewComboBoxCell cell = (DataGridViewComboBoxCell)(row.Cells[2]);
+                    DataGridViewComboBoxCell cell = (DataGridViewComboBoxCell)(row.Cells[CellIndexUnits]);
                     foreach (Conversion candidate in cell.Items)
                     {
                         // The fact that we have to do both kinds of comparisons here really
@@ -155,12 +187,14 @@ namespace PcmHacking
                         }
                     }
 
-                    LogColumn column = new LogColumn(parameter, conversion);
+                    bool zoom = (bool)row.Cells[CellIndexZoom].Value;
+                    LogColumn column = new LogColumn(parameter, conversion, zoom);
                     this.currentProfile.AddColumn(column);
                 }
             }
         }
 
+        #region Parameter search
         private bool showSearchPrompt = true;
 
         private void ShowSearchPrompt()
@@ -198,7 +232,7 @@ namespace PcmHacking
 
             foreach (DataGridViewRow row in this.parameterGrid.Rows)
             {
-                Parameter parameter = row.Cells[1].Value as Parameter;
+                Parameter parameter = row.Cells[CellIndexParameter].Value as Parameter;
                 if (parameter == null)
                 {
                     continue;
@@ -214,5 +248,6 @@ namespace PcmHacking
                 }
             }
         }
+        #endregion
     }
 }

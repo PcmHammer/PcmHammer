@@ -8,9 +8,26 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Runtime.CompilerServices;
 using System.Data;
+using System.Data.Common;
 
 namespace PcmHacking
 {
+    public class ZoomedParameter
+    {
+        public LogColumn LogColumn { get; private set; }
+        public string Value { get; private set; }
+        public string Name { get; private set; }
+        public string Units { get; private set; }
+
+        public ZoomedParameter(LogColumn logColumn, string value, string name, string units)
+        {
+            LogColumn = logColumn;
+            Value = value;
+            Name = name;
+            Units = units;
+        }
+    }
+
     partial class MainForm
     {
         private ConcurrentQueue<Tuple<Logger, LogFileWriter, IEnumerable<string>>> logRowQueue = new ConcurrentQueue<Tuple<Logger, LogFileWriter, IEnumerable<string>>>();
@@ -37,11 +54,16 @@ namespace PcmHacking
         CanLogger canLogger;
 
         /// <summary>
-        /// Create a string that will look reasonable in the UI's main text box.
-        /// TODO: Use a grid instead.
+        /// Create a string that will look reasonable in the UI's main text box, and
+        /// build a list of parameters to show in a larger format.
+        /// 
+        /// TODO: Instead of a string for a text box, make a list of objects, and render
+        /// them as a grid.
         /// </summary>
-        private string FormatValuesForTextBox(Logger logger, IEnumerable<string> rowValues)
+        private Tuple<string, List<ZoomedParameter>> FormatValuesForDisplay(Logger logger, IEnumerable<string> rowValues)
         {
+            List<ZoomedParameter> zoomedParameters = new List<ZoomedParameter>();
+
             StringBuilder builder = new StringBuilder();
             IEnumerator<string> rowValueEnumerator = rowValues.GetEnumerator();
             foreach (ParameterGroup group in logger.DpidConfiguration.ParameterGroups)
@@ -54,6 +76,16 @@ namespace PcmHacking
                     builder.Append(column.Conversion.Units);
                     builder.Append('\t');
                     builder.AppendLine(column.Parameter.Name);
+
+                    if (column.Zoom)
+                    {
+                        zoomedParameters.Add(
+                            new ZoomedParameter(
+                                column,
+                                rowValueEnumerator.Current,
+                                column.Parameter.Name,
+                                column.Conversion.Units));
+                    }
                 }
             }
 
@@ -65,7 +97,19 @@ namespace PcmHacking
                 builder.Append(mathColumn.Conversion.Units);
                 builder.Append('\t');
                 builder.AppendLine(mathColumn.Parameter.Name);
+
+                if (mathColumn.Zoom)
+                {
+                    zoomedParameters.Add(
+                    new ZoomedParameter(
+                            mathColumn,
+                            rowValueEnumerator.Current,
+                            mathColumn.Parameter.Name,
+                            mathColumn.Conversion.Units));
+                }
             }
+
+
 
             foreach (CanLogger.ParameterValue pv in logger.CanLogger.GetParameterValues())
             {
@@ -74,13 +118,26 @@ namespace PcmHacking
                 builder.Append(pv.Units);
                 builder.Append('\t');
                 builder.AppendLine(pv.Name);
+
+
+                /* TODO: How to make this work for CAN?
+                 * 
+                 * if (column.Zoom)
+                {
+                    zoomedParameters.Add(
+                        new ZoomedParameter(
+                            column,
+                            rowValueEnumerator.Current,
+                            column.Parameter.Name,
+                            column.Conversion.Units));
+                }*/
             }
-        
+
             DateTime now = DateTime.Now;
             builder.AppendLine((now - lastLogTime).TotalMilliseconds.ToString("0.00") + "\tms\tQuery time");
             lastLogTime = now;
 
-            return builder.ToString();
+            return new Tuple<string, List<ZoomedParameter>>(builder.ToString(), zoomedParameters);
         }
 
         private async Task<Logger> RecreateLogger(ParameterDatabase parameterDatabase)
@@ -377,12 +434,15 @@ namespace PcmHacking
                             row.Item2.WriteLine(row.Item3);
                         }
 
-                        string formattedValues = FormatValuesForTextBox(row.Item1, row.Item3);
+                        Tuple<string, List<ZoomedParameter>> values = FormatValuesForDisplay(
+                            row.Item1, // logger
+                            row.Item3); // row values
 
                         this.BeginInvoke((MethodInvoker)
                         delegate ()
                         {
-                            this.logValues.Text = formattedValues;
+                            this.logValues.Text = values.Item1;
+                            this.DrawZoomedParameters(values.Item2);
                         });
                     }
                 }

@@ -95,7 +95,7 @@ namespace PcmHacking
             {
                 DataGridViewRow row = new DataGridViewRow();
                 row.CreateCells(this.canParameterGrid);
-                row.Cells[0].Value = parameter;
+                row.Cells[CellIndexEnable].Value = parameter;
 
                 DataGridViewComboBoxCell cell = (DataGridViewComboBoxCell)row.Cells[1];
                 cell.DisplayMember = "Units";
@@ -162,7 +162,7 @@ namespace PcmHacking
 
             DataGridViewRow row = this.canParameterGrid.Rows[e.RowIndex];
 
-            CanParameter parameter = row.Cells[0].Value as CanParameter;
+            CanParameter parameter = row.Cells[CellIndexEnable].Value as CanParameter;
 
             DataGridViewComboBoxCell cell = row.Cells[e.ColumnIndex] as DataGridViewComboBoxCell;
             string conversionName = cell.Value as string;
