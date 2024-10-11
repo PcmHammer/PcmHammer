@@ -866,7 +866,7 @@ namespace PcmHacking
                 }
 
                 // Disable BCC lookup for those that do not provide it
-                if (pcmInfo != null && pcmInfo.HardwareType != PcmType.P04 && pcmInfo.HardwareType != PcmType.P04_256k && pcmInfo.HardwareType != PcmType.P08)
+                if (pcmInfo != null && pcmInfo.HardwareType != PcmType.P04 && pcmInfo.HardwareType != PcmType.P04_Early && pcmInfo.HardwareType != PcmType.P08)
                 {
                     var bccResponse = await this.Vehicle.QueryBCC();
                     if (bccResponse.Status == ResponseStatus.Success)
@@ -1260,7 +1260,7 @@ namespace PcmHacking
                         return;
                     }
 
-                    if (pcmInfo.HardwareType == PcmType.E54)
+                    if (pcmInfo.HardwareType == PcmType.P05)
                     {
                         string msg = $"WARNING: {pcmInfo.HardwareType.ToString()} Support is still in development.";
                         this.AddUserMessage(msg);
@@ -1571,7 +1571,7 @@ namespace PcmHacking
                         }
                     }
 
-                    if (pcmInfo.HardwareType == PcmType.E54)
+                    /*if (pcmInfo.HardwareType == PcmType.E54)
                     {
                         string msg = $"WARNING: {pcmInfo.HardwareType.ToString()} support is insufficiently tested, but believed to be working." + Environment.NewLine +
                                     "Please report success or failure on pcmhacking.net." + Environment.NewLine +
@@ -1586,7 +1586,7 @@ namespace PcmHacking
                         {
                             this.AddUserMessage("User accepts the risk of running insufficiently tested code.");
                         }
-                    }
+                    }*/
 
                     await this.Vehicle.SuppressChatter();
 

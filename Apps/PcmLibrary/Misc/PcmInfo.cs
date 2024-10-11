@@ -10,7 +10,7 @@ namespace PcmHacking
     {
         Undefined = 0, // required for failed osid test on binary file
         P01_P59,
-        P04_256k,
+        P04_Early,
         P04,
         P05,
         P08,
@@ -200,9 +200,9 @@ namespace PcmHacking
                     this.KernelMaxBlockSize = 4096;
                     break;
 
-                case PcmType.P04_256k:
+                case PcmType.P04_Early:
                     this.Description = "P04 1996/1997 256KiB V6";
-                    this.HardwareType = PcmType.P04_256k;
+                    this.HardwareType = PcmType.P04_Early;
                     this.HardwareSlaveCPU = false;
                     this.IsSupported = true;
                     this.IsSupportedRead = true;
@@ -210,7 +210,7 @@ namespace PcmHacking
                     this.IsSupportedWriteSlaveCPU = true;
                     this.IsSupportedWriteBySegment = false;
                     this.LoaderRequired = true;
-                    this.KernelFileName = "Kernel-P04_256k.bin";
+                    this.KernelFileName = "Kernel-P04_Early.bin";
                     this.KernelBaseAddress = 0xFF8000;
                     this.LoaderFileName = "Loader-P04.bin";
                     this.LoaderBaseAddress = 0xFF9890;
@@ -337,12 +337,12 @@ namespace PcmHacking
                     this.Description = "E54";
                     this.LoaderRequired = false;
                     this.KernelFileName = "Kernel-E54.bin";
-                    this.KernelBaseAddress = 0xFF8F50;
+                    this.KernelBaseAddress = 0xFF9100;
                     this.LoaderFileName = string.Empty;
                     this.LoaderBaseAddress = 0x0;
                     this.ImageBaseAddress = 0x0;
                     this.ImageSize = 512 * 1024;
-                    this.KeyAlgorithm = 2;
+                    this.KeyAlgorithm = 54;
                     this.ChecksumSupport = true;
                     this.FlashCRCSupport = true;
                     this.FlashIDSupport = true;
@@ -424,8 +424,8 @@ namespace PcmHacking
                     break;
 
                 // LB7 Duramax service no 12210729
-                case 15094441:
                 case 15085499:
+                case 15094441:
                 case 15166853:
                 case 15186006:
                 case 15189044:
@@ -971,7 +971,7 @@ namespace PcmHacking
                     this.Description = "1997, 1998 LS1 Corvette, Camaro, Firebird";
                     break;
 
-                // 1996/1997 256KiB V6 Service number 16207326
+                // Service number 16207326 P04 Early
                 case 9352140:
                 case 9352142:
                 case 9352143:
@@ -1074,17 +1074,77 @@ namespace PcmHacking
                 case 16257953:
                 case 16257955:
                 case 16257956:
-                    PCMInfo(PcmType.P04_256k);
-                    this.Description = "P04 256KiB Service No 16207326";
+                    PCMInfo(PcmType.P04_Early);
+                    this.Description = "P04 Early 256KiB Service No 16207326";
                     break;
 
-                case 16252952: // equivalent to Service No 16227797
-                    PCMInfo(PcmType.P04_256k);
-                    this.Description = "P04 256KiB Service No 16217058";
+                // Service numbers 16207326, 16217058
+                case 16257963:
+                case 16257965:
+                case 16257966:
+                case 16259008:
+                case 16259012:
+                case 16259016:
+                case 16259018:
+                case 16259195:
+                case 16259652:
+                case 16259654:
+                case 16259659:
+                case 16259660:
+                case 16259664:
+                case 16259666:
+                case 16259667:
+                case 16259669:
+                case 16259670:
+                case 16259672:
+                case 16259676:
+                case 16259677:
+                case 16259682:
+                case 16259686:
+                case 16259687:
+                case 16259688:
+                case 16259694:
+                case 16259696:
+                case 16259697:
+                case 16259698:
+                case 16259702:
+                case 16259704:
+                case 16259705:
+                case 16259708:
+                case 16259710:
+                case 16259712:
+                case 16259714:
+                case 16259715:
+                case 16259716:
+                case 16259717:
+                case 16259720:
+                case 16259906:
+                case 16265837:
+                case 16266038:
+                case 16266902:
+                case 16268480:
+                case 16268483:
+                case 16268485:
+                case 16268488:
+                case 24233869:
+                case 24233870:
+                case 24234035:
+                case 24234036:
+                case 24234037:
+                case 24234038:
+                case 28004945:
+                case 28029988:
+                case 93802333:
+                case 93802334:
+                    PCMInfo(PcmType.P04_Early);
+                    this.KeyAlgorithm = 0x06;
+                    this.ImageSize = 512 * 1024;
+                    this.Description = "P04 Early 512KiB Service No 16207326 or 16217058"; // SN 16217058 testing
                     break;
 
+                // Service number 
+                case 16252952: // 97 Lesabre Service No 16217058
 
-                // Service number 16227797, equivalent to Service No 16217058
                 case 9350560:
                 case 9355202:
                 case 9355203:
@@ -1204,7 +1264,7 @@ namespace PcmHacking
                 case 16245478:
                 case 16245480:
                 case 16245670:
-                case 16248316:
+                case 16248316: // Service No 16227797
                 case 16248320:
                 case 16251789:
                 case 16252225:
@@ -1238,69 +1298,13 @@ namespace PcmHacking
                 case 16257531:
                 case 16257532:
                 case 16257533:
-                case 16257536:
+                case 16257536: // Service number 16227797
                 case 16257537:
                 case 16257725:
                 case 16257726:
-                case 16257963:
-                case 16257965:
-                case 16257966:
-                case 16259008:
-                case 16259012:
-                case 16259016:
-                case 16259018:
-                case 16259195:
-                case 16259652:
-                case 16259654:
-                case 16259659:
-                case 16259660:
-                case 16259664:
-                case 16259666:
-                case 16259667:
-                case 16259669:
-                case 16259670:
-                case 16259672:
-                case 16259676:
-                case 16259677:
-                case 16259682:
-                case 16259686:
-                case 16259687:
-                case 16259688:
-                case 16259694:
-                case 16259696:
-                case 16259697:
-                case 16259698:
-                case 16259702:
-                case 16259704:
-                case 16259705:
-                case 16259708:
-                case 16259710:
-                case 16259712:
-                case 16259714:
-                case 16259715:
-                case 16259716:
-                case 16259717:
-                case 16259720:
-                case 16259906:
-                case 16265837:
-                case 16266038:
-                case 16266902:
-                case 16268480:
-                case 16268483:
-                case 16268485:
-                case 16268488:
-                case 24233869:
-                case 24233870:
-                case 24234035:
-                case 24234036:
-                case 24234037:
-                case 24234038:
-                case 28004945:
-                case 28029988:
-                case 93802333:
-                case 93802334:
-                    PCMInfo(PcmType.P04_256k);
-                    this.Description = "P04 256KiB Service No 16227797";
+                    PCMInfo(PcmType.P04_Early);
+                    this.ImageSize = 512 * 1024;
+                    this.Description = "P04 Early 512KiB Service No 16227797";
                     break;
 
                 // P04 V6 Service number 9374997
@@ -1466,7 +1470,8 @@ namespace PcmHacking
                 case 16257169:
                 case 16257171:
                     PCMInfo(PcmType.P04);
-                    this.Description = "P04 Service No 9374997";
+                    this.KeyAlgorithm = 0x0E;
+                    this.Description = "P04 512KiB Service No 9374997 (algo 14)";
                     break;
 
                 // P04 V6 Service number 9380717
@@ -1825,7 +1830,7 @@ namespace PcmHacking
                 case 12205325:
                 case 12205330:
                 case 12205333:
-                case 12205335:
+                case 12205335: // Could be service number 16217058. Have 1 recport of this.
                 case 12205340:
                 case 12205341:
                 case 12205345:
@@ -2795,7 +2800,7 @@ namespace PcmHacking
                     this.Description = "P04 Service No 16236757";
                     break;
 
-                // P08 9356249
+                // P08 Service Number 9356249
                 case 9364970:
                 case 12206029:
                 case 12206044:
@@ -2863,8 +2868,10 @@ namespace PcmHacking
                 case 9383076:
                 case 9387885:
                 case 12222105:
+                case 16254764:
                 case 16259649:
                 case 16259657:
+                case 16259674:
                 case 16259706:
                 case 16259718:
                     PCMInfo(PcmType.P08);

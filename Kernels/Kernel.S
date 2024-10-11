@@ -2,7 +2,7 @@
 | 2018-2023 Antus / PCMHacking.net
 | 2023-03-25 @21:00 Gampy <@pcmhacking.net>
 | 2024-06-11 @21:00 Antus / PCMHacking.net Backport Gampy's akernel changes (shared without source), cleanup build system
-| 2024-07-16 @19:00 Antus / PCMHacking.net Add P04_256k, BlackBox (98-02 4 connector)
+| 2024-07-16 @19:00 Antus / PCMHacking.net Add P04_Early, BlackBox (98-02 4 connector)
 | ===========================================================================
 |
 | C directives will only work if the source filename is .S, yup, capital S.
@@ -27,7 +27,7 @@
 .equ SIM_CSBAR0,             (SIM_BASE + 0x4C) | (SIM_BASE + 0x4C) (FA4C)
 .equ SIM_CSOR0,              (SIM_BASE + 0x4E) | (SIM_BASE + 0x4E) (FA4E)
 
-#if defined P04_256k
+#if defined P04_Early
   .equ REG_FFC000,            0xC000
   .equ REG_FFC002,            0xC002
   .equ VPP_BIT2,              2
@@ -91,10 +91,14 @@
 |.equ Mode_36             0x36          | Moved to Common-Assembly.s
 
 start:
+#if defined E54
+    move    #0x2700, %sr               | Configure CPU
+#else
     ori     #0x700, %sr                | Disable Interrupts
+#endif
 
-#if defined P08
-    movea.w #0xB800, %sp               | Move the stack out the way
+#if defined P08 | defined E54
+    movea.w #0xB800, %sp               | Move the stack out the way P08/E54
 #endif
 
     move.b  #0x03, (J1850_Command).l   | Flush frame except for completion code
@@ -185,7 +189,7 @@ ProcessKernelID:
     movea.l #KernelIDReply, %a0        | Pointer to KernelIDReply buffer
 #if defined P01
     move.b  #0x01, 8(%a0)              | P01, P59
-#elif defined P04_256k
+#elif defined P04_Early
     move.b  #0x44, 8(%a0)              | P04 256k
 #elif defined P04
     move.b  #0x04, 8(%a0)              | P04
@@ -216,7 +220,7 @@ ProcessKernelID:
 |
 | TODO: Have request supply address
 ProcessOsID:
-#if defined P04_256k
+#if defined P04_Early
     movea.l #0x3FFFA, %a1              | Pointer to OsID location in Flash
 #elif defined P04
     movea.l #0x7FFFA, %a1              | Pointer to OsID location in Flash
@@ -723,7 +727,7 @@ IntelFlashUnlock:
     move.w  #0x7060, (SIM_CSOR0).w     | $FFFFFA4E
 
     | Enable +12v Vpp
-#if defined P04_256k
+#if defined P04_Early
     bset    #VPP_BIT2, (REG_FFC002).w
     bset    #VPP_BIT4, (REG_FFC000).w
 #elif defined P08
@@ -763,7 +767,7 @@ IntelFlashLock:
     move.w  #0x1060, (SIM_CSOR0).w     | $FFFFFA4E
 
     | Disable +12v Vpp
-#if defined P04_256k
+#if defined P04_Early
     bclr    #VPP_BIT2, (REG_FFC002).w
     bclr    #VPP_BIT4, (REG_FFC000).w
 #elif defined P08
@@ -1157,7 +1161,9 @@ VPWSendBlockWaitForBuffer2:
     move.b  #0xC, (J1850_Command).l    | BTAD ...0 11.. "Load as last byte of transmit data"
     move.b  %d1, (J1850_TX_FIFO).l     | Move the Second checksum byte  to the TX FIFO
     rts
+
 | ---------------------------------------------------------------------------
+
 .data
 .ascii "(c)2024 pcmhacking.net" | An Antus / Gampy collaboration
 

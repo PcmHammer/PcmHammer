@@ -51,15 +51,15 @@ rem * They would need to be changed below.
   setlocal disabledelayedexpansion
 )
 
-REM P04_256k uses the P04 loader
+REM P04_Early uses the P04 loader
 for %%A in (
   "-pP01 -aFF8000 -x",
   "-pP04 -aFF8000 -lFF9890 -x",
-  "-pP04_256k -aFF8000 -x",
+  "-pP04_Early -aFF8000 -x",
   "-pP08 -aFFAC00 -x",
   "-pP10 -aFFB800 -x",
   "-pP12 -aFF2000 -x",
-  "-pE54 -aFF8F50 -x",
+  "-pE54 -aFF9100 -x",
   "-pBlackBox -aFFC300 -x"
   ) do call Build.cmd %%~A %*
 
