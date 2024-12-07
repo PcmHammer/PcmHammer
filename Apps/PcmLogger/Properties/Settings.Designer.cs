@@ -12,7 +12,7 @@ namespace PcmLogger.Properties {
     
     
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("Microsoft.VisualStudio.Editors.SettingsDesigner.SettingsSingleFileGenerator", "16.10.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("Microsoft.VisualStudio.Editors.SettingsDesigner.SettingsSingleFileGenerator", "17.10.0.0")]
     public sealed partial class Settings : global::System.Configuration.ApplicationSettingsBase {
         
         private static Settings defaultInstance = ((Settings)(global::System.Configuration.ApplicationSettingsBase.Synchronized(new Settings())));
@@ -72,9 +72,11 @@ namespace PcmLogger.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        public PcmHacking.SerializableStringDictionary CanConversions {
+        [global::System.Configuration.DefaultSettingValueAttribute("\r\n                <PcmHacking.SerializableStringDictionary>\r\n                </Pc" +
+            "mHacking.SerializableStringDictionary>\r\n              ")]
+        public string CanConversions {
             get {
-                return ((PcmHacking.SerializableStringDictionary)(this["CanConversions"]));
+                return ((string)(this["CanConversions"]));
             }
             set {
                 this["CanConversions"] = value;
