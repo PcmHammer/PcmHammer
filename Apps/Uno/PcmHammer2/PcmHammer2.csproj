@@ -6,16 +6,16 @@
     <UnoSingleProject>true</UnoSingleProject>
 
     <!-- Display name -->
-    <ApplicationTitle>UnoExperiment1</ApplicationTitle>
+    <ApplicationTitle>PCM Hammer</ApplicationTitle>
     <!-- App Identifier -->
-    <ApplicationId>com.PcmHammer.UnoExperiment1</ApplicationId>
+    <ApplicationId>com.PcmHammer.TouchUserInterface</ApplicationId>
     <!-- Versions -->
     <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
     <ApplicationVersion>1</ApplicationVersion>
     <!-- Package Publisher -->
-    <ApplicationPublisher>nate</ApplicationPublisher>
+    <ApplicationPublisher>PcmHacking</ApplicationPublisher>
     <!-- Package Description -->
-    <Description>UnoExperiment1 powered by Uno Platform.</Description>
+    <Description>Tools for reading, writing, logging, and configuration VPW-era General Motors Powertrain Control Modules.</Description>
     <!--
       If you encounter this error message:
 

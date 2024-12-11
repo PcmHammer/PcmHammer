@@ -18,6 +18,12 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VpwExplorer", "VpwExplorer\VpwExplorer.csproj", "{2B57ABC7-9994-4DB3-9403-B22471A0DDA1}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{6BF5E846-FF31-4DB6-ABE5-A3D81F3DAEE9}"
+	ProjectSection(SolutionItems) = preProject
+		Directory.Build.props = Directory.Build.props
+		Directory.Build.targets = Directory.Build.targets
+		Directory.Packages.props = Directory.Packages.props
+		global.json = global.json
+	EndProjectSection
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PcmHammer2", "Uno\PcmHammer2\PcmHammer2.csproj", "{198D2C07-C748-4D31-98B0-A8CEE74B9F6A}"
 EndProject

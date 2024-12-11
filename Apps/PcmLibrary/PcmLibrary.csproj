@@ -3,6 +3,14 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <RootNamespace>PcmHacking</RootNamespace>
+    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+    <Version>0.0.0.0</Version>
+    <Title>PCM Library</Title>
+    <Authors>PCM Hacking</Authors>
+    <Company>PcmHacking.net</Company>
+    <Copyright>2018-2024 PcmHacking.Net</Copyright>
+    <PackageProjectUrl>https://PcmHammer.org</PackageProjectUrl>
+    <PackageReleaseNotes>This is an untested experiment. You almost certainly don't want to use it.</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>
@@ -11,11 +19,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="DynamicExpresso.Core"  />
+    <PackageReference Include="DynamicExpresso.Core" />
     <PackageReference Include="Microsoft.Bcl.HashCode" />
-    <PackageReference Include="Newtonsoft.Json"  />
-    <PackageReference Include="System.Collections.Immutable"  />
-    <PackageReference Include="System.Xml.XmlSerializer"  />
+    <PackageReference Include="Newtonsoft.Json" />
+    <PackageReference Include="System.Collections.Immutable" />
+    <PackageReference Include="System.Xml.XmlSerializer" />
   </ItemGroup>
 
 </Project>
