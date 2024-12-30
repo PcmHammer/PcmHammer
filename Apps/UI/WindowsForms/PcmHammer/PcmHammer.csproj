@@ -4,7 +4,7 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{A6B28831-A16F-48F3-8C48-9B02CF0B6678}</ProjectGuid>
+    <ProjectGuid>{F3A3B572-1C9B-4AE9-B70C-9CB731ADFCD6}</ProjectGuid>
     <OutputType>WinExe</OutputType>
     <RootNamespace>PcmHammer</RootNamespace>
     <AssemblyName>PcmHammer</AssemblyName>
@@ -58,11 +58,8 @@
     </ItemGroup>
   </Target>
   <ItemGroup>
-    <Reference Include="CommandLine, Version=2.8.0.0, Culture=neutral, PublicKeyToken=5a870481e358d379, processorArchitecture=MSIL">
-      <HintPath>..\packages\CommandLineParser.2.8.0\lib\net461\CommandLine.dll</HintPath>
-    </Reference>
-    <Reference Include="J2534DotNet">
-      <HintPath>..\J2534DotNet\J2534DotNet\bin\Debug\J2534DotNet.dll</HintPath>
+    <Reference Include="CommandLine">
+      <HintPath>..\..\..\packages\CommandLineParser.2.8.0\lib\netstandard2.0\CommandLine.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Configuration" />
@@ -169,17 +166,21 @@
     <EmbeddedResource Include="help.html" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\PcmLibraryWindowsApi\PcmLibraryWindowsApi.csproj">
+    <ProjectReference Include="..\..\..\J2534DotNet\J2534DotNet\J2534DotNet.csproj">
+      <Project>{d99e0de7-2f06-41e3-b33e-687e1b425a7f}</Project>
+      <Name>J2534DotNet</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\..\PcmLibraryWindowsApi\PcmLibraryWindowsApi.csproj">
       <Project>{b11a7f04-2131-4f04-b5c3-528eb177c0b6}</Project>
       <Name>PcmLibraryWindowsApi</Name>
     </ProjectReference>
-    <ProjectReference Include="..\PcmLibraryWindowsForms\PcmLibraryWindowsForms.csproj">
-      <Project>{4adb5d87-d4d5-4d12-8681-a9e2d4c52df6}</Project>
-      <Name>PcmLibraryWindowsForms</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\PcmLibrary\PcmLibrary.csproj">
+    <ProjectReference Include="..\..\..\PcmLibrary\PcmLibrary.csproj">
       <Project>{0b317c5a-e078-4a96-8e7a-00601bca1429}</Project>
       <Name>PcmLibrary</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\PcmLibraryWindowsForms\PcmLibraryWindowsForms.csproj">
+      <Project>{c8dcf646-486d-4343-9fee-4ac36deacacf}</Project>
+      <Name>PcmLibraryWindowsForms</Name>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

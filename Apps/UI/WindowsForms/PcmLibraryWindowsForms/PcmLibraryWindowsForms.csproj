@@ -4,18 +4,17 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{2B57ABC7-9994-4DB3-9403-B22471A0DDA1}</ProjectGuid>
-    <OutputType>WinExe</OutputType>
-    <RootNamespace>VpwExplorer</RootNamespace>
-    <AssemblyName>VpwExplorer</AssemblyName>
+    <ProjectGuid>{C8DCF646-486D-4343-9FEE-4AC36DEACACF}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>PcmLibraryWindowsForms</RootNamespace>
+    <AssemblyName>PcmLibraryWindowsForms</AssemblyName>
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
-    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <Deterministic>true</Deterministic>
     <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-    <PlatformTarget>AnyCPU</PlatformTarget>
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
@@ -25,7 +24,6 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <PlatformTarget>AnyCPU</PlatformTarget>
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
     <OutputPath>bin\Release\</OutputPath>
@@ -35,64 +33,71 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
+    <Reference Include="System.Configuration" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Management" />
+    <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
     <Reference Include="System.Data" />
-    <Reference Include="System.Deployment" />
-    <Reference Include="System.Drawing" />
     <Reference Include="System.Net.Http" />
-    <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xml" />
     <Reference Include="netstandard" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Configuration.cs" />
-    <Compile Include="Program.cs" />
-    <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="VpwExplorerMainForm.cs">
+    <Compile Include="ContentLoader.cs" />
+    <Compile Include="DialogBoxes\CanForm.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="VpwExplorerMainForm.Designer.cs">
-      <DependentUpon>VpwExplorerMainForm.cs</DependentUpon>
+    <Compile Include="DialogBoxes\CanForm.Designer.cs">
+      <DependentUpon>CanForm.cs</DependentUpon>
     </Compile>
-    <EmbeddedResource Include="Properties\Resources.resx">
-      <Generator>ResXFileCodeGenerator</Generator>
-      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
-      <SubType>Designer</SubType>
+    <Compile Include="DialogBoxes\DevicePicker.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="DialogBoxes\DevicePicker.Designer.cs">
+      <DependentUpon>DevicePicker.cs</DependentUpon>
+    </Compile>
+    <Compile Include="DialogBoxes\OperatingSystemID.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="DialogBoxes\OperatingSystemID.designer.cs">
+      <DependentUpon>OperatingSystemID.cs</DependentUpon>
+    </Compile>
+    <Compile Include="MainFormBase.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="MainFormBase.Designer.cs">
+      <DependentUpon>MainFormBase.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="DialogBoxes\CanForm.resx">
+      <DependentUpon>CanForm.cs</DependentUpon>
     </EmbeddedResource>
-    <Compile Include="Properties\Resources.Designer.cs">
-      <AutoGen>True</AutoGen>
-      <DependentUpon>Resources.resx</DependentUpon>
-      <DesignTime>True</DesignTime>
-    </Compile>
-    <EmbeddedResource Include="VpwExplorerMainForm.resx">
-      <DependentUpon>VpwExplorerMainForm.cs</DependentUpon>
+    <EmbeddedResource Include="DialogBoxes\DevicePicker.resx">
+      <DependentUpon>DevicePicker.cs</DependentUpon>
     </EmbeddedResource>
-    <None Include="Properties\Settings.settings">
-      <Generator>PublicSettingsSingleFileGenerator</Generator>
-      <LastGenOutput>Settings.Designer.cs</LastGenOutput>
-    </None>
-    <Compile Include="Properties\Settings.Designer.cs">
-      <AutoGen>True</AutoGen>
-      <DependentUpon>Settings.settings</DependentUpon>
-      <DesignTimeSharedInput>True</DesignTimeSharedInput>
-    </Compile>
+    <EmbeddedResource Include="DialogBoxes\OperatingSystemID.resx">
+      <DependentUpon>OperatingSystemID.cs</DependentUpon>
+    </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\PcmLibraryWindowsApi\PcmLibraryWindowsApi.csproj">
+    <ProjectReference Include="..\..\..\J2534DotNet\J2534DotNet\J2534DotNet.csproj">
+      <Project>{d99e0de7-2f06-41e3-b33e-687e1b425a7f}</Project>
+      <Name>J2534DotNet</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\..\PcmLibraryWindowsApi\PcmLibraryWindowsApi.csproj">
       <Project>{b11a7f04-2131-4f04-b5c3-528eb177c0b6}</Project>
       <Name>PcmLibraryWindowsApi</Name>
     </ProjectReference>
-    <ProjectReference Include="..\PcmLibraryWindowsForms\PcmLibraryWindowsForms.csproj">
-      <Project>{4adb5d87-d4d5-4d12-8681-a9e2d4c52df6}</Project>
-      <Name>PcmLibraryWindowsForms</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\PcmLibrary\PcmLibrary.csproj">
+    <ProjectReference Include="..\..\..\PcmLibrary\PcmLibrary.csproj">
       <Project>{0b317c5a-e078-4a96-8e7a-00601bca1429}</Project>
       <Name>PcmLibrary</Name>
     </ProjectReference>
