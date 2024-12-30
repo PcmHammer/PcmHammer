@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -11,7 +11,7 @@ namespace PcmHacking
     /// <summary>
     /// Largely based on Muno's answer here: https://stackoverflow.com/questions/2837985/getting-serial-port-information
     /// </summary>
-    class PortDiscovery
+    public class PortDiscovery
     {
         public static IEnumerable<SerialPortInfo> GetPorts(ILogger logger)
         {

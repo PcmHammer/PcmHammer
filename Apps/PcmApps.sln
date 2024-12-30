@@ -23,9 +23,13 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		Directory.Build.targets = Directory.Build.targets
 		Directory.Packages.props = Directory.Packages.props
 		global.json = global.json
+		..\Release.ps1 = ..\Release.ps1
 	EndProjectSection
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PcmHammer2", "Uno\PcmHammer2\PcmHammer2.csproj", "{198D2C07-C748-4D31-98B0-A8CEE74B9F6A}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PcmLibraryWindowsApi", "PcmLibraryWindowsApi\PcmLibraryWindowsApi.csproj", "{B11A7F04-2131-4F04-B5C3-528EB177C0B6}"
+	ProjectSection(ProjectDependencies) = postProject
+		{0B317C5A-E078-4A96-8E7A-00601BCA1429} = {0B317C5A-E078-4A96-8E7A-00601BCA1429}
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -61,10 +65,10 @@ Global
 		{2B57ABC7-9994-4DB3-9403-B22471A0DDA1}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2B57ABC7-9994-4DB3-9403-B22471A0DDA1}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2B57ABC7-9994-4DB3-9403-B22471A0DDA1}.Release|Any CPU.Build.0 = Release|Any CPU
-		{198D2C07-C748-4D31-98B0-A8CEE74B9F6A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{198D2C07-C748-4D31-98B0-A8CEE74B9F6A}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{198D2C07-C748-4D31-98B0-A8CEE74B9F6A}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{198D2C07-C748-4D31-98B0-A8CEE74B9F6A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B11A7F04-2131-4F04-B5C3-528EB177C0B6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B11A7F04-2131-4F04-B5C3-528EB177C0B6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B11A7F04-2131-4F04-B5C3-528EB177C0B6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B11A7F04-2131-4F04-B5C3-528EB177C0B6}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

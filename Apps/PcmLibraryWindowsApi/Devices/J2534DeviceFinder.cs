@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace PcmHacking
 {
-    class J2534DeviceFinder
+    public class J2534DeviceFinder
     {
         /// <summary>
         /// Find all installed J2534 DLLs

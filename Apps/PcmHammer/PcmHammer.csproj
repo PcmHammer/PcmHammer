@@ -169,6 +169,10 @@
     <EmbeddedResource Include="help.html" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\PcmLibraryWindowsApi\PcmLibraryWindowsApi.csproj">
+      <Project>{b11a7f04-2131-4f04-b5c3-528eb177c0b6}</Project>
+      <Name>PcmLibraryWindowsApi</Name>
+    </ProjectReference>
     <ProjectReference Include="..\PcmLibraryWindowsForms\PcmLibraryWindowsForms.csproj">
       <Project>{4adb5d87-d4d5-4d12-8681-a9e2d4c52df6}</Project>
       <Name>PcmLibraryWindowsForms</Name>

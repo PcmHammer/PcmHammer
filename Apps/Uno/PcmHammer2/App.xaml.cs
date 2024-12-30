@@ -1,6 +1,6 @@
 using Uno.Resizetizer;
 
-namespace UnoExperiment1;
+namespace PcmHacking.PcmHammer2;
 public partial class App : Application
 {
     /// <summary>

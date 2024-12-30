@@ -15,7 +15,7 @@ using Microsoft.UI.Xaml.Navigation;
 
 // The Blank Page item template is documented at https://go.microsoft.com/fwlink/?LinkId=234238
 
-namespace UnoExperiment1.Presentation
+namespace PcmHacking.PcmHammer2.Presentation
 {
 	/// <summary>
 	/// An empty page that can be used on its own or navigated to within a Frame.

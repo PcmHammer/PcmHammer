@@ -1,6 +1,6 @@
 using UIKit;
 
-namespace UnoExperiment1.MacCatalyst;
+namespace PcmHacking.PcmHammer2.MacCatalyst;
 public class EntryPoint
 {
     // This is the main entry point of the application.

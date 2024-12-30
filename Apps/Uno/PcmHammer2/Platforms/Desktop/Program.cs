@@ -1,6 +1,6 @@
 using Uno.UI.Runtime.Skia;
 
-namespace UnoExperiment1;
+namespace PcmHacking.PcmHammer2;
 public class Program
 {
     [STAThread]
