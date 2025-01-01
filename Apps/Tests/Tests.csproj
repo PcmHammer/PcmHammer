@@ -86,10 +86,6 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\PcmHammer\PcmHammer.csproj">
-      <Project>{a6b28831-a16f-48f3-8c48-9b02cf0b6678}</Project>
-      <Name>PcmHammer</Name>
-    </ProjectReference>
     <ProjectReference Include="..\PcmLibrary\PcmLibrary.csproj">
       <Project>{0b317c5a-e078-4a96-8e7a-00601bca1429}</Project>
       <Name>PcmLibrary</Name>
