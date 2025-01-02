@@ -42,6 +42,7 @@
       Localization;
       Navigation;
       ThemeService;
+      Storage;
     </UnoFeatures>
   </PropertyGroup>
 
@@ -49,6 +50,11 @@
     <IsUiAutomationMappingEnabled>True</IsUiAutomationMappingEnabled>
     <DefineConstants>$(DefineConstants);USE_UITESTS</DefineConstants>
   </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\PcmLibraryWindowsApi\PcmLibraryWindowsApi.csproj" />
+    <ProjectReference Include="..\..\..\PcmLibrary\PcmLibrary.csproj" />
+  </ItemGroup>
 
   <ItemGroup>
     <Page Update="Presentation\CommonTopBar.xaml">

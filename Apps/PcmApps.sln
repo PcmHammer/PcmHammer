@@ -36,6 +36,9 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VpwExplorer", "UI\WindowsForms\VpwExplorer\VpwExplorer.csproj", "{6A27ED5F-BD88-4266-9B63-7DD4A53F591D}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "UnoUI", "UnoUI", "{75D053C5-29A3-4B83-8F30-04F4CA516942}"
+	ProjectSection(SolutionItems) = preProject
+		UI\UnoUI\ReadMe.md = UI\UnoUI\ReadMe.md
+	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PcmHacking.UnoUI", "UI\UnoUI\PcmHacking.UnoUI\PcmHacking.UnoUI.csproj", "{285CA6F6-3F85-4B45-976A-18FDFD514D7D}"
 EndProject

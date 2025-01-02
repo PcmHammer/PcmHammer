@@ -1,3 +1,4 @@
+using CommunityToolkit.Mvvm.Messaging;
 using Uno.Resizetizer;
 
 namespace PcmHacking.UnoUI;
@@ -25,6 +26,13 @@ public partial class App : Application
                 // Switch to Development environment when running in DEBUG
                 .UseEnvironment(Environments.Development)
 #endif
+                .ConfigureServices(services =>
+                {
+                    services.AddSingleton<PcmHacking.ILogger, UnoUI.Services.ProgressLogger>();
+                    services.AddSingleton<Services.IVehicleService, Services.VehicleService>();
+                    services.AddSingleton<IMessenger, WeakReferenceMessenger>();
+                })
+
                 .UseLogging(configure: (context, logBuilder) =>
                 {
                     // Configure log levels for different categories of logging
@@ -68,6 +76,8 @@ public partial class App : Application
                     //services.AddSingleton<IMyService, MyService>();
                 })
                 .UseNavigation(ReactiveViewModelMappings.ViewModelMappings, RegisterRoutes)
+                .UseStorage()
+
             );
         MainWindow = builder.Window;
 
@@ -85,7 +95,7 @@ public partial class App : Application
             new ViewMap(ViewModel: typeof(ShellModel)),
             new ViewMap<MainPage, MainModel>(),
             new DataViewMap<SecondPage, SecondModel, Entity>(),
-            new DataViewMap<SettingsPage, SettingsModel, Entity>()
+            new ViewMap<SettingsPage, SettingsModel>()
         );
 
         routes.Register(
