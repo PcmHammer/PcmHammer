@@ -9,7 +9,7 @@
     mc:Ignorable="d"
     Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
   <Grid utu:SafeArea.Insets="VisibleBounds">
-    <Grid.RowDefinitions>
+    <Grid.RowDefinitions> 
       <RowDefinition Height="60" x:Name="Navigation"/>
       <RowDefinition Height="Auto" x:Name="HelpText"/>
       <RowDefinition Height="Auto" x:Name="RadioButtons"/>
@@ -25,6 +25,7 @@
     </Grid.ColumnDefinitions>
 
     <local:CommonTopBar Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+
     
     <TextBlock Grid.Row="1" Grid.Column="0" TextAlignment="Center" VerticalAlignment="Bottom" Margin="10" Text="Which sort of OBD2 interface do you have?"/>
     <TextBlock Grid.Row="1" Grid.Column="1" TextAlignment="Center" VerticalAlignment="Bottom" Margin="10" Text="Do you have a SeeedStudio USB-CAN analyzer for aftermarket CAN sensors?"/>
@@ -39,13 +40,13 @@
     </StackPanel>
 
     <TextBlock Grid.Row="3" Grid.Column="0" TextAlignment="Center" VerticalAlignment="Bottom" Margin="10" Text="Which COM port does your OBD2 device use?" />
-    <ListView Grid.Row="4" Grid.Column="0" ItemsSource="{Binding Ports}" Margin="10"/>
+    <ListView Grid.Row="4" Grid.Column="0" ItemsSource="{Binding Obd2Ports}" Margin="10"/>
 
     <TextBlock Grid.Row="3" Grid.Column="1" TextAlignment="Center" VerticalAlignment="Bottom" Margin="10" Text="Which COM port does your SeeedStudio USB-CAN analyzer use?" />
-    <ListView Grid.Row="4" Grid.Column="1" ItemsSource="{Binding Ports}" Margin="10"/>
+    <ListView Grid.Row="4" Grid.Column="1" ItemsSource="{Binding CanPorts}" Margin="10"/>
 
     <TextBlock Grid.Row="5" Grid.Column="0" TextAlignment="Center" VerticalAlignment="Bottom" Margin="10" Text="Which sort of OBD2 device do you have?" />
-    <ListView Grid.Row="6" Grid.Column="0" ItemsSource="{Binding DeviceTypes}" Margin="10"/>
+    <ListView Grid.Row="6" Grid.Column="0" ItemsSource="{Binding SerialDeviceTypes}" Margin="10"/>
 
     <TextBlock Grid.Row="5" Grid.Column="1" TextAlignment="Center" VerticalAlignment="Bottom" Margin="10" Text="Where shall we save your data logs?" />
     <StackPanel Grid.Row="6" Grid.Column="1">

@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.Messaging;
+using PcmHacking.UnoUI.Services;
 using Uno.Resizetizer;
 
 namespace PcmHacking.UnoUI;
@@ -31,6 +32,8 @@ public partial class App : Application
                     services.AddSingleton<PcmHacking.ILogger, UnoUI.Services.ProgressLogger>();
                     services.AddSingleton<Services.IVehicleService, Services.VehicleService>();
                     services.AddSingleton<IMessenger, WeakReferenceMessenger>();
+                    services.AddSingleton<ISettingsService, Services.SettingsService>();
+                    services.AddSingleton<Services.ConnectionService>();
                 })
 
                 .UseLogging(configure: (context, logBuilder) =>

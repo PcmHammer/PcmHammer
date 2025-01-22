@@ -1,6 +1,7 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.NetworkInformation;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -21,6 +22,19 @@ namespace PcmHacking
                 case DeviceConfiguration.Constants.DeviceCategoryJ2534:
                     return CreateJ2534Device(DeviceConfiguration.Settings.J2534DeviceType, logger);
 
+                default:
+                    return null;
+            }
+        }
+
+        public static Device CreateDevice(ILogger logger, string deviceCategory, string serialPort, string serialPortDeviceType, string j2534DeviceType)
+        {
+            switch (deviceCategory)
+            {
+                case DeviceConfiguration.Constants.DeviceCategorySerial:
+                    return CreateSerialDevice(serialPort, serialPortDeviceType, logger);
+                case DeviceConfiguration.Constants.DeviceCategoryJ2534:
+                    return CreateJ2534Device(j2534DeviceType, logger);
                 default:
                     return null;
             }

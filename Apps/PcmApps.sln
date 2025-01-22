@@ -41,6 +41,9 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "UnoUI", "UnoUI", "{75D053C5
 	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PcmHacking.UnoUI", "UI\UnoUI\PcmHacking.UnoUI\PcmHacking.UnoUI.csproj", "{285CA6F6-3F85-4B45-976A-18FDFD514D7D}"
+	ProjectSection(ProjectDependencies) = postProject
+		{C8DCF646-486D-4343-9FEE-4AC36DEACACF} = {C8DCF646-486D-4343-9FEE-4AC36DEACACF}
+	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PcmHacking.UnoUI.Tests", "UI\UnoUI\PcmHacking.UnoUI.Tests\PcmHacking.UnoUI.Tests.csproj", "{FED6C5BA-2F22-4E9B-8BA8-A419F0903E6F}"
 EndProject

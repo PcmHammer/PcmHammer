@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -18,7 +19,7 @@ public enum ConnectionState
 
 public enum VehicleServiceState
 {
-    Startup,
+    NotConnected,
     Connecting,
     Polling,
     InUse,
@@ -28,7 +29,8 @@ public partial record VehicleInfo(ConnectionState connectionState, string errorM
 
 public interface IVehicleService
 {
-    Task Reset();
+    public VehicleServiceState State { get; }
+    Task<bool> TryConnect(CurrentSettings settings);
     Task StopPolling();
     void StartPolling();
 }
@@ -42,11 +44,13 @@ public class VehicleService : IVehicleService
     private Device? device = null;
     private Vehicle? vehicle = null;
     private IMessenger messenger;
-    private VehicleServiceState state = VehicleServiceState.Startup;
+    private VehicleServiceState state = VehicleServiceState.NotConnected;
 
     // This may or may not be the best way to do this. For alternatives, see this example:
     // https://github.com/MartinZikmund/coffee-breaks/blob/main/UnoTimers/UnoTimers.Shared/MainPage.xaml.cs
     private System.Threading.Timer? threadingTimer;
+
+    public VehicleServiceState State => this.state;
 
     public VehicleService(
         PcmHacking.ILogger logger, 
@@ -59,9 +63,9 @@ public class VehicleService : IVehicleService
         this.messenger = messenger;
     }
 
-    public static readonly VehicleInfo StartupVehicleInfo = new VehicleInfo(ConnectionState.NotConfigured, "Starting up...", String.Empty, String.Empty);
+    public static readonly VehicleInfo StartupVehicleInfo = new VehicleInfo(ConnectionState.NotConfigured, "No connected.", String.Empty, String.Empty);
 
-    public async Task Reset()
+    public async Task<bool> TryConnect(CurrentSettings settings)
     {
         if (this.vehicle != null)
         {
@@ -69,47 +73,23 @@ public class VehicleService : IVehicleService
             this.vehicle = null;
         }
 
+        this.device = DeviceFactory.CreateDevice(
+            this.logger, 
+            settings.DeviceCategory, 
+            settings.Obd2SerialPortName, 
+            settings.Obd2SerialDeviceType,
+            "J2534 Not Implemented");
+
+        if (this.device == null)
+        {
+            return false; 
+        }
+
+        this.vehicle = new Vehicle(this.device, this.protocol, this.logger, new ToolPresentNotifier(this.device, this.protocol, this.logger));
+
         this.state = VehicleServiceState.Connecting;
-        VehicleInfo vehicleInfo = await this.GetVehicleInfoAsync(CancellationToken.None);
-        this.messenger.Send(vehicleInfo);
 
-        this.threadingTimer ??= new System.Threading.Timer(
-            ThreadingTimerCallback,
-            state: null,
-            dueTime: 100,
-            period: 100);
-    }
-
-    private async void ThreadingTimerCallback(object? state)
-    {
-        if (this.threadingTimer == null)
-        {
-            this.unoLogger.LogError("ThreadingTimerCallback called with null timer.");
-            return;
-        }
-
-        VehicleInfo vehicleInfo = await this.GetVehicleInfoAsync(CancellationToken.None);
-        this.messenger.Send(vehicleInfo);
-        if (this.state == VehicleServiceState.Connecting && vehicleInfo.connectionState == ConnectionState.Connected)
-        {
-            this.state = VehicleServiceState.Polling;
-            await this.threadingTimer.DisposeAsync();
-            this.threadingTimer = new System.Threading.Timer(
-                ThreadingTimerCallback,
-                state: null,
-                dueTime: 500,
-                period: 500);
-        }
-        else if (this.state == VehicleServiceState.Polling && vehicleInfo.connectionState == ConnectionState.NotConnected)
-        {
-            await this.threadingTimer.DisposeAsync();
-            this.state = VehicleServiceState.Connecting;
-            this.threadingTimer = new System.Threading.Timer(
-                ThreadingTimerCallback,
-                state: null,
-                dueTime: 100,
-                period: 100);
-        }
+        return true;
     }
     
     public async Task StopPolling()
@@ -132,8 +112,29 @@ public class VehicleService : IVehicleService
             period: 500);
     }
 
+    private async void ThreadingTimerCallback(object? state)
+    {
+        if (this.threadingTimer == null)
+        {
+            this.unoLogger.LogError("ThreadingTimerCallback called with null timer.");
+            return;
+        }
+
+        VehicleInfo vehicleInfo = await this.GetVehicleInfoAsync(CancellationToken.None);
+        this.messenger.Send(vehicleInfo);
+        if (this.state == VehicleServiceState.Connecting && vehicleInfo.connectionState == ConnectionState.Connected)
+        {
+            this.state = VehicleServiceState.Polling;
+        }
+        else if (this.state == VehicleServiceState.Polling && vehicleInfo.connectionState == ConnectionState.NotConnected)
+        {
+            await this.threadingTimer.DisposeAsync();
+            this.state = VehicleServiceState.NotConnected;
+        }
+    }
+
     /// <summary>
-    /// The caller is expecte to invoke this method repeatedly. When the 
+    /// The caller is expected to invoke this method repeatedly. When the 
     /// connection state is ConnectionState.Connected, the polling should stop,
     /// and flashing or logging can begin.
     /// </summary>
@@ -141,13 +142,9 @@ public class VehicleService : IVehicleService
     {
         if (this.device == null)
         {
-            this.device = DeviceFactory.CreateDeviceFromConfigurationSettings(this.logger);
-        }
-
-        if (this.device == null)
-        {
             this.connectionState = ConnectionState.NotConfigured;
-            return new VehicleInfo(this.connectionState, "Please select a device.", String.Empty, string.Empty);
+            this.state = VehicleServiceState.NotConnected;
+            return new VehicleInfo(this.connectionState, "Not configured.", String.Empty, string.Empty);
         }
 
         if (this.connectionState == ConnectionState.NotConfigured)
