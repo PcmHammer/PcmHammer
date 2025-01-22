@@ -11,7 +11,15 @@ first, get it working, and second, make it a viable alternative to the existing 
 * Implement flash write 
 * Implement data logging 
 * TroubleshootingLogger should store logs in memory (probably in a circular buffer) and make them available
-in the UI. 
+in the UI.
+
+All of the above are easier said than done. This will take some time.
+
+## Surprises
+
+* ApplicationData.Current.LocalSettings is used to store configuration settings.
+This doesn't work for "unpackaged" Windows apps. because it requires an app-data folder, which is only supported for packaged apps.
+* 
 
 ## To get it working cross-platform
 

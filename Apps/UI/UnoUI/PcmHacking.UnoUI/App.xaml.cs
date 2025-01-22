@@ -1,10 +1,23 @@
 using CommunityToolkit.Mvvm.Messaging;
+using Microsoft.UI.Dispatching;
 using PcmHacking.UnoUI.Services;
 using Uno.Resizetizer;
+// using Windows.System;
 
 namespace PcmHacking.UnoUI;
 public partial class App : Application
 {
+    /// <summary>
+    /// This is required for some features in native-Windows builds.
+    /// </summary>
+    /// <remarks>
+    /// The 'references' count below might become inaccurate, due to conditional compilation.
+    /// See SettingsModel.OpenLogFolderPicker for example.
+    /// </remarks>
+    public static Window? StaticMainWindow { get; private set; }
+        
+    private DispatcherQueue dispatcherQueue = DispatcherQueue.GetForCurrentThread();
+
     /// <summary>
     /// Initializes the singleton application object. This is the first line of authored code
     /// executed, and as such is the logical equivalent of main() or WinMain().
@@ -33,7 +46,8 @@ public partial class App : Application
                     services.AddSingleton<Services.IVehicleService, Services.VehicleService>();
                     services.AddSingleton<IMessenger, WeakReferenceMessenger>();
                     services.AddSingleton<ISettingsService, Services.SettingsService>();
-                    services.AddSingleton<Services.ConnectionService>();
+                    services.AddSingleton<DispatcherQueue>(dispatcherQueue);
+                    services.AddSingleton<Services.ConnectionService>();  
                 })
 
                 .UseLogging(configure: (context, logBuilder) =>
@@ -83,6 +97,7 @@ public partial class App : Application
 
             );
         MainWindow = builder.Window;
+        StaticMainWindow = builder.Window;
 
 #if DEBUG
         MainWindow.UseStudio();

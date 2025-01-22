@@ -65,7 +65,7 @@ public class VehicleService : IVehicleService
 
     public static readonly VehicleInfo StartupVehicleInfo = new VehicleInfo(ConnectionState.NotConfigured, "No connected.", String.Empty, String.Empty);
 
-    public async Task<bool> TryConnect(CurrentSettings settings)
+    public Task<bool> TryConnect(CurrentSettings settings)
     {
         if (this.vehicle != null)
         {
@@ -82,14 +82,14 @@ public class VehicleService : IVehicleService
 
         if (this.device == null)
         {
-            return false; 
+            return Task.FromResult(false); 
         }
 
         this.vehicle = new Vehicle(this.device, this.protocol, this.logger, new ToolPresentNotifier(this.device, this.protocol, this.logger));
 
         this.state = VehicleServiceState.Connecting;
 
-        return true;
+        return Task.FromResult(true);
     }
     
     public async Task StopPolling()
