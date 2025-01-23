@@ -10,7 +10,7 @@
     Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
   <Grid utu:SafeArea.Insets="VisibleBounds">
     <Grid.RowDefinitions>
-      <RowDefinition Height="60" x:Name="Navigation"/>
+      <RowDefinition Height="0" x:Name="UnusedButImTooLazyToRenumberEverything"/>
       <RowDefinition Height="*" x:Name="EverythingElse"/>
     </Grid.RowDefinitions>
     <Grid.ColumnDefinitions>
@@ -18,8 +18,6 @@
       <ColumnDefinition Width="*"/>
       <ColumnDefinition Width="*"/>
     </Grid.ColumnDefinitions>
-
-    <local:CommonTopBar Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
 
     <StackPanel Grid.Row="1" Grid.Column="0" Margin="10">
       <TextBlock TextAlignment="Center" VerticalAlignment="Bottom" TextWrapping="WrapWholeWords" 

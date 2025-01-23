@@ -12,9 +12,7 @@
         <RowDefinition Height="60" x:Name="Navigation"/>
         <RowDefinition Height="25" x:Name="Status1"/>
         <RowDefinition Height="20" x:Name="Status2"/>
-        <RowDefinition x:Name="TopButtons"/>
-        <RowDefinition x:Name="MiddleButtons"/>
-        <RowDefinition x:Name="BottomButtons"/>
+        <RowDefinition x:Name="PageRow"/>
       </Grid.RowDefinitions>
       <Grid.ColumnDefinitions>
         <ColumnDefinition/>
@@ -34,61 +32,7 @@
       <TextBlock Grid.Row="2" Grid.Column="2" TextAlignment="Center" VerticalAlignment="Top" Text="12587603" />
       <TextBlock Grid.Row="2" Grid.Column="3" TextAlignment="Center" VerticalAlignment="Top" Text="13.1" />
 
-
-      <Button Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2"
-              Content="Settings"
-              Margin="10"
-              Padding="10"
-              HorizontalAlignment="Stretch"
-              VerticalAlignment="Stretch"              
-              AutomationProperties.AutomationId="SettingsPageButton"
-              Command="{Binding GoToSettings}" />
-
-      <Button Grid.Row="3" Grid.Column="2" Grid.ColumnSpan="2"
-              Content="Write PCM"
-              Margin="10"
-              Padding="10"
-              HorizontalAlignment="Stretch"
-              VerticalAlignment="Stretch"              
-              AutomationProperties.AutomationId="WritePcmButton"
-              Command="{Binding GoToWrite}" />
-
-      <Button Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2"
-              Content="Get PCM Info"
-              Margin="10"
-              Padding="10"
-              HorizontalAlignment="Stretch"
-              VerticalAlignment="Stretch"              
-              AutomationProperties.AutomationId="GetPcmInfoButton"
-              Command="{Binding GoToSecond}" />
-
-      <Button Grid.Row="4" Grid.Column="2" Grid.ColumnSpan="2"
-              Content="Read PCM"
-              Margin="10"
-              Padding="10"
-              HorizontalAlignment="Stretch"
-              VerticalAlignment="Stretch"                            
-              AutomationProperties.AutomationId="ReadPcmButton"
-              Command="{Binding GoToRead}" />
-
-      <Button Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="2"
-              Content="Help"
-              Margin="10"
-              Padding="10"
-              HorizontalAlignment="Stretch"
-              VerticalAlignment="Stretch"              
-              AutomationProperties.AutomationId="HelpButton"
-              Command="{Binding GoToSecond}" />
-
-      <Button Grid.Row="5" Grid.Column="2" Grid.ColumnSpan="2"
-              Content="Data Logging"
-              Margin="10"
-              Padding="10"
-              HorizontalAlignment="Stretch"
-              VerticalAlignment="Stretch"                            
-              AutomationProperties.AutomationId="DataLoggingButton"
-              Command="{Binding GoToSecond}" />
-
+      <Frame Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="4" x:Name="ContentFrame" uen:Region.Attached="True" />
     </Grid>
   </ScrollViewer>
 </Page>

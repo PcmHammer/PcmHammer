@@ -57,7 +57,8 @@ public partial record SettingsModel
     private ValueTask<IImmutableList<string>> GetPortNames(CancellationToken ct)
     {
 #if ANDROID || IOS
-        return ValueTask.FromResult(ImmutableList.CreateRange(new string[0]));
+        IImmutableList<string> result = ImmutableList.CreateRange(new string[0]);
+        return ValueTask.FromResult(result);
 #else
         string[] portNames = System.IO.Ports.SerialPort.GetPortNames();
         IList<string> portList = new List<string>(portNames);

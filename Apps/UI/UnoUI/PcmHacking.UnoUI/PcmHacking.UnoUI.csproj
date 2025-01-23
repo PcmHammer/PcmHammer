@@ -61,6 +61,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Update="Presentation\MenuPage.xaml.cs">
+      <DependentUpon>MenuPage.xaml</DependentUpon>
+    </Compile>
+  </ItemGroup>
+
+  <ItemGroup>
     <Page Update="Presentation\CommonTopBar.xaml">
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -86,6 +92,13 @@
 
   <ItemGroup>
     <Page Update="Presentation\WritePage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Page Update="Presentation\MenuPage.xaml">
+      <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
   </ItemGroup>
