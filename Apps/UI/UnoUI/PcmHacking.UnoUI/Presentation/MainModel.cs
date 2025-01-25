@@ -33,6 +33,7 @@ public partial record MainModel
 
         // This is a bit of a hack. We need to update the displayed settings when the page is loaded.
         // They're async, but constructors can't be async. So we fire and forget.
+        this.vehicleService.TryConnect(this.settingsService.GetCurrentSettings());
         //this.UpdateDisplayedSettings(CancellationToken.None);
         //this.UpdateDisplayedConnectionState(CancellationToken.None);
     }

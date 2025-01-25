@@ -31,8 +31,8 @@ public interface IVehicleService
     IState<string> Voltage { get; }
 
     Task<bool> TryConnect(CurrentSettings settings);
-    Task StopPolling();
-    void StartPolling();
+
+    void SchedulePoll();
 }
 
 public class VehicleService : IVehicleService
@@ -47,13 +47,10 @@ public class VehicleService : IVehicleService
     // Simplified name
     private System.Threading.Timer? threadingTimer;
 
-    public IState<ConnectionStates> ConnectionState => State<ConnectionStates>
-        .Value(this, () => ConnectionStates.NotConfigured);
-        //.ForEach( (state, ct) => ValueTask.FromResult(this.messenger.Send(new ConnectionStateChangedMessage())));
-
-    public IState<string> ConnectionError => State<string>.Value(this, () => string.Empty);
-    public IState<string> OperatingSystemId => State<string>.Value(this, () => string.Empty);
-    public IState<string> Voltage => State<string>.Value(this, () => string.Empty);
+    public IState<ConnectionStates> ConnectionState => State.Value(this, () => ConnectionStates.NotConfigured);
+    public IState<string> ConnectionError => State.Value(this, () => string.Empty);
+    public IState<string> OperatingSystemId => State.Value(this, () => string.Empty);
+    public IState<string> Voltage => State.Value(this, () => string.Empty);
 
     public VehicleService(
         PcmHacking.ILogger logger, 
@@ -100,35 +97,23 @@ public class VehicleService : IVehicleService
         if (await this.TryRequestVehicleInfo(CancellationToken.None))
         {
             await this.ConnectionState.SetAsync(ConnectionStates.Connected);
-            this.StartPolling();
+            this.SchedulePoll();
             return true;
         }
         else
         {
             await this.ConnectionState.SetAsync(ConnectionStates.NotConnected);
-            await this.StopPolling();
             return false;
         }
     }
-    
-    public async Task StopPolling()
-    {
-        if (this.threadingTimer == null)
-        {
-            this.unoLogger.LogError("StopPolling called with null timer.");
-            return; 
-        }
 
-        await this.threadingTimer.DisposeAsync();
-    }
-
-    public void StartPolling()
+    public void SchedulePoll()
     {
         this.threadingTimer ??= new System.Threading.Timer(
             ThreadingTimerCallback,
             state: null,
-            dueTime: 500,
-            period: 500);
+            dueTime: 2000,
+            period: Timeout.Infinite);
     }
 
     private async void ThreadingTimerCallback(object? state)
@@ -139,9 +124,9 @@ public class VehicleService : IVehicleService
             return;
         }
 
-        if (!await this.TryRequestVehicleInfo(CancellationToken.None))
+        if (await this.TryRequestVehicleInfo(CancellationToken.None))
         {
-            await this.StopPolling();
+            this.SchedulePoll();
         }
     }
 

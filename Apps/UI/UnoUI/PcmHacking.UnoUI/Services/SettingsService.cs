@@ -20,6 +20,8 @@ public interface ISettingsService
     ValueTask<string> GetCanSerialPortName(CancellationToken ct);
     ValueTask<string> GetDataLogFolder(CancellationToken ct);
 
+    CurrentSettings GetCurrentSettings();
+
     void SettingsChanged(CurrentSettings settings);
 
     void DataLogFolderChanged(string folder);
@@ -101,6 +103,17 @@ public class SettingsService : ISettingsService
         }
 
         return ValueTask.FromResult(LocalSettings.Values[DataLogFolderKey] as string ?? string.Empty);
+    }
+
+    public CurrentSettings GetCurrentSettings()
+    {
+        return new CurrentSettings(
+            LocalSettings.Values[Obd2DeviceCategoryKey] as string ?? string.Empty,
+            LocalSettings.Values[Obd2SerialPortNameKey] as string ?? string.Empty,
+            LocalSettings.Values[Obd2SerialDeviceNameKey] as string ?? string.Empty,
+            LocalSettings.Values[J2534DeviceNameKey] as string ?? string.Empty,
+            LocalSettings.Values[CanEnabledKey] as string == "true",
+            LocalSettings.Values[CanSerialPortNameKey] as string ?? string.Empty);
     }
 
     public void SettingsChanged(CurrentSettings settings)
