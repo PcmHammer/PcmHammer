@@ -84,7 +84,7 @@ public partial record SettingsModel
     {
         if (await this.vehicleService.TryConnect(currentSettings))
         {
-            this.settingsService.SettingsChanged(currentSettings);
+            this.settingsService.SaveConnectionSettings(currentSettings);
         }
     }
 
@@ -193,7 +193,7 @@ public partial record SettingsModel
                 Windows.Storage.StorageFolder folder = await folderPicker.PickSingleFolderAsync();
                 if (folder != null)
                 {
-                    settingsService.DataLogFolderChanged(folder.Path);
+                    settingsService.SetDataLogFolder(folder.Path);
                     await DataLogFolder.SetAsync(folder.Path);
                 }
             }

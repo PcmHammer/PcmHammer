@@ -6,7 +6,6 @@ namespace PcmHacking.UnoUI.Presentation;
 
 public partial record MainModel
 {
-    private IMessenger messenger;
     private INavigator navigator;
     private ISettingsService settingsService;
     private IVehicleService vehicleService;
@@ -14,28 +13,19 @@ public partial record MainModel
     public MainModel(
         IStringLocalizer localizer,
         INavigator navigator,
-        IMessenger messenger,
         ISettingsService settingsService,
         IVehicleService vehicleService)
     {
-        this.messenger = messenger;
         this.navigator = navigator;
         this.settingsService = settingsService;
         this.vehicleService = vehicleService;
         this.Title = localizer["ApplicationName"];
 
-        messenger.Register<SettingsChangedMessage>(this, async (sender, message) =>
-        {
-            await this.UpdateDisplayedSettings(CancellationToken.None);
-        });
-
         vehicleService.ConnectionState.ForEach((state, ct) => this.UpdateDisplayedConnectionState(ct));
 
         // This is a bit of a hack. We need to update the displayed settings when the page is loaded.
-        // They're async, but constructors can't be async. So we fire and forget.
-        this.vehicleService.TryConnect(this.settingsService.GetCurrentSettings());
-        //this.UpdateDisplayedSettings(CancellationToken.None);
-        //this.UpdateDisplayedConnectionState(CancellationToken.None);
+        // Connection is an async operation, but constructors can't be async, so we fire and forget.
+        this.vehicleService.TryConnect(this.settingsService.LoadConnectionSettings());
     }
 
     public string? Title { get; }
@@ -87,6 +77,7 @@ public partial record MainModel
                 break;
             case ConnectionStates.Connected:
                 await this.ConnectionState.SetAsync("Connected");
+                await this.UpdateDisplayedSettings(ct);
                 break;
             case ConnectionStates.InUse:
                 await this.ConnectionState.SetAsync("In Use");

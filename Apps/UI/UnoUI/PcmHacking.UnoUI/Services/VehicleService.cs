@@ -42,10 +42,6 @@ public class VehicleService : IVehicleService
     private Protocol protocol;
     private Device? device = null;
     private Vehicle? vehicle = null;
-    private IMessenger messenger;
-
-    // Simplified name
-    private System.Threading.Timer? threadingTimer;
 
     public IState<ConnectionStates> ConnectionState => State.Value(this, () => ConnectionStates.NotConfigured);
     public IState<string> ConnectionError => State.Value(this, () => string.Empty);
@@ -54,13 +50,11 @@ public class VehicleService : IVehicleService
 
     public VehicleService(
         PcmHacking.ILogger logger, 
-        IMessenger messenger, 
         ILogger<VehicleService> unoLogger)
     {
         this.progressLogger = logger;
         this.unoLogger = unoLogger;
         this.protocol = new PcmHacking.Protocol();
-        this.messenger = messenger;
     }
 
     public async Task<bool> TryConnect(CurrentSettings settings)
@@ -109,7 +103,7 @@ public class VehicleService : IVehicleService
 
     public void SchedulePoll()
     {
-        this.threadingTimer ??= new System.Threading.Timer(
+        new System.Threading.Timer(
             ThreadingTimerCallback,
             state: null,
             dueTime: 2000,
@@ -118,12 +112,6 @@ public class VehicleService : IVehicleService
 
     private async void ThreadingTimerCallback(object? state)
     {
-        if (this.threadingTimer == null)
-        {
-            this.unoLogger.LogError("ThreadingTimerCallback called with null timer.");
-            return;
-        }
-
         if (await this.TryRequestVehicleInfo(CancellationToken.None))
         {
             this.SchedulePoll();

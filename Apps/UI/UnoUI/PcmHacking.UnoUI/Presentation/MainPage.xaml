@@ -15,14 +15,15 @@
       </Grid.RowDefinitions>
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="1*" />
-        <ColumnDefinition Width="1*" />
-        <ColumnDefinition Width="1*" />
-        <ColumnDefinition Width="1*" />
-        <ColumnDefinition Width="1*" />
-        <ColumnDefinition Width="1*" />
+        <ColumnDefinition Width="2*" />
+        <ColumnDefinition Width="3*" />
+        <ColumnDefinition Width="3*" />
+        <ColumnDefinition Width="3*" />
+        <ColumnDefinition Width="3*" />
       </Grid.ColumnDefinitions>
 
       <Button Grid.Row="0" Grid.Column="0" Grid.RowSpan="2" x:Name="BackButton"
+                VerticalAlignment="Center"
                 Style="{StaticResource NavigationBackButtonNormalStyle}"
                 IsEnabled="{Binding CanGoBack, ElementName=ContentFrame, Mode=OneWay}"
                 Command="{Binding GoBack}"
@@ -34,7 +35,7 @@
       <TextBlock Grid.Row="0" Grid.Column="2" TextAlignment="Center" VerticalAlignment="Bottom" Text="Device" />
       <TextBlock Grid.Row="1" Grid.Column="2" TextAlignment="Center" VerticalAlignment="Top" Text="{Binding DeviceName}" />
 
-      <TextBlock Grid.Row="0" Grid.Column="3" TextAlignment="Center" VerticalAlignment="Center" Text="{Binding ConnectionState}" />
+      <TextBlock Grid.Row="0" Grid.Column="3" TextAlignment="Center" VerticalAlignment="Center" Text="{Binding ConnectionState}" Grid.RowSpan="2" />
 
       <TextBlock Grid.Row="0" Grid.Column="4" TextAlignment="Center" VerticalAlignment="Bottom" Text="OSID" />
       <TextBlock Grid.Row="1" Grid.Column="4" TextAlignment="Center" VerticalAlignment="Top" Text="{Binding OperatingSystemId}" />

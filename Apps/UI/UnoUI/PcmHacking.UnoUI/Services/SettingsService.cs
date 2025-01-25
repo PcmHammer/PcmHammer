@@ -18,13 +18,12 @@ public interface ISettingsService
     ValueTask<string> GetObd2SerialDeviceName(CancellationToken ct);
     ValueTask<bool> IsCanEnabled(CancellationToken ct);
     ValueTask<string> GetCanSerialPortName(CancellationToken ct);
+
+    CurrentSettings LoadConnectionSettings();
+    void SaveConnectionSettings(CurrentSettings settings);
+
     ValueTask<string> GetDataLogFolder(CancellationToken ct);
-
-    CurrentSettings GetCurrentSettings();
-
-    void SettingsChanged(CurrentSettings settings);
-
-    void DataLogFolderChanged(string folder);
+    void SetDataLogFolder(string folder);
 }
 
 public class SettingsService : ISettingsService
@@ -37,11 +36,8 @@ public class SettingsService : ISettingsService
     private const string CanSerialPortNameKey = "CanSerialPortName";
     private const string DataLogFolderKey = "DataLogFolder";
 
-    private readonly IMessenger messenger;
-
-    public SettingsService(IMessenger messenger)
+    public SettingsService()
     {
-        this.messenger = messenger;
     }
 
     //#if WINDOWS10_0_26100_0_OR_GREATER
@@ -94,18 +90,7 @@ public class SettingsService : ISettingsService
         return ValueTask.FromResult(LocalSettings.Values[CanSerialPortNameKey] as string ?? string.Empty);
     }
 
-    public ValueTask<string> GetDataLogFolder(CancellationToken ct)
-    {
-        string? folder = LocalSettings.Values[DataLogFolderKey] as string;
-        if (string.IsNullOrEmpty(folder))
-        {
-            return ValueTask.FromResult("[no location configured]");
-        }
-
-        return ValueTask.FromResult(LocalSettings.Values[DataLogFolderKey] as string ?? string.Empty);
-    }
-
-    public CurrentSettings GetCurrentSettings()
+    public CurrentSettings LoadConnectionSettings()
     {
         return new CurrentSettings(
             LocalSettings.Values[Obd2DeviceCategoryKey] as string ?? string.Empty,
@@ -116,7 +101,7 @@ public class SettingsService : ISettingsService
             LocalSettings.Values[CanSerialPortNameKey] as string ?? string.Empty);
     }
 
-    public void SettingsChanged(CurrentSettings settings)
+    public void SaveConnectionSettings(CurrentSettings settings)
     {
         LocalSettings.Values[J2534DeviceNameKey] = settings.J2534DeviceName;
         LocalSettings.Values[Obd2DeviceCategoryKey] = settings.DeviceCategory;
@@ -124,10 +109,19 @@ public class SettingsService : ISettingsService
         LocalSettings.Values[Obd2SerialDeviceNameKey] = settings.Obd2SerialDeviceName;
         LocalSettings.Values[CanEnabledKey] = settings.CanEnabled ? "true" : "false";
         LocalSettings.Values[CanSerialPortNameKey] = settings.CanPort;
-        this.messenger.Send(new SettingsChangedMessage());
     }
 
-    public void DataLogFolderChanged(string folder)
+    public ValueTask<string> GetDataLogFolder(CancellationToken ct)
+    {
+        string? folder = LocalSettings.Values[DataLogFolderKey] as string;
+        if (string.IsNullOrEmpty(folder))
+        {
+            return ValueTask.FromResult("[no location configured]");
+        }
+
+        return ValueTask.FromResult(LocalSettings.Values[DataLogFolderKey] as string ?? string.Empty);
+    }
+    public void SetDataLogFolder(string folder)
     {
         LocalSettings.Values[DataLogFolderKey] = folder;
     }
