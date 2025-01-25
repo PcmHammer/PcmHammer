@@ -23,25 +23,4 @@ public class ConnectionService
         this.progressLogger = progressLogger;
     }   
 
-    public bool InUse => this.vehicle.State == VehicleServiceState.InUse;
-
-    public async void Connect(CurrentSettings settings)
-    {
-        // if the connection is in use, ignore this change
-        if (this.InUse)
-        {
-            this.progressLogger.AddUserMessage("Connection is in use. Please wait.");
-            return;
-        }
-
-        // try to connect to the vehicle
-        bool connected = await this.vehicle.TryConnect(settings);
-
-        // if connection works, update saved configuration and begin polling
-        //if (connected)
-        {
-            this.settingsService.SettingsChanged(settings);
-            //this.vehicle.StartPolling();
-        }
-    }
 }

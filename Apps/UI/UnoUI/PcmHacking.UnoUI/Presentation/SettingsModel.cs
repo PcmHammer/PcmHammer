@@ -15,20 +15,20 @@ public partial record SettingsModel
 {
     private readonly PcmHacking.ILogger progressLogger;
     private readonly ISettingsService settingsService;
-    private readonly ConnectionService connectionService;
+    private readonly VehicleService vehicleService;
     private readonly DispatcherQueue dispatcherQueue;
 
     public string Title { get { return "Settings"; } }
 
     public SettingsModel(
         PcmHacking.ILogger progressLogger, 
-        ISettingsService settingsService, 
-        ConnectionService connectionService,
+        ISettingsService settingsService,
+        VehicleService vehicleService,
         DispatcherQueue dispatcherQueue)
     {
         this.progressLogger = progressLogger;
         this.settingsService = settingsService;
-        this.connectionService = connectionService;
+        this.vehicleService = vehicleService;
         this.dispatcherQueue = dispatcherQueue;
 
         SelectedObd2Port.ForEach(SelectedObd2PortChanged);
@@ -80,7 +80,7 @@ public partial record SettingsModel
         return ValueTask.FromResult(value1 == value2);
     }
 
-    private ValueTask Obd2DeviceCategoryChanged(bool useSerialDevice, CancellationToken ct)
+    private async ValueTask Obd2DeviceCategoryChanged(bool useSerialDevice, CancellationToken ct)
     {
         string deviceCategory = useSerialDevice ? "Serial" : "J2534";
         var currentSettings = new CurrentSettings(
@@ -90,15 +90,14 @@ public partial record SettingsModel
             settingsService.IsCanEnabled(ct).Result,
             settingsService.GetCanSerialPortName(ct).Result);
 
-        this.connectionService.Connect(currentSettings);
-        return ValueTask.CompletedTask;
+        await this.vehicleService.TryConnect(currentSettings);
     }
 
-    private ValueTask SelectedObd2PortChanged(string? portName, CancellationToken ct)
+    private async ValueTask SelectedObd2PortChanged(string? portName, CancellationToken ct)
     {
         if (portName == null)
         {
-            return ValueTask.CompletedTask;
+            return;
         }
 
         var currentSettings = new CurrentSettings(
@@ -107,15 +106,14 @@ public partial record SettingsModel
             settingsService.GetObd2SerialDeviceType(ct).Result,
             settingsService.IsCanEnabled(ct).Result,
             settingsService.GetCanSerialPortName(ct).Result);
-        this.connectionService.Connect(currentSettings);
-        return ValueTask.CompletedTask;
+        await this.vehicleService.TryConnect(currentSettings);
     }
 
-    private ValueTask SelectedObd2SerialDeviceTypeChanged(string? deviceType, CancellationToken ct)
+    private async ValueTask SelectedObd2SerialDeviceTypeChanged(string? deviceType, CancellationToken ct)
     {
         if (deviceType == null)
         {
-            return ValueTask.CompletedTask;
+            return;
         }
 
         var currentSettings = new CurrentSettings(
@@ -124,11 +122,10 @@ public partial record SettingsModel
             deviceType,
             settingsService.IsCanEnabled(ct).Result,
             settingsService.GetCanSerialPortName(ct).Result);
-        this.connectionService.Connect(currentSettings);
-        return ValueTask.CompletedTask;
+        await this.vehicleService.TryConnect(currentSettings);
     }
 
-    private ValueTask CanDeviceUsageChanged(bool useCanDevice, CancellationToken ct)
+    private async ValueTask CanDeviceUsageChanged(bool useCanDevice, CancellationToken ct)
     {
         string canSerialPortName = useCanDevice ? settingsService.GetCanSerialPortName(ct).Result : string.Empty;
 
@@ -138,15 +135,14 @@ public partial record SettingsModel
             settingsService.GetObd2SerialDeviceType(ct).Result,
             useCanDevice,
             settingsService.GetCanSerialPortName(ct).Result);
-        this.connectionService.Connect(currentSettings);
-        return ValueTask.CompletedTask;
+        await this.vehicleService.TryConnect(currentSettings);
     }
 
-    private ValueTask SelectedCanPortChanged(string? portName, CancellationToken ct)
+    private async ValueTask SelectedCanPortChanged(string? portName, CancellationToken ct)
     {
         if (portName == null)
         {
-            return ValueTask.CompletedTask;
+            return;
         }
 
         var currentSettings = new CurrentSettings(
@@ -155,8 +151,7 @@ public partial record SettingsModel
             settingsService.GetObd2SerialDeviceType(ct).Result,
             settingsService.IsCanEnabled(ct).Result,
             portName);
-        this.connectionService.Connect(currentSettings);
-        return ValueTask.CompletedTask;
+        await this.vehicleService.TryConnect(currentSettings);
     }
 
     public Task OpenLogFolderPicker()

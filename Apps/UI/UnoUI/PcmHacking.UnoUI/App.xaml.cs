@@ -126,7 +126,7 @@ public partial class App : Application
                     services.AddSingleton<ISettingsService, Services.SettingsService>();
                     services.AddSingleton<DispatcherQueue>(dispatcherQueue);
                     services.AddSingleton<MenuViewModel>();
-                    services.AddSingleton<Services.ConnectionService>();
+                    services.AddSingleton<Services.VehicleService>();
                     
                 })
 

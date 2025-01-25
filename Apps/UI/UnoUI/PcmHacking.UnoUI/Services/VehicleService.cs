@@ -10,26 +10,18 @@ using PcmHacking;
 
 namespace PcmHacking.UnoUI.Services;
 
-public enum ConnectionState
+public enum ConnectionStates
 {
     NotConfigured,
     NotConnected,
-    Connected,
-}
-
-public enum VehicleServiceState
-{
-    NotConnected,
     Connecting,
-    Polling,
+    Connected,
     InUse,
 }
 
-public partial record VehicleInfo(ConnectionState connectionState, string errorMessage, string operatingSystemId, string voltage);
-
 public interface IVehicleService
 {
-    public VehicleServiceState State { get; }
+    IState<ConnectionStates> ConnectionState { get; }
     Task<bool> TryConnect(CurrentSettings settings);
     Task StopPolling();
     void StartPolling();
@@ -40,17 +32,18 @@ public class VehicleService : IVehicleService
     private PcmHacking.ILogger logger;
     private ILogger<VehicleService> unoLogger;
     private Protocol protocol;
-    private ConnectionState connectionState = ConnectionState.NotConfigured;
     private Device? device = null;
     private Vehicle? vehicle = null;
     private IMessenger messenger;
-    private VehicleServiceState state = VehicleServiceState.NotConnected;
 
     // This may or may not be the best way to do this. For alternatives, see this example:
     // https://github.com/MartinZikmund/coffee-breaks/blob/main/UnoTimers/UnoTimers.Shared/MainPage.xaml.cs
     private System.Threading.Timer? threadingTimer;
 
-    public VehicleServiceState State => this.state;
+    public IState<ConnectionStates> ConnectionState => State<ConnectionStates>.Value(this, () => ConnectionStates.NotConfigured);
+    public IState<string> ConnectionError => State<string>.Value(this, () => string.Empty);
+    public IState<string> OperatingSystemId => State<string>.Value(this, () => string.Empty);
+    public IState<string> Voltage => State<string>.Value(this, () => string.Empty);
 
     public VehicleService(
         PcmHacking.ILogger logger, 
@@ -63,10 +56,15 @@ public class VehicleService : IVehicleService
         this.messenger = messenger;
     }
 
-    public static readonly VehicleInfo StartupVehicleInfo = new VehicleInfo(ConnectionState.NotConfigured, "No connected.", String.Empty, String.Empty);
-
-    public Task<bool> TryConnect(CurrentSettings settings)
+    public async Task<bool> TryConnect(CurrentSettings settings)
     {
+        if (await this.ConnectionState.Value() == ConnectionStates.InUse)
+        {
+            return false;
+        }
+
+        await this.ConnectionState.SetAsync(ConnectionStates.NotConnected);
+
         if (this.vehicle != null)
         {
             this.vehicle.Dispose();
@@ -78,18 +76,29 @@ public class VehicleService : IVehicleService
             settings.DeviceCategory, 
             settings.Obd2SerialPortName, 
             settings.Obd2SerialDeviceType,
-            "J2534 Not Implemented");
+            "J2534 Not Yet Implemented");
 
         if (this.device == null)
         {
-            return Task.FromResult(false); 
+            return false;
         }
 
         this.vehicle = new Vehicle(this.device, this.protocol, this.logger, new ToolPresentNotifier(this.device, this.protocol, this.logger));
 
-        this.state = VehicleServiceState.Connecting;
+        await this.ConnectionState.SetAsync(ConnectionStates.Connecting);
 
-        return Task.FromResult(true);
+        if (await this.TryRequestVehicleInfo(CancellationToken.None))
+        {
+            await this.ConnectionState.SetAsync(ConnectionStates.Connected);
+            this.StartPolling();
+            return true;
+        }
+        else
+        {
+            await this.ConnectionState.SetAsync(ConnectionStates.NotConnected);
+            await this.StopPolling();
+            return false;
+        }
     }
     
     public async Task StopPolling()
@@ -120,16 +129,9 @@ public class VehicleService : IVehicleService
             return;
         }
 
-        VehicleInfo vehicleInfo = await this.GetVehicleInfoAsync(CancellationToken.None);
-        this.messenger.Send(vehicleInfo);
-        if (this.state == VehicleServiceState.Connecting && vehicleInfo.connectionState == ConnectionState.Connected)
+        if (!await this.TryRequestVehicleInfo(CancellationToken.None))
         {
-            this.state = VehicleServiceState.Polling;
-        }
-        else if (this.state == VehicleServiceState.Polling && vehicleInfo.connectionState == ConnectionState.NotConnected)
-        {
-            await this.threadingTimer.DisposeAsync();
-            this.state = VehicleServiceState.NotConnected;
+            await this.StopPolling();
         }
     }
 
@@ -138,55 +140,51 @@ public class VehicleService : IVehicleService
     /// connection state is ConnectionState.Connected, the polling should stop,
     /// and flashing or logging can begin.
     /// </summary>
-    private async Task<VehicleInfo> GetVehicleInfoAsync(CancellationToken cancellationToken)
+    private async Task<bool> TryRequestVehicleInfo(CancellationToken cancellationToken)
     {
         if (this.device == null)
         {
-            this.connectionState = ConnectionState.NotConfigured;
-            this.state = VehicleServiceState.NotConnected;
-            return new VehicleInfo(this.connectionState, "Not configured.", String.Empty, string.Empty);
+            return false;
         }
 
-        if (this.connectionState == ConnectionState.NotConfigured)
+        await this.ConnectionState.SetAsync(ConnectionStates.NotConnected);
+        ToolPresentNotifier notifier = new ToolPresentNotifier(this.device, this.protocol, this.logger);
+        this.vehicle = new Vehicle(device, this.protocol, this.logger, notifier);
+
+        if (this.vehicle == null)
         {
-            this.connectionState = ConnectionState.NotConnected;
-            ToolPresentNotifier notifier = new ToolPresentNotifier(this.device, this.protocol, this.logger);
-            this.vehicle = new Vehicle(device, this.protocol, this.logger, notifier);
-            return new VehicleInfo(connectionState, "Connecting to vehicle...", String.Empty, string.Empty);
+            await this.ConnectionState.SetAsync(ConnectionStates.NotConnected);
+            return false;
         }
 
-        VehicleInfo vehicleInfo = await this.GetVehicleInfo(cancellationToken);
-        this.connectionState = vehicleInfo.connectionState;
-        return vehicleInfo;
+        Response<uint> osidResponse = await this.vehicle.QueryOperatingSystemId(cancellationToken);
+        if (osidResponse.Status == ResponseStatus.Success)
+        {
+            await this.OperatingSystemId.SetAsync(osidResponse.Value.ToString());
+        }
+        else
+        {
+            await this.ResetVehicleInfo();
+        }
+
+        string voltage = String.Empty;
+        Response<string> voltageResponse = await this.vehicle.QueryVoltage();
+        if (voltageResponse.Status == ResponseStatus.Success)
+        {
+            await this.Voltage.SetAsync(voltageResponse.Value ?? String.Empty);
+        }
+        else
+        {
+            await this.ResetVehicleInfo();
+        }
+
+        return true;
     }
 
-    private async Task<VehicleInfo> GetVehicleInfo(CancellationToken cancellationToken)
+    private async Task ResetVehicleInfo()
     {
-        if (this.vehicle != null)
-        {
-            uint osid = 0;
-            Response<uint> osidResponse = await this.vehicle.QueryOperatingSystemId(cancellationToken);
-            if (osidResponse.Status == ResponseStatus.Success)
-            {
-                osid = osidResponse.Value;
-            }
-            else
-            {
-                return new VehicleInfo(ConnectionState.NotConnected, osidResponse.Status.ToString(), String.Empty, String.Empty);
-            }
-
-            string voltage = String.Empty;
-            Response<string> voltageResponse = await this.vehicle.QueryVoltage();
-            if (voltageResponse.Status == ResponseStatus.Success)
-            {
-                voltage = voltageResponse.Value;
-            }
-            else
-            {
-                return new VehicleInfo(ConnectionState.NotConnected, voltageResponse.Status.ToString(), osid.ToString(), String.Empty);
-            }
-            return new VehicleInfo(ConnectionState.Connected, String.Empty, osid.ToString(), voltage);
-        }
-        return new VehicleInfo(ConnectionState.NotConnected, "Vehicle is not connected", String.Empty, string.Empty);
+        await this.ConnectionState.SetAsync(ConnectionStates.NotConnected);
+        await this.OperatingSystemId.SetAsync(String.Empty);
+        await this.Voltage.SetAsync(String.Empty);
     }
 }
