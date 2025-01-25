@@ -19,9 +19,17 @@ public enum ConnectionStates
     InUse,
 }
 
+public class ConnectionStateChangedMessage { }
+
 public interface IVehicleService
 {
     IState<ConnectionStates> ConnectionState { get; }
+    IState<string> ConnectionError { get; }
+
+    IState<string> OperatingSystemId { get; }
+
+    IState<string> Voltage { get; }
+
     Task<bool> TryConnect(CurrentSettings settings);
     Task StopPolling();
     void StartPolling();
@@ -29,18 +37,20 @@ public interface IVehicleService
 
 public class VehicleService : IVehicleService
 {
-    private PcmHacking.ILogger logger;
+    private PcmHacking.ILogger progressLogger;
     private ILogger<VehicleService> unoLogger;
     private Protocol protocol;
     private Device? device = null;
     private Vehicle? vehicle = null;
     private IMessenger messenger;
 
-    // This may or may not be the best way to do this. For alternatives, see this example:
-    // https://github.com/MartinZikmund/coffee-breaks/blob/main/UnoTimers/UnoTimers.Shared/MainPage.xaml.cs
+    // Simplified name
     private System.Threading.Timer? threadingTimer;
 
-    public IState<ConnectionStates> ConnectionState => State<ConnectionStates>.Value(this, () => ConnectionStates.NotConfigured);
+    public IState<ConnectionStates> ConnectionState => State<ConnectionStates>
+        .Value(this, () => ConnectionStates.NotConfigured);
+        //.ForEach( (state, ct) => ValueTask.FromResult(this.messenger.Send(new ConnectionStateChangedMessage())));
+
     public IState<string> ConnectionError => State<string>.Value(this, () => string.Empty);
     public IState<string> OperatingSystemId => State<string>.Value(this, () => string.Empty);
     public IState<string> Voltage => State<string>.Value(this, () => string.Empty);
@@ -50,7 +60,7 @@ public class VehicleService : IVehicleService
         IMessenger messenger, 
         ILogger<VehicleService> unoLogger)
     {
-        this.logger = logger;
+        this.progressLogger = logger;
         this.unoLogger = unoLogger;
         this.protocol = new PcmHacking.Protocol();
         this.messenger = messenger;
@@ -72,21 +82,21 @@ public class VehicleService : IVehicleService
         }
 
         this.device = DeviceFactory.CreateDevice(
-            this.logger, 
+            this.progressLogger, 
             settings.DeviceCategory, 
             settings.Obd2SerialPortName, 
-            settings.Obd2SerialDeviceType,
-            "J2534 Not Yet Implemented");
+            settings.Obd2SerialDeviceName,
+            settings.J2534DeviceName);
 
         if (this.device == null)
         {
             return false;
         }
 
-        this.vehicle = new Vehicle(this.device, this.protocol, this.logger, new ToolPresentNotifier(this.device, this.protocol, this.logger));
-
+        ToolPresentNotifier notifier = new ToolPresentNotifier(this.device, this.protocol, this.progressLogger);
+        this.vehicle = new Vehicle(device, this.protocol, this.progressLogger, notifier);
         await this.ConnectionState.SetAsync(ConnectionStates.Connecting);
-
+        
         if (await this.TryRequestVehicleInfo(CancellationToken.None))
         {
             await this.ConnectionState.SetAsync(ConnectionStates.Connected);
@@ -142,40 +152,41 @@ public class VehicleService : IVehicleService
     /// </summary>
     private async Task<bool> TryRequestVehicleInfo(CancellationToken cancellationToken)
     {
-        if (this.device == null)
-        {
-            return false;
-        }
-
-        await this.ConnectionState.SetAsync(ConnectionStates.NotConnected);
-        ToolPresentNotifier notifier = new ToolPresentNotifier(this.device, this.protocol, this.logger);
-        this.vehicle = new Vehicle(device, this.protocol, this.logger, notifier);
-
-        if (this.vehicle == null)
+        if ((this.device == null) || (this.vehicle == null))
         {
             await this.ConnectionState.SetAsync(ConnectionStates.NotConnected);
             return false;
         }
 
-        Response<uint> osidResponse = await this.vehicle.QueryOperatingSystemId(cancellationToken);
-        if (osidResponse.Status == ResponseStatus.Success)
+        try
         {
-            await this.OperatingSystemId.SetAsync(osidResponse.Value.ToString());
-        }
-        else
-        {
-            await this.ResetVehicleInfo();
-        }
+            Response<uint> osidResponse = await this.vehicle.QueryOperatingSystemId(cancellationToken);
+            if (osidResponse.Status == ResponseStatus.Success)
+            {
+                await this.OperatingSystemId.SetAsync(osidResponse.Value.ToString());
+            }
+            else
+            {
+                await this.ResetVehicleInfo();
+                return false;
+            }
 
-        string voltage = String.Empty;
-        Response<string> voltageResponse = await this.vehicle.QueryVoltage();
-        if (voltageResponse.Status == ResponseStatus.Success)
-        {
-            await this.Voltage.SetAsync(voltageResponse.Value ?? String.Empty);
+            string voltage = String.Empty;
+            Response<string> voltageResponse = await this.vehicle.QueryVoltage();
+            if (voltageResponse.Status == ResponseStatus.Success)
+            {
+                await this.Voltage.SetAsync(voltageResponse.Value ?? String.Empty);
+            }
+            else
+            {
+                await this.ResetVehicleInfo();
+                return false;
+            }
         }
-        else
+        catch (Exception exception)
         {
-            await this.ResetVehicleInfo();
+            this.progressLogger.AddUserMessage("Internal error while polling: " + exception.ToString());
+            return false;
         }
 
         return true;

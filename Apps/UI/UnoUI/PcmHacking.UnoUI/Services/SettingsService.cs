@@ -3,15 +3,19 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.Messaging;
 using Newtonsoft.Json.Linq;
 
 namespace PcmHacking.UnoUI.Services;
 
+public class SettingsChangedMessage { }
+
 public interface ISettingsService
 {
     ValueTask<string> GetObd2DeviceCategory(CancellationToken ct);
+    ValueTask<string> GetJ2534DeviceName(CancellationToken ct);
     ValueTask<string> GetObd2SerialPortName(CancellationToken ct);
-    ValueTask<string> GetObd2SerialDeviceType(CancellationToken ct);
+    ValueTask<string> GetObd2SerialDeviceName(CancellationToken ct);
     ValueTask<bool> IsCanEnabled(CancellationToken ct);
     ValueTask<string> GetCanSerialPortName(CancellationToken ct);
     ValueTask<string> GetDataLogFolder(CancellationToken ct);
@@ -21,14 +25,22 @@ public interface ISettingsService
     void DataLogFolderChanged(string folder);
 }
 
-internal class SettingsService : ISettingsService
+public class SettingsService : ISettingsService
 {
     private const string Obd2DeviceCategoryKey = "Obd2DeviceCategory";
+    private const string J2534DeviceNameKey = "J2534DeviceName";
     private const string Obd2SerialPortNameKey = "Obd2SerialPortName";
-    private const string Obd2SerialDeviceTypeKey = "Obd2SerialDeviceType";
+    private const string Obd2SerialDeviceNameKey = "Obd2SerialDeviceName";
     private const string CanEnabledKey = "CanEnabled";
     private const string CanSerialPortNameKey = "CanSerialPortName";
     private const string DataLogFolderKey = "DataLogFolder";
+
+    private readonly IMessenger messenger;
+
+    public SettingsService(IMessenger messenger)
+    {
+        this.messenger = messenger;
+    }
 
     //#if WINDOWS10_0_26100_0_OR_GREATER
     //    Microsoft.Storage.ApplicationData.ApplicationDataContainer? localSettings;
@@ -60,9 +72,14 @@ internal class SettingsService : ISettingsService
         return ValueTask.FromResult(LocalSettings.Values[Obd2SerialPortNameKey] as string ?? string.Empty);
     }
 
-    public ValueTask<string> GetObd2SerialDeviceType(CancellationToken ct)
+    public ValueTask<string> GetObd2SerialDeviceName(CancellationToken ct)
     {
-        return ValueTask.FromResult(LocalSettings.Values[Obd2SerialDeviceTypeKey] as string ?? string.Empty);
+        return ValueTask.FromResult(LocalSettings.Values[Obd2SerialDeviceNameKey] as string ?? string.Empty);
+    }
+
+    public ValueTask<string> GetJ2534DeviceName(CancellationToken ct)
+    {
+        return ValueTask.FromResult(LocalSettings.Values[J2534DeviceNameKey] as string ?? string.Empty);
     }
 
     public ValueTask<bool> IsCanEnabled(CancellationToken ct)
@@ -88,11 +105,13 @@ internal class SettingsService : ISettingsService
 
     public void SettingsChanged(CurrentSettings settings)
     {
+        LocalSettings.Values[J2534DeviceNameKey] = settings.J2534DeviceName;
         LocalSettings.Values[Obd2DeviceCategoryKey] = settings.DeviceCategory;
         LocalSettings.Values[Obd2SerialPortNameKey] = settings.Obd2SerialPortName;
-        LocalSettings.Values[Obd2SerialDeviceTypeKey] = settings.Obd2SerialDeviceType;
+        LocalSettings.Values[Obd2SerialDeviceNameKey] = settings.Obd2SerialDeviceName;
         LocalSettings.Values[CanEnabledKey] = settings.CanEnabled ? "true" : "false";
         LocalSettings.Values[CanSerialPortNameKey] = settings.CanPort;
+        this.messenger.Send(new SettingsChangedMessage());
     }
 
     public void DataLogFolderChanged(string folder)

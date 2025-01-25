@@ -120,11 +120,12 @@ public partial class App : Application
 #endif
                 .ConfigureServices(services =>
                 {
-                    services.AddSingleton<PcmHacking.ILogger, UnoUI.Services.ProgressLogger>();
-                    services.AddSingleton<Services.IVehicleService, Services.VehicleService>();
-                    services.AddSingleton<IMessenger, WeakReferenceMessenger>();
-                    services.AddSingleton<ISettingsService, Services.SettingsService>();
                     services.AddSingleton<DispatcherQueue>(dispatcherQueue);
+                    services.AddSingleton<IMessenger, WeakReferenceMessenger>();
+                    services.AddSingleton<PcmHacking.ILogger, UnoUI.Services.ProgressLogger>();
+
+                    services.AddSingleton<ISettingsService, Services.SettingsService>();
+                    services.AddSingleton<Services.IVehicleService, Services.VehicleService>();
                     services.AddSingleton<MenuViewModel>();
                     services.AddSingleton<Services.VehicleService>();
                     

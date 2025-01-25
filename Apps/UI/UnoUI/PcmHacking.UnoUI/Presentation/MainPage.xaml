@@ -28,19 +28,19 @@
                 Command="{Binding GoBack}"
                 ToolTipService.ToolTip="Back" />
       
-      <TextBlock Grid.Row="0" Grid.Column="1" TextAlignment="Center" VerticalAlignment="Bottom" Text="Port" />
-      <TextBlock Grid.Row="1" Grid.Column="1" TextAlignment="Center" VerticalAlignment="Top" Text="COM3" />
+      <TextBlock Grid.Row="0" Grid.Column="1" TextAlignment="Center" VerticalAlignment="Bottom" Text="Serial Port" />
+      <TextBlock Grid.Row="1" Grid.Column="1" TextAlignment="Center" VerticalAlignment="Top" Text="{Binding SerialPortName}" />
 
       <TextBlock Grid.Row="0" Grid.Column="2" TextAlignment="Center" VerticalAlignment="Bottom" Text="Device" />
-      <TextBlock Grid.Row="1" Grid.Column="2" TextAlignment="Center" VerticalAlignment="Top" Text="ObdLink Or AllPro" />
+      <TextBlock Grid.Row="1" Grid.Column="2" TextAlignment="Center" VerticalAlignment="Top" Text="{Binding DeviceName}" />
 
-      <TextBlock Grid.Row="0" Grid.Column="3" TextAlignment="Center" VerticalAlignment="Center" Margin="10" Width="100" Text="Connected" />
+      <TextBlock Grid.Row="0" Grid.Column="3" TextAlignment="Center" VerticalAlignment="Center" Text="{Binding ConnectionState}" />
 
       <TextBlock Grid.Row="0" Grid.Column="4" TextAlignment="Center" VerticalAlignment="Bottom" Text="OSID" />
-      <TextBlock Grid.Row="1" Grid.Column="4" TextAlignment="Center" VerticalAlignment="Top" Text="12587603" />
+      <TextBlock Grid.Row="1" Grid.Column="4" TextAlignment="Center" VerticalAlignment="Top" Text="{Binding OperatingSystemId}" />
       
       <TextBlock Grid.Row="0" Grid.Column="5" TextAlignment="Center" VerticalAlignment="Bottom" Text="Voltage" />
-      <TextBlock Grid.Row="1" Grid.Column="5" TextAlignment="Center" VerticalAlignment="Top" Text="13.1" />
+      <TextBlock Grid.Row="1" Grid.Column="5" TextAlignment="Center" VerticalAlignment="Top" Text="{Binding Voltage}" />
 
       <Frame Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="6" x:Name="ContentFrame" uen:Region.Attached="True" />
     </Grid>
