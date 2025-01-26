@@ -6,19 +6,26 @@ namespace PcmHacking.UnoUI.Presentation;
 
 public partial record OtherFunctionsModel
 {
+    private const string defaultClearCodesButtonText = "Clear Trouble Codes";
     private INavigator navigator;
     private IVehicleService vehicleService;
+    private PcmHacking.ILogger progressLogger;
 
+    public IState<string> ResetCodesButtonText => State<string>.Value(this, () => defaultClearCodesButtonText);
     public IState<string> Vin => State<string>.Value(this, () => string.Empty);
     public IState<string> CalibrationId => State<string>.Value(this, () => string.Empty);
     public IState<string> HardwareId => State<string>.Value(this, () => string.Empty);
     public IState<string> SerialNumber => State<string>.Value(this, () => string.Empty);
     public IState<string> BroadcastCode => State<string>.Value(this, () => string.Empty);
 
-    public OtherFunctionsModel(INavigator navigator, IVehicleService vehicleService)
+    public OtherFunctionsModel(
+        INavigator navigator, 
+        IVehicleService vehicleService, 
+        PcmHacking.ILogger progressLogger)
     {
         this.navigator = navigator;
         this.vehicleService = vehicleService;
+        this.progressLogger = progressLogger;
         this.GetProperties();
     }
 
@@ -26,7 +33,7 @@ public partial record OtherFunctionsModel
     {
         try
         {
-            Vehicle? vehicle = await this.vehicleService.TryBeginActivity("Get Details...");
+            Vehicle? vehicle = await this.vehicleService.TryBeginActivity("Getting Details");
             if (vehicle != null)
             {
                 await this.UpdateProperties(vehicle);
@@ -122,8 +129,43 @@ public partial record OtherFunctionsModel
         await this.navigator.NavigateViewModelAsync<HelpModel>(this);
     }
     
-    public Task ResetCodes()
+    public async Task ResetCodes()
     {
-        return Task.CompletedTask;
-    }  
+        try
+        {
+            Vehicle? vehicle = await this.vehicleService.TryBeginActivity("Reseting Codes");
+            if (vehicle != null)
+            {
+                await vehicle.ClearTroubleCodes();
+            }
+            else
+            {
+                this.progressLogger.AddUserMessage("Unable to begin activity to clear trouble codes.");
+                await navigator.ShowMessageDialogAsync(
+                    sender: this,
+                    content: "We were not able to clear the trouble codes, but it might work if you try again.",
+                    title: "Please Try Again",
+                    buttons: new[] { new DialogAction("Not OK") } );
+                return;
+            }
+
+            await this.ResetCodesButtonText.SetAsync("Success!");
+            await Task.Delay(1000);
+            await this.ResetCodesButtonText.SetAsync(defaultClearCodesButtonText);
+        }
+        catch (Exception exception)
+        {
+            this.progressLogger.AddUserMessage("Exception while clearing trouble codes.");
+            this.progressLogger.AddDebugMessage(exception.ToString());
+            await navigator.ShowMessageDialogAsync(
+                sender: this,
+                content: "We were not able to clear the trouble codes, but it might work if you try again.",
+                title: "Please Try Again",
+                buttons: new[] { new DialogAction("Really Not OK") });
+        }
+        finally
+        {
+            await this.vehicleService.EndActivity();
+        }
+    }
 }

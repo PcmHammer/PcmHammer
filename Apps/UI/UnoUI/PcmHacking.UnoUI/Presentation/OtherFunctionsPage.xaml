@@ -128,7 +128,7 @@
           Padding="10"
           HorizontalAlignment="Stretch"
           VerticalAlignment="Stretch">
-          <TextBlock Text="Reset Codes" />
+          <TextBlock Text="{Binding ResetCodesButtonText}" />
         </Button>
       </Grid>
     </Grid>
