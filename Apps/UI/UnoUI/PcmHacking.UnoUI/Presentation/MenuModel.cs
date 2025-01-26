@@ -19,10 +19,10 @@ public partial record MenuModel
 
     public IState<string> Name => State<string>.Value(this, () => string.Empty);
 
-    public async Task GoToSecond()
+    public async Task GoToDataLogging()
     {
         var name = await Name;
-        await this.navigator.NavigateViewModelAsync<SecondModel>(this, data: new Entity(name!));
+        await this.navigator.NavigateViewModelAsync<DataLoggingModel>(this);
     }
 
     public async Task GoToSettings()
@@ -41,5 +41,16 @@ public partial record MenuModel
     {
         var name = await Name;
         await this.navigator.NavigateViewModelAsync<ReadModel>(this);
+    }
+    public async Task GoToOtherFunctions()
+    {
+        var name = await Name;
+        await this.navigator.NavigateViewModelAsync<OtherFunctionsModel>(this);
+    }
+
+    public async Task GoToHelp()
+    {
+        var name = await Name;
+        await this.navigator.NavigateViewModelAsync<HelpModel>(this);
     }
 }

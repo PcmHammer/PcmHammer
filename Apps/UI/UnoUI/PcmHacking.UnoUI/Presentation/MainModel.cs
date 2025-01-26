@@ -79,7 +79,7 @@ public partial record MainModel
                 await this.ConnectionState.SetAsync("Connected");
                 await this.UpdateDisplayedSettings(ct);
                 break;
-            case ConnectionStates.InUse:
+            case ConnectionStates.Active:
                 await this.ConnectionState.SetAsync("In Use");
                 break;
         }

@@ -61,8 +61,20 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Update="Presentation\OtherFunctionsPage.xaml.cs">
+      <DependentUpon>OtherFunctionsPage.xaml</DependentUpon>
+    </Compile>
     <Compile Update="Presentation\MenuPage.xaml.cs">
       <DependentUpon>MenuPage.xaml</DependentUpon>
+    </Compile>
+    <Compile Update="Presentation\HelpPage.xaml.cs">
+      <DependentUpon>HelpPage.xaml</DependentUpon>
+    </Compile>
+    <Compile Update="Presentation\CrankRelearnPage.xaml.cs">
+      <DependentUpon>CrankRelearnPage.xaml</DependentUpon>
+    </Compile>
+    <Compile Update="Presentation\DataLoggingPage.xaml.cs">
+      <DependentUpon>DataLoggingPage.xaml</DependentUpon>
     </Compile>
   </ItemGroup>
 
@@ -98,6 +110,27 @@
 
   <ItemGroup>
     <Page Update="Presentation\MenuPage.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Page Update="Presentation\HelpPage.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Page Update="Presentation\CrankRelearnPage.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Page Update="Presentation\OtherFunctionsPage.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

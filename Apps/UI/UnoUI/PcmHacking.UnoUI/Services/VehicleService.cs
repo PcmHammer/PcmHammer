@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -16,7 +17,7 @@ public enum ConnectionStates
     NotConnected,
     Connecting,
     Connected,
-    InUse,
+    Active,
 }
 
 public class ConnectionStateChangedMessage { }
@@ -24,6 +25,9 @@ public class ConnectionStateChangedMessage { }
 public interface IVehicleService
 {
     IState<ConnectionStates> ConnectionState { get; }
+
+    IState<string> Activity { get; }
+
     IState<string> ConnectionError { get; }
 
     IState<string> OperatingSystemId { get; }
@@ -37,13 +41,17 @@ public interface IVehicleService
 
 public class VehicleService : IVehicleService
 {
+    private const string pollingActivity = "Connected";
     private PcmHacking.ILogger progressLogger;
     private ILogger<VehicleService> unoLogger;
     private Protocol protocol;
     private Device? device = null;
     private Vehicle? vehicle = null;
+    private System.Threading.Timer? timer = null;
 
     public IState<ConnectionStates> ConnectionState => State.Value(this, () => ConnectionStates.NotConfigured);
+
+    public IState<string> Activity => State.Value(this, () => string.Empty);
     public IState<string> ConnectionError => State.Value(this, () => string.Empty);
     public IState<string> OperatingSystemId => State.Value(this, () => string.Empty);
     public IState<string> Voltage => State.Value(this, () => string.Empty);
@@ -57,9 +65,11 @@ public class VehicleService : IVehicleService
         this.protocol = new PcmHacking.Protocol();
     }
 
+    public Vehicle Vehicle => this.vehicle!;
+
     public async Task<bool> TryConnect(CurrentSettings settings)
     {
-        if (await this.ConnectionState.Value() == ConnectionStates.InUse)
+        if (await this.ConnectionState.Value() == ConnectionStates.Active)
         {
             return false;
         }
@@ -88,10 +98,11 @@ public class VehicleService : IVehicleService
         this.vehicle = new Vehicle(device, this.protocol, this.progressLogger, notifier);
         await this.ConnectionState.SetAsync(ConnectionStates.Connecting);
         
-        if (await this.TryRequestVehicleInfo(CancellationToken.None))
+        if (await this.TryPollOnce())
         {
             await this.ConnectionState.SetAsync(ConnectionStates.Connected);
-            this.SchedulePoll();
+            this.progressLogger.AddDebugMessage("First poll succeeded.");
+            this.SchedulePoll(1000);
             return true;
         }
         else
@@ -101,21 +112,77 @@ public class VehicleService : IVehicleService
         }
     }
 
+    public async Task<Vehicle?> TryBeginActivity(string activity)
+    {
+        if (this.timer != null)
+        {
+            this.timer.Dispose();
+            this.timer = null;
+        }
+
+        if (await this.ConnectionState.Value() == ConnectionStates.Active)
+        {
+            this.progressLogger.AddUserMessage(new Exception("Attempting to use an active connection.").ToString());
+            return null;
+        }
+
+        await this.Activity.SetAsync(activity);
+        await this.ConnectionState.SetAsync(ConnectionStates.Active);
+        return this.vehicle!;
+    }
+
+    public async Task EndActivity()
+    {
+        // TODO: Dispose and re-create the Vehicle instance here, to ensure that it doesn't continue to get used.
+        // The current implementation of Vehice.Dispose() also disposes the underlying connection, which we don't want.
+        // Could probably change that without breaking the WinForms UI, but need to investigate.
+        await this.ConnectionState.SetAsync(ConnectionStates.Connected);
+        await this.Activity.SetAsync(String.Empty);
+        this.progressLogger.AddDebugMessage("Activity complete, setting timer to poll.");
+        this.SchedulePoll(1000);
+    }
+
     public void SchedulePoll()
     {
+        this.SchedulePoll(0);
+    }
+
+    public void SchedulePoll(int delay)
+    {
         new System.Threading.Timer(
-            ThreadingTimerCallback,
+            TimerCallback,
             state: null,
-            dueTime: 2000,
+            dueTime: delay,
             period: Timeout.Infinite);
     }
 
-    private async void ThreadingTimerCallback(object? state)
+    private async void TimerCallback(object? state)
     {
-        if (await this.TryRequestVehicleInfo(CancellationToken.None))
+        try
         {
-            this.SchedulePoll();
+            await this.TryPollOnce();
         }
+        catch (Exception exception)
+        {
+            this.progressLogger.AddUserMessage("Internal error during timer callback: " + exception.ToString());
+        }
+    }
+
+    private async Task<bool> TryPollOnce()
+    { 
+        Vehicle? acquired = await this.TryBeginActivity(pollingActivity);
+        if (acquired == null)
+        {
+            return false;
+        }
+
+        // TODO: Is it going to be a problem if we keep trying to poll the vehicle even after the connection is lost?
+        // If so, we should stop polling in that case. Currently we will just keep trying.
+        bool result = await this.TryRequestVehicleInfo(CancellationToken.None);
+
+        await this.EndActivity();
+
+        return result;
     }
 
     /// <summary>
@@ -131,8 +198,14 @@ public class VehicleService : IVehicleService
             return false;
         }
 
+        if (await this.Activity.Value() != pollingActivity)
+        {
+            return false;
+        }
+
         try
         {
+            await this.OperatingSystemId.SetAsync(String.Empty);
             Response<uint> osidResponse = await this.vehicle.QueryOperatingSystemId(cancellationToken);
             if (osidResponse.Status == ResponseStatus.Success)
             {
@@ -144,7 +217,7 @@ public class VehicleService : IVehicleService
                 return false;
             }
 
-            string voltage = String.Empty;
+            await this.Voltage.SetAsync(String.Empty);
             Response<string> voltageResponse = await this.vehicle.QueryVoltage();
             if (voltageResponse.Status == ResponseStatus.Success)
             {
@@ -158,7 +231,7 @@ public class VehicleService : IVehicleService
         }
         catch (Exception exception)
         {
-            this.progressLogger.AddUserMessage("Internal error while polling: " + exception.ToString());
+            this.progressLogger.AddUserMessage("Internal error while requesting vehicle info: " + exception.ToString());
             return false;
         }
 

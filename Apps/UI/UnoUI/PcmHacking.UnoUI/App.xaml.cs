@@ -194,8 +194,11 @@ public partial class App : Application
             new ViewMap(ViewModel: typeof(ShellModel)),
             new ViewMap<MainPage, MainModel>(),
             new ViewMap<MenuPage, MenuModel>(),
-            new DataViewMap<SecondPage, SecondModel, Entity>(),
-            new ViewMap<SettingsPage, SettingsModel>()
+            new DataViewMap<DataLoggingPage, DataLoggingModel, Entity>(),
+            new ViewMap<SettingsPage, SettingsModel>(),
+            new ViewMap<HelpPage, HelpModel>(),
+            new ViewMap<OtherFunctionsPage, OtherFunctionsModel>(),
+            new ViewMap<CrankRelearnPage, CrankRelearnModel>()
         );
 
         routes.Register(
@@ -203,7 +206,7 @@ public partial class App : Application
                 Nested:
                 [
                     new ("Main", View: views.FindByViewModel<MainModel>(), IsDefault:true),
-                    new ("Second", View: views.FindByViewModel<SecondModel>()),
+//                    new ("Second", View: views.FindByViewModel<DataLoggingModel>()),
                     new ("Settings", View: views.FindByViewModel<SettingsModel>())
                 ]
             )

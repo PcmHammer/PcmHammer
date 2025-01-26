@@ -37,13 +37,13 @@
               Command="{Binding GoToWrite}" />
 
       <Button Grid.Row="1" Grid.Column="0"
-              Content="Get PCM Info"
+              Content="Other Functions"
               Margin="10"
               Padding="10"
               HorizontalAlignment="Stretch"
               VerticalAlignment="Stretch"              
-              AutomationProperties.AutomationId="GetPcmInfoButton"
-              Command="{Binding GoToSecond}" />
+              AutomationProperties.AutomationId="OtherFunctionsButton"
+              Command="{Binding GoToOtherFunctions}" />
 
       <Button Grid.Row="1" Grid.Column="1"
               Content="Read PCM"
@@ -61,7 +61,7 @@
               HorizontalAlignment="Stretch"
               VerticalAlignment="Stretch"              
               AutomationProperties.AutomationId="HelpButton"
-              Command="{Binding GoToSecond}" />
+              Command="{Binding GoToHelp}" />
 
       <Button Grid.Row="2" Grid.Column="1"
               Content="Data Logging"
@@ -70,7 +70,7 @@
               HorizontalAlignment="Stretch"
               VerticalAlignment="Stretch"                            
               AutomationProperties.AutomationId="DataLoggingButton"
-              Command="{Binding GoToSecond}" />
+              Command="{Binding GoToDataLogging}" />
 
     </Grid>
   </ScrollViewer>

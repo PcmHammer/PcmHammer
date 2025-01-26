@@ -1,4 +1,4 @@
-﻿namespace PcmHacking.UnoUI.Presentation;
+namespace PcmHacking.UnoUI.Presentation;
 
 public sealed partial class Shell : UserControl, IContentControlProvider
 {
