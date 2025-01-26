@@ -8,16 +8,18 @@ namespace PcmHacking.UnoUI.Presentation;
 public partial record OtherFunctionsModel
 {
     private const string defaultClearCodesButtonText = "Clear Trouble Codes";
+    private const string defaultValue = "...";
     private INavigator navigator;
     private IVehicleService vehicleService;
     private PcmHacking.ILogger progressLogger;
 
     public IState<string> ResetCodesButtonText => State<string>.Value(this, () => defaultClearCodesButtonText);
-    public IState<string> Vin => State<string>.Value(this, () => string.Empty);
-    public IState<string> CalibrationId => State<string>.Value(this, () => string.Empty);
-    public IState<string> HardwareId => State<string>.Value(this, () => string.Empty);
-    public IState<string> SerialNumber => State<string>.Value(this, () => string.Empty);
-    public IState<string> BroadcastCode => State<string>.Value(this, () => string.Empty);
+    public IState<string> Description => State<string>.Value(this, () => defaultValue);
+    public IState<string> Vin => State<string>.Value(this, () => defaultValue);
+    public IState<string> CalibrationId => State<string>.Value(this, () => defaultValue);
+    public IState<string> HardwareId => State<string>.Value(this, () => defaultValue);
+    public IState<string> SerialNumber => State<string>.Value(this, () => defaultValue);
+    public IState<string> BroadcastCode => State<string>.Value(this, () => defaultValue);
 
     public OtherFunctionsModel(
         INavigator navigator, 
@@ -29,11 +31,10 @@ public partial record OtherFunctionsModel
         this.vehicleService = vehicleService;
         this.progressLogger = progressLogger;
 
-        // This is deliberately not awaited. Mostly just because you can't use await in a constructor.
-#pragma warning disable CS4014
-        dispatcherQueue.TryEnqueue(() => this.GetProperties());
-        // this.GetProperties();
-#pragma warning restore CS4014
+        // This is partly because you can't use await in a constructor. But,
+        // this also makes the UI more responsive than calling GetProperties()
+        // directly, without an await.
+        dispatcherQueue.TryEnqueue(async () => await this.GetProperties());
     }
 
     public async Task GetProperties()
@@ -51,21 +52,57 @@ public partial record OtherFunctionsModel
         
     public async Task UpdateProperties(Vehicle vehicle)
     {
+        // All VPW PCMs support the VIN query.
         CancellationToken ct = CancellationToken.None;
-        await this.Vin.SetAsync(string.Empty);
         await this.Vin.SetAsync(await this.GetVin(vehicle, ct));
 
-        await this.CalibrationId.SetAsync(string.Empty);
-        await this.CalibrationId.SetAsync(await this.GetCalibrationId(vehicle, ct));
+        // The others depend on the operating system.
+        const string unknown = "Unknown";
+        const string notApplicable = "Not Applicable";
+        string? osIdString = await this.vehicleService.OperatingSystemId.Value();
+        uint osId = (uint)0;
+        if (uint.TryParse(osIdString ?? "", out osId))
+        {
+            OSIDInfo pcmInfo = new OSIDInfo(osId);
+            await this.Description.SetAsync(pcmInfo.Description);
 
-        await this.HardwareId.SetAsync(string.Empty);
-        await this.HardwareId.SetAsync(await this.GetHardwareId(vehicle, ct));
+            if (pcmInfo != null && pcmInfo.HardwareType != PcmType.BlackBox)
+            {
+                await this.CalibrationId.SetAsync(await this.GetCalibrationId(vehicle, ct));
+                await this.SerialNumber.SetAsync(await this.GetSerialNumber(vehicle, ct));
+            }
+            else
+            {
+                await this.CalibrationId.SetAsync(notApplicable);
+                await this.SerialNumber.SetAsync(notApplicable);
+            }
 
-        await this.SerialNumber.SetAsync(string.Empty);
-        await this.SerialNumber.SetAsync(await this.GetSerialNumber(vehicle, ct));
+            if (pcmInfo != null && pcmInfo.HardwareType != PcmType.P10 && pcmInfo.HardwareType != PcmType.P12 && pcmInfo.HardwareType != PcmType.E54)
+            {
+                await this.HardwareId.SetAsync(await this.GetHardwareId(vehicle, ct));
+            }
+            else
+            {
+                await this.HardwareId.SetAsync(notApplicable);
+            }
 
-        await this.BroadcastCode.SetAsync(string.Empty);
-        await this.BroadcastCode.SetAsync(await this.GetBroadcastCode(vehicle, ct));
+            if (pcmInfo != null && pcmInfo.HardwareType != PcmType.P04 && pcmInfo.HardwareType != PcmType.P04_Early && pcmInfo.HardwareType != PcmType.P08)
+            {
+                await this.BroadcastCode.SetAsync(await this.GetBroadcastCode(vehicle, ct));
+            }
+            else
+            {
+                await this.BroadcastCode.SetAsync(notApplicable);
+            }
+        }
+        else
+        {
+            await this.Description.SetAsync(unknown);
+            await this.CalibrationId.SetAsync(unknown);
+            await this.HardwareId.SetAsync(unknown);
+            await this.SerialNumber.SetAsync(unknown);
+            await this.BroadcastCode.SetAsync(unknown);
+        }
     }
     
     private async ValueTask<string> GetVin(Vehicle vehicle, CancellationToken cancellationToken)

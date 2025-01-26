@@ -67,6 +67,9 @@ public class VehicleService : IVehicleService
         this.protocol = new PcmHacking.Protocol();
     }
 
+    /// <summary>
+    /// This should only be used when connection settings change. Callers should generally use BeginActivity instead.
+    /// </summary>
     public async Task<bool> TryConnect(CurrentSettings settings)
     {
         if (await this.ConnectionState.Value() == ConnectionStates.Active)
@@ -91,6 +94,7 @@ public class VehicleService : IVehicleService
 
         if (this.device == null)
         {
+            await this.ResetVehicleInfo();
             return false;
         }
 
@@ -109,6 +113,7 @@ public class VehicleService : IVehicleService
         {
             this.unoLogger.LogInformation(new EventId(2, "VehicleService"), "First poll failed.");
             await this.ConnectionState.SetAsync(ConnectionStates.NotConnected);
+            await this.ResetVehicleInfo();
             return false;
         }
     }
