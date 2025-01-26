@@ -36,7 +36,9 @@ public interface IVehicleService
 
     Task<bool> TryConnect(CurrentSettings settings);
 
-    void SchedulePoll();
+    Task<Vehicle?> TryBeginActivity(string activity);
+
+    Task EndActivity();
 }
 
 public class VehicleService : IVehicleService
@@ -100,13 +102,14 @@ public class VehicleService : IVehicleService
         
         if (await this.TryPollOnce())
         {
-            await this.ConnectionState.SetAsync(ConnectionStates.Connected);
+            this.unoLogger.LogInformation(new EventId(1, "VehicleService"), "First poll succeeded.");
             this.progressLogger.AddDebugMessage("First poll succeeded.");
+            await this.ConnectionState.SetAsync(ConnectionStates.Connected);
             return true;
         }
         else
         {
-            this.progressLogger.AddDebugMessage("First poll failed.");
+            this.unoLogger.LogInformation(new EventId(2, "VehicleService"), "First poll failed.");
             await this.ConnectionState.SetAsync(ConnectionStates.NotConnected);
             return false;
         }
@@ -122,7 +125,7 @@ public class VehicleService : IVehicleService
 
         if (await this.ConnectionState.Value() == ConnectionStates.Active)
         {
-            this.progressLogger.AddUserMessage(new Exception("Attempting to use an active connection.").ToString());
+            this.unoLogger.LogError(new EventId(7, "VehicleService"), "Attempting to use an active connection.");
             return null;
         }
 
@@ -138,33 +141,25 @@ public class VehicleService : IVehicleService
         // Could probably change that without breaking the WinForms UI, but need to investigate.
         await this.ConnectionState.SetAsync(ConnectionStates.Connected);
         await this.Activity.SetAsync(String.Empty);
-        this.progressLogger.AddDebugMessage("Activity complete, setting timer to poll.");
-        this.SchedulePoll(1000);
-    }
 
-    public void SchedulePoll()
-    {
-        this.SchedulePoll(0);
-    }
-
-    public void SchedulePoll(int delay)
-    {
-        new System.Threading.Timer(
+        this.timer = new System.Threading.Timer(
             TimerCallback,
             state: null,
-            dueTime: delay,
+            dueTime: 1000,
             period: Timeout.Infinite);
     }
 
     private async void TimerCallback(object? state)
     {
+        // TODO: Why does this get logged despite the log level being set to Error?
+        // this.unoLogger.LogInformation(new EventId(3, "VehicleService"), "Timer callback invoked.");
         try
         {
             await this.TryPollOnce();
         }
         catch (Exception exception)
         {
-            this.progressLogger.AddUserMessage("Internal error during timer callback: " + exception.ToString());
+            this.unoLogger.LogError(new EventId(6, "VehicleService"), exception, "Timer callback exception.");
         }
     }
 
@@ -173,6 +168,7 @@ public class VehicleService : IVehicleService
         Vehicle? acquired = await this.TryBeginActivity(pollingActivity);
         if (acquired == null)
         {
+            this.unoLogger.LogError(new EventId(4, "VehicleService"), "Unable to start poll activity.");
             return false;
         }
 
@@ -231,7 +227,7 @@ public class VehicleService : IVehicleService
         }
         catch (Exception exception)
         {
-            this.progressLogger.AddUserMessage("Internal error while requesting vehicle info: " + exception.ToString());
+            this.unoLogger.LogError(new EventId(5, "VehicleService"), exception, "Communications exception.");
             return false;
         }
 

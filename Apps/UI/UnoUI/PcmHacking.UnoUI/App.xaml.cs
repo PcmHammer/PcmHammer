@@ -89,14 +89,15 @@ public partial class App : Application
             // Binding related messages
             builder.AddFilter("Windows.UI.Xaml.Data", LogLevel.Debug );
 
-            // Binder memory references tracking
-            // builder.AddFilter("Uno.UI.DataBinding.BinderReferenceHolder", LogLevel.Debug );
+        // Binder memory references tracking
+        // builder.AddFilter("Uno.UI.DataBinding.BinderReferenceHolder", LogLevel.Debug );
 
-            // RemoteControl and HotReload related
-            // builder.AddFilter("Uno.UI.RemoteControl", LogLevel.Information);
+        // RemoteControl and HotReload related
+        // builder.AddFilter("Uno.UI.RemoteControl", LogLevel.Information);
 
-            // Debug JS interop
-            // builder.AddFilter("Uno.Foundation.WebAssemblyRuntime", LogLevel.Debug );
+        // Debug JS interop
+        // builder.AddFilter("Uno.Foundation.WebAssemblyRuntime", LogLevel.Debug );
+        builder.AddFilter("PcmHacking.UnoUI.Services.VehicleService", LogLevel.Error);
         });
 
         global::Uno.Extensions.LogExtensionPoint.AmbientLoggerFactory = factory;
