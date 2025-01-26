@@ -99,12 +99,12 @@
           <ColumnDefinition Width="1*" />
         </Grid.ColumnDefinitions>
 
-        <Button Grid.Row="0" Grid.Column="0" Command="{Binding GoToFullRead}"
+        <Button Grid.Row="0" Grid.Column="0" Command="{Binding GoToTbd}"
           Margin="10"
           Padding="10"
           HorizontalAlignment="Stretch"
           VerticalAlignment="Stretch">
-          <TextBlock Text="Full Read" />
+          <TextBlock Text="This Space Available" />
         </Button>
 
         <Button Grid.Row="0" Grid.Column="1" Command="{Binding GoToChangeVin}"

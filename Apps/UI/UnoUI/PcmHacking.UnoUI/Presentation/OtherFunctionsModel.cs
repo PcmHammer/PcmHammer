@@ -1,4 +1,5 @@
 using System.Xml.Linq;
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml.Media.Animation;
 using PcmHacking.UnoUI.Services;
 
@@ -21,23 +22,26 @@ public partial record OtherFunctionsModel
     public OtherFunctionsModel(
         INavigator navigator, 
         IVehicleService vehicleService, 
-        PcmHacking.ILogger progressLogger)
+        PcmHacking.ILogger progressLogger,
+        DispatcherQueue dispatcherQueue)
     {
         this.navigator = navigator;
         this.vehicleService = vehicleService;
         this.progressLogger = progressLogger;
-        this.GetProperties();
+
+        // This is deliberately not awaited. Mostly just because you can't use await in a constructor.
+#pragma warning disable CS4014
+        dispatcherQueue.TryEnqueue(() => this.GetProperties());
+        // this.GetProperties();
+#pragma warning restore CS4014
     }
 
     public async Task GetProperties()
     {
         try
         {
-            Vehicle? vehicle = await this.vehicleService.TryBeginActivity("Getting Details");
-            if (vehicle != null)
-            {
-                await this.UpdateProperties(vehicle);
-            }
+            Vehicle vehicle = await this.vehicleService.BeginActivity("Getting Details");
+            await this.UpdateProperties(vehicle);
         }
         finally
         {
@@ -114,7 +118,7 @@ public partial record OtherFunctionsModel
         return response.Value.ToString();
     }
     
-    public async Task GoToFullRead()
+    public async Task GoToTbd()
     {
         await this.navigator.NavigateViewModelAsync<HelpModel>(this);
     }
@@ -133,22 +137,8 @@ public partial record OtherFunctionsModel
     {
         try
         {
-            Vehicle? vehicle = await this.vehicleService.TryBeginActivity("Reseting Codes");
-            if (vehicle != null)
-            {
-                await vehicle.ClearTroubleCodes();
-            }
-            else
-            {
-                this.progressLogger.AddUserMessage("Unable to begin activity to clear trouble codes.");
-                await navigator.ShowMessageDialogAsync(
-                    sender: this,
-                    content: "We were not able to clear the trouble codes, but it might work if you try again.",
-                    title: "Please Try Again",
-                    buttons: new[] { new DialogAction("Not OK") } );
-                return;
-            }
-
+            Vehicle vehicle = await this.vehicleService.BeginActivity("Clearing Codes");
+            await vehicle.ClearTroubleCodes();
             await this.ResetCodesButtonText.SetAsync("Success!");
             await Task.Delay(1000);
             await this.ResetCodesButtonText.SetAsync(defaultClearCodesButtonText);

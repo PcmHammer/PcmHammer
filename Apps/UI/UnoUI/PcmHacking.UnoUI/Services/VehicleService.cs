@@ -36,7 +36,7 @@ public interface IVehicleService
 
     Task<bool> TryConnect(CurrentSettings settings);
 
-    Task<Vehicle?> TryBeginActivity(string activity);
+    Task<Vehicle> BeginActivity(string activity);
 
     Task EndActivity();
 }
@@ -113,7 +113,7 @@ public class VehicleService : IVehicleService
         }
     }
 
-    public async Task<Vehicle?> TryBeginActivity(string activity)
+    public async Task<Vehicle> BeginActivity(string activity)
     {
         if (this.timer != null)
         {
@@ -121,14 +121,18 @@ public class VehicleService : IVehicleService
             this.timer = null;
         }
 
-        if (await this.ConnectionState.Value() == ConnectionStates.Active)
+        // TODO: There's a race condition here - another caller could
+        // potentially grab the connection right after we see it as
+        // not-active, but before we mark it as Active.
+        while (await this.ConnectionState.Value() == ConnectionStates.Active)
         {
-            this.unoLogger.LogError(new EventId(7, "VehicleService"), "Attempting to use an active connection.");
-            return null;
+            this.unoLogger.LogInformation(
+                new EventId(7, "VehicleService"),
+                "Attempting to use an active connection: " + await this.Activity.Value());
+            await Task.Delay(100);
         }
-
-        await this.Activity.SetAsync(activity);
         await this.ConnectionState.SetAsync(ConnectionStates.Active);
+        await this.Activity.SetAsync(activity);        
         return this.vehicle!;
     }
 
@@ -162,21 +166,19 @@ public class VehicleService : IVehicleService
     }
 
     private async Task<bool> TryPollOnce()
-    { 
-        Vehicle? acquired = await this.TryBeginActivity(pollingActivity);
-        if (acquired == null)
+    {
+        try
         {
-            this.unoLogger.LogError(new EventId(4, "VehicleService"), "Unable to start poll activity.");
-            return false;
+            Vehicle acquired = await this.BeginActivity(pollingActivity);
+
+            // TODO: Is it going to be a problem if we keep trying to poll the vehicle even after the connection is lost?
+            // If so, we should stop polling in that case. Currently we will just keep trying.
+            return await this.TryRequestVehicleInfo(CancellationToken.None);
         }
-
-        // TODO: Is it going to be a problem if we keep trying to poll the vehicle even after the connection is lost?
-        // If so, we should stop polling in that case. Currently we will just keep trying.
-        bool result = await this.TryRequestVehicleInfo(CancellationToken.None);
-
-        await this.EndActivity();
-
-        return result;
+        finally
+        {
+            await this.EndActivity();
+        }
     }
 
     /// <summary>
