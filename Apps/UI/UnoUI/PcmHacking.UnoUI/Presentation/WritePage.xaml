@@ -9,7 +9,6 @@
     Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
 
   <StackPanel>
-    <local:CommonTopBar Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
     
     <StackPanel Grid.Row="0" Orientation="Horizontal">
       <Button Content="Choose File" Margin="10"/>

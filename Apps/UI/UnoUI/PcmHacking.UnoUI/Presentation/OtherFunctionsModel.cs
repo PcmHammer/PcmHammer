@@ -4,42 +4,62 @@ using PcmHacking.UnoUI.Services;
 
 namespace PcmHacking.UnoUI.Presentation;
 
-public partial record OtherFunctionsModel//INavigator navigator, VehicleService vehicleService)
+public partial record OtherFunctionsModel
 {
-//    private System.Threading.Timer? timer;
+    private INavigator navigator;
+    private IVehicleService vehicleService;
 
     public IState<string> Vin => State<string>.Value(this, () => string.Empty);
-    public IState<string> OperatingSystemId => State<string>.Value(this, () => string.Empty);
-/*
-    public Task Start()
-    {
-        this.timer = new System.Threading.Timer(
-                    UpdateProperties,
-                    state: null,
-                    dueTime: 0,
-                    period: 2000);
+    public IState<string> CalibrationId => State<string>.Value(this, () => string.Empty);
+    public IState<string> HardwareId => State<string>.Value(this, () => string.Empty);
+    public IState<string> SerialNumber => State<string>.Value(this, () => string.Empty);
+    public IState<string> BroadcastCode => State<string>.Value(this, () => string.Empty);
 
-        return Task.CompletedTask;
+    public OtherFunctionsModel(INavigator navigator, IVehicleService vehicleService)
+    {
+        this.navigator = navigator;
+        this.vehicleService = vehicleService;
+        this.GetProperties();
     }
 
-    public Task Stop()
+    public async Task GetProperties()
     {
-        this.timer?.Dispose();
-        return Task.CompletedTask;
+        try
+        {
+            Vehicle? vehicle = await this.vehicleService.TryBeginActivity("Get Details...");
+            if (vehicle != null)
+            {
+                await this.UpdateProperties(vehicle);
+            }
+        }
+        finally
+        {
+            await this.vehicleService.EndActivity();
+        }
     }
-
-    public async void UpdateProperties(object? state)
+        
+    public async Task UpdateProperties(Vehicle vehicle)
     {
+        CancellationToken ct = CancellationToken.None;
         await this.Vin.SetAsync(string.Empty);
-        await this.Vin.SetAsync(await this.GetVin(CancellationToken.None));
+        await this.Vin.SetAsync(await this.GetVin(vehicle, ct));
 
-        await this.OperatingSystemId.SetAsync(string.Empty);
-        await this.OperatingSystemId.SetAsync(await this.GetOperatingSystemId(CancellationToken.None));
+        await this.CalibrationId.SetAsync(string.Empty);
+        await this.CalibrationId.SetAsync(await this.GetCalibrationId(vehicle, ct));
+
+        await this.HardwareId.SetAsync(string.Empty);
+        await this.HardwareId.SetAsync(await this.GetHardwareId(vehicle, ct));
+
+        await this.SerialNumber.SetAsync(string.Empty);
+        await this.SerialNumber.SetAsync(await this.GetSerialNumber(vehicle, ct));
+
+        await this.BroadcastCode.SetAsync(string.Empty);
+        await this.BroadcastCode.SetAsync(await this.GetBroadcastCode(vehicle, ct));
     }
     
-    private async ValueTask<string> GetVin(CancellationToken cancellationToken)
+    private async ValueTask<string> GetVin(Vehicle vehicle, CancellationToken cancellationToken)
     {
-        var vinResponse = await this.vehicleService.Vehicle.QueryVin();
+        var vinResponse = await vehicle.QueryVin();
         if (vinResponse.Status != ResponseStatus.Success)
         {
             return "VIN query failed: " + vinResponse.Status.ToString();
@@ -47,16 +67,46 @@ public partial record OtherFunctionsModel//INavigator navigator, VehicleService 
         return vinResponse.Value;
     }
 
-    private async ValueTask<string> GetOperatingSystemId(CancellationToken cancellationToken)
+    private async ValueTask<string> GetCalibrationId(Vehicle vehicle, CancellationToken cancellationToken)
     {
-        var response = await this.vehicleService.Vehicle.QueryOperatingSystemId(cancellationToken);
+        var response = await vehicle.QueryCalibrationId();
         if (response.Status != ResponseStatus.Success)
         {
-            return "Operating system ID query failed: " + response.Status.ToString();
+            return "Calibration ID query failed: " + response.Status.ToString();
         }
-        return response.ToString();
+        return response.Value.ToString();
     }
 
+    private async ValueTask<string> GetHardwareId(Vehicle vehicle, CancellationToken cancellationToken)
+    {
+        var response = await vehicle.QueryHardwareId();
+        if (response.Status != ResponseStatus.Success)
+        {
+            return "Hardware ID query failed: " + response.Status.ToString();
+        }
+        return response.Value.ToString();
+    }
+
+    private async ValueTask<string> GetSerialNumber(Vehicle vehicle, CancellationToken cancellationToken)
+    {
+        var response = await vehicle.QuerySerial();
+        if (response.Status != ResponseStatus.Success)
+        {
+            return "Serial number query failed: " + response.Status.ToString();
+        }
+        return response.Value.ToString();
+    }
+
+    private async ValueTask<string> GetBroadcastCode(Vehicle vehicle, CancellationToken cancellationToken)
+    {
+        var response = await vehicle.QueryBCC();
+        if (response.Status != ResponseStatus.Success)
+        {
+            return "Broadcast code query failed: " + response.Status.ToString();
+        }
+        return response.Value.ToString();
+    }
+    
     public async Task GoToFullRead()
     {
         await this.navigator.NavigateViewModelAsync<HelpModel>(this);
@@ -75,6 +125,5 @@ public partial record OtherFunctionsModel//INavigator navigator, VehicleService 
     public Task ResetCodes()
     {
         return Task.CompletedTask;
-    }
-*/
+    }  
 }

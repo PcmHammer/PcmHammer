@@ -67,8 +67,6 @@ public class VehicleService : IVehicleService
         this.protocol = new PcmHacking.Protocol();
     }
 
-    public Vehicle Vehicle => this.vehicle!;
-
     public async Task<bool> TryConnect(CurrentSettings settings)
     {
         if (await this.ConnectionState.Value() == ConnectionStates.Active)

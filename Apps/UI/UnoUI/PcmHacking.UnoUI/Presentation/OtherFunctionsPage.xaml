@@ -9,22 +9,128 @@
       Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
       >
 
-    <Grid>
+  <ScrollViewer>
+    <Grid BorderThickness="5" utu:SafeArea.Insets="VisibleBounds" HorizontalAlignment="Stretch">
       <Grid.RowDefinitions>
         <RowDefinition Height="1*" />
         <RowDefinition Height="1*" />
         <RowDefinition Height="1*" />
         <RowDefinition Height="1*" />
         <RowDefinition Height="1*" />
-        <RowDefinition Height="1*" />
-        <RowDefinition Height="1*" />
-        <RowDefinition Height="1*" />
+        <RowDefinition Height="5*" />
       </Grid.RowDefinitions>
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="1*" />
         <ColumnDefinition Width="1*" />
       </Grid.ColumnDefinitions>
 
+      <TextBlock
+        Text="Vehicle Identification Number"
+        Grid.Row="0"
+        Grid.Column="0"
+        HorizontalAlignment="Left"
+        VerticalAlignment="Center" />
+      <TextBlock
+        Text="{Binding Vin}"
+        Grid.Row="0"
+        Grid.Column="1"
+        HorizontalAlignment="Left"
+        VerticalAlignment="Center" />
 
+      <TextBlock
+        Text="Calibration ID"
+        Grid.Row="1"
+        Grid.Column="0"
+        HorizontalAlignment="Left"
+        VerticalAlignment="Center" />
+      <TextBlock
+        Text="{Binding CalibrationId}"
+        Grid.Row="1"
+        Grid.Column="1"
+        HorizontalAlignment="Left"
+        VerticalAlignment="Center" />
+
+      <TextBlock
+        Text="Hardware ID"
+        Grid.Row="2"
+        Grid.Column="0"
+        HorizontalAlignment="Left"
+        VerticalAlignment="Center" />
+      <TextBlock
+        Text="{Binding HardwareId}"
+        Grid.Row="2"
+        Grid.Column="1"
+        HorizontalAlignment="Left"
+        VerticalAlignment="Center" />
+
+      <TextBlock
+        Text="Serial Number"
+        Grid.Row="3"
+        Grid.Column="0"
+        HorizontalAlignment="Left"
+        VerticalAlignment="Center" />
+      <TextBlock
+        Text="{Binding SerialNumber}"
+        Grid.Row="3"
+        Grid.Column="1"
+        HorizontalAlignment="Left"
+        VerticalAlignment="Center" />
+
+      <TextBlock
+        Text="Broadcast Code"
+        Grid.Row="4"
+        Grid.Column="0"
+        HorizontalAlignment="Left"
+        VerticalAlignment="Center" />
+      <TextBlock
+        Text="{Binding BroadcastCode}"
+        Grid.Row="4"
+        Grid.Column="1"
+        HorizontalAlignment="Left"
+        VerticalAlignment="Center" />
+
+      <Grid Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="2">
+        <Grid.RowDefinitions>
+          <RowDefinition Height="1*" />
+          <RowDefinition Height="1*" />
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="1*" />
+          <ColumnDefinition Width="1*" />
+        </Grid.ColumnDefinitions>
+
+        <Button Grid.Row="0" Grid.Column="0" Command="{Binding GoToFullRead}"
+          Margin="10"
+          Padding="10"
+          HorizontalAlignment="Stretch"
+          VerticalAlignment="Stretch">
+          <TextBlock Text="Full Read" />
+        </Button>
+
+        <Button Grid.Row="0" Grid.Column="1" Command="{Binding GoToChangeVin}"
+          Margin="10"
+          Padding="10"
+          HorizontalAlignment="Stretch"
+          VerticalAlignment="Stretch">
+          <TextBlock Text="Change VIN [Future]" />
+        </Button>
+
+        <Button Grid.Row="1" Grid.Column="0" Command="{Binding GoToCrankRelearn}"
+          Margin="10"
+          Padding="10"
+          HorizontalAlignment="Stretch"
+          VerticalAlignment="Stretch">
+          <TextBlock Text="Crank Relearn [Future]" />
+        </Button>
+
+        <Button Grid.Row="1" Grid.Column="1" Command="{Binding ResetCodes}"
+          Margin="10"
+          Padding="10"
+          HorizontalAlignment="Stretch"
+          VerticalAlignment="Stretch">
+          <TextBlock Text="Reset Codes" />
+        </Button>
+      </Grid>
     </Grid>
+  </ScrollViewer>
 </Page>
