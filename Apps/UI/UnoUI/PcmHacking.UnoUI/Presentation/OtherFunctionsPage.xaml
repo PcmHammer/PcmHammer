@@ -18,6 +18,7 @@
         <RowDefinition Height="1*" />
         <RowDefinition Height="1*" />
         <RowDefinition Height="1*" />
+        <RowDefinition Height="1*" />
         <RowDefinition Height="5*" />
       </Grid.RowDefinitions>
       <Grid.ColumnDefinitions>
@@ -103,7 +104,20 @@
         HorizontalAlignment="Left"
         VerticalAlignment="Center" />
 
-      <Grid Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="2">
+      <TextBlock
+        Text="Manufacturer Enable Count"
+        Grid.Row="6"
+        Grid.Column="0"
+        HorizontalAlignment="Left"
+        VerticalAlignment="Center" />
+      <TextBlock
+        Text="{Binding Mec}"
+        Grid.Row="6"
+        Grid.Column="1"
+        HorizontalAlignment="Left"
+        VerticalAlignment="Center" />
+
+      <Grid Grid.Row="7" Grid.Column="0" Grid.ColumnSpan="2">
         <Grid.RowDefinitions>
           <RowDefinition Height="1*" />
           <RowDefinition Height="1*" />

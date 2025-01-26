@@ -2,13 +2,14 @@ using System.Xml.Linq;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml.Media.Animation;
 using PcmHacking.UnoUI.Services;
+//using Windows.System;
 
 namespace PcmHacking.UnoUI.Presentation;
 
 public partial record OtherFunctionsModel
 {
     private const string defaultClearCodesButtonText = "Clear Trouble Codes";
-    private const string defaultValue = "...";
+    private const string defaultValue = "---";
     private INavigator navigator;
     private IVehicleService vehicleService;
     private PcmHacking.ILogger progressLogger;
@@ -20,6 +21,7 @@ public partial record OtherFunctionsModel
     public IState<string> HardwareId => State<string>.Value(this, () => defaultValue);
     public IState<string> SerialNumber => State<string>.Value(this, () => defaultValue);
     public IState<string> BroadcastCode => State<string>.Value(this, () => defaultValue);
+    public IState<string> Mec => State<string>.Value(this, () => defaultValue);
 
     public OtherFunctionsModel(
         INavigator navigator, 
@@ -32,17 +34,20 @@ public partial record OtherFunctionsModel
         this.progressLogger = progressLogger;
 
         // This is partly because you can't use await in a constructor. But,
-        // this also makes the UI more responsive than calling GetProperties()
+        // this also makes the UI more responsive.
         // directly, without an await.
-        dispatcherQueue.TryEnqueue(async () => await this.GetProperties());
+        dispatcherQueue.TryEnqueue(async () => await this.ReadProperties());
+
+        // This approach crashes the Uno build system with this error: "Cannot await 'void'."
+        // _ = new System.Threading.Timer(GetProperties, null, 1, Timeout.Infinite);
     }
 
-    public async Task GetProperties()
+    private async Task ReadProperties()
     {
         try
         {
             Vehicle vehicle = await this.vehicleService.BeginActivity("Getting Details");
-            await this.UpdateProperties(vehicle);
+            await this.ReadPropertiesInternal(vehicle);
         }
         finally
         {
@@ -50,11 +55,12 @@ public partial record OtherFunctionsModel
         }
     }
         
-    public async Task UpdateProperties(Vehicle vehicle)
+    private async Task ReadPropertiesInternal(Vehicle vehicle)
     {
         // All VPW PCMs support the VIN query.
         CancellationToken ct = CancellationToken.None;
         await this.Vin.SetAsync(await this.GetVin(vehicle, ct));
+        await this.Mec.SetAsync(await this.GetMec(vehicle, ct));
 
         // The others depend on the operating system.
         const string unknown = "Unknown";
@@ -154,7 +160,17 @@ public partial record OtherFunctionsModel
         }
         return response.Value.ToString();
     }
-    
+
+    private async ValueTask<string> GetMec(Vehicle vehicle, CancellationToken cancellationToken)
+    {
+        var response = await vehicle.QueryMEC();
+        if (response.Status != ResponseStatus.Success)
+        {
+            return "MEC query failed: " + response.Status.ToString();
+        }
+        return response.Value.ToString();
+    }
+
     public async Task GoToTbd()
     {
         await this.navigator.NavigateViewModelAsync<HelpModel>(this);
