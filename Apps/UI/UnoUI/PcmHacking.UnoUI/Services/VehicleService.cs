@@ -43,7 +43,7 @@ public interface IVehicleService
 
 public class VehicleService : IVehicleService
 {
-    private const string pollingActivity = "Connected";
+    public const string PollingActivity = "Checking...";
     private PcmHacking.ILogger progressLogger;
     private ILogger<VehicleService> unoLogger;
     private Protocol protocol;
@@ -126,6 +126,11 @@ public class VehicleService : IVehicleService
             this.timer = null;
         }
 
+        if (string.IsNullOrEmpty(activity))
+        {
+            throw new System.InvalidOperationException("'activity' must not be null or empty");
+        }
+
         // TODO: There's a race condition here - another caller could
         // potentially grab the connection right after we see it as
         // not-active, but before we mark it as Active.
@@ -133,7 +138,9 @@ public class VehicleService : IVehicleService
         {
             this.unoLogger.LogInformation(
                 new EventId(7, "VehicleService"),
-                "Attempting to use an active connection: " + await this.Activity.Value());
+                "Attempting to use an active connection. Beginning: {activity}, Current: {current}",
+                activity,
+                await this.Activity.Value());
             await Task.Delay(100);
         }
         await this.ConnectionState.SetAsync(ConnectionStates.Active);
@@ -174,7 +181,7 @@ public class VehicleService : IVehicleService
     {
         try
         {
-            Vehicle acquired = await this.BeginActivity(pollingActivity);
+            Vehicle acquired = await this.BeginActivity(PollingActivity);
 
             // TODO: Is it going to be a problem if we keep trying to poll the vehicle even after the connection is lost?
             // If so, we should stop polling in that case. Currently we will just keep trying.
@@ -199,7 +206,7 @@ public class VehicleService : IVehicleService
             return false;
         }
 
-        if (await this.Activity.Value() != pollingActivity)
+        if (await this.Activity.Value() != PollingActivity)
         {
             return false;
         }
