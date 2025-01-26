@@ -143,8 +143,14 @@ public class VehicleService : IVehicleService
                 await this.Activity.Value());
             await Task.Delay(100);
         }
-        await this.ConnectionState.SetAsync(ConnectionStates.Active);
-        await this.Activity.SetAsync(activity);        
+        
+        // "Active" is used to disable the back-button, so polling doesn't really count.
+        if (activity != PollingActivity)
+        {
+            await this.ConnectionState.SetAsync(ConnectionStates.Active);
+        }
+
+        await this.Activity.SetAsync(activity);
         return this.vehicle!;
     }
 

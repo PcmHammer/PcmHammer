@@ -21,7 +21,7 @@ public partial record MainModel
         this.vehicleService = vehicleService;
         this.Title = localizer["ApplicationName"];
 
-        vehicleService.ConnectionState.ForEach((state, ct) => this.UpdateDisplayedConnectionState(ct));
+        vehicleService.ConnectionState.ForEach((state, ct) => this.ConnectionStateChanged(ct));
 
         // This is a bit of a hack. We need to update the displayed settings when the page is loaded.
         // Connection is an async operation, but constructors can't be async, so we fire and forget.
@@ -34,6 +34,18 @@ public partial record MainModel
     public async ValueTask GoBack()
     {
         await this.navigator.GoBack(this);
+        await this.UpdateBackButtonState(CancellationToken.None);
+    }
+
+    /// <summary>
+    /// This requires Navigated="{Binding FrameNavigated}" in XAML but that creates a build error.
+    /// Also change the button as follows: IsEnabled="{Binding BackButtonEnabled}" 
+    /// Also uncomment the call to UpdateBackButtonState in ConnectionStateChanged.
+    /// </summary>
+    [Command]
+    public async ValueTask FrameNavigated()
+    {
+        await this.UpdateBackButtonState(CancellationToken.None);
     }
 
     public IState<string> SerialPortName => State<string>.Value(this, () => string.Empty);
@@ -47,6 +59,11 @@ public partial record MainModel
     public IState<string> OperatingSystemId => vehicleService.OperatingSystemId;
 
     public IState<string> Voltage => vehicleService.Voltage;
+
+    /// <summary>
+    /// See comments on FrameNavigated above.
+    /// </summary>
+    public IState<bool> BackButtonEnabled => State<bool>.Value(this, () => false);
 
     private async ValueTask UpdateDisplayedSettings(CancellationToken ct)
     {
@@ -62,9 +79,28 @@ public partial record MainModel
         }
     }
 
-    private async ValueTask UpdateDisplayedConnectionState(CancellationToken ct)
+    private async Task UpdateBackButtonState(CancellationToken ct)
     {
-        switch(await this.vehicleService.ConnectionState.Value())
+        ConnectionStates currentState = await this.vehicleService.ConnectionState.Value(ct);
+        string currentActivity = await this.vehicleService.Activity.Value(ct) ?? String.Empty;
+        bool connectionState = currentState != ConnectionStates.Active;
+        bool activityState = currentActivity != VehicleService.PollingActivity;
+        bool navigatorState = await this.navigator.CanGoBack();
+        bool backButtonEnabled = navigatorState && (connectionState || activityState);
+
+        // Enable/disable the back button depending on whether the connection state is Active.
+        if (await this.BackButtonEnabled.Value() != backButtonEnabled)
+        {
+            await this.BackButtonEnabled.SetAsync(backButtonEnabled);
+        }
+    }
+
+    private async ValueTask ConnectionStateChanged(CancellationToken ct)
+    {
+        // See comments on FrameNavigated above.
+        // await UpdateBackButtonState(ct);
+        ConnectionStates currentState = await this.vehicleService.ConnectionState.Value(ct);
+        switch (currentState)
         {
             case ConnectionStates.NotConfigured:
                 await this.ConnectionState.SetAsync("Not Configured");
