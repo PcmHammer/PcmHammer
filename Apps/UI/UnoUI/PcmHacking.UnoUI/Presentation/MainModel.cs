@@ -80,7 +80,7 @@ public partial record MainModel
                 await this.UpdateDisplayedSettings(ct);
                 break;
             case ConnectionStates.Active:
-                await this.ConnectionState.SetAsync("In Use");
+                await this.ConnectionState.SetAsync(await this.vehicleService.Activity.Value());
                 break;
         }
     }

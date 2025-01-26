@@ -102,11 +102,11 @@ public class VehicleService : IVehicleService
         {
             await this.ConnectionState.SetAsync(ConnectionStates.Connected);
             this.progressLogger.AddDebugMessage("First poll succeeded.");
-            this.SchedulePoll(1000);
             return true;
         }
         else
         {
+            this.progressLogger.AddDebugMessage("First poll failed.");
             await this.ConnectionState.SetAsync(ConnectionStates.NotConnected);
             return false;
         }
