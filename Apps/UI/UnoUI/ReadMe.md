@@ -4,9 +4,9 @@ first, get it working, and second, make it a viable alternative to the existing 
 
 ## To get it working on Windows
 
-* Revise the Settings page / model to read and write using PcmLibraryWindowsApi's Settings class.
-* Get the connection lifecycle working - connect at startup, poll, reconnect when settings change.
-* Get the "Get PCM Info" page working.
+* done - Revise the Settings page / model to read and write using PcmLibraryWindowsApi's Settings class.
+* done - Get the connection lifecycle working - connect at startup, poll, reconnect when settings change.
+* done - Get the "Get PCM Info" page working.
 * Implement flash read 
 * Implement flash write 
 * Implement data logging 
@@ -19,7 +19,7 @@ All of the above are easier said than done. This will take some time.
 
 * ApplicationData.Current.LocalSettings is used to store configuration settings.
 This doesn't work for "unpackaged" Windows apps. because it requires an app-data folder, which is only supported for packaged apps.
-* 
+
 
 ## To get it working cross-platform
 
