@@ -1168,176 +1168,20 @@ namespace PcmHacking
                         return;
                     }
 
-                    // Get the path to save the image to.
-                    string path = "";
-                    this.Invoke((MethodInvoker)delegate ()
-                    {
-                        path = this.ShowSaveAsDialog();
-
-                        if (path == null)
-                        {
-                            return;
-                        }
-
-                        this.AddUserMessage("Will save to " + path);
-
-                        DelayDialogBox dialogBox = new DelayDialogBox();
-                        DialogResult dialogResult = dialogBox.ShowDialog(this);
-                        if (dialogResult == DialogResult.Cancel)
-                        {
-                            path = null;
-                            return;
-                        }
-                    });
-
-                    if (path == null)
-                    {
-                        this.AddUserMessage("Read canceled.");
-                        return;
-                    }
-
                     this.cancellationTokenSource = new CancellationTokenSource();
-
-                    this.AddUserMessage("Querying operating system of current PCM.");
-                    Response<uint> osidResponse = await this.Vehicle.QueryOperatingSystemId(this.cancellationTokenSource.Token);
-                    if (osidResponse.Status != ResponseStatus.Success)
-                    {
-                        this.AddUserMessage("Operating system query failed, will retry: " + osidResponse.Status);
-                        await this.Vehicle.ExitKernel();
-
-                        osidResponse = await this.Vehicle.QueryOperatingSystemId(this.cancellationTokenSource.Token);
-                        if (osidResponse.Status != ResponseStatus.Success)
-                        {
-                            this.AddUserMessage("Operating system query failed: " + osidResponse.Status);
-                        }
-                    }
-
-                    OSIDInfo pcmInfo;
-                    if (osidResponse.Status == ResponseStatus.Success)
-                    {
-                        // Look up the information about this PCM, based on the OSID;
-                        this.AddUserMessage("OSID: " + osidResponse.Value);
-                        pcmInfo = new OSIDInfo(osidResponse.Value);
-                        this.AddUserMessage("Description: " + pcmInfo.Description);
-                    }
-                    else
-                    {
-                        this.AddUserMessage("Unable to get operating system ID. Will assume this can be unlocked with the default seed/key algorithm.");
-
-                        UInt32 OperatingSystemId = 0;
-
-                        await Vehicle.ForceSendToolPresentNotification();
-                        this.Invoke((MethodInvoker)delegate ()
-                        {
-                            OperatingSystemIDDialogBox osDialog = new OperatingSystemIDDialogBox();
-                            DialogResult dialogResult = osDialog.ShowDialog();
-                            if (dialogResult == DialogResult.OK)
-                            {
-                                OperatingSystemId = osDialog.OperatingSystemId;
-                            }
-                        });
-                        await Vehicle.ForceSendToolPresentNotification();
-
-                        pcmInfo = new OSIDInfo(OperatingSystemId); // osid
-
-                        AddUserMessage($"Using OsID: {pcmInfo.OSID}");
-                    }
-
-                    // Pre flight checks to block invalid write operations by PCM type.
-                    if (!pcmInfo.IsSupported)
-                    {
-                        string msg = $"Abort: The connected {pcmInfo.HardwareType.ToString()} PCM is not supported.";
-                        this.AddUserMessage(msg);
-                        DialogResult dialogResult = MessageBox.Show(msg, "Abort");
-                        return;
-                    }
-
-                    if (!pcmInfo.IsSupportedRead)
-                    {
-                        string msg = $"Abort: The connected {pcmInfo.HardwareType.ToString()} PCM is not supported for read operations.";
-                        this.AddUserMessage(msg);
-                        DialogResult dialogResult = MessageBox.Show(msg, "Abort");
-                        return;
-                    }
-
-                    if (pcmInfo.HardwareType == PcmType.P05)
-                    {
-                        string msg = $"WARNING: {pcmInfo.HardwareType.ToString()} Support is still in development.";
-                        this.AddUserMessage(msg);
-                        DialogResult dialogResult = MessageBox.Show(msg, "Continue?", MessageBoxButtons.YesNo);
-                        if (dialogResult == DialogResult.No)
-                        {
-                            this.AddUserMessage("User chose not to proceed.");
-                            return;
-                        }
-                    }
-
-                    await this.Vehicle.SuppressChatter();
-
-                    bool unlocked = await this.Vehicle.UnlockEcu(pcmInfo.KeyAlgorithm);
-                    if (!unlocked)
-                    {
-                        this.AddUserMessage("Unlock was not successful.");
-                        return;
-                    }
-
-                    this.AddUserMessage("Unlock succeeded.");
-
-                    if (cancellationTokenSource.Token.IsCancellationRequested)
-                    {
-                        return;
-                    }
-
-                    // Do the actual reading.
-                    DateTime start = DateTime.Now;
-
-                    CKernelReader reader = new CKernelReader(
+                    ReadManager readManager = new ReadManager(
+                        this,
                         this.Vehicle,
-                        pcmInfo,
-                        this);
+                        this.Invoke,
+                        this.PromptForFileSavePath,
+                        this.PromptForOperatingSystemId,
+                        this.cancellationTokenSource.Token);
 
-                    Response<Stream> readResponse = await reader.ReadContents(cancellationTokenSource.Token);
-
-                    this.AddUserMessage("Elapsed time " + DateTime.Now.Subtract(start));
-                    if (readResponse.Status != ResponseStatus.Success)
+                    if (await readManager.Read())
                     {
-                        this.AddUserMessage("Read failed, " + readResponse.Status.ToString());
-                        return;
+                        // This will suppress the scary warnings prior to writing.
+                        Configuration.Settings.ConnectionVerified = true;
                     }
-
-                    // This will suppress the scary warnings prior to writing.
-                    Configuration.Settings.ConnectionVerified = true;
-
-                    // Save the contents to the path that the user provided.
-                    bool success = false;
-                    do
-                    {
-                        try
-                        {
-                            this.AddUserMessage("Saving contents to " + path);
-
-                            readResponse.Value.Position = 0;
-
-                            using (Stream output = File.Open(path, FileMode.Create))
-                            {
-                                await readResponse.Value.CopyToAsync(output);
-                            }
-
-                            success = true;
-                        }
-                        catch (IOException exception)
-                        {
-                            this.AddUserMessage("Unable to save file: " + exception.Message);
-                            this.AddDebugMessage(exception.ToString());
-
-                            this.Invoke((MethodInvoker)delegate () { path = this.ShowSaveAsDialog(); });
-                            if (path == null)
-                            {
-                                this.AddUserMessage("Save canceled.");
-                                return;
-                            }
-                        }
-                    } while (!success);
                 }
                 catch (Exception exception)
                 {
@@ -1357,6 +1201,40 @@ namespace PcmHacking
             }
         }
 
+        private Task<string> PromptForFileSavePath()
+        {
+            string path = this.ShowSaveAsDialog();
+
+            if (path == null)
+            {
+                return null;
+            }
+
+            this.AddUserMessage("Will save to " + path);
+
+            DelayDialogBox dialogBox = new DelayDialogBox();
+            DialogResult dialogResult = dialogBox.ShowDialog(this);
+            if (dialogResult == DialogResult.Cancel)
+            {
+                return null;
+            }
+
+            return Task.FromResult(path);
+        }
+
+        private Task<UInt32> PromptForOperatingSystemId()
+        {
+            OperatingSystemIDDialogBox osDialog = new OperatingSystemIDDialogBox();
+            DialogResult dialogResult = osDialog.ShowDialog();
+            if (dialogResult == DialogResult.OK)
+            {
+                return Task.FromResult(osDialog.OperatingSystemId);
+            }
+            else
+            {
+                return Task.FromResult((UInt32)0);
+            }
+        }
         /// <summary>
         /// Write changes to the PCM's flash memory.
         /// </summary>
