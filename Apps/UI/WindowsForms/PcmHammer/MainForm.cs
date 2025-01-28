@@ -1175,6 +1175,8 @@ namespace PcmHacking
                         this.Invoke,
                         this.PromptForFileSavePath,
                         this.PromptForOperatingSystemId,
+                        this.Alert,
+                        this.PromptForYesNo,
                         this.cancellationTokenSource.Token);
 
                     if (await readManager.Read())
@@ -1235,6 +1237,19 @@ namespace PcmHacking
                 return Task.FromResult((UInt32)0);
             }
         }
+
+        private Task<bool> PromptForYesNo(string message, string title)
+        {
+            DialogResult dialogResult = MessageBox.Show(message, title, MessageBoxButtons.YesNo);
+            return Task.FromResult(dialogResult == DialogResult.Yes);
+        }
+
+        private Task Alert(string message, string title)
+        {
+            MessageBox.Show(message, title);
+            return Task.CompletedTask;
+        }
+
         /// <summary>
         /// Write changes to the PCM's flash memory.
         /// </summary>
