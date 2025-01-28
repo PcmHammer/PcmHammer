@@ -39,6 +39,15 @@ public interface IVehicleService
     Task<Vehicle> BeginActivity(string activity);
 
     Task EndActivity();
+
+    public Task ReadFlash(
+        PcmHacking.ILogger logger,
+        Func<Action, object> invoke,
+        Func<Task<string>> promptForFilePath,
+        Func<Task<UInt32>> promptForOperatingSystemId,
+        Func<string, string, Task> alert,
+        Func<string, string, Task<bool>> promptForYesNo,
+        CancellationToken cancellationToken);
 }
 
 public class VehicleService : IVehicleService
@@ -167,6 +176,40 @@ public class VehicleService : IVehicleService
             state: null,
             dueTime: 1000,
             period: Timeout.Infinite);
+    }
+
+    public async Task ReadFlash(
+        PcmHacking.ILogger logger,
+        Func<Action, object> invoke,
+        Func<Task<string>> promptForFilePath,
+        Func<Task<UInt32>> promptForOperatingSystemId,
+        Func<string, string, Task> alert,
+        Func<string, string, Task<bool>> promptForYesNo,
+        CancellationToken cancellationToken)
+    {
+        if (this.vehicle is null)
+        {
+            throw new InvalidOperationException("Vehicle not connected.");
+        }
+
+        try
+        {
+            await this.BeginActivity("Reading flash");
+            ReadManager readManager = new(
+                logger,
+                this.vehicle,
+                invoke,
+                promptForFilePath,
+                promptForOperatingSystemId,
+                alert,
+                promptForYesNo,
+                cancellationToken);
+            await readManager.Read();
+        }
+        finally
+        {
+            await this.EndActivity();
+        }
     }
 
     private async void TimerCallback(object? state)
