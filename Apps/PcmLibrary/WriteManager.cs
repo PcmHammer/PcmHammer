@@ -1,10 +1,9 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Windows.Forms;
 
 namespace PcmHacking
 {
@@ -15,7 +14,7 @@ namespace PcmHacking
     {
         private ILogger logger;
         private Vehicle vehicle;
-        private Func<MethodInvoker, object> invoke;
+        private Func<Action, object> invoke;
         private Func<Task<string>> promptForFilePath;
         private Func<Task<UInt32>> promptForOperatingSystemId;
         private CancellationToken cancellationToken;
@@ -23,7 +22,7 @@ namespace PcmHacking
         public WriteManager(
             ILogger logger,
             Vehicle vehicle,
-            Func<MethodInvoker, object> invoke,
+            Func<Action, object> invoke,
             Func<Task<string>> promptForFilePath,
             Func<Task<UInt32>> promptForOperatingSystemId,
             CancellationToken cancellationToken)
