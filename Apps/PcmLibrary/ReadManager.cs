@@ -18,6 +18,8 @@ namespace PcmHacking
         private Func<Action, object> invoke;
         private Func<Task<string>> promptForFilePath;
         private Func<Task<UInt32>> promptForOperatingSystemId;
+        private Func<string, string, Task> alert;
+        private Func<string, string, Task<bool>> promptForYesNo;
         private CancellationToken cancellationToken;
 
         public ReadManager(
@@ -26,13 +28,18 @@ namespace PcmHacking
             Func<Action, object> invoke, 
             Func<Task<string>> promptForFilePath,
             Func<Task<UInt32>> promptForOperatingSystemId,
-            CancellationToken cancellationToken)
+            Func<string, string, Task> alert,
+            Func<string, string, Task<bool>> promptForYesNo,
+            CancellationToken cancellationToken
+            )
         {
             this.logger = logger;
             this.vehicle = vehicle;
             this.invoke = invoke;
             this.promptForFilePath = promptForFilePath;
             this.promptForOperatingSystemId = promptForOperatingSystemId;
+            this.alert = alert;
+            this.promptForYesNo = promptForYesNo;
             this.cancellationToken = cancellationToken;
         }
 
@@ -97,7 +104,7 @@ namespace PcmHacking
             {
                 string msg = $"Abort: The connected {pcmInfo.HardwareType.ToString()} PCM is not supported.";
                 this.logger.AddUserMessage(msg);
-                DialogResult dialogResult = MessageBox.Show(msg, "Abort");
+                this.invoke(async () => await this.alert(msg, "Abort"));
                 return false;
             }
 
@@ -105,7 +112,7 @@ namespace PcmHacking
             {
                 string msg = $"Abort: The connected {pcmInfo.HardwareType.ToString()} PCM is not supported for read operations.";
                 this.logger.AddUserMessage(msg);
-                DialogResult dialogResult = MessageBox.Show(msg, "Abort");
+                this.invoke(async () => await this.alert(msg, "Abort"));
                 return false;
             }
 
@@ -113,8 +120,9 @@ namespace PcmHacking
             {
                 string msg = $"WARNING: {pcmInfo.HardwareType.ToString()} Support is still in development.";
                 this.logger.AddUserMessage(msg);
-                DialogResult dialogResult = MessageBox.Show(msg, "Continue?", MessageBoxButtons.YesNo);
-                if (dialogResult == DialogResult.No)
+                bool shouldContinue = false;
+                this.invoke(async () => { shouldContinue = await this.promptForYesNo(msg, "Continue?"); });                
+                if (!shouldContinue)
                 {
                     this.logger.AddUserMessage("User chose not to proceed.");
                     return false;
