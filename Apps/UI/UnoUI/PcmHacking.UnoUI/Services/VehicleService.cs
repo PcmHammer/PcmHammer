@@ -107,6 +107,8 @@ public class VehicleService : IVehicleService
             return false;
         }
 
+        await this.device.Initialize();
+
         ToolPresentNotifier notifier = new ToolPresentNotifier(this.device, this.protocol, this.progressLogger);
         this.vehicle = new Vehicle(device, this.protocol, this.progressLogger, notifier);
         await this.ConnectionState.SetAsync(ConnectionStates.Connecting);
@@ -116,6 +118,9 @@ public class VehicleService : IVehicleService
             this.unoLogger.LogInformation(new EventId(1, "VehicleService"), "First poll succeeded.");
             this.progressLogger.AddDebugMessage("First poll succeeded.");
             await this.ConnectionState.SetAsync(ConnectionStates.Connected);
+
+            // Pretend we just finished a poll, so the UI will update and the poll timer will start.
+            await this.EndActivity();
             return true;
         }
         else

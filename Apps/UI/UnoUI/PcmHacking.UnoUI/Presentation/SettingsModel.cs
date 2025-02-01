@@ -30,29 +30,36 @@ public partial record SettingsModel
         this.settingsService = settingsService;
         this.vehicleService = vehicleService;
         this.dispatcherQueue = dispatcherQueue;
-
-        SelectedObd2Port.ForEach(SelectedObd2PortChanged);
-        SelectedCanPort.ForEach(SelectedCanPortChanged);
-        SelectedObd2SerialDeviceType.ForEach(SelectedObd2SerialDeviceTypeChanged);
-        UseSerialDevice.ForEach((useSerialDevice, ct) => Obd2DeviceCategoryChanged(useSerialDevice, ct));
-        UseCanDevice.ForEach((useCanDevice, ct) => CanDeviceUsageChanged(useCanDevice, ct));
     }
 
     public IListFeed<string> SerialDeviceTypes => ListFeed<string>.Async(ct => this.GetObd2SerialDeviceTypes(ct)).Selection(SelectedObd2SerialDeviceType);
     public IListFeed<string> Obd2Ports => ListFeed.Async<string>(ct => this.GetPortNames(ct)).Selection(SelectedObd2Port);
     public IListFeed<string> CanPorts => ListFeed.Async<string>(ct => this.GetPortNames(ct)).Selection(SelectedCanPort);
 
-    public IState<bool> UseSerialDevice => State<bool>.Async(this, ct => this.AreEqual("Serial", settingsService.GetObd2DeviceCategory(ct).Result));
-    public IState<bool> UseJ2534Device => State<bool>.Async(this, ct => this.AreEqual("J2534", settingsService.GetObd2DeviceCategory(ct).Result));
+    public IState<bool> UseSerialDevice => State<bool>
+        .Async(this, ct => this.AreEqual("Serial", settingsService.GetObd2DeviceCategory(ct).Result))
+        .ForEach(this.ConnectionSettingsChanged);
+    public IState<bool> UseJ2534Device => State<bool>
+        .Async(this, ct => this.AreEqual("J2534", settingsService.GetObd2DeviceCategory(ct).Result));
 
-    public IState<bool> UseCanDevice => State<bool>.Async(this, ct => ValueTask.FromResult(settingsService.IsCanEnabled(ct).Result));
-    public IState<bool> DontUseCanDevice => State<bool>.Async(this, ct => ValueTask.FromResult(!settingsService.IsCanEnabled(ct).Result));
+    public IState<bool> UseCanDevice => State<bool>
+        .Async(this, ct => ValueTask.FromResult(settingsService.IsCanEnabled(ct).Result))
+        .ForEach(ConnectionSettingsChanged);
+    public IState<bool> DontUseCanDevice => State<bool>
+        .Async(this, ct => ValueTask.FromResult(!settingsService.IsCanEnabled(ct).Result));
 
-    public IState<string> SelectedObd2Port => State<string>.Async(this, ct => settingsService.GetObd2SerialPortName(ct));
-    public IState<string> SelectedCanPort => State<string>.Async(this, ct => settingsService.GetCanSerialPortName(ct));
-    public IState<string> SelectedObd2SerialDeviceType => State<string>.Async(this, ct => settingsService.GetObd2SerialDeviceName(ct));
+    public IState<string> SelectedObd2Port => State<string>
+        .Async(this, ct => settingsService.GetObd2SerialPortName(ct))
+        .ForEach(this.ConnectionSettingsChanged);
+    public IState<string> SelectedCanPort => State<string>
+        .Async(this, ct => settingsService.GetCanSerialPortName(ct))
+        .ForEach(this.ConnectionSettingsChanged);
+    public IState<string> SelectedObd2SerialDeviceType => State<string>
+        .Async(this, ct => settingsService.GetObd2SerialDeviceName(ct))
+        .ForEach(this.ConnectionSettingsChanged);
 
-    public IState<string> DataLogFolder => State<string>.Async(this, ct => settingsService.GetDataLogFolder(ct));
+    public IState<string> DataLogFolder => State<string>
+        .Async(this, ct => settingsService.GetDataLogFolder(ct));
 
     private ValueTask<IImmutableList<string>> GetPortNames(CancellationToken ct)
     {
@@ -60,6 +67,7 @@ public partial record SettingsModel
         IImmutableList<string> result = ImmutableList.CreateRange(new string[0]);
         return ValueTask.FromResult(result);
 #else
+        // TODO: Use Windows Management API to get the device driver names.
         string[] portNames = System.IO.Ports.SerialPort.GetPortNames();
         IList<string> portList = new List<string>(portNames);
         portList.Add(MockPort.PortName);
@@ -80,95 +88,20 @@ public partial record SettingsModel
         return ValueTask.FromResult(value1 == value2);
     }
 
-    private async Task ValidateSettings(CurrentSettings currentSettings)
+    private async ValueTask ConnectionSettingsChanged<T>(T newValue, CancellationToken ct)
     {
+        CurrentSettings currentSettings = new CurrentSettings(
+            await this.UseSerialDevice.Value() ? "Serial" : "J2534",
+            await this.SelectedObd2Port.Value() ?? "",
+            await this.SelectedObd2SerialDeviceType.Value() ?? "",
+            "", // TODO: J2534 device name
+            await this.UseCanDevice.Value(),
+            await this.SelectedCanPort.Value() ?? "");
+
         if (await this.vehicleService.TryConnect(currentSettings))
         {
             this.settingsService.SaveConnectionSettings(currentSettings);
         }
-    }
-
-    private async ValueTask Obd2DeviceCategoryChanged(bool useSerialDevice, CancellationToken ct)
-    {
-        string deviceCategory = useSerialDevice ? "Serial" : "J2534";
-        var currentSettings = new CurrentSettings(
-            deviceCategory,
-            settingsService.GetObd2SerialPortName(ct).Result,
-            settingsService.GetObd2SerialDeviceName(ct).Result,
-            settingsService.GetJ2534DeviceName(ct).Result,
-            settingsService.IsCanEnabled(ct).Result,
-            settingsService.GetCanSerialPortName(ct).Result);
-
-        await this.ValidateSettings(currentSettings);
-    }
-
-    private async ValueTask SelectedObd2PortChanged(string? portName, CancellationToken ct)
-    {
-        if (portName == null)
-        {
-            return;
-        }
-
-        var currentSettings = new CurrentSettings(
-            settingsService.GetObd2DeviceCategory(ct).Result,
-            portName,
-            settingsService.GetObd2SerialDeviceName(ct).Result,
-            settingsService.GetJ2534DeviceName(ct).Result,
-            settingsService.IsCanEnabled(ct).Result,
-            settingsService.GetCanSerialPortName(ct).Result);
-
-        await this.ValidateSettings(currentSettings);
-    }
-
-    private async ValueTask SelectedObd2SerialDeviceTypeChanged(string? deviceType, CancellationToken ct)
-    {
-        if (deviceType == null)
-        {
-            return;
-        }
-
-        var currentSettings = new CurrentSettings(
-            settingsService.GetObd2DeviceCategory(ct).Result,
-            settingsService.GetObd2SerialPortName(ct).Result,
-            deviceType,
-            settingsService.GetJ2534DeviceName(ct).Result,
-            settingsService.IsCanEnabled(ct).Result,
-            settingsService.GetCanSerialPortName(ct).Result);
-
-        await this.ValidateSettings(currentSettings);
-    }
-
-    private async ValueTask CanDeviceUsageChanged(bool useCanDevice, CancellationToken ct)
-    {
-        string canSerialPortName = useCanDevice ? settingsService.GetCanSerialPortName(ct).Result : string.Empty;
-
-        var currentSettings = new CurrentSettings(
-            settingsService.GetObd2DeviceCategory(ct).Result,
-            settingsService.GetObd2SerialPortName(ct).Result,
-            settingsService.GetObd2SerialDeviceName(ct).Result,
-            settingsService.GetJ2534DeviceName(ct).Result,
-            useCanDevice,
-            settingsService.GetCanSerialPortName(ct).Result);
-
-        await this.ValidateSettings(currentSettings);
-    }
-
-    private async ValueTask SelectedCanPortChanged(string? portName, CancellationToken ct)
-    {
-        if (portName == null)
-        {
-            return;
-        }
-
-        var currentSettings = new CurrentSettings(
-            settingsService.GetObd2DeviceCategory(ct).Result,
-            settingsService.GetObd2SerialPortName(ct).Result,
-            settingsService.GetObd2SerialDeviceName(ct).Result,
-            settingsService.GetJ2534DeviceName(ct).Result,
-            settingsService.IsCanEnabled(ct).Result,
-            portName);
-
-        await this.ValidateSettings(currentSettings);
     }
 
     public Task OpenLogFolderPicker()
