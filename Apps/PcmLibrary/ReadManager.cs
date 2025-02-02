@@ -14,7 +14,7 @@ namespace PcmHacking
     {
         private ILogger logger;
         private Vehicle vehicle;
-        private Func<Action, object> invoke;
+        private Func<Action, Task> invoke;
         private Func<Task<string>> promptForFilePath;
         private Func<Task<UInt32>> promptForOperatingSystemId;
         private Func<string, string, Task> alert;
@@ -23,8 +23,8 @@ namespace PcmHacking
 
         public ReadManager(
             ILogger logger, 
-            Vehicle vehicle, 
-            Func<Action, object> invoke, 
+            Vehicle vehicle,
+            Func<Action, Task> invoke, 
             Func<Task<string>> promptForFilePath,
             Func<Task<UInt32>> promptForOperatingSystemId,
             Func<string, string, Task> alert,
@@ -53,9 +53,9 @@ namespace PcmHacking
         {
             // Get the path to save the image to.
             string path = "";
-            this.invoke(async () => path = await this.promptForFilePath());
+            await this.invoke(async () => { path = await this.promptForFilePath(); });
 
-            if (path == null)
+            if (string.IsNullOrEmpty(path))
             {
                 this.logger.AddUserMessage("Read canceled.");
                 return false;
@@ -90,7 +90,7 @@ namespace PcmHacking
                 UInt32 OperatingSystemId = 0;
 
                 await this.vehicle.ForceSendToolPresentNotification();
-                this.invoke(async () => OperatingSystemId = await this.promptForOperatingSystemId());
+                await this.invoke(async () => OperatingSystemId = await this.promptForOperatingSystemId());
                 await this.vehicle.ForceSendToolPresentNotification();
 
                 pcmInfo = new OSIDInfo(OperatingSystemId); // osid
@@ -103,7 +103,7 @@ namespace PcmHacking
             {
                 string msg = $"Abort: The connected {pcmInfo.HardwareType.ToString()} PCM is not supported.";
                 this.logger.AddUserMessage(msg);
-                this.invoke(async () => await this.alert(msg, "Abort"));
+                await this.invoke(async () => await this.alert(msg, "Abort"));
                 return false;
             }
 
@@ -111,7 +111,7 @@ namespace PcmHacking
             {
                 string msg = $"Abort: The connected {pcmInfo.HardwareType.ToString()} PCM is not supported for read operations.";
                 this.logger.AddUserMessage(msg);
-                this.invoke(async () => await this.alert(msg, "Abort"));
+                await this.invoke(async () => await this.alert(msg, "Abort"));
                 return false;
             }
 
@@ -120,7 +120,7 @@ namespace PcmHacking
                 string msg = $"WARNING: {pcmInfo.HardwareType.ToString()} Support is still in development.";
                 this.logger.AddUserMessage(msg);
                 bool shouldContinue = false;
-                this.invoke(async () => { shouldContinue = await this.promptForYesNo(msg, "Continue?"); });                
+                await this.invoke(async () => { shouldContinue = await this.promptForYesNo(msg, "Continue?"); });                
                 if (!shouldContinue)
                 {
                     this.logger.AddUserMessage("User chose not to proceed.");
@@ -182,7 +182,7 @@ namespace PcmHacking
                     this.logger.AddUserMessage("Unable to save file: " + exception.Message);
                     this.logger.AddDebugMessage(exception.ToString());
 
-                    this.invoke(async () => path = await this.promptForFilePath());
+                    await this.invoke(async () => path = await this.promptForFilePath());
                     if (path == null)
                     {
                         this.logger.AddUserMessage("Save canceled.");

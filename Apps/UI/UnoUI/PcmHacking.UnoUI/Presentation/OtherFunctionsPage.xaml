@@ -9,156 +9,154 @@
       Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
       >
 
-  <ScrollViewer>
-    <Grid BorderThickness="5" utu:SafeArea.Insets="VisibleBounds" HorizontalAlignment="Stretch">
-      <Grid.RowDefinitions>
-        <RowDefinition Height="1*" />
-        <RowDefinition Height="1*" />
-        <RowDefinition Height="1*" />
-        <RowDefinition Height="1*" />
-        <RowDefinition Height="1*" />
-        <RowDefinition Height="1*" />
-        <RowDefinition Height="1*" />
-        <RowDefinition Height="5*" />
-      </Grid.RowDefinitions>
-      <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="1*" />
-        <ColumnDefinition Width="1*" />
-      </Grid.ColumnDefinitions>
+    <Grid BorderThickness="5" utu:SafeArea.Insets="VisibleBounds" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="1*" />
+            <RowDefinition Height="1*" />
+            <RowDefinition Height="1*" />
+            <RowDefinition Height="1*" />
+            <RowDefinition Height="1*" />
+            <RowDefinition Height="1*" />
+            <RowDefinition Height="1*" />
+            <RowDefinition Height="5*" />
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="1*" />
+            <ColumnDefinition Width="1*" />
+        </Grid.ColumnDefinitions>
 
-      <TextBlock
+        <TextBlock
         Text="Description"
         Grid.Row="0"
         Grid.Column="0"
         HorizontalAlignment="Left"
         VerticalAlignment="Center" />
-      <TextBlock
+        <TextBlock
         Text="{Binding Description}"
         Grid.Row="0"
         Grid.Column="1"
         HorizontalAlignment="Left"
         VerticalAlignment="Center" />
 
-      <TextBlock
+        <TextBlock
         Text="Vehicle Identification Number"
         Grid.Row="1"
         Grid.Column="0"
         HorizontalAlignment="Left"
         VerticalAlignment="Center" />
-      <TextBlock
+        <TextBlock
         Text="{Binding Vin}"
         Grid.Row="1"
         Grid.Column="1"
         HorizontalAlignment="Left"
         VerticalAlignment="Center" />
 
-      <TextBlock
+        <TextBlock
         Text="Calibration ID"
         Grid.Row="2"
         Grid.Column="0"
         HorizontalAlignment="Left"
         VerticalAlignment="Center" />
-      <TextBlock
+        <TextBlock
         Text="{Binding CalibrationId}"
         Grid.Row="2"
         Grid.Column="1"
         HorizontalAlignment="Left"
         VerticalAlignment="Center" />
 
-      <TextBlock
+        <TextBlock
         Text="Hardware ID"
         Grid.Row="3"
         Grid.Column="0"
         HorizontalAlignment="Left"
         VerticalAlignment="Center" />
-      <TextBlock
+        <TextBlock
         Text="{Binding HardwareId}"
         Grid.Row="3"
         Grid.Column="1"
         HorizontalAlignment="Left"
         VerticalAlignment="Center" />
 
-      <TextBlock
+        <TextBlock
         Text="Serial Number"
         Grid.Row="4"
         Grid.Column="0"
         HorizontalAlignment="Left"
         VerticalAlignment="Center" />
-      <TextBlock
+        <TextBlock
         Text="{Binding SerialNumber}"
         Grid.Row="4"
         Grid.Column="1"
         HorizontalAlignment="Left"
         VerticalAlignment="Center" />
 
-      <TextBlock
+        <TextBlock
         Text="Broadcast Code"
         Grid.Row="5"
         Grid.Column="0"
         HorizontalAlignment="Left"
         VerticalAlignment="Center" />
-      <TextBlock
+        <TextBlock
         Text="{Binding BroadcastCode}"
         Grid.Row="5"
         Grid.Column="1"
         HorizontalAlignment="Left"
         VerticalAlignment="Center" />
 
-      <TextBlock
+        <TextBlock
         Text="Manufacturer Enable Count"
         Grid.Row="6"
         Grid.Column="0"
         HorizontalAlignment="Left"
         VerticalAlignment="Center" />
-      <TextBlock
+        <TextBlock
         Text="{Binding Mec}"
         Grid.Row="6"
         Grid.Column="1"
         HorizontalAlignment="Left"
         VerticalAlignment="Center" />
 
-      <Grid Grid.Row="7" Grid.Column="0" Grid.ColumnSpan="2">
-        <Grid.RowDefinitions>
-          <RowDefinition Height="1*" />
-          <RowDefinition Height="1*" />
-        </Grid.RowDefinitions>
-        <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="1*" />
-          <ColumnDefinition Width="1*" />
-        </Grid.ColumnDefinitions>
+        <Grid Grid.Row="7" Grid.Column="0" Grid.ColumnSpan="2">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="1*" />
+                <RowDefinition Height="1*" />
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="1*" />
+                <ColumnDefinition Width="1*" />
+            </Grid.ColumnDefinitions>
 
-        <Button Grid.Row="0" Grid.Column="0" Command="{Binding GoToTbd}"
+            <Button Grid.Row="0" Grid.Column="0" Command="{Binding GoToTbd}"
           Margin="10"
           Padding="10"
           HorizontalAlignment="Stretch"
           VerticalAlignment="Stretch">
-          <TextBlock Text="This Space Available" />
-        </Button>
+                <TextBlock Text="This Space Available" />
+            </Button>
 
-        <Button Grid.Row="0" Grid.Column="1" Command="{Binding GoToChangeVin}"
+            <Button Grid.Row="0" Grid.Column="1" Command="{Binding GoToChangeVin}"
           Margin="10"
           Padding="10"
           HorizontalAlignment="Stretch"
           VerticalAlignment="Stretch">
-          <TextBlock Text="Change VIN [Future]" />
-        </Button>
+                <TextBlock Text="Change VIN [Future]" />
+            </Button>
 
-        <Button Grid.Row="1" Grid.Column="0" Command="{Binding GoToCrankRelearn}"
+            <Button Grid.Row="1" Grid.Column="0" Command="{Binding GoToCrankRelearn}"
           Margin="10"
           Padding="10"
           HorizontalAlignment="Stretch"
           VerticalAlignment="Stretch">
-          <TextBlock Text="Crank Relearn [Future]" />
-        </Button>
+                <TextBlock Text="Crank Relearn [Future]" />
+            </Button>
 
-        <Button Grid.Row="1" Grid.Column="1" Command="{Binding ResetCodes}"
+            <Button Grid.Row="1" Grid.Column="1" Command="{Binding ResetCodes}"
           Margin="10"
           Padding="10"
           HorizontalAlignment="Stretch"
           VerticalAlignment="Stretch">
-          <TextBlock Text="{Binding ResetCodesButtonText}" />
-        </Button>
-      </Grid>
+                <TextBlock Text="{Binding ResetCodesButtonText}" />
+            </Button>
+        </Grid>
     </Grid>
-  </ScrollViewer>
 </Page>

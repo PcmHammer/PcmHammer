@@ -1172,7 +1172,7 @@ namespace PcmHacking
                     ReadManager readManager = new ReadManager(
                         this,
                         this.Vehicle,
-                        this.Invoke,
+                        (action) => { this.Invoke(action); return Task.CompletedTask; },
                         this.PromptForFileSavePath,
                         this.PromptForOperatingSystemId,
                         this.Alert,

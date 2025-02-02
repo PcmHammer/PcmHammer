@@ -15,7 +15,7 @@ public partial record SettingsModel
 {
     private readonly PcmHacking.ILogger progressLogger;
     private readonly ISettingsService settingsService;
-    private readonly VehicleService vehicleService;
+    private readonly ConnectionService vehicleService;
     private readonly DispatcherQueue dispatcherQueue;
 
     public string Title { get { return "Settings"; } }
@@ -23,7 +23,7 @@ public partial record SettingsModel
     public SettingsModel(
         PcmHacking.ILogger progressLogger, 
         ISettingsService settingsService,
-        VehicleService vehicleService,
+        ConnectionService vehicleService,
         DispatcherQueue dispatcherQueue)
     {
         this.progressLogger = progressLogger;

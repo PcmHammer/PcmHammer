@@ -126,9 +126,9 @@ public partial class App : Application
                     services.AddSingleton<PcmHacking.ILogger, UnoUI.Services.ProgressLogger>();
 
                     services.AddSingleton<ISettingsService, Services.SettingsService>();
-                    services.AddSingleton<Services.IVehicleService, Services.VehicleService>();
+                    services.AddSingleton<Services.IConnectionService, Services.ConnectionService>();
                     services.AddSingleton<MenuViewModel>();
-                    services.AddSingleton<Services.VehicleService>();
+                    services.AddSingleton<Services.ConnectionService>();
                     
                 })
 

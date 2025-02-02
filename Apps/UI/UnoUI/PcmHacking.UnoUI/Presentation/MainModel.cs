@@ -8,13 +8,13 @@ public partial record MainModel
 {
     private INavigator navigator;
     private ISettingsService settingsService;
-    private IVehicleService vehicleService;
+    private IConnectionService vehicleService;
 
     public MainModel(
         IStringLocalizer localizer,
         INavigator navigator,
         ISettingsService settingsService,
-        IVehicleService vehicleService)
+        IConnectionService vehicleService)
     {
         this.navigator = navigator;
         this.settingsService = settingsService;
@@ -84,7 +84,7 @@ public partial record MainModel
         ConnectionStates currentState = await this.vehicleService.ConnectionState.Value(ct);
         string currentActivity = await this.vehicleService.Activity.Value(ct) ?? String.Empty;
         bool connectionState = currentState != ConnectionStates.Active;
-        bool activityState = currentActivity != VehicleService.PollingActivity;
+        bool activityState = currentActivity != ConnectionService.PollingActivity;
         bool navigatorState = await this.navigator.CanGoBack();
         bool backButtonEnabled = navigatorState && (connectionState || activityState);
 

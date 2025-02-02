@@ -1,8 +1,6 @@
-using System.Xml.Linq;
 using Microsoft.UI.Dispatching;
-using Microsoft.UI.Xaml.Media.Animation;
 using PcmHacking.UnoUI.Services;
-//using Windows.System;
+using Uno.Extensions.Reactive.Commands;
 
 namespace PcmHacking.UnoUI.Presentation;
 
@@ -10,9 +8,10 @@ public partial record OtherFunctionsModel
 {
     private const string defaultClearCodesButtonText = "Clear Trouble Codes";
     private const string defaultValue = "---";
-    private INavigator navigator;
-    private IVehicleService vehicleService;
-    private PcmHacking.ILogger progressLogger;
+    private readonly DispatcherQueue dispatcherQueue;
+    private readonly INavigator navigator;
+    private readonly IConnectionService vehicleService;
+    private readonly PcmHacking.ILogger progressLogger;
 
     public IState<string> ResetCodesButtonText => State<string>.Value(this, () => defaultClearCodesButtonText);
     public IState<string> Description => State<string>.Value(this, () => defaultValue);
@@ -25,29 +24,32 @@ public partial record OtherFunctionsModel
 
     public OtherFunctionsModel(
         INavigator navigator, 
-        IVehicleService vehicleService, 
+        IConnectionService vehicleService, 
         PcmHacking.ILogger progressLogger,
         DispatcherQueue dispatcherQueue)
     {
         this.navigator = navigator;
         this.vehicleService = vehicleService;
         this.progressLogger = progressLogger;
+        this.dispatcherQueue = dispatcherQueue;
 
-        // This is partly because you can't use await in a constructor. But,
-        // this also makes the UI more responsive.
-        // directly, without an await.
-        dispatcherQueue.TryEnqueue(async () => await this.ReadProperties());
-
-        // This approach crashes the Uno build system with this error: "Cannot await 'void'."
-        // _ = new System.Threading.Timer(GetProperties, null, 1, Timeout.Infinite);
+        // Loaded="{Binding ReadProperties}"
+        this.dispatcherQueue.TryEnqueue(async () => {
+            await this.ClearDetails();
+            await Task.Delay(100);
+            this.ReadProperties(CancellationToken.None);
+        });
     }
 
-    private async Task ReadProperties()
+    [Command]
+    private async Task ReadProperties(CancellationToken cancellationToken)
     {
+        await this.ClearDetails();
         try
         {
             Vehicle vehicle = await this.vehicleService.BeginActivity("Getting Details");
-            await this.ReadPropertiesInternal(vehicle);
+
+            await this.ReadPropertiesInternal(vehicle, cancellationToken);
         }
         finally
         {
@@ -55,15 +57,13 @@ public partial record OtherFunctionsModel
         }
     }
         
-    private async Task ReadPropertiesInternal(Vehicle vehicle)
+    private async Task ReadPropertiesInternal(Vehicle vehicle, CancellationToken cancellationToken)
     {
         // All VPW PCMs support the VIN query.
-        CancellationToken ct = CancellationToken.None;
-        await this.Vin.SetAsync(await this.GetVin(vehicle, ct));
-        await this.Mec.SetAsync(await this.GetMec(vehicle, ct));
+        await this.Vin.SetAsync(await this.GetVin(vehicle, cancellationToken));
+        await this.Mec.SetAsync(await this.GetMec(vehicle, cancellationToken));
 
-        // The others depend on the operating system.
-        const string unknown = "Unknown";
+        // The others depend on the operating system.        
         const string notApplicable = "Not Applicable";
         string? osIdString = await this.vehicleService.OperatingSystemId.Value();
         uint osId = (uint)0;
@@ -74,8 +74,8 @@ public partial record OtherFunctionsModel
 
             if (pcmInfo != null && pcmInfo.HardwareType != PcmType.BlackBox)
             {
-                await this.CalibrationId.SetAsync(await this.GetCalibrationId(vehicle, ct));
-                await this.SerialNumber.SetAsync(await this.GetSerialNumber(vehicle, ct));
+                await this.CalibrationId.SetAsync(await this.GetCalibrationId(vehicle, cancellationToken));
+                await this.SerialNumber.SetAsync(await this.GetSerialNumber(vehicle, cancellationToken));
             }
             else
             {
@@ -85,7 +85,7 @@ public partial record OtherFunctionsModel
 
             if (pcmInfo != null && pcmInfo.HardwareType != PcmType.P10 && pcmInfo.HardwareType != PcmType.P12 && pcmInfo.HardwareType != PcmType.E54)
             {
-                await this.HardwareId.SetAsync(await this.GetHardwareId(vehicle, ct));
+                await this.HardwareId.SetAsync(await this.GetHardwareId(vehicle, cancellationToken));
             }
             else
             {
@@ -94,7 +94,7 @@ public partial record OtherFunctionsModel
 
             if (pcmInfo != null && pcmInfo.HardwareType != PcmType.P04 && pcmInfo.HardwareType != PcmType.P04_Early && pcmInfo.HardwareType != PcmType.P08)
             {
-                await this.BroadcastCode.SetAsync(await this.GetBroadcastCode(vehicle, ct));
+                await this.BroadcastCode.SetAsync(await this.GetBroadcastCode(vehicle, cancellationToken));
             }
             else
             {
@@ -103,6 +103,7 @@ public partial record OtherFunctionsModel
         }
         else
         {
+            string unknown = "Unknown";
             await this.Description.SetAsync(unknown);
             await this.CalibrationId.SetAsync(unknown);
             await this.HardwareId.SetAsync(unknown);
@@ -110,7 +111,20 @@ public partial record OtherFunctionsModel
             await this.BroadcastCode.SetAsync(unknown);
         }
     }
-    
+
+    private async Task ClearDetails()
+    {
+        await this.CalibrationId.SetAsync(defaultValue);
+        await this.SerialNumber.SetAsync(defaultValue);
+        await this.HardwareId.SetAsync(defaultValue);
+        await this.BroadcastCode.SetAsync(defaultValue);
+        await this.Description.SetAsync(defaultValue);
+        await this.CalibrationId.SetAsync(defaultValue);
+        await this.HardwareId.SetAsync(defaultValue);
+        await this.SerialNumber.SetAsync(defaultValue);
+        await this.BroadcastCode.SetAsync(defaultValue);
+    }
+
     private async ValueTask<string> GetVin(Vehicle vehicle, CancellationToken cancellationToken)
     {
         var vinResponse = await vehicle.QueryVin();
@@ -191,13 +205,14 @@ public partial record OtherFunctionsModel
         try
         {
             Vehicle vehicle = await this.vehicleService.BeginActivity("Clearing Codes");
+            await vehicle.ExitKernel();
             await vehicle.ClearTroubleCodes();
             await this.ResetCodesButtonText.SetAsync("Success!");
-            await Task.Delay(1000);
-            await this.ResetCodesButtonText.SetAsync(defaultClearCodesButtonText);
         }
         catch (Exception exception)
         {
+            await this.ResetCodesButtonText.SetAsync("Fail. :(");
+
             this.progressLogger.AddUserMessage("Exception while clearing trouble codes.");
             this.progressLogger.AddDebugMessage(exception.ToString());
             await navigator.ShowMessageDialogAsync(
@@ -210,5 +225,8 @@ public partial record OtherFunctionsModel
         {
             await this.vehicleService.EndActivity();
         }
+
+        await this.ReadProperties(CancellationToken.None);
+        await this.ResetCodesButtonText.SetAsync(defaultClearCodesButtonText);
     }
 }

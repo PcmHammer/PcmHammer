@@ -4,12 +4,17 @@ using PcmHacking.UnoUI.Services;
 using Uno.Extensions.Reactive.Commands;
 using Windows.Devices.Bluetooth.Advertisement;
 using Windows.Storage.Pickers;
+using PcmHacking.UnoUI.Utilities;
 
 namespace PcmHacking.UnoUI.Presentation;
 
-
-public partial record ReadModel(IVehicleService vehicleService, PcmHacking.ILogger progressLogger, IDispatcher dispatcher)// : PcmHacking.ILogger
+public partial record ReadModel : IAsyncLogger
 {
+    private readonly IConnectionService vehicleService;
+    private readonly IDispatcher dispatcher;
+    private readonly ILogger progressLogger;
+    private CancellationTokenSource? tokenSource;
+
     public string Title { get { return "Read PCM"; } }
 
     public IState<bool> StartEnabled => State<bool>.Value(this, () => true);
@@ -23,32 +28,73 @@ public partial record ReadModel(IVehicleService vehicleService, PcmHacking.ILogg
     public IState<string> Kbps => State<string>.Value(this, () => String.Empty);
     public IState<double> Progress => State<double>.Value(this, () => 0.0);
 
+    public ReadModel(IConnectionService vehicleService, IDispatcher dispatcher)
+    {
+        this.vehicleService = vehicleService ?? throw new ArgumentNullException(nameof(vehicleService));
+        this.dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
+        this.progressLogger = new LoggerAdapter(this);
+
+        // The right way would be put to this into the XAML:
+        // Loaded="{Binding Start}"
+        // this.dispatcher.TryEnqueue(() => this.Start(CancellationToken.None));
+    }
+
     [Command]
     public async ValueTask Start(CancellationToken cancellationToken)
     {
         await this.StartEnabled.SetAsync(false);
         await this.CancelEnabled.SetAsync(true);
-        await this.vehicleService.ReadFlash(
-            this.progressLogger,
-            this.Invoke,
-            this.PromptForFileSavePath,
-            this.PromptForOperatingSystemId,
-            this.Alert,
-            this.PromptForYesNo,
-            cancellationToken);
+
+        this.tokenSource = new CancellationTokenSource();
+        CancellationToken readCancellationToken = this.tokenSource.Token;
+        try
+        {
+            await this.vehicleService.ReadFlash(
+                this.progressLogger,
+                this.Invoke,
+                this.PromptForFileSavePath,
+                this.PromptForOperatingSystemId,
+                this.Alert,
+                this.PromptForYesNo,
+                readCancellationToken);
+        }
+        catch (Exception ex)
+        {
+            await this.AddUserMessage("Read failed: ");
+            await this.AddUserMessage(ex.Message);
+        }
+        finally
+        {
+            this.tokenSource = null;
+            await this.StartEnabled.SetAsync(true);
+            await this.CancelEnabled.SetAsync(false);
+        }
     }
 
     [Command]
     public async ValueTask Cancel(CancellationToken ct)
     {
-        await this.StartEnabled.SetAsync(true);
-        await this.CancelEnabled.SetAsync(false);
-        return;
+        await this.AddUserMessage("Cancelling.");
+        this.tokenSource?.Cancel();
+        this.tokenSource = null;
     }
 
     private async Task Invoke(Action action)
     {
-        await this.dispatcher.ExecuteAsync(action);
+        var tcs = new TaskCompletionSource();
+        await this.dispatcher.ExecuteAsync(() =>
+        {
+            try
+            {
+                action();
+                tcs.SetResult();
+            }
+            catch (Exception ex)
+            {
+                tcs.SetException(ex);
+            }
+        });
+        await tcs.Task;
     }
 
     private async Task<string> PromptForFileSavePath()
@@ -84,48 +130,49 @@ public partial record ReadModel(IVehicleService vehicleService, PcmHacking.ILogg
         // TODO: Alert popup
         return Task.CompletedTask;
     }
-    /*
-    public async void AddUserMessage(string message)
+    
+    public async Task AddUserMessage(string message)
     {
         await this.UserLog.SetAsync(this.UserLog.Value() + Environment.NewLine + message);
     }
     
-    public void AddDebugMessage(string message)
+    public Task AddDebugMessage(string message)
     {
         // TODO: Debug message logging
+        return Task.CompletedTask;
     }
 
-    public async void StatusUpdateActivity(string activity)
+    public async Task StatusUpdateActivity(string activity)
     {
         await this.Activity.SetAsync(activity);
     }
 
-    public async void StatusUpdateTimeRemaining(string remaining)
+    public async Task StatusUpdateTimeRemaining(string remaining)
     {
-        await this.TimeRemaining.SetAsync(remaining);
+        await this.TimeRemaining.SetAsync("Estimated Completion: " + remaining);
     }
 
-    public async void StatusUpdatePercentDone(string percent)
+    public async Task StatusUpdatePercentDone(string percent)
     {
-        await this.PercentDone.SetAsync(percent);
+        await this.PercentDone.SetAsync("Progress: " + percent);
     }
 
-    public async void StatusUpdateRetryCount(string retries)
+    public async Task StatusUpdateRetryCount(string retries)
     {
-        await this.RetryCount.SetAsync(retries);
+        await this.RetryCount.SetAsync("Retried messages: " + retries);
     }
 
-    public async void StatusUpdateProgressBar(double completed, bool visible)
+    public async Task StatusUpdateProgressBar(double completed, bool visible)
     {
-        await this.Progress.SetAsync(completed);
+        await this.Progress.SetAsync(completed * 100);
     }
 
-    public async void StatusUpdateKbps(string Kbps)
+    public async Task StatusUpdateKbps(string Kbps)
     {
-        await this.Kbps.SetAsync(Kbps);
+        await this.Kbps.SetAsync("Connection Speed: " + Kbps);
     }
 
-    public async void StatusUpdateReset()
+    public async Task StatusUpdateReset()
     {
         await this.Activity.SetAsync(String.Empty);
         await this.TimeRemaining.SetAsync(String.Empty);
@@ -134,5 +181,4 @@ public partial record ReadModel(IVehicleService vehicleService, PcmHacking.ILogg
         await this.Progress.SetAsync(0.0);
         await this.Kbps.SetAsync(String.Empty);
     }
-    */
 }

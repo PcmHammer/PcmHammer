@@ -20,9 +20,43 @@ public enum ConnectionStates
     Active,
 }
 
-public class ConnectionStateChangedMessage { }
+public class VehicleActivity : IDisposable
+{
+    private readonly ConnectionService vehicleService;
+    private readonly Vehicle vehicle;
+    private readonly string activityName;
+    private bool isDisposed = false;
 
-public interface IVehicleService
+    public VehicleActivity(ConnectionService vehicleService, Vehicle vehicle, string activityName)
+    {
+        this.vehicleService = vehicleService ?? throw new ArgumentNullException(nameof(vehicleService));
+        this.vehicle = vehicle ?? throw new ArgumentNullException(nameof(vehicle));
+        this.activityName = activityName ?? throw new ArgumentNullException(nameof(activityName));
+    }
+
+    public void Dispose()
+    {        
+        this.Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+
+    protected async virtual void Dispose(bool isDisposing)
+    {
+        if (this.isDisposed)
+        {
+            return;
+        }
+
+        if (isDisposing)
+        {
+            await this.vehicleService.EndActivity(/*this?*/);
+        }
+
+        this.isDisposed = true;
+    }
+}
+
+public interface IConnectionService
 {
     IState<ConnectionStates> ConnectionState { get; }
 
@@ -42,7 +76,7 @@ public interface IVehicleService
 
     public Task ReadFlash(
         PcmHacking.ILogger logger,
-        Func<Action, object> invoke,
+        Func<Action, Task> invoke,
         Func<Task<string>> promptForFilePath,
         Func<Task<UInt32>> promptForOperatingSystemId,
         Func<string, string, Task> alert,
@@ -50,11 +84,11 @@ public interface IVehicleService
         CancellationToken cancellationToken);
 }
 
-public class VehicleService : IVehicleService
+public class ConnectionService : IConnectionService
 {
     public const string PollingActivity = "Checking...";
     private PcmHacking.ILogger progressLogger;
-    private ILogger<VehicleService> unoLogger;
+    private ILogger<ConnectionService> unoLogger;
     private Protocol protocol;
     private Device? device = null;
     private Vehicle? vehicle = null;
@@ -67,9 +101,9 @@ public class VehicleService : IVehicleService
     public IState<string> OperatingSystemId => State.Value(this, () => string.Empty);
     public IState<string> Voltage => State.Value(this, () => string.Empty);
 
-    public VehicleService(
+    public ConnectionService(
         PcmHacking.ILogger logger, 
-        ILogger<VehicleService> unoLogger)
+        ILogger<ConnectionService> unoLogger)
     {
         this.progressLogger = logger;
         this.unoLogger = unoLogger;
@@ -81,11 +115,6 @@ public class VehicleService : IVehicleService
     /// </summary>
     public async Task<bool> TryConnect(CurrentSettings settings)
     {
-        if (await this.ConnectionState.Value() == ConnectionStates.Active)
-        {
-            return false;
-        }
-
         await this.ConnectionState.SetAsync(ConnectionStates.NotConnected);
 
         if (this.vehicle != null)
@@ -134,12 +163,6 @@ public class VehicleService : IVehicleService
 
     public async Task<Vehicle> BeginActivity(string activity)
     {
-        if (this.timer != null)
-        {
-            this.timer.Dispose();
-            this.timer = null;
-        }
-
         if (string.IsNullOrEmpty(activity))
         {
             throw new System.InvalidOperationException("'activity' must not be null or empty");
@@ -148,23 +171,47 @@ public class VehicleService : IVehicleService
         // TODO: There's a race condition here - another caller could
         // potentially grab the connection right after we see it as
         // not-active, but before we mark it as Active.
-        while (await this.ConnectionState.Value() == ConnectionStates.Active)
+        if (await this.ConnectionState.Value() == ConnectionStates.Active)
         {
+            string? current = await this.Activity.Value();
             this.unoLogger.LogInformation(
                 new EventId(7, "VehicleService"),
                 "Attempting to use an active connection. Beginning: {activity}, Current: {current}",
                 activity,
-                await this.Activity.Value());
-            await Task.Delay(100);
+                current);
+
+            throw new InvalidOperationException($"Attempting to use an active connection. Beginning ${activity}, current ${current}");
         }
-        
+
+        /*
+        while (await this.ConnectionState.Value() == ConnectionStates.Active)
+        {
+            string? current = await this.Activity.Value();
+            this.unoLogger.LogInformation(
+                new EventId(7, "VehicleService"),
+                "Attempting to use an active connection. Beginning: {activity}, Current: {current}",
+                activity,
+                current);
+            await Task.Delay(100);
+        }*/
+
         // "Active" is used to disable the back-button, so polling doesn't really count.
         if (activity != PollingActivity)
         {
             await this.ConnectionState.SetAsync(ConnectionStates.Active);
         }
-
+                
         await this.Activity.SetAsync(activity);
+
+        if (this.timer != null)
+        {
+            this.timer.Dispose();
+            this.timer = null;
+        }
+
+        // Ensure the timer callback has completed.
+        await Task.Delay(100); 
+
         return this.vehicle!;
     }
 
@@ -185,7 +232,7 @@ public class VehicleService : IVehicleService
 
     public async Task ReadFlash(
         PcmHacking.ILogger logger,
-        Func<Action, object> invoke,
+        Func<Action, Task> invoke,
         Func<Task<string>> promptForFilePath,
         Func<Task<UInt32>> promptForOperatingSystemId,
         Func<string, string, Task> alert,
@@ -210,6 +257,13 @@ public class VehicleService : IVehicleService
                 promptForYesNo,
                 cancellationToken);
             await readManager.Read();
+        }
+        catch (Exception exception)
+        {
+            logger.AddUserMessage("Read failed.");
+            logger.AddUserMessage(exception.ToString());
+            await this.vehicle.ExitKernel();
+            await this.vehicle.ClearTroubleCodes();
         }
         finally
         {
