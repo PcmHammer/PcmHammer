@@ -1145,7 +1145,21 @@ namespace PcmHacking
             this.AddUserMessage("Cancel button clicked.");
             this.cancellationTokenSource?.Cancel();
         }
-        
+
+        /// <summary>
+        /// Wrapper for the base class's Invoke method
+        /// </summary>
+        /// <remarks>
+        /// This returns a Task for compatibility with ReadManager, which needs
+        /// a Task-returning method due to a quirk of the Uno Platform code
+        /// generator.
+        /// </remarks>
+        private Task InvokeWrapper(Action action)
+        {
+            this.Invoke(action);
+            return Task.CompletedTask;
+        }
+
         /// <summary>
         /// Read the entire contents of the flash.
         /// </summary>
@@ -1168,18 +1182,29 @@ namespace PcmHacking
                         return;
                     }
 
+                    // Get the path to save the image to.
+                    string path = "";
+                    await this.InvokeWrapper(async () => path = await this.PromptForFileSavePath());
+
+                    if (path == null)
+                    {
+                        this.AddUserMessage("Read canceled.");
+                        return;
+                    }
+
+
                     this.cancellationTokenSource = new CancellationTokenSource();
                     ReadManager readManager = new ReadManager(
                         this,
                         this.Vehicle,
-                        this.Invoke,
+                        this.InvokeWrapper,
                         this.PromptForFileSavePath,
                         this.PromptForOperatingSystemId,
                         this.Alert,
                         this.PromptForYesNo,
                         this.cancellationTokenSource.Token);
 
-                    if (await readManager.Read())
+                    if (await readManager.Read(path))
                     {
                         // This will suppress the scary warnings prior to writing.
                         Configuration.Settings.ConnectionVerified = true;
@@ -1304,218 +1329,19 @@ namespace PcmHacking
 
                     this.AddUserMessage(path);
 
-                    byte[] image;
-                    using (Stream stream = File.OpenRead(path))
-                    {
-                        image = new byte[stream.Length];
-                        int bytesRead = await stream.ReadAsync(image, 0, (int)stream.Length);
-                        if (bytesRead != stream.Length)
-                        {
-                            // If this happens too much, we should try looping rather than reading the whole file in one shot.
-                            this.AddUserMessage("Unable to load file.");
-                            return;
-                        }
-                    }
-
-                    // Sanity checks. 
-                    FileValidator validator = new FileValidator(image, this);
-                    if (!validator.IsValid())
-                    {
-                        this.AddUserMessage("This file is corrupt or its format is unknown to PCMHammer. It would render your PCM unusable.");
-                        return;
-                    }
-
-                    UInt32 kernelVersion = 0;
-                    bool needUnlock;
-                    int keyAlgorithm = 1;
-                    bool shouldHalt;
-                    OSIDInfo pcmInfo = null;
-                    bool needToCheckOperatingSystem =
-                        (writeType != WriteType.OsPlusCalibrationPlusBoot) &&
-                        (writeType != WriteType.Full) &&
-                        (writeType != WriteType.TestWrite);
-
-                    this.AddUserMessage("Requesting operating system ID...");
-                    Response<uint> osidResponse = await this.Vehicle.QueryOperatingSystemId(this.cancellationTokenSource.Token);
-                    if (osidResponse.Status == ResponseStatus.Success)
-                    {
-                        pcmInfo = new OSIDInfo(osidResponse.Value);
-                        keyAlgorithm = pcmInfo.KeyAlgorithm;
-                        needUnlock = true;
-
-                        if (!validator.IsSameHardware(osidResponse.Value))
-                        {
-                            return;
-                        }
-
-                        if (!validator.IsSameOperatingSystem(osidResponse.Value))
-                        {
-                            Utility.ReportOperatingSystems(validator.GetOsidFromImage(), osidResponse.Value, writeType, this, out shouldHalt);
-                            if (shouldHalt)
-                            {
-                                return;
-                            }
-                        }
-
-                        needToCheckOperatingSystem = false;
-                    }
-                    else
-                    {
-                        if (this.cancellationTokenSource.Token.IsCancellationRequested)
-                        {
-                            return;
-                        }
-
-                        this.AddUserMessage("Operating system request failed, checking for a live kernel...");
-
-                        kernelVersion = await this.Vehicle.GetKernelVersion();
-                        if (kernelVersion == 0)
-                        {
-                            this.AddUserMessage("Checking for recovery mode...");
-                            bool recoveryMode = await this.Vehicle.IsInRecoveryMode();
-
-                            if (recoveryMode)
-                            {
-                                this.AddUserMessage("PCM is in recovery mode.");
-                                needUnlock = true;
-                            }
-                            else
-                            {
-                                this.AddUserMessage("PCM is not responding to OSID, kernel version, or recovery mode checks.");
-                                this.AddUserMessage("Unlock may not work, but we'll try...");
-                                needUnlock = true;
-                            }
-                            pcmInfo = new OSIDInfo(validator.GetOsidFromImage()); // Prevent Null Reference Exceptions from breaking Recovery Mode
-                        }
-                        else
-                        {
-                            needUnlock = false;
-
-                            this.AddUserMessage("Kernel version: " + kernelVersion.ToString("X8"));
-
-                            this.AddUserMessage("Asking kernel for the PCM's operating system ID...");
-
-                            if (needToCheckOperatingSystem)
-                            {
-                                osidResponse = await this.Vehicle.QueryOperatingSystemIdFromKernel(this.cancellationTokenSource.Token);
-                                if (osidResponse.Status != ResponseStatus.Success)
-                                {
-                                    // The kernel seems broken. This shouldn't happen, but if it does, halt.
-                                    this.AddUserMessage("The kernel did not respond to operating system ID query.");
-                                    return;
-                                }
-
-                                Utility.ReportOperatingSystems(validator.GetOsidFromImage(), osidResponse.Value, writeType, this, out shouldHalt);
-                                if (shouldHalt)
-                                {
-                                    return;
-                                }
-
-                                pcmInfo = new OSIDInfo(osidResponse.Value);
-                            }
-
-                            needToCheckOperatingSystem = false;
-                        }
-                    }
-
-                    // Pre flight checks to block invalid write operations by PCM type.
-                    if (!pcmInfo.IsSupported)
-                    {
-                        string msg = $"Abort: The connected {pcmInfo.HardwareType.ToString()} PCM is not supported.";
-                        this.AddUserMessage(msg);
-                        DialogResult dialogResult = MessageBox.Show(msg, "Abort");
-                        return;
-                    }
-
-                    if (!pcmInfo.IsSupportedWrite)
-                    {
-                        string msg = $"Abort: The connected {pcmInfo.HardwareType.ToString()} PCM is not supported for write operations.";
-                        this.AddUserMessage(msg);
-                        DialogResult dialogResult = MessageBox.Show(msg, "Abort");
-                        return;
-                    }
-
-                    // If the factory binary is not paritioned we cant write by segment, block the non-full write types
-                    if (!pcmInfo.IsSupportedWriteBySegment && (writeType == WriteType.Calibration || writeType == WriteType.OsPlusCalibrationPlusBoot || writeType == WriteType.Parameters))
-                    {
-                        string msg = $"Error: The connected {pcmInfo.HardwareType.ToString()} PCM binary format is not partitioned and does not support partial write." + Environment.NewLine +
-                                    "You will need to do a Write Full Flash (Clone) instead.";
-                        this.AddUserMessage(msg);
-                        DialogResult dialogResult = MessageBox.Show(msg, "Error");
-                        return;
-                    }
-
-                    // If we cant write the slave, warn the user of operating system changes
-                    if (pcmInfo.HardwareSlaveCPU == true && !pcmInfo.IsSupportedWriteSlaveCPU && (writeType == WriteType.Full || writeType == WriteType.OsPlusCalibrationPlusBoot))
-                    {
-                        string msg = $"Warning: Writes to the {pcmInfo.HardwareType.ToString()} slave CPU are not supported." + Environment.NewLine +
-                                    "You must have another way to update the slave CPU to match when you change operating system, else electroncic throttle may not work." + Environment.NewLine +
-                                    "Restore this PCM to its original operating system if this happens.";
-                        this.AddUserMessage(msg);
-                        DialogResult dialogResult = MessageBox.Show(msg, "Warning!", MessageBoxButtons.YesNo);
-                        if (dialogResult == DialogResult.No)
-                        {
-                            this.AddUserMessage("User chose not to proceed.");
-                            return;
-                        }
-                        else
-                        {
-                            this.AddUserMessage("User chose to proceed.");
-                        }
-                    }
-
-                    /*if (pcmInfo.HardwareType == PcmType.E54)
-                    {
-                        string msg = $"WARNING: {pcmInfo.HardwareType.ToString()} support is insufficiently tested, but believed to be working." + Environment.NewLine +
-                                    "Please report success or failure on pcmhacking.net." + Environment.NewLine +
-                                    "Do you accept the risk of damage to your hardware?";
-                        this.AddUserMessage(msg);
-                        DialogResult dialogResult = MessageBox.Show(msg, "Continue?", MessageBoxButtons.YesNo);
-                        if (dialogResult == DialogResult.No)
-                        {
-                            this.AddUserMessage("User chose not to proceed.");
-                            return;
-                        }else
-                        {
-                            this.AddUserMessage("User accepts the risk of running insufficiently tested code.");
-                        }
-                    }*/
-
-                    await this.Vehicle.SuppressChatter();
-
-                    if (needUnlock)
-                    {
-
-                        bool unlocked = await this.Vehicle.UnlockEcu(keyAlgorithm);
-                        if (!unlocked)
-                        {
-                            this.AddUserMessage("Unlock was not successful.");
-                            return;
-                        }
-
-                        this.AddUserMessage("Unlock succeeded.");
-                    }
-
-                    DateTime start = DateTime.Now;
-
-                    CKernelWriter writer = new CKernelWriter(
+                    WriteManager writer = new WriteManager(
+                        this,
                         this.Vehicle,
-                        pcmInfo,
-                        new Protocol(),
-                        writeType,
-                        this);
-
-                    await writer.Write(
-                        image,
-                        kernelVersion,
-                        validator,
-                        needToCheckOperatingSystem,
+                       writeType,
                         this.cancellationTokenSource.Token);
 
-                    this.AddUserMessage("Elapsed time " + DateTime.Now.Subtract(start));
+                    bool success = await writer.Write(path);
 
-                    // This will suppress the scary warnings prior to writing.
-                    Configuration.Settings.ConnectionVerified = true;
+                    if (success)
+                    {
+                        // This will suppress the scary warnings prior to writing.
+                        Configuration.Settings.ConnectionVerified = true;
+                    }
                 }
                 catch (IOException exception)
                 {

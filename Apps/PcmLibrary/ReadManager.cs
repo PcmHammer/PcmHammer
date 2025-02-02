@@ -22,9 +22,9 @@ namespace PcmHacking
         private CancellationToken cancellationToken;
 
         public ReadManager(
-            ILogger logger, 
-            Vehicle vehicle, 
-            Func<Action, object> invoke, 
+            ILogger logger,
+            Vehicle vehicle,
+            Func<Action, Task> invoke,
             Func<Task<string>> promptForFilePath,
             Func<Task<UInt32>> promptForOperatingSystemId,
             Func<string, string, Task> alert,
@@ -49,18 +49,8 @@ namespace PcmHacking
         /// The return value should be used to suppress future warnings about using an unproven connection.
         /// </remarks>
         /// <returns>True if the read was successful, fales if failed or aborted.</returns>
-        public async Task<bool> Read()
+        public async Task<bool> Read(string path)
         {
-            // Get the path to save the image to.
-            string path = "";
-            this.invoke(async () => path = await this.promptForFilePath());
-
-            if (path == null)
-            {
-                this.logger.AddUserMessage("Read canceled.");
-                return false;
-            }
-
             this.logger.AddUserMessage("Querying operating system of current PCM.");
             Response<uint> osidResponse = await this.vehicle.QueryOperatingSystemId(this.cancellationToken);
             if (osidResponse.Status != ResponseStatus.Success)
