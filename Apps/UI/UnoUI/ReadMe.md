@@ -10,13 +10,16 @@ first, get it working, and second, make it a viable alternative to the existing 
 * done - Implement flash read 
 * in progress - Implement flash write 
 * Implement data logging 
-* TroubleshootingLogger should store logs in memory (probably in a circular buffer) and make them available
-in the UI.
+* TroubleshootingLogger should store logs in memory (maybe in a circular buffer?) and make them available in the UI.
 
 All of the above are easier said than done. This will take some time.
 
 ## Other stuff to do:
 
+* Implement "Change VIN"
+* Implement "message of the day" (so we can alert people to new versions)
+* Implement the help page
+* Use Windows Management API to get device driver names for serial ports
 * Move "read" to the "other" menu.
 * Change the "read" button to "test write" 
 * Add "verify flash" button on "other" page
