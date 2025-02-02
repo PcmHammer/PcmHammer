@@ -37,7 +37,7 @@ public partial record OtherFunctionsModel
         this.dispatcherQueue.TryEnqueue(async () => {
             await this.ClearDetails();
             await Task.Delay(100);
-            this.ReadProperties(CancellationToken.None);
+            await this.ReadProperties(CancellationToken.None);
         });
     }
 
