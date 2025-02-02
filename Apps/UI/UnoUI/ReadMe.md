@@ -7,14 +7,25 @@ first, get it working, and second, make it a viable alternative to the existing 
 * done - Revise the Settings page / model to read and write using PcmLibraryWindowsApi's Settings class.
 * done - Get the connection lifecycle working - connect at startup, poll, reconnect when settings change.
 * done - Get the "Get PCM Info" page working.
-* Implement flash read 
-* Implement flash write 
+* done - Implement flash read 
+* in progress - Implement flash write 
 * Implement data logging 
 * TroubleshootingLogger should store logs in memory (probably in a circular buffer) and make them available
 in the UI.
 
 All of the above are easier said than done. This will take some time.
 
+## Other stuff to do:
+
+* Move "read" to the "other" menu.
+* Change the "read" button to "test write" 
+* Add "verify flash" button on "other" page
+
+## Future ideas:
+
+* DTC reader
+* Crank relearn 
+ 
 ## Surprises
 
 * ApplicationData.Current.LocalSettings is used to store configuration settings.

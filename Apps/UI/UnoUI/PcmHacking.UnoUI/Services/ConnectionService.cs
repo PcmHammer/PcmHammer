@@ -246,6 +246,7 @@ public class ConnectionService : IConnectionService
 
         try
         {
+            string path = await promptForFilePath();
             await this.BeginActivity("Reading flash");
             ReadManager readManager = new(
                 logger,
@@ -256,7 +257,7 @@ public class ConnectionService : IConnectionService
                 alert,
                 promptForYesNo,
                 cancellationToken);
-            await readManager.Read();
+            await readManager.Read(path);
         }
         catch (Exception exception)
         {

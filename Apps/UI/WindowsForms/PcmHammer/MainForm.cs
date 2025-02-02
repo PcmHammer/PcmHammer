@@ -1145,7 +1145,21 @@ namespace PcmHacking
             this.AddUserMessage("Cancel button clicked.");
             this.cancellationTokenSource?.Cancel();
         }
-        
+
+        /// <summary>
+        /// Wrapper for the base class's Invoke method
+        /// </summary>
+        /// <remarks>
+        /// This returns a Task for compatibility with ReadManager, which needs
+        /// a Task-returning method due to a quirk of the Uno Platform code
+        /// generator.
+        /// </remarks>
+        private Task InvokeWrapper(Action action)
+        {
+            this.Invoke(action);
+            return Task.CompletedTask;
+        }
+
         /// <summary>
         /// Read the entire contents of the flash.
         /// </summary>
@@ -1168,6 +1182,16 @@ namespace PcmHacking
                         return;
                     }
 
+                    // Get the path to save the image to.
+                    string path = "";
+                    await this.InvokeWrapper(async () => path = await this.PromptForFileSavePath());
+
+                    if (path == null)
+                    {
+                        this.AddUserMessage("Read canceled.");
+                        return;
+                    }
+
                     this.cancellationTokenSource = new CancellationTokenSource();
                     ReadManager readManager = new ReadManager(
                         this,
@@ -1179,7 +1203,7 @@ namespace PcmHacking
                         this.PromptForYesNo,
                         this.cancellationTokenSource.Token);
 
-                    if (await readManager.Read())
+                    if (await readManager.Read(path))
                     {
                         // This will suppress the scary warnings prior to writing.
                         Configuration.Settings.ConnectionVerified = true;
