@@ -1,10 +1,7 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Windows.Forms;
 
 namespace PcmHacking
 {
@@ -15,18 +12,24 @@ namespace PcmHacking
     {
         private ILogger logger;
         private Vehicle vehicle;
-        private CancellationToken cancellationToken;
         private WriteType writeType;
+        private Func<string, string, Task> alert;
+        private Func<string, string, Task<bool>> promptForYesNo;
+        private CancellationToken cancellationToken;
 
         public WriteManager(
             ILogger logger,
             Vehicle vehicle,
             WriteType writeType,
+            Func<string, string, Task> alert,
+            Func<string, string, Task<bool>> promptForYesNo,
             CancellationToken cancellationToken)
         {
             this.logger = logger;
             this.vehicle = vehicle;
             this.writeType = writeType;
+            this.alert = alert;
+            this.promptForYesNo = promptForYesNo;
             this.cancellationToken = cancellationToken;
         }
 
@@ -158,7 +161,7 @@ namespace PcmHacking
             {
                 string msg = $"Abort: The connected {pcmInfo.HardwareType.ToString()} PCM is not supported.";
                 this.logger.AddUserMessage(msg);
-                DialogResult dialogResult = MessageBox.Show(msg, "Abort");
+                await this.alert(msg, "Abort");
                 return false;
             }
 
@@ -166,7 +169,7 @@ namespace PcmHacking
             {
                 string msg = $"Abort: The connected {pcmInfo.HardwareType.ToString()} PCM is not supported for write operations.";
                 this.logger.AddUserMessage(msg);
-                DialogResult dialogResult = MessageBox.Show(msg, "Abort");
+                await this.alert(msg, "Abort");
                 return false;
             }
 
@@ -176,7 +179,7 @@ namespace PcmHacking
                 string msg = $"Error: The connected {pcmInfo.HardwareType.ToString()} PCM binary format is not partitioned and does not support partial write." + Environment.NewLine +
                             "You will need to do a Write Full Flash (Clone) instead.";
                 this.logger.AddUserMessage(msg);
-                DialogResult dialogResult = MessageBox.Show(msg, "Error");
+                await this.alert(msg, "Error");
                 return false;
             }
 
@@ -185,17 +188,17 @@ namespace PcmHacking
             {
                 string msg = $"Warning: Writes to the {pcmInfo.HardwareType.ToString()} slave CPU are not supported." + Environment.NewLine +
                             "You must have another way to update the slave CPU to match when you change operating system, else electroncic throttle may not work." + Environment.NewLine +
-                            "Restore this PCM to its original operating system if this happens.";
+                            "Restore this PCM to its original operating system if this happens." + Environment.NewLine +
+                            "Do you want to continue?";
                 this.logger.AddUserMessage(msg);
-                DialogResult dialogResult = MessageBox.Show(msg, "Warning!", MessageBoxButtons.YesNo);
-                if (dialogResult == DialogResult.No)
-                {
-                    this.logger.AddUserMessage("User chose not to proceed.");
-                    return false;
-                }
-                else
+                if (await this.promptForYesNo(msg, "Warning!"))
                 {
                     this.logger.AddUserMessage("User chose to proceed.");
+                }
+                else
+                { 
+                    this.logger.AddUserMessage("User chose not to proceed.");
+                    return false;
                 }
             }
 

@@ -1307,7 +1307,9 @@ namespace PcmHacking
                     WriteManager writer = new WriteManager(
                         this,
                         this.Vehicle,
-                        writeType,
+                         writeType,
+                        this.Alert,
+                        this.PromptForYesNo,
                         this.cancellationTokenSource.Token);
 
                     bool success = await writer.Write(path);
