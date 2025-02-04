@@ -197,7 +197,7 @@ public partial class App : Application
             new ViewMap<MenuPage, MenuModel>(),
             new ViewMap<DataLoggingPage, DataLoggingModel>(),
             new ViewMap<ReadPage, ReadModel>(),
-            new DataViewMap<WritePage, WriteModel, Entity>(),
+            new DataViewMap<WritePage, WriteModel, WriteTypeEntity>(),
             new ViewMap<SettingsPage, SettingsModel>(),
             new ViewMap<HelpPage, HelpModel>(),
             new ViewMap<OtherFunctionsPage, OtherFunctionsModel>(),

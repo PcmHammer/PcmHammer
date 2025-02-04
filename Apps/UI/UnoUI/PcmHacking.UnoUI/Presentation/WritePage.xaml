@@ -8,28 +8,52 @@
     mc:Ignorable="d"
     Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
 
-  <StackPanel>
-    
-    <StackPanel Grid.Row="0" Orientation="Horizontal">
-      <Button Content="Choose File" Margin="10"/>
-      <TextBlock Text="c:\users\yournamehere\Documents\MyTune.bin" Margin="10" HorizontalTextAlignment="Right" VerticalAlignment="Center"/>
-    </StackPanel>
+    <Grid VerticalAlignment="Stretch">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" x:Name="PathRow"/>
+            <RowDefinition Height="Auto" x:Name="ButtonsRow"/>
+            <RowDefinition Height="Auto" x:Name="ProgressBarRow"/>
+            <RowDefinition Height="Auto" x:Name="ActivityRow"/>
+            <RowDefinition Height="Auto" x:Name="TimeAndPercentRow"/>
+            <RowDefinition Height="Auto" x:Name="RetryAndKbpsRow"/>
+            <RowDefinition Height="*" x:Name="LogRow"/>
 
-    <StackPanel Grid.Row="1" Orientation="Horizontal">
-      <RadioButton Content="Write All Changed Blocks" Margin="10"/>
-      <RadioButton Content="Write Calibration Only" Margin="10"/>
-      <RadioButton Content="Write Parameter Blocks Only" Margin="10"/>
-    </StackPanel>
-      
-    <StackPanel Grid.Row="2" Orientation="Horizontal">
-      <Button Grid.Row="1" Content="Start Writing" Margin="10"/>
-      <Button Grid.Row="1" Content="Test Only" Margin="10"/>
-    </StackPanel>
+        </Grid.RowDefinitions>
 
-    <ProgressBar Grid.Row="3" Value="0" Margin="10"/>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="1*" />
+            <ColumnDefinition Width="1*" />
+        </Grid.ColumnDefinitions>
 
-    <ScrollViewer Grid.Row="4">
-      <TextBlock Text="Waiting to begin..." Margin="10"/>
-    </ScrollViewer>
-  </StackPanel>
+        <StackPanel Grid.Row="0" Orientation="Horizontal">
+            <Button Content="Choose File" Margin="10" Command="{Binding ChooseFile}"/>
+            <TextBlock Text="c:\users\yournamehere\Documents\MyTune.bin" Margin="10" HorizontalTextAlignment="Right" VerticalAlignment="Center"/>
+        </StackPanel>
+
+        <Button Grid.Row="1" Grid.Column="0" Content="Start Reading" Margin="10"
+              HorizontalAlignment="Stretch"
+              VerticalAlignment="Stretch"
+              Command="{Binding Start}"
+              IsEnabled="{Binding StartEnabled}"
+              />
+        <Button Grid.Row="1" Grid.Column="1" Content="Cancel" Margin="10"
+              HorizontalAlignment="Stretch"
+              VerticalAlignment="Stretch"              
+              Command="{Binding Cancel}"
+              IsEnabled="{Binding CancelEnabled}"/>
+
+        <ProgressBar Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Margin="10" Height="10" Value="{Binding Progress}" Minimum="0" Maximum="100" />
+
+        <TextBlock Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" Text="{Binding Activity}" />
+
+        <TextBlock Grid.Row="4" Grid.Column="0" Text="{Binding TimeRemaining}" />
+        <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding PercentDone}" />
+
+        <TextBlock Grid.Row="5" Grid.Column="0" Text="{Binding RetryCount}" />
+        <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding Kbps}" />
+
+        <ScrollViewer Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="2">
+            <TextBlock Margin="10" FontFamily="Courier New" Text="{Binding UserLog}"/>
+        </ScrollViewer>
+    </Grid>
 </Page>

@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.Messaging;
 using PcmHacking.UnoUI.Services;
+using Uno.Extensions.Navigation;
 
 namespace PcmHacking.UnoUI.Presentation;
 
@@ -21,36 +22,33 @@ public partial record MenuModel
 
     public async Task GoToDataLogging()
     {
-        var name = await Name;
         await this.navigator.NavigateViewModelAsync<DataLoggingModel>(this);
     }
 
     public async Task GoToSettings()
     {
-        var name = await Name;
         await this.navigator.NavigateViewModelAsync<SettingsModel>(this);
     }
 
     public async Task GoToWrite()
     {
-        var name = await Name;
-        await this.navigator.NavigateViewModelAsync<WriteModel>(this);
+        WriteTypeEntity writeTypeEntity = new(WriteType.Full);
+        await this.navigator.NavigateDataAsync(this, data: writeTypeEntity);
     }
 
-    public async Task GoToRead()
+    public async Task GoToTestWrite()
     {
-        var name = await Name;
-        await this.navigator.NavigateViewModelAsync<ReadModel>(this);
+        WriteTypeEntity writeTypeEntity = new(WriteType.TestWrite);
+        await this.navigator.NavigateDataAsync(this, data: writeTypeEntity);
     }
+
     public async Task GoToOtherFunctions()
     {
-        var name = await Name;
         await this.navigator.NavigateViewModelAsync<OtherFunctionsModel>(this);
     }
 
     public async Task GoToHelp()
     {
-        var name = await Name;
         await this.navigator.NavigateViewModelAsync<HelpModel>(this);
     }
 }
