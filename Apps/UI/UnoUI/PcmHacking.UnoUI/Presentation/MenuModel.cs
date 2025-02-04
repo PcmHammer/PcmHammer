@@ -32,14 +32,22 @@ public partial record MenuModel
 
     public async Task GoToWrite()
     {
-        WriteTypeEntity writeTypeEntity = new(WriteType.Full);
-        await this.navigator.NavigateDataAsync(this, data: writeTypeEntity);
+        // Can't get this to work the right way.
+        // Not sure if I'm doing it wrong or if this is another bug in Uno.
+        //WriteTypeEntity writeTypeEntity = new(WriteType.Full);
+        //await this.navigator.NavigateDataAsync(this, data: writeTypeEntity);
+        WriteModel.WriteType = WriteType.Full;
+        await this.navigator.NavigateViewModelAsync<WriteModel>(this);
     }
 
     public async Task GoToTestWrite()
     {
-        WriteTypeEntity writeTypeEntity = new(WriteType.TestWrite);
-        await this.navigator.NavigateDataAsync(this, data: writeTypeEntity);
+        // Can't get this to work the right way.
+        // Not sure if I'm doing it wrong or if this is another bug in Uno.
+        //WriteTypeEntity writeTypeEntity = new(WriteType.TestWrite);
+        //await this.navigator.NavigateDataAsync(this, data: writeTypeEntity);
+        WriteModel.WriteType = WriteType.TestWrite;
+        await this.navigator.NavigateViewModelAsync<WriteModel>(this);
     }
 
     public async Task GoToOtherFunctions()

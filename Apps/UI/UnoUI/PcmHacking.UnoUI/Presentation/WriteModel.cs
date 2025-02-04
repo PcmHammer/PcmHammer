@@ -10,6 +10,7 @@ public record WriteTypeEntity(WriteType Type) : Entity("WriteType");
 public partial record WriteModel : IAsyncLogger
 {
     private readonly WriteType writeType;
+    public static WriteType WriteType;
 
     private readonly IConnectionService connectionService;
     private readonly IDispatcher dispatcher;
@@ -31,12 +32,12 @@ public partial record WriteModel : IAsyncLogger
     public IState<string> Kbps => State<string>.Value(this, () => String.Empty);
     public IState<double> Progress => State<double>.Value(this, () => 0.0);
 
-    public WriteModel(WriteTypeEntity writeTypeEntity, IConnectionService connectionService, IDispatcher dispatcher)
+    public WriteModel(IConnectionService connectionService, IDispatcher dispatcher) // WriteTypeEntity writeTypeEntity, 
     {
         this.connectionService = connectionService ?? throw new ArgumentNullException(nameof(connectionService));
         this.dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
         this.progressLogger = new LoggerAdapter(this);
-        this.writeType = writeTypeEntity.Type;
+        this.writeType = WriteModel.WriteType; // hacky workaround
     }
 
     [Command]
@@ -103,7 +104,7 @@ public partial record WriteModel : IAsyncLogger
         // Open a Save-As dialog to get the file path
         FileOpenPicker openPicker = new FileOpenPicker();
         openPicker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
-        openPicker.FileTypeFilter.Add("*.bin");
+        openPicker.FileTypeFilter.Add(".bin");
         StorageFile file = await openPicker.PickSingleFileAsync();
         if (file == null)
         {

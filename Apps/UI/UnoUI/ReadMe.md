@@ -20,8 +20,6 @@ All of the above are easier said than done. This will take some time.
 * Implement "message of the day" (so we can alert people to new versions)
 * Implement the help page
 * Use Windows Management API to get device driver names for serial ports
-* Move "read" to the "other" menu.
-* Change the "read" button to "test write" 
 * Add "verify flash" button on "other" page
 
 ## Future ideas:
@@ -33,7 +31,8 @@ All of the above are easier said than done. This will take some time.
 
 * ApplicationData.Current.LocalSettings is used to store configuration settings.
 This doesn't work for "unpackaged" Windows apps. because it requires an app-data folder, which is only supported for packaged apps.
-
+* You can't have "async void" methods in a Model class, due to a bug in the Uno Platform code generator. The AsyncLogger class works around this.
+* You can't have two Model classes share a XAML file. Hence the duplication between ReadModel/WriteModel and ReadPage/WritePage.
 
 ## To get it working cross-platform
 

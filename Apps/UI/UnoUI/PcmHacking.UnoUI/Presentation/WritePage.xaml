@@ -27,10 +27,10 @@
 
         <StackPanel Grid.Row="0" Orientation="Horizontal">
             <Button Content="Choose File" Margin="10" Command="{Binding ChooseFile}"/>
-            <TextBlock Text="c:\users\yournamehere\Documents\MyTune.bin" Margin="10" HorizontalTextAlignment="Right" VerticalAlignment="Center"/>
+            <TextBlock Text="{Binding Path}" Margin="10" HorizontalTextAlignment="Right" VerticalAlignment="Center"/>
         </StackPanel>
 
-        <Button Grid.Row="1" Grid.Column="0" Content="Start Reading" Margin="10"
+        <Button Grid.Row="1" Grid.Column="0" Content="Start Writing" Margin="10"
               HorizontalAlignment="Stretch"
               VerticalAlignment="Stretch"
               Command="{Binding Start}"
