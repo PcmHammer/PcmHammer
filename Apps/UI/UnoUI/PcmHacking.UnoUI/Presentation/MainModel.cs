@@ -38,10 +38,24 @@ public partial record MainModel
     }
 
     /// <summary>
-    /// This requires Navigated="{Binding FrameNavigated}" in XAML but that creates a build error.
-    /// Also change the button as follows: IsEnabled="{Binding BackButtonEnabled}" 
-    /// Also uncomment the call to UpdateBackButtonState in ConnectionStateChanged.
+    /// This doesn't work, not sure if Uno Platform bug or if I'm doing something wrong.
     /// </summary>
+    /// <remarks>
+    /// This requires the Frame element to have Navigated="{Binding FrameNavigated}" in XAML but that creates a build error.
+    /// Adding a "NavigationEventArgs args" parameter doesn't fix the build error.
+    /// 
+    /// Also change the button's IsEnabled property to:
+    ///     IsEnabled="{Binding BackButtonEnabled}" 
+    /// The workaround for now is:
+    ///     IsEnabled="{Binding CanGoBack, ElementName=ContentFrame, Mode=OneWay}"
+    ///     
+    /// Also uncomment the call to UpdateBackButtonState in ConnectionStateChanged.
+    /// 
+    /// Also set BackButtonEnabled to be false by default.
+    /// 
+    /// Unfortunately without the FrameNavigated handler, the back button 
+    /// stays disabled when you navigate to other pages.
+    /// </remarks>
     [Command]
     public async ValueTask FrameNavigated()
     {
@@ -98,7 +112,7 @@ public partial record MainModel
     private async ValueTask ConnectionStateChanged(CancellationToken ct)
     {
         // See comments on FrameNavigated above.
-        // await UpdateBackButtonState(ct);
+        await UpdateBackButtonState(ct);
         ConnectionStates currentState = await this.vehicleService.ConnectionState.Value(ct);
         switch (currentState)
         {
