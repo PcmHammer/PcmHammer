@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -9,6 +9,20 @@ namespace PcmHacking.UnoUI.Utilities
     /// <summary>
     /// This interface and the class that implements it are a workaround for a bug in the Uno Platform code generator.
     /// </summary>
+    /// <remarks>
+    /// Uno's code generator requires all public methods in a Model class to return Task.
+    /// https://github.com/unoplatform/uno/issues/19344
+    /// In order to work around that bug, we need to create an interface that
+    /// has methods that return Task, and then create a class that implements
+    /// that interface.
+    /// 
+    /// But the WinForms version of PCM Hammer has over 100 places where we 
+    /// call AddUserMessage without awaiting the result, because it returns
+    /// void. So we're not going to change that codoe.
+    /// 
+    /// This interface as the class below allow bridge the gap between what
+    /// Uno requires and what the rest of the code expects.
+    /// </remarks>
     interface IAsyncLogger
     {
         Task AddUserMessage(string message);
@@ -22,6 +36,9 @@ namespace PcmHacking.UnoUI.Utilities
         Task StatusUpdateReset();
     }
 
+    /// <summary>
+    /// See the description of IAsyncLogger.
+    /// </summary>
     class LoggerAdapter : PcmHacking.ILogger
     {
         private readonly IAsyncLogger logger;
