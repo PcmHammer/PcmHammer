@@ -42,6 +42,7 @@ public partial record MainModel
     /// </summary>
     /// <remarks>
     /// This requires the Frame element to have Navigated="{Binding FrameNavigated}" in XAML but that creates a build error.
+    /// https://github.com/unoplatform/uno/issues/19343
     /// Adding a "NavigationEventArgs args" parameter doesn't fix the build error.
     /// 
     /// Also change the button's IsEnabled property to:
