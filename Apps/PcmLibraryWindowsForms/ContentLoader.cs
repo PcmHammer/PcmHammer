@@ -47,7 +47,7 @@ namespace PcmHacking
             }
 
             this.logger.AddDebugMessage("Loading " + fileName + " from embedded resource.");
-            var resourceName = "PcmHacking." + fileName;
+            var resourceName = "PcmHammer." + fileName;
             return this.assembly.GetManifestResourceStream(resourceName);
         }
 
