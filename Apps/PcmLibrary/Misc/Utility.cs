@@ -162,6 +162,14 @@ namespace PcmHacking
             }
         }
 
+        public static async Task ThrowIfTimeout(this Task task, TimeSpan timeout)
+        {
+            if (!await AwaitWithTimeout(task, timeout))
+            {
+                throw new TimeoutException();
+            }
+        }
+
         /// <summary>
         /// Compare the two operating system IDs, report on the ramifications, set a flag if the write should be halted.
         /// </summary>

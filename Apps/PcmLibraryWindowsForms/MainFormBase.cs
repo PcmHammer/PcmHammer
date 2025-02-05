@@ -170,27 +170,7 @@ namespace PcmHacking
 
             try
             {
-                // TODO: this should not return a boolean, it should just throw 
-                // an exception if it is not able to initialize the device.
-                Task<bool> initializationTask = this.vehicle.ResetConnection();
-                bool completed = await initializationTask.AwaitWithTimeout(TimeSpan.FromSeconds(5));
-                if (!completed)
-                {
-                    throw new TimeoutException("Vehicle.ResetConnection timed out.");
-                }
-
-                if (!initializationTask.Result)
-                {
-                    this.AddUserMessage("Unable to initialize " + this.vehicle.DeviceDescription);
-
-                    this.Invoke((MethodInvoker)delegate ()
-                    {
-                        this.NoDeviceSelected();
-                        this.SetSelectedDeviceText(selectAnotherDevice);
-                        this.EnableInterfaceSelection();
-                    });
-                    return false;
-                }
+                await this.vehicle.ResetConnection();
             }
             catch (Exception exception)
             {

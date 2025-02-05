@@ -159,11 +159,9 @@ namespace PcmHacking
         /// <summary>
         /// Re-initialize the device.
         /// </summary>
-        public async Task<bool> ResetConnection()
+        public async Task ResetConnection()
         {
-            Task<bool> task = this.device.Initialize();
-            bool completedWithoutTimeout = await task.AwaitWithTimeout(TimeSpan.FromSeconds(10));
-            return task.Result;
+            await this.device.Initialize().ThrowIfTimeout(TimeSpan.FromSeconds(2));
         }
 
         /// <summary>

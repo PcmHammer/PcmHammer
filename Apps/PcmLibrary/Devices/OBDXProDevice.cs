@@ -616,7 +616,7 @@ namespace PcmHacking
             //Send DVI reset
             byte[] Msg = OBDXProDevice.DVI_RESET.GetBytes();
             Msg[Msg.Length - 1] = CalcChecksum(Msg);
-            await this.Port.Send(Msg);
+            await this.Port.Send(Msg).ThrowIfTimeout(TimeSpan.FromMilliseconds(1000));
             System.Threading.Thread.Sleep(200);
            // await Task.Delay(200);
             await this.Port.DiscardBuffers();

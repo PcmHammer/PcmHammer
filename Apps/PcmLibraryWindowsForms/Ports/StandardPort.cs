@@ -107,10 +107,10 @@ namespace PcmHacking
         async Task IPort.Send(byte[] buffer)
         {
 
-            await this.port.BaseStream.WriteAsync(buffer, 0, buffer.Length).AwaitWithTimeout(TimeSpan.FromSeconds(5));
+            await this.port.BaseStream.WriteAsync(buffer, 0, buffer.Length).ThrowIfTimeout(TimeSpan.FromSeconds(1));
 
             // This flush is probably not strictly necessary, but just in case...
-            await this.port.BaseStream.FlushAsync().AwaitWithTimeout(TimeSpan.FromSeconds(5));
+            await this.port.BaseStream.FlushAsync().ThrowIfTimeout(TimeSpan.FromSeconds(1));
         }
 
         /// <summary>
