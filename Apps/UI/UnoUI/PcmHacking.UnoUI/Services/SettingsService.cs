@@ -66,6 +66,7 @@ public class SettingsService : ISettingsService
                     // TODO: there's probably a better way to log this.
                     Console.WriteLine("Unable to load application settings. Is this an unpackaged Windows app?");
                     Console.WriteLine(ex.ToString());
+                    throw;
                 }
             }
             return localSettings;

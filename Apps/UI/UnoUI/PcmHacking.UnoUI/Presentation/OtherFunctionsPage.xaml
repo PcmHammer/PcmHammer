@@ -126,12 +126,12 @@
                 <ColumnDefinition Width="1*" />
             </Grid.ColumnDefinitions>
 
-            <Button Grid.Row="0" Grid.Column="0" Command="{Binding GoToTbd}"
+            <Button Grid.Row="0" Grid.Column="0" Command="{Binding GoToRead}"
           Margin="10"
           Padding="10"
           HorizontalAlignment="Stretch"
           VerticalAlignment="Stretch">
-                <TextBlock Text="This Space Available" />
+                <TextBlock Text="Read PCM" />
             </Button>
 
             <Button Grid.Row="0" Grid.Column="1" Command="{Binding GoToChangeVin}"

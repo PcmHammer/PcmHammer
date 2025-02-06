@@ -1,5 +1,6 @@
 using Microsoft.UI.Dispatching;
 using PcmHacking.UnoUI.Services;
+using System;
 using Uno.Extensions.Reactive.Commands;
 
 namespace PcmHacking.UnoUI.Presentation;
@@ -10,7 +11,7 @@ public partial record OtherFunctionsModel
     private const string defaultValue = "---";
     private readonly DispatcherQueue dispatcherQueue;
     private readonly INavigator navigator;
-    private readonly IConnectionService vehicleService;
+    private readonly IConnectionService connectionService;
     private readonly PcmHacking.ILogger progressLogger;
 
     public IState<string> ResetCodesButtonText => State<string>.Value(this, () => defaultClearCodesButtonText);
@@ -29,7 +30,7 @@ public partial record OtherFunctionsModel
         DispatcherQueue dispatcherQueue)
     {
         this.navigator = navigator;
-        this.vehicleService = vehicleService;
+        this.connectionService = vehicleService;
         this.progressLogger = progressLogger;
         this.dispatcherQueue = dispatcherQueue;
 
@@ -47,13 +48,13 @@ public partial record OtherFunctionsModel
         await this.ClearDetails();
         try
         {
-            Vehicle vehicle = await this.vehicleService.BeginActivity("Getting Details");
+            Vehicle vehicle = await this.connectionService.BeginActivity("Getting Details");
 
             await this.ReadPropertiesInternal(vehicle, cancellationToken);
         }
         finally
         {
-            await this.vehicleService.EndActivity();
+            await this.connectionService.EndActivity();
         }
     }
         
@@ -65,7 +66,7 @@ public partial record OtherFunctionsModel
 
         // The others depend on the operating system.        
         const string notApplicable = "Not Applicable";
-        string? osIdString = await this.vehicleService.OperatingSystemId.Value();
+        string? osIdString = await this.connectionService.OperatingSystemId.Value();
         uint osId = (uint)0;
         if (uint.TryParse(osIdString ?? "", out osId))
         {
@@ -185,9 +186,9 @@ public partial record OtherFunctionsModel
         return response.Value.ToString();
     }
 
-    public async Task GoToTbd()
+    public async Task GoToRead()
     {
-        await this.navigator.NavigateViewModelAsync<HelpModel>(this);
+        await this.navigator.NavigateViewModelAsync<ReadModel>(this);
     }
 
     public async Task GoToChangeVin()
@@ -202,31 +203,21 @@ public partial record OtherFunctionsModel
     
     public async Task ResetCodes()
     {
-        try
+        if (await this.connectionService.TryResetCodes(this.progressLogger))
         {
-            Vehicle vehicle = await this.vehicleService.BeginActivity("Clearing Codes");
-            await vehicle.ExitKernel();
-            await vehicle.ClearTroubleCodes();
             await this.ResetCodesButtonText.SetAsync("Success!");
         }
-        catch (Exception exception)
+        else
         {
             await this.ResetCodesButtonText.SetAsync("Fail. :(");
-
-            this.progressLogger.AddUserMessage("Exception while clearing trouble codes.");
-            this.progressLogger.AddDebugMessage(exception.ToString());
             await navigator.ShowMessageDialogAsync(
                 sender: this,
                 content: "We were not able to clear the trouble codes, but it might work if you try again.",
                 title: "Please Try Again",
                 buttons: new[] { new DialogAction("Really Not OK") });
         }
-        finally
-        {
-            await this.vehicleService.EndActivity();
-        }
 
-        await this.ReadProperties(CancellationToken.None);
         await this.ResetCodesButtonText.SetAsync(defaultClearCodesButtonText);
+        await this.ReadProperties(CancellationToken.None);
     }
 }

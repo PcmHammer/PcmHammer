@@ -8,6 +8,7 @@ using System.Text;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using PcmHacking;
+using Uno.Extensions.Navigation;
 
 namespace PcmHacking.UnoUI.Services;
 
@@ -74,14 +75,25 @@ public interface IConnectionService
 
     Task EndActivity();
 
-    public Task ReadFlash(
+    Task ReadFlash(
         PcmHacking.ILogger logger,
         Func<Action, Task> invoke,
         Func<Task<string>> promptForFilePath,
         Func<Task<UInt32>> promptForOperatingSystemId,
         Func<string, string, Task> alert,
         Func<string, string, Task<bool>> promptForYesNo,
+        string path,
         CancellationToken cancellationToken);
+
+    Task WriteFlash(
+        PcmHacking.ILogger logger,
+        Func<string, string, Task> alert,
+        Func<string, string, Task<bool>> promptForYesNo,
+        WriteType writeType,
+        string path,
+        CancellationToken cancellationToken);
+
+    Task<bool> TryResetCodes(PcmHacking.ILogger progressLogger);
 }
 
 public class ConnectionService : IConnectionService
@@ -237,6 +249,7 @@ public class ConnectionService : IConnectionService
         Func<Task<UInt32>> promptForOperatingSystemId,
         Func<string, string, Task> alert,
         Func<string, string, Task<bool>> promptForYesNo,
+        string path,
         CancellationToken cancellationToken)
     {
         if (this.vehicle is null)
@@ -246,7 +259,6 @@ public class ConnectionService : IConnectionService
 
         try
         {
-            string path = await promptForFilePath();
             await this.BeginActivity("Reading flash");
             ReadManager readManager = new(
                 logger,
@@ -263,8 +275,69 @@ public class ConnectionService : IConnectionService
         {
             logger.AddUserMessage("Read failed.");
             logger.AddUserMessage(exception.ToString());
+            await Task.Delay(1000);
+        }
+        finally
+        {
             await this.vehicle.ExitKernel();
             await this.vehicle.ClearTroubleCodes();
+            await this.EndActivity();
+        }
+    }
+
+    public async Task WriteFlash(
+        PcmHacking.ILogger logger,
+        Func<string, string, Task> alert,
+        Func<string, string, Task<bool>> promptForYesNo,
+        WriteType writeType,
+        string path,
+        CancellationToken cancellationToken)
+    {
+        if (this.vehicle is null)
+        {
+            throw new InvalidOperationException("Vehicle not connected.");
+        }
+
+        try
+        {
+            await this.BeginActivity("Writing flash");
+            WriteManager writeManager = new(
+                logger,
+                this.vehicle,
+                writeType,
+                alert,
+                promptForYesNo,
+                cancellationToken);
+            await writeManager.Write(path);
+        }
+        catch (Exception exception)
+        {
+            logger.AddUserMessage("Write failed.");
+            logger.AddUserMessage(exception.ToString());
+            await Task.Delay(1000);
+        }
+        finally
+        {
+            await this.vehicle.ExitKernel();
+            await this.vehicle.ClearTroubleCodes();
+            await this.EndActivity();
+        }
+    }
+
+    public async Task<bool> TryResetCodes(PcmHacking.ILogger progressLogger)
+    {
+        try
+        {
+            Vehicle vehicle = await this.BeginActivity("Clearing Codes");
+            await vehicle.ExitKernel();
+            await vehicle.ClearTroubleCodes();
+            return true;
+        }
+        catch (Exception exception)
+        {
+            this.progressLogger.AddUserMessage("Exception while clearing trouble codes.");
+            this.progressLogger.AddDebugMessage(exception.ToString());
+            return false;
         }
         finally
         {

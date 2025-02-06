@@ -10,16 +10,18 @@ namespace PcmHacking.UnoUI.Presentation;
 
 public partial record ReadModel : IAsyncLogger
 {
-    private readonly IConnectionService vehicleService;
+    private readonly IConnectionService connectionService;
     private readonly IDispatcher dispatcher;
     private readonly ILogger progressLogger;
     private CancellationTokenSource? tokenSource;
+    const string defaultPath = "No file selected.";
 
     public string Title { get { return "Read PCM"; } }
 
     public IState<bool> StartEnabled => State<bool>.Value(this, () => true);
     public IState<bool> CancelEnabled => State<bool>.Value(this, () => false);
 
+    public IState<string> Path => State<string>.Value(this, () => defaultPath);
     public IState<string> UserLog => State<string>.Value(this, () => String.Empty);
     public IState<string> Activity => State<string>.Value(this, () => String.Empty);
     public IState<string> TimeRemaining => State<string>.Value(this, () => String.Empty);
@@ -28,9 +30,9 @@ public partial record ReadModel : IAsyncLogger
     public IState<string> Kbps => State<string>.Value(this, () => String.Empty);
     public IState<double> Progress => State<double>.Value(this, () => 0.0);
 
-    public ReadModel(IConnectionService vehicleService, IDispatcher dispatcher)
+    public ReadModel(IConnectionService connectionService, IDispatcher dispatcher)
     {
-        this.vehicleService = vehicleService ?? throw new ArgumentNullException(nameof(vehicleService));
+        this.connectionService = connectionService ?? throw new ArgumentNullException(nameof(connectionService));
         this.dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
         this.progressLogger = new LoggerAdapter(this);
 
@@ -45,17 +47,32 @@ public partial record ReadModel : IAsyncLogger
         await this.StartEnabled.SetAsync(false);
         await this.CancelEnabled.SetAsync(true);
 
+        string? path = await this.Path.Value();
+        if (string.IsNullOrWhiteSpace(path) || string.Compare(path, defaultPath, StringComparison.OrdinalIgnoreCase) == 0)
+        {
+            path = await this.PromptForFileSavePath();
+            if (string.IsNullOrWhiteSpace(path) || string.Compare(path, defaultPath, StringComparison.OrdinalIgnoreCase) == 0)
+            {
+                await this.AddUserMessage("No file selected.");
+                await this.StartEnabled.SetAsync(true);
+                await this.CancelEnabled.SetAsync(false);
+                return;
+            }
+            await this.Path.SetAsync(path);
+        }
+
         this.tokenSource = new CancellationTokenSource();
         CancellationToken readCancellationToken = this.tokenSource.Token;
         try
         {
-            await this.vehicleService.ReadFlash(
+            await this.connectionService.ReadFlash(
                 this.progressLogger,
                 this.Invoke,
                 this.PromptForFileSavePath,
                 this.PromptForOperatingSystemId,
                 this.Alert,
                 this.PromptForYesNo,
+                path,
                 readCancellationToken);
         }
         catch (Exception ex)
@@ -77,6 +94,12 @@ public partial record ReadModel : IAsyncLogger
         await this.AddUserMessage("Cancelling.");
         this.tokenSource?.Cancel();
         this.tokenSource = null;
+    }
+
+    [Command]
+    public async Task ChooseFile()
+    {
+        await this.Path.SetAsync(await this.PromptForFileSavePath());
     }
 
     private async Task Invoke(Action action)

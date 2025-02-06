@@ -46,13 +46,13 @@
               Command="{Binding GoToOtherFunctions}" />
 
       <Button Grid.Row="1" Grid.Column="1"
-              Content="Read PCM"
+              Content="Test Write"
               Margin="10"
               Padding="10"
               HorizontalAlignment="Stretch"
               VerticalAlignment="Stretch"                            
               AutomationProperties.AutomationId="ReadPcmButton"
-              Command="{Binding GoToRead}" />
+              Command="{Binding GoToTestWrite}" />
 
       <Button Grid.Row="2" Grid.Column="0"
               Content="Help"
