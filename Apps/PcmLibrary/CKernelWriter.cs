@@ -248,7 +248,7 @@ namespace PcmHacking
 
             // This is the only thing preventing a P01 os write to a P59 or vice-versa because of the shared P01_P59 type
             // But a P10 has a 1Mb chip that is only 512Kb used, so that can be allowed.
-            if ((pcmInfo.HardwareType == PcmType.P10 && image.Length == 512 * 1024 || flashChip.Size == 1024 * 1024))
+            if (pcmInfo.HardwareType == PcmType.P10 && image.Length == 512 * 1024 && flashChip.Size == 1024 * 1024)
             {
                 this.logger.AddUserMessage(string.Format("File size {0:n0} for flash chip size {1:n0}. Allowable for P10.", image.Length, flashChip.Size));
             }

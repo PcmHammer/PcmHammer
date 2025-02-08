@@ -1556,7 +1556,7 @@ namespace PcmHacking
                     if (pcmInfo.HardwareSlaveCPU == true && !pcmInfo.IsSupportedWriteSlaveCPU && (writeType == WriteType.Full || writeType == WriteType.OsPlusCalibrationPlusBoot))
                     {
                         string msg = $"Warning: Writes to the {pcmInfo.HardwareType.ToString()} slave CPU are not supported." + Environment.NewLine +
-                                    "You must have another way to update the slave CPU to match when you change operating system, else electroncic throttle may not work." + Environment.NewLine +
+                                    "You must have another way to update the slave CPU to match when you change operating system, else electronic throttle may not work." + Environment.NewLine +
                                     "Restore this PCM to its original operating system if this happens.";
                         this.AddUserMessage(msg);
                         DialogResult dialogResult = MessageBox.Show(msg, "Warning!", MessageBoxButtons.YesNo);
@@ -1570,23 +1570,6 @@ namespace PcmHacking
                             this.AddUserMessage("User chose to proceed.");
                         }
                     }
-
-                    /*if (pcmInfo.HardwareType == PcmType.E54)
-                    {
-                        string msg = $"WARNING: {pcmInfo.HardwareType.ToString()} support is insufficiently tested, but believed to be working." + Environment.NewLine +
-                                    "Please report success or failure on pcmhacking.net." + Environment.NewLine +
-                                    "Do you accept the risk of damage to your hardware?";
-                        this.AddUserMessage(msg);
-                        DialogResult dialogResult = MessageBox.Show(msg, "Continue?", MessageBoxButtons.YesNo);
-                        if (dialogResult == DialogResult.No)
-                        {
-                            this.AddUserMessage("User chose not to proceed.");
-                            return;
-                        }else
-                        {
-                            this.AddUserMessage("User accepts the risk of running insufficiently tested code.");
-                        }
-                    }*/
 
                     await this.Vehicle.SuppressChatter();
 
