@@ -127,7 +127,7 @@ public class ConnectionService : IConnectionService
     /// </summary>
     public async Task<bool> TryConnect(CurrentSettings settings)
     {
-        await this.ConnectionState.SetAsync(ConnectionStates.NotConnected);
+        await this.ConnectionState.SetAsync(ConnectionStates.Connecting);
 
         if (this.vehicle != null)
         {
@@ -367,7 +367,16 @@ public class ConnectionService : IConnectionService
 
             // TODO: Is it going to be a problem if we keep trying to poll the vehicle even after the connection is lost?
             // If so, we should stop polling in that case. Currently we will just keep trying.
-            return await this.TryRequestVehicleInfo(CancellationToken.None);
+            if (await this.TryRequestVehicleInfo(CancellationToken.None))
+            {
+                await this.ConnectionState.SetAsync(ConnectionStates.Connected);
+                return true;
+            }
+            else
+            {
+                await this.ResetVehicleInfo();
+                return false;
+            }
         }
         finally
         {

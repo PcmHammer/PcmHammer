@@ -63,17 +63,22 @@ public partial record SettingsModel
 
     private ValueTask<IImmutableList<string>> GetPortNames(CancellationToken ct)
     {
-#if ANDROID || IOS
+#if ANDROID || IOS || MACOS
         IImmutableList<string> result = ImmutableList.CreateRange(new string[0]);
         return ValueTask.FromResult(result);
-#else
+#endif
+#if DOES_NOT_WORK
+        IEnumerable<SerialPortInfo> ports = PortDiscovery.GetPorts(this.progressLogger);
+        IImmutableList<string> result = ImmutableList.CreateRange(ports.Select(port => $"${port.PortName} - ${port.DeviceID}"));
+        return ValueTask.FromResult(result);
+#endif
+        // WORKS_BUT_NO_DRIVER_NAMES
         // TODO: Use Windows Management API to get the device driver names.
         string[] portNames = System.IO.Ports.SerialPort.GetPortNames();
         IList<string> portList = new List<string>(portNames);
         portList.Add(MockPort.PortName);
         IImmutableList<string> result = ImmutableList.CreateRange(portList);
         return ValueTask.FromResult(result);
-#endif
     }
 
     private ValueTask<IImmutableList<string>> GetObd2SerialDeviceTypes(CancellationToken ct)
