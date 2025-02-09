@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -151,6 +151,7 @@ namespace PcmHacking
         public const byte TestDevicePresent = 0x3F;
         public const byte HighSpeedPrepare = 0xA0;
         public const byte HighSpeed = 0xA1;
+        public const byte SpecialFunctions = 0xAE;
     }
 
     /// <summary>

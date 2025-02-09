@@ -1,4 +1,4 @@
-﻿//#define FAST_LOGGING
+//#define FAST_LOGGING
 
 using System;
 using System.Collections.Generic;
@@ -149,6 +149,11 @@ namespace PcmHacking
 
             rawLogData = new RawLogData(message[4], message.GetBytes().Skip(5).Take(6).ToArray());
             return true;
+        }
+
+        public Message CreateCrankRelearnRequest()
+        {
+            return new Message(new byte[] { Priority.Physical0, DeviceId.Pcm, DeviceId.Tool, Mode.SpecialFunctions, 0x01, 0x00, 0x00, 0x00, 0x00, 0x80, 0x00 });
         }
 
         /// <summary>

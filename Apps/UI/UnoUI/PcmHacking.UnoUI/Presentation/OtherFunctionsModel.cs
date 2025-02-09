@@ -198,7 +198,7 @@ public partial record OtherFunctionsModel
     
     public async Task GoToCrankRelearn()
     {
-        await this.navigator.NavigateViewModelAsync<HelpModel>(this);
+        await this.navigator.NavigateViewModelAsync<CrankRelearnModel>(this);
     }
     
     public async Task ResetCodes()

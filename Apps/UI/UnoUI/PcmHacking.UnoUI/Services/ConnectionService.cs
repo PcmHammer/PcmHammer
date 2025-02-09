@@ -389,7 +389,7 @@ public class ConnectionService : IConnectionService
     /// connection state is ConnectionState.Connected, the polling should stop,
     /// and flashing or logging can begin.
     /// </summary>
-    private async Task<bool> TryRequestVehicleInfo(CancellationToken cancellationToken)
+    public async Task<bool> TryRequestVehicleInfo(CancellationToken cancellationToken)
     {
         if ((this.device == null) || (this.vehicle == null))
         {
