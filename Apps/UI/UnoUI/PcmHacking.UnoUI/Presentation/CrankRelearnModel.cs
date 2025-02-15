@@ -55,6 +55,8 @@ public partial record CrankRelearnModel()
     public IState<string> RpmStatus => State<string>.Value(this, () => unavailable);
     public IState<string> BrakePedal => State<string>.Value(this, () => unavailable);
     public IState<string> BrakePedalStatus => State<string>.Value(this, () => unavailable);
+    public IState<string> AirConditioning => State<string>.Value(this, () => unavailable);
+    public IState<string> AirConditioningStatus => State<string>.Value(this, () => unavailable);
     public IState<string> Status => State<string>.Value(this, () => unavailable);
     public IState<string> Instructions => State<string>.Value(this, () => unavailable);
     
@@ -245,7 +247,7 @@ public partial record CrankRelearnModel()
             int value = rpmResponse.Value / 4;
             await this.Rpm.SetAsync($"{value} °C");
 
-            if (value < 1000)
+            if (value < 1100)
             {
                 await this.RpmStatus.SetAsync(ready);
             }
@@ -281,9 +283,31 @@ public partial record CrankRelearnModel()
             await this.BrakePedalStatus.SetAsync(notReady);
         }
 
+        var airConditioningResponse = await vehicle.GetPid(0x1100);
+        if (airConditioningResponse.Status == ResponseStatus.Success)
+        {
+            bool value = (airConditioningResponse.Value & 8) > 0;
+            await this.AirConditioning.SetAsync(value ? "On" : "Off");
+
+            if (!value)
+            {
+                await this.AirConditioningStatus.SetAsync(ready);
+            }
+            else
+            {
+                await this.AirConditioningStatus.SetAsync(notReady);
+            }
+        }
+        else
+        {
+            await this.AirConditioning.SetAsync(unavailable);
+            await this.AirConditioningStatus.SetAsync(notReady);
+        }
+
         bool conditionsMet = await this.CoolantTemperatureStatus.Value() == ready &&
            await this.RpmStatus.Value() == ready &&
-           await this.BrakePedalStatus.Value() == ready;
+           await this.BrakePedalStatus.Value() == ready &&
+           await this.AirConditioningStatus.Value() == ready;
         return conditionsMet;
     }
 }

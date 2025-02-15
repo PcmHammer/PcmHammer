@@ -16,6 +16,8 @@
       <RowDefinition Height="1*" x:Name="RPM2"/>
       <RowDefinition Height="1*" x:Name="Brake"/>
       <RowDefinition Height="1*" x:Name="Brake2"/>
+      <RowDefinition Height="1*" x:Name="AC"/>
+      <RowDefinition Height="1*" x:Name="AC2"/>
       <RowDefinition Height="2*" x:Name="Status"/>
       <RowDefinition Height="2*" x:Name="Instructions"/>
       <RowDefinition Height="2*" x:Name="Button"/>
@@ -111,8 +113,36 @@
         VerticalAlignment="Top" />
 
     <TextBlock
-        Text="{Binding Status}"
+        Text="Air Conditioning"
         Grid.Row="6"
+        Grid.Column="0"
+        HorizontalAlignment="Center"
+        VerticalAlignment="Bottom" />
+
+    <TextBlock
+        Text="{Binding AirConditioning}"
+        Grid.Row="6"
+        Grid.Column="1"
+        HorizontalAlignment="Center"
+        VerticalAlignment="Bottom" />
+
+    <TextBlock
+        Text="{Binding AirConditioningStatus}"
+        Grid.Row="6"
+        Grid.Column="2"
+        HorizontalAlignment="Center"
+        VerticalAlignment="Bottom" />
+
+    <TextBlock
+        Text="Must be off."
+        Grid.Row="7"
+        Grid.Column="1"
+        HorizontalAlignment="Center"
+        VerticalAlignment="Top" />
+
+    <TextBlock
+        Text="{Binding Status}"
+        Grid.Row="8"
         Grid.Column="0"
         Grid.ColumnSpan="3"
         HorizontalAlignment="Center"
@@ -120,7 +150,7 @@
 
     <TextBlock
         Text="{Binding Instructions}"
-        Grid.Row="7"
+        Grid.Row="9"
         Grid.Column="0"
         Grid.ColumnSpan="3"
         HorizontalAlignment="Center"
@@ -128,7 +158,7 @@
 
     <Button
         Content="Start"
-        Grid.Row="8"
+        Grid.Row="10"
         Grid.Column="0"
         Grid.ColumnSpan="3"
         HorizontalAlignment="Stretch"
