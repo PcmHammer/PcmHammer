@@ -61,6 +61,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Update="Presentation\VinChange.xaml.cs">
+      <DependentUpon>VinChange.xaml</DependentUpon>
+    </Compile>
     <Compile Update="Presentation\OtherFunctionsPage.xaml.cs">
       <DependentUpon>OtherFunctionsPage.xaml</DependentUpon>
     </Compile>
@@ -132,6 +135,12 @@
   <ItemGroup>
     <Page Update="Presentation\OtherFunctionsPage.xaml">
       <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Page Update="Presentation\VinChange.xaml">
       <Generator>MSBuild:Compile</Generator>
     </Page>
   </ItemGroup>

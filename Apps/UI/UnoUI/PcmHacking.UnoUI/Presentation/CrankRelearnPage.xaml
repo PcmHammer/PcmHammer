@@ -163,7 +163,7 @@
         Grid.ColumnSpan="3"
         HorizontalAlignment="Stretch"
         VerticalAlignment="Stretch"
-        Command="{Binding Start}"
+        Command="{Binding StartClicked}"
         IsEnabled="{Binding StartEnabled}"/>
   </Grid>
 </Page>

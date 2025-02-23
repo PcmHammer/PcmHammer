@@ -12,13 +12,16 @@ using Uno.Extensions.Navigation;
 
 namespace PcmHacking.UnoUI.Services;
 
+[Flags]
 public enum ConnectionStates
 {
-    NotConfigured,
-    NotConnected,
-    Connecting,
-    Connected,
-    Active,
+    Invalid = 0,
+    NotConfigured = 1,
+    NotConnected = 2,
+    Connecting = 4,
+    Connected = 8,
+    Polling = 16,
+    Active = 32,
 }
 
 public class VehicleActivity : IDisposable
@@ -105,6 +108,8 @@ public class ConnectionService : IConnectionService
     private Device? device = null;
     private Vehicle? vehicle = null;
     private System.Threading.Timer? timer = null;
+    private ConnectionStates internalState = ConnectionStates.NotConfigured;
+    private object transitionLock = new object();
 
     public IState<ConnectionStates> ConnectionState => State.Value(this, () => ConnectionStates.NotConfigured);
 
@@ -127,85 +132,121 @@ public class ConnectionService : IConnectionService
     /// </summary>
     public async Task<bool> TryConnect(CurrentSettings settings)
     {
-        await this.ConnectionState.SetAsync(ConnectionStates.Connecting);
-
-        if (this.vehicle != null)
+        if (this.internalState != ConnectionStates.NotConfigured &&
+            await this.BeginActivity("Testing Connection", ConnectionStates.NotConfigured) == null)
         {
-            this.vehicle.Dispose();
-            this.vehicle = null;
-        }
-
-        this.device = DeviceFactory.CreateDevice(
-            this.progressLogger, 
-            settings.DeviceCategory, 
-            settings.Obd2SerialPortName, 
-            settings.Obd2SerialDeviceName,
-            settings.J2534DeviceName);
-
-        if (this.device == null)
-        {
-            await this.ResetVehicleInfo();
             return false;
         }
 
-        await this.device.Initialize();
-
-        ToolPresentNotifier notifier = new ToolPresentNotifier(this.device, this.protocol, this.progressLogger);
-        this.vehicle = new Vehicle(device, this.protocol, this.progressLogger, notifier);
-        await this.ConnectionState.SetAsync(ConnectionStates.Connecting);
-        
-        if (await this.TryPollOnce())
+        try
         {
-            this.unoLogger.LogInformation(new EventId(1, "VehicleService"), "First poll succeeded.");
-            this.progressLogger.AddDebugMessage("First poll succeeded.");
-            await this.ConnectionState.SetAsync(ConnectionStates.Connected);
-
-            // Pretend we just finished a poll, so the UI will update and the poll timer will start.
-            await this.EndActivity();
-            return true;
-        }
-        else
-        {
-            this.unoLogger.LogInformation(new EventId(2, "VehicleService"), "First poll failed.");
-            await this.ConnectionState.SetAsync(ConnectionStates.NotConnected);
             await this.ResetVehicleInfo();
+            await Task.Delay(100);
+
+            if (this.vehicle != null)
+            {
+                this.vehicle.Dispose();
+                this.vehicle = null;
+            }
+
+            Device newDevice = DeviceFactory.CreateDevice(
+                this.progressLogger,
+                settings.DeviceCategory,
+                settings.Obd2SerialPortName,
+                settings.Obd2SerialDeviceName,
+                settings.J2534DeviceName);
+
+            if (newDevice == null)
+            {
+                return false;
+            }
+
+            await newDevice.Initialize();
+
+            ToolPresentNotifier notifier = new ToolPresentNotifier(newDevice, this.protocol, this.progressLogger);
+            Vehicle newVehicle = new Vehicle(newDevice, this.protocol, this.progressLogger, notifier);
+            await this.ConnectionState.SetAsync(ConnectionStates.Connecting);
+
+            await this.Activity.SetAsync(PollingActivity);
+            if (await this.TryPollOnce(newVehicle))
+            {
+                this.device = newDevice;
+                this.vehicle = newVehicle;
+                this.unoLogger.LogInformation(new EventId(1, "VehicleService"), "First poll succeeded.");
+                this.progressLogger.AddDebugMessage("First poll succeeded.");
+                this.ForceTransition(ConnectionStates.Connected);
+                await this.ConnectionState.SetAsync(ConnectionStates.Connected);
+
+                // Pretend we just finished a poll, so the UI will update and the poll timer will start.
+                await this.EndActivity();
+                return true;
+            }
+            else
+            {
+                this.unoLogger.LogInformation(new EventId(2, "VehicleService"), "First poll failed.");
+                await this.Activity.SetAsync("Not Configured");
+                this.ForceTransition(ConnectionStates.NotConfigured);
+                await this.ConnectionState.SetAsync(ConnectionStates.NotConfigured);
+                await this.ResetVehicleInfo();
+                return false;
+            }
+        }
+        catch (Exception exception)
+        {
+            this.progressLogger.AddDebugMessage("Exception while connecting to vehicle.");
+            this.progressLogger.AddDebugMessage(exception.ToString());
             return false;
         }
     }
 
+
     public async Task<Vehicle> BeginActivity(string activity)
+    {
+        return await this.BeginActivity(activity, ConnectionStates.Active);
+    }
+
+    private async Task<Vehicle> BeginActivity(string activity, ConnectionStates activityState)
     {
         if (string.IsNullOrEmpty(activity))
         {
             throw new System.InvalidOperationException("'activity' must not be null or empty");
         }
 
-        // TODO: There's a race condition here - another caller could
-        // potentially grab the connection right after we see it as
-        // not-active, but before we mark it as Active.
-        if (await this.ConnectionState.Value() == ConnectionStates.Active)
-        {
-            string? current = await this.Activity.Value();
-            this.unoLogger.LogInformation(
-                new EventId(7, "VehicleService"),
-                "Attempting to use an active connection. Beginning: {activity}, Current: {current}",
-                activity,
-                current);
+        string? current = await this.Activity.Value();
+        string errorMessage = $"Unable to acquire connection. Beginning ${activity}, current ${current}";
 
-            throw new InvalidOperationException($"Attempting to use an active connection. Beginning ${activity}, current ${current}");
+        if (activityState == ConnectionStates.Active)
+        {
+            if (!this.TryTransition(ConnectionStates.Connected, ConnectionStates.Active, 1000))
+            {
+                throw new InvalidOperationException(errorMessage);
+            }
         }
-
-        /*
-        while (await this.ConnectionState.Value() == ConnectionStates.Active)
+        else if (activityState == ConnectionStates.Polling)
         {
-            string? current = await this.Activity.Value();
-            this.unoLogger.LogInformation(
-                new EventId(7, "VehicleService"),
-                "Attempting to use an active connection. Beginning: {activity}, Current: {current}",
-                activity,
-                current);
-            await Task.Delay(100);
-        }*/
+            // Note that "not configured" is NOT an allowed state.
+            // If the user tries an unsuccessful configuration, we go into that state to disable polling.
+            // If the connection is lost unexpectedly, polling should re-establish it.
+            if (!this.TryTransition(ConnectionStates.Connected | ConnectionStates.NotConnected, ConnectionStates.Polling, 1000))
+            {
+                return null;
+            }
+        }
+        else if (activityState == ConnectionStates.NotConfigured)
+        {
+            ConnectionStates allowed =
+                ConnectionStates.NotConnected |
+                ConnectionStates.NotConfigured |
+                ConnectionStates.Connected;
+            if (!this.TryTransition(allowed, ConnectionStates.NotConfigured, 1000))
+            {
+                throw new InvalidOperationException(errorMessage);
+            }
+        }
+        else
+        {
+            throw new InvalidOperationException($"Invalid activity state: {activityState}");
+        }
 
         // "Active" is used to disable the back-button, so polling doesn't really count.
         if (activity != PollingActivity)
@@ -217,12 +258,10 @@ public class ConnectionService : IConnectionService
 
         if (this.timer != null)
         {
+            this.timer.Change(int.MaxValue, Timeout.Infinite);
             this.timer.Dispose();
             this.timer = null;
         }
-
-        // Ensure the timer callback has completed.
-        await Task.Delay(100); 
 
         return this.vehicle!;
     }
@@ -240,6 +279,115 @@ public class ConnectionService : IConnectionService
             state: null,
             dueTime: 1000,
             period: Timeout.Infinite);
+    }
+
+    private async void TimerCallback(object? state)
+    {
+        Vehicle acquiredVehicle = await this.BeginActivity(PollingActivity, ConnectionStates.Polling);
+        if (acquiredVehicle == null)
+        {
+            return;
+        }
+
+        bool success = false;
+        try
+        {
+            success = await this.TryPollOnce(acquiredVehicle);
+        }
+        catch (Exception exception)
+        {
+            this.unoLogger.LogError(new EventId(6, "VehicleService"), exception, "Timer callback exception.");
+        }
+        finally
+        {
+            if (success)
+            {
+                this.ForceTransition(ConnectionStates.Connected);
+                await this.EndActivity();
+            }
+            else
+            {
+                await this.ConnectionState.SetAsync(ConnectionStates.NotConnected);
+            }
+        }
+    }
+
+    private async Task<bool> TryPollOnce(Vehicle vehicle)
+    {
+        // TODO: Is it going to be a problem if we keep trying to poll the vehicle even after the connection is lost?
+        // If so, we should stop polling in that case. Currently we will just keep trying.
+        if (await this.TryRequestVehicleInfo(vehicle, CancellationToken.None))
+        {
+            await this.ConnectionState.SetAsync(ConnectionStates.Connected);
+            return true;
+        }
+        else
+        {
+            await this.ResetVehicleInfo();
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// The caller is expected to invoke this method repeatedly. When the 
+    /// connection state is ConnectionState.Connected, the polling should stop,
+    /// and flashing or logging can begin.
+    /// </summary>
+    public async Task<bool> TryRequestVehicleInfo(Vehicle vehicle, CancellationToken cancellationToken)
+    {
+        if (vehicle == null)
+        {
+            await this.ConnectionState.SetAsync(ConnectionStates.NotConnected);
+            Debugger.Break();
+            return false;
+        }
+
+        if (await this.Activity.Value() != PollingActivity)
+        {
+            Debugger.Break();
+            return false;
+        }
+
+        try
+        {
+            await this.OperatingSystemId.SetAsync(String.Empty);
+            Response<uint> osidResponse = await vehicle.QueryOperatingSystemId(cancellationToken);
+            if (osidResponse.Status == ResponseStatus.Success)
+            {
+                await this.OperatingSystemId.SetAsync(osidResponse.Value.ToString());
+            }
+            else
+            {
+                await this.ResetVehicleInfo();
+                return false;
+            }
+
+            await this.Voltage.SetAsync(String.Empty);
+            Response<string> voltageResponse = await vehicle.QueryVoltage();
+            if (voltageResponse.Status == ResponseStatus.Success)
+            {
+                await this.Voltage.SetAsync(voltageResponse.Value ?? String.Empty);
+            }
+            else
+            {
+                await this.ResetVehicleInfo();
+                return false;
+            }
+        }
+        catch (Exception exception)
+        {
+            this.unoLogger.LogError(new EventId(5, "VehicleService"), exception, "Communications exception.");
+            return false;
+        }
+
+        return true;
+    }
+
+    private async Task ResetVehicleInfo()
+    {
+        await this.ConnectionState.SetAsync(ConnectionStates.NotConnected);
+        await this.OperatingSystemId.SetAsync(String.Empty);
+        await this.Voltage.SetAsync(String.Empty);
     }
 
     public async Task ReadFlash(
@@ -345,102 +493,38 @@ public class ConnectionService : IConnectionService
         }
     }
 
-    private async void TimerCallback(object? state)
+    private bool TryTransition(ConnectionStates expected, ConnectionStates newState)
     {
-        // TODO: Why does this get logged despite the log level being set to Error?
-        // this.unoLogger.LogInformation(new EventId(3, "VehicleService"), "Timer callback invoked.");
-        try
+        lock (this.transitionLock)
         {
-            await this.TryPollOnce();
-        }
-        catch (Exception exception)
-        {
-            this.unoLogger.LogError(new EventId(6, "VehicleService"), exception, "Timer callback exception.");
-        }
-    }
-
-    private async Task<bool> TryPollOnce()
-    {
-        try
-        {
-            Vehicle acquired = await this.BeginActivity(PollingActivity);
-
-            // TODO: Is it going to be a problem if we keep trying to poll the vehicle even after the connection is lost?
-            // If so, we should stop polling in that case. Currently we will just keep trying.
-            if (await this.TryRequestVehicleInfo(CancellationToken.None))
+            this.progressLogger.AddDebugMessage($"Transition from: {this.internalState}, to: {newState}");
+            if (((this.internalState & expected) > 0) || this.internalState == newState)
             {
-                await this.ConnectionState.SetAsync(ConnectionStates.Connected);
+                this.ForceTransition(newState);
+                this.progressLogger.AddDebugMessage($"Transitioned to: {newState}");
                 return true;
             }
-            else
-            {
-                await this.ResetVehicleInfo();
-                return false;
-            }
-        }
-        finally
-        {
-            await this.EndActivity();
+
+            return false;
         }
     }
 
-    /// <summary>
-    /// The caller is expected to invoke this method repeatedly. When the 
-    /// connection state is ConnectionState.Connected, the polling should stop,
-    /// and flashing or logging can begin.
-    /// </summary>
-    public async Task<bool> TryRequestVehicleInfo(CancellationToken cancellationToken)
+    private bool TryTransition(ConnectionStates expected, ConnectionStates newState, int timeout)
     {
-        if ((this.device == null) || (this.vehicle == null))
+        int start = Environment.TickCount;
+        while (Environment.TickCount - start < timeout)
         {
-            await this.ConnectionState.SetAsync(ConnectionStates.NotConnected);
-            return false;
-        }
-
-        if (await this.Activity.Value() != PollingActivity)
-        {
-            return false;
-        }
-
-        try
-        {
-            await this.OperatingSystemId.SetAsync(String.Empty);
-            Response<uint> osidResponse = await this.vehicle.QueryOperatingSystemId(cancellationToken);
-            if (osidResponse.Status == ResponseStatus.Success)
+            if (this.TryTransition(expected, newState))
             {
-                await this.OperatingSystemId.SetAsync(osidResponse.Value.ToString());
+                return true;
             }
-            else
-            {
-                await this.ResetVehicleInfo();
-                return false;
-            }
-
-            await this.Voltage.SetAsync(String.Empty);
-            Response<string> voltageResponse = await this.vehicle.QueryVoltage();
-            if (voltageResponse.Status == ResponseStatus.Success)
-            {
-                await this.Voltage.SetAsync(voltageResponse.Value ?? String.Empty);
-            }
-            else
-            {
-                await this.ResetVehicleInfo();
-                return false;
-            }
+            Thread.Sleep(10);
         }
-        catch (Exception exception)
-        {
-            this.unoLogger.LogError(new EventId(5, "VehicleService"), exception, "Communications exception.");
-            return false;
-        }
-
-        return true;
+        return false;
     }
 
-    private async Task ResetVehicleInfo()
+    private void ForceTransition(ConnectionStates newState)
     {
-        await this.ConnectionState.SetAsync(ConnectionStates.NotConnected);
-        await this.OperatingSystemId.SetAsync(String.Empty);
-        await this.Voltage.SetAsync(String.Empty);
+        this.internalState = newState;
     }
 }

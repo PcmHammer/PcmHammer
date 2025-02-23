@@ -15,7 +15,7 @@ public partial record SettingsModel
 {
     private readonly PcmHacking.ILogger progressLogger;
     private readonly ISettingsService settingsService;
-    private readonly ConnectionService vehicleService;
+    private readonly IConnectionService connectionService;
     private readonly DispatcherQueue dispatcherQueue;
 
     public string Title { get { return "Settings"; } }
@@ -23,12 +23,12 @@ public partial record SettingsModel
     public SettingsModel(
         PcmHacking.ILogger progressLogger, 
         ISettingsService settingsService,
-        ConnectionService vehicleService,
+        IConnectionService connectionService,
         DispatcherQueue dispatcherQueue)
     {
         this.progressLogger = progressLogger;
         this.settingsService = settingsService;
-        this.vehicleService = vehicleService;
+        this.connectionService = connectionService;
         this.dispatcherQueue = dispatcherQueue;
     }
 
@@ -106,7 +106,7 @@ public partial record SettingsModel
             await this.UseCanDevice.Value(),
             await this.SelectedCanPort.Value() ?? "");
 
-        if (await this.vehicleService.TryConnect(currentSettings))
+        if (await this.connectionService.TryConnect(currentSettings))
         {
             this.settingsService.SaveConnectionSettings(currentSettings);
         }

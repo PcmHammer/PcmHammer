@@ -7,7 +7,9 @@ namespace PcmHacking.UnoUI.Presentation;
 
 public enum CrankRelearnStates
 {
-    WaitingToStart,
+    WaitingForPcm,
+    WaitingForUser,
+    AllConditionsMet,
     RevUp,
     RevDown,
     Success,
@@ -26,8 +28,9 @@ public partial record CrankRelearnModel()
     private readonly DispatcherQueue dispatcherQueue;
 
     private CancellationTokenSource cancellation = new CancellationTokenSource();
-    private CrankRelearnStates state = CrankRelearnStates.WaitingToStart;
+    private CrankRelearnStates state = CrankRelearnStates.WaitingForPcm;
     private object sync = new object();
+    private bool startClicked = false;
 
     public CrankRelearnModel(
         INavigator navigator,
@@ -65,115 +68,127 @@ public partial record CrankRelearnModel()
     private void Enqueue()
     {
         this.dispatcherQueue.TryEnqueue(async () =>
-        {   await Task.Delay(100); 
-            await this.TimerCallback(dispatcherQueue);
+        {
+            await Task.Delay(100); 
+            await this.MainLoop();
+        });
+    }
+
+    private async Task MainLoop()
+    {
+        Vehicle vehicle = await this.connectionService.BeginActivity("Creank Relearn");
+        try
+        {
+            bool done = false;
+            while (!done)
+            {
+                int startTime = Environment.TickCount;
+                bool conditionsMet;
+                switch(this.state)
+                {
+                    case CrankRelearnStates.WaitingForPcm:
+                        conditionsMet = await this.CheckConditions(vehicle);
+                        await UpdateUI(conditionsMet);
+                        if (conditionsMet)
+                        {
+                            this.state = CrankRelearnStates.WaitingForUser;
+                        }
+                        break;
+
+                    case CrankRelearnStates.WaitingForUser:
+                        conditionsMet = await this.CheckConditions(vehicle);
+                        await UpdateUI(conditionsMet);
+
+                        if (!conditionsMet)
+                        {
+                            this.state = CrankRelearnStates.WaitingForPcm;
+                            continue;
+                        }
+
+                        if (this.startClicked)
+                        {
+                            this.startClicked = false;
+                            this.state = CrankRelearnStates.AllConditionsMet;
+                            await vehicle.BeginCrankRelearn();
+                            this.state = CrankRelearnStates.RevUp;
+                            await this.UpdateUI(true);
+                        }
+                        break;
+
+
+                    case CrankRelearnStates.RevUp:
+                    case CrankRelearnStates.RevDown:
+                        await this.MonitorProgress(vehicle);
+                        await this.UpdateUI(true);
+                        break;
+
+                    case CrankRelearnStates.Success:
+                    case CrankRelearnStates.Failure:
+                        await this.UpdateUI(false);
+                        done = true;
+                        break;
+                }
+
+                int elapsedTime = Environment.TickCount - startTime;
+                int delay = Math.Max(1000 - elapsedTime, 100);
+                await Task.Delay(delay);
+            }
+        }
+        catch (Exception ex)
+        {
+            await this.Status.SetAsync("Something ain't right." + ex.Message);
+            await this.Instructions.SetAsync("Please wait a moment, then try again.");
+            this.progressLogger.AddDebugMessage("CrankRelearnMode.StateMachine: " + ex.ToString());
+        }
+        finally
+        {
+            await this.connectionService.EndActivity();
+        }
+
+        // Let the last message stay there for a while, then try again.
+        this.dispatcherQueue.TryEnqueue(async () =>
+        {
+            await Task.Delay(1500);
+            await this.MainLoop();
         });
     }
 
     [Command]
-    public async Task Start()
+    public void StartClicked()
     {
-        if (!Monitor.TryEnter(this.sync, 1000))
-        {
-            await this.Instructions.SetAsync("Try again in a moment.");
-            return;
-        }
-
-        try
-        {
-            await this.StartEnabled.SetAsync(false);
-
-            Vehicle vehicle = await this.connectionService.BeginActivity("Crank Relearn");
-
-            await vehicle.BeginCrankRelearn();
-            this.state = CrankRelearnStates.RevUp;
-            await this.UpdateUI(true);
-
-            while (true)
-            {
-                int startTime = Environment.TickCount;
-                var learnStateResponse = await vehicle.GetPid(0x12F0);
-                if (learnStateResponse.Status != ResponseStatus.Success)
-                {
-                    this.state = CrankRelearnStates.Failure;
-                    break;
-                }
-
-                int value = learnStateResponse.Value;
-                switch (value)
-                {
-                    case 0x00:
-                        // PCM is waiting for RPM to increase to threshold.
-                        break;
-
-                    case 0x40:
-                        this.state = CrankRelearnStates.RevDown;
-                        await this.UpdateUI(true);
-                        break;
-
-                    case 0x80:
-                        this.state = CrankRelearnStates.Success;
-                        await this.UpdateUI(true);
-                        break;
-
-                    default:
-                        this.state = CrankRelearnStates.Failure;
-                        await this.UpdateUI(true);
-                        break;
-                }
-
-                if (this.state == CrankRelearnStates.Success ||
-                    this.state == CrankRelearnStates.Failure)
-                {
-                    break;
-                }
-
-                int elapsedTime = Environment.TickCount - startTime;
-                int delay = Math.Max(100 - elapsedTime, 0);
-                await Task.Delay(delay);
-            }
-
-            await this.UpdateUI(true);
-            await Task.Delay(1000);
-        }
-        finally
-        {
-            await this.connectionService.EndActivity();
-            await this.StartEnabled.SetAsync(true);
-            Monitor.Exit(this.sync);
-            this.Enqueue();
-        }
+        this.startClicked = true;
     }
 
-    private async Task TimerCallback(DispatcherQueue dispatcherQueue)
+    public async Task MonitorProgress(Vehicle vehicle)
     {
-        if (this.cancellation.Token.IsCancellationRequested)
+        var learnStateResponse = await vehicle.GetPid(0x12F0);
+        if (learnStateResponse.Status != ResponseStatus.Success)
         {
+            this.state = CrankRelearnStates.Failure;
             return;
         }
 
-        if (!Monitor.TryEnter(this.sync))
+        int value = learnStateResponse.Value;
+        switch (value)
         {
-            return;
-        }
+            case 0x00:
+                // PCM is waiting for RPM to increase to threshold.
+                break;
 
-        try
-        {
-            Vehicle vehicle = await this.connectionService.BeginActivity("Preparing To Learn");
-            bool conditionsMet = await CheckConditions(vehicle);
-            await UpdateUI(conditionsMet);
-            this.Enqueue();
-            return;
-        }
-        catch (Exception ex)
-        {
-            this.progressLogger.AddDebugMessage("CrankRelearnMode.StateMachine: " + ex.ToString());
-            throw;
-        }
-        finally
-        {
-            await this.connectionService.EndActivity();
-            Monitor.Exit(this.sync);
+            case 0x40:
+                this.state = CrankRelearnStates.RevDown;
+                
+                break;
+
+            case 0x80:
+                this.state = CrankRelearnStates.Success;
+                await this.UpdateUI(true);
+                break;
+
+            default:
+                this.state = CrankRelearnStates.Failure;
+                await this.UpdateUI(true);
+                break;
         }
     }
 
@@ -181,7 +196,7 @@ public partial record CrankRelearnModel()
     {
         switch (this.state)
         {
-            case CrankRelearnStates.WaitingToStart:
+            case CrankRelearnStates.WaitingForPcm:
                 if (conditionsMet)
                 {
                     await this.StartEnabled.SetAsync(true);
@@ -245,7 +260,7 @@ public partial record CrankRelearnModel()
         if (rpmResponse.Status == ResponseStatus.Success)
         {
             int value = rpmResponse.Value / 4;
-            await this.Rpm.SetAsync($"{value} °C");
+            await this.Rpm.SetAsync($"{value} RPM");
 
             if (value < 1100)
             {
@@ -265,7 +280,7 @@ public partial record CrankRelearnModel()
         var brakeResponse = await vehicle.GetPid(0x1102);
         if (brakeResponse.Status == ResponseStatus.Success)
         {
-            bool value = brakeResponse.Value > 0;
+            bool value = (brakeResponse.Value & 8) > 0;
             await this.BrakePedal.SetAsync(value ? "Pressed" : "Not Pressed");
 
             if (value)
@@ -286,7 +301,8 @@ public partial record CrankRelearnModel()
         var airConditioningResponse = await vehicle.GetPid(0x1100);
         if (airConditioningResponse.Status == ResponseStatus.Success)
         {
-            bool value = (airConditioningResponse.Value & 8) > 0;
+            // This has not been confirmed yet...
+            bool value = (airConditioningResponse.Value & 1) > 0;
             await this.AirConditioning.SetAsync(value ? "On" : "Off");
 
             if (!value)
