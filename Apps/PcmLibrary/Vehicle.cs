@@ -324,7 +324,8 @@ namespace PcmHacking
                 return false;
             }
 
-            if ((seedValue == 0x0000) || (seedValue == 0xFFFF))
+            // If the seed is a common occurance of corrupted security data, and the user is not attempting to use a custom key, provide a useful suggestion
+            if (((seedValue == 0x0000) || (seedValue == 0xFFFF)) && (UserDefinedKey == -1))
             {
                 this.logger.AddUserMessage($"***NOTICE**** Seed is 0x{seedValue.ToString("X4")}, if this process fails, try setting a user defined key of 0x{seedValue.ToString("X4")}");
             }
