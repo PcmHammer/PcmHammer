@@ -324,6 +324,11 @@ namespace PcmHacking
                 return false;
             }
 
+            if ((seedValue == 0x0000) || (seedValue == 0xFFFF))
+            {
+                this.logger.AddUserMessage($"***NOTICE**** Seed is 0x{seedValue.ToString("X4")}, if this process fails, try setting a user defined key of 0x{seedValue.ToString("X4")}");
+            }
+
             // if we have a user defined key the user might be trying to recover from a corrupted param block
             // so we still let it though
             if ((seedValue == 0x0000) && (UserDefinedKey == -1)) 
