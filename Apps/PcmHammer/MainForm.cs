@@ -1281,7 +1281,7 @@ namespace PcmHacking
                         return;
                     }
 
-                    this.AddUserMessage("Unlock succeeded.");
+                    this.AddUserMessage("Unlock OK.");
 
                     if (cancellationTokenSource.Token.IsCancellationRequested)
                     {
@@ -1583,7 +1583,7 @@ namespace PcmHacking
                             return;
                         }
 
-                        this.AddUserMessage("Unlock succeeded.");
+                        this.AddUserMessage("Unlock OK.");
                     }
 
                     DateTime start = DateTime.Now;
