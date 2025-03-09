@@ -219,17 +219,17 @@ public class ConnectionService : IConnectionService
         {
             if (!this.TryTransition(ConnectionStates.Connected, ConnectionStates.Active, 1000))
             {
-                throw new InvalidOperationException(errorMessage);
+                throw new InvalidOperationException("Not connected. " + errorMessage);
             }
         }
         else if (activityState == ConnectionStates.Polling)
         {
-            // Note that "not configured" is NOT an allowed state.
+            // Note that "not configured" is NOT an allowed state in this scenario.
             // If the user tries an unsuccessful configuration, we go into that state to disable polling.
             // If the connection is lost unexpectedly, polling should re-establish it.
             if (!this.TryTransition(ConnectionStates.Connected | ConnectionStates.NotConnected, ConnectionStates.Polling, 1000))
             {
-                return null;
+                throw new InvalidOperationException("Unabe to poll. " + errorMessage);
             }
         }
         else if (activityState == ConnectionStates.NotConfigured)
@@ -240,7 +240,7 @@ public class ConnectionService : IConnectionService
                 ConnectionStates.Connected;
             if (!this.TryTransition(allowed, ConnectionStates.NotConfigured, 1000))
             {
-                throw new InvalidOperationException(errorMessage);
+                throw new InvalidOperationException("Connection lost. " + errorMessage);
             }
         }
         else

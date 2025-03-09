@@ -10,9 +10,65 @@
 
   <Grid utu:SafeArea.Insets="VisibleBounds">
     <Grid.RowDefinitions>
-      <RowDefinition Height="Auto" />
-      <RowDefinition />
+      <RowDefinition Height="*" />
+      <RowDefinition Height="*" />
+      <RowDefinition Height="*" />
     </Grid.RowDefinitions>
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="*" />
+      <ColumnDefinition Width="*" />
+    </Grid.ColumnDefinitions>
+
+    <Button Grid.Row="0" Grid.Column="0" 
+              Content="New Profile"
+              Margin="10"
+              Padding="10"
+              HorizontalAlignment="Stretch"
+              VerticalAlignment="Stretch"              
+              AutomationProperties.AutomationId="NewProfileButton"
+              Command="{Binding NewProfile}" />
+
+    <Button Grid.Row="1" Grid.Column="0" 
+              Content="Open Profile"
+              Margin="10"
+              Padding="10"
+              HorizontalAlignment="Stretch"
+              VerticalAlignment="Stretch"              
+              AutomationProperties.AutomationId="OpenProfileButton"
+              Command="{Binding OpenProfile}" />
+
+    <Button Grid.Row="2" Grid.Column="0" 
+              Content="Save Profile"
+              Margin="10"
+              Padding="10"
+              HorizontalAlignment="Stretch"
+              VerticalAlignment="Stretch"              
+              AutomationProperties.AutomationId="SaveButton"
+              Command="{Binding Save}" />
+
+    <Button Grid.Row="2" Grid.Column="1" 
+              Content="Save Profile As..."
+              Margin="10"
+              Padding="10"
+              HorizontalAlignment="Stretch"
+              VerticalAlignment="Stretch"              
+              AutomationProperties.AutomationId="SaveAsButton"
+              Command="{Binding SaveAs}" />
+
+    <Button Grid.Row="2" Grid.Column="1" 
+              Content="Save Profile As..."
+              Margin="10"
+              Padding="10"
+              HorizontalAlignment="Stretch"
+              VerticalAlignment="Stretch"              
+              AutomationProperties.AutomationId="SaveAsButton"
+              Command="{Binding SaveAs}" />
+
+    <StackPanel Grid.Row="0" Grid.Column="1" Grid.RowSpan="2">
+      <TextBlock Text="Recent Files:" HorizontalAlignment="Center" Margin="10"/>
+      <ListView ItemsSource="{Binding RecentFiles}"  />
+    </StackPanel>
+    
 
   </Grid>
 </Page>
