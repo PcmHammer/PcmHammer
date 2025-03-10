@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Configuration;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
@@ -36,9 +37,8 @@ namespace PcmHacking
                     DeviceConfiguration.Settings.Save();
                     this.canDeviceDescription.Text = this.canPortName;
 
-                    // Re-create the logger, so it starts using the new port.
-                    this.ResetProfile();
-                    this.CreateProfileFromGrid();
+                    // Re-create everything, to start using the new port.
+                    ThreadPool.QueueUserWorkItem(BackgroundInitialization);
                     break;
 
                 case DialogResult.Cancel:

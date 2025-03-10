@@ -159,7 +159,12 @@ namespace PcmHacking
             });
 
             string lastProfile = Configuration.Settings.LastProfile;
-            if (!string.IsNullOrEmpty(lastProfile) && File.Exists(lastProfile))
+            if (this.currentProfile != null)
+            {
+                this.ResetProfile();
+                this.CreateProfileFromGrid();
+            }
+            else if (!string.IsNullOrEmpty(lastProfile) && File.Exists(lastProfile))
             {
                 this.Invoke((MethodInvoker)delegate ()
                 {

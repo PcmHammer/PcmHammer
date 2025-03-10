@@ -129,6 +129,11 @@ namespace PcmHacking
             {
                 foreach(CanParameter parameter in parameters)
                 {
+                    if (message.Payload.Length < parameter.ByteCount + parameter.ByteIndex)
+                    {
+                        continue;
+                    }
+
                     switch(parameter.ByteCount)
                     {
                         case 0:

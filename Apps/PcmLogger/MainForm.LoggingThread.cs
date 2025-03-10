@@ -306,7 +306,16 @@ namespace PcmHacking
                                     }
                                     finally
                                     {
-                                        if (exception != null)
+                                        if (exception == null)
+                                        {
+                                            this.loggerProgress.Invoke(
+                                                (MethodInvoker)
+                                                delegate ()
+                                                {
+                                                    this.startStopSaving.Enabled = true;
+                                                });
+                                        }
+                                        else
                                         {
                                             logState = LogState.Nothing;
 
