@@ -1,14 +1,5 @@
-using System;
-using System.Collections.Generic;
-using System.ComponentModel;
 using System.Diagnostics;
-using System.Linq;
-using System.Runtime.CompilerServices;
-using System.Text;
-using System.Threading.Tasks;
-using CommunityToolkit.Mvvm.Messaging;
-using PcmHacking;
-using Uno.Extensions.Navigation;
+using PcmHacking.UnoUI.Utilities;
 
 namespace PcmHacking.UnoUI.Services;
 
@@ -24,16 +15,32 @@ public enum ConnectionStates
     Active = 32,
 }
 
-public class VehicleActivity : IDisposable
+public class ConnectionUnavailableException : InvalidOperationException
 {
-    private readonly ConnectionService vehicleService;
+    public ConnectionUnavailableException(string message) : base(message) { }
+}
+
+public class ConnectionLease : IDisposable
+{
+    private readonly ConnectionService connectionService;
     private readonly Vehicle vehicle;
     private readonly string activityName;
     private bool isDisposed = false;
-
-    public VehicleActivity(ConnectionService vehicleService, Vehicle vehicle, string activityName)
+    public Vehicle Vehicle
     {
-        this.vehicleService = vehicleService ?? throw new ArgumentNullException(nameof(vehicleService));
+        get
+        {
+            if (this.isDisposed)
+            {
+                throw new ObjectDisposedException(nameof(ConnectionLease));
+            }
+            return this.vehicle;
+        }
+    }
+
+    public ConnectionLease(ConnectionService vehicleService, Vehicle vehicle, string activityName)
+    {
+        this.connectionService = vehicleService ?? throw new ArgumentNullException(nameof(vehicleService));
         this.vehicle = vehicle ?? throw new ArgumentNullException(nameof(vehicle));
         this.activityName = activityName ?? throw new ArgumentNullException(nameof(activityName));
     }
@@ -53,7 +60,7 @@ public class VehicleActivity : IDisposable
 
         if (isDisposing)
         {
-            await this.vehicleService.EndActivity(/*this?*/);
+            await this.connectionService.EndActivity(/*this?*/);
         }
 
         this.isDisposed = true;
@@ -74,7 +81,7 @@ public interface IConnectionService
 
     Task<bool> TryConnect(CurrentSettings settings);
 
-    Task<Vehicle> BeginActivity(string activity);
+    Task<ConnectionLease> BeginActivity(string activity);
 
     Task EndActivity();
 
@@ -133,7 +140,7 @@ public class ConnectionService : IConnectionService
     public async Task<bool> TryConnect(CurrentSettings settings)
     {
         if (this.internalState != ConnectionStates.NotConfigured &&
-            await this.BeginActivity("Testing Connection", ConnectionStates.NotConfigured) == null)
+            await this.BeginActivity("Testing Connection", ConnectionStates.Connected) == null)
         {
             return false;
         }
@@ -199,13 +206,13 @@ public class ConnectionService : IConnectionService
         }
     }
 
-
-    public async Task<Vehicle> BeginActivity(string activity)
+    public async Task<ConnectionLease> BeginActivity(string activity)
     {
-        return await this.BeginActivity(activity, ConnectionStates.Active);
+        Vehicle vehicle = await this.BeginActivity(activity, ConnectionStates.Active);
+        return new ConnectionLease(this, vehicle, activity);
     }
 
-    private async Task<Vehicle> BeginActivity(string activity, ConnectionStates activityState)
+    private async Task<Vehicle> BeginActivity(string activity, ConnectionStates desiredState)
     {
         if (string.IsNullOrEmpty(activity))
         {
@@ -213,26 +220,26 @@ public class ConnectionService : IConnectionService
         }
 
         string? current = await this.Activity.Value();
-        string errorMessage = $"Unable to acquire connection. Beginning ${activity}, current ${current}";
+        string errorMessage = $"Unable to acquire connection. Beginning {activity}, current {current}";
 
-        if (activityState == ConnectionStates.Active)
+        if (desiredState == ConnectionStates.Active)
         {
             if (!this.TryTransition(ConnectionStates.Connected, ConnectionStates.Active, 1000))
             {
-                throw new InvalidOperationException("Not connected. " + errorMessage);
+                throw new ConnectionUnavailableException("Not connected. " + errorMessage);
             }
         }
-        else if (activityState == ConnectionStates.Polling)
+        else if (desiredState == ConnectionStates.Polling)
         {
             // Note that "not configured" is NOT an allowed state in this scenario.
             // If the user tries an unsuccessful configuration, we go into that state to disable polling.
             // If the connection is lost unexpectedly, polling should re-establish it.
             if (!this.TryTransition(ConnectionStates.Connected | ConnectionStates.NotConnected, ConnectionStates.Polling, 1000))
             {
-                throw new InvalidOperationException("Unabe to poll. " + errorMessage);
+                throw new ConnectionUnavailableException("Unabe to poll. " + errorMessage);
             }
         }
-        else if (activityState == ConnectionStates.NotConfigured)
+        else if (desiredState == ConnectionStates.NotConfigured)
         {
             ConnectionStates allowed =
                 ConnectionStates.NotConnected |
@@ -240,12 +247,12 @@ public class ConnectionService : IConnectionService
                 ConnectionStates.Connected;
             if (!this.TryTransition(allowed, ConnectionStates.NotConfigured, 1000))
             {
-                throw new InvalidOperationException("Connection lost. " + errorMessage);
+                throw new ConnectionUnavailableException("Connection lost. " + errorMessage);
             }
         }
         else
         {
-            throw new InvalidOperationException($"Invalid activity state: {activityState}");
+            throw new ConnectionUnavailableException($"Invalid activity state: {desiredState}");
         }
 
         // "Active" is used to disable the back-button, so polling doesn't really count.
@@ -271,6 +278,7 @@ public class ConnectionService : IConnectionService
         // TODO: Dispose and re-create the Vehicle instance here, to ensure that it doesn't continue to get used.
         // The current implementation of Vehice.Dispose() also disposes the underlying connection, which we don't want.
         // Could probably change that without breaking the WinForms UI, but need to investigate.
+        this.TryTransition(ConnectionStates.Active, ConnectionStates.Connected, 1000);
         await this.ConnectionState.SetAsync(ConnectionStates.Connected);
         await this.Activity.SetAsync(String.Empty);
 
@@ -308,21 +316,48 @@ public class ConnectionService : IConnectionService
             else
             {
                 await this.ConnectionState.SetAsync(ConnectionStates.NotConnected);
+
+                // Try again, maybe the PCM is just rebooting after a flash...
+                this.timer = new System.Threading.Timer(
+                    TimerCallback,
+                    state: null,
+                    dueTime: 1000,
+                    period: Timeout.Infinite);
             }
         }
     }
 
     private async Task<bool> TryPollOnce(Vehicle vehicle)
     {
-        // TODO: Is it going to be a problem if we keep trying to poll the vehicle even after the connection is lost?
-        // If so, we should stop polling in that case. Currently we will just keep trying.
-        if (await this.TryRequestVehicleInfo(vehicle, CancellationToken.None))
+        var source = new CancellationTokenSource();
+        bool success = false;
+
+        try
         {
+            success = await TimeoutUtilities.TaskWithTimeoutAndException(
+                this.TryRequestVehicleInfo(vehicle, source.Token),
+                TimeSpan.FromSeconds(5));
+        }
+        catch (TimeoutException)
+        {
+            source.Cancel();
+            success = false;
+            this.progressLogger.AddUserMessage("Connection test did not get a response from the vehicle.");
+        }
+        finally
+        {
+            source.Dispose();
+        }
+
+        if (success)
+        {
+            this.progressLogger.AddUserMessage("Connection test succeeded.");
             await this.ConnectionState.SetAsync(ConnectionStates.Connected);
             return true;
         }
         else
         {
+            this.progressLogger.AddUserMessage("Connection test failed.");
             await this.ResetVehicleInfo();
             return false;
         }
@@ -474,22 +509,21 @@ public class ConnectionService : IConnectionService
 
     public async Task<bool> TryResetCodes(PcmHacking.ILogger progressLogger)
     {
-        try
+        using (ConnectionLease lease = await this.BeginActivity("Reset Codes"))
         {
-            Vehicle vehicle = await this.BeginActivity("Clearing Codes");
-            await vehicle.ExitKernel();
-            await vehicle.ClearTroubleCodes();
-            return true;
-        }
-        catch (Exception exception)
-        {
-            this.progressLogger.AddUserMessage("Exception while clearing trouble codes.");
-            this.progressLogger.AddDebugMessage(exception.ToString());
-            return false;
-        }
-        finally
-        {
-            await this.EndActivity();
+            Vehicle vehicle = lease.Vehicle;
+            try
+            {
+                await vehicle.ExitKernel();
+                await vehicle.ClearTroubleCodes();
+                return true;
+            }
+            catch (Exception exception)
+            {
+                this.progressLogger.AddUserMessage("Exception while clearing trouble codes.");
+                this.progressLogger.AddDebugMessage(exception.ToString());
+                return false;
+            }
         }
     }
 
@@ -526,5 +560,6 @@ public class ConnectionService : IConnectionService
     private void ForceTransition(ConnectionStates newState)
     {
         this.internalState = newState;
+        this.progressLogger.AddDebugMessage($"Force-transitioned to: {newState}");
     }
 }

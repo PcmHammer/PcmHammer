@@ -26,7 +26,7 @@
             <ColumnDefinition Width="1*" />
         </Grid.ColumnDefinitions>
 
-        <StackPanel Grid.Row="0" Orientation="Horizontal">
+        <StackPanel Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal">
             <Button Content="Choose File" Margin="10" Command="{Binding ChooseFile}"/>
             <TextBlock Text="{Binding Path}" Margin="10" HorizontalTextAlignment="Right" VerticalAlignment="Center"/>
         </StackPanel>

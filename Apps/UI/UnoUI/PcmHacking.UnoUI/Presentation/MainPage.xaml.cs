@@ -7,4 +7,9 @@ public sealed partial class MainPage : Page
         this.InitializeComponent();
         this.ContentFrame.Navigate(typeof(MenuPage));
     }
+
+    public void FrameNavigated(object sender, NavigationEventArgs e)
+    {
+        (this.DataContext as MainViewModel)?.FrameNavigated.Execute(null);
+    }
 }

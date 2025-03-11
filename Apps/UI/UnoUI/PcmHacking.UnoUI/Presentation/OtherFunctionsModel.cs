@@ -48,13 +48,16 @@ public partial record OtherFunctionsModel
         await this.ClearDetails();
         try
         {
-            Vehicle vehicle = await this.connectionService.BeginActivity("Getting Details");
+            using (ConnectionLease lease = await this.connectionService.BeginActivity("Getting Details"))
+            {
+                Vehicle vehicle = lease.Vehicle;
 
-            await this.ReadPropertiesInternal(vehicle, cancellationToken);
+                await this.ReadPropertiesInternal(vehicle, cancellationToken);
+            }
         }
-        finally
+        catch (ConnectionUnavailableException)
         {
-            await this.connectionService.EndActivity();
+            /// TODO: display an error?
         }
     }
         

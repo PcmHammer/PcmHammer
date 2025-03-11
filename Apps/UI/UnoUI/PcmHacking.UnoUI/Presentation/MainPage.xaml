@@ -24,7 +24,7 @@
         <Button Grid.Row="0" Grid.Column="0" Grid.RowSpan="2" x:Name="BackButton"
                 VerticalAlignment="Center"
                 Style="{StaticResource NavigationBackButtonNormalStyle}"
-                IsEnabled="{Binding CanGoBack, ElementName=ContentFrame, Mode=OneWay}"
+                IsEnabled="{Binding BackButtonEnabled}"
                 Command="{Binding GoBack}"
                 ToolTipService.ToolTip="Back" />
 
@@ -42,6 +42,8 @@
         <TextBlock Grid.Row="0" Grid.Column="5" TextAlignment="Center" VerticalAlignment="Bottom" Text="Voltage" />
         <TextBlock Grid.Row="1" Grid.Column="5" TextAlignment="Center" VerticalAlignment="Top" Text="{Binding Voltage}" />
 
-        <Frame Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="6" x:Name="ContentFrame" uen:Region.Attached="True" />
+        <Frame Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="6"
+               x:Name="ContentFrame" uen:Region.Attached="True"
+               Navigated="{x:Bind FrameNavigated}"/>
     </Grid>
 </Page>

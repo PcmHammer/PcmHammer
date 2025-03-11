@@ -98,10 +98,10 @@ public partial record MainModel
     {
         ConnectionStates currentState = await this.vehicleService.ConnectionState.Value(ct);
         string currentActivity = await this.vehicleService.Activity.Value(ct) ?? String.Empty;
-        bool connectionState = currentState != ConnectionStates.Active;
-        bool activityState = currentActivity != ConnectionService.PollingActivity;
-        bool navigatorState = await this.navigator.CanGoBack();
-        bool backButtonEnabled = navigatorState && (connectionState || activityState);
+        bool connectionNotActive = currentState != ConnectionStates.Active;
+        bool justPolling = currentActivity == ConnectionService.PollingActivity;
+        bool canGoBack = await this.navigator.CanGoBack();
+        bool backButtonEnabled = canGoBack && (connectionNotActive || justPolling);
 
         // Enable/disable the back button depending on whether the connection state is Active.
         if (await this.BackButtonEnabled.Value() != backButtonEnabled)
