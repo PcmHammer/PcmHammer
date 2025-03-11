@@ -15,7 +15,7 @@ namespace PcmHacking.UnoUI.Presentation
 
             this.DataContextChanged += (sender, e) =>
             {
-                this.model = (this.DataContext as CrankRelearnViewModel)?.Model as CrankRelearnModel;
+                this.model = (this.DataContext as CrankRelearnViewModel)?.Model as CrankRelearnModel ?? this.model;
             };
         }
 

@@ -78,7 +78,7 @@ public partial record CrankRelearnModel()
     {
         try
         {
-            using (ConnectionLease lease = await this.connectionService.BeginActivity("Creank Relearn"))
+            using (ConnectionLease lease = await this.connectionService.BeginActivity("Crank Relearn", true))
             {
                 Vehicle vehicle = lease.Vehicle;
                 bool done = false;
@@ -131,6 +131,11 @@ public partial record CrankRelearnModel()
                             break;
                     }
 
+                    if (this.cancellation.IsCancellationRequested)
+                    {
+                        break;
+                    }
+
                     int elapsedTime = Environment.TickCount - startTime;
                     int delay = Math.Max(1000 - elapsedTime, 100);
                     await Task.Delay(delay);
@@ -145,11 +150,14 @@ public partial record CrankRelearnModel()
         }
 
         // Let the last message stay there for a while, then try again.
-        this.dispatcherQueue.TryEnqueue(async () =>
+        if (!this.cancellation.IsCancellationRequested)
         {
-            await Task.Delay(1500);
-            await this.MainLoop();
-        });
+            this.dispatcherQueue.TryEnqueue(async () =>
+            {
+                await Task.Delay(1500);
+                await this.MainLoop();
+            });
+        }
     }
 
     [Command]

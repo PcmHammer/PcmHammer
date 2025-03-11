@@ -8,7 +8,7 @@ public partial record MainModel
 {
     private INavigator navigator;
     private ISettingsService settingsService;
-    private IConnectionService vehicleService;
+    private IConnectionService connectionService;
 
     public MainModel(
         IStringLocalizer localizer,
@@ -18,14 +18,14 @@ public partial record MainModel
     {
         this.navigator = navigator;
         this.settingsService = settingsService;
-        this.vehicleService = vehicleService;
+        this.connectionService = vehicleService;
         this.Title = localizer["ApplicationName"];
 
         vehicleService.ConnectionState.ForEach((state, ct) => this.ConnectionStateChanged(ct));
 
         // This is a bit of a hack. We need to update the displayed settings when the page is loaded.
         // Connection is an async operation, but constructors can't be async, so we fire and forget.
-        this.vehicleService.TryConnect(this.settingsService.LoadConnectionSettings());
+        this.connectionService.TryConnect(this.settingsService.LoadConnectionSettings());
     }
 
     public string? Title { get; }
@@ -69,11 +69,11 @@ public partial record MainModel
 
     public IState<string> ConnectionState => State<string>.Value(this, () => string.Empty);
 
-    public IState<string> ConnectionError => vehicleService.ConnectionError;
+    public IState<string> ConnectionError => connectionService.ConnectionError;
 
-    public IState<string> OperatingSystemId => vehicleService.OperatingSystemId;
+    public IState<string> OperatingSystemId => connectionService.OperatingSystemId;
 
-    public IState<string> Voltage => vehicleService.Voltage;
+    public IState<string> Voltage => connectionService.Voltage;
 
     /// <summary>
     /// See comments on FrameNavigated above.
@@ -96,8 +96,8 @@ public partial record MainModel
 
     private async Task UpdateBackButtonState(CancellationToken ct)
     {
-        ConnectionStates currentState = await this.vehicleService.ConnectionState.Value(ct);
-        string currentActivity = await this.vehicleService.Activity.Value(ct) ?? String.Empty;
+        ConnectionStates currentState = await this.connectionService.ConnectionState.Value(ct);
+        string currentActivity = await this.connectionService.Activity.Value(ct) ?? String.Empty;
         bool connectionNotActive = currentState != ConnectionStates.Active;
         bool justPolling = currentActivity == ConnectionService.PollingActivity;
         bool canGoBack = await this.navigator.CanGoBack();
@@ -114,7 +114,7 @@ public partial record MainModel
     {
         // See comments on FrameNavigated above.
         await UpdateBackButtonState(ct);
-        ConnectionStates currentState = await this.vehicleService.ConnectionState.Value(ct);
+        ConnectionStates currentState = await this.connectionService.ConnectionState.Value(ct);
         switch (currentState)
         {
             case ConnectionStates.NotConfigured:
@@ -131,7 +131,9 @@ public partial record MainModel
                 await this.UpdateDisplayedSettings(ct);
                 break;
             case ConnectionStates.Active:
-                await this.ConnectionState.SetAsync(await this.vehicleService.Activity.Value());
+            case ConnectionStates.Logging:
+                string state = await this.connectionService.Activity.Value(ct) ?? String.Empty;
+                await this.ConnectionState.SetAsync(state);
                 break;
         }
     }

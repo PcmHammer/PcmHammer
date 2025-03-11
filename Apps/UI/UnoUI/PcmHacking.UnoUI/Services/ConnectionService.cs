@@ -13,6 +13,7 @@ public enum ConnectionStates
     Connected = 8,
     Polling = 16,
     Active = 32,
+    Logging = 64,
 }
 
 public class ConnectionUnavailableException : InvalidOperationException
@@ -81,7 +82,7 @@ public interface IConnectionService
 
     Task<bool> TryConnect(CurrentSettings settings);
 
-    Task<ConnectionLease> BeginActivity(string activity);
+    Task<ConnectionLease> BeginActivity(string activity, bool canInterrupt = false);
 
     Task EndActivity();
 
@@ -206,9 +207,10 @@ public class ConnectionService : IConnectionService
         }
     }
 
-    public async Task<ConnectionLease> BeginActivity(string activity)
+    public async Task<ConnectionLease> BeginActivity(string activity, bool canInterrupt)
     {
-        Vehicle vehicle = await this.BeginActivity(activity, ConnectionStates.Active);
+        ConnectionStates nextState = canInterrupt ? ConnectionStates.Logging : ConnectionStates.Active;
+        Vehicle vehicle = await this.BeginActivity(activity, nextState);
         return new ConnectionLease(this, vehicle, activity);
     }
 
@@ -222,9 +224,9 @@ public class ConnectionService : IConnectionService
         string? current = await this.Activity.Value();
         string errorMessage = $"Unable to acquire connection. Beginning {activity}, current {current}";
 
-        if (desiredState == ConnectionStates.Active)
+        if (desiredState == ConnectionStates.Active || desiredState == ConnectionStates.Logging)
         {
-            if (!this.TryTransition(ConnectionStates.Connected, ConnectionStates.Active, 1000))
+            if (!this.TryTransition(ConnectionStates.Connected, desiredState, 1000))
             {
                 throw new ConnectionUnavailableException("Not connected. " + errorMessage);
             }
@@ -236,6 +238,7 @@ public class ConnectionService : IConnectionService
             // If the connection is lost unexpectedly, polling should re-establish it.
             if (!this.TryTransition(ConnectionStates.Connected | ConnectionStates.NotConnected, ConnectionStates.Polling, 1000))
             {
+                this.progressLogger.AddDebugMessage($"Skipping poll, internalState is {this.internalState}");
                 throw new ConnectionUnavailableException("Unabe to poll. " + errorMessage);
             }
         }
@@ -258,7 +261,7 @@ public class ConnectionService : IConnectionService
         // "Active" is used to disable the back-button, so polling doesn't really count.
         if (activity != PollingActivity)
         {
-            await this.ConnectionState.SetAsync(ConnectionStates.Active);
+            await this.ConnectionState.SetAsync(desiredState);
         }
                 
         await this.Activity.SetAsync(activity);
@@ -278,7 +281,7 @@ public class ConnectionService : IConnectionService
         // TODO: Dispose and re-create the Vehicle instance here, to ensure that it doesn't continue to get used.
         // The current implementation of Vehice.Dispose() also disposes the underlying connection, which we don't want.
         // Could probably change that without breaking the WinForms UI, but need to investigate.
-        this.TryTransition(ConnectionStates.Active, ConnectionStates.Connected, 1000);
+        this.TryTransition(ConnectionStates.Active | ConnectionStates.Logging, ConnectionStates.Connected, 1000);
         await this.ConnectionState.SetAsync(ConnectionStates.Connected);
         await this.Activity.SetAsync(String.Empty);
 
@@ -291,29 +294,33 @@ public class ConnectionService : IConnectionService
 
     private async void TimerCallback(object? state)
     {
-        Vehicle acquiredVehicle = await this.BeginActivity(PollingActivity, ConnectionStates.Polling);
-        if (acquiredVehicle == null)
-        {
-            return;
-        }
-
-        bool success = false;
+        bool disconnected = false;
         try
         {
-            success = await this.TryPollOnce(acquiredVehicle);
-        }
-        catch (Exception exception)
-        {
-            this.unoLogger.LogError(new EventId(6, "VehicleService"), exception, "Timer callback exception.");
-        }
-        finally
-        {
+            Vehicle acquiredVehicle = await this.BeginActivity(PollingActivity, ConnectionStates.Polling);
+            bool success = await this.TryPollOnce(acquiredVehicle);
             if (success)
             {
                 this.ForceTransition(ConnectionStates.Connected);
                 await this.EndActivity();
             }
             else
+            {
+                disconnected = true;
+            }
+        }
+        catch (ConnectionUnavailableException)
+        {
+            this.progressLogger.AddDebugMessage("Poll skipped.");
+        }
+        catch (Exception exception)
+        {
+            this.unoLogger.LogError(new EventId(6, "VehicleService"), exception, "Timer callback exception.");
+            disconnected = true;
+        }
+        finally
+        {
+            if (disconnected)
             {
                 await this.ConnectionState.SetAsync(ConnectionStates.NotConnected);
 
@@ -442,7 +449,7 @@ public class ConnectionService : IConnectionService
 
         try
         {
-            await this.BeginActivity("Reading flash");
+            await this.BeginActivity("Reading flash", false);
             ReadManager readManager = new(
                 logger,
                 this.vehicle,
@@ -483,7 +490,7 @@ public class ConnectionService : IConnectionService
 
         try
         {
-            await this.BeginActivity("Writing flash");
+            await this.BeginActivity("Writing flash", false);
             WriteManager writeManager = new(
                 logger,
                 this.vehicle,
@@ -509,7 +516,7 @@ public class ConnectionService : IConnectionService
 
     public async Task<bool> TryResetCodes(PcmHacking.ILogger progressLogger)
     {
-        using (ConnectionLease lease = await this.BeginActivity("Reset Codes"))
+        using (ConnectionLease lease = await this.BeginActivity("Reset Codes", false))
         {
             Vehicle vehicle = lease.Vehicle;
             try
@@ -531,14 +538,14 @@ public class ConnectionService : IConnectionService
     {
         lock (this.transitionLock)
         {
-            this.progressLogger.AddDebugMessage($"Transition from: {this.internalState}, to: {newState}");
+            this.progressLogger.AddDebugMessage($"Transition requested from: {this.internalState}, to: {newState}");
             if (((this.internalState & expected) > 0) || this.internalState == newState)
             {
                 this.ForceTransition(newState);
-                this.progressLogger.AddDebugMessage($"Transitioned to: {newState}");
                 return true;
             }
 
+            this.progressLogger.AddDebugMessage($"Transition denied, staying in: {this.internalState}");
             return false;
         }
     }
@@ -560,6 +567,6 @@ public class ConnectionService : IConnectionService
     private void ForceTransition(ConnectionStates newState)
     {
         this.internalState = newState;
-        this.progressLogger.AddDebugMessage($"Force-transitioned to: {newState}");
+        this.progressLogger.AddDebugMessage($"Transitioned to: {newState}");
     }
 }
