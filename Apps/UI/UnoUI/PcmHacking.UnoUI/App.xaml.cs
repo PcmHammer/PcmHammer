@@ -179,6 +179,7 @@ public partial class App : Application
             );
         MainWindow = builder.Window;
         StaticMainWindow = builder.Window;
+        StaticMainWindow.Title = "PCM Hammer";
 
 #if DEBUG
         MainWindow.UseStudio();
