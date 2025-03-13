@@ -101,7 +101,8 @@ public partial record WriteModel : IAsyncLogger
 
     private async Task<string?> PromptForFileOpenPath()
     {
-        // Open a Save-As dialog to get the file path
+        // Use the standard open-file dialog to get the file path
+        // TODO: find/create a touch-friendly file picker
         FileOpenPicker openPicker = new FileOpenPicker();
         openPicker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
         openPicker.FileTypeFilter.Add(".bin");

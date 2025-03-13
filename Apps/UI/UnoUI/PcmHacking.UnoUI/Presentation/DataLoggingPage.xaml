@@ -8,7 +8,7 @@
       xmlns:utu="using:Uno.Toolkit.UI"
       Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
 
-  <Grid utu:SafeArea.Insets="VisibleBounds">
+    <Grid utu:SafeArea.Insets="VisibleBounds">
     <Grid.RowDefinitions>
       <RowDefinition Height="*" />
       <RowDefinition Height="*" />
@@ -26,7 +26,7 @@
               HorizontalAlignment="Stretch"
               VerticalAlignment="Stretch"              
               AutomationProperties.AutomationId="NewProfileButton"
-              Command="{Binding NewProfile}" />
+              Command="{Binding NewProfileClicked}" />
 
     <Button Grid.Row="1" Grid.Column="0" 
               Content="Open Profile"
@@ -35,7 +35,7 @@
               HorizontalAlignment="Stretch"
               VerticalAlignment="Stretch"              
               AutomationProperties.AutomationId="OpenProfileButton"
-              Command="{Binding OpenProfile}" />
+              Command="{Binding OpenProfileClicked}" />
 
     <Button Grid.Row="2" Grid.Column="0" 
               Content="Save Profile"
@@ -44,7 +44,7 @@
               HorizontalAlignment="Stretch"
               VerticalAlignment="Stretch"              
               AutomationProperties.AutomationId="SaveButton"
-              Command="{Binding Save}" />
+              Command="{Binding SaveProfileClicked}" />
 
     <Button Grid.Row="2" Grid.Column="1" 
               Content="Save Profile As..."
@@ -53,20 +53,11 @@
               HorizontalAlignment="Stretch"
               VerticalAlignment="Stretch"              
               AutomationProperties.AutomationId="SaveAsButton"
-              Command="{Binding SaveAs}" />
+              Command="{Binding SaveProfileAsClicked}" />
 
-    <Button Grid.Row="2" Grid.Column="1" 
-              Content="Save Profile As..."
-              Margin="10"
-              Padding="10"
-              HorizontalAlignment="Stretch"
-              VerticalAlignment="Stretch"              
-              AutomationProperties.AutomationId="SaveAsButton"
-              Command="{Binding SaveAs}" />
-
-    <StackPanel Grid.Row="0" Grid.Column="1" Grid.RowSpan="2">
+    <StackPanel Grid.Row="0" Grid.Column="1" Grid.RowSpan="2" >
       <TextBlock Text="Recent Files:" HorizontalAlignment="Center" Margin="10"/>
-      <ListView ItemsSource="{Binding RecentFiles}"  />
+      <ListView Name="RecentFiles" ItemsSource="{Binding RecentFiles}" DoubleTapped="ListView_DoubleTapped"/>
     </StackPanel>
     
 
