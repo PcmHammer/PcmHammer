@@ -57,7 +57,7 @@ public partial record OtherFunctionsModel
         }
         catch (ConnectionUnavailableException)
         {
-            /// TODO: display an error?
+            // TODO: display an error?
         }
     }
         

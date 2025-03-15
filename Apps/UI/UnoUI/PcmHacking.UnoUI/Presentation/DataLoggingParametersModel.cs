@@ -7,8 +7,7 @@ public partial record DataLoggingParametersModel
     private INavigator navigator;
     private IConnectionService connectionService;
     private PcmHacking.ILogger progressLogger;
-    private List<RecentFileListItem> recentFiles = new List<RecentFileListItem>();
-    public IEnumerable<RecentFileListItem> RecentFiles { get => recentFiles; }
+    private string filePath;
 
     public DataLoggingParametersModel(
         INavigator navigator,
@@ -19,5 +18,6 @@ public partial record DataLoggingParametersModel
         this.navigator = navigator;
         this.connectionService = vehicleService;
         this.progressLogger = progressLogger;
+        this.filePath = filePath;
     }
 }

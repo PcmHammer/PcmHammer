@@ -22,6 +22,12 @@ public interface ISettingsService
     CurrentSettings LoadConnectionSettings();
     void SaveConnectionSettings(CurrentSettings settings);
 
+    IEnumerable<string> GetMruLogProfiles();
+    
+    void AddMruLogProfile(string path);
+    string GetMruLogProfilePath();
+    void SetMruLogProfilePath(string path);
+
     ValueTask<string> GetDataLogFolder(CancellationToken ct);
     void SetDataLogFolder(string folder);
 }
@@ -34,6 +40,8 @@ public class SettingsService : ISettingsService
     private const string Obd2SerialDeviceNameKey = "Obd2SerialDeviceName";
     private const string CanEnabledKey = "CanEnabled";
     private const string CanSerialPortNameKey = "CanSerialPortName";
+    private const string LogMruProfilesKey = "LogMruProfiles";
+    private const string LogMruProfilePathKey = "LogMruProfilePath";
     private const string DataLogFolderKey = "DataLogFolder";
 
     public SettingsService()
@@ -123,6 +131,71 @@ public class SettingsService : ISettingsService
         LocalSettings.Values[CanEnabledKey] = settings.CanEnabled ? "true" : "false";
         LocalSettings.Values[CanSerialPortNameKey] = settings.CanPort;
     }
+
+    public IEnumerable<string> GetMruLogProfiles()
+    {
+        string json = LocalSettings.Values[LogMruProfilesKey] as string ?? string.Empty;
+        if (string.IsNullOrEmpty(json))
+        {
+            return new string[0];
+        }
+
+        JObject? jsonObject = JObject.Parse(json);
+        if (jsonObject == null)
+        {
+            return new string[0];
+        }
+
+        JObject j = JObject.Parse(json);
+        List<string> result = new List<string>();
+        foreach (var item in j)
+        {
+            string? path = item.Value?.ToString();
+            if (!string.IsNullOrEmpty(path))
+            {
+                result.Add(path);
+            }
+        }
+        return result;
+    }
+
+    public void AddMruLogProfile(string path)
+    {
+        var list = new List<string>(this.GetMruLogProfiles());
+        if (list.Contains(path))
+        {
+            list.Remove(path);
+        }
+
+        list.Insert(0, path);
+
+        if (list.Count() > 10)
+        {
+            list.RemoveAt(10);
+        }
+
+        JObject j = new JObject();
+        foreach (var item in list)
+        {
+            j.Add(item, item);
+        }
+
+        LocalSettings.Values[LogMruProfilesKey] = j.ToString();
+    }
+
+    // Not used - the OpenFilePicker doesn't support it
+    public string GetMruLogProfilePath()
+    {
+        string? path = LocalSettings.Values[LogMruProfilePathKey] as string ?? string.Empty;
+        return path;
+    }
+
+    // Not used - the OpenFilePicker doesn't support it
+    public void SetMruLogProfilePath(string path)
+    {
+        LocalSettings.Values[LogMruProfilePathKey] = path;
+    }
+
 
     public ValueTask<string> GetDataLogFolder(CancellationToken ct)
     {

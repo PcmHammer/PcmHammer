@@ -16,6 +16,7 @@ public partial class DataLoggingModel
 {
     private INavigator navigator;
     private IConnectionService connectionService;
+    private ISettingsService settingsService;
     private PcmHacking.ILogger progressLogger;
     private List<RecentFileListItem> recentFiles = new List<RecentFileListItem>();
     public IEnumerable<RecentFileListItem> RecentFiles { get => recentFiles; }
@@ -23,15 +24,21 @@ public partial class DataLoggingModel
     public DataLoggingModel(
         INavigator navigator,
         IConnectionService vehicleService,
+        ISettingsService settingsService,
         PcmHacking.ILogger progressLogger)
     {
         this.navigator = navigator;
         this.connectionService = vehicleService;
+        this.settingsService = settingsService;
         this.progressLogger = progressLogger;
 
-        this.recentFiles.Add(new RecentFileListItem("One"));
-        this.recentFiles.Add(new RecentFileListItem("Two"));
-        this.recentFiles.Add(new RecentFileListItem("Three"));
+        //this.recentFiles.Add(new RecentFileListItem("One"));
+        //this.recentFiles.Add(new RecentFileListItem("Two"));
+        //this.recentFiles.Add(new RecentFileListItem("Three"));
+        foreach(string path in this.settingsService.GetMruLogProfiles())
+        {
+            this.recentFiles.Add(new RecentFileListItem(path));
+        }
     }
 
     public async Task RecentProfileClicked(RecentFileListItem recentFile)
@@ -48,40 +55,54 @@ public partial class DataLoggingModel
             return;
         }
 
-        await this.OpenFile(recentFile.ToString());
+        this.settingsService.AddMruLogProfile(path);
+        await this.OpenFile(path);
     }
 
     [Command]
-    public void NewProfileClicked(object sender, EventArgs e)
-    {        
+    public Task NewProfileClicked()
+    {  
+        return this.navigator.NavigateViewModelAsync<DataLoggingParametersModel>(this);
     }
 
     [Command]
-    public async void OpenProfileClicked(object sender, EventArgs e)
+    public async Task OpenProfileClicked()
     {
         FileOpenPicker openPicker = new FileOpenPicker();
-        openPicker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
-        openPicker.FileTypeFilter.Add(".bin");
+        openPicker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;        
+        openPicker.FileTypeFilter.Add(".profile");
         StorageFile file = await openPicker.PickSingleFileAsync();
         if (file == null)
         {
             return;
         }
 
-        
-        await this.OpenFile(file.Path);
+        string path = file.Path ?? string.Empty;
+        if (string.IsNullOrEmpty(path))
+        {
+            return;
+        }
+
+        string directory = System.IO.Path.GetDirectoryName(path) ?? string.Empty;
+        if (!string.IsNullOrEmpty(directory))
+        {
+            this.settingsService.SetMruLogProfilePath(directory);
+        }
+
+        this.settingsService.AddMruLogProfile(path);
+        await this.OpenFile(path);
     }
 
     [Command]
-    public void SaveProfileClicked(object sender, EventArgs e)
+    public Task SaveProfileClicked()
     {
-
+        return Task.CompletedTask;
     }
 
     [Command]
-    public void SaveProfileAsClicked(object sender, EventArgs e)
+    public Task SaveProfileAsClicked()
     {
-
+        return Task.CompletedTask;
     }
 
     private async Task OpenFile(string path)
