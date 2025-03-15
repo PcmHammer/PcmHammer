@@ -12,12 +12,12 @@ public class SettingsChangedMessage { }
 
 public interface ISettingsService
 {
-    ValueTask<string> GetObd2DeviceCategory(CancellationToken ct);
-    ValueTask<string> GetJ2534DeviceName(CancellationToken ct);
-    ValueTask<string> GetObd2SerialPortName(CancellationToken ct);
-    ValueTask<string> GetObd2SerialDeviceName(CancellationToken ct);
-    ValueTask<bool> IsCanEnabled(CancellationToken ct);
-    ValueTask<string> GetCanSerialPortName(CancellationToken ct);
+    string GetObd2DeviceCategory();
+    string GetJ2534DeviceName();
+    string GetObd2SerialPortName();
+    string GetObd2SerialDeviceName();
+    bool IsCanEnabled();
+    string GetCanSerialPortName();
 
     CurrentSettings LoadConnectionSettings();
     void SaveConnectionSettings(CurrentSettings settings);
@@ -28,7 +28,7 @@ public interface ISettingsService
     string GetMruLogProfilePath();
     void SetMruLogProfilePath(string path);
 
-    ValueTask<string> GetDataLogFolder(CancellationToken ct);
+    string GetDataLogFolder();
     void SetDataLogFolder(string folder);
 }
 
@@ -81,34 +81,34 @@ public class SettingsService : ISettingsService
         }
     }
 
-    public ValueTask<string> GetObd2DeviceCategory(CancellationToken ct)
+    public string GetObd2DeviceCategory()
     {
-        return ValueTask.FromResult(LocalSettings.Values[Obd2DeviceCategoryKey] as string ?? string.Empty);
+        return LocalSettings.Values[Obd2DeviceCategoryKey] as string ?? string.Empty;
     }
 
-    public ValueTask<string> GetObd2SerialPortName(CancellationToken ct)
+    public string GetObd2SerialPortName()
     {
-        return ValueTask.FromResult(LocalSettings.Values[Obd2SerialPortNameKey] as string ?? string.Empty);
+        return LocalSettings.Values[Obd2SerialPortNameKey] as string ?? string.Empty;
     }
 
-    public ValueTask<string> GetObd2SerialDeviceName(CancellationToken ct)
+    public string GetObd2SerialDeviceName()
     {
-        return ValueTask.FromResult(LocalSettings.Values[Obd2SerialDeviceNameKey] as string ?? string.Empty);
+        return LocalSettings.Values[Obd2SerialDeviceNameKey] as string ?? string.Empty;
     }
 
-    public ValueTask<string> GetJ2534DeviceName(CancellationToken ct)
+    public string GetJ2534DeviceName()
     {
-        return ValueTask.FromResult(LocalSettings.Values[J2534DeviceNameKey] as string ?? string.Empty);
+        return LocalSettings.Values[J2534DeviceNameKey] as string ?? string.Empty;
     }
 
-    public ValueTask<bool> IsCanEnabled(CancellationToken ct)
+    public bool IsCanEnabled()
     {
-        return ValueTask.FromResult(LocalSettings.Values[CanEnabledKey] as string == "true");
+        return LocalSettings.Values[CanEnabledKey] as string == "true";
     }
 
-    public ValueTask<string> GetCanSerialPortName(CancellationToken ct)
+    public string GetCanSerialPortName()
     {
-        return ValueTask.FromResult(LocalSettings.Values[CanSerialPortNameKey] as string ?? string.Empty);
+        return LocalSettings.Values[CanSerialPortNameKey] as string ?? string.Empty;
     }
 
     public CurrentSettings LoadConnectionSettings()
@@ -197,15 +197,15 @@ public class SettingsService : ISettingsService
     }
 
 
-    public ValueTask<string> GetDataLogFolder(CancellationToken ct)
+    public string GetDataLogFolder()
     {
         string? folder = LocalSettings.Values[DataLogFolderKey] as string;
         if (string.IsNullOrEmpty(folder))
         {
-            return ValueTask.FromResult("[no location configured]");
+            return "[no location configured]";
         }
 
-        return ValueTask.FromResult(LocalSettings.Values[DataLogFolderKey] as string ?? string.Empty);
+        return LocalSettings.Values[DataLogFolderKey] as string ?? string.Empty;
     }
     public void SetDataLogFolder(string folder)
     {

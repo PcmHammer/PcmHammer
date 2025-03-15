@@ -37,29 +37,29 @@ public partial record SettingsModel
     public IListFeed<string> CanPorts => ListFeed.Async<string>(ct => this.GetPortNames(ct)).Selection(SelectedCanPort);
 
     public IState<bool> UseSerialDevice => State<bool>
-        .Async(this, ct => this.AreEqual("Serial", settingsService.GetObd2DeviceCategory(ct).Result))
+        .Async(this, ct => this.AreEqual("Serial", settingsService.GetObd2DeviceCategory()))
         .ForEach(this.ConnectionSettingsChanged);
     public IState<bool> UseJ2534Device => State<bool>
-        .Async(this, ct => this.AreEqual("J2534", settingsService.GetObd2DeviceCategory(ct).Result));
+        .Async(this, ct => this.AreEqual("J2534", settingsService.GetObd2DeviceCategory()));
 
     public IState<bool> UseCanDevice => State<bool>
-        .Async(this, ct => ValueTask.FromResult(settingsService.IsCanEnabled(ct).Result))
+        .Async(this, ct => ValueTask.FromResult(settingsService.IsCanEnabled()))
         .ForEach(ConnectionSettingsChanged);
     public IState<bool> DontUseCanDevice => State<bool>
-        .Async(this, ct => ValueTask.FromResult(!settingsService.IsCanEnabled(ct).Result));
+        .Async(this, ct => ValueTask.FromResult(!settingsService.IsCanEnabled()));
 
     public IState<string> SelectedObd2Port => State<string>
-        .Async(this, ct => settingsService.GetObd2SerialPortName(ct))
+        .Async(this, ct => ValueTask.FromResult(settingsService.GetObd2SerialPortName()))
         .ForEach(this.ConnectionSettingsChanged);
     public IState<string> SelectedCanPort => State<string>
-        .Async(this, ct => settingsService.GetCanSerialPortName(ct))
+        .Async(this, ct => ValueTask.FromResult(settingsService.GetCanSerialPortName()))
         .ForEach(this.ConnectionSettingsChanged);
     public IState<string> SelectedObd2SerialDeviceType => State<string>
-        .Async(this, ct => settingsService.GetObd2SerialDeviceName(ct))
+        .Async(this, ct => ValueTask.FromResult(settingsService.GetObd2SerialDeviceName()))
         .ForEach(this.ConnectionSettingsChanged);
 
     public IState<string> DataLogFolder => State<string>
-        .Async(this, ct => settingsService.GetDataLogFolder(ct));
+        .Async(this, ct => ValueTask.FromResult(settingsService.GetDataLogFolder()));
 
     private ValueTask<IImmutableList<string>> GetPortNames(CancellationToken ct)
     {
@@ -148,9 +148,9 @@ public partial record SettingsModel
 
     public Task OpenLogFolder()
     {
-        dispatcherQueue.TryEnqueue(async () =>
+        dispatcherQueue.TryEnqueue(() =>
         {
-            string folder = await settingsService.GetDataLogFolder(CancellationToken.None);
+            string folder = settingsService.GetDataLogFolder();
             if (string.IsNullOrEmpty(folder))
             {
                 progressLogger.AddUserMessage("No folder has been configured.");
@@ -159,8 +159,8 @@ public partial record SettingsModel
 
 #if WINDOWS10_0_26100_0_OR_GREATER
             // TODO: Use a cross-platform API to open the folder.
-            Windows.Storage.StorageFolder storageFolder = await Windows.Storage.StorageFolder.GetFolderFromPathAsync(folder);
-            await Windows.System.Launcher.LaunchFolderAsync(storageFolder);
+            // Windows.Storage.StorageFolder storageFolder = await Windows.Storage.StorageFolder.GetFolderFromPathAsync(folder);
+            // await Windows.System.Launcher.LaunchFolderAsync(storageFolder);
 #endif
         });
         return Task.CompletedTask;

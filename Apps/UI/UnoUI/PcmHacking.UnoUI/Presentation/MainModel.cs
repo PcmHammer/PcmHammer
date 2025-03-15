@@ -80,17 +80,17 @@ public partial record MainModel
     /// </summary>
     public IState<bool> BackButtonEnabled => State<bool>.Value(this, () => false);
 
-    private async ValueTask UpdateDisplayedSettings(CancellationToken ct)
+    private async ValueTask UpdateDisplayedSettings()
     {
-        if (await this.settingsService.GetObd2DeviceCategory(ct) == "J2534")
+        if (this.settingsService.GetObd2DeviceCategory() == "J2534")
         {
             await this.SerialPortName.SetAsync("Not Used");
-            await this.DeviceName.SetAsync(await this.settingsService.GetJ2534DeviceName(ct));
+            await this.DeviceName.SetAsync(this.settingsService.GetJ2534DeviceName());
         }
         else
         {
-            await this.SerialPortName.SetAsync(await this.settingsService.GetObd2SerialPortName(ct));
-            await this.DeviceName.SetAsync(await this.settingsService.GetObd2SerialDeviceName(ct));
+            await this.SerialPortName.SetAsync(this.settingsService.GetObd2SerialPortName());
+            await this.DeviceName.SetAsync(this.settingsService.GetObd2SerialDeviceName());
         }
     }
 
@@ -128,7 +128,7 @@ public partial record MainModel
                 break;
             case ConnectionStates.Connected:
                 await this.ConnectionState.SetAsync("Connected");
-                await this.UpdateDisplayedSettings(ct);
+                await this.UpdateDisplayedSettings();
                 break;
             case ConnectionStates.Active:
             case ConnectionStates.Logging:
