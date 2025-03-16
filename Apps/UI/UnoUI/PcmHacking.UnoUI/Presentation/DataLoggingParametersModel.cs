@@ -1,14 +1,33 @@
 using System.Collections.Concurrent;
+using System.ComponentModel;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Logging;
 using Microsoft.UI.Dispatching;
 using PcmHacking.UnoUI.Services;
 using Uno.Extensions;
+using Windows.Devices.Bluetooth.Advertisement;
 
 namespace PcmHacking.UnoUI.Presentation;
 
-public record LogRowValues(IEnumerable<string> Values);
+public struct LogRowValues
+{
+    public IEnumerable<string> Values { get; private set; }
+    public LogRowValues(IEnumerable<string> values)
+    {
+        this.Values = values;
+    }
+}
+
+public struct LogProfileWrapper
+{
+    public LogProfile Profile { get; private set;  }
+
+    public LogProfileWrapper(LogProfile profile)
+    {
+        this.Profile = profile;
+    }
+}
 
 public partial record DataLoggingParametersModel
 {
@@ -21,7 +40,8 @@ public partial record DataLoggingParametersModel
     private CanLogger? canLogger;
     private ConcurrentQueue<Tuple<Logger, LogFileWriter?, IEnumerable<string>>> logRowQueue = new ConcurrentQueue<Tuple<Logger, LogFileWriter?, IEnumerable<string>>>();
     private EventWaitHandle exitWaitHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
-    private EventWaitHandle rowAvailableHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
+    private EventWaitHandle rowAvailableHandle = new EventWaitHandle(false, EventResetMode.AutoReset);
+    private BackgroundWorker worker = new BackgroundWorker();
 
     public DataLoggingParametersModel(
         INavigator navigator,
@@ -38,15 +58,12 @@ public partial record DataLoggingParametersModel
         this.profilePath = profilePath;
         this.canPortName = settingsService.GetCanSerialPortName();
 
-        dispatcherQueue.TryEnqueue(async () =>
-        {
-            await Task.Delay(100);
-            await this.OpenProfile();
-        });
+        worker.DoWork += async (sender, e) => await this.OpenProfile();
+        worker.RunWorkerAsync();
     }
 
-    public IState<LogProfile> LogProfile => State<LogProfile>.Empty(this);
-    public IFeed<LogRowValues> Rows => Feed<LogRowValues>.AsyncEnumerable(this.RowFactory);
+    public IState<LogProfileWrapper> LogProfile => State<LogProfileWrapper>.Empty(this);
+    public IState<LogRowValues> Rows => State<LogRowValues>.Empty(this);
 
     private async Task OpenProfile()
     {
@@ -72,7 +89,7 @@ public partial record DataLoggingParametersModel
             var profile = reader.Read(this.profilePath);
 
             // This tells the view to update the UI with the new profile.
-            await this.LogProfile.UpdateAsync(currentValue => profile, CancellationToken.None);
+            await this.LogProfile.SetAsync(new LogProfileWrapper(profile), CancellationToken.None);
 
             // Create the logger, and start logging.
             this.canLogger = new CanLogger(database);
@@ -88,12 +105,15 @@ public partial record DataLoggingParametersModel
             }
 
             Logger logger = vehicle.CreateLogger(osid, canLogger, profile.Columns, this.progressLogger);
+            await logger.StartLogging();
             while (!exitWaitHandle.WaitOne(0))
             {
                 IEnumerable<string> rowValues = await logger.GetNextRow();
                 if (rowValues != null)
                 {
-                    // Hand this data off to be written to disk and displayed in the UI.
+                    await this.Rows.SetAsync(new LogRowValues(rowValues));
+
+/*                    // Hand this data off to be written to disk and displayed in the UI.
                     this.logRowQueue.Enqueue(
                         new Tuple<Logger, LogFileWriter?, IEnumerable<string>>(
                             logger,
@@ -101,11 +121,17 @@ public partial record DataLoggingParametersModel
                             rowValues));
 
                     this.rowAvailableHandle.Set();
+*/
                 }
             }
         }
     }
 
+    public void StopLogging()
+    {
+        this.exitWaitHandle.Set();
+    }
+    /*
     private async IAsyncEnumerable<LogRowValues> RowFactory([EnumeratorCancellation] CancellationToken ct)
     {
         WaitHandle[] waitHandles = new WaitHandle[] { exitWaitHandle, ct.WaitHandle, rowAvailableHandle };
@@ -129,5 +155,5 @@ public partial record DataLoggingParametersModel
                 yield return new LogRowValues(logRowValues);
             }
         }
-    }
+    }*/
 }

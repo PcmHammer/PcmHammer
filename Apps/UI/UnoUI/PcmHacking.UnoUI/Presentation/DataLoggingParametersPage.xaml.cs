@@ -1,4 +1,5 @@
 using System.Drawing.Text;
+using Microsoft.UI.Dispatching;
 
 namespace PcmHacking.UnoUI.Presentation;
 
@@ -10,11 +11,14 @@ public sealed partial class DataLoggingParametersPage : Page
 
     private DataLoggingParametersModel? model;
 
+    private DispatcherQueue dispatcherQueue;
+
     public DataLoggingParametersPage()
     {
+        this.dispatcherQueue = DispatcherQueue.GetForCurrentThread();
         this.InitializeComponent();
 
-        this.DataContextChanged += async (sender, e) =>
+        this.DataContextChanged += (sender, e) =>
         {
             var newModel = (this.DataContext as DataLoggingParametersViewModel)?.Model as DataLoggingParametersModel;
             if (newModel == null)
@@ -29,70 +33,80 @@ public sealed partial class DataLoggingParametersPage : Page
 
             this.model = newModel;
 
-            await this.model.LogProfile.Select((profile) =>
-            {
-                this.InitializeParameters(profile);
-                return true;
-            });
+            this.model.LogProfile.ForEach((profileWrapper, ct) => this.InitializeParameters(profileWrapper.Profile)); 
 
-            await this.model.Rows.Select((row) =>
-            {
-                this.UpdateParameterValues(row.Values);
-                return true;
-            });
+            this.model.Rows.ForEach((row, ct) => this.UpdateParameterValues(row.Values));
         };
     }
-
-    private void InitializeParameters(LogProfile profile)
+    protected override void OnNavigatingFrom(NavigatingCancelEventArgs e)
     {
-        if (this.model == null)
-        {
-            return;
-        }
-
-        int row = 0;
-        foreach(var column in profile.Columns)
-        {
-            TextBlock name = new TextBlock();
-            name.Text = column.Parameter.Name;
-            name.Margin = new Thickness(5);
-            name.HorizontalAlignment = HorizontalAlignment.Left;
-            name.VerticalAlignment = VerticalAlignment.Center;
-            name.SetValue(Grid.RowProperty, row);
-            name.SetValue(Grid.ColumnProperty, 0);
-
-            TextBlock value = new TextBlock();
-            value.Text = column.Conversion.Units;
-            value.Margin = new Thickness(5);
-            value.HorizontalAlignment = HorizontalAlignment.Left;
-            value.VerticalAlignment = VerticalAlignment.Center;
-            value.SetValue(Grid.RowProperty, row);
-            value.SetValue(Grid.ColumnProperty, 1);
-            row++;
-            parameterMetadata.Add(new RowMetadata(value, column.Conversion.Units));
-            this.Parameters.Children.Add(name);
-            this.Parameters.Children.Add(value);
-        }
+        this.model?.StopLogging();
     }
 
-    private void UpdateParameterValues(IEnumerable<string> newValues)
+    private ValueTask InitializeParameters(LogProfile profile)
     {
         if (this.model == null)
         {
-            return;
+            return ValueTask.CompletedTask;
         }
 
-        int row = 0;
-        foreach (var value in newValues)
+        // Operations that affect the UI need to run on the main thread.
+        this.dispatcherQueue.TryEnqueue(() =>
         {
-            if (row >= this.parameterMetadata.Count)
+            int row = 0;
+            foreach (var column in profile.Columns)
             {
-                break;
+                TextBlock name = new TextBlock();
+                name.Text = column.Parameter.Name;
+                name.Margin = new Thickness(5);
+                name.HorizontalAlignment = HorizontalAlignment.Left;
+                name.VerticalAlignment = VerticalAlignment.Center;
+                name.SetValue(Grid.RowProperty, row);
+                name.SetValue(Grid.ColumnProperty, 0);
+
+                TextBlock value = new TextBlock();
+                value.Text = column.Conversion.Units;
+                value.Margin = new Thickness(5);
+                value.HorizontalAlignment = HorizontalAlignment.Left;
+                value.VerticalAlignment = VerticalAlignment.Center;
+                value.SetValue(Grid.RowProperty, row);
+                value.SetValue(Grid.ColumnProperty, 1);
+                row++;
+                parameterMetadata.Add(new RowMetadata(value, column.Conversion.Units));
+
+                this.Parameters.RowDefinitions.Add(new RowDefinition());
+                this.Parameters.Children.Add(name);
+                this.Parameters.Children.Add(value);
             }
-            var rowMetadata = this.parameterMetadata[row];
-            rowMetadata.TextBlock.Text = value + " " + rowMetadata.Units;
-            row++;
+        });
+
+        return ValueTask.CompletedTask;
+    }
+
+    private ValueTask UpdateParameterValues(IEnumerable<string> rowValues)
+    {
+        if (this.model == null)
+        {
+            return ValueTask.CompletedTask;
         }
+
+        // Operations that affect the UI need to run on the main thread.
+        this.dispatcherQueue.TryEnqueue(() =>
+        {
+            int row = 0;
+            foreach (var value in rowValues)
+            {
+                if (row >= this.parameterMetadata.Count)
+                {
+                    break;
+                }
+                var rowMetadata = this.parameterMetadata[row];
+                rowMetadata.TextBlock.Text = value + " " + rowMetadata.Units;
+                row++;
+            }
+        });
+
+        return ValueTask.CompletedTask;
     }
 }
 
