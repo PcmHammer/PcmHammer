@@ -8,52 +8,68 @@
     xmlns:utu="using:Uno.Toolkit.UI"
     mc:Ignorable="d"
     Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
-  <Grid utu:SafeArea.Insets="VisibleBounds">
-    <Grid.RowDefinitions>
-      <RowDefinition Height="0" x:Name="UnusedButImTooLazyToRenumberEverything"/>
-      <RowDefinition Height="*" x:Name="EverythingElse"/>
-    </Grid.RowDefinitions>
-    <Grid.ColumnDefinitions>
-      <ColumnDefinition Width="*"/>
-      <ColumnDefinition Width="*"/>
-      <ColumnDefinition Width="*"/>
-    </Grid.ColumnDefinitions>
+    <Grid utu:SafeArea.Insets="VisibleBounds">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" x:Name="FixedHeightElements"/>
+            <RowDefinition Height="Auto" x:Name="ComPortLabels"/>
+            <RowDefinition Height="*" x:Name="ComPortLists"/>
+            <RowDefinition Height="Auto" x:Name="ComPortTypes"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
 
-    <StackPanel Grid.Row="1" Grid.Column="0" Margin="10">
-      <TextBlock TextAlignment="Center" VerticalAlignment="Bottom" TextWrapping="WrapWholeWords" 
+        <StackPanel Grid.Row="0" Grid.Column="0" Margin="10">
+            <TextBlock TextAlignment="Center" VerticalAlignment="Bottom" TextWrapping="WrapWholeWords" 
                  Text="Do you have a serial, or J2534 interface?"/>
-      <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-        <RadioButton Content="Serial" IsChecked="{Binding Path=UseSerialDevice, Mode=TwoWay}"  Margin="0,0,20,0"/>
-        <RadioButton Content="J2534" IsChecked="{Binding Path=UseJ2534Device}" />
-      </StackPanel>
-      <TextBlock Visibility="{Binding Path=UseSerialDevice}" TextAlignment="Center" VerticalAlignment="Bottom" TextWrapping="WrapWholeWords" Margin="0,20,0,0"
-                 Text="Which sort of OBD2 device do you have?" />
-      <ListView Visibility="{Binding Path=UseSerialDevice}" ItemsSource="{Binding SerialDeviceTypes}" BorderThickness="1" />
-      <TextBlock Visibility="{Binding Path=UseSerialDevice}" TextAlignment="Center" VerticalAlignment="Bottom" TextWrapping="WrapWholeWords" Margin="0,20,0,0"
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                <RadioButton Content="Serial" IsChecked="{Binding Path=UseSerialDevice, Mode=TwoWay}"  Margin="0,0,20,0"/>
+                <RadioButton Content="J2534" IsChecked="{Binding Path=UseJ2534Device}" />
+            </StackPanel>
+        </StackPanel>
+        
+        <TextBlock Grid.Row="1" Grid.Column="0" 
+            Visibility="{Binding Path=UseSerialDevice}" TextAlignment="Center" VerticalAlignment="Center" TextWrapping="WrapWholeWords" Margin="0,20,0,0"
                  Text="Which COM port does your OBD2 device use?" />
-      <ListView  Visibility="{Binding Path=UseSerialDevice}" ItemsSource="{Binding Obd2Ports}" BorderThickness="1" />
-    </StackPanel>
 
-    <StackPanel Grid.Row="1" Grid.Column="1" Margin="10">
-      <TextBlock TextAlignment="Center" VerticalAlignment="Bottom" TextWrapping="WrapWholeWords"
+        <ListView Grid.Row="2" Grid.Column="0" 
+          Visibility="{Binding Path=UseSerialDevice}" ItemsSource="{Binding Obd2Ports}" BorderThickness="1" />
+
+
+        <StackPanel Grid.Row="3" Grid.Column="0" Margin="10">
+            <TextBlock Visibility="{Binding Path=UseSerialDevice}" TextAlignment="Center" VerticalAlignment="Bottom" TextWrapping="WrapWholeWords" Margin="0,20,0,0"
+                 Text="Which sort of OBD2 device do you have?" />
+            <ListView Visibility="{Binding Path=UseSerialDevice}" ItemsSource="{Binding SerialDeviceTypes}" BorderThickness="1" />
+        </StackPanel>
+
+        <StackPanel Grid.Row="0" Grid.Column="1" Margin="10">
+            <TextBlock TextAlignment="Center" VerticalAlignment="Bottom" TextWrapping="WrapWholeWords"
                  Text="Do you have a SeeedStudio USB-CAN analyzer for aftermarket CAN sensors?"/>
-      <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-        <RadioButton Content="Yes" IsChecked="{Binding Path=UseCanDevice, Mode=TwoWay}" Margin="0,0,20,0"/>
-        <RadioButton Content="No" IsChecked="{Binding Path=DontUseCanDevice}"/>
-      </StackPanel>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                <RadioButton Content="Yes" IsChecked="{Binding Path=UseCanDevice, Mode=TwoWay}" Margin="0,0,20,0"/>
+                <RadioButton Content="No" IsChecked="{Binding Path=DontUseCanDevice}"/>
+            </StackPanel>
+        </StackPanel>
 
-      <TextBlock Visibility="{Binding Path=UseCanDevice}" TextAlignment="Center" VerticalAlignment="Bottom" TextWrapping="WrapWholeWords" Margin="0,20,0,0"
+        <TextBlock Grid.Row="1" Grid.Column="1" 
+                Visibility="{Binding Path=UseCanDevice}" TextAlignment="Center" VerticalAlignment="Center" TextWrapping="WrapWholeWords" Margin="0,20,0,0"
                  Text="Which COM port does your SeeedStudio USB-CAN analyzer use?" />
-      <ListView Visibility="{Binding Path=UseCanDevice}" ItemsSource="{Binding CanPorts}" BorderThickness="1" />
-    </StackPanel>
+        <ListView Grid.Row="2" Grid.Column="1" 
+            Visibility="{Binding Path=UseCanDevice}" ItemsSource="{Binding CanPorts}" BorderThickness="1" />
 
-    <StackPanel Grid.Row="1" Grid.Column="2" Margin="10">
-      <TextBlock TextAlignment="Center" VerticalAlignment="Bottom" TextWrapping="WrapWholeWords"
+
+        <StackPanel Grid.Row="0" Grid.Column="2" Grid.RowSpan="3" Margin="10">
+            <TextBlock TextAlignment="Center" VerticalAlignment="Bottom" TextWrapping="WrapWholeWords"
                  Text="Where shall we save your data logs?" />
-      <TextBlock TextAlignment="Center" Margin="10" Text="{Binding DataLogFolder}" />
-      <Button HorizontalAlignment="Center" Margin="10" Content="Change Folder" Command="{Binding OpenLogFolderPicker}"/>
-      <Button HorizontalAlignment="Center" Margin="10" Content="Open Folder" Command="{Binding OpenLogFolder}"/>
-    </StackPanel>
+            <TextBlock TextAlignment="Center" Margin="10" Text="{Binding DataLogFolder}" />
+            <Button 
+        HorizontalAlignment="Center" Margin="10" Content="Change Folder" Command="{Binding OpenLogFolderPicker}"/>
+            <Button 
+        HorizontalAlignment="Center" Margin="10" Content="Open Folder" Command="{Binding OpenLogFolder}"/>
+        </StackPanel>
 
-  </Grid>
+        
+    </Grid>
 </Page>

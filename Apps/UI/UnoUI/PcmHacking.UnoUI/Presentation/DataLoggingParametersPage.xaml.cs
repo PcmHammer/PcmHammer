@@ -4,6 +4,10 @@ namespace PcmHacking.UnoUI.Presentation;
 
 public sealed partial class DataLoggingParametersPage : Page
 {
+    private record RowMetadata(TextBlock TextBlock, string Units);
+
+    private List<RowMetadata> parameterMetadata = new();
+
     private DataLoggingParametersModel? model;
 
     public DataLoggingParametersPage()
@@ -39,8 +43,6 @@ public sealed partial class DataLoggingParametersPage : Page
         };
     }
 
-    private List<TextBlock> parameterValues;
-
     private void InitializeParameters(LogProfile profile)
     {
         if (this.model == null)
@@ -67,7 +69,7 @@ public sealed partial class DataLoggingParametersPage : Page
             value.SetValue(Grid.RowProperty, row);
             value.SetValue(Grid.ColumnProperty, 1);
             row++;
-            parameterValues.Add(value);
+            parameterMetadata.Add(new RowMetadata(value, column.Conversion.Units));
             this.Parameters.Children.Add(name);
             this.Parameters.Children.Add(value);
         }
@@ -83,12 +85,12 @@ public sealed partial class DataLoggingParametersPage : Page
         int row = 0;
         foreach (var value in newValues)
         {
-            if (row >= this.parameterValues.Count)
+            if (row >= this.parameterMetadata.Count)
             {
                 break;
             }
-            var textBlock = this.parameterValues[row];
-            textBlock.Text = value;
+            var rowMetadata = this.parameterMetadata[row];
+            rowMetadata.TextBlock.Text = value + " " + rowMetadata.Units;
             row++;
         }
     }

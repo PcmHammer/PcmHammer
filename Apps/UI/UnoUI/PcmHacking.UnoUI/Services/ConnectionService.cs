@@ -21,12 +21,25 @@ public class ConnectionUnavailableException : InvalidOperationException
     public ConnectionUnavailableException(string message) : base(message) { }
 }
 
+/// <summary>
+/// This provides access to the vehicle.
+/// </summary>
+/// <remarks>
+/// This just helps to ensure that EndActivity gets called after BeginActivity,
+/// by making it possible to use the "using" pattern.
+/// using (var lease = connectionService.BeginActivity(...))
+/// { 
+///     Vehicle vehicle = lease.Vehicle;
+///     // do stuff with the vehicle....
+/// } // EndActivity is automatically called here, even if an exception is thrown.
+/// </remarks>
 public class ConnectionLease : IDisposable
 {
     private readonly ConnectionService connectionService;
     private readonly Vehicle vehicle;
     private readonly string activityName;
     private bool isDisposed = false;
+
     public Vehicle Vehicle
     {
         get
@@ -141,10 +154,12 @@ public class ConnectionService : IConnectionService
     public async Task<bool> TryConnect(CurrentSettings settings)
     {
         if (this.internalState != ConnectionStates.NotConfigured &&
-            await this.BeginActivity("Testing Connection", ConnectionStates.Connected) == null)
+            await this.BeginActivity("Testing Connection", ConnectionStates.Connecting) == null)
         {
             return false;
         }
+
+        bool isConnected = false;
 
         try
         {
@@ -190,10 +205,7 @@ public class ConnectionService : IConnectionService
                 this.progressLogger.AddDebugMessage("First poll succeeded.");
                 this.ForceTransition(ConnectionStates.Connected);
                 await this.ConnectionState.SetAsync(ConnectionStates.Connected);
-
-                // Pretend we just finished a poll, so the UI will update and the poll timer will start.
-                await this.EndActivity();
-                return true;
+                isConnected = true;
             }
             else
             {
@@ -203,7 +215,6 @@ public class ConnectionService : IConnectionService
                 this.ForceTransition(ConnectionStates.NotConfigured);
                 await this.ConnectionState.SetAsync(ConnectionStates.NotConfigured);
                 await this.ResetVehicleInfo();
-                return false;
             }
         }
         catch (Exception exception)
@@ -212,6 +223,13 @@ public class ConnectionService : IConnectionService
             this.progressLogger.AddDebugMessage(exception.ToString());
             return false;
         }
+        finally
+        {
+            // Pretend we just finished a poll, so the UI will update and the poll timer will start.
+            await this.EndActivityInternal(isConnected);
+        }
+
+        return isConnected;
     }
 
     public async Task<ConnectionLease> BeginActivity(string activity, bool canInterrupt)
@@ -243,7 +261,11 @@ public class ConnectionService : IConnectionService
             // Note that "not configured" is NOT an allowed state in this scenario.
             // If the user tries an unsuccessful configuration, we go into that state to disable polling.
             // If the connection is lost unexpectedly, polling should re-establish it.
-            if (!this.TryTransition(ConnectionStates.Connected | ConnectionStates.NotConnected, ConnectionStates.Polling, 1000))
+            ConnectionStates allowed =
+                ConnectionStates.NotConnected |
+                ConnectionStates.Connected;
+
+            if (!this.TryTransition(allowed, ConnectionStates.Polling, 1000))
             {
                 this.progressLogger.AddDebugMessage($"Skipping poll, internalState is {this.internalState}");
                 throw new ConnectionUnavailableException("Unabe to poll. " + errorMessage);
@@ -258,6 +280,17 @@ public class ConnectionService : IConnectionService
             if (!this.TryTransition(allowed, ConnectionStates.NotConfigured, 1000))
             {
                 throw new ConnectionUnavailableException("Connection lost. " + errorMessage);
+            }
+        }
+        else if (desiredState == ConnectionStates.Connecting)
+        {
+            ConnectionStates allowed =
+                ConnectionStates.NotConnected |
+                ConnectionStates.NotConfigured |
+                ConnectionStates.Connected;
+            if (!this.TryTransition(allowed, ConnectionStates.Connecting, 1000))
+            {
+                throw new ConnectionUnavailableException($"This should never happen. Trying to test new settings. Current state is {this.internalState}, but: " + errorMessage);
             }
         }
         else
@@ -280,15 +313,40 @@ public class ConnectionService : IConnectionService
 
     public async Task EndActivity()
     {
+        // In this scenario we're just assuming the connection is still good.
+        // It might be helpful to give the ConnectionLease object a way to indicate
+        // that the connection was lost while the lease was held, but I'm not sure
+        // what we'd do with that information other than just return to polling,
+        // which is what happens anyway.
+        //
+        // The real reason for the boolean parameter is just to give the TryConnect
+        // method a way to change the UI from Connected to Not Connected when the
+        // connection settings aren't valid.
+        //
+        // In other scenarios, we're just passing 'true' and hoping for the best.
+        await this.EndActivityInternal(true);
+    }
+
+    private async Task EndActivityInternal(bool isConnected)
+    {
         // TODO: Dispose and re-create the Vehicle instance here, to ensure that it doesn't continue to get used.
         // The current implementation of Vehice.Dispose() also disposes the underlying connection, which we don't want.
         // Could probably change that without breaking the WinForms UI, but need to investigate.
         this.TryTransition(ConnectionStates.Active | ConnectionStates.Logging, ConnectionStates.Connected, 1000);
-        await this.ConnectionState.SetAsync(ConnectionStates.Connected);
+        if (isConnected)
+        {
+            await this.ConnectionState.SetAsync(ConnectionStates.Connected);
+        }
+        else
+        {
+            await this.ConnectionState.SetAsync(ConnectionStates.NotConnected);
+        }
+
         await this.Activity.SetAsync(String.Empty);
 
         this.StartTimer();
     }
+
 
     private void StartTimer()
     {
