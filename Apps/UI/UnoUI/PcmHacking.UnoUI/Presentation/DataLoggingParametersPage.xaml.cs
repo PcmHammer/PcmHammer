@@ -52,7 +52,7 @@ public sealed partial class DataLoggingParametersPage : Page
         foreach(var column in profile.Columns)
         {
             TextBlock name = new TextBlock();
-            name.Text = column.Name;
+            name.Text = column.Parameter.Name;
             name.Margin = new Thickness(5);
             name.HorizontalAlignment = HorizontalAlignment.Left;
             name.VerticalAlignment = VerticalAlignment.Center;
@@ -60,7 +60,7 @@ public sealed partial class DataLoggingParametersPage : Page
             name.SetValue(Grid.ColumnProperty, 0);
 
             TextBlock value = new TextBlock();
-            value.Text = column.Value.ToString();
+            value.Text = column.Conversion.Units;
             value.Margin = new Thickness(5);
             value.HorizontalAlignment = HorizontalAlignment.Left;
             value.VerticalAlignment = VerticalAlignment.Center;

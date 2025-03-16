@@ -148,8 +148,14 @@ public class ConnectionService : IConnectionService
 
         try
         {
+            this.StopTimer();
+
+            // Clear the settings shown in the UI, and allow time for the UI to update.
             await this.ResetVehicleInfo();
             await Task.Delay(100);
+
+            // Just in case there was a race condition between stopping the timer and processing the last timer callback.
+            await this.ResetVehicleInfo();
 
             if (this.vehicle != null)
             {
@@ -192,6 +198,7 @@ public class ConnectionService : IConnectionService
             else
             {
                 this.unoLogger.LogInformation(new EventId(2, "VehicleService"), "First poll failed.");
+                this.progressLogger.AddDebugMessage("First poll failed.");
                 await this.Activity.SetAsync("Not Configured");
                 this.ForceTransition(ConnectionStates.NotConfigured);
                 await this.ConnectionState.SetAsync(ConnectionStates.NotConfigured);
@@ -266,12 +273,7 @@ public class ConnectionService : IConnectionService
                 
         await this.Activity.SetAsync(activity);
 
-        if (this.timer != null)
-        {
-            this.timer.Change(int.MaxValue, Timeout.Infinite);
-            this.timer.Dispose();
-            this.timer = null;
-        }
+        this.StopTimer();
 
         return this.vehicle!;
     }
@@ -285,6 +287,11 @@ public class ConnectionService : IConnectionService
         await this.ConnectionState.SetAsync(ConnectionStates.Connected);
         await this.Activity.SetAsync(String.Empty);
 
+        this.StartTimer();
+    }
+
+    private void StartTimer()
+    {
         this.timer = new System.Threading.Timer(
             TimerCallback,
             state: null,
@@ -292,8 +299,23 @@ public class ConnectionService : IConnectionService
             period: Timeout.Infinite);
     }
 
+    private void StopTimer()
+    {
+        if (this.timer != null)
+        {
+            this.timer.Change(int.MaxValue, Timeout.Infinite);
+            this.timer.Dispose();
+            this.timer = null;
+        }
+    }
+
     private async void TimerCallback(object? state)
     {
+        if (this.timer == null)
+        {
+            return;
+        }
+
         bool disconnected = false;
         try
         {
@@ -325,11 +347,7 @@ public class ConnectionService : IConnectionService
                 await this.ConnectionState.SetAsync(ConnectionStates.NotConnected);
 
                 // Try again, maybe the PCM is just rebooting after a flash...
-                this.timer = new System.Threading.Timer(
-                    TimerCallback,
-                    state: null,
-                    dueTime: 1000,
-                    period: Timeout.Infinite);
+                this.StartTimer();
             }
         }
     }
