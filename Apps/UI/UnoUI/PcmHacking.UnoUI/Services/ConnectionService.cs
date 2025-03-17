@@ -268,7 +268,7 @@ public class ConnectionService : IConnectionService
             if (!this.TryTransition(allowed, ConnectionStates.Polling, 1000))
             {
                 this.progressLogger.AddDebugMessage($"Skipping poll, internalState is {this.internalState}");
-                throw new ConnectionUnavailableException("Unabe to poll. " + errorMessage);
+                throw new ConnectionUnavailableException("Unable to poll. " + errorMessage);
             }
         }
         else if (desiredState == ConnectionStates.NotConfigured)

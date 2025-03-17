@@ -43,6 +43,9 @@ public partial record DataLoggingParametersModel
     private EventWaitHandle rowAvailableHandle = new EventWaitHandle(false, EventResetMode.AutoReset);
     private BackgroundWorker worker = new BackgroundWorker();
 
+    public PcmHacking.ILogger ProgressLogger { get { return this.progressLogger; } }
+    public ManualResetEvent InitializationEvent { get; private set; }
+
     public DataLoggingParametersModel(
         INavigator navigator,
         IConnectionService connectionService,
@@ -58,6 +61,7 @@ public partial record DataLoggingParametersModel
         this.profilePath = profilePath;
         this.canPortName = settingsService.GetCanSerialPortName();
 
+        this.InitializationEvent = new ManualResetEvent(false);
         worker.DoWork += async (sender, e) => await this.OpenProfile();
         worker.RunWorkerAsync();
     }
@@ -67,64 +71,122 @@ public partial record DataLoggingParametersModel
 
     private async Task OpenProfile()
     {
-        using (var lease = await this.connectionService.BeginActivity("Logging", true))
+        try
         {
-            if (lease == null)
+            using (var lease = await this.connectionService.BeginActivity("Logging", true))
             {
-                this.progressLogger.AddUserMessage("No vehicle connected.");
-                return;
-            }
-
-            var vehicle = lease.Vehicle;
-
-            // Load the database
-            string appDirectory = AppContext.BaseDirectory;
-            var database = new ParameterDatabase(appDirectory);
-            database.LoadDatabase();
-
-            // Create the log profile
-            var osidQueryResult = await vehicle.QueryOperatingSystemId(CancellationToken.None);
-            uint osid = osidQueryResult.Value;
-            LogProfileReader reader = new LogProfileReader(database, osid, this.progressLogger);
-            var profile = reader.Read(this.profilePath);
-
-            // This tells the view to update the UI with the new profile.
-            await this.LogProfile.SetAsync(new LogProfileWrapper(profile), CancellationToken.None);
-
-            // Create the logger, and start logging.
-            this.canLogger = new CanLogger(database);
-
-            if (string.IsNullOrEmpty(this.canPortName))
-            {
-                await this.canLogger.SetPort(null);
-            }
-            else
-            {
-                await this.canLogger.SetPort(new StandardPort(canPortName));
-
-            }
-
-            Logger logger = vehicle.CreateLogger(osid, canLogger, profile.Columns, this.progressLogger);
-            await logger.StartLogging();
-            while (!exitWaitHandle.WaitOne(0))
-            {
-                IEnumerable<string> rowValues = await logger.GetNextRow();
-                if (rowValues != null)
+                if (lease == null)
                 {
-                    await this.Rows.SetAsync(new LogRowValues(rowValues));
+                    this.progressLogger.AddUserMessage("No vehicle connected.");
+                    return;
+                }
 
-/*                    // Hand this data off to be written to disk and displayed in the UI.
-                    this.logRowQueue.Enqueue(
-                        new Tuple<Logger, LogFileWriter?, IEnumerable<string>>(
-                            logger,
-                            null, // file writer
-                            rowValues));
+                var vehicle = lease.Vehicle;
 
-                    this.rowAvailableHandle.Set();
-*/
+                // Load the database
+                string appDirectory = AppContext.BaseDirectory;
+                var database = new ParameterDatabase(appDirectory);
+                database.LoadDatabase();
+
+                // Create the log profile
+                uint osid = 0;
+                try
+                {
+                    var osidQueryResult = await vehicle.QueryOperatingSystemId(CancellationToken.None);
+                    osid = osidQueryResult.Value;
+                }
+                catch (Exception ex)
+                {
+                    await this.ShowErrorMessage("Unable to query the operating system ID: " + ex.Message);
+                    return;
+                }
+
+                LogProfileReader reader = new LogProfileReader(database, osid, this.progressLogger);
+                var profile = reader.Read(this.profilePath);
+
+                // This tells the view to update the UI with the new profile.
+                this.progressLogger.AddDebugMessage("DataLoggingParametersModel loaded profile.");
+                this.InitializationEvent.WaitOne();
+                this.progressLogger.AddDebugMessage("DataLoggingParametersModel initialization unblocked.");
+                await this.LogProfile.SetAsync(new LogProfileWrapper(profile), CancellationToken.None);
+                await Task.Delay(100);
+                this.progressLogger.AddDebugMessage("DataLoggingParametersModel registered profile.");
+
+                // Create the logger, and start logging.
+                this.canLogger = new CanLogger(database);
+
+                if (string.IsNullOrEmpty(this.canPortName))
+                {
+                    await this.canLogger.SetPort(null);
+                }
+                else
+                {
+                    await this.canLogger.SetPort(new StandardPort(canPortName));
+
+                }
+
+                Logger logger = vehicle.CreateLogger(osid, canLogger, profile.Columns, this.progressLogger);
+                try
+                {
+                    await logger.StartLogging();
+                    this.progressLogger.AddDebugMessage("DataLoggingParametersModel started logging.");
+                }
+                catch (Exception ex)
+                {
+                    await this.ShowErrorMessage("Unable to start logging: " + ex.Message);
+                    return;
+                }
+
+                while (!exitWaitHandle.WaitOne(0))
+                {
+                    IEnumerable<string> rowValues = await logger.GetNextRow();
+                    if (rowValues != null)
+                    {
+                        await this.Rows.SetAsync(new LogRowValues(rowValues));
+
+                        /*                    // Hand this data off to be written to disk and displayed in the UI.
+                                            this.logRowQueue.Enqueue(
+                                                new Tuple<Logger, LogFileWriter?, IEnumerable<string>>(
+                                                    logger,
+                                                    null, // file writer
+                                                    rowValues));
+
+                                            this.rowAvailableHandle.Set();
+                        */
+                    }
                 }
             }
         }
+        catch (Exception ex)
+        {
+            this.ProgressLogger.AddDebugMessage("Data logging exception: " + ex.Message);
+            worker.RunWorkerAsync();
+        }
+    }
+
+    private async Task ShowErrorMessage(string message)
+    {
+        // This is hacky but it dispays the error message...
+        // TODO: hide the grid, show a white-on-red "danger to manifold" error message.
+        var fakeProfile = new LogProfile();
+        var fakeConversion = new Conversion(string.Empty, string.Empty, string.Empty);
+        fakeProfile.AddColumn(
+            new LogColumn(
+                new PidParameter(
+                    String.Empty,
+                    message,
+                    String.Empty,
+                    "uint8",
+                    false,
+                    new Conversion[] { fakeConversion },
+                    0,
+                    new uint[0]),
+                fakeConversion,
+                false));
+        await this.LogProfile.SetAsync(new LogProfileWrapper(fakeProfile), CancellationToken.None);
+
+        this.progressLogger.AddUserMessage("Failed to start logging.");
+        this.progressLogger.AddDebugMessage(message);
     }
 
     public void StopLogging()

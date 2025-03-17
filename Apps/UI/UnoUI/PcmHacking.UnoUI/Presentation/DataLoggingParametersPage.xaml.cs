@@ -1,11 +1,12 @@
 using System.Drawing.Text;
 using Microsoft.UI.Dispatching;
+using Uno.Extensions.Reactive;
 
 namespace PcmHacking.UnoUI.Presentation;
 
 public sealed partial class DataLoggingParametersPage : Page
 {
-    private record RowMetadata(TextBlock TextBlock, string Units);
+    private record RowMetadata(TextBlock Value, TextBlock? ZoomedValue, string Units);
 
     private List<RowMetadata> parameterMetadata = new();
 
@@ -33,9 +34,15 @@ public sealed partial class DataLoggingParametersPage : Page
 
             this.model = newModel;
 
+            this.model.ProgressLogger.AddDebugMessage("DataLoggingParametersPage DataContext set.");
+
             this.model.LogProfile.ForEach((profileWrapper, ct) => this.InitializeParameters(profileWrapper.Profile)); 
 
             this.model.Rows.ForEach((row, ct) => this.UpdateParameterValues(row.Values));
+
+            // Let the Model know that it's safe to continue.
+            this.model.InitializationEvent.Set();
+            this.model.ProgressLogger.AddDebugMessage("DataLoggingParametersPage callbacks registered.");            
         };
     }
     protected override void OnNavigatingFrom(NavigatingCancelEventArgs e)
@@ -50,18 +57,26 @@ public sealed partial class DataLoggingParametersPage : Page
             return ValueTask.CompletedTask;
         }
 
+        this.model.ProgressLogger.AddDebugMessage("Initializing parameter grid.");
+
         // Operations that affect the UI need to run on the main thread.
         this.dispatcherQueue.TryEnqueue(() =>
         {
-            int row = 0;
+            this.Parameters.RowDefinitions.Clear();
+            this.ZoomedParameters.RowDefinitions.Clear();
+            this.Parameters.Children.Clear();
+            this.ZoomedParameters.Children.Clear();
+
+            int mainRowIndex = 0;
+            int zoomRowIndex = 0;
             foreach (var column in profile.Columns)
             {
                 TextBlock name = new TextBlock();
                 name.Text = column.Parameter.Name;
                 name.Margin = new Thickness(5);
-                name.HorizontalAlignment = HorizontalAlignment.Left;
+                name.HorizontalAlignment = HorizontalAlignment.Right;
                 name.VerticalAlignment = VerticalAlignment.Center;
-                name.SetValue(Grid.RowProperty, row);
+                name.SetValue(Grid.RowProperty, mainRowIndex);
                 name.SetValue(Grid.ColumnProperty, 0);
 
                 TextBlock value = new TextBlock();
@@ -69,10 +84,48 @@ public sealed partial class DataLoggingParametersPage : Page
                 value.Margin = new Thickness(5);
                 value.HorizontalAlignment = HorizontalAlignment.Left;
                 value.VerticalAlignment = VerticalAlignment.Center;
-                value.SetValue(Grid.RowProperty, row);
+                value.SetValue(Grid.RowProperty, mainRowIndex);
                 value.SetValue(Grid.ColumnProperty, 1);
-                row++;
-                parameterMetadata.Add(new RowMetadata(value, column.Conversion.Units));
+
+                TextBlock? zoomValue = null;
+                if (column.Zoom)
+                {
+                    StackPanel stackPanel = new StackPanel();
+                    stackPanel.Orientation = Orientation.Vertical;
+                    stackPanel.VerticalAlignment = VerticalAlignment.Center;
+                    stackPanel.SetValue(Grid.RowProperty, zoomRowIndex);
+                    stackPanel.SetValue(Grid.ColumnProperty, 0);
+
+                    TextBlock zoomName = new TextBlock();
+                    zoomName.Margin = new Thickness(5);
+                    zoomName.HorizontalAlignment = HorizontalAlignment.Center;
+                    zoomName.VerticalAlignment = VerticalAlignment.Center;
+                    zoomName.Text = column.Parameter.Name;
+                    stackPanel.Children.Add(zoomName);
+
+                    zoomValue = new TextBlock();
+                    zoomValue.FontSize = 24;
+                    zoomValue.Margin = new Thickness(5);
+                    zoomValue.HorizontalAlignment = HorizontalAlignment.Center;
+                    zoomValue.VerticalAlignment = VerticalAlignment.Center;
+                    zoomValue.Text = string.Empty;
+                    stackPanel.Children.Add(zoomValue);
+
+                    TextBlock zoomUnits = new TextBlock();
+                    zoomUnits.Margin = new Thickness(5);
+                    zoomUnits.HorizontalAlignment = HorizontalAlignment.Center;
+                    zoomUnits.VerticalAlignment = VerticalAlignment.Center;
+                    zoomUnits.Text = column.Conversion.Units;
+                    stackPanel.Children.Add(zoomUnits);
+
+                    zoomRowIndex++;
+                    this.ZoomedParameters.RowDefinitions.Add(new RowDefinition());
+                    this.ZoomedParameters.Children.Add(stackPanel);
+
+                }
+
+                mainRowIndex++;
+                parameterMetadata.Add(new RowMetadata(value, zoomValue, column.Conversion.Units));
 
                 this.Parameters.RowDefinitions.Add(new RowDefinition());
                 this.Parameters.Children.Add(name);
@@ -90,6 +143,12 @@ public sealed partial class DataLoggingParametersPage : Page
             return ValueTask.CompletedTask;
         }
 
+        if (this.parameterMetadata.Count == 0)
+        {
+            this.model.ProgressLogger.AddDebugMessage("Parameter grid not initialized.");
+            return ValueTask.CompletedTask;
+        }
+
         // Operations that affect the UI need to run on the main thread.
         this.dispatcherQueue.TryEnqueue(() =>
         {
@@ -101,7 +160,12 @@ public sealed partial class DataLoggingParametersPage : Page
                     break;
                 }
                 var rowMetadata = this.parameterMetadata[row];
-                rowMetadata.TextBlock.Text = value + " " + rowMetadata.Units;
+                rowMetadata.Value.Text = value + " " + rowMetadata.Units;
+                if (rowMetadata.ZoomedValue?.Text != null)
+                {
+                    rowMetadata.ZoomedValue.Text = value;
+                }
+
                 row++;
             }
         });

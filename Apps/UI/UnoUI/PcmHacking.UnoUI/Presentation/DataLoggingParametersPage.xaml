@@ -24,7 +24,7 @@
       </Grid.ColumnDefinitions>
     </Grid>
 
-    <Grid Grid.Row="0" Grid.Column="0" Name="ZoomParameters">
+    <Grid Grid.Row="0" Grid.Column="1" Name="ZoomedParameters">
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="*" />
       </Grid.ColumnDefinitions>
