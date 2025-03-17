@@ -402,6 +402,7 @@ namespace PcmHacking
             byte[] rx = { 0 };
             try
             {
+                this.Logger.AddDebugMessage("DVI ReadElmPacket: awaiting frame 1");
                 while (framefound == false)
                 {
                     Chk = (await WaitForSerial(1));
@@ -412,6 +413,7 @@ namespace PcmHacking
                     }
 
                     await this.Port.Receive(rx, 0, 1);
+                    this.Logger.AddDebugMessage("DVI ReadElmPacket: " + rx[0].ToString());
                     if (rx[0] == 0xD) //carriage return
                     {
                         if (StrResp != SentFrame)
@@ -426,6 +428,7 @@ namespace PcmHacking
                     StrResp += Convert.ToChar(rx[0]);
                 }
 
+                this.Logger.AddDebugMessage("DVI ReadElmPacket: awaiting frame 2");
                 //Find Idle frame
                 framefound = false;
                 while (framefound == false)
@@ -437,12 +440,14 @@ namespace PcmHacking
                         return Response.Create(ResponseStatus.Timeout, "");
                     }
                     await this.Port.Receive(rx, 0, 1);
+                    this.Logger.AddDebugMessage("DVI ReadElmPacket: " + rx[0].ToString());
                     if (rx[0] == '>')
                     {
                         framefound = true;
                         break;
                     }
                 }
+                this.Logger.AddDebugMessage("DVI ReadElmPacket: Response: " + StrResp);
                 return Response.Create(ResponseStatus.Success, StrResp);
 
             }

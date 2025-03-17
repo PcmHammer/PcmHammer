@@ -1983,7 +1983,7 @@
       description=""
       storageType="uint8"
       bitMapped="False">
-    <Conversion units="Boolean" expression="x" format="0.00" />
+    <Conversion units="Raw" expression="x" format="0.00" />
     <OS id="all" />
   </Parameter>
   <Parameter
