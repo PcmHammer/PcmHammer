@@ -19,13 +19,13 @@ public struct LogRowValues
     }
 }
 
-public struct LogProfileWrapper
+public struct LoggerWrapper
 {
-    public LogProfile Profile { get; private set;  }
+    public LogProfile Logger { get; private set;  }
 
-    public LogProfileWrapper(LogProfile profile)
+    public LoggerWrapper(Logger logger)
     {
-        this.Profile = profile;
+        this.Logger = logger;
     }
 }
 
@@ -35,12 +35,13 @@ public partial record DataLoggingParametersModel
     private IConnectionService connectionService;
     private ISettingsService settingsService;
     private PcmHacking.ILogger progressLogger;
+    private DispatcherQueue dispatcherQueue;
     private string profilePath;
     private string canPortName;
     private CanLogger? canLogger;
     private ConcurrentQueue<Tuple<Logger, LogFileWriter?, IEnumerable<string>>> logRowQueue = new ConcurrentQueue<Tuple<Logger, LogFileWriter?, IEnumerable<string>>>();
-    private EventWaitHandle exitWaitHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
-    private EventWaitHandle rowAvailableHandle = new EventWaitHandle(false, EventResetMode.AutoReset);
+    private ManualResetEvent exitWaitHandle = new ManualResetEvent(false);
+    private AutoResetEvent rowAvailableHandle = new AutoResetEvent(false);
     private BackgroundWorker worker = new BackgroundWorker();
 
     public PcmHacking.ILogger ProgressLogger { get { return this.progressLogger; } }
@@ -58,6 +59,7 @@ public partial record DataLoggingParametersModel
         this.connectionService = connectionService;
         this.settingsService = settingsService;
         this.progressLogger = progressLogger;
+        this.dispatcherQueue = dispatcherQueue;
         this.profilePath = profilePath;
         this.canPortName = settingsService.GetCanSerialPortName();
 
@@ -66,7 +68,7 @@ public partial record DataLoggingParametersModel
         worker.RunWorkerAsync();
     }
 
-    public IState<LogProfileWrapper> LogProfile => State<LogProfileWrapper>.Empty(this);
+    public IState<LoggerWrapper> LogProfile => State<LoggerWrapper>.Empty(this);
     public IState<LogRowValues> Rows => State<LogRowValues>.Empty(this);
 
     private async Task OpenProfile()
@@ -106,11 +108,6 @@ public partial record DataLoggingParametersModel
 
                 // This tells the view to update the UI with the new profile.
                 this.progressLogger.AddDebugMessage("DataLoggingParametersModel loaded profile.");
-                this.InitializationEvent.WaitOne();
-                this.progressLogger.AddDebugMessage("DataLoggingParametersModel initialization unblocked.");
-                await this.LogProfile.SetAsync(new LogProfileWrapper(profile), CancellationToken.None);
-                await Task.Delay(100);
-                this.progressLogger.AddDebugMessage("DataLoggingParametersModel registered profile.");
 
                 // Create the logger, and start logging.
                 this.canLogger = new CanLogger(database);
@@ -126,6 +123,14 @@ public partial record DataLoggingParametersModel
                 }
 
                 Logger logger = vehicle.CreateLogger(osid, canLogger, profile.Columns, this.progressLogger);
+
+                // Wait until the Page is ready.
+                this.InitializationEvent.WaitOne();
+                this.progressLogger.AddDebugMessage("DataLoggingParametersModel initialization unblocked.");
+                await this.LogProfile.SetAsync(new LoggerWrapper(logger), CancellationToken.None);
+                await Task.Delay(100);
+                this.progressLogger.AddDebugMessage("DataLoggingParametersModel registered profile.");
+
                 try
                 {
                     await logger.StartLogging();
@@ -143,16 +148,7 @@ public partial record DataLoggingParametersModel
                     if (rowValues != null)
                     {
                         await this.Rows.SetAsync(new LogRowValues(rowValues));
-
-                        /*                    // Hand this data off to be written to disk and displayed in the UI.
-                                            this.logRowQueue.Enqueue(
-                                                new Tuple<Logger, LogFileWriter?, IEnumerable<string>>(
-                                                    logger,
-                                                    null, // file writer
-                                                    rowValues));
-
-                                            this.rowAvailableHandle.Set();
-                        */
+                        // TODO: write data to disk
                     }
                 }
             }
@@ -160,7 +156,14 @@ public partial record DataLoggingParametersModel
         catch (Exception ex)
         {
             this.ProgressLogger.AddDebugMessage("Data logging exception: " + ex.Message);
-            worker.RunWorkerAsync();
+            if (!this.exitWaitHandle.WaitOne(0))
+            {
+                this.dispatcherQueue.TryEnqueue(async () =>
+                {
+                    await Task.Delay(100);
+                    worker.RunWorkerAsync();
+                });
+            }
         }
     }
 
@@ -183,7 +186,7 @@ public partial record DataLoggingParametersModel
                     new uint[0]),
                 fakeConversion,
                 false));
-        await this.LogProfile.SetAsync(new LogProfileWrapper(fakeProfile), CancellationToken.None);
+        await this.LogProfile.SetAsync(new LoggerWrapper(fakeProfile), CancellationToken.None);
 
         this.progressLogger.AddUserMessage("Failed to start logging.");
         this.progressLogger.AddDebugMessage(message);
@@ -193,29 +196,4 @@ public partial record DataLoggingParametersModel
     {
         this.exitWaitHandle.Set();
     }
-    /*
-    private async IAsyncEnumerable<LogRowValues> RowFactory([EnumeratorCancellation] CancellationToken ct)
-    {
-        WaitHandle[] waitHandles = new WaitHandle[] { exitWaitHandle, ct.WaitHandle, rowAvailableHandle };
-
-        while (true)
-        {
-            int index = await Task.Run(() => WaitHandle.WaitAny(waitHandles));
-            if (index == 0 || index == 1)
-            {
-                break;
-            }
-
-            if (logRowQueue.TryDequeue(out var row))
-            {
-                var (logger, logFileWriter, logRowValues) = row;
-                if (logFileWriter != null)
-                {
-                    logFileWriter.WriteLine(logRowValues);
-                }
-
-                yield return new LogRowValues(logRowValues);
-            }
-        }
-    }*/
 }

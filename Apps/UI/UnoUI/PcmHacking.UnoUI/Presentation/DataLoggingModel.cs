@@ -69,8 +69,8 @@ public partial class DataLoggingModel
     public async Task OpenProfileClicked()
     {
         FileOpenPicker openPicker = new FileOpenPicker();
-        openPicker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;        
-        openPicker.FileTypeFilter.Add(".profile");
+        //openPicker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;        
+        openPicker.FileTypeFilter.Add(".logprofile");
         StorageFile file = await openPicker.PickSingleFileAsync();
         if (file == null)
         {

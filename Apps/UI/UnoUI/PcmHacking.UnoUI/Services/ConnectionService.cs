@@ -154,6 +154,7 @@ public class ConnectionService : IConnectionService
     public async Task<bool> TryConnect(CurrentSettings settings)
     {
         if (this.internalState != ConnectionStates.NotConfigured &&
+            this.vehicle != null &&
             await this.BeginActivity("Testing Connection", ConnectionStates.Connecting) == null)
         {
             return false;
@@ -226,6 +227,7 @@ public class ConnectionService : IConnectionService
         finally
         {
             // Pretend we just finished a poll, so the UI will update and the poll timer will start.
+            this.progressLogger.AddDebugMessage($"Exiting TryConnect. Connected: {isConnected}.");
             await this.EndActivityInternal(isConnected);
         }
 
@@ -287,10 +289,22 @@ public class ConnectionService : IConnectionService
             ConnectionStates allowed =
                 ConnectionStates.NotConnected |
                 ConnectionStates.NotConfigured |
-                ConnectionStates.Connected;
+                ConnectionStates.Connected |
+                ConnectionStates.Polling;
             if (!this.TryTransition(allowed, ConnectionStates.Connecting, 1000))
             {
                 throw new ConnectionUnavailableException($"This should never happen. Trying to test new settings. Current state is {this.internalState}, but: " + errorMessage);
+            }
+        }
+        else if (desiredState == ConnectionStates.Connected)
+        {
+            ConnectionStates allowed =
+                ConnectionStates.NotConnected |
+                ConnectionStates.NotConfigured |
+                ConnectionStates.Connected;
+            if (!this.TryTransition(allowed, ConnectionStates.Connected, 1000))
+            {
+                throw new ConnectionUnavailableException($"This should never happen. New settings validated. Current state is {this.internalState}, but: " + errorMessage);
             }
         }
         else
@@ -332,9 +346,9 @@ public class ConnectionService : IConnectionService
         // TODO: Dispose and re-create the Vehicle instance here, to ensure that it doesn't continue to get used.
         // The current implementation of Vehice.Dispose() also disposes the underlying connection, which we don't want.
         // Could probably change that without breaking the WinForms UI, but need to investigate.
-        this.TryTransition(ConnectionStates.Active | ConnectionStates.Logging, ConnectionStates.Connected, 1000);
         if (isConnected)
         {
+            this.TryTransition(ConnectionStates.Active | ConnectionStates.Logging | ConnectionStates.NotConfigured | ConnectionStates.NotConnected, ConnectionStates.Connected, 1000);
             await this.ConnectionState.SetAsync(ConnectionStates.Connected);
         }
         else
@@ -377,10 +391,17 @@ public class ConnectionService : IConnectionService
         bool disconnected = false;
         try
         {
+            this.progressLogger.AddDebugMessage($"ConnectionService timer callback. Internal state: {this.internalState}.");
             Vehicle acquiredVehicle = await this.BeginActivity(PollingActivity, ConnectionStates.Polling);
+            if (acquiredVehicle == null)
+            {
+                return;
+            }
+
             bool success = await this.TryPollOnce(acquiredVehicle);
             if (success)
             {
+                this.progressLogger.AddDebugMessage($"Poll succeeded, transitioning to Connected.");
                 this.ForceTransition(ConnectionStates.Connected);
                 await this.EndActivity();
             }
@@ -402,6 +423,7 @@ public class ConnectionService : IConnectionService
         {
             if (disconnected)
             {
+                this.progressLogger.AddDebugMessage($"Exiting timer callback, disconnectted.");
                 await this.ConnectionState.SetAsync(ConnectionStates.NotConnected);
 
                 // Try again, maybe the PCM is just rebooting after a flash...
@@ -456,7 +478,7 @@ public class ConnectionService : IConnectionService
         if (vehicle == null)
         {
             await this.ConnectionState.SetAsync(ConnectionStates.NotConnected);
-            Debugger.Break();
+//            Debugger.Break();
             return false;
         }
 
