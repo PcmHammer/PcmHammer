@@ -21,7 +21,7 @@ public struct LogRowValues
 
 public struct LoggerWrapper
 {
-    public LogProfile Logger { get; private set;  }
+    public Logger Logger { get; private set;  }
 
     public LoggerWrapper(Logger logger)
     {
@@ -46,6 +46,7 @@ public partial record DataLoggingParametersModel
 
     public PcmHacking.ILogger ProgressLogger { get { return this.progressLogger; } }
     public ManualResetEvent InitializationEvent { get; private set; }
+    public IState<string> ErrorMessage => State<string>.Empty(this);
 
     public DataLoggingParametersModel(
         INavigator navigator,
@@ -99,7 +100,7 @@ public partial record DataLoggingParametersModel
                 }
                 catch (Exception ex)
                 {
-                    await this.ShowErrorMessage("Unable to query the operating system ID: " + ex.Message);
+                    await this.DisplayErrorMessage("Unable to query the operating system ID: " + Environment.NewLine + ex.Message);
                     return;
                 }
 
@@ -138,7 +139,7 @@ public partial record DataLoggingParametersModel
                 }
                 catch (Exception ex)
                 {
-                    await this.ShowErrorMessage("Unable to start logging: " + ex.Message);
+                    await this.DisplayErrorMessage("Unable to start logging: " + Environment.NewLine + ex.Message);
                     return;
                 }
 
@@ -167,28 +168,10 @@ public partial record DataLoggingParametersModel
         }
     }
 
-    private async Task ShowErrorMessage(string message)
+    private async Task DisplayErrorMessage(string message)
     {
-        // This is hacky but it dispays the error message...
-        // TODO: hide the grid, show a white-on-red "danger to manifold" error message.
-        var fakeProfile = new LogProfile();
-        var fakeConversion = new Conversion(string.Empty, string.Empty, string.Empty);
-        fakeProfile.AddColumn(
-            new LogColumn(
-                new PidParameter(
-                    String.Empty,
-                    message,
-                    String.Empty,
-                    "uint8",
-                    false,
-                    new Conversion[] { fakeConversion },
-                    0,
-                    new uint[0]),
-                fakeConversion,
-                false));
-        await this.LogProfile.SetAsync(new LoggerWrapper(fakeProfile), CancellationToken.None);
-
-        this.progressLogger.AddUserMessage("Failed to start logging.");
+        await this.ErrorMessage.SetAsync(message);
+        this.progressLogger.AddUserMessage("Unable to start logging.");
         this.progressLogger.AddDebugMessage(message);
     }
 

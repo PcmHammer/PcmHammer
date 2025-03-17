@@ -106,7 +106,7 @@ public partial record SettingsModel
             await this.UseCanDevice.Value(),
             await this.SelectedCanPort.Value() ?? "");
 
-        if (await this.connectionService.TryConnect(currentSettings))
+        await this.connectionService.TryConnect(currentSettings);
         {
             this.settingsService.SaveConnectionSettings(currentSettings);
         }

@@ -123,6 +123,7 @@ public interface IConnectionService
 public class ConnectionService : IConnectionService
 {
     public const string PollingActivity = "Checking...";
+    private ISettingsService settingsService;
     private PcmHacking.ILogger progressLogger;
     private ILogger<ConnectionService> unoLogger;
     private Protocol protocol;
@@ -140,9 +141,11 @@ public class ConnectionService : IConnectionService
     public IState<string> Voltage => State.Value(this, () => string.Empty);
 
     public ConnectionService(
+        ISettingsService settingsService,
         PcmHacking.ILogger logger, 
         ILogger<ConnectionService> unoLogger)
     {
+        this.settingsService = settingsService;
         this.progressLogger = logger;
         this.unoLogger = unoLogger;
         this.protocol = new PcmHacking.Protocol();
@@ -179,6 +182,14 @@ public class ConnectionService : IConnectionService
                 this.vehicle = null;
             }
 
+            // This ends up being a no-op because vehicle.Dispose() also disposes the underlying connection.
+            // Not sure if that's a good thing or a bad thing, but it's probably fine.
+            if (this.device != null)
+            {
+                this.device.Dispose();
+                this.device = null;
+            }
+
             Device newDevice = DeviceFactory.CreateDevice(
                 this.progressLogger,
                 settings.DeviceCategory,
@@ -197,38 +208,17 @@ public class ConnectionService : IConnectionService
             Vehicle newVehicle = new Vehicle(newDevice, this.protocol, this.progressLogger, notifier);
             await this.ConnectionState.SetAsync(ConnectionStates.Connecting);
 
-            await this.Activity.SetAsync(PollingActivity);
-            if (await this.TryPollOnce(newVehicle))
-            {
-                this.device = newDevice;
-                this.vehicle = newVehicle;
-                this.unoLogger.LogInformation(new EventId(1, "VehicleService"), "First poll succeeded.");
-                this.progressLogger.AddDebugMessage("First poll succeeded.");
-                this.ForceTransition(ConnectionStates.Connected);
-                await this.ConnectionState.SetAsync(ConnectionStates.Connected);
-                isConnected = true;
-            }
-            else
-            {
-                this.unoLogger.LogInformation(new EventId(2, "VehicleService"), "First poll failed.");
-                this.progressLogger.AddDebugMessage("First poll failed.");
-                await this.Activity.SetAsync("Not Configured");
-                this.ForceTransition(ConnectionStates.NotConfigured);
-                await this.ConnectionState.SetAsync(ConnectionStates.NotConfigured);
-                await this.ResetVehicleInfo();
-            }
+            // We'll rely on the polling timer to validate the new settings.
+            this.device = newDevice;
+            this.vehicle = newVehicle;
+            this.StartTimerImmediate(settings);
         }
         catch (Exception exception)
         {
+            Debugger.Break();
             this.progressLogger.AddDebugMessage("Exception while connecting to vehicle.");
             this.progressLogger.AddDebugMessage(exception.ToString());
             return false;
-        }
-        finally
-        {
-            // Pretend we just finished a poll, so the UI will update and the poll timer will start.
-            this.progressLogger.AddDebugMessage($"Exiting TryConnect. Connected: {isConnected}.");
-            await this.EndActivityInternal(isConnected);
         }
 
         return isConnected;
@@ -250,68 +240,58 @@ public class ConnectionService : IConnectionService
 
         string? current = await this.Activity.Value();
         string errorMessage = $"Unable to acquire connection. Beginning {activity}, current {current}";
+        ConnectionStates allowed = 0;
 
-        if (desiredState == ConnectionStates.Active || desiredState == ConnectionStates.Logging)
+        switch (desiredState)
         {
-            if (!this.TryTransition(ConnectionStates.Connected, desiredState, 1000))
-            {
-                throw new ConnectionUnavailableException("Not connected. " + errorMessage);
-            }
-        }
-        else if (desiredState == ConnectionStates.Polling)
-        {
-            // Note that "not configured" is NOT an allowed state in this scenario.
-            // If the user tries an unsuccessful configuration, we go into that state to disable polling.
-            // If the connection is lost unexpectedly, polling should re-establish it.
-            ConnectionStates allowed =
-                ConnectionStates.NotConnected |
-                ConnectionStates.Connected;
+            // "Active" scenarios disable the back-button.
+            // "Logging" scenarios allow the back-button.
+            // Both of them disable polling.
+            case ConnectionStates.Active:
+            case ConnectionStates.Logging:
+                if (!this.TryTransition(ConnectionStates.Connected, desiredState, 1000))
+                {
+                    throw new ConnectionUnavailableException("Not connected. " + errorMessage);
+                }
+                break;
 
-            if (!this.TryTransition(allowed, ConnectionStates.Polling, 1000))
-            {
-                this.progressLogger.AddDebugMessage($"Skipping poll, internalState is {this.internalState}");
-                throw new ConnectionUnavailableException("Unable to poll. " + errorMessage);
-            }
-        }
-        else if (desiredState == ConnectionStates.NotConfigured)
-        {
-            ConnectionStates allowed =
-                ConnectionStates.NotConnected |
-                ConnectionStates.NotConfigured |
-                ConnectionStates.Connected;
-            if (!this.TryTransition(allowed, ConnectionStates.NotConfigured, 1000))
-            {
-                throw new ConnectionUnavailableException("Connection lost. " + errorMessage);
-            }
-        }
-        else if (desiredState == ConnectionStates.Connecting)
-        {
-            ConnectionStates allowed =
-                ConnectionStates.NotConnected |
-                ConnectionStates.NotConfigured |
-                ConnectionStates.Connected |
-                ConnectionStates.Polling;
-            if (!this.TryTransition(allowed, ConnectionStates.Connecting, 1000))
-            {
-                throw new ConnectionUnavailableException($"This should never happen. Trying to test new settings. Current state is {this.internalState}, but: " + errorMessage);
-            }
-        }
-        else if (desiredState == ConnectionStates.Connected)
-        {
-            ConnectionStates allowed =
-                ConnectionStates.NotConnected |
-                ConnectionStates.NotConfigured |
-                ConnectionStates.Connected;
-            if (!this.TryTransition(allowed, ConnectionStates.Connected, 1000))
-            {
-                throw new ConnectionUnavailableException($"This should never happen. New settings validated. Current state is {this.internalState}, but: " + errorMessage);
-            }
-        }
-        else
-        {
-            throw new ConnectionUnavailableException($"Invalid activity state: {desiredState}");
-        }
+            // Polling is triggered by a timer, and is only allowed when the
+            // connection isn't being used for anything else.
+            case ConnectionStates.Polling:
+                allowed =
+                    ConnectionStates.NotConnected |
+                    ConnectionStates.Connected |
+                    ConnectionStates.Connecting |
+                    ConnectionStates.NotConfigured;
 
+                if (!this.TryTransition(allowed, ConnectionStates.Polling, 1000))
+                {
+                    this.progressLogger.AddDebugMessage($"Skipping poll, internalState is {this.internalState}");
+                    throw new ConnectionUnavailableException("Unable to poll. " + errorMessage);
+                }
+                break;
+
+            // The code that tests new connection settings uses BeginActivity
+            // to ensure that it doesn't interrupt other activities. This uses
+            // an extra-long timeout because the previous settings might have
+            // been bad, and it might take a while for connection timeouts to
+            // expire.
+            case ConnectionStates.Connecting:
+                allowed =
+                    ConnectionStates.NotConnected |
+                    ConnectionStates.NotConfigured |
+                    ConnectionStates.Connected |
+                    ConnectionStates.Polling;
+                if (!this.TryTransition(allowed, ConnectionStates.Connecting, 10000))
+                {
+                    throw new ConnectionUnavailableException($"This should never happen. Trying to test new settings. Current state is {this.internalState}, but: " + errorMessage);
+                }
+                break;
+
+            default:
+                throw new ConnectionUnavailableException($"Invalid activity state: {desiredState}");
+        }
+        
         // "Active" is used to disable the back-button, so polling doesn't really count.
         if (activity != PollingActivity)
         {
@@ -346,9 +326,19 @@ public class ConnectionService : IConnectionService
         // TODO: Dispose and re-create the Vehicle instance here, to ensure that it doesn't continue to get used.
         // The current implementation of Vehice.Dispose() also disposes the underlying connection, which we don't want.
         // Could probably change that without breaking the WinForms UI, but need to investigate.
+        // (It's a low priority. Recreating the Vehicle is probably overkill anyway.)
+        //
+        // Also, for reasons unknown, the underlying serial port can't always be re-opened, especially with the ObdX driver.
+        // Need to figure that out before we can re-create the Vehicle instance here.
         if (isConnected)
         {
-            this.TryTransition(ConnectionStates.Active | ConnectionStates.Logging | ConnectionStates.NotConfigured | ConnectionStates.NotConnected, ConnectionStates.Connected, 1000);
+            ConnectionStates allowed =
+                ConnectionStates.Active |
+                ConnectionStates.Logging |
+                ConnectionStates.NotConfigured |
+                ConnectionStates.NotConnected |
+                ConnectionStates.Polling;
+            this.TryTransition(allowed, ConnectionStates.Connected, 1000);
             await this.ConnectionState.SetAsync(ConnectionStates.Connected);
         }
         else
@@ -358,16 +348,25 @@ public class ConnectionService : IConnectionService
 
         await this.Activity.SetAsync(String.Empty);
 
-        this.StartTimer();
+        this.StartTimer(null);
     }
 
 
-    private void StartTimer()
+    private void StartTimer(object? state)
     {
         this.timer = new System.Threading.Timer(
             TimerCallback,
-            state: null,
+            state: state,
             dueTime: 1000,
+            period: Timeout.Infinite);
+    }
+
+    private void StartTimerImmediate(CurrentSettings settings)
+    {
+        this.timer = new System.Threading.Timer(
+            TimerCallback,
+            state: settings,
+            dueTime: 0,
             period: Timeout.Infinite);
     }
 
@@ -389,10 +388,11 @@ public class ConnectionService : IConnectionService
         }
 
         bool disconnected = false;
+        Vehicle? acquiredVehicle = null;
         try
         {
             this.progressLogger.AddDebugMessage($"ConnectionService timer callback. Internal state: {this.internalState}.");
-            Vehicle acquiredVehicle = await this.BeginActivity(PollingActivity, ConnectionStates.Polling);
+            acquiredVehicle = await this.BeginActivity(PollingActivity, ConnectionStates.Polling);
             if (acquiredVehicle == null)
             {
                 return;
@@ -403,10 +403,19 @@ public class ConnectionService : IConnectionService
             {
                 this.progressLogger.AddDebugMessage($"Poll succeeded, transitioning to Connected.");
                 this.ForceTransition(ConnectionStates.Connected);
-                await this.EndActivity();
+                if (state != null)
+                {
+                    CurrentSettings? settings = state as CurrentSettings;
+                    if (settings != null)
+                    {
+                        this.settingsService.SaveConnectionSettings(settings);
+                        state = null;
+                    }
+                }
             }
             else
             {
+                await this.ConnectionState.SetAsync(ConnectionStates.NotConnected);
                 disconnected = true;
             }
         }
@@ -421,13 +430,19 @@ public class ConnectionService : IConnectionService
         }
         finally
         {
-            if (disconnected)
+            // Only call EndActivity if BeginActivity succeeded.
+            if (acquiredVehicle != null)
             {
-                this.progressLogger.AddDebugMessage($"Exiting timer callback, disconnectted.");
-                await this.ConnectionState.SetAsync(ConnectionStates.NotConnected);
-
+                // This will restart the timer.
+                await this.EndActivityInternal(!disconnected);
+                string result = disconnected ? "but disconnected" : "and still connected";
+                this.progressLogger.AddDebugMessage($"Exiting timer callback, vehicle acquired {result}");
+            }
+            else
+            {
                 // Try again, maybe the PCM is just rebooting after a flash...
-                this.StartTimer();
+                this.StartTimer(state);
+                this.progressLogger.AddDebugMessage("Exiting timer callback, vehicle not acquired.");
             }
         }
     }
