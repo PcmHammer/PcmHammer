@@ -253,6 +253,12 @@ public class ConnectionService : IConnectionService
                 {
                     throw new ConnectionUnavailableException("Not connected. " + errorMessage);
                 }
+
+                // The main reason for hiding these is that I don't want to give the user
+                // a false sense of security about the voltage. It might go down while they
+                // are flashing or logging, but it won't be updated in the UI.
+                await this.OperatingSystemId.SetAsync(String.Empty);
+                await this.Voltage.SetAsync(String.Empty);
                 break;
 
             // Polling is triggered by a timer, and is only allowed when the
