@@ -3,6 +3,7 @@ using System.Data.Common;
 using System.Drawing.Text;
 using Microsoft.UI.Dispatching;
 using Uno.Extensions.Reactive;
+using Windows.UI.Text;
 using Windows.UI.ViewManagement;
 
 namespace PcmHacking.UnoUI.Presentation;
@@ -141,8 +142,11 @@ public sealed partial class DataLoggingParametersPage : Page
 
     private static void AddParameter(int mainRowIndex, string name, string units, out TextBlock nameTextBlock, out TextBlock valueTextBlock)
     {
+        const int textSize = 20;
+        
         nameTextBlock = new TextBlock();
         nameTextBlock.Text = name;
+        nameTextBlock.FontSize = textSize;
         nameTextBlock.Margin = new Thickness(5);
         nameTextBlock.HorizontalAlignment = HorizontalAlignment.Right;
         nameTextBlock.VerticalAlignment = VerticalAlignment.Center;
@@ -151,6 +155,8 @@ public sealed partial class DataLoggingParametersPage : Page
 
         valueTextBlock = new TextBlock();
         valueTextBlock.Text = units;
+        valueTextBlock.FontSize = textSize;
+        valueTextBlock.FontWeight = new FontWeight(700); // bold
         valueTextBlock.Margin = new Thickness(5);
         valueTextBlock.HorizontalAlignment = HorizontalAlignment.Left;
         valueTextBlock.VerticalAlignment = VerticalAlignment.Center;
@@ -160,6 +166,9 @@ public sealed partial class DataLoggingParametersPage : Page
 
     private static void AddZoomParameter(int zoomRowIndex, string name, string units, out TextBlock? valueTextBlock, out StackPanel stackPanel)
     {
+        const int labelSize = 20;
+        const int valueSize = 36;
+
         stackPanel = new StackPanel();
         stackPanel.Orientation = Orientation.Vertical;
         stackPanel.VerticalAlignment = VerticalAlignment.Center;
@@ -167,14 +176,15 @@ public sealed partial class DataLoggingParametersPage : Page
         stackPanel.SetValue(Grid.ColumnProperty, 0);
 
         TextBlock zoomName = new TextBlock();
+        zoomName.Text = name;
+        zoomName.FontSize = labelSize;
         zoomName.Margin = new Thickness(5);
         zoomName.HorizontalAlignment = HorizontalAlignment.Center;
         zoomName.VerticalAlignment = VerticalAlignment.Center;
-        zoomName.Text = name;
         stackPanel.Children.Add(zoomName);
 
         valueTextBlock = new TextBlock();
-        valueTextBlock.FontSize = 24;
+        valueTextBlock.FontSize = valueSize;
         valueTextBlock.Margin = new Thickness(5);
         valueTextBlock.HorizontalAlignment = HorizontalAlignment.Center;
         valueTextBlock.VerticalAlignment = VerticalAlignment.Center;
@@ -182,10 +192,11 @@ public sealed partial class DataLoggingParametersPage : Page
         stackPanel.Children.Add(valueTextBlock);
 
         TextBlock zoomUnits = new TextBlock();
+        zoomUnits.Text = units;
+        zoomUnits.FontSize = labelSize;
         zoomUnits.Margin = new Thickness(5);
         zoomUnits.HorizontalAlignment = HorizontalAlignment.Center;
         zoomUnits.VerticalAlignment = VerticalAlignment.Center;
-        zoomUnits.Text = units;
         stackPanel.Children.Add(zoomUnits);
     }
 

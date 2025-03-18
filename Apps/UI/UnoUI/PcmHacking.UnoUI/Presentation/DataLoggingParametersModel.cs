@@ -143,7 +143,7 @@ public partial record DataLoggingParametersModel
                     return;
                 }
 
-                while (!exitWaitHandle.WaitOne(0))
+                while (!this.exitWaitHandle.WaitOne(0))
                 {
                     IEnumerable<string> rowValues = await logger.GetNextRow();
                     if (rowValues != null)
@@ -152,6 +152,8 @@ public partial record DataLoggingParametersModel
                         // TODO: write data to disk
                     }
                 }
+
+                this.progressLogger.AddDebugMessage("DataLoggingParametersModel stopped logging.");
             }
         }
         catch (Exception ex)
@@ -164,6 +166,10 @@ public partial record DataLoggingParametersModel
                     await Task.Delay(100);
                     worker.RunWorkerAsync();
                 });
+            }
+            else
+            {
+                this.progressLogger.AddDebugMessage("DataLoggingParametersModel stopped trying to connect.");
             }
         }
     }
