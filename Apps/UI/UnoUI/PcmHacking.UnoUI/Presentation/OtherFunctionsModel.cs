@@ -203,16 +203,18 @@ public partial record OtherFunctionsModel
     {
         await this.navigator.NavigateViewModelAsync<CrankRelearnModel>(this);
     }
-    
+
     public async Task ResetCodes()
     {
-        if (await this.connectionService.TryResetCodes(this.progressLogger))
+        try
         {
+            await this.connectionService.ResetCodes(this.progressLogger);
             await this.ResetCodesButtonText.SetAsync("Success!");
         }
-        else
+        catch (Exception exception)
         {
             await this.ResetCodesButtonText.SetAsync("Fail. :(");
+            this.progressLogger.AddDebugMessage(exception.ToString());
             await navigator.ShowMessageDialogAsync(
                 sender: this,
                 content: "We were not able to clear the trouble codes, but it might work if you try again.",

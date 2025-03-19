@@ -117,12 +117,13 @@ public interface IConnectionService
         string path,
         CancellationToken cancellationToken);
 
-    Task<bool> TryResetCodes(PcmHacking.ILogger progressLogger);
+    Task ResetCodes(PcmHacking.ILogger progressLogger);
 }
 
 public class ConnectionService : IConnectionService
 {
     public const string PollingActivity = "Checking...";
+    public const string TestingActivity = "Testing Connection...";
     private ISettingsService settingsService;
     private PcmHacking.ILogger progressLogger;
     private ILogger<ConnectionService> unoLogger;
@@ -132,6 +133,7 @@ public class ConnectionService : IConnectionService
     private System.Threading.Timer? timer = null;
     private ConnectionStates internalState = ConnectionStates.NotConfigured;
     private object transitionLock = new object();
+    private SemaphoreSlim semaphore = new SemaphoreSlim(1, 1);
 
     public IState<ConnectionStates> ConnectionState => State.Value(this, () => ConnectionStates.NotConfigured);
 
@@ -156,25 +158,21 @@ public class ConnectionService : IConnectionService
     /// </summary>
     public async Task<bool> TryConnect(CurrentSettings settings)
     {
-        if (this.internalState != ConnectionStates.NotConfigured &&
-            this.vehicle != null &&
-            await this.BeginActivity("Testing Connection", ConnectionStates.Connecting) == null)
-        {
-            return false;
-        }
-
         bool isConnected = false;
-
         try
         {
-            this.StopTimer();
+            // The public BeginActivity will throw if not connected, so we go
+            // around it and call the private BeginActivity. That requires
+            // managing the semaphore explicitly.
+            this.progressLogger.AddDebugMessage("SEMAPHORE: TryConnect waiting.");
+            await this.semaphore.WaitAsync();
+            this.progressLogger.AddDebugMessage("SEMAPHORE: TryConnect acquired.");
+
+            await this.BeginActivity(TestingActivity, ConnectionStates.Connecting);
 
             // Clear the settings shown in the UI, and allow time for the UI to update.
             await this.ResetVehicleInfo();
             await Task.Delay(100);
-
-            // Just in case there was a race condition between stopping the timer and processing the last timer callback.
-            await this.ResetVehicleInfo();
 
             if (this.vehicle != null)
             {
@@ -208,17 +206,25 @@ public class ConnectionService : IConnectionService
             Vehicle newVehicle = new Vehicle(newDevice, this.protocol, this.progressLogger, notifier);
             await this.ConnectionState.SetAsync(ConnectionStates.Connecting);
 
-            // We'll rely on the polling timer to validate the new settings.
-            this.device = newDevice;
-            this.vehicle = newVehicle;
-            this.StartTimerImmediate(settings);
+            if (await this.TryPollOnce(newVehicle))
+            {
+                isConnected = true;
+                this.device = newDevice;
+                this.vehicle = newVehicle;
+            }
         }
         catch (Exception exception)
         {
+            // TODO: modal dialog box - this probably means that the port couldn't be opened.
             Debugger.Break();
             this.progressLogger.AddDebugMessage("Exception while connecting to vehicle.");
             this.progressLogger.AddDebugMessage(exception.ToString());
             return false;
+        }
+        finally
+        {
+            // This will release the semaphore.
+            await this.EndActivityInternal(isConnected);
         }
 
         return isConnected;
@@ -226,12 +232,48 @@ public class ConnectionService : IConnectionService
 
     public async Task<ConnectionLease> BeginActivity(string activity, bool canInterrupt)
     {
-        ConnectionStates nextState = canInterrupt ? ConnectionStates.Logging : ConnectionStates.Active;
-        Vehicle vehicle = await this.BeginActivity(activity, nextState);
-        return new ConnectionLease(this, vehicle, activity);
+        ConnectionStates nextState = ConnectionStates.Active;
+        switch (activity)
+        {
+            case TestingActivity:
+                nextState = ConnectionStates.Connecting;
+                break;
+
+            case PollingActivity:
+                nextState = ConnectionStates.Polling;
+                break;
+
+            default:
+                nextState = canInterrupt ? ConnectionStates.Logging : ConnectionStates.Active;
+                break;
+        }
+
+        this.progressLogger.AddDebugMessage($"SEMAPHORE: BeginActivity ({activity}) waiting.");
+        await this.semaphore.WaitAsync();
+        this.progressLogger.AddDebugMessage($"SEMAPHORE: BeginActivity ({activity}) acquired.");
+
+        try
+        {
+            if (this.vehicle == null)
+            {
+                throw new ConnectionUnavailableException("Not connected.");
+            }
+
+            await this.BeginActivity(activity, nextState);
+        }
+        catch (Exception)
+        {
+            // If an exception is thrown (e.g. because the connection can't be
+            // acquired) the 'using' pattern won't call the Dispose method.
+            this.progressLogger.AddDebugMessage($"SEMAPHORE: BeginActivity ({activity}) released.");
+            this.semaphore.Release();
+            throw;
+        }
+
+        return new ConnectionLease(this, this.vehicle, activity);
     }
 
-    private async Task<Vehicle> BeginActivity(string activity, ConnectionStates desiredState)
+    private async Task BeginActivity(string activity, ConnectionStates desiredState)
     {
         if (string.IsNullOrEmpty(activity))
         {
@@ -249,7 +291,7 @@ public class ConnectionService : IConnectionService
             // Both of them disable polling.
             case ConnectionStates.Active:
             case ConnectionStates.Logging:
-                if (!this.TryTransition(ConnectionStates.Connected, desiredState, 1000))
+                if (!this.TryTransition(ConnectionStates.Connected, desiredState))
                 {
                     throw new ConnectionUnavailableException("Not connected. " + errorMessage);
                 }
@@ -270,7 +312,7 @@ public class ConnectionService : IConnectionService
                     ConnectionStates.Connecting |
                     ConnectionStates.NotConfigured;
 
-                if (!this.TryTransition(allowed, ConnectionStates.Polling, 1000))
+                if (!this.TryTransition(allowed, ConnectionStates.Polling))
                 {
                     this.progressLogger.AddDebugMessage($"Skipping poll, internalState is {this.internalState}");
                     throw new ConnectionUnavailableException("Unable to poll. " + errorMessage);
@@ -288,7 +330,7 @@ public class ConnectionService : IConnectionService
                     ConnectionStates.NotConfigured |
                     ConnectionStates.Connected |
                     ConnectionStates.Polling;
-                if (!this.TryTransition(allowed, ConnectionStates.Connecting, 10000))
+                if (!this.TryTransition(allowed, ConnectionStates.Connecting))
                 {
                     throw new ConnectionUnavailableException($"This should never happen. Trying to test new settings. Current state is {this.internalState}, but: " + errorMessage);
                 }
@@ -297,18 +339,17 @@ public class ConnectionService : IConnectionService
             default:
                 throw new ConnectionUnavailableException($"Invalid activity state: {desiredState}");
         }
-        
-        // "Active" is used to disable the back-button, so polling doesn't really count.
-        if (activity != PollingActivity)
+
+        // "Active" is used to disable the back-button.
+        // The Polling activity was created to enable the back-button to stay enabled.
+        //if (activity != PollingActivity)
         {
             await this.ConnectionState.SetAsync(desiredState);
         }
-                
+
         await this.Activity.SetAsync(activity);
 
         this.StopTimer();
-
-        return this.vehicle!;
     }
 
     public async Task EndActivity()
@@ -329,34 +370,43 @@ public class ConnectionService : IConnectionService
 
     private async Task EndActivityInternal(bool isConnected)
     {
-        // TODO: Dispose and re-create the Vehicle instance here, to ensure that it doesn't continue to get used.
-        // The current implementation of Vehice.Dispose() also disposes the underlying connection, which we don't want.
-        // Could probably change that without breaking the WinForms UI, but need to investigate.
-        // (It's a low priority. Recreating the Vehicle is probably overkill anyway.)
-        //
-        // Also, for reasons unknown, the underlying serial port can't always be re-opened, especially with the ObdX driver.
-        // Need to figure that out before we can re-create the Vehicle instance here.
-        if (isConnected)
+        try
         {
-            ConnectionStates allowed =
-                ConnectionStates.Active |
-                ConnectionStates.Logging |
-                ConnectionStates.NotConfigured |
-                ConnectionStates.NotConnected |
-                ConnectionStates.Polling;
-            this.TryTransition(allowed, ConnectionStates.Connected, 1000);
-            await this.ConnectionState.SetAsync(ConnectionStates.Connected);
-        }
-        else
-        {
-            await this.ConnectionState.SetAsync(ConnectionStates.NotConnected);
-        }
+            // TODO: Dispose and re-create the Vehicle instance here, to ensure that it doesn't continue to get used.
+            // The current implementation of Vehice.Dispose() also disposes the underlying connection, which we don't want.
+            // Could probably change that without breaking the WinForms UI, but need to investigate.
+            // (It's a low priority. Recreating the Vehicle is probably overkill anyway.)
+            //
+            // Also, for reasons unknown, the underlying serial port can't always be re-opened, especially with the ObdX driver.
+            // Need to figure that out before we can re-create the Vehicle instance here.
+            if (isConnected)
+            {
+                ConnectionStates allowed =
+                    ConnectionStates.Active |
+                    ConnectionStates.Logging |
+                    ConnectionStates.NotConfigured |
+                    ConnectionStates.NotConnected |
+                    ConnectionStates.Connecting |
+                    ConnectionStates.Polling;
+                this.TryTransition(allowed, ConnectionStates.Connected);
+                await this.ConnectionState.SetAsync(ConnectionStates.Connected);
+            }
+            else
+            {
+                this.ForceTransition(ConnectionStates.NotConnected);
+                await this.ConnectionState.SetAsync(ConnectionStates.NotConnected);
+            }
 
-        await this.Activity.SetAsync(String.Empty);
+            await this.Activity.SetAsync(String.Empty);
+        }
+        finally
+        {
+            this.progressLogger.AddDebugMessage($"SEMAPHORE: released by EndActivity.");
+            this.semaphore.Release();
+        }
 
         this.StartTimer(null);
     }
-
 
     private void StartTimer(object? state)
     {
@@ -364,15 +414,6 @@ public class ConnectionService : IConnectionService
             TimerCallback,
             state: state,
             dueTime: 1000,
-            period: Timeout.Infinite);
-    }
-
-    private void StartTimerImmediate(CurrentSettings settings)
-    {
-        this.timer = new System.Threading.Timer(
-            TimerCallback,
-            state: settings,
-            dueTime: 0,
             period: Timeout.Infinite);
     }
 
@@ -398,31 +439,34 @@ public class ConnectionService : IConnectionService
         try
         {
             this.progressLogger.AddDebugMessage($"ConnectionService timer callback. Internal state: {this.internalState}.");
-            acquiredVehicle = await this.BeginActivity(PollingActivity, ConnectionStates.Polling);
-            if (acquiredVehicle == null)
+            using (ConnectionLease lease = await this.BeginActivity(PollingActivity, true))
             {
-                return;
-            }
-
-            bool success = await this.TryPollOnce(acquiredVehicle);
-            if (success)
-            {
-                this.progressLogger.AddDebugMessage($"Poll succeeded, transitioning to Connected.");
-                this.ForceTransition(ConnectionStates.Connected);
-                if (state != null)
+                acquiredVehicle = lease.Vehicle;
+                if (acquiredVehicle == null)
                 {
-                    CurrentSettings? settings = state as CurrentSettings;
-                    if (settings != null)
+                    return;
+                }
+
+                bool success = await this.TryPollOnce(acquiredVehicle);
+                if (success)
+                {
+                    this.progressLogger.AddDebugMessage($"Poll succeeded, transitioning to Connected.");
+                    this.ForceTransition(ConnectionStates.Connected);
+                    if (state != null)
                     {
-                        this.settingsService.SaveConnectionSettings(settings);
-                        state = null;
+                        CurrentSettings? settings = state as CurrentSettings;
+                        if (settings != null)
+                        {
+                            this.settingsService.SaveConnectionSettings(settings);
+                            state = null;
+                        }
                     }
                 }
-            }
-            else
-            {
-                await this.ConnectionState.SetAsync(ConnectionStates.NotConnected);
-                disconnected = true;
+                else
+                {
+                    await this.ConnectionState.SetAsync(ConnectionStates.NotConnected);
+                    disconnected = true;
+                }
             }
         }
         catch (ConnectionUnavailableException)
@@ -435,19 +479,14 @@ public class ConnectionService : IConnectionService
             disconnected = true;
         }
         finally
-        {
-            // Only call EndActivity if BeginActivity succeeded.
+        {   
             if (acquiredVehicle != null)
             {
-                // This will restart the timer.
-                await this.EndActivityInternal(!disconnected);
                 string result = disconnected ? "but disconnected" : "and still connected";
                 this.progressLogger.AddDebugMessage($"Exiting timer callback, vehicle acquired {result}");
             }
             else
             {
-                // Try again, maybe the PCM is just rebooting after a flash...
-                this.StartTimer(state);
                 this.progressLogger.AddDebugMessage("Exiting timer callback, vehicle not acquired.");
             }
         }
@@ -455,24 +494,27 @@ public class ConnectionService : IConnectionService
 
     private async Task<bool> TryPollOnce(Vehicle vehicle)
     {
-        var source = new CancellationTokenSource();
         bool success = false;
 
-        try
+        using (var source = new CancellationTokenSource())
         {
-            success = await TimeoutUtilities.TaskWithTimeoutAndException(
-                this.TryRequestVehicleInfo(vehicle, source.Token),
-                TimeSpan.FromSeconds(5));
-        }
-        catch (TimeoutException)
-        {
-            source.Cancel();
-            success = false;
-            this.progressLogger.AddUserMessage("Connection test did not get a response from the vehicle.");
-        }
-        finally
-        {
-            source.Dispose();
+            try
+            {
+                success = await TimeoutUtilities.TaskWithTimeoutAndException(
+                    this.TryRequestVehicleInfo(vehicle, source.Token),
+                    TimeSpan.FromSeconds(5));
+            }
+            catch (TimeoutException)
+            {
+                source.Cancel();
+                success = false;
+                this.progressLogger.AddUserMessage("Connection test did not get a response from the vehicle.");
+            }
+            catch (Exception exception)
+            {
+                this.progressLogger.AddUserMessage("Error while testing vehicle connection.");
+                this.progressLogger.AddDebugMessage(exception.ToString());
+            }
         }
 
         if (success)
@@ -490,20 +532,19 @@ public class ConnectionService : IConnectionService
     }
 
     /// <summary>
-    /// The caller is expected to invoke this method repeatedly. When the 
-    /// connection state is ConnectionState.Connected, the polling should stop,
-    /// and flashing or logging can begin.
+    /// This is used to poll the PCM periodically, to ensure that the connection is still good.
     /// </summary>
-    public async Task<bool> TryRequestVehicleInfo(Vehicle vehicle, CancellationToken cancellationToken)
+    private async Task<bool> TryRequestVehicleInfo(Vehicle vehicle, CancellationToken cancellationToken)
     {
         if (vehicle == null)
         {
             await this.ConnectionState.SetAsync(ConnectionStates.NotConnected);
-//            Debugger.Break();
             return false;
         }
 
-        if (await this.Activity.Value() != PollingActivity)
+        // Sanity check. This should never happen.
+        string activityName = await this.Activity.Value(cancellationToken);
+        if ((activityName != PollingActivity) && (activityName != TestingActivity))
         {
             Debugger.Break();
             return false;
@@ -551,6 +592,7 @@ public class ConnectionService : IConnectionService
         await this.Voltage.SetAsync(String.Empty);
     }
 
+    // TODO: Move this into ReadModel
     public async Task ReadFlash(
         PcmHacking.ILogger logger,
         Func<Action, Task> invoke,
@@ -568,32 +610,43 @@ public class ConnectionService : IConnectionService
 
         try
         {
-            await this.BeginActivity("Reading flash", false);
-            ReadManager readManager = new(
-                logger,
-                this.vehicle,
-                invoke,
-                promptForFilePath,
-                promptForOperatingSystemId,
-                alert,
-                promptForYesNo,
-                cancellationToken);
-            await readManager.Read(path);
+            using (await this.BeginActivity("Reading flash", false))
+            {
+                try
+                {
+                    ReadManager readManager = new(
+                        logger,
+                        this.vehicle,
+                        invoke,
+                        promptForFilePath,
+                        promptForOperatingSystemId,
+                        alert,
+                        promptForYesNo,
+                        cancellationToken);
+                    await readManager.Read(path);
+                }
+                catch (Exception exception)
+                {
+                    logger.AddUserMessage("Read failed.");
+                    logger.AddUserMessage(exception.ToString());
+                    await Task.Delay(1000);
+                }
+                finally
+                {
+                    await this.vehicle.ExitKernel();
+                    await this.vehicle.ClearTroubleCodes();
+                }
+            }
         }
         catch (Exception exception)
         {
-            logger.AddUserMessage("Read failed.");
+            logger.AddUserMessage("Read failed, unable to acquire connection?");
             logger.AddUserMessage(exception.ToString());
             await Task.Delay(1000);
         }
-        finally
-        {
-            await this.vehicle.ExitKernel();
-            await this.vehicle.ClearTroubleCodes();
-            await this.EndActivity();
-        }
     }
 
+    // TODO: Move this into WriteModel
     public async Task WriteFlash(
         PcmHacking.ILogger logger,
         Func<string, string, Task> alert,
@@ -609,31 +662,41 @@ public class ConnectionService : IConnectionService
 
         try
         {
-            await this.BeginActivity("Writing flash", false);
-            WriteManager writeManager = new(
-                logger,
-                this.vehicle,
-                writeType,
-                alert,
-                promptForYesNo,
-                cancellationToken);
-            await writeManager.Write(path);
+            using (await this.BeginActivity("Writing flash", false))
+            {
+                try
+                {
+                    WriteManager writeManager = new(
+                        logger,
+                        this.vehicle,
+                        writeType,
+                        alert,
+                        promptForYesNo,
+                        cancellationToken);
+                    await writeManager.Write(path);
+                }
+                catch (Exception exception)
+                {
+                    logger.AddUserMessage("Write failed.");
+                    logger.AddUserMessage(exception.ToString());
+                    await Task.Delay(1000);
+                }
+                finally
+                {
+                    await this.vehicle.ExitKernel();
+                    await this.vehicle.ClearTroubleCodes();
+                }
+            }
         }
         catch (Exception exception)
         {
-            logger.AddUserMessage("Write failed.");
+            logger.AddUserMessage("Write failed, unable to acquire connection?");
             logger.AddUserMessage(exception.ToString());
             await Task.Delay(1000);
         }
-        finally
-        {
-            await this.vehicle.ExitKernel();
-            await this.vehicle.ClearTroubleCodes();
-            await this.EndActivity();
-        }
     }
 
-    public async Task<bool> TryResetCodes(PcmHacking.ILogger progressLogger)
+    public async Task ResetCodes(PcmHacking.ILogger progressLogger)
     {
         using (ConnectionLease lease = await this.BeginActivity("Reset Codes", false))
         {
@@ -642,13 +705,11 @@ public class ConnectionService : IConnectionService
             {
                 await vehicle.ExitKernel();
                 await vehicle.ClearTroubleCodes();
-                return true;
             }
             catch (Exception exception)
             {
                 this.progressLogger.AddUserMessage("Exception while clearing trouble codes.");
                 this.progressLogger.AddDebugMessage(exception.ToString());
-                return false;
             }
         }
     }
@@ -667,20 +728,6 @@ public class ConnectionService : IConnectionService
             this.progressLogger.AddDebugMessage($"Transition denied, staying in: {this.internalState}");
             return false;
         }
-    }
-
-    private bool TryTransition(ConnectionStates expected, ConnectionStates newState, int timeout)
-    {
-        int start = Environment.TickCount;
-        while (Environment.TickCount - start < timeout)
-        {
-            if (this.TryTransition(expected, newState))
-            {
-                return true;
-            }
-            Thread.Sleep(10);
-        }
-        return false;
     }
 
     private void ForceTransition(ConnectionStates newState)

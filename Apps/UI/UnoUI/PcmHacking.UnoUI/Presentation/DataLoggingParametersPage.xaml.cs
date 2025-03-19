@@ -107,6 +107,7 @@ public sealed partial class DataLoggingParametersPage : Page
                 AddParameter(mainRowIndex, mathColumn.Parameter.Name, mathColumn.Conversion.Units, out TextBlock name, out TextBlock value);
                 mainRowIndex++;
 
+                RowDefinition rowDefinition = new RowDefinition();
                 this.Parameters.RowDefinitions.Add(new RowDefinition());
                 this.Parameters.Children.Add(name);
                 this.Parameters.Children.Add(value);
