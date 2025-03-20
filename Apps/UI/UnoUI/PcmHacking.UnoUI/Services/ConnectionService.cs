@@ -39,6 +39,7 @@ public class ConnectionLease : IDisposable
     private readonly Vehicle vehicle;
     private readonly string activityName;
     private bool isDisposed = false;
+    private bool connectionLost = false;
 
     public Vehicle Vehicle
     {
@@ -50,6 +51,12 @@ public class ConnectionLease : IDisposable
             }
             return this.vehicle;
         }
+    }
+
+    public bool ConnectionLost
+    {
+        get { return this.connectionLost; }
+        set { this.connectionLost = value; }
     }
 
     public ConnectionLease(ConnectionService vehicleService, Vehicle vehicle, string activityName)
@@ -74,7 +81,7 @@ public class ConnectionLease : IDisposable
 
         if (isDisposing)
         {
-            await this.connectionService.EndActivity(/*this?*/);
+            await this.connectionService.EndActivity(!this.connectionLost);
         }
 
         this.isDisposed = true;
@@ -96,28 +103,6 @@ public interface IConnectionService
     Task<bool> TryConnect(CurrentSettings settings);
 
     Task<ConnectionLease> BeginActivity(string activity, bool canInterrupt = false);
-
-    Task EndActivity();
-
-    Task ReadFlash(
-        PcmHacking.ILogger logger,
-        Func<Action, Task> invoke,
-        Func<Task<string>> promptForFilePath,
-        Func<Task<UInt32>> promptForOperatingSystemId,
-        Func<string, string, Task> alert,
-        Func<string, string, Task<bool>> promptForYesNo,
-        string path,
-        CancellationToken cancellationToken);
-
-    Task WriteFlash(
-        PcmHacking.ILogger logger,
-        Func<string, string, Task> alert,
-        Func<string, string, Task<bool>> promptForYesNo,
-        WriteType writeType,
-        string path,
-        CancellationToken cancellationToken);
-
-    Task ResetCodes(PcmHacking.ILogger progressLogger);
 }
 
 public class ConnectionService : IConnectionService
@@ -132,7 +117,6 @@ public class ConnectionService : IConnectionService
     private Vehicle? vehicle = null;
     private System.Threading.Timer? timer = null;
     private ConnectionStates internalState = ConnectionStates.NotConfigured;
-    private object transitionLock = new object();
     private SemaphoreSlim semaphore = new SemaphoreSlim(1, 1);
 
     public IState<ConnectionStates> ConnectionState => State.Value(this, () => ConnectionStates.NotConfigured);
@@ -208,10 +192,17 @@ public class ConnectionService : IConnectionService
 
             if (await this.TryPollOnce(newVehicle))
             {
+                this.progressLogger.AddUserMessage("Connection test succeeded.");
+                this.settingsService.SaveConnectionSettings(settings);
                 isConnected = true;
                 this.device = newDevice;
                 this.vehicle = newVehicle;
             }
+            else
+            {
+                this.progressLogger.AddUserMessage("Connection test failed.");
+            }
+
         }
         catch (Exception exception)
         {
@@ -224,7 +215,7 @@ public class ConnectionService : IConnectionService
         finally
         {
             // This will release the semaphore.
-            await this.EndActivityInternal(isConnected);
+            await this.EndActivity(isConnected);
         }
 
         return isConnected;
@@ -352,23 +343,7 @@ public class ConnectionService : IConnectionService
         this.StopTimer();
     }
 
-    public async Task EndActivity()
-    {
-        // In this scenario we're just assuming the connection is still good.
-        // It might be helpful to give the ConnectionLease object a way to indicate
-        // that the connection was lost while the lease was held, but I'm not sure
-        // what we'd do with that information other than just return to polling,
-        // which is what happens anyway.
-        //
-        // The real reason for the boolean parameter is just to give the TryConnect
-        // method a way to change the UI from Connected to Not Connected when the
-        // connection settings aren't valid.
-        //
-        // In other scenarios, we're just passing 'true' and hoping for the best.
-        await this.EndActivityInternal(true);
-    }
-
-    private async Task EndActivityInternal(bool isConnected)
+    public async Task EndActivity(bool isConnected)
     {
         try
         {
@@ -448,24 +423,13 @@ public class ConnectionService : IConnectionService
                 }
 
                 bool success = await this.TryPollOnce(acquiredVehicle);
-                if (success)
+                if (!success)
                 {
-                    this.progressLogger.AddDebugMessage($"Poll succeeded, transitioning to Connected.");
-                    this.ForceTransition(ConnectionStates.Connected);
-                    if (state != null)
-                    {
-                        CurrentSettings? settings = state as CurrentSettings;
-                        if (settings != null)
-                        {
-                            this.settingsService.SaveConnectionSettings(settings);
-                            state = null;
-                        }
-                    }
-                }
-                else
-                {
-                    await this.ConnectionState.SetAsync(ConnectionStates.NotConnected);
+                    // This only affects the debug message written at the end of this method.
                     disconnected = true;
+
+                    // This will cause EndActivity to transition to NotConnected.
+                    lease.ConnectionLost = true;
                 }
             }
         }
@@ -517,18 +481,7 @@ public class ConnectionService : IConnectionService
             }
         }
 
-        if (success)
-        {
-            this.progressLogger.AddUserMessage("Connection test succeeded.");
-            await this.ConnectionState.SetAsync(ConnectionStates.Connected);
-            return true;
-        }
-        else
-        {
-            this.progressLogger.AddUserMessage("Connection test failed.");
-            await this.ResetVehicleInfo();
-            return false;
-        }
+        return success;
     }
 
     /// <summary>
@@ -592,142 +545,24 @@ public class ConnectionService : IConnectionService
         await this.Voltage.SetAsync(String.Empty);
     }
 
-    // TODO: Move this into ReadModel
-    public async Task ReadFlash(
-        PcmHacking.ILogger logger,
-        Func<Action, Task> invoke,
-        Func<Task<string>> promptForFilePath,
-        Func<Task<UInt32>> promptForOperatingSystemId,
-        Func<string, string, Task> alert,
-        Func<string, string, Task<bool>> promptForYesNo,
-        string path,
-        CancellationToken cancellationToken)
-    {
-        if (this.vehicle is null)
-        {
-            throw new InvalidOperationException("Vehicle not connected.");
-        }
-
-        try
-        {
-            using (await this.BeginActivity("Reading flash", false))
-            {
-                try
-                {
-                    ReadManager readManager = new(
-                        logger,
-                        this.vehicle,
-                        invoke,
-                        promptForFilePath,
-                        promptForOperatingSystemId,
-                        alert,
-                        promptForYesNo,
-                        cancellationToken);
-                    await readManager.Read(path);
-                }
-                catch (Exception exception)
-                {
-                    logger.AddUserMessage("Read failed.");
-                    logger.AddUserMessage(exception.ToString());
-                    await Task.Delay(1000);
-                }
-                finally
-                {
-                    await this.vehicle.ExitKernel();
-                    await this.vehicle.ClearTroubleCodes();
-                }
-            }
-        }
-        catch (Exception exception)
-        {
-            logger.AddUserMessage("Read failed, unable to acquire connection?");
-            logger.AddUserMessage(exception.ToString());
-            await Task.Delay(1000);
-        }
-    }
-
-    // TODO: Move this into WriteModel
-    public async Task WriteFlash(
-        PcmHacking.ILogger logger,
-        Func<string, string, Task> alert,
-        Func<string, string, Task<bool>> promptForYesNo,
-        WriteType writeType,
-        string path,
-        CancellationToken cancellationToken)
-    {
-        if (this.vehicle is null)
-        {
-            throw new InvalidOperationException("Vehicle not connected.");
-        }
-
-        try
-        {
-            using (await this.BeginActivity("Writing flash", false))
-            {
-                try
-                {
-                    WriteManager writeManager = new(
-                        logger,
-                        this.vehicle,
-                        writeType,
-                        alert,
-                        promptForYesNo,
-                        cancellationToken);
-                    await writeManager.Write(path);
-                }
-                catch (Exception exception)
-                {
-                    logger.AddUserMessage("Write failed.");
-                    logger.AddUserMessage(exception.ToString());
-                    await Task.Delay(1000);
-                }
-                finally
-                {
-                    await this.vehicle.ExitKernel();
-                    await this.vehicle.ClearTroubleCodes();
-                }
-            }
-        }
-        catch (Exception exception)
-        {
-            logger.AddUserMessage("Write failed, unable to acquire connection?");
-            logger.AddUserMessage(exception.ToString());
-            await Task.Delay(1000);
-        }
-    }
-
-    public async Task ResetCodes(PcmHacking.ILogger progressLogger)
-    {
-        using (ConnectionLease lease = await this.BeginActivity("Reset Codes", false))
-        {
-            Vehicle vehicle = lease.Vehicle;
-            try
-            {
-                await vehicle.ExitKernel();
-                await vehicle.ClearTroubleCodes();
-            }
-            catch (Exception exception)
-            {
-                this.progressLogger.AddUserMessage("Exception while clearing trouble codes.");
-                this.progressLogger.AddDebugMessage(exception.ToString());
-            }
-        }
-    }
-
+    /// <summary>
+    /// Transition from one of the expected states to the desired new state.
+    /// </summary>
+    /// <remarks>
+    /// This was written before the semaphore was added. It's probably overkill
+    /// now that the semaphore is enforcing state transitions.
+    /// </remarks>
     private bool TryTransition(ConnectionStates expected, ConnectionStates newState)
     {
-        lock (this.transitionLock)
+        this.progressLogger.AddDebugMessage($"Transition requested from: {this.internalState}, to: {newState}");
+        if (((this.internalState & expected) > 0) || this.internalState == newState)
         {
-            this.progressLogger.AddDebugMessage($"Transition requested from: {this.internalState}, to: {newState}");
-            if (((this.internalState & expected) > 0) || this.internalState == newState)
-            {
-                this.ForceTransition(newState);
-                return true;
-            }
-
-            this.progressLogger.AddDebugMessage($"Transition denied, staying in: {this.internalState}");
-            return false;
+            this.ForceTransition(newState);
+            return true;
         }
+
+        this.progressLogger.AddDebugMessage($"Transition denied, staying in: {this.internalState}");
+        return false;
     }
 
     private void ForceTransition(ConnectionStates newState)

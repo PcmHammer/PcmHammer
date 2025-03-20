@@ -1,5 +1,7 @@
+using Microsoft.Extensions.Logging;
 using PcmHacking.UnoUI.Services;
 using PcmHacking.UnoUI.Utilities;
+using System;
 using Uno.Extensions.Reactive.Commands;
 using Windows.Storage.Pickers;
 
@@ -61,21 +63,31 @@ public partial record WriteModel : IAsyncLogger
         }
 
         this.tokenSource = new CancellationTokenSource();
-        CancellationToken readCancellationToken = this.tokenSource.Token;
+        CancellationToken writeCancellationToken = this.tokenSource.Token;
         try
         {
-            await this.connectionService.WriteFlash(
-                this.progressLogger,
-                this.Alert,
-                this.PromptForYesNo,
-                this.writeType,
-                path,
-                readCancellationToken);
+            using (ConnectionLease lease = await this.connectionService.BeginActivity("Writing flash", false))
+            {
+                WriteManager writeManager = new(
+                    this.progressLogger,
+                    lease.Vehicle,
+                    this.writeType,
+                    this.Alert,
+                    this.PromptForYesNo,
+                    writeCancellationToken);
+
+                await writeManager.Write(path);
+
+                await lease.Vehicle.ExitKernel();
+                await lease.Vehicle.ClearTroubleCodes();
+            }
         }
-        catch (Exception ex)
+        catch (Exception exception)
         {
             await this.AddUserMessage("Write failed: ");
-            await this.AddUserMessage(ex.Message);
+            await this.AddUserMessage(exception.Message);
+            await Task.Delay(1000);
+            await this.AddDebugMessage(exception.ToString());
         }
         finally
         {

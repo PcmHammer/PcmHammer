@@ -5,6 +5,7 @@ using Uno.Extensions.Reactive.Commands;
 using Windows.Devices.Bluetooth.Advertisement;
 using Windows.Storage.Pickers;
 using PcmHacking.UnoUI.Utilities;
+using Microsoft.Extensions.Logging;
 
 namespace PcmHacking.UnoUI.Presentation;
 
@@ -61,24 +62,35 @@ public partial record ReadModel : IAsyncLogger
             await this.Path.SetAsync(path);
         }
 
+        // TODO: Review the scenarios in which the given cancellationToken
+        // can get signaled, and review how the read process handles those
+        // signals.
         this.tokenSource = new CancellationTokenSource();
         CancellationToken readCancellationToken = this.tokenSource.Token;
         try
         {
-            await this.connectionService.ReadFlash(
-                this.progressLogger,
-                this.Invoke,
-                this.PromptForFileSavePath,
-                this.PromptForOperatingSystemId,
-                this.Alert,
-                this.PromptForYesNo,
-                path,
-                readCancellationToken);
+            using (ConnectionLease lease = await this.connectionService.BeginActivity("Reading flash", false))
+            {
+                ReadManager readManager = new(
+                    this.progressLogger,
+                    lease.Vehicle,
+                    this.Invoke,
+                    this.PromptForFileSavePath,
+                    this.PromptForOperatingSystemId,
+                    this.Alert,
+                    this.PromptForYesNo,
+                    readCancellationToken);
+                await readManager.Read(path);
+                await lease.Vehicle.ExitKernel();
+                await lease.Vehicle.ClearTroubleCodes();
+            }
         }
-        catch (Exception ex)
+        catch (Exception exception)
         {
             await this.AddUserMessage("Read failed: ");
-            await this.AddUserMessage(ex.Message);
+            await this.AddUserMessage(exception.Message);
+            await Task.Delay(1000);
+            await this.AddDebugMessage(exception.ToString());
         }
         finally
         {

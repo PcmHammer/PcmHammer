@@ -52,67 +52,62 @@ public partial record OtherFunctionsModel
             {
                 Vehicle vehicle = lease.Vehicle;
 
-                await this.ReadPropertiesInternal(vehicle, cancellationToken);
+                // All VPW PCMs support the VIN query.
+                await this.Vin.SetAsync(await this.GetVin(vehicle, cancellationToken));
+                await this.Mec.SetAsync(await this.GetMec(vehicle, cancellationToken));
+
+                // The others depend on the operating system.        
+                const string notApplicable = "Not Applicable";
+                string? osIdString = await this.GetOperatingSystemId(vehicle, cancellationToken);
+                uint osId = (uint)0;
+                if (uint.TryParse(osIdString ?? "", out osId))
+                {
+                    OSIDInfo pcmInfo = new OSIDInfo(osId);
+                    await this.Description.SetAsync(pcmInfo.Description);
+
+                    if (pcmInfo != null && pcmInfo.HardwareType != PcmType.BlackBox)
+                    {
+                        await this.CalibrationId.SetAsync(await this.GetCalibrationId(vehicle, cancellationToken));
+                        await this.SerialNumber.SetAsync(await this.GetSerialNumber(vehicle, cancellationToken));
+                    }
+                    else
+                    {
+                        await this.CalibrationId.SetAsync(notApplicable);
+                        await this.SerialNumber.SetAsync(notApplicable);
+                    }
+
+                    if (pcmInfo != null && pcmInfo.HardwareType != PcmType.P10 && pcmInfo.HardwareType != PcmType.P12 && pcmInfo.HardwareType != PcmType.E54)
+                    {
+                        await this.HardwareId.SetAsync(await this.GetHardwareId(vehicle, cancellationToken));
+                    }
+                    else
+                    {
+                        await this.HardwareId.SetAsync(notApplicable);
+                    }
+
+                    if (pcmInfo != null && pcmInfo.HardwareType != PcmType.P04 && pcmInfo.HardwareType != PcmType.P04_Early && pcmInfo.HardwareType != PcmType.P08)
+                    {
+                        await this.BroadcastCode.SetAsync(await this.GetBroadcastCode(vehicle, cancellationToken));
+                    }
+                    else
+                    {
+                        await this.BroadcastCode.SetAsync(notApplicable);
+                    }
+                }
+                else
+                {
+                    string unknown = "Unknown";
+                    await this.Description.SetAsync(unknown);
+                    await this.CalibrationId.SetAsync(unknown);
+                    await this.HardwareId.SetAsync(unknown);
+                    await this.SerialNumber.SetAsync(unknown);
+                    await this.BroadcastCode.SetAsync(unknown);
+                }
             }
         }
         catch (ConnectionUnavailableException)
         {
             // TODO: display an error?
-        }
-    }
-        
-    private async Task ReadPropertiesInternal(Vehicle vehicle, CancellationToken cancellationToken)
-    {
-        // All VPW PCMs support the VIN query.
-        await this.Vin.SetAsync(await this.GetVin(vehicle, cancellationToken));
-        await this.Mec.SetAsync(await this.GetMec(vehicle, cancellationToken));
-
-        // The others depend on the operating system.        
-        const string notApplicable = "Not Applicable";
-        string? osIdString = await this.connectionService.OperatingSystemId.Value();
-        uint osId = (uint)0;
-        if (uint.TryParse(osIdString ?? "", out osId))
-        {
-            OSIDInfo pcmInfo = new OSIDInfo(osId);
-            await this.Description.SetAsync(pcmInfo.Description);
-
-            if (pcmInfo != null && pcmInfo.HardwareType != PcmType.BlackBox)
-            {
-                await this.CalibrationId.SetAsync(await this.GetCalibrationId(vehicle, cancellationToken));
-                await this.SerialNumber.SetAsync(await this.GetSerialNumber(vehicle, cancellationToken));
-            }
-            else
-            {
-                await this.CalibrationId.SetAsync(notApplicable);
-                await this.SerialNumber.SetAsync(notApplicable);
-            }
-
-            if (pcmInfo != null && pcmInfo.HardwareType != PcmType.P10 && pcmInfo.HardwareType != PcmType.P12 && pcmInfo.HardwareType != PcmType.E54)
-            {
-                await this.HardwareId.SetAsync(await this.GetHardwareId(vehicle, cancellationToken));
-            }
-            else
-            {
-                await this.HardwareId.SetAsync(notApplicable);
-            }
-
-            if (pcmInfo != null && pcmInfo.HardwareType != PcmType.P04 && pcmInfo.HardwareType != PcmType.P04_Early && pcmInfo.HardwareType != PcmType.P08)
-            {
-                await this.BroadcastCode.SetAsync(await this.GetBroadcastCode(vehicle, cancellationToken));
-            }
-            else
-            {
-                await this.BroadcastCode.SetAsync(notApplicable);
-            }
-        }
-        else
-        {
-            string unknown = "Unknown";
-            await this.Description.SetAsync(unknown);
-            await this.CalibrationId.SetAsync(unknown);
-            await this.HardwareId.SetAsync(unknown);
-            await this.SerialNumber.SetAsync(unknown);
-            await this.BroadcastCode.SetAsync(unknown);
         }
     }
 
@@ -137,6 +132,16 @@ public partial record OtherFunctionsModel
             return "VIN query failed: " + vinResponse.Status.ToString();
         }
         return vinResponse.Value;
+    }
+
+    private async ValueTask<string> GetOperatingSystemId(Vehicle vehicle, CancellationToken cancellationToken)
+    {
+        var response = await vehicle.QueryOperatingSystemId(cancellationToken);
+        if (response.Status != ResponseStatus.Success)
+        {
+            return "Operating system ID query failed: " + response.Status.ToString();
+        }
+        return response.Value.ToString();
     }
 
     private async ValueTask<string> GetCalibrationId(Vehicle vehicle, CancellationToken cancellationToken)
@@ -208,7 +213,23 @@ public partial record OtherFunctionsModel
     {
         try
         {
-            await this.connectionService.ResetCodes(this.progressLogger);
+            using (ConnectionLease lease = await this.connectionService.BeginActivity("Reset Codes", false))
+            {
+                Vehicle vehicle = lease.Vehicle;
+                try
+                {
+                    await vehicle.ExitKernel();
+                    await vehicle.ClearTroubleCodes();
+                    await this.ResetCodesButtonText.SetAsync("Success!");
+                    await Task.Delay(1000);
+                }
+                catch (Exception exception)
+                {
+                    this.progressLogger.AddUserMessage("Exception while clearing trouble codes.");
+                    this.progressLogger.AddDebugMessage(exception.ToString());
+                }
+            }
+            
             await this.ResetCodesButtonText.SetAsync("Success!");
         }
         catch (Exception exception)
