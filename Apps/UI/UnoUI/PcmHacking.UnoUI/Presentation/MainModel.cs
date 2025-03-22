@@ -23,8 +23,13 @@ public partial record MainModel
 
         vehicleService.ConnectionState.ForEach((state, ct) => this.ConnectionStateChanged(ct));
 
-        // This is a bit of a hack. We need to update the displayed settings when the page is loaded.
+        // This updates the UI with the latest configuration when the connection service attempts to connect.
+        this.connectionService.Port.ForEach((port, ct) => this.SerialPortName.SetAsync(port, ct));
+        this.connectionService.Device.ForEach((device, ct) => this.DeviceName.SetAsync(device, ct));
+
         // Connection is an async operation, but constructors can't be async, so we fire and forget.
+        // This is a bit of a hack, but I don't see any real issues from it, and we want to update
+        // the displayed settings and test the connection as soon as the page is loaded.
         this.connectionService.TryConnect(this.settingsService.LoadConnectionSettings());
     }
 
@@ -80,20 +85,6 @@ public partial record MainModel
     /// </summary>
     public IState<bool> BackButtonEnabled => State<bool>.Value(this, () => false);
 
-    private async ValueTask UpdateDisplayedSettings()
-    {
-        if (this.settingsService.GetObd2DeviceCategory() == "J2534")
-        {
-            await this.SerialPortName.SetAsync("Not Used");
-            await this.DeviceName.SetAsync(this.settingsService.GetJ2534DeviceName());
-        }
-        else
-        {
-            await this.SerialPortName.SetAsync(this.settingsService.GetObd2SerialPortName());
-            await this.DeviceName.SetAsync(this.settingsService.GetObd2SerialDeviceName());
-        }
-    }
-
     private async Task UpdateBackButtonState(CancellationToken ct)
     {
         ConnectionStates currentState = await this.connectionService.ConnectionState.Value(ct);
@@ -128,7 +119,6 @@ public partial record MainModel
                 break;
             case ConnectionStates.Connected:
                 await this.ConnectionState.SetAsync("Connected");
-                await this.UpdateDisplayedSettings();
                 break;
             case ConnectionStates.Active:
             case ConnectionStates.Logging:

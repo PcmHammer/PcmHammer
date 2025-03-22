@@ -90,18 +90,15 @@ public class ConnectionLease : IDisposable
 
 public interface IConnectionService
 {
+    IState<string> Port { get; }
+    IState<string> Device { get; }
     IState<ConnectionStates> ConnectionState { get; }
-
     IState<string> Activity { get; }
-
     IState<string> ConnectionError { get; }
-
     IState<string> OperatingSystemId { get; }
-
     IState<string> Voltage { get; }
 
     Task<bool> TryConnect(CurrentSettings settings);
-
     Task<ConnectionLease> BeginActivity(string activity, bool canInterrupt = false);
 }
 
@@ -119,8 +116,9 @@ public class ConnectionService : IConnectionService
     private ConnectionStates internalState = ConnectionStates.NotConfigured;
     private SemaphoreSlim semaphore = new SemaphoreSlim(1, 1);
 
+    public IState<string> Port => State.Value(this, () => string.Empty);
+    public IState<string> Device => State.Value(this, () => string.Empty);
     public IState<ConnectionStates> ConnectionState => State.Value(this, () => ConnectionStates.NotConfigured);
-
     public IState<string> Activity => State.Value(this, () => string.Empty);
     public IState<string> ConnectionError => State.Value(this, () => string.Empty);
     public IState<string> OperatingSystemId => State.Value(this, () => string.Empty);
@@ -151,6 +149,9 @@ public class ConnectionService : IConnectionService
             this.progressLogger.AddDebugMessage("SEMAPHORE: TryConnect waiting.");
             await this.semaphore.WaitAsync();
             this.progressLogger.AddDebugMessage("SEMAPHORE: TryConnect acquired.");
+
+            await this.Port.SetAsync(settings.Obd2SerialPortName);
+            await this.Device.SetAsync(settings.Obd2SerialDeviceName);
 
             await this.BeginActivity(TestingActivity, ConnectionStates.Connecting);
 
@@ -193,7 +194,6 @@ public class ConnectionService : IConnectionService
             if (await this.TryPollOnce(newVehicle))
             {
                 this.progressLogger.AddUserMessage("Connection test succeeded.");
-                this.settingsService.SaveConnectionSettings(settings);
                 isConnected = true;
                 this.device = newDevice;
                 this.vehicle = newVehicle;
@@ -201,6 +201,10 @@ public class ConnectionService : IConnectionService
             else
             {
                 this.progressLogger.AddUserMessage("Connection test failed.");
+                newVehicle.Dispose();
+                newVehicle = null;
+                newDevice.Dispose();
+                newDevice = null;
             }
 
         }
