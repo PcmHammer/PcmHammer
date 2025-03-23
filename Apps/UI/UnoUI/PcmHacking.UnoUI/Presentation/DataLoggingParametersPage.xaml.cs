@@ -1,7 +1,10 @@
 using System.Data;
 using System.Data.Common;
+using System.Drawing.Drawing2D;
 using System.Drawing.Text;
+using Microsoft.UI;
 using Microsoft.UI.Dispatching;
+using Microsoft.UI.Xaml.Shapes;
 using Uno.Extensions.Reactive;
 using Windows.UI.Text;
 using Windows.UI.ViewManagement;
@@ -10,6 +13,9 @@ namespace PcmHacking.UnoUI.Presentation;
 
 public sealed partial class DataLoggingParametersPage : Page
 {
+    //private readonly bool darkMode;
+    private SolidColorBrush[] backgroundBrushes;
+
     private record RowMetadata(TextBlock Value, TextBlock? ZoomedValue, string Units);
 
     private List<RowMetadata> parameterMetadata = new();
@@ -23,34 +29,49 @@ public sealed partial class DataLoggingParametersPage : Page
         this.dispatcherQueue = DispatcherQueue.GetForCurrentThread();
         this.InitializeComponent();
 
-        this.DataContextChanged += (sender, e) =>
-        {
-            var newModel = (this.DataContext as DataLoggingParametersViewModel)?.Model as DataLoggingParametersModel;
-            if (newModel == null)
-            {
-                return;
-            }
-
-            if (newModel == this.model)
-            {
-                return;
-            }
-
-            this.model = newModel;
-
-            this.model.ProgressLogger.AddDebugMessage("DataLoggingParametersPage DataContext set.");
-
-            this.model.LogProfile.ForEach((loggerWrapper, ct) => this.InitializeParameters(loggerWrapper.Logger)); 
-
-            this.model.Rows.ForEach((row, ct) => this.UpdateParameterValues(row.Values));
-
-            this.model.ErrorMessage.ForEach((value, ct) => this.ShowErrorMessage(value));
-
-            // Let the Model know that it's safe to continue.
-            this.model.InitializationEvent.Set();
-            this.model.ProgressLogger.AddDebugMessage("DataLoggingParametersPage callbacks registered.");            
-        };
+        this.DataContextChanged += OnDataContextChanged;
+        this.Loaded += OnLoaded;
     }
+
+    private void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        // This can't run in the constructor because the XamlRoot isn't available yet.
+        bool darkMode = this.XamlRoot == null ? false : SystemThemeHelper.IsRootInDarkMode(this.XamlRoot);
+        byte dark = 40;
+        byte light = 216;
+        backgroundBrushes = darkMode ?
+            new SolidColorBrush[] { new SolidColorBrush(Colors.Black), new SolidColorBrush(Colors.FromARGB(255, dark, dark, dark)) } :
+            new SolidColorBrush[] { new SolidColorBrush(Colors.White), new SolidColorBrush(Colors.FromARGB(255, light, light, light)) };
+    }
+
+    private void OnDataContextChanged(object sender, DataContextChangedEventArgs e)
+    {
+        var newModel = (this.DataContext as DataLoggingParametersViewModel)?.Model as DataLoggingParametersModel;
+        if (newModel == null)
+        {
+            return;
+        }
+
+        if (newModel == this.model)
+        {
+            return;
+        }
+
+        this.model = newModel;
+
+        this.model.ProgressLogger.AddDebugMessage("DataLoggingParametersPage DataContext set.");
+
+        this.model.LogProfile.ForEach((loggerWrapper, ct) => this.InitializeParameters(loggerWrapper.Logger));
+
+        this.model.Rows.ForEach((row, ct) => this.UpdateParameterValues(row.Values));
+
+        this.model.ErrorMessage.ForEach((value, ct) => this.ShowErrorMessage(value));
+
+        // Let the Model know that it's safe to continue.
+        this.model.InitializationEvent.Set();
+        this.model.ProgressLogger.AddDebugMessage("DataLoggingParametersPage callbacks registered.");
+    }
+
     protected override void OnNavigatingFrom(NavigatingCancelEventArgs e)
     {
         this.model?.StopLogging();
@@ -80,79 +101,63 @@ public sealed partial class DataLoggingParametersPage : Page
             {
                 foreach (LogColumn column in group.LogColumns)
                 {
-                    AddParameter(mainRowIndex, column.Parameter.Name, column.Conversion.Units, out TextBlock name, out TextBlock value);
+                    this.AddParameter(mainRowIndex, column.Parameter.Name, column.Conversion.Units, out TextBlock valueTextBlock);
                     mainRowIndex++;
-
-                    this.Parameters.RowDefinitions.Add(new RowDefinition());
-                    this.Parameters.Children.Add(name);
-                    this.Parameters.Children.Add(value);
-
+                    
                     TextBlock? zoomValue = null;
                     if (column.Zoom)
                     {
-                        StackPanel stackPanel;
-                        AddZoomParameter(zoomRowIndex, column.Parameter.Name, column.Conversion.Units, out zoomValue, out stackPanel);
+                        this.AddZoomParameter(zoomRowIndex, column.Parameter.Name, column.Conversion.Units, out zoomValue);
                         zoomRowIndex++;
-
-                        this.ZoomedParameters.RowDefinitions.Add(new RowDefinition());
-                        this.ZoomedParameters.Children.Add(stackPanel);
                     }
 
-                    parameterMetadata.Add(new RowMetadata(value, zoomValue, column.Conversion.Units));
+                    parameterMetadata.Add(new RowMetadata(valueTextBlock, zoomValue, column.Conversion.Units));
                 }
             }
 
             foreach (LogColumn mathColumn in logger.MathValueProcessor.GetMathColumns())
             {
-                AddParameter(mainRowIndex, mathColumn.Parameter.Name, mathColumn.Conversion.Units, out TextBlock name, out TextBlock value);
+                this.AddParameter(mainRowIndex, mathColumn.Parameter.Name, mathColumn.Conversion.Units, out TextBlock valueTextBlock);
                 mainRowIndex++;
-
-                RowDefinition rowDefinition = new RowDefinition();
-                this.Parameters.RowDefinitions.Add(new RowDefinition());
-                this.Parameters.Children.Add(name);
-                this.Parameters.Children.Add(value);
 
                 TextBlock? zoomValue = null;
                 if (mathColumn.Zoom)
                 {
-                    StackPanel stackPanel;
-                    AddZoomParameter(zoomRowIndex, mathColumn.Parameter.Name, mathColumn.Conversion.Units, out zoomValue, out stackPanel);
+                    this.AddZoomParameter(zoomRowIndex, mathColumn.Parameter.Name, mathColumn.Conversion.Units, out zoomValue);
                     zoomRowIndex++;
-
-                    this.ZoomedParameters.RowDefinitions.Add(new RowDefinition());
-                    this.ZoomedParameters.Children.Add(stackPanel);
                 }
 
-                parameterMetadata.Add(new RowMetadata(value, zoomValue, mathColumn.Conversion.Units));
+                parameterMetadata.Add(new RowMetadata(valueTextBlock, zoomValue, mathColumn.Conversion.Units));
             }
 
             foreach (CanLogger.ParameterValue canParameter in logger.CanLogger.GetParameterValues())
             {
-                AddParameter(mainRowIndex, canParameter.Name, canParameter.Units, out TextBlock name, out TextBlock value);
+                this.AddParameter(mainRowIndex, canParameter.Name, canParameter.Units, out TextBlock valueTextBlock);
                 mainRowIndex++;
 
-                this.Parameters.RowDefinitions.Add(new RowDefinition());
-                this.Parameters.Children.Add(name);
-                this.Parameters.Children.Add(value);
-                parameterMetadata.Add(new RowMetadata(value, null, canParameter.Units));
+                parameterMetadata.Add(new RowMetadata(valueTextBlock, null, canParameter.Units));
             }
         });
 
         return ValueTask.CompletedTask;
     }
 
-    private static void AddParameter(int mainRowIndex, string name, string units, out TextBlock nameTextBlock, out TextBlock valueTextBlock)
+    private void AddParameter(int mainRowIndex, string name, string units, out TextBlock valueTextBlock)
     {
         const int textSize = 20;
         
-        nameTextBlock = new TextBlock();
+        TextBlock nameTextBlock = new TextBlock();
         nameTextBlock.Text = name;
         nameTextBlock.FontSize = textSize;
         nameTextBlock.Margin = new Thickness(5);
         nameTextBlock.HorizontalAlignment = HorizontalAlignment.Right;
         nameTextBlock.VerticalAlignment = VerticalAlignment.Center;
-        nameTextBlock.SetValue(Grid.RowProperty, mainRowIndex);
-        nameTextBlock.SetValue(Grid.ColumnProperty, 0);
+        
+        Border nameBorder = new Border();
+        nameBorder.Background = this.backgroundBrushes[mainRowIndex % 2];
+        nameBorder.SetValue(Grid.RowProperty, mainRowIndex);
+        nameBorder.SetValue(Grid.ColumnProperty, 0);
+        nameBorder.Child = nameTextBlock;
 
         valueTextBlock = new TextBlock();
         valueTextBlock.Text = units;
@@ -161,20 +166,32 @@ public sealed partial class DataLoggingParametersPage : Page
         valueTextBlock.Margin = new Thickness(5);
         valueTextBlock.HorizontalAlignment = HorizontalAlignment.Left;
         valueTextBlock.VerticalAlignment = VerticalAlignment.Center;
-        valueTextBlock.SetValue(Grid.RowProperty, mainRowIndex);
-        valueTextBlock.SetValue(Grid.ColumnProperty, 1);
+
+        Border valueBorder = new Border();
+        valueBorder.Background = this.backgroundBrushes[mainRowIndex % 2];
+        valueBorder.SetValue(Grid.RowProperty, mainRowIndex);
+        valueBorder.SetValue(Grid.ColumnProperty, 1);
+        valueBorder.Child = valueTextBlock;
+
+        this.Parameters.RowDefinitions.Add(new RowDefinition());
+        this.Parameters.Children.Add(nameBorder);
+        this.Parameters.Children.Add(valueBorder);
     }
 
-    private static void AddZoomParameter(int zoomRowIndex, string name, string units, out TextBlock? valueTextBlock, out StackPanel stackPanel)
+    private void AddZoomParameter(int zoomRowIndex, string name, string units, out TextBlock? valueTextBlock)
     {
         const int labelSize = 20;
         const int valueSize = 36;
-
-        stackPanel = new StackPanel();
+                
+        StackPanel stackPanel = new StackPanel();
         stackPanel.Orientation = Orientation.Vertical;
         stackPanel.VerticalAlignment = VerticalAlignment.Center;
-        stackPanel.SetValue(Grid.RowProperty, zoomRowIndex);
-        stackPanel.SetValue(Grid.ColumnProperty, 0);
+
+        Border border = new Border();
+        border.Background = this.backgroundBrushes[zoomRowIndex % 2];
+        border.SetValue(Grid.RowProperty, zoomRowIndex);
+        border.SetValue(Grid.ColumnProperty, 0);
+        border.Child = stackPanel;
 
         TextBlock zoomName = new TextBlock();
         zoomName.Text = name;
@@ -199,6 +216,9 @@ public sealed partial class DataLoggingParametersPage : Page
         zoomUnits.HorizontalAlignment = HorizontalAlignment.Center;
         zoomUnits.VerticalAlignment = VerticalAlignment.Center;
         stackPanel.Children.Add(zoomUnits);
+
+        this.ZoomedParameters.RowDefinitions.Add(new RowDefinition());
+        this.ZoomedParameters.Children.Add(border);
     }
 
     private ValueTask UpdateParameterValues(IEnumerable<string> rowValues)

@@ -9,7 +9,7 @@
       Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
 
 
-    <Grid Visibility="{Binding ShowParameters}">
+    <Grid Name="OuterGrid">
         <Grid.RowDefinitions>
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>

@@ -46,6 +46,7 @@ public partial record DataLoggingParametersModel
 
     public PcmHacking.ILogger ProgressLogger { get { return this.progressLogger; } }
     public ManualResetEvent InitializationEvent { get; private set; }
+
     public IState<string> ErrorMessage => State<string>.Empty(this);
 
     public DataLoggingParametersModel(
