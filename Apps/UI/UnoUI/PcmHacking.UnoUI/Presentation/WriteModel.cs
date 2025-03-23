@@ -33,6 +33,7 @@ public partial record WriteModel : IAsyncLogger
     public IState<string> RetryCount => State<string>.Value(this, () => String.Empty);
     public IState<string> Kbps => State<string>.Value(this, () => String.Empty);
     public IState<double> Progress => State<double>.Value(this, () => 0.0);
+    public IState<string> StartButtonText => State<string>.Value(this, () => WriteType == WriteType.TestWrite ? "Start Test" : "Start Writing");
 
     public WriteModel(IConnectionService connectionService, IDispatcher dispatcher) // WriteTypeEntity writeTypeEntity, 
     {
@@ -167,6 +168,11 @@ public partial record WriteModel : IAsyncLogger
 
     public async Task StatusUpdateRetryCount(string retries)
     {
+        if (string.IsNullOrWhiteSpace(retries))
+        {
+            retries = "None.";
+        }
+
         await this.RetryCount.SetAsync("Retried messages: " + retries);
     }
 
@@ -182,11 +188,14 @@ public partial record WriteModel : IAsyncLogger
 
     public async Task StatusUpdateReset()
     {
+        // Not resetting these, so that the user can still see the speed and retry count after the flash completes.
+        // await this.RetryCount.SetAsync(String.Empty);
+        // await this.Kbps.SetAsync(String.Empty);
+
         await this.Activity.SetAsync(String.Empty);
         await this.TimeRemaining.SetAsync(String.Empty);
         await this.PercentDone.SetAsync(String.Empty);
-        await this.RetryCount.SetAsync(String.Empty);
+
         await this.Progress.SetAsync(0.0);
-        await this.Kbps.SetAsync(String.Empty);
     }
 }

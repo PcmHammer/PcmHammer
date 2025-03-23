@@ -5,6 +5,7 @@ using System.Drawing.Text;
 using Microsoft.UI;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml.Shapes;
+using PcmHacking.UnoUI.Utilities;
 using Uno.Extensions.Reactive;
 using Windows.UI.Text;
 using Windows.UI.ViewManagement;
@@ -13,9 +14,6 @@ namespace PcmHacking.UnoUI.Presentation;
 
 public sealed partial class DataLoggingParametersPage : Page
 {
-    //private readonly bool darkMode;
-    private SolidColorBrush[] backgroundBrushes;
-
     private record RowMetadata(TextBlock Value, TextBlock? ZoomedValue, string Units);
 
     private List<RowMetadata> parameterMetadata = new();
@@ -37,11 +35,7 @@ public sealed partial class DataLoggingParametersPage : Page
     {
         // This can't run in the constructor because the XamlRoot isn't available yet.
         bool darkMode = this.XamlRoot == null ? false : SystemThemeHelper.IsRootInDarkMode(this.XamlRoot);
-        byte dark = 40;
-        byte light = 216;
-        backgroundBrushes = darkMode ?
-            new SolidColorBrush[] { new SolidColorBrush(Colors.Black), new SolidColorBrush(Colors.FromARGB(255, dark, dark, dark)) } :
-            new SolidColorBrush[] { new SolidColorBrush(Colors.White), new SolidColorBrush(Colors.FromARGB(255, light, light, light)) };
+        ColorUtilities.Initialize(darkMode);
     }
 
     private void OnDataContextChanged(object sender, DataContextChangedEventArgs e)
@@ -154,7 +148,7 @@ public sealed partial class DataLoggingParametersPage : Page
         nameTextBlock.VerticalAlignment = VerticalAlignment.Center;
         
         Border nameBorder = new Border();
-        nameBorder.Background = this.backgroundBrushes[mainRowIndex % 2];
+        nameBorder.Background = ColorUtilities.Instance.BackgroundBrushes[mainRowIndex % 2];
         nameBorder.SetValue(Grid.RowProperty, mainRowIndex);
         nameBorder.SetValue(Grid.ColumnProperty, 0);
         nameBorder.Child = nameTextBlock;
@@ -168,7 +162,7 @@ public sealed partial class DataLoggingParametersPage : Page
         valueTextBlock.VerticalAlignment = VerticalAlignment.Center;
 
         Border valueBorder = new Border();
-        valueBorder.Background = this.backgroundBrushes[mainRowIndex % 2];
+        valueBorder.Background = ColorUtilities.Instance.BackgroundBrushes[mainRowIndex % 2];
         valueBorder.SetValue(Grid.RowProperty, mainRowIndex);
         valueBorder.SetValue(Grid.ColumnProperty, 1);
         valueBorder.Child = valueTextBlock;
@@ -188,7 +182,7 @@ public sealed partial class DataLoggingParametersPage : Page
         stackPanel.VerticalAlignment = VerticalAlignment.Center;
 
         Border border = new Border();
-        border.Background = this.backgroundBrushes[zoomRowIndex % 2];
+        border.Background = ColorUtilities.Instance.BackgroundBrushes[zoomRowIndex % 2];
         border.SetValue(Grid.RowProperty, zoomRowIndex);
         border.SetValue(Grid.ColumnProperty, 0);
         border.Child = stackPanel;
