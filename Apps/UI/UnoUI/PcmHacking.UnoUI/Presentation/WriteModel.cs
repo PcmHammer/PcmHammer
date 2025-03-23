@@ -33,7 +33,7 @@ public partial record WriteModel : IAsyncLogger
     public IState<string> RetryCount => State<string>.Value(this, () => String.Empty);
     public IState<string> Kbps => State<string>.Value(this, () => String.Empty);
     public IState<double> Progress => State<double>.Value(this, () => 0.0);
-    public IState<string> StartButtonText => State<string>.Value(this, () => WriteType == WriteType.TestWrite ? "Start Test" : "Start Writing");
+    public IState<string> StartButtonText => State<string>.Value(this, () => this.writeType == WriteType.TestWrite ? "Start Test" : "Start Writing");
 
     public WriteModel(IConnectionService connectionService, IDispatcher dispatcher) // WriteTypeEntity writeTypeEntity, 
     {
@@ -67,7 +67,8 @@ public partial record WriteModel : IAsyncLogger
         CancellationToken writeCancellationToken = this.tokenSource.Token;
         try
         {
-            using (ConnectionLease lease = await this.connectionService.BeginActivity("Writing flash", false))
+            string activity = this.writeType == WriteType.TestWrite ? "Test Write" : "Writing PCM";
+            using (ConnectionLease lease = await this.connectionService.BeginActivity(activity, false))
             {
                 WriteManager writeManager = new(
                     this.progressLogger,

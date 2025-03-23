@@ -69,7 +69,7 @@ public partial record ReadModel : IAsyncLogger
         CancellationToken readCancellationToken = this.tokenSource.Token;
         try
         {
-            using (ConnectionLease lease = await this.connectionService.BeginActivity("Reading flash", false))
+            using (ConnectionLease lease = await this.connectionService.BeginActivity("Reading PCM", false))
             {
                 ReadManager readManager = new(
                     this.progressLogger,
