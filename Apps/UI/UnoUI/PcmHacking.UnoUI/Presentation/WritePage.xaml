@@ -52,7 +52,7 @@
         <TextBlock Grid.Row="5" Grid.Column="0" Text="{Binding RetryCount}" />
         <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding Kbps}" />
 
-        <ScrollViewer Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="2">
+        <ScrollViewer Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="2" Name="UserLogScrollViewer">
             <TextBlock Margin="10" FontFamily="Courier New" Text="{Binding UserLog}"/>
         </ScrollViewer>
     </Grid>

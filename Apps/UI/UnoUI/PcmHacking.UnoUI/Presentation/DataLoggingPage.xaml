@@ -46,6 +46,11 @@
               AutomationProperties.AutomationId="SaveButton"
               Command="{Binding SaveProfileClicked}" />
 
+    <StackPanel Grid.Row="0" Grid.Column="1" Grid.RowSpan="2" >
+      <TextBlock Text="Recent Files:" HorizontalAlignment="Center" Margin="10"/>
+      <ListView Name="RecentFiles" ItemsSource="{Binding RecentFiles}" DoubleTapped="ListView_DoubleTapped"/>
+    </StackPanel>
+
     <Button Grid.Row="2" Grid.Column="1" 
               Content="Save Profile As..."
               Margin="10"
@@ -54,12 +59,6 @@
               VerticalAlignment="Stretch"              
               AutomationProperties.AutomationId="SaveAsButton"
               Command="{Binding SaveProfileAsClicked}" />
-
-    <StackPanel Grid.Row="0" Grid.Column="1" Grid.RowSpan="2" >
-      <TextBlock Text="Recent Files:" HorizontalAlignment="Center" Margin="10"/>
-      <ListView Name="RecentFiles" ItemsSource="{Binding RecentFiles}" DoubleTapped="ListView_DoubleTapped"/>
-    </StackPanel>
-    
 
   </Grid>
 </Page>

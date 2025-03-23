@@ -17,14 +17,43 @@ using Microsoft.UI.Xaml.Navigation;
 
 namespace PcmHacking.UnoUI.Presentation
 {
-	/// <summary>
-	/// An empty page that can be used on its own or navigated to within a Frame.
-	/// </summary>
-	public sealed partial class WritePage : Page
-	{
-		public WritePage()
-		{
-			this.InitializeComponent();
-		}
-	}
+    /// <summary>
+    /// An empty page that can be used on its own or navigated to within a Frame.
+    /// </summary>
+    public sealed partial class WritePage : Page
+    {
+        private WriteModel model;
+
+        public WritePage()
+        {
+            this.InitializeComponent();
+            this.DataContextChanged += this.OnDataContextChanged;
+        }
+
+        private void OnDataContextChanged(FrameworkElement sender, DataContextChangedEventArgs args)
+        {
+            var newModel = (this.DataContext as WriteViewModel)?.Model as WriteModel;
+            if (newModel == null)
+            {
+                return;
+            }
+
+            if (newModel == this.model)
+            {
+                return;
+            }
+
+            this.model = newModel;
+
+            this.model.UserLog.ForEach((value, cancellationToken) => await this.OnUserLogChanged(value, cancellationToken));
+        }
+
+        private void OnUserLogChanged(string value, CancellationToken cancellationToken)
+        {
+            this.DispatcherQueue.TryEnqueue(() =>
+            {
+                this.UserLogScrollViewer.ScrollToVerticalOffset(this.UserLogScrollViewer.ScrollableHeight);
+            });
+        }
+    }
 }
