@@ -9,9 +9,11 @@ first, get it working, and second, make it a viable alternative to the existing 
 * done - Get the "Get PCM Info" page working.
 * done - Implement flash read 
 * done - Implement flash write 
-* Implement data logging 
-* Use Windows Management API to get device driver names for serial ports
+* done - Implement data logging 
 * Enable 4x for reading and writing
+* Implelement the "wait 10 seconds" dialog box for reading and writing
+* Implement data log profile editing
+* Use Windows Management API to get device driver names for serial ports
 * Add "verify flash" button on "other" page
 * Implement "Change VIN"
 * Implement "message of the day" (so we can alert people to new versions)
@@ -21,14 +23,12 @@ All of the above are easier said than done. This will take some time.
 
 ## Other must-fix issues:
 
-* Fix the issue with the back-button staying enabled during flash-read and flash-write
-* Make the progress-log viewers on the read and write pages scroll to the bottom when new text is added.
 * TroubleshootingLogger should store logs in memory (maybe in a circular buffer?) and make them available in the UI.
 
 ## New features that would be fun to add:
 
 * DTC reader
-* Crank relearn 
+* Crank relearn - implemented, but not yet tested
  
 ## Surprises
 
@@ -38,7 +38,6 @@ All of the above are easier said than done. This will take some time.
 
 * You can't have "async void" methods in a Model class, due to a bug in the Uno Platform code generator. The AsyncLogger class works around this.
 * You can't have two Model classes share a XAML file. Hence the duplication between ReadModel/WriteModel and ReadPage/WritePage.
-* You can't implement the Frame.Navigated callback. This leads to the back button always being enabled, even when it shouldn't be.
 
 ## To get it working cross-platform
 

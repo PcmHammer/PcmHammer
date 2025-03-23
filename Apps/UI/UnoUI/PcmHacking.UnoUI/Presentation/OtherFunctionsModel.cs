@@ -5,6 +5,18 @@ using Uno.Extensions.Reactive.Commands;
 
 namespace PcmHacking.UnoUI.Presentation;
 
+/// <summary>
+/// This page shows some standard properties from the PCM, and has buttons for less-frequently-used features.
+/// </summary>
+/// <remarks>
+/// TO DO:
+/// - make sure the crank relearn feature actually works...
+/// - VIN change
+/// - Add ECT and IAT to the info display?
+/// - Make the info display refresh every second? 
+/// - add a "verify PCM" button
+/// - add a link to an XDF repository?
+/// </remarks>
 public partial record OtherFunctionsModel
 {
     private const string defaultClearCodesButtonText = "Clear Trouble Codes";
