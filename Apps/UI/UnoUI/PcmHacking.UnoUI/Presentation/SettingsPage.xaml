@@ -65,9 +65,11 @@
                  Text="Where shall we save your data logs?" />
             <TextBlock TextAlignment="Center" Margin="10" Text="{Binding DataLogFolder}" />
             <Button 
-        HorizontalAlignment="Center" Margin="10" Content="Change Folder" Command="{Binding OpenLogFolderPicker}"/>
+                HorizontalAlignment="Center" Margin="10" Content="Change Folder" Command="{Binding OpenLogFolderPicker}"/>
             <Button 
-        HorizontalAlignment="Center" Margin="10" Content="Open Folder" Command="{Binding OpenLogFolder}"/>
+                HorizontalAlignment="Center" Margin="10" Content="Open Folder" Command="{Binding OpenLogFolder}"/>
+
+            <CheckBox Content="Enable high speed (4x) read and write" IsChecked="{Binding Enable4x, Mode=TwoWay}" />
         </StackPanel>
 
         

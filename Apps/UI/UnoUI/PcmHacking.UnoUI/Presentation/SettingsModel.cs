@@ -9,7 +9,13 @@ using Microsoft.UI.Dispatching;
 
 namespace PcmHacking.UnoUI.Presentation;
 
-public record CurrentSettings(string DeviceCategory, string Obd2SerialPortName, string Obd2SerialDeviceName, string J2534DeviceName, bool CanEnabled, string CanPort);
+public record CurrentSettings(
+    string DeviceCategory, 
+    string Obd2SerialPortName, 
+    string Obd2SerialDeviceName, 
+    string J2534DeviceName, 
+    bool CanEnabled, 
+    string CanPort);
 
 public partial record SettingsModel
 {
@@ -61,6 +67,10 @@ public partial record SettingsModel
     public IState<string> DataLogFolder => State<string>
         .Async(this, ct => ValueTask.FromResult(settingsService.GetDataLogFolder()));
 
+    public IState<bool> Enable4x => State<bool>
+        .Async(this, ct => ValueTask.FromResult(settingsService.Is4xReadWriteEnabled()))
+        .ForEach(this.Enable4xReadWriteChanged);
+
     private ValueTask<IImmutableList<string>> GetPortNames(CancellationToken ct)
     {
 #if ANDROID || IOS || MACOS
@@ -110,6 +120,12 @@ public partial record SettingsModel
         {
             this.settingsService.SaveConnectionSettings(currentSettings);
         }
+    }
+
+    private ValueTask Enable4xReadWriteChanged(bool newValue, CancellationToken ct)
+    {
+        settingsService.Is4xReadWriteEnabled(newValue);
+        return ValueTask.CompletedTask;
     }
 
     public Task OpenLogFolderPicker()

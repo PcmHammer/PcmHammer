@@ -15,6 +15,7 @@ public partial record WriteModel : IAsyncLogger
     public static WriteType WriteType;
 
     private readonly IConnectionService connectionService;
+    private readonly ISettingsService settingsService;
     private readonly IDispatcher dispatcher;
     private readonly ILogger progressLogger;
     private CancellationTokenSource? tokenSource;
@@ -35,9 +36,13 @@ public partial record WriteModel : IAsyncLogger
     public IState<double> Progress => State<double>.Value(this, () => 0.0);
     public IState<string> StartButtonText => State<string>.Value(this, () => this.writeType == WriteType.TestWrite ? "Start Test" : "Start Writing");
 
-    public WriteModel(IConnectionService connectionService, IDispatcher dispatcher) // WriteTypeEntity writeTypeEntity, 
+    public WriteModel(
+        IConnectionService connectionService, 
+        ISettingsService settingsService, 
+        IDispatcher dispatcher) // WriteTypeEntity writeTypeEntity, 
     {
         this.connectionService = connectionService ?? throw new ArgumentNullException(nameof(connectionService));
+        this.settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
         this.dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
         this.progressLogger = new LoggerAdapter(this);
         this.writeType = WriteModel.WriteType; // hacky workaround
@@ -70,6 +75,8 @@ public partial record WriteModel : IAsyncLogger
             string activity = this.writeType == WriteType.TestWrite ? "Test Write" : "Writing PCM";
             using (ConnectionLease lease = await this.connectionService.BeginActivity(activity, false))
             {
+                lease.Vehicle.Enable4xReadWrite = this.settingsService.Is4xReadWriteEnabled();
+
                 WriteManager writeManager = new(
                     this.progressLogger,
                     lease.Vehicle,

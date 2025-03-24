@@ -30,6 +30,9 @@ public interface ISettingsService
 
     string GetDataLogFolder();
     void SetDataLogFolder(string folder);
+
+    bool Is4xReadWriteEnabled();
+    void Is4xReadWriteEnabled(bool enabled);
 }
 
 public class SettingsService : ISettingsService
@@ -43,6 +46,7 @@ public class SettingsService : ISettingsService
     private const string LogMruProfilesKey = "LogMruProfiles";
     private const string LogMruProfilePathKey = "LogMruProfilePath";
     private const string DataLogFolderKey = "DataLogFolder";
+    private const string Is4xReadWriteEnabledKey = "Is4xReadWriteEnabled";
 
     public SettingsService()
     {
@@ -210,5 +214,14 @@ public class SettingsService : ISettingsService
     public void SetDataLogFolder(string folder)
     {
         LocalSettings.Values[DataLogFolderKey] = folder;
+    }
+
+    public bool Is4xReadWriteEnabled()
+    {
+        return (bool)(LocalSettings.Values[Is4xReadWriteEnabledKey] ?? true);
+    }
+    public void Is4xReadWriteEnabled(bool enabled)
+    {
+        LocalSettings.Values[Is4xReadWriteEnabledKey] = enabled;
     }
 }

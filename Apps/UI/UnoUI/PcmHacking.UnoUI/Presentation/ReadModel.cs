@@ -12,6 +12,7 @@ namespace PcmHacking.UnoUI.Presentation;
 public partial record ReadModel : IAsyncLogger
 {
     private readonly IConnectionService connectionService;
+    private readonly ISettingsService settingsService;
     private readonly IDispatcher dispatcher;
     private readonly ILogger progressLogger;
     private CancellationTokenSource? tokenSource;
@@ -31,9 +32,13 @@ public partial record ReadModel : IAsyncLogger
     public IState<string> Kbps => State<string>.Value(this, () => String.Empty);
     public IState<double> Progress => State<double>.Value(this, () => 0.0);
 
-    public ReadModel(IConnectionService connectionService, IDispatcher dispatcher)
+    public ReadModel(
+        IConnectionService connectionService,
+        ISettingsService settingsService,
+        IDispatcher dispatcher)
     {
         this.connectionService = connectionService ?? throw new ArgumentNullException(nameof(connectionService));
+        this.settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
         this.dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
         this.progressLogger = new LoggerAdapter(this);
 
@@ -71,6 +76,7 @@ public partial record ReadModel : IAsyncLogger
         {
             using (ConnectionLease lease = await this.connectionService.BeginActivity("Reading PCM", false))
             {
+                lease.Vehicle.Enable4xReadWrite = this.settingsService.Is4xReadWriteEnabled();
                 ReadManager readManager = new(
                     this.progressLogger,
                     lease.Vehicle,
