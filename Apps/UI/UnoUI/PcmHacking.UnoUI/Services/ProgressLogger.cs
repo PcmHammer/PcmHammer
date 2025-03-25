@@ -56,8 +56,4 @@ public class ProgressLogger : PcmHacking.ILogger
     {
         Console.WriteLine("Logs reset");
     }
-    public string GetAppNameAndVersion()
-    {
-        return "TroubleshootingLogger";
-    }
 }

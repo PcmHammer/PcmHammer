@@ -17,7 +17,7 @@ public partial record WriteModel : IAsyncLogger
     private readonly IConnectionService connectionService;
     private readonly ISettingsService settingsService;
     private readonly IDispatcher dispatcher;
-    private readonly ILogger progressLogger;
+    private readonly LoggerAdapter loggerAdapter;
     private CancellationTokenSource? tokenSource;
     const string defaultPath = "No file selected.";
 
@@ -37,14 +37,15 @@ public partial record WriteModel : IAsyncLogger
     public IState<string> StartButtonText => State<string>.Value(this, () => this.writeType == WriteType.TestWrite ? "Start Test" : "Start Writing");
 
     public WriteModel(
-        IConnectionService connectionService, 
+        IConnectionService connectionService,
+        LoggerAdapter loggerAdapter,
         ISettingsService settingsService, 
         IDispatcher dispatcher) // WriteTypeEntity writeTypeEntity, 
     {
         this.connectionService = connectionService ?? throw new ArgumentNullException(nameof(connectionService));
         this.settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
         this.dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
-        this.progressLogger = new LoggerAdapter(this);
+        this.loggerAdapter = loggerAdapter;
         this.writeType = WriteModel.WriteType; // hacky workaround
     }
 
@@ -74,11 +75,12 @@ public partial record WriteModel : IAsyncLogger
         {
             string activity = this.writeType == WriteType.TestWrite ? "Test Write" : "Writing PCM";
             using (ConnectionLease lease = await this.connectionService.BeginActivity(activity, false))
+            using (new LogInterceptor(this.loggerAdapter, this))
             {
                 lease.Vehicle.Enable4xReadWrite = this.settingsService.Is4xReadWriteEnabled();
 
                 WriteManager writeManager = new(
-                    this.progressLogger,
+                    this.loggerAdapter,
                     lease.Vehicle,
                     this.writeType,
                     this.Alert,

@@ -23,7 +23,7 @@ namespace PcmHacking.UnoUI.Utilities
     /// This interface as the class below allow bridge the gap between what
     /// Uno requires and what the rest of the code expects.
     /// </remarks>
-    interface IAsyncLogger
+    public interface IAsyncLogger
     {
         Task AddUserMessage(string message);
         Task AddDebugMessage(string message);
@@ -39,58 +39,136 @@ namespace PcmHacking.UnoUI.Utilities
     /// <summary>
     /// See the description of IAsyncLogger.
     /// </summary>
-    class LoggerAdapter : PcmHacking.ILogger
+    public class LoggerAdapter : PcmHacking.ILogger
     {
-        private readonly IAsyncLogger logger;
+        public IAsyncLogger? Logger { get; set; }
 
-        public LoggerAdapter(IAsyncLogger logger)
+        public LoggerAdapter()
         {
-            this.logger = logger;
         }
 
         public void AddUserMessage(string message)
         {
-            this.logger.AddUserMessage(message);
+            if (this.Logger != null)
+            {
+                this.Logger.AddUserMessage(message);
+            }
+            else
+            {
+                Console.WriteLine($"UserMessage: {message}");
+            }
         }
 
         public void AddDebugMessage(string message)
         {
-            this.logger.AddDebugMessage(message);
+            if (this.Logger != null)
+            {
+                this.Logger.AddDebugMessage(message);
+            }
+            else
+            {
+                Console.WriteLine($"DebugMessage: {message}");
+            }
         }
 
         public void StatusUpdateActivity(string activity)
         {
-            this.logger.StatusUpdateActivity(activity);
+            if (this.Logger != null)
+            {
+                this.Logger.StatusUpdateActivity(activity);
+            }
+            else
+            {
+                Console.WriteLine($"Activity: {activity}");
+            }
         }
 
         public void StatusUpdateTimeRemaining(string remaining)
         {
-            this.logger.StatusUpdateTimeRemaining(remaining);
+            if (this.Logger != null)
+            {
+                this.Logger.StatusUpdateTimeRemaining(remaining);
+            }
+            else
+            {
+                Console.WriteLine($"TimeRemaining: {remaining}");
+            }
         }
 
         public void StatusUpdatePercentDone(string percent)
         {
-            this.logger.StatusUpdatePercentDone(percent);
+            if (this.Logger != null)
+            {
+                this.Logger.StatusUpdatePercentDone(percent);
+            }
+            else
+            {
+                Console.WriteLine($"PercentDone: {percent}");
+            }
         }
 
         public void StatusUpdateRetryCount(string retries)
         {
-            this.logger.StatusUpdateRetryCount(retries);
+            if (this.Logger != null)
+            {
+                this.Logger.StatusUpdateRetryCount(retries);
+            }
+            else
+            {
+                Console.WriteLine($"RetryCount: {retries}");
+            }
         }
 
         public void StatusUpdateProgressBar(double completed, bool visible)
         {
-            this.logger.StatusUpdateProgressBar(completed, visible);
+            if (this.Logger != null)
+            {
+                this.Logger.StatusUpdateProgressBar(completed, visible);
+            }
+            else
+            {
+                Console.WriteLine($"ProgressBar: Completed={completed}, Visible={visible}");
+            }
         }
 
         public void StatusUpdateKbps(string Kbps)
         {
-            this.logger.StatusUpdateKbps(Kbps);
+            if (this.Logger != null)
+            {
+                this.Logger.StatusUpdateKbps(Kbps);
+            }
+            else
+            {
+                Console.WriteLine($"Kbps: {Kbps}");
+            }
         }
 
         public void StatusUpdateReset()
         {
-            this.logger.StatusUpdateReset();
+            if (this.Logger != null)
+            {
+                this.Logger.StatusUpdateReset();
+            }
+            else
+            {
+                Console.WriteLine("Reset");
+            }
         }
     }
+
+    public class LogInterceptor : IDisposable
+    {
+        private LoggerAdapter loggerAdapter;
+
+        public LogInterceptor(LoggerAdapter loggerAdapter, IAsyncLogger logger)
+        {
+            this.loggerAdapter = loggerAdapter;
+            this.loggerAdapter.Logger = logger;
+        }
+        public void Dispose()
+        {
+            this.loggerAdapter.Logger = null;
+        }
+    }
+
 }

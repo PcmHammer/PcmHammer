@@ -14,7 +14,7 @@ public partial record ReadModel : IAsyncLogger
     private readonly IConnectionService connectionService;
     private readonly ISettingsService settingsService;
     private readonly IDispatcher dispatcher;
-    private readonly ILogger progressLogger;
+    private readonly LoggerAdapter loggerAdapter;
     private CancellationTokenSource? tokenSource;
     const string defaultPath = "No file selected.";
 
@@ -34,13 +34,14 @@ public partial record ReadModel : IAsyncLogger
 
     public ReadModel(
         IConnectionService connectionService,
+        LoggerAdapter loggerAdapter,
         ISettingsService settingsService,
         IDispatcher dispatcher)
     {
         this.connectionService = connectionService ?? throw new ArgumentNullException(nameof(connectionService));
         this.settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
         this.dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
-        this.progressLogger = new LoggerAdapter(this);
+        this.loggerAdapter = loggerAdapter;
 
         // The right way would be put to this into the XAML:
         // Loaded="{Binding Start}"
@@ -75,10 +76,11 @@ public partial record ReadModel : IAsyncLogger
         try
         {
             using (ConnectionLease lease = await this.connectionService.BeginActivity("Reading PCM", false))
+            using (new LogInterceptor(this.loggerAdapter, this))
             {
                 lease.Vehicle.Enable4xReadWrite = this.settingsService.Is4xReadWriteEnabled();
                 ReadManager readManager = new(
-                    this.progressLogger,
+                    this.loggerAdapter,
                     lease.Vehicle,
                     this.Invoke,
                     this.PromptForFileSavePath,

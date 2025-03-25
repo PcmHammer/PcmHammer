@@ -107,7 +107,7 @@ public class ConnectionService : IConnectionService
     public const string PollingActivity = "Checking...";
     public const string TestingActivity = "Testing Connection...";
     private ISettingsService settingsService;
-    private PcmHacking.ILogger progressLogger;
+    private LoggerAdapter logger;
     private ILogger<ConnectionService> unoLogger;
     private Protocol protocol;
     private Device? device = null;
@@ -126,11 +126,11 @@ public class ConnectionService : IConnectionService
 
     public ConnectionService(
         ISettingsService settingsService,
-        PcmHacking.ILogger logger, 
+        LoggerAdapter logger, 
         ILogger<ConnectionService> unoLogger)
     {
         this.settingsService = settingsService;
-        this.progressLogger = logger;
+        this.logger = logger;
         this.unoLogger = unoLogger;
         this.protocol = new PcmHacking.Protocol();
     }
@@ -146,9 +146,9 @@ public class ConnectionService : IConnectionService
             // The public BeginActivity will throw if not connected, so we go
             // around it and call the private BeginActivity. That requires
             // managing the semaphore explicitly.
-            this.progressLogger.AddDebugMessage("SEMAPHORE: TryConnect waiting.");
+            this.logger.AddDebugMessage("SEMAPHORE: TryConnect waiting.");
             await this.semaphore.WaitAsync();
-            this.progressLogger.AddDebugMessage("SEMAPHORE: TryConnect acquired.");
+            this.logger.AddDebugMessage("SEMAPHORE: TryConnect acquired.");
 
             await this.Port.SetAsync(settings.Obd2SerialPortName);
             await this.Device.SetAsync(settings.Obd2SerialDeviceName);
@@ -174,7 +174,7 @@ public class ConnectionService : IConnectionService
             }
 
             Device newDevice = DeviceFactory.CreateDevice(
-                this.progressLogger,
+                this.logger,
                 settings.DeviceCategory,
                 settings.Obd2SerialPortName,
                 settings.Obd2SerialDeviceName,
@@ -187,20 +187,20 @@ public class ConnectionService : IConnectionService
 
             await newDevice.Initialize();
 
-            ToolPresentNotifier notifier = new ToolPresentNotifier(newDevice, this.protocol, this.progressLogger);
-            Vehicle newVehicle = new Vehicle(newDevice, this.protocol, this.progressLogger, notifier);
+            ToolPresentNotifier notifier = new ToolPresentNotifier(newDevice, this.protocol, this.logger);
+            Vehicle newVehicle = new Vehicle(newDevice, this.protocol, this.logger, notifier);
             await this.ConnectionState.SetAsync(ConnectionStates.Connecting);
 
             if (await this.TryPollOnce(newVehicle))
             {
-                this.progressLogger.AddUserMessage("Connection test succeeded.");
+                this.logger.AddUserMessage("Connection test succeeded.");
                 isConnected = true;
                 this.device = newDevice;
                 this.vehicle = newVehicle;
             }
             else
             {
-                this.progressLogger.AddUserMessage("Connection test failed.");
+                this.logger.AddUserMessage("Connection test failed.");
                 newVehicle.Dispose();
                 newVehicle = null;
                 newDevice.Dispose();
@@ -212,8 +212,8 @@ public class ConnectionService : IConnectionService
         {
             // TODO: modal dialog box - this probably means that the port couldn't be opened.
             Debugger.Break();
-            this.progressLogger.AddDebugMessage("Exception while connecting to vehicle.");
-            this.progressLogger.AddDebugMessage(exception.ToString());
+            this.logger.AddDebugMessage("Exception while connecting to vehicle.");
+            this.logger.AddDebugMessage(exception.ToString());
             return false;
         }
         finally
@@ -243,9 +243,9 @@ public class ConnectionService : IConnectionService
                 break;
         }
 
-        this.progressLogger.AddDebugMessage($"SEMAPHORE: BeginActivity ({activity}) waiting.");
+        this.logger.AddDebugMessage($"SEMAPHORE: BeginActivity ({activity}) waiting.");
         await this.semaphore.WaitAsync();
-        this.progressLogger.AddDebugMessage($"SEMAPHORE: BeginActivity ({activity}) acquired.");
+        this.logger.AddDebugMessage($"SEMAPHORE: BeginActivity ({activity}) acquired.");
 
         try
         {
@@ -260,7 +260,7 @@ public class ConnectionService : IConnectionService
         {
             // If an exception is thrown (e.g. because the connection can't be
             // acquired) the 'using' pattern won't call the Dispose method.
-            this.progressLogger.AddDebugMessage($"SEMAPHORE: BeginActivity ({activity}) released.");
+            this.logger.AddDebugMessage($"SEMAPHORE: BeginActivity ({activity}) released.");
             this.semaphore.Release();
             throw;
         }
@@ -309,7 +309,7 @@ public class ConnectionService : IConnectionService
 
                 if (!this.TryTransition(allowed, ConnectionStates.Polling))
                 {
-                    this.progressLogger.AddDebugMessage($"Skipping poll, internalState is {this.internalState}");
+                    this.logger.AddDebugMessage($"Skipping poll, internalState is {this.internalState}");
                     throw new ConnectionUnavailableException("Unable to poll. " + errorMessage);
                 }
                 break;
@@ -380,7 +380,7 @@ public class ConnectionService : IConnectionService
         }
         finally
         {
-            this.progressLogger.AddDebugMessage($"SEMAPHORE: released by EndActivity.");
+            this.logger.AddDebugMessage($"SEMAPHORE: released by EndActivity.");
             this.semaphore.Release();
         }
 
@@ -417,7 +417,7 @@ public class ConnectionService : IConnectionService
         Vehicle? acquiredVehicle = null;
         try
         {
-            this.progressLogger.AddDebugMessage($"ConnectionService timer callback. Internal state: {this.internalState}.");
+            this.logger.AddDebugMessage($"ConnectionService timer callback. Internal state: {this.internalState}.");
             using (ConnectionLease lease = await this.BeginActivity(PollingActivity, true))
             {
                 acquiredVehicle = lease.Vehicle;
@@ -439,7 +439,7 @@ public class ConnectionService : IConnectionService
         }
         catch (ConnectionUnavailableException)
         {
-            this.progressLogger.AddDebugMessage("Poll skipped.");
+            this.logger.AddDebugMessage("Poll skipped.");
         }
         catch (Exception exception)
         {
@@ -451,11 +451,11 @@ public class ConnectionService : IConnectionService
             if (acquiredVehicle != null)
             {
                 string result = disconnected ? "but disconnected" : "and still connected";
-                this.progressLogger.AddDebugMessage($"Exiting timer callback, vehicle acquired {result}");
+                this.logger.AddDebugMessage($"Exiting timer callback, vehicle acquired {result}");
             }
             else
             {
-                this.progressLogger.AddDebugMessage("Exiting timer callback, vehicle not acquired.");
+                this.logger.AddDebugMessage("Exiting timer callback, vehicle not acquired.");
             }
         }
     }
@@ -476,12 +476,12 @@ public class ConnectionService : IConnectionService
             {
                 source.Cancel();
                 success = false;
-                this.progressLogger.AddUserMessage("Connection test did not get a response from the vehicle.");
+                this.logger.AddUserMessage("Connection test did not get a response from the vehicle.");
             }
             catch (Exception exception)
             {
-                this.progressLogger.AddUserMessage("Error while testing vehicle connection.");
-                this.progressLogger.AddDebugMessage(exception.ToString());
+                this.logger.AddUserMessage("Error while testing vehicle connection.");
+                this.logger.AddDebugMessage(exception.ToString());
             }
         }
 
@@ -499,11 +499,10 @@ public class ConnectionService : IConnectionService
             return false;
         }
 
-        // Sanity check. This should never happen.
+        // Sanity check. This should never happen, but it does happen if you break in the debugger for a while.
         string activityName = await this.Activity.Value(cancellationToken);
         if ((activityName != PollingActivity) && (activityName != TestingActivity))
         {
-            Debugger.Break();
             return false;
         }
 
@@ -558,20 +557,20 @@ public class ConnectionService : IConnectionService
     /// </remarks>
     private bool TryTransition(ConnectionStates expected, ConnectionStates newState)
     {
-        this.progressLogger.AddDebugMessage($"Transition requested from: {this.internalState}, to: {newState}");
+        this.logger.AddDebugMessage($"Transition requested from: {this.internalState}, to: {newState}");
         if (((this.internalState & expected) > 0) || this.internalState == newState)
         {
             this.ForceTransition(newState);
             return true;
         }
 
-        this.progressLogger.AddDebugMessage($"Transition denied, staying in: {this.internalState}");
+        this.logger.AddDebugMessage($"Transition denied, staying in: {this.internalState}");
         return false;
     }
 
     private void ForceTransition(ConnectionStates newState)
     {
         this.internalState = newState;
-        this.progressLogger.AddDebugMessage($"Transitioned to: {newState}");
+        this.logger.AddDebugMessage($"Transitioned to: {newState}");
     }
 }

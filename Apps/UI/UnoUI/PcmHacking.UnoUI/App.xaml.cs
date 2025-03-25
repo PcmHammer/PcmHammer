@@ -123,7 +123,7 @@ public partial class App : Application
                 {
                     services.AddSingleton<DispatcherQueue>(dispatcherQueue);
                     services.AddSingleton<IMessenger, WeakReferenceMessenger>();
-                    services.AddSingleton<PcmHacking.ILogger, UnoUI.Services.ProgressLogger>();
+                    services.AddSingleton<UnoUI.Utilities.LoggerAdapter, UnoUI.Utilities.LoggerAdapter>();
 
                     services.AddSingleton<ISettingsService, Services.SettingsService>();
                     services.AddSingleton<Services.IConnectionService, Services.ConnectionService>();

@@ -18,6 +18,8 @@ first, get it working, and second, make it a viable alternative to the existing 
 * Implement "Change VIN"
 * Implement "message of the day" (so we can alert people to new versions)
 * Implement the help page
+* Implement the splash screen. Uno supports this, but there's a bug in VS that breaks the UI for editing the path to the image file.
+* Update the CI builds in GitHub - building now requires the Uno SDK.
 
 All of the above are easier said than done. This will take some time.
 
@@ -27,12 +29,14 @@ All of the above are easier said than done. This will take some time.
 
 ## New features that would be fun to add:
 
-* DTC reader
 * Crank relearn - implemented, but not yet tested
+* DTC reader
+* XDF file downloader
  
 ## Surprises
 
-* ApplicationData.Current.LocalSettings is used to store configuration settings. This doesn't work for "unpackaged" Windows apps. because it requires an app-data folder, which is only supported for packaged apps.
+* ApplicationData.Current.LocalSettings is used to store configuration settings. This doesn't work for "unpackaged" Windows apps. because it requires an app-data folder, which is only supported for packaged apps. I've been working around this by building for the "Desktop" target.
+* 
 
 ## Probably bugs in Uno
 

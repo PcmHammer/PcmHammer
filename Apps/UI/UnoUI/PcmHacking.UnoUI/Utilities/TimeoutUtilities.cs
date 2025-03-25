@@ -9,18 +9,25 @@ namespace PcmHacking.UnoUI.Utilities
     // https://devblogs.microsoft.com/oldnewthing/20220505-00/?p=106585
     class TimeoutUtilities
     {
-        static async Task<T> DelayedTimeoutExceptionTask<T>(TimeSpan delay)
+        private static async Task<T?> DelayedTimeoutExceptionTask<T>(TimeSpan delay, CancellationToken token)
         {
             await Task.Delay(delay);
-            throw new TimeoutException();
+            if (!token.IsCancellationRequested)
+            {
+                throw new TimeoutException();
+            }
+
+            return default;
         }
 
         public static async Task<T> TaskWithTimeoutAndException<T>(
             Task<T> task,
             TimeSpan timeout)
         {
-            return await await Task.WhenAny(
-                task, DelayedTimeoutExceptionTask<T>(timeout));
+            CancellationTokenSource source = new CancellationTokenSource();
+            Task<T> next = await Task.WhenAny(task, DelayedTimeoutExceptionTask<T>(timeout, source.Token));
+            source.Cancel();
+            return await next; 
         }
 
         static async Task<T> DelayedResultTask<T>(TimeSpan delay, Func<T> fallbackMaker)
