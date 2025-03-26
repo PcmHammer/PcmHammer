@@ -5,6 +5,7 @@ using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Logging;
 using Microsoft.UI.Dispatching;
 using PcmHacking.UnoUI.Services;
+using PcmHacking.UnoUI.Utilities;
 using Uno.Extensions;
 using Windows.Devices.Bluetooth.Advertisement;
 
@@ -34,7 +35,7 @@ public partial record DataLoggingParametersModel
     private INavigator navigator;
     private IConnectionService connectionService;
     private ISettingsService settingsService;
-    private PcmHacking.ILogger progressLogger;
+    private LoggerAdapter progressLogger;
     private DispatcherQueue dispatcherQueue;
     private string profilePath;
     private string canPortName;
@@ -44,7 +45,7 @@ public partial record DataLoggingParametersModel
     private AutoResetEvent rowAvailableHandle = new AutoResetEvent(false);
     private BackgroundWorker worker = new BackgroundWorker();
 
-    public PcmHacking.ILogger ProgressLogger { get { return this.progressLogger; } }
+    public LoggerAdapter ProgressLogger { get { return this.progressLogger; } }
     public ManualResetEvent InitializationEvent { get; private set; }
 
     public IState<string> ErrorMessage => State<string>.Empty(this);
@@ -53,7 +54,7 @@ public partial record DataLoggingParametersModel
         INavigator navigator,
         IConnectionService connectionService,
         ISettingsService settingsService,
-        PcmHacking.ILogger progressLogger,
+        LoggerAdapter progressLogger,
         DispatcherQueue dispatcherQueue,
         string profilePath)
     {

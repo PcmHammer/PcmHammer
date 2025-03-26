@@ -1,4 +1,5 @@
 using PcmHacking.UnoUI.Services;
+using PcmHacking.UnoUI.Utilities;
 using Uno.Extensions.Reactive.Commands;
 using Windows.Storage.Pickers;
 
@@ -17,7 +18,7 @@ public partial class DataLoggingModel
     private INavigator navigator;
     private IConnectionService connectionService;
     private ISettingsService settingsService;
-    private PcmHacking.ILogger progressLogger;
+    private LoggerAdapter progressLogger;
     private List<RecentFileListItem> recentFiles = new List<RecentFileListItem>();
     public IEnumerable<RecentFileListItem> RecentFiles { get => recentFiles; }
 
@@ -25,7 +26,7 @@ public partial class DataLoggingModel
         INavigator navigator,
         IConnectionService vehicleService,
         ISettingsService settingsService,
-        PcmHacking.ILogger progressLogger)
+        LoggerAdapter progressLogger)
     {
         this.navigator = navigator;
         this.connectionService = vehicleService;

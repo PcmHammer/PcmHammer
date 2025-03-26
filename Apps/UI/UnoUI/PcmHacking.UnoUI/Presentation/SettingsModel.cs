@@ -6,6 +6,7 @@ using Windows.Networking;
 using Windows.Storage.Pickers;
 //using Windows.System;
 using Microsoft.UI.Dispatching;
+using PcmHacking.UnoUI.Utilities;
 
 namespace PcmHacking.UnoUI.Presentation;
 
@@ -19,7 +20,7 @@ public record CurrentSettings(
 
 public partial record SettingsModel
 {
-    private readonly PcmHacking.ILogger progressLogger;
+    private readonly LoggerAdapter progressLogger;
     private readonly ISettingsService settingsService;
     private readonly IConnectionService connectionService;
     private readonly DispatcherQueue dispatcherQueue;
@@ -27,7 +28,7 @@ public partial record SettingsModel
     public string Title { get { return "Settings"; } }
 
     public SettingsModel(
-        PcmHacking.ILogger progressLogger, 
+        LoggerAdapter progressLogger, 
         ISettingsService settingsService,
         IConnectionService connectionService,
         DispatcherQueue dispatcherQueue)

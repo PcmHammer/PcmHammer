@@ -1,5 +1,6 @@
 using Microsoft.UI.Dispatching;
 using PcmHacking.UnoUI.Services;
+using PcmHacking.UnoUI.Utilities;
 using System;
 using Uno.Extensions.Reactive.Commands;
 
@@ -24,7 +25,7 @@ public partial record OtherFunctionsModel
     private readonly DispatcherQueue dispatcherQueue;
     private readonly INavigator navigator;
     private readonly IConnectionService connectionService;
-    private readonly PcmHacking.ILogger progressLogger;
+    private readonly LoggerAdapter progressLogger;
 
     public IState<string> ResetCodesButtonText => State<string>.Value(this, () => defaultClearCodesButtonText);
     public IState<string> Description => State<string>.Value(this, () => defaultValue);
@@ -37,13 +38,13 @@ public partial record OtherFunctionsModel
 
     public OtherFunctionsModel(
         INavigator navigator, 
-        IConnectionService vehicleService, 
-        PcmHacking.ILogger progressLogger,
+        IConnectionService vehicleService,
+        LoggerAdapter logger,
         DispatcherQueue dispatcherQueue)
     {
         this.navigator = navigator;
         this.connectionService = vehicleService;
-        this.progressLogger = progressLogger;
+        this.progressLogger = logger;
         this.dispatcherQueue = dispatcherQueue;
 
         // Loaded="{Binding ReadProperties}"

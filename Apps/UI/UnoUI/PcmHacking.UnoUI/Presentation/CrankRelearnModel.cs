@@ -1,5 +1,7 @@
+using Microsoft.Extensions.Logging;
 using Microsoft.UI.Dispatching;
 using PcmHacking.UnoUI.Services;
+using PcmHacking.UnoUI.Utilities;
 using Uno.Extensions.Reactive.Commands;
 using Windows.Devices.Bluetooth.Background;
 
@@ -24,7 +26,7 @@ public partial record CrankRelearnModel()
 
     private readonly INavigator navigator;
     private readonly IConnectionService connectionService;
-    private readonly PcmHacking.ILogger progressLogger;
+    private readonly LoggerAdapter progressLogger;
     private readonly DispatcherQueue dispatcherQueue;
 
     private CancellationTokenSource cancellation = new CancellationTokenSource();
@@ -36,7 +38,7 @@ public partial record CrankRelearnModel()
         INavigator navigator,
         IConnectionService connectionService,
         DispatcherQueue dispatcherQueue,
-        PcmHacking.ILogger progressLogger) : this()
+        LoggerAdapter progressLogger) : this()
     {
         this.navigator = navigator ?? throw new ArgumentNullException(nameof(navigator));
         this.connectionService = connectionService ?? throw new ArgumentNullException(nameof(connectionService));
