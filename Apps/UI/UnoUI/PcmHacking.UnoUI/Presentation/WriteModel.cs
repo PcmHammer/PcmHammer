@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using PcmHacking.UnoUI.Services;
 using PcmHacking.UnoUI.Utilities;
 using System;
+using Uno.Extensions;
 using Uno.Extensions.Reactive.Commands;
 using Windows.Storage.Pickers;
 
@@ -25,6 +26,7 @@ public partial record WriteModel : IAsyncLogger
 
     public IState<bool> StartEnabled => State<bool>.Value(this, () => true);
     public IState<bool> CancelEnabled => State<bool>.Value(this, () => false);
+    public IState<bool> PreferCalibrationWriteEnabled => State<bool>.Value(this, () => true);
 
     public IState<string> Path => State<string>.Value(this, () => defaultPath);
     public IState<string> UserLog => State<string>.Value(this, () => String.Empty);
@@ -48,10 +50,11 @@ public partial record WriteModel : IAsyncLogger
         this.settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
         this.dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
 
-        this.PreferCalibrationWrite.SetAsync(this.settingsService.IsCalibrationWritePreferred());
         this.loggerAdapter = loggerAdapter;
         this.writeType = WriteModel.WriteType; // hacky workaround
 
+        ValueTask unused1 = this.PreferCalibrationWrite.SetAsync(this.settingsService.IsCalibrationWritePreferred());
+        Task unused2 = this.EnableControls(false);
     }
 
     private ValueTask PreferCalibrationWriteChanged(bool preferCalibrationWrite, CancellationToken cancellationToken)
@@ -60,12 +63,26 @@ public partial record WriteModel : IAsyncLogger
         return ValueTask.CompletedTask;
     }
 
+    private async Task EnableControls(bool busy)
+    {
+        await this.StartEnabled.SetAsync(!busy);
+        await this.CancelEnabled.SetAsync(busy);
+
+        if (this.writeType == WriteType.TestWrite)
+        {
+            await PreferCalibrationWriteEnabled.SetAsync(false);
+        }
+        else
+        {
+            await PreferCalibrationWriteEnabled.SetAsync(!busy);
+        }
+    }
+
     [Command]
     public async ValueTask Start(CancellationToken cancellationToken)
     {
-        await this.StartEnabled.SetAsync(false);
-        await this.CancelEnabled.SetAsync(true);
-
+        await this.EnableControls(true);
+        
         string? path = await this.Path.Value();
         if (string.IsNullOrWhiteSpace(path) || string.Compare(path, defaultPath, StringComparison.OrdinalIgnoreCase) == 0)
         {
@@ -117,8 +134,7 @@ public partial record WriteModel : IAsyncLogger
         finally
         {
             this.tokenSource = null;
-            await this.StartEnabled.SetAsync(true);
-            await this.CancelEnabled.SetAsync(false);
+            await this.EnableControls(false);
         }
     }
 

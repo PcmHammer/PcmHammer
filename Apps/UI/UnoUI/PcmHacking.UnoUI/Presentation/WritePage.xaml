@@ -32,7 +32,7 @@
         </StackPanel>
 
         <CheckBox Grid.Row="1" Grid.Column="0" 
-                  IsEnabled="{Binding StartEnabled}"
+                  IsEnabled="{Binding PreferCalibrationWriteEnabled}"
                   IsChecked="{Binding PreferCalibrationWrite, Mode=TwoWay}"
                   Margin="10,0,0,0"
                   Content="Write Calibration Only (if possible)" />
