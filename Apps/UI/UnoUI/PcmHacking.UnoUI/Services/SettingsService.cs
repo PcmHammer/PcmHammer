@@ -33,6 +33,9 @@ public interface ISettingsService
 
     bool Is4xReadWriteEnabled();
     void Is4xReadWriteEnabled(bool enabled);
+
+    bool IsCalibrationWritePreferred();
+    void ShouldPreferCalibrationWrite(bool preferCalibrationWrite);
 }
 
 public class SettingsService : ISettingsService
@@ -47,6 +50,7 @@ public class SettingsService : ISettingsService
     private const string LogMruProfilePathKey = "LogMruProfilePath";
     private const string DataLogFolderKey = "DataLogFolder";
     private const string Is4xReadWriteEnabledKey = "Is4xReadWriteEnabled";
+    private const string PreferCalibrationWriteKey = "PreferCalibrationWrite";
 
     public SettingsService()
     {
@@ -223,5 +227,15 @@ public class SettingsService : ISettingsService
     public void Is4xReadWriteEnabled(bool enabled)
     {
         LocalSettings.Values[Is4xReadWriteEnabledKey] = enabled;
+    }
+
+    public bool IsCalibrationWritePreferred()
+    {
+        return (bool)(LocalSettings.Values[PreferCalibrationWriteKey] ?? false);
+    }
+
+    public void ShouldPreferCalibrationWrite(bool preferCalibrationWrite)
+    {
+        LocalSettings.Values[PreferCalibrationWriteKey] = preferCalibrationWrite;
     }
 }

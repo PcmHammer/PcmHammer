@@ -197,7 +197,7 @@ public partial class App : Application
             new ViewMap<MenuPage, MenuModel>(),
             new ViewMap<DataLoggingPage, DataLoggingModel>(),
             new ViewMap<ReadPage, ReadModel>(),
-            new DataViewMap<WritePage, WriteModel, WriteTypeEntity>(), // This should work, but I can't make it work.
+            // new DataViewMap<WritePage, WriteViewModel, WriteTypeEntity>(), // This should work, but I can't make it work.
             new ViewMap<WritePage, WriteModel>(), // Hacky workaround for now.
             new ViewMap<SettingsPage, SettingsModel>(),
             new ViewMap<HelpPage, HelpModel>(),

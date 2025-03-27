@@ -43,9 +43,14 @@ public partial record MenuModel
     public async Task GoToTestWrite()
     {
         // Can't get this to work the right way.
-        // Not sure if I'm doing it wrong or if this is another bug in Uno.
-        //WriteTypeEntity writeTypeEntity = new(WriteType.TestWrite);
-        //await this.navigator.NavigateDataAsync(this, data: writeTypeEntity);
+        // Not sure if I'm doing it wrong or if this is a bug in Uno.
+        // 
+        // Note that this requires a corresponding change in RegisterRoutes in App.xaml.cs.
+        //
+        // WriteTypeEntity writeTypeEntity = new(WriteType.TestWrite);
+        // await this.navigator.NavigateDataAsync(this, data: writeTypeEntity);
+        //
+        // Until I can figure out why the above isn't working, here's a hacky workaround:
         WriteModel.WriteType = WriteType.TestWrite;
         await this.navigator.NavigateViewModelAsync<WriteModel>(this);
     }

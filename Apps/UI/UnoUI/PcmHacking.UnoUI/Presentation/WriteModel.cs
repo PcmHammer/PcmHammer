@@ -35,18 +35,29 @@ public partial record WriteModel : IAsyncLogger
     public IState<string> Kbps => State<string>.Value(this, () => String.Empty);
     public IState<double> Progress => State<double>.Value(this, () => 0.0);
     public IState<string> StartButtonText => State<string>.Value(this, () => this.writeType == WriteType.TestWrite ? "Start Test" : "Start Writing");
+    public IState<bool> PreferCalibrationWrite => State<bool>.Value(this, () => false)
+        .ForEach((value, ct) => this.PreferCalibrationWriteChanged(value, ct));
 
     public WriteModel(
         IConnectionService connectionService,
         LoggerAdapter loggerAdapter,
         ISettingsService settingsService, 
-        IDispatcher dispatcher) // WriteTypeEntity writeTypeEntity, 
+        IDispatcher dispatcher)
     {
         this.connectionService = connectionService ?? throw new ArgumentNullException(nameof(connectionService));
         this.settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
         this.dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
+
+        this.PreferCalibrationWrite.SetAsync(this.settingsService.IsCalibrationWritePreferred());
         this.loggerAdapter = loggerAdapter;
         this.writeType = WriteModel.WriteType; // hacky workaround
+
+    }
+
+    private ValueTask PreferCalibrationWriteChanged(bool preferCalibrationWrite, CancellationToken cancellationToken)
+    {
+        this.settingsService.ShouldPreferCalibrationWrite(preferCalibrationWrite);
+        return ValueTask.CompletedTask;
     }
 
     [Command]
@@ -79,10 +90,13 @@ public partial record WriteModel : IAsyncLogger
             {
                 lease.Vehicle.Enable4xReadWrite = this.settingsService.Is4xReadWriteEnabled();
 
+                WriteType actualWriteType = this.writeType == WriteType.TestWrite ? WriteType.TestWrite :
+                    await this.PreferCalibrationWrite.Value() ? WriteType.Calibration : WriteType.Full;
+
                 WriteManager writeManager = new(
                     this.loggerAdapter,
                     lease.Vehicle,
-                    this.writeType,
+                    actualWriteType,
                     this.Alert,
                     this.PromptForYesNo,
                     writeCancellationToken);
