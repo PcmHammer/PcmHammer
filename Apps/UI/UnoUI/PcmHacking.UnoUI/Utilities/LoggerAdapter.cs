@@ -1,3 +1,4 @@
+using PcmHacking.UnoUI.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -41,14 +42,24 @@ namespace PcmHacking.UnoUI.Utilities
     /// </summary>
     public class LoggerAdapter : PcmHacking.ILogger
     {
+        private ILogBuffer buffer;
+
         public IAsyncLogger? Logger { get; set; }
 
-        public LoggerAdapter()
+        public LoggerAdapter(ILogBuffer buffer)
         {
+            this.buffer = buffer;
         }
 
         public void AddUserMessage(string message)
         {
+            if (!this.buffer.Enabled)
+            {
+                return;
+            }
+
+            this.buffer.Add(LogType.User, message);
+
             if (this.Logger != null)
             {
                 this.Logger.AddUserMessage(message);
@@ -61,6 +72,13 @@ namespace PcmHacking.UnoUI.Utilities
 
         public void AddDebugMessage(string message)
         {
+            if (!this.buffer.Enabled)
+            {
+                return;
+            }
+
+            this.buffer.Add(LogType.Debug, message);
+
             if (this.Logger != null)
             {
                 this.Logger.AddDebugMessage(message);
@@ -73,6 +91,8 @@ namespace PcmHacking.UnoUI.Utilities
 
         public void StatusUpdateActivity(string activity)
         {
+            this.buffer.Add(LogType.User, activity);
+
             if (this.Logger != null)
             {
                 this.Logger.StatusUpdateActivity(activity);

@@ -106,9 +106,11 @@ public class ConnectionService : IConnectionService
 {
     public const string PollingActivity = "Checking...";
     public const string TestingActivity = "Testing Connection...";
-    private ISettingsService settingsService;
-    private LoggerAdapter logger;
-    private ILogger<ConnectionService> unoLogger;
+
+    private readonly ISettingsService settingsService;
+    private readonly LoggerAdapter logger;
+    private readonly ILogBuffer logBuffer;
+
     private Protocol protocol;
     private Device? device = null;
     private Vehicle? vehicle = null;
@@ -126,12 +128,12 @@ public class ConnectionService : IConnectionService
 
     public ConnectionService(
         ISettingsService settingsService,
-        LoggerAdapter logger, 
-        ILogger<ConnectionService> unoLogger)
+        LoggerAdapter logger,
+        ILogBuffer logBuffer)
     {
-        this.settingsService = settingsService;
-        this.logger = logger;
-        this.unoLogger = unoLogger;
+        this.settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
+        this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        this.logBuffer = logBuffer ?? throw new ArgumentNullException(nameof(logBuffer));
         this.protocol = new PcmHacking.Protocol();
     }
 
@@ -146,10 +148,8 @@ public class ConnectionService : IConnectionService
             // The public BeginActivity will throw if not connected, so we go
             // around it and call the private BeginActivity. That requires
             // managing the semaphore explicitly.
-            this.logger.AddDebugMessage("SEMAPHORE: TryConnect waiting.");
             await this.semaphore.WaitAsync();
-            this.logger.AddDebugMessage("SEMAPHORE: TryConnect acquired.");
-
+            
             await this.Port.SetAsync(settings.Obd2SerialPortName);
             await this.Device.SetAsync(settings.Obd2SerialDeviceName);
 
@@ -243,9 +243,7 @@ public class ConnectionService : IConnectionService
                 break;
         }
 
-        this.logger.AddDebugMessage($"SEMAPHORE: BeginActivity ({activity}) waiting.");
         await this.semaphore.WaitAsync();
-        this.logger.AddDebugMessage($"SEMAPHORE: BeginActivity ({activity}) acquired.");
 
         try
         {
@@ -259,8 +257,8 @@ public class ConnectionService : IConnectionService
         catch (Exception)
         {
             // If an exception is thrown (e.g. because the connection can't be
-            // acquired) the 'using' pattern won't call the Dispose method.
-            this.logger.AddDebugMessage($"SEMAPHORE: BeginActivity ({activity}) released.");
+            // acquired) the 'using' pattern won't call the Dispose method,
+            // so the semaphore has to be released explicitly.
             this.semaphore.Release();
             throw;
         }
@@ -296,6 +294,8 @@ public class ConnectionService : IConnectionService
                 // are flashing or logging, but it won't be updated in the UI.
                 await this.OperatingSystemId.SetAsync(String.Empty);
                 await this.Voltage.SetAsync(String.Empty);
+
+                this.logger.AddUserMessage("Beginning activity: " + activity);
                 break;
 
             // Polling is triggered by a timer, and is only allowed when the
@@ -380,7 +380,6 @@ public class ConnectionService : IConnectionService
         }
         finally
         {
-            this.logger.AddDebugMessage($"SEMAPHORE: released by EndActivity.");
             this.semaphore.Release();
         }
 
@@ -417,7 +416,14 @@ public class ConnectionService : IConnectionService
         Vehicle? acquiredVehicle = null;
         try
         {
+            // Suppress logging of timer callbacks, because they overwhelm the log.
+            // TODO: accumulate logs in a circular buffer and keep them if an exception is thrown.
+            // Meanwhile we re-enable the log in the catch blocks, both here and in TryPollOnce. (Which is kind of hacky, I'll admit.)
+            this.logBuffer.Enabled = false;
+
+            // This log line made more sense before logging was disabled in this scenario...
             this.logger.AddDebugMessage($"ConnectionService timer callback. Internal state: {this.internalState}.");
+
             using (ConnectionLease lease = await this.BeginActivity(PollingActivity, true))
             {
                 acquiredVehicle = lease.Vehicle;
@@ -443,11 +449,12 @@ public class ConnectionService : IConnectionService
         }
         catch (Exception exception)
         {
-            this.unoLogger.LogError(new EventId(6, "VehicleService"), exception, "Timer callback exception.");
+            this.logBuffer.Enabled = true;
+            this.logger.AddDebugMessage("Error in timer callback: " + exception.ToString());
             disconnected = true;
         }
         finally
-        {   
+        {
             if (acquiredVehicle != null)
             {
                 string result = disconnected ? "but disconnected" : "and still connected";
@@ -457,6 +464,8 @@ public class ConnectionService : IConnectionService
             {
                 this.logger.AddDebugMessage("Exiting timer callback, vehicle not acquired.");
             }
+
+            this.logBuffer.Enabled = true;
         }
     }
 
@@ -474,12 +483,14 @@ public class ConnectionService : IConnectionService
             }
             catch (TimeoutException)
             {
+                this.logBuffer.Enabled = true;
                 source.Cancel();
                 success = false;
                 this.logger.AddUserMessage("Connection test did not get a response from the vehicle.");
             }
             catch (Exception exception)
             {
+                this.logBuffer.Enabled = true;
                 this.logger.AddUserMessage("Error while testing vehicle connection.");
                 this.logger.AddDebugMessage(exception.ToString());
             }
@@ -534,7 +545,7 @@ public class ConnectionService : IConnectionService
         }
         catch (Exception exception)
         {
-            this.unoLogger.LogError(new EventId(5, "VehicleService"), exception, "Communications exception.");
+            this.logger.AddUserMessage("Communications exception: " + exception.Message);
             return false;
         }
 

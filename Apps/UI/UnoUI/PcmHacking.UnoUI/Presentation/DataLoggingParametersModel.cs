@@ -35,8 +35,9 @@ public partial record DataLoggingParametersModel
     private INavigator navigator;
     private IConnectionService connectionService;
     private ISettingsService settingsService;
-    private LoggerAdapter progressLogger;
-    private DispatcherQueue dispatcherQueue;
+    private readonly LoggerAdapter progressLogger;
+    private readonly ILogBuffer logBuffer;
+    private readonly DispatcherQueue dispatcherQueue;
     private string profilePath;
     private string canPortName;
     private CanLogger? canLogger;
@@ -55,6 +56,7 @@ public partial record DataLoggingParametersModel
         IConnectionService connectionService,
         ISettingsService settingsService,
         LoggerAdapter progressLogger,
+        ILogBuffer logBuffer,
         DispatcherQueue dispatcherQueue,
         string profilePath)
     {
@@ -62,6 +64,7 @@ public partial record DataLoggingParametersModel
         this.connectionService = connectionService;
         this.settingsService = settingsService;
         this.progressLogger = progressLogger;
+        this.logBuffer = logBuffer;
         this.dispatcherQueue = dispatcherQueue;
         this.profilePath = profilePath;
         this.canPortName = settingsService.GetCanSerialPortName();
@@ -145,6 +148,9 @@ public partial record DataLoggingParametersModel
                     return;
                 }
 
+                // TODO: Write debug logs to a circular buffer instead of disabling it entirely.
+                // ...and just append the last ~50 debug logs when logging is re-enabled.
+                this.logBuffer.Enabled = false;
                 while (!this.exitWaitHandle.WaitOne(0))
                 {
                     IEnumerable<string> rowValues = await logger.GetNextRow();
@@ -154,12 +160,14 @@ public partial record DataLoggingParametersModel
                         // TODO: write data to disk
                     }
                 }
+                this.logBuffer.Enabled = true;
 
                 this.progressLogger.AddDebugMessage("DataLoggingParametersModel stopped logging.");
             }
         }
         catch (Exception ex)
         {
+            this.logBuffer.Enabled = true;
             this.ProgressLogger.AddDebugMessage("Data logging exception: " + ex.Message);
             if (!this.exitWaitHandle.WaitOne(0))
             {
@@ -173,6 +181,10 @@ public partial record DataLoggingParametersModel
             {
                 this.progressLogger.AddDebugMessage("DataLoggingParametersModel stopped trying to connect.");
             }
+        }
+        finally
+        {
+            this.logBuffer.Enabled = true;
         }
     }
 

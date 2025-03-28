@@ -123,6 +123,7 @@ public partial class App : Application
                 {
                     services.AddSingleton<DispatcherQueue>(dispatcherQueue);
                     services.AddSingleton<IMessenger, WeakReferenceMessenger>();
+                    services.AddSingleton<ILogBuffer, LogBuffer>();
                     services.AddSingleton<UnoUI.Utilities.LoggerAdapter, UnoUI.Utilities.LoggerAdapter>();
 
                     services.AddSingleton<ISettingsService, Services.SettingsService>();
@@ -195,6 +196,7 @@ public partial class App : Application
             new ViewMap(ViewModel: typeof(ShellModel)),
             new ViewMap<MainPage, MainModel>(),
             new ViewMap<MenuPage, MenuModel>(),
+            new ViewMap<LogPage, LogModel>(),
             new ViewMap<DataLoggingPage, DataLoggingModel>(),
             new ViewMap<ReadPage, ReadModel>(),
             // new DataViewMap<WritePage, WriteViewModel, WriteTypeEntity>(), // This should work, but I can't make it work.

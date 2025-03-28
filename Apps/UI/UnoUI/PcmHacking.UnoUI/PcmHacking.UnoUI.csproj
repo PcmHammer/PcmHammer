@@ -158,4 +158,10 @@
     <Exec Command="copy $(ProjectDir)\..\..\WindowsForms\PcmLogger\*.xml $(OutDir)&#xD;&#xA;copy $(ProjectDir)\..\..\..\..\Kernels\*.bin $(OutDir)" />
   </Target>
 
+  <ItemGroup>
+    <Page Update="Presentation\LogPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+
 </Project>

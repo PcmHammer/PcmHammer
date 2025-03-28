@@ -60,8 +60,8 @@ public partial record MenuModel
         await this.navigator.NavigateViewModelAsync<OtherFunctionsModel>(this);
     }
 
-    public async Task GoToHelp()
+    public async Task GoToLog()
     {
-        await this.navigator.NavigateViewModelAsync<HelpModel>(this);
+        await this.navigator.NavigateViewModelAsync<LogModel>(this);
     }
 }
