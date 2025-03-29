@@ -1,4 +1,4 @@
-﻿<Page x:Class="PcmHacking.UnoUI.Presentation.DelayPage"
+﻿<ContentDialog x:Class="PcmHacking.UnoUI.Presentation.DelayPage"
       xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
       xmlns:local="using:PcmHacking.UnoUI.Presentation"
@@ -6,6 +6,10 @@
       xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
       xmlns:uen="using:Uno.Extensions.Navigation.UI"
       xmlns:utu="using:Uno.Toolkit.UI"
+      PrimaryButtonText="Continue"
+               PrimaryButtonCommand="{Binding ContinueClicked}"
+      SecondaryButtonText="Abort"
+               SecondaryButtonCommand="{Binding AbortClicked}"
       Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
 
     <Grid>
@@ -13,17 +17,19 @@
             <RowDefinition Height="*"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="*"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
         
-        <TextBlock Grid.Row="1"
-            Text="Has the PCM been powered for at least 10 seconds?
+        <TextBlock Grid.Row="0"
+            Text="Has the PCM been powered for at least 10 seconds?"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Top"
+            Margin="8" />
 
-If not, please wait for it to initialize before continuing."
-        HorizontalAlignment="Center"
-        VerticalAlignment="Top"
-        Margin="8" />
+        <TextBlock Grid.Row="1"
+            Text="If not, please wait for it to initialize before continuing."
+            HorizontalAlignment="Center"
+            VerticalAlignment="Top"
+            Margin="8" />
 
         <TextBlock Grid.Row="2"
             Text="{Binding Countdown}"
@@ -31,12 +37,5 @@ If not, please wait for it to initialize before continuing."
             VerticalAlignment="Top"
             Margin="8" />
 
-        <StackPanel Grid.Row="3"
-            HorizontalAlignment="Center"
-            Orientation="Horizontal">
-            <Button Content="Continue" Command="{Binding ContinueClicked}" Margin="10" />
-            <Button Content="Abort" Command="{Binding AbortClicked}" Margin="10" />
-        </StackPanel>
-
     </Grid>
-</Page>
+</ContentDialog>

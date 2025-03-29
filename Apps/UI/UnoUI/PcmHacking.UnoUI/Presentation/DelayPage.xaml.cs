@@ -1,6 +1,6 @@
 namespace PcmHacking.UnoUI.Presentation;
 
-public sealed partial class DelayPage : Page
+public sealed partial class DelayPage : ContentDialog
 {
     public DelayPage()
     {

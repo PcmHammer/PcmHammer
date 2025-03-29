@@ -110,8 +110,19 @@ public partial record WriteModel : IAsyncLogger
             using (ConnectionLease lease = await this.connectionService.BeginActivity(activity, false))
             using (new LogInterceptor(this.loggerAdapter, this))
             {
-                DelayResult result = await this.navigator.GetDataAsync<DelayModel, DelayResult>(this, cancellation: cancellationToken) ?? new DelayResult(true);
-                if (!result.Proceed)
+                // This results in an error about using the DependencyProperty system on a
+                // non-UI thread, which seems like a bug because this code runs on a UI thread.
+                // TODO: create a minimal repro, open an issue in the Uno Platform repo.
+                //
+                // var dialog = new DelayPage();
+                // var result = await this.delayDialog.ShowAsync();
+                //
+                // GetDataAsync doesn't work with ContentDialog. If the user clicks a button, the returned object is null.
+                // We do get a valid object if the timer expires, but that's only one of the 3 ways to end the dialog...
+                await this.navigator.GetDataAsync<DelayModel, DelayResult>(this, cancellation: cancellationToken);
+
+                // Hacky workaround:
+                if (DelayModel.Result.Proceed == false)
                 {
                     await this.AddUserMessage("Write aborted.");
                     return;

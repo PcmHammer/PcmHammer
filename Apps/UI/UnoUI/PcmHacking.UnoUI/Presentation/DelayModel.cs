@@ -13,6 +13,7 @@ public record DelayResult(bool Proceed);
 
 public partial record DelayModel : IDisposable
 {
+    public static DelayResult Result;
     private readonly INavigator navigator;
     private Timer? timer;
     private int secondsRemaining = 10;
@@ -57,7 +58,8 @@ public partial record DelayModel : IDisposable
                 return;
             }
 
-            await this.navigator.NavigateBackWithResultAsync(this, data: new DelayResult(true));
+            Result = new DelayResult(true);
+            await this.navigator.NavigateBackWithResultAsync(this, data: Result);
         }
     }
 
@@ -69,7 +71,8 @@ public partial record DelayModel : IDisposable
             return;
         }
 
-        await this.navigator.NavigateBackWithResultAsync(this, data: new DelayResult(true));
+        Result = new DelayResult(true);
+        await this.navigator.NavigateBackWithResultAsync(this, data: Result);
     }
 
     [Command]
@@ -80,7 +83,8 @@ public partial record DelayModel : IDisposable
             return;
         }
 
-        await this.navigator.NavigateBackWithResultAsync(this, data: new DelayResult(false));
+        Result = new DelayResult(false);
+        await this.navigator.NavigateBackWithResultAsync(this, data: Result);
     }
 
     bool Done()

@@ -11,6 +11,7 @@ namespace PcmHacking.UnoUI.Presentation;
 
 public partial record ReadModel : IAsyncLogger
 {
+    private readonly INavigator navigator;
     private readonly IConnectionService connectionService;
     private readonly ISettingsService settingsService;
     private readonly IDispatcher dispatcher;
@@ -33,11 +34,13 @@ public partial record ReadModel : IAsyncLogger
     public IState<double> Progress => State<double>.Value(this, () => 0.0);
 
     public ReadModel(
+        INavigator navigator,
         IConnectionService connectionService,
         LoggerAdapter loggerAdapter,
         ISettingsService settingsService,
         IDispatcher dispatcher)
     {
+        this.navigator = navigator ?? throw new ArgumentNullException(nameof(navigator));
         this.connectionService = connectionService ?? throw new ArgumentNullException(nameof(connectionService));
         this.settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
         this.dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
@@ -78,6 +81,15 @@ public partial record ReadModel : IAsyncLogger
             using (ConnectionLease lease = await this.connectionService.BeginActivity("Reading PCM", false))
             using (new LogInterceptor(this.loggerAdapter, this))
             {
+                // I suspect a bug in the Uno Platform's ContentDialog implementation, hence the static object in the 'if' statement.
+                // See notes in WriteModel for details.
+                await this.navigator.GetDataAsync<DelayModel, DelayResult>(this, cancellation: cancellationToken);
+                if (DelayModel.Result.Proceed == false)
+                {
+                    await this.AddUserMessage("Read aborted.");
+                    return;
+                }
+
                 lease.Vehicle.Enable4xReadWrite = this.settingsService.Is4xReadWriteEnabled();
                 ReadManager readManager = new(
                     this.loggerAdapter,
