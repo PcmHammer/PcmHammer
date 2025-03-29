@@ -11,11 +11,11 @@ first, get it working, and second, make it a viable alternative to the existing 
 * done - Implement flash write 
 * done - Implement data logging 
 * done - Enable 4x for reading and writing
-* Implelement the "wait 10 seconds" dialog box for reading and writing
-* Implement data log profile editing
-* Use Windows Management API to get device driver names for serial ports
+* done - Implement the "wait 10 seconds" dialog box for reading and writing
 * Add "verify flash" button on "other" page
 * Implement "Change VIN"
+* Implement data log profile editing
+* Use Windows Management API to get device driver names for serial ports
 * Implement "message of the day" (so we can alert people to new versions)
 * Implement the help page
 * Implement the splash screen. Uno supports this, but there's a bug in VS that breaks the UI for editing the path to the image file.
