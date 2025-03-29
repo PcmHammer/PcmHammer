@@ -36,6 +36,9 @@ public interface ISettingsService
 
     bool IsCalibrationWritePreferred();
     void ShouldPreferCalibrationWrite(bool preferCalibrationWrite);
+
+    string GetLastWrittenFile();
+    void SetLastWrittenFile(string path);
 }
 
 public class SettingsService : ISettingsService
@@ -51,6 +54,7 @@ public class SettingsService : ISettingsService
     private const string DataLogFolderKey = "DataLogFolder";
     private const string Is4xReadWriteEnabledKey = "Is4xReadWriteEnabled";
     private const string PreferCalibrationWriteKey = "PreferCalibrationWrite";
+    private const string LastWrittenFileKey = "LastWrittenFile";
 
     public SettingsService()
     {
@@ -237,5 +241,15 @@ public class SettingsService : ISettingsService
     public void ShouldPreferCalibrationWrite(bool preferCalibrationWrite)
     {
         LocalSettings.Values[PreferCalibrationWriteKey] = preferCalibrationWrite;
+    }
+
+    public string GetLastWrittenFile()
+    {
+        return LocalSettings.Values[LastWrittenFileKey] as string ?? string.Empty;
+    }
+
+    public void SetLastWrittenFile(string path)
+    {
+        LocalSettings.Values[LastWrittenFileKey] = path;
     }
 }

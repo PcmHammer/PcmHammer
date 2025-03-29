@@ -15,6 +15,7 @@ public partial record WriteModel : IAsyncLogger
     private readonly WriteType writeType;
     public static WriteType WriteType;
 
+    private readonly INavigator navigator;
     private readonly IConnectionService connectionService;
     private readonly ISettingsService settingsService;
     private readonly IDispatcher dispatcher;
@@ -41,11 +42,13 @@ public partial record WriteModel : IAsyncLogger
         .ForEach((value, ct) => this.PreferCalibrationWriteChanged(value, ct));
 
     public WriteModel(
+        INavigator navigator,
         IConnectionService connectionService,
         LoggerAdapter loggerAdapter,
         ISettingsService settingsService, 
         IDispatcher dispatcher)
     {
+        this.navigator = navigator;
         this.connectionService = connectionService ?? throw new ArgumentNullException(nameof(connectionService));
         this.settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
         this.dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
@@ -53,8 +56,10 @@ public partial record WriteModel : IAsyncLogger
         this.loggerAdapter = loggerAdapter;
         this.writeType = WriteModel.WriteType; // hacky workaround
 
-        ValueTask unused1 = this.PreferCalibrationWrite.SetAsync(this.settingsService.IsCalibrationWritePreferred());
-        Task unused2 = this.EnableControls(false);
+        // Fire-and-forget initialization
+        var _1 = this.Path.SetAsync(this.settingsService.GetLastWrittenFile());
+        var _2 = this.PreferCalibrationWrite.SetAsync(this.settingsService.IsCalibrationWritePreferred());
+        var _3 = this.EnableControls(false);
     }
 
     private ValueTask PreferCalibrationWriteChanged(bool preferCalibrationWrite, CancellationToken cancellationToken)
@@ -105,6 +110,13 @@ public partial record WriteModel : IAsyncLogger
             using (ConnectionLease lease = await this.connectionService.BeginActivity(activity, false))
             using (new LogInterceptor(this.loggerAdapter, this))
             {
+                DelayResult result = await this.navigator.GetDataAsync<DelayModel, DelayResult>(this, cancellation: cancellationToken) ?? new DelayResult(true);
+                if (!result.Proceed)
+                {
+                    await this.AddUserMessage("Write aborted.");
+                    return;
+                }
+
                 lease.Vehicle.Enable4xReadWrite = this.settingsService.Is4xReadWriteEnabled();
 
                 WriteType actualWriteType = this.writeType == WriteType.TestWrite ? WriteType.TestWrite :
@@ -141,7 +153,9 @@ public partial record WriteModel : IAsyncLogger
     [Command]
     public async Task ChooseFile()
     {
-        await this.Path.SetAsync(await this.PromptForFileOpenPath());
+        string path = await this.PromptForFileOpenPath() ?? String.Empty;
+        this.settingsService.SetLastWrittenFile(path);
+        await this.Path.SetAsync(path);
     }
 
     [Command]

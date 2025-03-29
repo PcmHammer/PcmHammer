@@ -1,0 +1,42 @@
+﻿<Page x:Class="PcmHacking.UnoUI.Presentation.DelayPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:local="using:PcmHacking.UnoUI.Presentation"
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+      xmlns:uen="using:Uno.Extensions.Navigation.UI"
+      xmlns:utu="using:Uno.Toolkit.UI"
+      Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        
+        <TextBlock Grid.Row="1"
+            Text="Has the PCM been powered for at least 10 seconds?
+
+If not, please wait for it to initialize before continuing."
+        HorizontalAlignment="Center"
+        VerticalAlignment="Top"
+        Margin="8" />
+
+        <TextBlock Grid.Row="2"
+            Text="{Binding Countdown}"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Top"
+            Margin="8" />
+
+        <StackPanel Grid.Row="3"
+            HorizontalAlignment="Center"
+            Orientation="Horizontal">
+            <Button Content="Continue" Command="{Binding ContinueClicked}" Margin="10" />
+            <Button Content="Abort" Command="{Binding AbortClicked}" Margin="10" />
+        </StackPanel>
+
+    </Grid>
+</Page>

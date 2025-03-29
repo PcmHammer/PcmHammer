@@ -10,7 +10,7 @@ first, get it working, and second, make it a viable alternative to the existing 
 * done - Implement flash read 
 * done - Implement flash write 
 * done - Implement data logging 
-* Enable 4x for reading and writing
+* done - Enable 4x for reading and writing
 * Implelement the "wait 10 seconds" dialog box for reading and writing
 * Implement data log profile editing
 * Use Windows Management API to get device driver names for serial ports

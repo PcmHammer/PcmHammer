@@ -479,7 +479,7 @@ public class ConnectionService : IConnectionService
             {
                 success = await TimeoutUtilities.TaskWithTimeoutAndException(
                     this.TryRequestVehicleInfo(vehicle, source.Token),
-                    TimeSpan.FromSeconds(5));
+                    TimeSpan.FromSeconds(1));
             }
             catch (TimeoutException)
             {

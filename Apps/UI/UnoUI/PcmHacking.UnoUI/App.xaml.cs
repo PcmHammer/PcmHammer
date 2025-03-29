@@ -205,7 +205,8 @@ public partial class App : Application
             new ViewMap<HelpPage, HelpModel>(),
             new ViewMap<OtherFunctionsPage, OtherFunctionsModel>(),
             new ViewMap<CrankRelearnPage, CrankRelearnModel>(),
-            new DataViewMap<DataLoggingParametersPage, DataLoggingParametersModel, string>()
+            new DataViewMap<DataLoggingParametersPage, DataLoggingParametersModel, string>(),
+            new ResultDataViewMap<DelayPage, DelayModel, DelayResult>()
         );
 
         routes.Register(
