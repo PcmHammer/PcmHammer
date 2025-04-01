@@ -50,13 +50,13 @@
 
         <ProgressBar Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" Margin="5" Height="20" Value="{Binding Progress}" Minimum="0" Maximum="100" Name="ProgressBar" />
 
-        <TextBlock Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2" Text="{Binding Activity}" />
+        <TextBlock Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2" Margin="5" Text="{Binding Activity}" />
 
-        <TextBlock Grid.Row="5" Grid.Column="0" Text="{Binding TimeRemaining}" />
-        <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding Kbps}" />
+        <TextBlock Grid.Row="5" Grid.Column="0" Margin="5" Text="{Binding TimeRemaining}" />
+        <TextBlock Grid.Row="5" Grid.Column="1" Margin="5" Text="{Binding Kbps}" />
 
-        <TextBlock Grid.Row="6" Grid.Column="0" Text="{Binding PercentDone}"  />
-        <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding RetryCount}" />
+        <TextBlock Grid.Row="6" Grid.Column="0" Margin="5" Text="{Binding PercentDone}"  />
+        <TextBlock Grid.Row="6" Grid.Column="1" Margin="5" Text="{Binding RetryCount}" />
 
     </Grid>
 </Page>

@@ -8,8 +8,8 @@
       >
     <Grid utu:SafeArea.Insets="VisibleBounds">
         <Grid.RowDefinitions>
-            <RowDefinition Height="20" x:Name="Status1"/>
-            <RowDefinition Height="20" x:Name="Status2"/>
+            <RowDefinition Height="30" x:Name="Status1"/>
+            <RowDefinition Height="30" x:Name="Status2"/>
             <RowDefinition x:Name="PageRow"/>
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
@@ -21,7 +21,7 @@
             <ColumnDefinition Width="3*" />
         </Grid.ColumnDefinitions>
 
-        <Button Grid.Row="0" Grid.Column="0" Grid.RowSpan="2" x:Name="BackButton"
+        <Button Grid.Row="0" Grid.Column="0" Grid.RowSpan="2" x:Name="BackButton" Margin="0"
                 VerticalAlignment="Center"
                 Style="{StaticResource NavigationBackButtonNormalStyle}"
                 IsEnabled="{Binding BackButtonEnabled}"
