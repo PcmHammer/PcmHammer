@@ -117,6 +117,8 @@ public class ConnectionService : IConnectionService
     private System.Threading.Timer? timer = null;
     private ConnectionStates internalState = ConnectionStates.NotConfigured;
     private SemaphoreSlim semaphore = new SemaphoreSlim(1, 1);
+    private CurrentSettings? newSettings;
+    private CurrentSettings? lastSettings;
 
     public IState<string> Port => State.Value(this, () => string.Empty);
     public IState<string> Device => State.Value(this, () => string.Empty);
@@ -194,6 +196,9 @@ public class ConnectionService : IConnectionService
             if (await this.TryPollOnce(newVehicle))
             {
                 this.logger.AddUserMessage("Connection test succeeded.");
+                this.newSettings = settings;
+                this.lastSettings = settings;
+                this.settingsService.SaveConnectionSettings(settings);
                 isConnected = true;
                 this.device = newDevice;
                 this.vehicle = newVehicle;
@@ -201,6 +206,7 @@ public class ConnectionService : IConnectionService
             else
             {
                 this.logger.AddUserMessage("Connection test failed.");
+                this.newSettings = settings;
                 newVehicle.Dispose();
                 newVehicle = null;
                 newDevice.Dispose();
@@ -210,8 +216,7 @@ public class ConnectionService : IConnectionService
         }
         catch (Exception exception)
         {
-            // TODO: modal dialog box - this probably means that the port couldn't be opened.
-            Debugger.Break();
+            this.newSettings = settings;
             this.logger.AddDebugMessage("Exception while connecting to vehicle.");
             this.logger.AddDebugMessage(exception.ToString());
             return false;
@@ -315,10 +320,7 @@ public class ConnectionService : IConnectionService
                 break;
 
             // The code that tests new connection settings uses BeginActivity
-            // to ensure that it doesn't interrupt other activities. This uses
-            // an extra-long timeout because the previous settings might have
-            // been bad, and it might take a while for connection timeouts to
-            // expire.
+            // to ensure that it doesn't interrupt other activities.
             case ConnectionStates.Connecting:
                 allowed =
                     ConnectionStates.NotConnected |
@@ -423,6 +425,22 @@ public class ConnectionService : IConnectionService
 
             // This log line made more sense before logging was disabled in this scenario...
             this.logger.AddDebugMessage($"ConnectionService timer callback. Internal state: {this.internalState}.");
+
+            if (this.newSettings != null && this.newSettings != this.lastSettings)
+            {
+                // This will call TryPollOnce, and will return true if that succeeds.
+                // It will also update this.lastSettings when it succeeds.
+                if (await this.TryConnect(this.newSettings))
+                {
+                    this.logger.AddUserMessage("Connected with new settings.");
+                }
+                else
+                {
+                    this.logger.AddUserMessage("Unable to connect with new settings.");
+                }
+
+                return;
+            }
 
             using (ConnectionLease lease = await this.BeginActivity(PollingActivity, true))
             {

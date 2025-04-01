@@ -61,7 +61,7 @@
     storageType="int16"
     bitMapped="False">
     <Location os="12593358" address="0xFFA296" />
-    <Location os="12587603" address="0xFFA6F2" />
+    <Location os="12587603" address="0xFFA716" />
     <Conversion units="g/s" expression="0.0009765625" format="0.00" />
   </RamParameter>
 
@@ -73,6 +73,16 @@
     bitMapped="False">
     <Location os="12593358" address="0xFFA28C" />
     <Location os="12587603" address="0xFFA6FE" />
+    <Conversion units="g/s" expression="0.0009765625" format="0.00" />
+  </RamParameter>
+
+  <RamParameter
+  id="RamIdleDerivativeInput"
+  name="Idle Derivative Table Lookup"
+  description=""
+  storageType="int16"
+  bitMapped="False">
+    <Location os="12587603" address="0xFFA700" />
     <Conversion units="g/s" expression="0.0009765625" format="0.00" />
   </RamParameter>
 

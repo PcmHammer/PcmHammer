@@ -138,7 +138,7 @@ public sealed partial class DataLoggingParametersPage : Page
 
     private void AddParameter(int mainRowIndex, string name, string units, out TextBlock valueTextBlock)
     {
-        const int textSize = 20;
+        const int textSize = 30;
         
         TextBlock nameTextBlock = new TextBlock();
         nameTextBlock.Text = name;
@@ -174,8 +174,8 @@ public sealed partial class DataLoggingParametersPage : Page
 
     private void AddZoomParameter(int zoomRowIndex, string name, string units, out TextBlock? valueTextBlock)
     {
-        const int labelSize = 20;
-        const int valueSize = 36;
+        const int labelSize = 30;
+        const int valueSize = 60;
                 
         StackPanel stackPanel = new StackPanel();
         stackPanel.Orientation = Orientation.Vertical;
