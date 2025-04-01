@@ -14,6 +14,7 @@ first, get it working, and second, make it a viable alternative to the existing 
 * done - Implement the "wait 10 seconds" dialog box for reading and writing
 * Add "verify flash" button on "other" page
 * Implement "Change VIN"
+* Adjust font sizes on the data logging parameter page to suit the window size.
 * Implement data log profile editing
 * Use Windows Management API to get device driver names for serial ports
 * Implement "message of the day" (so we can alert people to new versions)
@@ -36,9 +37,8 @@ All of the above are easier said than done. This will take some time.
 ## Surprises
 
 * ApplicationData.Current.LocalSettings is used to store configuration settings. This doesn't work for "unpackaged" Windows apps. because it requires an app-data folder, which is only supported for packaged apps. I've been working around this by building for the "Desktop" target.
-* 
 
-## Probably bugs in Uno
+## Possible bugs in Uno
 
 * You can't have "async void" methods in a Model class, due to a bug in the Uno Platform code generator. The AsyncLogger class works around this.
 * You can't have two Model classes share a XAML file. Hence the duplication between ReadModel/WriteModel and ReadPage/WritePage.
@@ -50,6 +50,6 @@ J2534 device name using Windows APIs. To make this work cross-platform, we'll ne
 store those values in an object, and pass that object into CreateDeviceFromConfigurationSettings - which
 should probably be renamed to CreateDevice at that point.
 See https://platform.uno/docs/articles/features/settings.html for more information.
-* Moving settings into Uno's work will require corresponding changes in the Windows Forms UI.
+* Moving settings into Uno's world will require corresponding changes in the Windows Forms UI.
 * The Uno app's settings page will need to be revised to use Uno's storage as well
 
