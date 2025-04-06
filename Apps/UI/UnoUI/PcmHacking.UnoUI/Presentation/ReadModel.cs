@@ -100,9 +100,13 @@ public partial record ReadModel : IAsyncLogger
                     this.Alert,
                     this.PromptForYesNo,
                     readCancellationToken);
-                await readManager.Read(path);
-                await lease.Vehicle.ExitKernel();
-                await lease.Vehicle.ClearTroubleCodes();
+
+                using (new AwayMode())
+                {
+                    await readManager.Read(path);
+                    await lease.Vehicle.ExitKernel();
+                    await lease.Vehicle.ClearTroubleCodes();
+                }
             }
         }
         catch (Exception exception)

@@ -141,10 +141,12 @@ public partial record WriteModel : IAsyncLogger
                     this.PromptForYesNo,
                     writeCancellationToken);
 
-                await writeManager.Write(path);
-
-                await lease.Vehicle.ExitKernel();
-                await lease.Vehicle.ClearTroubleCodes();
+                using (new AwayMode())
+                {
+                    await writeManager.Write(path);
+                    await lease.Vehicle.ExitKernel();
+                    await lease.Vehicle.ClearTroubleCodes();
+                }
             }
         }
         catch (Exception exception)

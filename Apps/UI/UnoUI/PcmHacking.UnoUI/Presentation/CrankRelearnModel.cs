@@ -81,6 +81,7 @@ public partial record CrankRelearnModel()
         try
         {
             using (ConnectionLease lease = await this.connectionService.BeginActivity("Crank Relearn", true))
+            using (new AwayMode())
             {
                 Vehicle vehicle = lease.Vehicle;
                 bool done = false;

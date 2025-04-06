@@ -82,6 +82,7 @@ public partial record DataLoggingParametersModel
         try
         {
             using (var lease = await this.connectionService.BeginActivity("Logging", true))
+            using (new AwayMode())
             {
                 if (lease == null)
                 {

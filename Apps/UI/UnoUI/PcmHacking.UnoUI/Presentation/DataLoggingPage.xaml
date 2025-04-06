@@ -48,7 +48,12 @@
 
     <StackPanel Grid.Row="0" Grid.Column="1" Grid.RowSpan="2" >
       <TextBlock Text="Recent Files:" HorizontalAlignment="Center" Margin="10"/>
-      <ListView Name="RecentFiles" ItemsSource="{Binding RecentFiles}" DoubleTapped="ListView_DoubleTapped" PreviewKeyDown="ListView_KeyDown" IsTabStop="true" />
+      <ListView Name="RecentFiles" 
+                ItemsSource="{Binding RecentFiles}"
+                IsDoubleTapEnabled="true"
+                DoubleTapped="ListView_DoubleTapped" 
+                PreviewKeyDown="ListView_KeyDown" 
+                IsTabStop="true" />
     </StackPanel>
 
     <Button Grid.Row="2" Grid.Column="1" 
