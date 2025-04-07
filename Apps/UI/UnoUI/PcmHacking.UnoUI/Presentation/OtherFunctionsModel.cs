@@ -214,7 +214,7 @@ public partial record OtherFunctionsModel
 
     public async Task GoToChangeVin()
     {
-        await this.navigator.NavigateViewModelAsync<HelpModel>(this);
+        await this.navigator.NavigateViewModelAsync<VinChangeModel>(this);
     }
     
     public async Task GoToCrankRelearn()

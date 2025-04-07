@@ -204,6 +204,7 @@ public partial class App : Application
             new ViewMap<SettingsPage, SettingsModel>(),
             new ViewMap<HelpPage, HelpModel>(),
             new ViewMap<OtherFunctionsPage, OtherFunctionsModel>(),
+            new ViewMap<VinChangePage, VinChangeModel>(),
             new ViewMap<CrankRelearnPage, CrankRelearnModel>(),
             new DataViewMap<DataLoggingParametersPage, DataLoggingParametersModel, string>(),
             new ResultDataViewMap<DelayPage, DelayModel, DelayResult>()

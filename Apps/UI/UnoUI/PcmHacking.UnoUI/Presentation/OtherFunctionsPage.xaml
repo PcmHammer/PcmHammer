@@ -139,7 +139,7 @@
           Padding="10"
           HorizontalAlignment="Stretch"
           VerticalAlignment="Stretch">
-                <TextBlock Text="Change VIN [Future]" />
+                <TextBlock Text="Change VIN" />
             </Button>
 
             <Button Grid.Row="1" Grid.Column="0" Command="{Binding GoToCrankRelearn}"

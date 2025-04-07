@@ -87,6 +87,10 @@ public partial record DelayModel : IDisposable
         await this.navigator.NavigateBackWithResultAsync(this, data: Result);
     }
 
+    /// <summary>
+    /// This is used to ensure that we don't call NavigateBack twice.
+    /// </summary>
+    /// <returns>'false' the first time it is called, and 'true' every subsequent time.</returns>
     bool Done()
     {
         lock(this)
