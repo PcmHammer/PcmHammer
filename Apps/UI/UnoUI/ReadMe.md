@@ -12,8 +12,9 @@ first, get it working, and second, make it a viable alternative to the existing 
 * done - Implement data logging 
 * done - Enable 4x for reading and writing
 * done - Implement the "wait 10 seconds" dialog box for reading and writing
+* done - Implement "Change VIN"
+* add circular buffer for user/debug messages, with viewing & saving options on the help page.
 * Add "verify flash" button on "other" page
-* Implement "Change VIN"
 * Adjust font sizes on the data logging parameter page to suit the window size.
 * Implement data log profile editing
 * Use Windows Management API to get device driver names for serial ports
@@ -23,10 +24,6 @@ first, get it working, and second, make it a viable alternative to the existing 
 * Update the CI builds in GitHub - building now requires the Uno SDK.
 
 All of the above are easier said than done. This will take some time.
-
-## Other must-fix issues:
-
-* TroubleshootingLogger should store logs in memory (maybe in a circular buffer?) and make them available in the UI.
 
 ## New features that would be fun to add:
 
