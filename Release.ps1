@@ -5,9 +5,9 @@ param
 	[Switch] $Preview
 )
 
-if (($ReleaseNumber.Length -ne 3) -and -not $Preview)
+if (($ReleaseNumber.Length -ne 4) -and -not $Preview)
 {
-	write-host You must provide a 3-digit release number.
+	write-host You must provide a 4-digit release number, for example: 2.01
 	exit
 }
 
@@ -16,38 +16,39 @@ Remove-Item -Recurse Apps\PcmLogger\bin\debug -ErrorAction SilentlyContinue
 Remove-Item -Recurse Release -ErrorAction SilentlyContinue;
 Remove-Item -Recurse "PcmHammer$ReleaseNumber" -ErrorAction SilentlyContinue
 
-if (-not $Preview)
+if ($Preview)
+{
+	$ReleaseNumber = "$ReleaseNumber-Preview"
+}
+else
 {
 	if (-not $BranchAlreadyExists)
 	{
 		git checkout develop
 		git checkout -b "Release/$ReleaseNumber"
 	}
-
-	write-host ===============================================================================
-	write-host = Updating version in help.html
-	$file = "Apps\PcmHammer\help.html"
-	$find = "    <h1>PCM Hammer Development Release</h1>"
-	$replace = "    <h1>PCM Hammer Release $ReleaseNumber</h1>"
-	(Get-Content $file).Replace($find, $replace) | Set-Content $file
-	git add $file
-
-	write-host ===============================================================================
-	write-host = Updating version in PcmHammer MainForm.cs
-	$file = "Apps\PcmHammer\MainForm.cs"
-	$find = "        private const string AppVersion = null;"
-	$replace = '        private const string AppVersion = "' + $ReleaseNumber + '";'
-	(Get-Content $file).Replace($find, $replace) | Set-Content $file
-	git add $file
-
-	write-host ===============================================================================
-	write-host = Running difftool - confirm changes to MainForm.cs and help.html now.
-	git difftool --cached
 }
-else
-{
-	$ReleaseNumber = "$ReleaseNumber-Preview"
-}
+
+write-host ===============================================================================
+write-host = Updating version in help.html
+$file = "Apps\PcmHammer\help.html"
+$find = "    <h1>PCM Hammer Development Release</h1>"
+$replace = "    <h1>PCM Hammer Release $ReleaseNumber</h1>"
+(Get-Content $file).Replace($find, $replace) | Set-Content $file
+git add $file
+
+write-host ===============================================================================
+write-host = Updating version in PcmHammer MainForm.cs
+$file = "Apps\PcmHammer\MainForm.cs"
+$find = "        private const string AppVersion = null;"
+$replace = '        private const string AppVersion = "' + $ReleaseNumber + '";'
+(Get-Content $file).Replace($find, $replace) | Set-Content $file
+git add $file
+
+write-host ===============================================================================
+write-host = Running difftool - confirm changes to MainForm.cs and help.html now.
+git difftool --cached
+
 
 # Should call "dotnet build" here
 write-host "Rebuild all in Visual Studio now."
@@ -56,7 +57,7 @@ read-host -Prompt "Press Enter to continue..."
 write-host ===============================================================================
 write-host = Rebuilding kernel
 cd Kernels
-.\build.bat
+.\BuildAll.cmd
 cd ..
 
 write-host ===============================================================================
@@ -82,8 +83,8 @@ copy Apps\VpwExplorer\bin\Debug\*.pdb Release
 
 
 # The order of these two operations matters - it ensures that the zip file contains a directory named PcmHammerNNN.
-Rename-Item Release "PcmHammer$ReleaseNumber"
-7z.exe a -r "PcmHammer$ReleaseNumber.zip" "PcmHammer$ReleaseNumber\*.*"
+Rename-Item Release "PcmHammer-$ReleaseNumber"
+7z.exe a -r "PcmHammer-$ReleaseNumber.zip" "PcmHammer-$ReleaseNumber\*.*"
 
 if (-not $Preview)
 {
