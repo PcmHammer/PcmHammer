@@ -69,10 +69,13 @@ public partial record VinChangeModel
     {
         if (newVin.Length != 17)
         {
-            await this.NewVinStatus.SetAsync("The VIN must be 17 characters long.");
+            await this.NewVinStatus.SetAsync(
+                "The VIN must be 17 characters long." + Environment.NewLine +
+                $"This is {newVin.Length} characters long.");
             await this.UpdateButtonEnabled.SetAsync(false);
             return;
         }
+
         if (newVin == (await this.OldVin.Value() ?? string.Empty))
         {
             await this.NewVinStatus.SetAsync("The new VIN is the same as the old VIN.");
@@ -80,25 +83,33 @@ public partial record VinChangeModel
             return;
         }
 
-        // TODO: factor this out, in the develop branch - and also add a "switched to 4X" user-message.
-/*        if (!VinUtilities.IsAlphaNumeric(newVin))
+        int invalidCharacterIndex = -1;
+        char requiredCheckDigit = 'X';
+        if (VinValidator.IsValid(newVin, out invalidCharacterIndex, out requiredCheckDigit))
         {
-            await this.NewVinStatus.SetAsync("The new VIN must only contain letters and numbers.");
-            await this.UpdateButtonEnabled.SetAsync(false);
+            await this.NewVinStatus.SetAsync("The VIN is valid. Good!");
+            await this.UpdateButtonEnabled.SetAsync(true);
             return;
         }
-        if (!VinUtilities.IsVinChecksumOK(newVin))
-        {
-            await this.NewVinStatus.SetAsync("The new VIN's checksum is not valid.");
-            await this.UpdateButtonEnabled.SetAsync(false);
-            return;
-        }*/
 
-        await this.UpdateButtonEnabled.SetAsync(true);
+        await this.UpdateButtonEnabled.SetAsync(false);
+
+        if (invalidCharacterIndex >= 0)
+        {
+            char invalidCharacter = newVin[invalidCharacterIndex];
+            await this.NewVinStatus.SetAsync($"The \"{invalidCharacter}\" at position {invalidCharacterIndex + 1} is not a letter or number.");
+            return;
+        }
+
+        if (requiredCheckDigit != 'X')
+        {
+            await this.NewVinStatus.SetAsync($"The VIN check digit on position 9 is incorrect.\nCorrect check digit is: {requiredCheckDigit}");
+            return;
+        }
     }
 
     [Command]
-    async Task UpdateVin()
+    public async ValueTask UpdateVin(CancellationToken cancellationToken)
     {
         try
         {
@@ -109,6 +120,7 @@ public partial record VinChangeModel
                 if (response.Status == ResponseStatus.Success)
                 {
                     await this.OldVin.SetAsync(newVin);
+                    await this.NewVinStatus.SetAsync("The VIN has been updated.");
                     this.loggerAdapter.AddUserMessage("VIN write succeeded: " + newVin);
                 }
                 else
