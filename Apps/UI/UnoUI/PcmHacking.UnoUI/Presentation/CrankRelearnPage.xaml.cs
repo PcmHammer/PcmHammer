@@ -21,7 +21,7 @@ namespace PcmHacking.UnoUI.Presentation
 
         protected override void OnNavigatingFrom(NavigatingCancelEventArgs e)
         {
-            this.model?.StopTimer();
+            this.model?.NavigatedAway();
         }
     }
 }

@@ -2,6 +2,7 @@ using Microsoft.UI.Dispatching;
 using PcmHacking.UnoUI.Services;
 using PcmHacking.UnoUI.Utilities;
 using System;
+using System.Threading;
 using Uno.Extensions.Reactive.Commands;
 
 namespace PcmHacking.UnoUI.Presentation;
@@ -26,6 +27,7 @@ public partial record OtherFunctionsModel
     private readonly INavigator navigator;
     private readonly IConnectionService connectionService;
     private readonly LoggerAdapter progressLogger;
+    private readonly CancellationTokenSource cancellation = new CancellationTokenSource();
 
     public IState<string> ResetCodesButtonText => State<string>.Value(this, () => defaultClearCodesButtonText);
     public IState<string> Description => State<string>.Value(this, () => defaultValue);
@@ -49,19 +51,36 @@ public partial record OtherFunctionsModel
 
         // Loaded="{Binding ReadProperties}"
         this.dispatcherQueue.TryEnqueue(async () => {
-            await this.ClearDetails();
-            await Task.Delay(100);
-            await this.ReadProperties(CancellationToken.None);
+            await this.MainLoop();
         });
     }
 
-    [Command]
-    private async Task ReadProperties(CancellationToken cancellationToken)
+    public void NavigatedAway()
+    {
+        cancellation.Cancel();
+    }
+
+    private async Task MainLoop()
     {
         await this.ClearDetails();
+
+        while (!cancellation.Token.IsCancellationRequested)
+        {
+            if (await this.ReadProperties(cancellation.Token))
+            {
+                break;
+            }
+
+            await Task.Delay(1000);
+        }
+    }
+
+    [Command]
+    private async Task<bool> ReadProperties(CancellationToken cancellationToken)
+    {
         try
         {
-            using (ConnectionLease lease = await this.connectionService.BeginActivity("Getting Details"))
+            using (ConnectionLease lease = await this.connectionService.BeginActivity("Reading...", true))
             {
                 Vehicle vehicle = lease.Vehicle;
 
@@ -106,6 +125,8 @@ public partial record OtherFunctionsModel
                     {
                         await this.BroadcastCode.SetAsync(notApplicable);
                     }
+
+                    return true;
                 }
                 else
                 {
@@ -115,12 +136,13 @@ public partial record OtherFunctionsModel
                     await this.HardwareId.SetAsync(unknown);
                     await this.SerialNumber.SetAsync(unknown);
                     await this.BroadcastCode.SetAsync(unknown);
+                    return false;
                 }
             }
         }
         catch (ConnectionUnavailableException)
         {
-            // TODO: display an error?
+            return false;
         }
     }
 

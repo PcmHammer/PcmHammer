@@ -47,7 +47,7 @@ public partial record CrankRelearnModel()
         this.Enqueue();
     }
 
-    public void StopTimer()
+    public void NavigatedAway()
     {
         cancellation.Cancel();
     }
