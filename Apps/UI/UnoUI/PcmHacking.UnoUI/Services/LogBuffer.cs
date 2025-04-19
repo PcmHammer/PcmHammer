@@ -29,9 +29,9 @@ namespace PcmHacking.UnoUI.Services
 
     public class LogBuffer : ILogBuffer
     {
-        private readonly List<LogEntry> entries = new List<LogEntry>();
+        private readonly CircularBuffer<LogEntry> entries = new CircularBuffer<LogEntry>(5000);
 
-        public IList<LogEntry> LogEntries => this.entries;
+        public IList<LogEntry> LogEntries => this.entries.ToArray();
 
         public bool Enabled { get; set; }
 

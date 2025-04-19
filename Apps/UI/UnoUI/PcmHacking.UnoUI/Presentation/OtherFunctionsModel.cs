@@ -78,6 +78,7 @@ public partial record OtherFunctionsModel
     [Command]
     private async Task<bool> ReadProperties(CancellationToken cancellationToken)
     {
+        const int delay = 50;
         try
         {
             using (ConnectionLease lease = await this.connectionService.BeginActivity("Reading...", true))
@@ -86,7 +87,9 @@ public partial record OtherFunctionsModel
 
                 // All VPW PCMs support the VIN query.
                 await this.Vin.SetAsync(await this.GetVin(vehicle, cancellationToken));
+                await Task.Delay(delay);
                 await this.Mec.SetAsync(await this.GetMec(vehicle, cancellationToken));
+                await Task.Delay(delay);
 
                 // The others depend on the operating system.        
                 const string notApplicable = "Not Applicable";
@@ -96,34 +99,42 @@ public partial record OtherFunctionsModel
                 {
                     OSIDInfo pcmInfo = new OSIDInfo(osId);
                     await this.Description.SetAsync(pcmInfo.Description);
+                    await Task.Delay(delay);
 
                     if (pcmInfo != null && pcmInfo.HardwareType != PcmType.BlackBox)
                     {
                         await this.CalibrationId.SetAsync(await this.GetCalibrationId(vehicle, cancellationToken));
+                        await Task.Delay(delay);
                         await this.SerialNumber.SetAsync(await this.GetSerialNumber(vehicle, cancellationToken));
+                        await Task.Delay(delay);
                     }
                     else
                     {
                         await this.CalibrationId.SetAsync(notApplicable);
                         await this.SerialNumber.SetAsync(notApplicable);
+                        await Task.Delay(delay);
                     }
 
                     if (pcmInfo != null && pcmInfo.HardwareType != PcmType.P10 && pcmInfo.HardwareType != PcmType.P12 && pcmInfo.HardwareType != PcmType.E54)
                     {
                         await this.HardwareId.SetAsync(await this.GetHardwareId(vehicle, cancellationToken));
+                        await Task.Delay(delay);
                     }
                     else
                     {
                         await this.HardwareId.SetAsync(notApplicable);
+                        await Task.Delay(delay);
                     }
 
                     if (pcmInfo != null && pcmInfo.HardwareType != PcmType.P04 && pcmInfo.HardwareType != PcmType.P04_Early && pcmInfo.HardwareType != PcmType.P08)
                     {
                         await this.BroadcastCode.SetAsync(await this.GetBroadcastCode(vehicle, cancellationToken));
+                        await Task.Delay(delay);
                     }
                     else
                     {
                         await this.BroadcastCode.SetAsync(notApplicable);
+                        await Task.Delay(delay);
                     }
 
                     return true;
@@ -140,10 +151,18 @@ public partial record OtherFunctionsModel
                 }
             }
         }
-        catch (ConnectionUnavailableException)
+        catch (ConnectionUnavailableException exception)
         {
+            this.progressLogger.AddDebugMessage("Other Functions: Connection unavailable while reading properties.");
+            this.progressLogger.AddDebugMessage(exception.Message);
             return false;
         }
+        catch (Exception exception)
+        {
+            this.progressLogger.AddDebugMessage("Other Functions: Exception while reading properties.");
+            this.progressLogger.AddDebugMessage(exception.Message);
+            return false;
+        }        
     }
 
     private async Task ClearDetails()
@@ -164,7 +183,7 @@ public partial record OtherFunctionsModel
         var vinResponse = await vehicle.QueryVin();
         if (vinResponse.Status != ResponseStatus.Success)
         {
-            return "VIN query failed: " + vinResponse.Status.ToString();
+            throw new Exception("VIN query failed: " + vinResponse.Status.ToString());
         }
         return vinResponse.Value;
     }
@@ -174,7 +193,7 @@ public partial record OtherFunctionsModel
         var response = await vehicle.QueryOperatingSystemId(cancellationToken);
         if (response.Status != ResponseStatus.Success)
         {
-            return "Operating system ID query failed: " + response.Status.ToString();
+            throw new Exception("Operating system ID query failed: " + response.Status.ToString());
         }
         return response.Value.ToString();
     }
@@ -184,7 +203,7 @@ public partial record OtherFunctionsModel
         var response = await vehicle.QueryCalibrationId();
         if (response.Status != ResponseStatus.Success)
         {
-            return "Calibration ID query failed: " + response.Status.ToString();
+            throw new Exception("Calibration ID query failed: " + response.Status.ToString());
         }
         return response.Value.ToString();
     }
@@ -194,7 +213,7 @@ public partial record OtherFunctionsModel
         var response = await vehicle.QueryHardwareId();
         if (response.Status != ResponseStatus.Success)
         {
-            return "Hardware ID query failed: " + response.Status.ToString();
+            throw new Exception("Hardware ID query failed: " + response.Status.ToString());
         }
         return response.Value.ToString();
     }
@@ -204,7 +223,7 @@ public partial record OtherFunctionsModel
         var response = await vehicle.QuerySerial();
         if (response.Status != ResponseStatus.Success)
         {
-            return "Serial number query failed: " + response.Status.ToString();
+            throw new Exception("Serial number query failed: " + response.Status.ToString());
         }
         return response.Value.ToString();
     }
@@ -214,7 +233,7 @@ public partial record OtherFunctionsModel
         var response = await vehicle.QueryBCC();
         if (response.Status != ResponseStatus.Success)
         {
-            return "Broadcast code query failed: " + response.Status.ToString();
+            throw new Exception("Broadcast code query failed: " + response.Status.ToString());
         }
         return response.Value.ToString();
     }
@@ -224,7 +243,7 @@ public partial record OtherFunctionsModel
         var response = await vehicle.QueryMEC();
         if (response.Status != ResponseStatus.Success)
         {
-            return "MEC query failed: " + response.Status.ToString();
+            throw new Exception("MEC query failed: " + response.Status.ToString());
         }
         return response.Value.ToString();
     }
