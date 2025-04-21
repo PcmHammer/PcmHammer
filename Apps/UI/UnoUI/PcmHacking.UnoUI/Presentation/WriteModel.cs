@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using PcmHacking.UnoUI.Services;
 using PcmHacking.UnoUI.Utilities;
 using System;
+using System.Text;
 using Uno.Extensions;
 using Uno.Extensions.Reactive.Commands;
 using Windows.Storage.Pickers;

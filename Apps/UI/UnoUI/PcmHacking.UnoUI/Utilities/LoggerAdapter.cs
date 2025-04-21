@@ -51,12 +51,35 @@ namespace PcmHacking.UnoUI.Utilities
             this.buffer = buffer;
         }
 
+        private string ExpandTabs(string message)
+        {
+            StringBuilder builder = new();
+            for (int index = 0; index < message.Length; index++)
+            {
+                char current = message[index];
+                if (current != '\t')
+                {
+                    builder.Append(current);
+                }
+
+                int spaces = 8 - (builder.Length % 8);
+                for (int spaceIndex = 0; spaceIndex < spaces; spaceIndex++)
+                {
+                    builder.Append(' ');
+                }
+            }
+
+            return builder.ToString();
+        }
+
         public void AddUserMessage(string message)
         {
             if (!this.buffer.Enabled)
             {
                 return;
             }
+
+            message = this.ExpandTabs(message);
 
             this.buffer.Add(LogType.User, message);
 
@@ -76,6 +99,8 @@ namespace PcmHacking.UnoUI.Utilities
             {
                 return;
             }
+
+            message = this.ExpandTabs(message);
 
             this.buffer.Add(LogType.Debug, message);
 
