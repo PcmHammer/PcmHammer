@@ -60,9 +60,10 @@ namespace PcmHacking.UnoUI.Utilities
                 if (current != '\t')
                 {
                     builder.Append(current);
+                    continue;
                 }
 
-                int spaces = 8 - (builder.Length % 8);
+                int spaces = 4 - (builder.Length % 4);
                 for (int spaceIndex = 0; spaceIndex < spaces; spaceIndex++)
                 {
                     builder.Append(' ');
