@@ -9,7 +9,7 @@
       Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
 
 
-    <Grid Name="OuterGrid">
+    <Grid Name="OuterGrid" IsDoubleTapEnabled="true" DoubleTapped="OuterGrid_DoubleTapped">
         <Grid.RowDefinitions>
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>

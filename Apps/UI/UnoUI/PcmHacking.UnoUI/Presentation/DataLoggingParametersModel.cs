@@ -111,9 +111,7 @@ public partial record DataLoggingParametersModel
                 }
 
                 LogProfileReader reader = new LogProfileReader(database, osid, this.progressLogger);
-                var profile = reader.Read(this.profilePath);
-
-                // This tells the view to update the UI with the new profile.
+                var profile = reader.Read(this.profilePath);                
                 this.progressLogger.AddDebugMessage("DataLoggingParametersModel loaded profile.");
 
                 // Create the logger, and start logging.
@@ -134,6 +132,8 @@ public partial record DataLoggingParametersModel
                 // Wait until the Page is ready.
                 this.InitializationEvent.WaitOne();
                 this.progressLogger.AddDebugMessage("DataLoggingParametersModel initialization unblocked.");
+
+                // This tells the view to update the UI with the new profile.
                 await this.LogProfile.SetAsync(new LoggerWrapper(logger), CancellationToken.None);
                 await Task.Delay(100);
                 this.progressLogger.AddDebugMessage("DataLoggingParametersModel registered profile.");

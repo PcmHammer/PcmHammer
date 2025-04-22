@@ -64,6 +64,9 @@
     <Compile Update="Presentation\DataLoggingParametersPage.xaml.cs">
       <DependentUpon>DataLoggingParametersPage.xaml</DependentUpon>
     </Compile>
+    <Compile Update="Presentation\DataLoggingEditPage.xaml.cs">
+      <DependentUpon>DataLoggingEditPage.xaml</DependentUpon>
+    </Compile>
     <Compile Update="Presentation\VinChangePage.xaml.cs">
       <DependentUpon>VinChangePage.xaml</DependentUpon>
     </Compile>
@@ -178,6 +181,12 @@
 
   <ItemGroup>
     <Page Update="Presentation\VinChangePage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Page Update="Presentation\DataLoggingEditPage.xaml">
       <Generator>MSBuild:Compile</Generator>
     </Page>
   </ItemGroup>
