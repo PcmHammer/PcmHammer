@@ -200,6 +200,7 @@ public partial class App : Application
             new ViewMap<DataLoggingPage, DataLoggingModel>(),
             new ViewMap<ReadPage, ReadModel>(),
             // new DataViewMap<WritePage, WriteViewModel, WriteTypeEntity>(), // This should work, but I can't make it work.
+            new DataViewMap<DataLoggingEditPage, DataLoggingEditModel, DataLoggingEditContext>(),
             new ViewMap<WritePage, WriteModel>(), // Hacky workaround for now.
             new ViewMap<SettingsPage, SettingsModel>(),
             new ViewMap<HelpPage, HelpModel>(),

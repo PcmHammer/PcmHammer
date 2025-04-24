@@ -1,6 +1,6 @@
 namespace PcmHacking.UnoUI.Presentation;
 
-public sealed partial class DataLoggingEditPage : Page
+public sealed partial class DataLoggingEditPage : ContentDialog
 {
     public DataLoggingEditPage()
     {

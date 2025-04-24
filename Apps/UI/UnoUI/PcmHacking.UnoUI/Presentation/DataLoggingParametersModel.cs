@@ -7,6 +7,7 @@ using Microsoft.UI.Dispatching;
 using PcmHacking.UnoUI.Services;
 using PcmHacking.UnoUI.Utilities;
 using Uno.Extensions;
+using Uno.UI.Extensions;
 using Windows.Devices.Bluetooth.Advertisement;
 
 namespace PcmHacking.UnoUI.Presentation;
@@ -30,6 +31,20 @@ public struct LoggerWrapper
     }
 }
 
+public class DataLoggingEditContext
+{
+    public ParameterDatabase Database { get; private set; }
+    public uint Osid { get; private set; }
+    public LogColumn LogColumn { get; private set; }
+
+    public DataLoggingEditContext(ParameterDatabase database, uint osid, LogColumn logColumn)
+    {
+        this.Database = database;
+        this.Osid = osid;
+        this.LogColumn = logColumn;
+    }
+}
+
 public partial record DataLoggingParametersModel
 {
     private INavigator navigator;
@@ -38,8 +53,10 @@ public partial record DataLoggingParametersModel
     private readonly LoggerAdapter progressLogger;
     private readonly ILogBuffer logBuffer;
     private readonly DispatcherQueue dispatcherQueue;
+    private ParameterDatabase? database;
+    private uint osid;
     private string profilePath;
-    private string canPortName;
+    private string canPortName;    
     private CanLogger? canLogger;
     private ConcurrentQueue<Tuple<Logger, LogFileWriter?, IEnumerable<string>>> logRowQueue = new ConcurrentQueue<Tuple<Logger, LogFileWriter?, IEnumerable<string>>>();
     private ManualResetEvent exitWaitHandle = new ManualResetEvent(false);
@@ -77,6 +94,25 @@ public partial record DataLoggingParametersModel
     public IState<LoggerWrapper> LogProfile => State<LoggerWrapper>.Empty(this);
     public IState<LogRowValues> Rows => State<LogRowValues>.Empty(this);
 
+    public async Task EditParameter(DataSource dataSource)
+    {
+        if (dataSource.LogColumn != null)
+        {
+            var logColumn = dataSource.LogColumn;
+            var parameter = logColumn.Parameter;
+            DataLoggingEditContext wrapper = new (this.database, this.osid, logColumn);
+            if (parameter != null)
+            {
+                await this.navigator.NavigateViewModelAsync<DataLoggingEditModel>(this, data: wrapper);
+                // await this.navigator.NavigateToParameterEditor(parameter);
+            }
+        }
+        else
+        {
+            // await this.navigator.NavigateToParameterEditor(dataSource);
+        }
+    }
+
     private async Task OpenProfile()
     {
         try
@@ -94,15 +130,14 @@ public partial record DataLoggingParametersModel
 
                 // Load the database
                 string appDirectory = AppContext.BaseDirectory;
-                var database = new ParameterDatabase(appDirectory);
-                database.LoadDatabase();
+                this.database = new ParameterDatabase(appDirectory);
+                this.database.LoadDatabase();
 
                 // Create the log profile
-                uint osid = 0;
                 try
                 {
                     var osidQueryResult = await vehicle.QueryOperatingSystemId(CancellationToken.None);
-                    osid = osidQueryResult.Value;
+                    this.osid = osidQueryResult.Value;
                 }
                 catch (Exception ex)
                 {
@@ -110,7 +145,7 @@ public partial record DataLoggingParametersModel
                     return;
                 }
 
-                LogProfileReader reader = new LogProfileReader(database, osid, this.progressLogger);
+                LogProfileReader reader = new LogProfileReader(database, this.osid, this.progressLogger);
                 var profile = reader.Read(this.profilePath);                
                 this.progressLogger.AddDebugMessage("DataLoggingParametersModel loaded profile.");
 
@@ -127,7 +162,7 @@ public partial record DataLoggingParametersModel
 
                 }
 
-                Logger logger = vehicle.CreateLogger(osid, canLogger, profile.Columns, this.progressLogger);
+                Logger logger = vehicle.CreateLogger(this.osid, canLogger, profile.Columns, this.progressLogger);
 
                 // Wait until the Page is ready.
                 this.InitializationEvent.WaitOne();

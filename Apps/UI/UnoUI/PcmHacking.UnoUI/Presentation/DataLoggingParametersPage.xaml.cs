@@ -12,12 +12,12 @@ using Windows.UI.ViewManagement;
 
 namespace PcmHacking.UnoUI.Presentation;
 
+public record Indices(int MainRowIndex, int ZoomRowIndex);
+public record DataSource(LogColumn? LogColumn, CanLogger.ParameterValue? CanParameter);
+public record RowMetadata(DataSource DataSource, Indices Indices, TextBlock Value, TextBlock? ZoomedValue, string Units);
+
 public sealed partial class DataLoggingParametersPage : Page
 {
-    private record Indices(int MainRowIndex, int ZoomRowIndex);
-    private record DataSource(LogColumn? LogColumn, CanLogger.ParameterValue? CanParameter);
-    private record RowMetadata(DataSource DataSource, Indices Indices, TextBlock Value, TextBlock? ZoomedValue, string Units);
-
     private List<RowMetadata> parameterMetadata = new();
 
     private DataLoggingParametersModel? model;
@@ -98,7 +98,6 @@ public sealed partial class DataLoggingParametersPage : Page
                 foreach (LogColumn column in group.LogColumns)
                 {
                     this.AddParameter(mainRowIndex, column.Parameter.Name, column.Conversion.Units, out TextBlock valueTextBlock);
-                    mainRowIndex++;
                     
                     TextBlock? zoomValue = null;
                     int zoomRow = -1;
@@ -116,13 +115,14 @@ public sealed partial class DataLoggingParametersPage : Page
                             valueTextBlock,
                             zoomValue,
                             column.Conversion.Units));
+
+                    mainRowIndex++;
                 }
             }
 
             foreach (LogColumn mathColumn in logger.MathValueProcessor.GetMathColumns())
             {
                 this.AddParameter(mainRowIndex, mathColumn.Parameter.Name, mathColumn.Conversion.Units, out TextBlock valueTextBlock);
-                mainRowIndex++;
 
                 TextBlock? zoomValue = null;
                 int zoomRow = -1;
@@ -140,6 +140,8 @@ public sealed partial class DataLoggingParametersPage : Page
                         valueTextBlock,
                         zoomValue,
                         mathColumn.Conversion.Units));
+
+                mainRowIndex++;
             }
 
             foreach (CanLogger.ParameterValue canParameter in logger.CanLogger.GetParameterValues())
@@ -278,7 +280,43 @@ public sealed partial class DataLoggingParametersPage : Page
 
     private void OuterGrid_DoubleTapped(object sender, Microsoft.UI.Xaml.Input.DoubleTappedRoutedEventArgs e)
     {
+        FrameworkElement? element = e.OriginalSource as FrameworkElement;
+        Border? border = null;
+        if (element is TextBlock)
+        {
+            border = element.Parent as Border;
+        }
 
+        if (element is Border)
+        {
+            border = element as Border;
+        }
+
+        if (border == null)
+        {
+            return;
+        }
+
+        // get the row of the Border in the grid
+        int rowIndex = Grid.GetRow(border);
+        string? parentName = (border.Parent as Grid)?.Name;
+        if (parentName == "Parameters")
+        {
+            var metadata = this.parameterMetadata.Find(x => (rowIndex) == x?.Indices?.MainRowIndex);
+            if (metadata != null)
+            {
+                this.model?.EditParameter(metadata.DataSource);
+            }
+        }
+
+        if (parentName == "ZoomedParameters")
+        {
+            var metadata = this.parameterMetadata.Find(x => rowIndex == x?.Indices?.ZoomRowIndex);
+            if (metadata != null)
+            {
+                this.model?.EditParameter(metadata.DataSource);
+            }
+        }
     }
 
     private ValueTask ShowErrorMessage(string message)
