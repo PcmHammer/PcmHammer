@@ -24,10 +24,14 @@ public partial record DataLoggingEditModel()
         this.dispatcherQueue = dispatcherQueue;
         this.logColumn = editContext.LogColumn;
         this.ParameterList.Update(updater: existing => editContext.Database.ListParametersBySupportedOs(editContext.Osid).ToImmutableList(), ct: CancellationToken.None);
-        this.ParameterList.TrySelectAsync(this.logColumn.Parameter);
         this.ConversionList.Update(updater: existing => (this.logColumn.Parameter?.Conversions ?? new Conversion[0]).ToImmutableList(), ct: CancellationToken.None);
-        this.ConversionList.TrySelectAsync(this.logColumn.Conversion);
         this.Zoom.SetAsync(this.logColumn.Zoom);
+    }
+
+    public async Task SetSelection()
+    {
+        await this.ParameterList.TrySelectAsync(this.logColumn.Parameter);
+        await this.ConversionList.TrySelectAsync(this.logColumn.Conversion);
     }
 
     [Command]

@@ -6,6 +6,7 @@
       xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
       xmlns:uen="using:Uno.Extensions.Navigation.UI"
       xmlns:utu="using:Uno.Toolkit.UI"
+      Loaded="ContentDialog_Loaded"
       Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
 
     <Grid>
@@ -17,8 +18,8 @@
             <RowDefinition Height="*" x:Name="Buttons" />
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="250" />
+            <ColumnDefinition Width="250" />
         </Grid.ColumnDefinitions>
 
         <TextBlock Grid.Row="0"
@@ -35,27 +36,35 @@
                    VerticalAlignment="Center"
                    Margin="5" />
 
-        <ListView Grid.Row="1"
-                  Grid.RowSpan="2"
-                  Grid.Column="0"                  
+        <Border   Grid.Row="1"
+                  Grid.RowSpan="2">
+            <ListView 
+                  Grid.Column="0"   
+                  Name="Parameters"
                   ItemsSource="{Binding ParameterList}"
                   BorderThickness="1"
                   Margin="5" />
+        </Border>
 
-        <ListView Grid.Row="1"
-                  Grid.Column="1"
+        <Border   Grid.Row="1"
+                  Grid.Column="1">
+            <ListView
+                  Name="Conversions"
                   ItemsSource="{Binding ConversionList}"
                   BorderThickness="1"
                   Margin="5" />
+        </Border>
 
-        <CheckBox Grid.Row="2"
+        <CheckBox 
+                  Grid.Row="2"
                   Grid.Column="1"
                   Content="Zoom"
                   IsChecked="{Binding Zoom}"
                   Margin="5" />
-
+        
         <Button Grid.Row="4"
                 Grid.Column="0"
+                Width="80"
                 HorizontalAlignment="Right"
                 VerticalAlignment="Center"
                 Margin="5" 
@@ -64,6 +73,7 @@
 
         <Button Grid.Row="4"
                 Grid.Column="1"
+                Width="80"
                 HorizontalAlignment="Left"
                 VerticalAlignment="Center"
                 Margin="5" 
