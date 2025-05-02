@@ -52,11 +52,11 @@
                 ItemsSource="{Binding RecentFiles}"
                 IsDoubleTapEnabled="true"
                 DoubleTapped="ListView_DoubleTapped" 
-                PreviewKeyDown="ListView_KeyDown" 
+                PreviewKeyDown="ListView_KeyDown"
                 IsTabStop="true" />
     </StackPanel>
 
-    <Button Grid.Row="2" Grid.Column="1" 
+    <Button Grid.Row="2" Grid.Column="1"
               Content="Save Profile As..."
               Margin="10"
               Padding="10"

@@ -9,7 +9,6 @@ public partial record DataLoggingEditModel()
     private readonly INavigator navigator;
     private readonly DispatcherQueue dispatcherQueue;
     private readonly LogColumn logColumn;
-    private readonly ParameterDatabase database;
 
     public IListState<Parameter> ParameterList => ListState<Parameter>.Empty(this);
     public IListState<Conversion> ConversionList => ListState<Conversion>.Empty(this);

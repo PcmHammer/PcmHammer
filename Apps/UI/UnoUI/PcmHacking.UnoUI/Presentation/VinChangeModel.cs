@@ -1,4 +1,4 @@
-﻿using PcmHacking.UnoUI.Services;
+using PcmHacking.UnoUI.Services;
 using PcmHacking.UnoUI.Utilities;
 using System;
 using System.Collections.Generic;
@@ -65,7 +65,7 @@ public partial record VinChangeModel
     }
 
     [Command]
-    async Task NewVinChanged(string newVin, CancellationToken cancellation)
+    public async Task NewVinChanged(string newVin, CancellationToken cancellation)
     {
         if (newVin.Length != 17)
         {

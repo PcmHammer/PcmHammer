@@ -48,7 +48,9 @@
             Margin="8" />
 
         <TextBox Grid.Row="5"
+            Name="NewVin"
             Text="{Binding NewVin, Mode=TwoWay}"
+            TextChanged="{x:Bind NewVin_TextChanged}"
             HorizontalAlignment="Center"
             VerticalAlignment="Top"
             Margin="5" />

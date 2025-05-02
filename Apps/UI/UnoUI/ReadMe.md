@@ -13,7 +13,7 @@ first, get it working, and second, make it a viable alternative to the existing 
 * done - Enable 4x for reading and writing
 * done - Implement the "wait 10 seconds" dialog box for reading and writing
 * done - add circular buffer for user/debug messages, with viewing & saving options on the help page.
-* almost done - Implement "Change VIN" - need to validate the new VIN while typing, rather than waiting for focus to move.
+* done - Implement "Change VIN"
 * Add "verify flash" button on "other" page
 * Adjust font sizes on the data logging parameter page to suit the window size.
 * Implement data log profile editing
