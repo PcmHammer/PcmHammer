@@ -191,4 +191,10 @@
     </Page>
   </ItemGroup>
 
+  <ItemGroup>
+    <Page Update="Presentation\DataLoggingDeleteConfirmationDialog.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+
 </Project>

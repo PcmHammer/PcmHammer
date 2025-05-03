@@ -17,6 +17,9 @@ first, get it working, and second, make it a viable alternative to the existing 
 * written, not tested - "verify flash" button on "other" page
 * Adjust font sizes on the data logging parameter page to suit the window size.
 * Implement data log profile editing
+* ^ edit existing parameters
+* ^ remove parameters
+* ^ add new parameters
 * Use Windows Management API to get device driver names for serial ports
 * Implement "message of the day" (so we can alert people to new versions)
 * Implement the help page

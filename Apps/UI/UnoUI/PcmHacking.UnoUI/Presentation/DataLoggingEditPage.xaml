@@ -18,12 +18,14 @@
             <RowDefinition Height="*" x:Name="Buttons" />
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="250" />
-            <ColumnDefinition Width="250" />
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
         <TextBlock Grid.Row="0"
                    Grid.Column="0"
+                   Grid.ColumnSpan="2"
                    Text="Parameter"
                    HorizontalAlignment="Center"
                    VerticalAlignment="Center"
@@ -40,6 +42,7 @@
                   Grid.RowSpan="2">
             <ListView 
                   Grid.Column="0"   
+                  Grid.ColumnSpan="2"
                   Name="Parameters"
                   ItemsSource="{Binding ParameterList}"
                   BorderThickness="1"
@@ -61,18 +64,27 @@
                   Content="Zoom"
                   IsChecked="{Binding Zoom}"
                   Margin="5" />
-        
+
         <Button Grid.Row="4"
                 Grid.Column="0"
                 Width="80"
                 HorizontalAlignment="Right"
                 VerticalAlignment="Center"
                 Margin="5" 
-                Content="OK" 
-                Command="{Binding OkClicked}"/>
+                Content="Delete Parameter" 
+                Command="{Binding DeleteClicked}"/>
 
         <Button Grid.Row="4"
                 Grid.Column="1"
+                Width="80"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Center"
+                Margin="5" 
+                Content="Apply Changes" 
+                Command="{Binding ApplyClicked}"/>
+
+        <Button Grid.Row="4"
+                Grid.Column="2"
                 Width="80"
                 HorizontalAlignment="Left"
                 VerticalAlignment="Center"
