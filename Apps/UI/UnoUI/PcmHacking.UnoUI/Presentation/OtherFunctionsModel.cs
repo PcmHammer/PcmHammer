@@ -253,6 +253,14 @@ public partial record OtherFunctionsModel
         await this.navigator.NavigateViewModelAsync<ReadModel>(this);
     }
 
+    public async Task GoToVerify()
+    {
+        // See comments in MenuModel.GoToWrite()
+        WriteModel.WriteType = WriteType.Compare;
+        await this.navigator.NavigateViewModelAsync<WriteModel>(this);
+
+    }
+
     public async Task GoToChangeVin()
     {
         await this.navigator.NavigateViewModelAsync<VinChangeModel>(this);
@@ -261,6 +269,11 @@ public partial record OtherFunctionsModel
     public async Task GoToCrankRelearn()
     {
         await this.navigator.NavigateViewModelAsync<CrankRelearnModel>(this);
+    }
+
+    public async Task ReadCodes()
+    {
+        // TODO: navigate to a read-OBD2-codes page
     }
 
     public async Task ResetCodes()
