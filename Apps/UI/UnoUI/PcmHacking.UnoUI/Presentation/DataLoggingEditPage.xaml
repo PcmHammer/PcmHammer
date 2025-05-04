@@ -32,64 +32,58 @@
                    Margin="5" />
 
         <TextBlock Grid.Row="0"
-                   Grid.Column="1"
+                   Grid.Column="2"
                    Text="Units"
                    HorizontalAlignment="Center"
                    VerticalAlignment="Center"
                    Margin="5" />
 
-        <Border   Grid.Row="1"
-                  Grid.RowSpan="2">
-            <ListView 
+        <ListView Grid.Row="1"
+                  Grid.RowSpan="2"
                   Grid.Column="0"   
                   Grid.ColumnSpan="2"
                   Name="Parameters"
                   ItemsSource="{Binding ParameterList}"
-                  BorderThickness="1"
                   Margin="5" />
-        </Border>
-
-        <Border   Grid.Row="1"
-                  Grid.Column="1">
-            <ListView
+        
+        <ListView Grid.Row="1"
+                  Grid.Column="2"
                   Name="Conversions"
                   ItemsSource="{Binding ConversionList}"
-                  BorderThickness="1"
                   Margin="5" />
-        </Border>
 
         <CheckBox 
                   Grid.Row="2"
-                  Grid.Column="1"
+                  Grid.Column="2"
                   Content="Zoom"
                   IsChecked="{Binding Zoom}"
                   Margin="5" />
 
         <Button Grid.Row="4"
                 Grid.Column="0"
-                Width="80"
-                HorizontalAlignment="Right"
+                HorizontalAlignment="Center"
                 VerticalAlignment="Center"
                 Margin="5" 
+                Width="150"
                 Content="Delete Parameter" 
-                Command="{Binding DeleteClicked}"/>
-
+                Click="Delete_Clicked" />
+        
         <Button Grid.Row="4"
                 Grid.Column="1"
-                Width="80"
-                HorizontalAlignment="Right"
+                HorizontalAlignment="Center"
                 VerticalAlignment="Center"
                 Margin="5" 
+                Width="150"
                 Content="Apply Changes" 
-                Command="{Binding ApplyClicked}"/>
+                Click="Apply_Clicked"/>
 
         <Button Grid.Row="4"
                 Grid.Column="2"
-                Width="80"
-                HorizontalAlignment="Left"
+                HorizontalAlignment="Center"
                 VerticalAlignment="Center"
                 Margin="5" 
+                Width="150"
                 Content="Cancel" 
-                Command="{Binding CancelClicked}"/>
+                Click="Cancel_Clicked"/>
     </Grid>
 </ContentDialog>

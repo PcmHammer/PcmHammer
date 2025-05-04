@@ -5,6 +5,7 @@
       xmlns:uen="using:Uno.Extensions.Navigation.UI"
       xmlns:utu="using:Uno.Toolkit.UI"
       NavigationCacheMode="Required"
+      Loaded="Page_Loaded"
       >
     <Grid utu:SafeArea.Insets="VisibleBounds">
         <Grid.RowDefinitions>

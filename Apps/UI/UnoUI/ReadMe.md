@@ -20,6 +20,8 @@ first, get it working, and second, make it a viable alternative to the existing 
 * ^ edit existing parameters
 * ^ remove parameters
 * ^ add new parameters
+* better handling of log profiles that contain unsupported parameters
+* ^ show the whole parameter list, show error in the 'zoom' column
 * Use Windows Management API to get device driver names for serial ports
 * Implement "message of the day" (so we can alert people to new versions)
 * Implement the help page

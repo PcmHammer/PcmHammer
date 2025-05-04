@@ -1,3 +1,4 @@
+using PcmHacking.UnoUI.Services;
 namespace PcmHacking.UnoUI.Presentation;
 
 public sealed partial class MainPage : Page
@@ -6,6 +7,11 @@ public sealed partial class MainPage : Page
     {
         this.InitializeComponent();
         this.ContentFrame.Navigate(typeof(MenuPage));
+    }
+
+    private void Page_Loaded(object sender, RoutedEventArgs e)
+    {
+        XamlRootService.Initialize(this.XamlRoot);
     }
 
     public void FrameNavigated(object sender, NavigationEventArgs e)

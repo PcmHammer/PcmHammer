@@ -96,21 +96,43 @@ public partial record DataLoggingParametersModel
 
     public async Task EditParameter(DataSource dataSource)
     {
+        if (this.database == null)
+        {
+            this.progressLogger.AddDebugMessage("this.database is null in DataLoggingParametersModel.EditParameter");
+            return;
+        }
+
         if (dataSource.LogColumn != null)
         {
             var logColumn = dataSource.LogColumn;
             var parameter = logColumn.Parameter;
-            DataLoggingEditContext wrapper = new (this.database, this.osid, logColumn);
             if (parameter != null)
             {
-                await this.navigator.NavigateViewModelAsync<DataLoggingEditModel>(this, data: wrapper);
-                // await this.navigator.NavigateToParameterEditor(parameter);
+                DataLoggingEditPage dataLoggingEditPage = new DataLoggingEditPage();
+                dataLoggingEditPage.XamlRoot = XamlRootService.GetXamlRoot();
+                dataLoggingEditPage.OnApply += (s, e) =>
+                {
+                    this.progressLogger.AddUserMessage("");
+                };
+                dataLoggingEditPage.OnDelete += (s, e) =>
+                {
+                    this.progressLogger.AddUserMessage("");
+                };
+
+                DataLoggingEditContext wrapper = new(this.database, this.osid, logColumn);
+                dataLoggingEditPage.DataContext = new DataLoggingEditViewModel(wrapper);
+                await dataLoggingEditPage.ShowAsync();
             }
         }
         else
         {
             // await this.navigator.NavigateToParameterEditor(dataSource);
         }
+    }
+
+    private void DataLoggingEditPage_OnApply(object? sender, EventArgs e)
+    {
+        throw new NotImplementedException();
     }
 
     private async Task OpenProfile()

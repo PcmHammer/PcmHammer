@@ -278,7 +278,7 @@ public sealed partial class DataLoggingParametersPage : Page
         return ValueTask.CompletedTask;
     }
 
-    private void OuterGrid_DoubleTapped(object sender, Microsoft.UI.Xaml.Input.DoubleTappedRoutedEventArgs e)
+    private async Task OuterGrid_DoubleTapped(object sender, Microsoft.UI.Xaml.Input.DoubleTappedRoutedEventArgs e)
     {
         FrameworkElement? element = e.OriginalSource as FrameworkElement;
         Border? border = null;
@@ -305,7 +305,7 @@ public sealed partial class DataLoggingParametersPage : Page
             var metadata = this.parameterMetadata.Find(x => (rowIndex) == x?.Indices?.MainRowIndex);
             if (metadata != null)
             {
-                this.model?.EditParameter(metadata.DataSource);
+                await this.model?.EditParameter(metadata.DataSource);
             }
         }
 

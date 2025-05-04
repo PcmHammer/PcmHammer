@@ -125,10 +125,10 @@ public partial class App : Application
                     services.AddSingleton<IMessenger, WeakReferenceMessenger>();
                     services.AddSingleton<ILogBuffer, LogBuffer>();
                     services.AddSingleton<UnoUI.Utilities.LoggerAdapter, UnoUI.Utilities.LoggerAdapter>();
-
                     services.AddSingleton<ISettingsService, Services.SettingsService>();
                     services.AddSingleton<Services.IConnectionService, Services.ConnectionService>();
                     services.AddSingleton<MenuViewModel>();
+                    services.AddSingleton<XamlRootService>();
                     
                 })
 
