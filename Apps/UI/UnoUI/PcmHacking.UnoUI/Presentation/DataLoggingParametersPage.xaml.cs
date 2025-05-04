@@ -57,7 +57,7 @@ public sealed partial class DataLoggingParametersPage : Page
 
         this.model.ProgressLogger.AddDebugMessage("DataLoggingParametersPage DataContext set.");
 
-        this.model.LogProfile.ForEach((loggerWrapper, ct) => this.InitializeParameters(loggerWrapper.Logger));
+        this.model.LoggerWrapper.ForEach((loggerWrapper, ct) => this.InitializeParameters(loggerWrapper.Logger));
 
         this.model.Rows.ForEach((row, ct) => this.UpdateParameterValues(row.Values));
 

@@ -35,13 +35,14 @@ public class DataLoggingEditContext
 {
     public ParameterDatabase Database { get; private set; }
     public uint Osid { get; private set; }
-    public LogColumn LogColumn { get; private set; }
+    public LogColumn Input { get; private set; }
+    public LogColumn? Output { get; set; }
 
     public DataLoggingEditContext(ParameterDatabase database, uint osid, LogColumn logColumn)
     {
         this.Database = database;
         this.Osid = osid;
-        this.LogColumn = logColumn;
+        this.Input = logColumn;
     }
 }
 
@@ -62,6 +63,7 @@ public partial record DataLoggingParametersModel
     private ManualResetEvent exitWaitHandle = new ManualResetEvent(false);
     private AutoResetEvent rowAvailableHandle = new AutoResetEvent(false);
     private BackgroundWorker worker = new BackgroundWorker();
+    private DataLoggingEditContext? editContext;
 
     public LoggerAdapter ProgressLogger { get { return this.progressLogger; } }
     public ManualResetEvent InitializationEvent { get; private set; }
@@ -91,7 +93,7 @@ public partial record DataLoggingParametersModel
         worker.RunWorkerAsync();
     }
 
-    public IState<LoggerWrapper> LogProfile => State<LoggerWrapper>.Empty(this);
+    public IState<LoggerWrapper> LoggerWrapper => State<LoggerWrapper>.Empty(this);
     public IState<LogRowValues> Rows => State<LogRowValues>.Empty(this);
 
     public async Task EditParameter(DataSource dataSource)
@@ -104,23 +106,25 @@ public partial record DataLoggingParametersModel
 
         if (dataSource.LogColumn != null)
         {
+            // TODO: For CAN parameters, LogColumn will be null and CanParameter will be valid.
             var logColumn = dataSource.LogColumn;
             var parameter = logColumn.Parameter;
             if (parameter != null)
             {
+                DataLoggingEditContext temporaryEditContext = new(this.database, this.osid, logColumn);
+
                 DataLoggingEditPage dataLoggingEditPage = new DataLoggingEditPage();
                 dataLoggingEditPage.XamlRoot = XamlRootService.GetXamlRoot();
                 dataLoggingEditPage.OnApply += (s, e) =>
                 {
-                    this.progressLogger.AddUserMessage("");
+                    this.editContext = temporaryEditContext;
                 };
                 dataLoggingEditPage.OnDelete += (s, e) =>
                 {
-                    this.progressLogger.AddUserMessage("");
+                    this.editContext = temporaryEditContext;
                 };
 
-                DataLoggingEditContext wrapper = new(this.database, this.osid, logColumn);
-                dataLoggingEditPage.DataContext = new DataLoggingEditViewModel(wrapper);
+                dataLoggingEditPage.DataContext = new DataLoggingEditViewModel(temporaryEditContext);
                 await dataLoggingEditPage.ShowAsync();
             }
         }
@@ -168,7 +172,7 @@ public partial record DataLoggingParametersModel
                 }
 
                 LogProfileReader reader = new LogProfileReader(database, this.osid, this.progressLogger);
-                var profile = reader.Read(this.profilePath);                
+                var currentProfile = reader.Read(this.profilePath);
                 this.progressLogger.AddDebugMessage("DataLoggingParametersModel loaded profile.");
 
                 // Create the logger, and start logging.
@@ -184,33 +188,34 @@ public partial record DataLoggingParametersModel
 
                 }
 
-                Logger logger = vehicle.CreateLogger(this.osid, canLogger, profile.Columns, this.progressLogger);
-
-                // Wait until the Page is ready.
-                this.InitializationEvent.WaitOne();
-                this.progressLogger.AddDebugMessage("DataLoggingParametersModel initialization unblocked.");
-
-                // This tells the view to update the UI with the new profile.
-                await this.LogProfile.SetAsync(new LoggerWrapper(logger), CancellationToken.None);
-                await Task.Delay(100);
-                this.progressLogger.AddDebugMessage("DataLoggingParametersModel registered profile.");
-
-                try
-                {
-                    await logger.StartLogging();
-                    this.progressLogger.AddDebugMessage("DataLoggingParametersModel started logging.");
-                }
-                catch (Exception ex)
-                {
-                    await this.DisplayErrorMessage("Unable to start logging: " + Environment.NewLine + ex.Message);
-                    return;
-                }
+                Logger? logger = null;
 
                 // TODO: Write debug logs to a circular buffer instead of disabling it entirely.
                 // ...and just append the last ~50 debug logs when logging is re-enabled.
                 this.logBuffer.Enabled = false;
                 while (!this.exitWaitHandle.WaitOne(0))
                 {
+                    if (this.editContext != null)
+                    {
+                        currentProfile = UpdateLogProfile(currentProfile);
+
+                        // We only need to process the edit once, so we set this to null now.
+                        this.editContext = null;
+
+                        // This forces the logger to be re-created with the new profile.
+                        logger = null;
+                    }
+
+                    if (logger == null)
+                    {
+                        logger = await InitializeLogger(vehicle, currentProfile, canLogger);
+                        if (logger == null)
+                        {
+                            await Task.Delay(250);
+                            continue;
+                        }
+                    }
+
                     IEnumerable<string> rowValues = await logger.GetNextRow();
                     if (rowValues != null)
                     {
@@ -243,6 +248,61 @@ public partial record DataLoggingParametersModel
         finally
         {
             this.logBuffer.Enabled = true;
+        }
+    }
+
+    private LogProfile UpdateLogProfile(LogProfile currentProfile)
+    {
+        if (this.editContext == null)
+        {
+            this.progressLogger.AddDebugMessage("DataLoggingParametersModel.UpdateLogProfile: editContext is null.");
+            return currentProfile;
+        }
+
+        // re-create the profile and the logger
+        LogProfile newProfile = new LogProfile();
+
+        // copy all the columns from the old profile, other than the deleted or edited column
+        foreach (var column in currentProfile.Columns)
+        {
+            if (column != this.editContext.Input)
+            {
+                newProfile.AddColumn(column);
+            }
+        }
+
+        if (this.editContext.Output != null)
+        {
+            // add the new column
+            newProfile.AddColumn(this.editContext.Output);
+        }
+
+        return newProfile;
+    }
+
+    private async Task<Logger?> InitializeLogger(Vehicle vehicle, LogProfile currentProfile, CanLogger canLogger)
+    {
+        Logger logger = vehicle.CreateLogger(this.osid, canLogger, currentProfile.Columns, this.progressLogger);
+
+        // Wait until the Page is ready.
+        this.InitializationEvent.WaitOne();
+        this.progressLogger.AddDebugMessage("DataLoggingParametersModel initialization unblocked.");
+
+        // This tells the view to update the UI with the new profile.
+        await this.LoggerWrapper.SetAsync(new LoggerWrapper(logger), CancellationToken.None);
+        await Task.Delay(100);
+        this.progressLogger.AddDebugMessage("DataLoggingParametersModel registered profile.");
+
+        try
+        {
+            await logger.StartLogging();
+            this.progressLogger.AddDebugMessage("DataLoggingParametersModel started logging.");
+            return logger;
+        }
+        catch (Exception ex)
+        {
+            await this.DisplayErrorMessage("Unable to start logging: " + Environment.NewLine + ex.Message);
+            return null;
         }
     }
 

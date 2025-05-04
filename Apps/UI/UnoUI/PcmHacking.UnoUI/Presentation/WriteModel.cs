@@ -38,7 +38,8 @@ public partial record WriteModel : IAsyncLogger
     public IState<string> RetryCount => State<string>.Value(this, () => String.Empty);
     public IState<string> Kbps => State<string>.Value(this, () => String.Empty);
     public IState<double> Progress => State<double>.Value(this, () => 0.0);
-    public IState<string> StartButtonText => State<string>.Value(this, () => this.writeType == WriteType.TestWrite ? "Start Test" : "Start Writing");
+    public IState<string> StartButtonText => State<string>.Value(this, () => this.GetStartButtonText());
+    public IState<string> CalibrationOnlyCheckboxText => State<string>.Value(this, () => this.GetCalibrationOnlyCheckboxText());
     public IState<bool> PreferCalibrationWrite => State<bool>.Value(this, () => false)
         .ForEach((value, ct) => this.PreferCalibrationWriteChanged(value, ct));
 
@@ -63,6 +64,58 @@ public partial record WriteModel : IAsyncLogger
         var _3 = this.EnableControls(false);
     }
 
+    private string GetStartButtonText()
+    {
+        switch (this.writeType)
+        {
+            case WriteType.TestWrite:
+                return "Start Test";
+            case WriteType.Compare:
+                return "Start Comparison";
+            default:
+                return "Start Writing";
+        }
+    }
+
+    private string GetCalibrationOnlyCheckboxText()
+    {
+        switch (this.writeType)
+        {
+            case WriteType.TestWrite:
+                return "Test Calibration Only (if possible)";
+            case WriteType.Compare:
+                return "Compare Calibration Only (if possible)";
+            default:
+                return "Write Calibration Only (if possible)";
+        }
+    }
+
+    private string GetActivityText()
+    {
+        switch (this.writeType)
+        {
+            case WriteType.TestWrite:
+                return "Testing";
+            case WriteType.Compare:
+                return "Verifying";
+            default:
+                return "Writing";
+        }
+    }
+
+    private async Task<WriteType> GetActualWriteType()
+    {
+        switch (this.writeType)
+        {
+            case WriteType.TestWrite:
+                return this.writeType;
+            case WriteType.Compare:
+                return this.writeType;
+            default:
+                return await this.PreferCalibrationWrite.Value() ? WriteType.Calibration : WriteType.Full;
+        }
+    }
+
     private ValueTask PreferCalibrationWriteChanged(bool preferCalibrationWrite, CancellationToken cancellationToken)
     {
         this.settingsService.ShouldPreferCalibrationWrite(preferCalibrationWrite);
@@ -74,7 +127,7 @@ public partial record WriteModel : IAsyncLogger
         await this.StartEnabled.SetAsync(!busy);
         await this.CancelEnabled.SetAsync(busy);
 
-        if (this.writeType == WriteType.TestWrite)
+        if ((this.writeType == WriteType.TestWrite) || (this.writeType == WriteType.Compare))
         {
             await PreferCalibrationWriteEnabled.SetAsync(false);
         }
@@ -107,7 +160,7 @@ public partial record WriteModel : IAsyncLogger
         CancellationToken writeCancellationToken = this.tokenSource.Token;
         try
         {
-            string activity = this.writeType == WriteType.TestWrite ? "Test Write" : "Writing PCM";
+            string activity = this.GetActivityText();
             using (ConnectionLease lease = await this.connectionService.BeginActivity(activity, false))
             using (new LogInterceptor(this.loggerAdapter, this))
             {
@@ -130,9 +183,7 @@ public partial record WriteModel : IAsyncLogger
                 }
 
                 lease.Vehicle.Enable4xReadWrite = this.settingsService.Is4xReadWriteEnabled();
-
-                WriteType actualWriteType = this.writeType == WriteType.TestWrite ? WriteType.TestWrite :
-                    await this.PreferCalibrationWrite.Value() ? WriteType.Calibration : WriteType.Full;
+                WriteType actualWriteType = await this.GetActualWriteType();
 
                 WriteManager writeManager = new(
                     this.loggerAdapter,

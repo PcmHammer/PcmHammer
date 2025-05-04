@@ -36,7 +36,7 @@
                   IsEnabled="{Binding PreferCalibrationWriteEnabled}"
                   IsChecked="{Binding PreferCalibrationWrite, Mode=TwoWay}"
                   Margin="10,0,0,0"
-                  Content="Write Calibration Only (if possible)" />
+                  Content="{Binding CalibrationOnlyCheckboxText}" />
 
         <Button Grid.Row="2" Grid.Column="0" Content="{Binding StartButtonText}" Margin="10"
               HorizontalAlignment="Stretch"

@@ -15,13 +15,18 @@ first, get it working, and second, make it a viable alternative to the existing 
 * done - add circular buffer for user/debug messages, with viewing & saving options on the help page.
 * done - Implement "Change VIN"
 * written, not tested - "verify flash" button on "other" page
-* Adjust font sizes on the data logging parameter page to suit the window size.
 * Implement data log profile editing
-* ^ edit existing parameters
+* ^ edit existing PCM parameters
+* ^ edit CAN parameters
 * ^ remove parameters
 * ^ add new parameters
+* Save log profiles 
+* Save data logs
+* ^ basic start/stop controls
+* ^ control via cruise enable/disable
 * better handling of log profiles that contain unsupported parameters
 * ^ show the whole parameter list, show error in the 'zoom' column
+* Adjust font sizes on the data logging parameter page to suit the window size.
 * Use Windows Management API to get device driver names for serial ports
 * Implement "message of the day" (so we can alert people to new versions)
 * Implement the help page

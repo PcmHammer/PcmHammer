@@ -25,11 +25,19 @@ public sealed partial class DataLoggingEditPage : ContentDialog
         this.Conversions.ScrollIntoView(this.Conversions.SelectedItem);
     }
     
-    private void Apply_Clicked(object sender, RoutedEventArgs e)
+    private async void Apply_Clicked(object sender, RoutedEventArgs e)
     {
+        var vm = this.DataContext as DataLoggingEditViewModel;
+        var model = vm?.Model as DataLoggingEditModel;
+        if (model == null)
+        {
+            return;
+        }
+
         if (this.OnApply != null)
         {
-            this.OnApply(sender, e);
+            await model.CreateOutput();
+            this.OnApply(sender, new System.EventArgs());
         }
         this.Hide();
     }
@@ -38,7 +46,7 @@ public sealed partial class DataLoggingEditPage : ContentDialog
     {
         if (this.OnDelete != null)
         {
-            this.OnDelete(sender, e);
+            this.OnDelete(sender, new System.EventArgs());
         }
         this.Hide();
     }
@@ -46,7 +54,7 @@ public sealed partial class DataLoggingEditPage : ContentDialog
     {
         if (this.OnCancel != null)
         {
-            this.OnCancel(sender, e);
+            this.OnCancel(sender, new System.EventArgs());
         }
         this.Hide();
     }
