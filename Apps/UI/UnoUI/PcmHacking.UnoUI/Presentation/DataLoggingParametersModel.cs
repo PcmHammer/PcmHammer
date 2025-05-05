@@ -119,9 +119,22 @@ public partial record DataLoggingParametersModel
                 {
                     this.editContext = temporaryEditContext;
                 };
-                dataLoggingEditPage.OnDelete += (s, e) =>
+                dataLoggingEditPage.OnDelete += async (s, e) =>
                 {
-                    this.editContext = temporaryEditContext;
+                    var confirmationDialog = new ContentDialog
+                    {
+                        Title = "Are you sure?",
+                        Content = $"Are you sure you want to stop logging the {logColumn.Parameter.Name} parameter?",
+                        PrimaryButtonText = "Yes, remove it.",
+                        SecondaryButtonText = "No, keep it.",
+                    };
+                    confirmationDialog.XamlRoot = XamlRootService.GetXamlRoot();
+                    confirmationDialog.PrimaryButtonClick += (s, e) =>
+                    {
+                        temporaryEditContext.Output = null;
+                        this.editContext = temporaryEditContext;                        
+                    };
+                    await confirmationDialog.ShowAsync();
                 };
 
                 dataLoggingEditPage.DataContext = new DataLoggingEditViewModel(temporaryEditContext);
@@ -265,7 +278,7 @@ public partial record DataLoggingParametersModel
         // copy all the columns from the old profile, other than the deleted or edited column
         foreach (var column in currentProfile.Columns)
         {
-            if (column != this.editContext.Input)
+            if (column.Parameter.Id != this.editContext.Input.Parameter.Id)
             {
                 newProfile.AddColumn(column);
             }

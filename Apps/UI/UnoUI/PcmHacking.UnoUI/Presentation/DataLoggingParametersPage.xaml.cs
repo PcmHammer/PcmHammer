@@ -89,6 +89,7 @@ public sealed partial class DataLoggingParametersPage : Page
             this.ZoomedParameters.RowDefinitions.Clear();
             this.Parameters.Children.Clear();
             this.ZoomedParameters.Children.Clear();
+            this.parameterMetadata.Clear();
 
             int mainRowIndex = 0;
             int zoomRowIndex = 0;
@@ -108,7 +109,7 @@ public sealed partial class DataLoggingParametersPage : Page
                         zoomRowIndex++;
                     }
 
-                    parameterMetadata.Add(
+                    this.parameterMetadata.Add(
                         new RowMetadata(
                             new DataSource(column, null),
                             new Indices(mainRowIndex, zoomRow),
@@ -133,7 +134,7 @@ public sealed partial class DataLoggingParametersPage : Page
                     zoomRowIndex++;
                 }
 
-                parameterMetadata.Add(
+                this.parameterMetadata.Add(
                     new RowMetadata(
                         new DataSource(mathColumn, null),
                         new Indices(mainRowIndex, zoomRow),
@@ -149,7 +150,7 @@ public sealed partial class DataLoggingParametersPage : Page
                 this.AddParameter(mainRowIndex, canParameter.Name, canParameter.Units, out TextBlock valueTextBlock);
                 mainRowIndex++;
 
-                parameterMetadata.Add(
+                this.parameterMetadata.Add(
                     new RowMetadata(
                         new DataSource(null, canParameter),
                         new Indices(mainRowIndex, -1),
