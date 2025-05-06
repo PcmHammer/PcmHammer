@@ -14,13 +14,13 @@ first, get it working, and second, make it a viable alternative to the existing 
 * done - Implement the "wait 10 seconds" dialog box for reading and writing
 * done - add circular buffer for user/debug messages, with viewing & saving options on the help page.
 * done - Implement "Change VIN"
-* written, not tested - "verify flash" button on "other" page
+* done - "verify flash" button on "other" page
+* half done - Save log profiles - the open and save-as pickers are modeless, should be modal.
 * Implement data log profile editing
-* ^ edit existing PCM parameters
-* ^ edit CAN parameters
-* ^ remove parameters
+* ^ done - edit existing PCM parameters
+* ^ done - remove parameters
 * ^ add new parameters
-* Save log profiles 
+* ^ edit CAN parameters
 * Save data logs
 * ^ basic start/stop controls
 * ^ control via cruise enable/disable

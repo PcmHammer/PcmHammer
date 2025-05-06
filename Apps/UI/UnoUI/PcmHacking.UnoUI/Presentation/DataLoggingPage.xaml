@@ -44,6 +44,7 @@
               HorizontalAlignment="Stretch"
               VerticalAlignment="Stretch"              
               AutomationProperties.AutomationId="SaveButton"
+              IsEnabled="{Binding SaveButtonEnabled}"
               Command="{Binding SaveProfileClicked}" />
 
     <StackPanel Grid.Row="0" Grid.Column="1" Grid.RowSpan="2" >
@@ -64,6 +65,7 @@
               HorizontalAlignment="Stretch"
               VerticalAlignment="Stretch"              
               AutomationProperties.AutomationId="SaveAsButton"
+              IsEnabled="{Binding SaveAsButtonEnabled}"
               Command="{Binding SaveProfileAsClicked}" />
 
   </Grid>

@@ -4,6 +4,7 @@ using System.Drawing.Drawing2D;
 using System.Drawing.Text;
 using Microsoft.UI;
 using Microsoft.UI.Dispatching;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Shapes;
 using PcmHacking.UnoUI.Utilities;
 using Uno.Extensions.Reactive;
@@ -73,6 +74,8 @@ public sealed partial class DataLoggingParametersPage : Page
         this.model?.StopLogging();
     }
 
+    // This runs synchronously, but must return a ValueTask to because it's
+    // invoked as a .ForEach() callback.
     private ValueTask InitializeParameters(Logger logger)
     {
         if (this.model == null)
@@ -160,6 +163,18 @@ public sealed partial class DataLoggingParametersPage : Page
             }
         });
 
+
+        /*
+        var blueDot = new Ellipse();
+        blueDot.SetValue(Grid.RowProperty, 0);
+        blueDot.SetValue(Grid.ColumnProperty, 0);
+        blueDot.SetValue(Grid.RowSpanProperty, 2);
+        blueDot.SetValue(Grid.ColumnSpanProperty, 2);
+
+
+        var newParameterButton = new Button();
+        newParameterButton.AddChild(blueDot);
+        */
         return ValueTask.CompletedTask;
     }
 

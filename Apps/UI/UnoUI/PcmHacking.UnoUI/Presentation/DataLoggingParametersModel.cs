@@ -215,6 +215,9 @@ public partial record DataLoggingParametersModel
                         // We only need to process the edit once, so we set this to null now.
                         this.editContext = null;
 
+                        // This lets the data logging menu page know that the profile has been modified.
+                        DataLoggingModel.ModifiedLogProfile = new ModifiedLogProfile(profilePath, currentProfile);
+
                         // This forces the logger to be re-created with the new profile.
                         logger = null;
                     }
@@ -289,6 +292,11 @@ public partial record DataLoggingParametersModel
             // add the new column
             newProfile.AddColumn(this.editContext.Output);
         }
+
+        // This will cause the DataLogging page to enable the save/save-as
+        // buttons when the user navigates back. This seems hacky though.
+        // TODO: What's the right way to communicate the state back to that page?
+        DataLoggingModel.ModifiedLogProfile = new ModifiedLogProfile(this.profilePath, newProfile);
 
         return newProfile;
     }

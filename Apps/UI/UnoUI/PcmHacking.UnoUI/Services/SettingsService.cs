@@ -22,9 +22,10 @@ public interface ISettingsService
     CurrentSettings LoadConnectionSettings();
     void SaveConnectionSettings(CurrentSettings settings);
 
-    IEnumerable<string> GetMruLogProfiles();
-    
+    IEnumerable<string> GetMruLogProfiles();    
     void AddMruLogProfile(string path);
+
+    // Directory for storing profiles (to initialize file-open dialog)
     string GetMruLogProfilePath();
     void SetMruLogProfilePath(string path);
 
