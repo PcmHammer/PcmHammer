@@ -8,28 +8,87 @@
       xmlns:utu="using:Uno.Toolkit.UI"
       Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
 
-
-    <Grid Name="OuterGrid" IsDoubleTapEnabled="true" DoubleTapped="OuterGrid_DoubleTapped">
+    <Grid Name="OuterGrid">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
-        <Grid Grid.Row="0" Grid.Column="0" Name="Parameters">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="1*" />
-                <ColumnDefinition Width="250" />
-            </Grid.ColumnDefinitions>
-        </Grid>
-
-        <Grid Grid.Row="0" Grid.Column="1" Name="ZoomedParameters">
+        <Grid Name="Controls"
+              Grid.Row="0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
+
+            <Button 
+                Grid.Row="0"
+                Grid.Column="0"                    
+                Grid.RowSpan="2"
+                Margin="5"
+                Content="Add Parameter"
+                Command="{Binding AddParameter}"/>
+
+            <TextBlock 
+                Grid.Row="0"
+                Grid.Column="1"
+                HorizontalAlignment="Center"
+                Text="Recording Control"/>
+            <StackPanel 
+                Grid.Row="1"
+                Grid.Column="1"
+                Orientation="Horizontal">
+                <RadioButton 
+                    Margin="5"
+                    Content="Cruise Control" />
+                <RadioButton 
+                    Margin="5"
+                    Content="That Button >>>" />
+            </StackPanel>
+
+            <Button 
+                Grid.Row="0"
+                Grid.Column="2"
+                Grid.RowSpan="2"
+                Margin="5"
+                Content="Start Recording"
+                HorizontalAlignment="Right"
+                Command="{Binding StartStopRecording}"/>
         </Grid>
 
+        <Grid 
+            Grid.Row="1"
+            Name="ParameterGrid"
+            IsDoubleTapEnabled="true"
+            DoubleTapped="ParameterGrid_DoubleTapped">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Grid Grid.Row="0" Grid.Column="0" Name="Parameters">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="1*" />
+                    <ColumnDefinition Width="250" />
+                </Grid.ColumnDefinitions>
+            </Grid>
+
+            <Grid Grid.Row="0" Grid.Column="1" Name="ZoomedParameters">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+            </Grid>
+        </Grid>
     </Grid>
 </Page>

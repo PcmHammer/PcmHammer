@@ -45,6 +45,10 @@
       Storage;
     </UnoFeatures>
   </PropertyGroup>
+  
+  <ItemGroup>
+    <ProjectCapability Include="Maui"/>
+  </ItemGroup>  
 
   <PropertyGroup Condition="'$(Configuration)'=='Debug' or '$(IsUiAutomationMappingEnabled)'=='True'">
     <IsUiAutomationMappingEnabled>True</IsUiAutomationMappingEnabled>

@@ -161,20 +161,23 @@ public sealed partial class DataLoggingParametersPage : Page
                         null,
                         canParameter.Units));
             }
+            /*
+            var blueDot = new Ellipse();
+            blueDot.Width = 50;
+            blueDot.Height = 50;
+            blueDot.Fill = new SolidColorBrush(Colors.Blue);
+
+            var newParameterButton = new Button();
+            newParameterButton.SetValue(Grid.RowProperty, 0);
+            newParameterButton.SetValue(Grid.ColumnProperty, 0);
+            newParameterButton.SetValue(Grid.RowSpanProperty, 2);
+            newParameterButton.SetValue(Grid.ColumnSpanProperty, 1);
+            newParameterButton.Content = blueDot;
+
+            this.Parameters.Children.Add(newParameterButton);
+            */
         });
 
-
-        /*
-        var blueDot = new Ellipse();
-        blueDot.SetValue(Grid.RowProperty, 0);
-        blueDot.SetValue(Grid.ColumnProperty, 0);
-        blueDot.SetValue(Grid.RowSpanProperty, 2);
-        blueDot.SetValue(Grid.ColumnSpanProperty, 2);
-
-
-        var newParameterButton = new Button();
-        newParameterButton.AddChild(blueDot);
-        */
         return ValueTask.CompletedTask;
     }
 
@@ -294,7 +297,7 @@ public sealed partial class DataLoggingParametersPage : Page
         return ValueTask.CompletedTask;
     }
 
-    private async Task OuterGrid_DoubleTapped(object sender, Microsoft.UI.Xaml.Input.DoubleTappedRoutedEventArgs e)
+    private async Task ParameterGrid_DoubleTapped(object sender, Microsoft.UI.Xaml.Input.DoubleTappedRoutedEventArgs e)
     {
         FrameworkElement? element = e.OriginalSource as FrameworkElement;
         Border? border = null;
