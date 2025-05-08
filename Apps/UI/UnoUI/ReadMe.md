@@ -1,4 +1,4 @@
-Uno is a UI library that paves the way to Android and iOS versions of PCM Hammer, but there is still a lot
+Uno is a UI library that paves the way to Android and Linux versions of PCM Hammer, but there is still a lot
 of work to be done. This document outlines the current state of the Uno UI and what needs to be done to,
 first, get it working, and second, make it a viable alternative to the existing Windows Forms UI.
 
@@ -15,7 +15,7 @@ first, get it working, and second, make it a viable alternative to the existing 
 * done - add circular buffer for user/debug messages, with viewing & saving options on the help page.
 * done - Implement "Change VIN"
 * done - "verify flash" button on "other" page
-* half done - Save log profiles - the open and save-as pickers are modeless, should be modal.
+* done - load and save log profiles
 * Implement data log profile editing
 * ^ done - edit existing PCM parameters
 * ^ done - remove parameters
@@ -55,8 +55,8 @@ All of the above are easier said than done. This will take some time.
 * DeviceFactory.CreateDeviceFromConfigurationSettings loads and stores the user's COM port, device type, and
 J2534 device name using Windows APIs. To make this work cross-platform, we'll need to use Uno's settings API,
 store those values in an object, and pass that object into CreateDeviceFromConfigurationSettings - which
-should probably be renamed to CreateDevice at that point.
-See https://platform.uno/docs/articles/features/settings.html for more information.
+should probably be renamed to CreateDevice at that point. See https://platform.uno/docs/articles/features/settings.html for more information.
+
 * Moving settings into Uno's world will require corresponding changes in the Windows Forms UI.
 * The Uno app's settings page will need to be revised to use Uno's storage as well
 

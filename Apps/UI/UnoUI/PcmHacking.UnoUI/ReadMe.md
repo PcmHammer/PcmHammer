@@ -1,7 +1,7 @@
 # Getting Started
 
-Welcome to the Uno Platform!
+This version of the PCM Hammer UI was built with the Uno Platform.
 
-To discover how to get started with your new app: https://aka.platform.uno/get-started
+If you haven't used it before, you'll need to install its dependencies. 
 
-For more information on how to use the Uno.Sdk or upgrade Uno Platform packages in your solution: https://aka.platform.uno/using-uno-sdk
+There's a tool for that: https://platform.uno/docs/articles/external/uno.check/doc/using-uno-check.html?tabs=windows

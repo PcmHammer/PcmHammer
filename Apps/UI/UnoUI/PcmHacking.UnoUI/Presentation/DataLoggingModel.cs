@@ -1,5 +1,6 @@
 //using Android.Text.Style;
 //using Microsoft.UI.Xaml;
+using Microsoft.UI.Dispatching;
 using PcmHacking.UnoUI.Services;
 using PcmHacking.UnoUI.Utilities;
 using Uno.Extensions.Reactive.Commands;
@@ -39,6 +40,7 @@ public partial class DataLoggingModel
     private readonly ISettingsService settingsService;
     private readonly LoggerAdapter progressLogger;
     private readonly ParameterDatabase database;
+    private readonly IDispatcher dispatcher;
 
     public IListState<RecentFileListItem> RecentFiles => ListState<RecentFileListItem>.Empty(this).Selection(RecentFileSelection);
 
@@ -54,12 +56,14 @@ public partial class DataLoggingModel
         INavigator navigator,
         IConnectionService vehicleService,
         ISettingsService settingsService,
+        IDispatcher dispatcher,
         LoggerAdapter progressLogger)
     {
         this.navigator = navigator;
         this.connectionService = vehicleService;
         this.settingsService = settingsService;
         this.progressLogger = progressLogger;
+        this.dispatcher = dispatcher;
 
         var _ = this.InitializeMruList();
 
@@ -131,9 +135,16 @@ public partial class DataLoggingModel
 
         prompt.XamlRoot = XamlRootService.GetXamlRoot();
 
-        if (await prompt.ShowAsync() == ContentDialogResult.Primary)
+        try
         {
-            await this.SaveProfileAsClicked();
+            if (await prompt.ShowAsync() == ContentDialogResult.Primary)
+            {
+                await this.SaveProfileAsClicked();
+            }
+        }
+        catch (Exception ex)
+        {
+            ex.ToString();
         }
     }
 
@@ -164,38 +175,41 @@ public partial class DataLoggingModel
     }
 
     [Command]
-    public async Task OpenProfileClicked()
+    public async ValueTask OpenProfileClicked()
     {
-        await this.PromptToSaveIfModified();
-
-        FileOpenPicker picker = new FileOpenPicker();
-
-        // https://platform.uno/docs/articles/features/windows-storage-pickers.html
-        var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(App.StaticMainWindow);
-        WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
-
-        picker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;        
-        picker.FileTypeFilter.Add(defaultFileTypeFilter);
-        StorageFile file = await picker.PickSingleFileAsync();
-        if (file == null)
+        await this.dispatcher.ExecuteAsync(async () =>
         {
-            return;
-        }
+            await this.PromptToSaveIfModified();
 
-        string path = file.Path ?? string.Empty;
-        if (string.IsNullOrEmpty(path))
-        {
-            return;
-        }
+            FileOpenPicker picker = new FileOpenPicker();
 
-        string directory = System.IO.Path.GetDirectoryName(path) ?? string.Empty;
-        if (!string.IsNullOrEmpty(directory))
-        {
-            this.settingsService.SetMruLogProfilePath(directory);
-        }
+            // https://platform.uno/docs/articles/features/windows-storage-pickers.html
+            var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(App.StaticMainWindow);
+            WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
 
-        this.settingsService.AddMruLogProfile(path);
-        await this.OpenFile(path);
+            picker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
+            picker.FileTypeFilter.Add(defaultFileTypeFilter);
+            StorageFile file = await picker.PickSingleFileAsync();
+            if (file == null)
+            {
+                return;
+            }
+
+            string path = file.Path ?? string.Empty;
+            if (string.IsNullOrEmpty(path))
+            {
+                return;
+            }
+
+            string directory = System.IO.Path.GetDirectoryName(path) ?? string.Empty;
+            if (!string.IsNullOrEmpty(directory))
+            {
+                this.settingsService.SetMruLogProfilePath(directory);
+            }
+
+            this.settingsService.AddMruLogProfile(path);
+            await this.OpenFile(path);
+        });
     }
 
     [Command]
@@ -217,22 +231,30 @@ public partial class DataLoggingModel
 
     private async Task<string?> GetSaveAsPath()
     {
-        FileSavePicker picker = new FileSavePicker();
-        picker.SuggestedFileName = (await this.RecentFileSelection.Value()).FileName;
+        string? result = null;
 
-        // https://platform.uno/docs/articles/features/windows-storage-pickers.html
-        var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(App.StaticMainWindow);
-        WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
-
-        picker.FileTypeChoices.Add("Log Profile", new List<string> { defaultFileTypeFilter });
-        picker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
-        StorageFile file = await picker.PickSaveFileAsync();
-        if (file == null)
+        string? currentFileName = (await this.RecentFileSelection.Value())?.FileName;
+        if (currentFileName == null)
         {
             return null;
-        }
+        }            
 
-        return file.Path;
+        await this.dispatcher.ExecuteAsync(async () =>
+        {
+            FileSavePicker picker = new FileSavePicker();
+            picker.SuggestedFileName = currentFileName;
+
+            // https://platform.uno/docs/articles/features/windows-storage-pickers.html
+            var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(App.StaticMainWindow);
+            WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
+
+            picker.FileTypeChoices.Add("Log Profile", new List<string> { defaultFileTypeFilter });
+            picker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
+            StorageFile file = await picker.PickSaveFileAsync();
+            result = file?.Path;
+        });
+
+        return result;
     }
 
     private async Task UpdateMruList(string path)
