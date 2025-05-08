@@ -14,7 +14,7 @@ public partial record DataLoggingDeleteConfirmationModel
 
     public DataLoggingDeleteConfirmationModel(
         INavigator navigator,
-        DataLoggingEditContext editContext)
+        ParameterEditContext editContext)
     {
         this.navigator = navigator;
         this.ParameterName.SetAsync(editContext.Input.Parameter.Name);

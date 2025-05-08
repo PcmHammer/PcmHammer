@@ -8,9 +8,26 @@ using PcmHacking.UnoUI.Services;
 using PcmHacking.UnoUI.Utilities;
 using Uno.Extensions;
 using Uno.UI.Extensions;
+using Uno.Extensions.Reactive.Commands;
 using Windows.Devices.Bluetooth.Advertisement;
 
 namespace PcmHacking.UnoUI.Presentation;
+
+public class LoggingContext
+{
+    public LogProfile LogProfile { get; set; }
+    public string ProfilePath { get; private set; }
+    public uint OperatingSystemId { get; private set; }
+    public ParameterDatabase ParameterDatabase { get; private set; }
+
+    public LoggingContext(LogProfile logProfile, string profilePath, uint operatingSystemId, ParameterDatabase parameterDatabase)
+    {
+        LogProfile = logProfile;
+        ProfilePath = profilePath;
+        OperatingSystemId = operatingSystemId;
+        ParameterDatabase = parameterDatabase;
+    }
+}
 
 public struct LogRowValues
 {
@@ -31,14 +48,14 @@ public struct LoggerWrapper
     }
 }
 
-public class DataLoggingEditContext
+public class ParameterEditContext
 {
     public ParameterDatabase Database { get; private set; }
     public uint Osid { get; private set; }
-    public LogColumn Input { get; private set; }
+    public LogColumn? Input { get; private set; }
     public LogColumn? Output { get; set; }
 
-    public DataLoggingEditContext(ParameterDatabase database, uint osid, LogColumn logColumn)
+    public ParameterEditContext(ParameterDatabase database, uint osid, LogColumn? logColumn)
     {
         this.Database = database;
         this.Osid = osid;
@@ -54,16 +71,15 @@ public partial record DataLoggingParametersModel
     private readonly LoggerAdapter progressLogger;
     private readonly ILogBuffer logBuffer;
     private readonly DispatcherQueue dispatcherQueue;
-    private ParameterDatabase? database;
+    private readonly LoggingContext loggingContext;
     private uint osid;
-    private string profilePath;
     private string canPortName;    
     private CanLogger? canLogger;
     private ConcurrentQueue<Tuple<Logger, LogFileWriter?, IEnumerable<string>>> logRowQueue = new ConcurrentQueue<Tuple<Logger, LogFileWriter?, IEnumerable<string>>>();
     private ManualResetEvent exitWaitHandle = new ManualResetEvent(false);
     private AutoResetEvent rowAvailableHandle = new AutoResetEvent(false);
     private BackgroundWorker worker = new BackgroundWorker();
-    private DataLoggingEditContext? editContext;
+    private ParameterEditContext? editContext;
 
     public LoggerAdapter ProgressLogger { get { return this.progressLogger; } }
     public ManualResetEvent InitializationEvent { get; private set; }
@@ -77,7 +93,7 @@ public partial record DataLoggingParametersModel
         LoggerAdapter progressLogger,
         ILogBuffer logBuffer,
         DispatcherQueue dispatcherQueue,
-        string profilePath)
+        LoggingContext loggingContext)
     {
         this.navigator = navigator;
         this.connectionService = connectionService;
@@ -85,7 +101,7 @@ public partial record DataLoggingParametersModel
         this.progressLogger = progressLogger;
         this.logBuffer = logBuffer;
         this.dispatcherQueue = dispatcherQueue;
-        this.profilePath = profilePath;
+        this.loggingContext = loggingContext;
         this.canPortName = settingsService.GetCanSerialPortName();
 
         this.InitializationEvent = new ManualResetEvent(false);
@@ -96,14 +112,38 @@ public partial record DataLoggingParametersModel
     public IState<LoggerWrapper> LoggerWrapper => State<LoggerWrapper>.Empty(this);
     public IState<LogRowValues> Rows => State<LogRowValues>.Empty(this);
 
+    [Command]
+    public Task AddParameter()
+    {
+        this.dispatcherQueue.TryEnqueue(async () =>
+        {
+            try
+            {
+                ParameterEditContext temporaryEditContext = new(
+                    this.loggingContext.ParameterDatabase, 
+                    this.loggingContext.OperatingSystemId, 
+                    null);
+
+                DataLoggingEditPage dataLoggingEditPage = new DataLoggingEditPage();
+                dataLoggingEditPage.XamlRoot = XamlRootService.GetXamlRoot();
+                dataLoggingEditPage.OnApply += (s, e) =>
+                {
+                    this.editContext = temporaryEditContext;
+                };
+
+                dataLoggingEditPage.DataContext = new DataLoggingEditViewModel(temporaryEditContext);
+                await dataLoggingEditPage.ShowAsync();
+            }
+            catch (Exception exception)
+            {
+                exception.ToString();
+            }
+        });
+        return Task.CompletedTask;
+    }
+
     public async Task EditParameter(DataSource dataSource)
     {
-        if (this.database == null)
-        {
-            this.progressLogger.AddDebugMessage("this.database is null in DataLoggingParametersModel.EditParameter");
-            return;
-        }
-
         if (dataSource.LogColumn != null)
         {
             // TODO: For CAN parameters, LogColumn will be null and CanParameter will be valid.
@@ -111,7 +151,10 @@ public partial record DataLoggingParametersModel
             var parameter = logColumn.Parameter;
             if (parameter != null)
             {
-                DataLoggingEditContext temporaryEditContext = new(this.database, this.osid, logColumn);
+                ParameterEditContext temporaryEditContext = new(
+                    this.loggingContext.ParameterDatabase, 
+                    this.loggingContext.OperatingSystemId, 
+                    logColumn);
 
                 DataLoggingEditPage dataLoggingEditPage = new DataLoggingEditPage();
                 dataLoggingEditPage.XamlRoot = XamlRootService.GetXamlRoot();
@@ -167,29 +210,9 @@ public partial record DataLoggingParametersModel
 
                 var vehicle = lease.Vehicle;
 
-                // Load the database
-                string appDirectory = AppContext.BaseDirectory;
-                this.database = new ParameterDatabase(appDirectory);
-                this.database.LoadDatabase();
 
-                // Create the log profile
-                try
-                {
-                    var osidQueryResult = await vehicle.QueryOperatingSystemId(CancellationToken.None);
-                    this.osid = osidQueryResult.Value;
-                }
-                catch (Exception ex)
-                {
-                    await this.DisplayErrorMessage("Unable to query the operating system ID: " + Environment.NewLine + ex.Message);
-                    return;
-                }
-
-                LogProfileReader reader = new LogProfileReader(database, this.osid, this.progressLogger);
-                var currentProfile = reader.Read(this.profilePath);
-                this.progressLogger.AddDebugMessage("DataLoggingParametersModel loaded profile.");
-
-                // Create the logger, and start logging.
-                this.canLogger = new CanLogger(database);
+                // Create the CAN logger.
+                this.canLogger = new CanLogger(this.loggingContext.ParameterDatabase);
 
                 if (string.IsNullOrEmpty(this.canPortName))
                 {
@@ -210,13 +233,13 @@ public partial record DataLoggingParametersModel
                 {
                     if (this.editContext != null)
                     {
-                        currentProfile = UpdateLogProfile(currentProfile);
+                        this.loggingContext.LogProfile = UpdateLogProfile();
 
                         // We only need to process the edit once, so we set this to null now.
                         this.editContext = null;
 
                         // This lets the data logging menu page know that the profile has been modified.
-                        DataLoggingModel.ModifiedLogProfile = new ModifiedLogProfile(profilePath, currentProfile);
+                        DataLoggingModel.ModifiedLoggingContext = this.loggingContext;
 
                         // This forces the logger to be re-created with the new profile.
                         logger = null;
@@ -224,7 +247,7 @@ public partial record DataLoggingParametersModel
 
                     if (logger == null)
                     {
-                        logger = await InitializeLogger(vehicle, currentProfile, canLogger);
+                        logger = await InitializeLogger(vehicle, this.loggingContext.LogProfile, canLogger);
                         if (logger == null)
                         {
                             await Task.Delay(250);
@@ -267,21 +290,21 @@ public partial record DataLoggingParametersModel
         }
     }
 
-    private LogProfile UpdateLogProfile(LogProfile currentProfile)
+    private LogProfile UpdateLogProfile()
     {
         if (this.editContext == null)
         {
             this.progressLogger.AddDebugMessage("DataLoggingParametersModel.UpdateLogProfile: editContext is null.");
-            return currentProfile;
+            return this.loggingContext.LogProfile;
         }
 
         // re-create the profile and the logger
         LogProfile newProfile = new LogProfile();
 
         // copy all the columns from the old profile, other than the deleted or edited column
-        foreach (var column in currentProfile.Columns)
+        foreach (var column in this.loggingContext.LogProfile.Columns)
         {
-            if (column.Parameter.Id != this.editContext.Input.Parameter.Id)
+            if (column.Parameter.Id != this.editContext.Input?.Parameter.Id)
             {
                 newProfile.AddColumn(column);
             }
@@ -293,10 +316,12 @@ public partial record DataLoggingParametersModel
             newProfile.AddColumn(this.editContext.Output);
         }
 
+        this.loggingContext.LogProfile = newProfile;
+
         // This will cause the DataLogging page to enable the save/save-as
         // buttons when the user navigates back. This seems hacky though.
         // TODO: What's the right way to communicate the state back to that page?
-        DataLoggingModel.ModifiedLogProfile = new ModifiedLogProfile(this.profilePath, newProfile);
+        DataLoggingModel.ModifiedLoggingContext = this.loggingContext;
 
         return newProfile;
     }

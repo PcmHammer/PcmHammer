@@ -21,7 +21,7 @@ public sealed partial class DataLoggingPage : Page
             return;
         }
 
-        Task task = (this.DataContext as DataLoggingViewModel)?.Model?.RecentProfileClicked(recentFile) ?? Task.CompletedTask;
+        Task task = (this.DataContext as DataLoggingViewModel)?.Model?.OpenRecentLogProfile(recentFile) ?? Task.CompletedTask;
         await task;
     }
 
@@ -44,7 +44,7 @@ public sealed partial class DataLoggingPage : Page
             return;
         }
 
-        Task task = (this.DataContext as DataLoggingViewModel)?.Model?.RecentProfileClicked(recentFile) ?? Task.CompletedTask;
+        Task task = (this.DataContext as DataLoggingViewModel)?.Model?.OpenRecentLogProfile(recentFile) ?? Task.CompletedTask;
         await task;
     }
 

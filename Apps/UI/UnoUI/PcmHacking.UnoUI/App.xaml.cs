@@ -200,14 +200,14 @@ public partial class App : Application
             new ViewMap<DataLoggingPage, DataLoggingModel>(),
             new ViewMap<ReadPage, ReadModel>(),
             // new DataViewMap<WritePage, WriteViewModel, WriteTypeEntity>(), // This should work, but I can't make it work.
-            new DataViewMap<DataLoggingEditPage, DataLoggingEditModel, DataLoggingEditContext>(),
+            new DataViewMap<DataLoggingEditPage, DataLoggingEditModel, ParameterEditContext>(),
             new ViewMap<WritePage, WriteModel>(), // Hacky workaround for now.
             new ViewMap<SettingsPage, SettingsModel>(),
             new ViewMap<HelpPage, HelpModel>(),
             new ViewMap<OtherFunctionsPage, OtherFunctionsModel>(),
             new ViewMap<VinChangePage, VinChangeModel>(),
             new ViewMap<CrankRelearnPage, CrankRelearnModel>(),
-            new DataViewMap<DataLoggingParametersPage, DataLoggingParametersModel, string>(),
+            new DataViewMap<DataLoggingParametersPage, DataLoggingParametersModel, LoggingContext>(),
             new ResultDataViewMap<DelayPage, DelayModel, DelayResult>()
         );
 

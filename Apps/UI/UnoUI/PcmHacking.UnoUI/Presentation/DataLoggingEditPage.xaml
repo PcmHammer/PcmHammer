@@ -63,6 +63,7 @@
                 Grid.Column="0"
                 HorizontalAlignment="Center"
                 VerticalAlignment="Center"
+                Visibility="{Binding DeleteButtonVisibility}"
                 Margin="5" 
                 Width="150"
                 Content="Delete Parameter" 

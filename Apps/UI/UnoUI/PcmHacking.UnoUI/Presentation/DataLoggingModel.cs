@@ -1,4 +1,5 @@
-using Microsoft.UI.Xaml;
+//using Android.Text.Style;
+//using Microsoft.UI.Xaml;
 using PcmHacking.UnoUI.Services;
 using PcmHacking.UnoUI.Utilities;
 using Uno.Extensions.Reactive.Commands;
@@ -8,10 +9,21 @@ namespace PcmHacking.UnoUI.Presentation;
 
 public record RecentFileListItem(string Path, bool Modified)
 {
-    public override string ToString()
+    public string FileName
     {
-        string suffix = this.Modified ? " (modified)" : string.Empty;
-        return System.IO.Path.GetFileNameWithoutExtension(this.Path) + suffix;
+        get
+        {
+            string suffix = this.Modified ? " (modified)" : string.Empty;
+            return System.IO.Path.GetFileNameWithoutExtension(this.Path) + suffix;
+        }
+    }
+
+    public string Location
+    {
+        get
+        {
+            return System.IO.Path.GetDirectoryName(this.Path) ?? string.Empty;
+        }
     }
 }
 
@@ -20,16 +32,22 @@ public record ModifiedLogProfile(string Path, LogProfile Profile);
 public partial class DataLoggingModel
 {
     private const string defaultFileTypeFilter = ".LogProfile";
-    public static ModifiedLogProfile? ModifiedLogProfile = null;
+    public static LoggingContext? ModifiedLoggingContext = null;
     private static string? lastOpenedPath = null;
-    private INavigator navigator;
-    private IConnectionService connectionService;
-    private ISettingsService settingsService;
-    private LoggerAdapter progressLogger;
+    private readonly INavigator navigator;
+    private readonly IConnectionService connectionService;
+    private readonly ISettingsService settingsService;
+    private readonly LoggerAdapter progressLogger;
+    private readonly ParameterDatabase database;
 
-    public IListState<RecentFileListItem> RecentFiles => ListState<RecentFileListItem>.Empty(this);
-    public IState<bool> SaveButtonEnabled => State<bool>.Value(this, () => ModifiedLogProfile != null);
-    public IState<bool> SaveAsButtonEnabled => State<bool>.Value(this, () => ModifiedLogProfile != null);
+    public IListState<RecentFileListItem> RecentFiles => ListState<RecentFileListItem>.Empty(this).Selection(RecentFileSelection);
+
+    public IState<RecentFileListItem> RecentFileSelection => State<RecentFileListItem>
+        .Empty(this)
+        .ForEach(action: this.RecentLogProfileSelectionChanged);
+
+    public IState<bool> SaveButtonEnabled => State<bool>.Value(this, () => ModifiedLoggingContext != null);
+    public IState<bool> SaveAsButtonEnabled => State<bool>.Value(this, () => ModifiedLoggingContext != null);
 
 
     public DataLoggingModel(
@@ -44,6 +62,11 @@ public partial class DataLoggingModel
         this.progressLogger = progressLogger;
 
         var _ = this.InitializeMruList();
+
+        // TODO: inject the parameter-database dependency
+        string appDirectory = AppContext.BaseDirectory;
+        this.database = new ParameterDatabase(appDirectory);
+        this.database.LoadDatabase();
     }
 
     private async Task InitializeMruList()
@@ -57,7 +80,7 @@ public partial class DataLoggingModel
                 continue;
             }
 
-            bool modified = path == ModifiedLogProfile?.Path;
+            bool modified = path == ModifiedLoggingContext?.ProfilePath;
             if (modified)
             {
                 await this.SaveButtonEnabled.SetAsync(true);
@@ -83,13 +106,17 @@ public partial class DataLoggingModel
         {
             // This will run asynchronously.
             var _ = await this.RecentFiles.TrySelectAsync(first);
-            _.ToString();
         }
+    }
+
+    private async ValueTask RecentLogProfileSelectionChanged(RecentFileListItem? item, CancellationToken ct)
+    {
+        await this.SaveAsButtonEnabled.SetAsync(item != null, ct);
     }
 
     private async Task PromptToSaveIfModified()
     {
-        if (ModifiedLogProfile == null)
+        if (ModifiedLoggingContext == null)
         {
             return;
         }
@@ -97,7 +124,7 @@ public partial class DataLoggingModel
         var prompt = new ContentDialog
         {
             Title = "Are you sure?",
-            Content = $"This log profile has unsaved changes:{Environment.NewLine}{ModifiedLogProfile.Path}{Environment.NewLine}Do you want to save it before continuing?",
+            Content = $"This log profile has unsaved changes:{Environment.NewLine}{ModifiedLoggingContext.ProfilePath}{Environment.NewLine}Do you want to save it before continuing?",
             PrimaryButtonText = "Save",
             SecondaryButtonText = "Don't Save",
         };
@@ -110,7 +137,7 @@ public partial class DataLoggingModel
         }
     }
 
-    public async Task RecentProfileClicked(RecentFileListItem recentFile)
+    public async Task OpenRecentLogProfile(RecentFileListItem recentFile)
     {
         string path = recentFile.Path;
         if (path == null)
@@ -174,16 +201,16 @@ public partial class DataLoggingModel
     [Command]
     public async Task SaveProfileClicked()
     {
-        if (ModifiedLogProfile == null)
+        if (ModifiedLoggingContext == null)
         {
             return;
         }
 
         // Write() is synchronous, but this function needs to return a Task because it's invoked by the MVUX framework.
-        LogProfileWriter.Write(ModifiedLogProfile.Profile, ModifiedLogProfile.Path);
+        LogProfileWriter.Write(ModifiedLoggingContext.LogProfile, ModifiedLoggingContext.ProfilePath);
 
         // This is really overkill just to clear the 'modified' flag
-        ModifiedLogProfile = null;
+        ModifiedLoggingContext = null;
         await this.InitializeMruList();
         await this.SaveButtonEnabled.SetAsync(false);
     }
@@ -191,6 +218,7 @@ public partial class DataLoggingModel
     private async Task<string?> GetSaveAsPath()
     {
         FileSavePicker picker = new FileSavePicker();
+        picker.SuggestedFileName = (await this.RecentFileSelection.Value()).FileName;
 
         // https://platform.uno/docs/articles/features/windows-storage-pickers.html
         var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(App.StaticMainWindow);
@@ -210,7 +238,7 @@ public partial class DataLoggingModel
     private async Task UpdateMruList(string path)
     {
         // Surely there is a cheaper way to clear the 'modified' flag...
-        ModifiedLogProfile = null;
+        ModifiedLoggingContext = null;
         this.settingsService.AddMruLogProfile(path);
         await this.InitializeMruList();
     }
@@ -218,39 +246,16 @@ public partial class DataLoggingModel
     [Command]
     public async Task SaveProfileAsClicked()
     {
-        LogProfile? profile = ModifiedLogProfile?.Profile;
-        string? destinationPath = null;
+        LogProfile? profile = ModifiedLoggingContext?.LogProfile;
         if (profile == null)
         {
-            // Don't open the profile, just copy it.
-            RecentFileListItem? item = await this.RecentFiles.GetSelectedItem();
-            if (item == null)
-            {
-                return;
-            }
-
-            destinationPath = await this.GetSaveAsPath();
-            if (destinationPath == null)
-            {
-                return;
-            }
-
-            try
-            {
-                // overwrite = true because the user had to agree to overwrite to get here.
-                File.Copy(item.Path, destinationPath, true);
-                ModifiedLogProfile = null;
-                await this.UpdateMruList(destinationPath);
-                await this.SaveButtonEnabled.SetAsync(false);
-            }
-            catch (Exception exception)
-            {
-                exception.ToString();
-            }
+            // Just copy the selected file to a new name or location.
+            await CopyFile();
             return;
         }
 
-        destinationPath = await this.GetSaveAsPath();
+        // Save the current profile to a new file.
+        string? destinationPath = await this.GetSaveAsPath();
         if (destinationPath == null)
         {
             return;
@@ -258,9 +263,37 @@ public partial class DataLoggingModel
 
         LogProfileWriter.Write(profile, destinationPath);
 
-        ModifiedLogProfile = null;
+        ModifiedLoggingContext = null;
         await this.UpdateMruList(destinationPath);
         await this.SaveButtonEnabled.SetAsync(false);
+    }
+
+    private async Task CopyFile()
+    {
+        RecentFileListItem? item = await this.RecentFiles.GetSelectedItem();
+        if (item == null)
+        {
+            return;
+        }
+
+        string? destinationPath = await this.GetSaveAsPath();
+        if (destinationPath == null)
+        {
+            return;
+        }
+
+        try
+        {
+            // overwrite = true because the user had to agree to overwrite to get here.
+            File.Copy(item.Path, destinationPath, true);
+            ModifiedLoggingContext = null;
+            await this.UpdateMruList(destinationPath);
+            await this.SaveButtonEnabled.SetAsync(false);
+        }
+        catch (Exception exception)
+        {
+            exception.ToString();
+        }
     }
 
     private async Task OpenFile(string path)
@@ -268,7 +301,32 @@ public partial class DataLoggingModel
         await this.PromptToSaveIfModified();
 
         lastOpenedPath = path;
-        ModifiedLogProfile = null;
-        await this.navigator.NavigateViewModelAsync<DataLoggingParametersModel>(this, data: path);
+        ModifiedLoggingContext = null;
+        LogProfile? profile = null;
+        uint operatingSystemId = 0;
+
+        // Load the log profile
+        using (var lease = await this.connectionService.BeginActivity("Loading Profile"))
+        {
+            
+            try
+            {
+                var osidQueryResult = await lease.Vehicle.QueryOperatingSystemId(CancellationToken.None);
+                operatingSystemId = osidQueryResult.Value;
+            }
+            catch (Exception ex)
+            {
+                this.progressLogger.AddDebugMessage("DataLoggingModel: Unable to query the operating system ID: " + Environment.NewLine + ex.Message);
+                return;
+            }
+
+            LogProfileReader reader = new LogProfileReader(database, operatingSystemId, this.progressLogger);
+            profile = reader.Read(path);
+            this.progressLogger.AddDebugMessage("DataLoggingParametersModel loaded profile.");
+        }
+
+        var profileAndDatabase = new LoggingContext(profile, path, operatingSystemId, this.database);
+
+        await this.navigator.NavigateViewModelAsync<DataLoggingParametersModel>(this, data: profileAndDatabase);
     }
 }

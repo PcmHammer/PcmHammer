@@ -19,8 +19,8 @@ first, get it working, and second, make it a viable alternative to the existing 
 * Implement data log profile editing
 * ^ done - edit existing PCM parameters
 * ^ done - remove parameters
-* ^ add new parameters
-* ^ edit CAN parameters
+* ^ done - add new parameters
+* ^ TODO: edit CAN parameters
 * Save data logs
 * ^ basic start/stop controls
 * ^ control via cruise enable/disable

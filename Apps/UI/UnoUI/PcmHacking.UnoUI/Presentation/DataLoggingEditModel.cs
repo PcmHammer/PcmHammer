@@ -6,15 +6,16 @@ namespace PcmHacking.UnoUI.Presentation;
 
 public partial record DataLoggingEditModel()
 {
-    private DataLoggingEditContext editContext;
+    private ParameterEditContext editContext;
 
     public IListState<Parameter> ParameterList => ListState<Parameter>.Empty(this);
     public IListState<Conversion> ConversionList => ListState<Conversion>.Empty(this);
     public IState<bool> Zoom => State<bool>.Value(this, () => false);
     public IState<Parameter> SelectedParameter => State<Parameter>.Value(this, () => null);
+    public IState<Visibility> DeleteButtonVisibility => State<Visibility>.Value(this, ()=> Visibility.Visible);
 
     public DataLoggingEditModel(
-        DataLoggingEditContext editContext) : this()
+        ParameterEditContext editContext) : this()
     {
         this.editContext = editContext ?? throw new ArgumentNullException(nameof(editContext));
     }
@@ -22,12 +23,22 @@ public partial record DataLoggingEditModel()
     public async Task Initialize()
     {
         await this.ParameterList.Update(updater: existing => editContext.Database.ListParametersBySupportedOs(editContext.Osid).ToImmutableList(), ct: CancellationToken.None);
-        await this.ConversionList.Update(updater: existing => (this.editContext.Input.Parameter?.Conversions ?? new Conversion[0]).ToImmutableList(), ct: CancellationToken.None);
-        await this.Zoom.SetAsync(this.editContext.Input.Zoom);
-        await this.ParameterList.TrySelectAsync(this.editContext.Input.Parameter);
-        await this.ConversionList.TrySelectAsync(this.editContext.Input.Conversion);
-        await this.ParameterList.Selection(SelectedParameter);
         await this.SelectedParameter.ForEach(SelectedParameterChanged);
+        await this.ParameterList.Selection(SelectedParameter);        
+
+        if (this.editContext.Input != null)
+        {
+            await this.Zoom.SetAsync(this.editContext.Input.Zoom);
+            await this.ConversionList.Update(updater: existing => (this.editContext.Input.Parameter?.Conversions ?? new Conversion[0]).ToImmutableList(), ct: CancellationToken.None);
+            await this.ParameterList.TrySelectAsync(this.editContext.Input.Parameter);
+            await this.ConversionList.TrySelectAsync(this.editContext.Input.Conversion);
+            await this.DeleteButtonVisibility.SetAsync(Visibility.Visible);
+        }
+        else
+        {
+            // TODO: select the first parameter - await this.ParameterList.TrySelectAsync(how?);
+            await this.DeleteButtonVisibility.SetAsync(Visibility.Collapsed);
+        }        
     }
 
     private async ValueTask SelectedParameterChanged(Parameter? newValue, CancellationToken ct)
