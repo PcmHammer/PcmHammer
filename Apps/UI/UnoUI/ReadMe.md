@@ -17,15 +17,18 @@ first, get it working, and second, make it a viable alternative to the existing 
 * done - "verify flash" button on "other" page
 * done - load and save log profiles
 * Implement data log profile editing
-* ^ done - edit existing PCM parameters
-* ^ done - remove parameters
-* ^ done - add new parameters
-* ^ TODO: edit CAN parameters
+  * done - edit existing PCM parameters
+  * done - remove parameters
+  * done - add new parameters
+  * TODO: edit CAN parameters
 * Save data logs
-* ^ basic start/stop controls
-* ^ control via cruise enable/disable
+  * TEST: basic start/stop controls
+  * control via cruise enable/disable
+  * tap cruise button to save the last few seconds of log
+  * auto-save last few seconds based on knock retard or CAN message (knock)
 * better handling of log profiles that contain unsupported parameters
-* ^ show the whole parameter list, show error in the 'zoom' column
+  * show the whole parameter list
+  * show error in the 'zoom' column
 * Adjust font sizes on the data logging parameter page to suit the window size.
 * Use Windows Management API to get device driver names for serial ports
 * Implement "message of the day" (so we can alert people to new versions)
