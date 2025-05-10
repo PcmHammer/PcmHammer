@@ -10,8 +10,17 @@ using Uno.Extensions;
 using Uno.UI.Extensions;
 using Uno.Extensions.Reactive.Commands;
 using Windows.Devices.Bluetooth.Advertisement;
+using Windows.UI.Notifications;
 
 namespace PcmHacking.UnoUI.Presentation;
+
+public enum WriteState
+{
+    None,
+    StartWriting,
+    Writing,
+    StopWriting
+}
 
 public class LoggingContext
 {
@@ -65,13 +74,17 @@ public class ParameterEditContext
 
 public partial record DataLoggingParametersModel
 {
-    private INavigator navigator;
-    private IConnectionService connectionService;
-    private ISettingsService settingsService;
+    private const string StartRecordingButtonText = "Start Recording";
+    private const string StopRecordingButtonText = "Stop Recording";
+
     private readonly LoggerAdapter progressLogger;
     private readonly ILogBuffer logBuffer;
     private readonly DispatcherQueue dispatcherQueue;
     private readonly LoggingContext loggingContext;
+    private readonly INavigator navigator;
+    private readonly IConnectionService connectionService;
+    private readonly ISettingsService settingsService;
+
     private uint osid;
     private string canPortName;    
     private CanLogger? canLogger;
@@ -80,11 +93,16 @@ public partial record DataLoggingParametersModel
     private AutoResetEvent rowAvailableHandle = new AutoResetEvent(false);
     private BackgroundWorker worker = new BackgroundWorker();
     private ParameterEditContext? editContext;
+    private WriteState writeState = WriteState.None;
 
     public LoggerAdapter ProgressLogger { get { return this.progressLogger; } }
     public ManualResetEvent InitializationEvent { get; private set; }
 
     public IState<string> ErrorMessage => State<string>.Empty(this);
+
+    public IState<string> RecordingButtonText => State<string>.Value(this, () => DataLoggingParametersModel.StartRecordingButtonText);
+
+    public IState<bool> RecordingButtonEnabled => State<bool>.Value(this, () => true);
 
     public DataLoggingParametersModel(
         INavigator navigator,
@@ -190,6 +208,48 @@ public partial record DataLoggingParametersModel
         }
     }
 
+    [Command]
+    public async ValueTask StartStopRecording()
+    {
+        switch (this.writeState)
+        {
+            case WriteState.None:
+                this.writeState = WriteState.StartWriting;
+                break;
+
+            case WriteState.Writing:
+                this.writeState = WriteState.StopWriting;
+                break;
+        }
+        await this.RecordingButtonEnabled.SetAsync(false);
+    }
+
+    private async Task<Tuple<LogFileWriter, StreamWriter>> StartRecording(Logger logger)
+    {
+        await this.RecordingButtonText.SetAsync(DataLoggingParametersModel.StopRecordingButtonText);
+
+        string profileName = Path.GetFileNameWithoutExtension(this.loggingContext.ProfilePath);
+        string timestamp = DateTime.Now.ToString("yyyy-MM-dd-HH-mm-ss");
+        string outputFileName = $"{timestamp}_{profileName}.csv";
+        string path = Path.Combine(this.settingsService.GetDataLogFolder(), outputFileName);
+
+        var streamWriter = new StreamWriter(path);
+        var logFileWriter = new LogFileWriter(streamWriter);
+        await logFileWriter.WriteHeader(logger.GetColumnNames());
+
+        // TODO: make LogFileWriter respondible for disposing the StreamWriter, so this
+        // can just return the LogFileWriter. Might wait until after the .Net 8 / Uno
+        // branch becomes the main branch, to avoid complicating things.
+        // TODO: Why isn't the tuple syntax working?
+        return new Tuple<LogFileWriter, StreamWriter>(logFileWriter, streamWriter);
+    }
+
+    private async Task StopRecording(StreamWriter? streamWriter)
+    {
+        streamWriter?.Dispose();
+        await this.RecordingButtonText.SetAsync(DataLoggingParametersModel.StartRecordingButtonText);
+    }
+
     private void DataLoggingEditPage_OnApply(object? sender, EventArgs e)
     {
         throw new NotImplementedException();
@@ -199,6 +259,7 @@ public partial record DataLoggingParametersModel
     {
         try
         {
+            await this.RecordingButtonText.SetAsync(DataLoggingParametersModel.StartRecordingButtonText);
             using (var lease = await this.connectionService.BeginActivity("Logging", true))
             using (new AwayMode())
             {
@@ -229,6 +290,9 @@ public partial record DataLoggingParametersModel
                 // TODO: Write debug logs to a circular buffer instead of disabling it entirely.
                 // ...and just append the last ~50 debug logs when logging is re-enabled.
                 this.logBuffer.Enabled = false;
+                LogFileWriter? logFileWriter = null;
+                StreamWriter? streamWriter = null;
+
                 while (!this.exitWaitHandle.WaitOne(0))
                 {
                     if (this.editContext != null)
@@ -255,11 +319,34 @@ public partial record DataLoggingParametersModel
                         }
                     }
 
+                    switch(this.writeState)
+                    {
+                        case WriteState.StartWriting:
+                            var tuple = await this.StartRecording(logger);
+                            logFileWriter = tuple.Item1;
+                            streamWriter = tuple.Item2;
+                            this.writeState = WriteState.Writing;
+                            await this.RecordingButtonEnabled.SetAsync(true);
+                            break;
+
+                        case WriteState.StopWriting:
+                            await this.StopRecording(streamWriter);
+                            streamWriter = null;
+                            logFileWriter = null;
+                            this.writeState = WriteState.None;
+                            await this.RecordingButtonEnabled.SetAsync(true);
+                            break;
+                    }
+
                     IEnumerable<string> rowValues = await logger.GetNextRow();
                     if (rowValues != null)
                     {
                         await this.Rows.SetAsync(new LogRowValues(rowValues));
-                        // TODO: write data to disk
+
+                        if (logFileWriter != null)
+                        {
+                            logFileWriter.WriteLine(rowValues);
+                        }
                     }
                 }
                 this.logBuffer.Enabled = true;
