@@ -21,16 +21,14 @@ first, get it working, and second, make it a viable alternative to the existing 
   * done - remove parameters
   * done - add new parameters
   * TODO: edit CAN parameters
-* Save data logs
-  * TEST: basic start/stop controls
-  * control via cruise enable/disable
-  * tap cruise button to save the last few seconds of log
-  * auto-save last few seconds based on knock retard or CAN message (knock)
+* Save data logs with basic start/stop controls
 * better handling of log profiles that contain unsupported parameters
   * show the whole parameter list
   * show error in the 'zoom' column
 * Adjust font sizes on the data logging parameter page to suit the window size.
-* Use Windows Management API to get device driver names for serial ports
+* Native Windows
+  * Figure out how to get a 'packaged' Windows build to work, so it can run on Windows with native APIs.
+  * Use Windows Management API to get device driver names for serial ports, when running on Windows
 * Implement "message of the day" (so we can alert people to new versions)
 * Implement the help page
 * Implement the splash screen. Uno supports this, but there's a bug in VS that breaks the UI for editing the path to the image file.
@@ -43,7 +41,15 @@ All of the above are easier said than done. This will take some time.
 * Crank relearn - implemented, but not yet tested
 * DTC reader
 * XDF file downloader
- 
+* More options for saving data logs
+  * control via cruise enable/disable
+  * tap cruise button to save the last few seconds of log
+  * auto-save last few seconds based on PCM data (knock retard) or CAN message
+* More options for viewing data logs
+  * dashboard look-and-feel (gauges, bar graphs)
+  * seismographs
+  * histograms that can be copy-pasted into Tuner Pro
+	
 ## Surprises
 
 * ApplicationData.Current.LocalSettings is used to store configuration settings. This doesn't work for "unpackaged" Windows apps. because it requires an app-data folder, which is only supported for packaged apps. I've been working around this by building for the "Desktop" target.
