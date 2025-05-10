@@ -297,7 +297,7 @@ public sealed partial class DataLoggingParametersPage : Page
         return ValueTask.CompletedTask;
     }
 
-    private async Task ParameterGrid_DoubleTapped(object sender, Microsoft.UI.Xaml.Input.DoubleTappedRoutedEventArgs e)
+    private async void ParameterGrid_DoubleTapped(object sender, Microsoft.UI.Xaml.Input.DoubleTappedRoutedEventArgs e)
     {
         FrameworkElement? element = e.OriginalSource as FrameworkElement;
         Border? border = null;

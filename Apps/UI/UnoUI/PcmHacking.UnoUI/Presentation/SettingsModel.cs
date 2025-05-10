@@ -165,7 +165,7 @@ public partial record SettingsModel
 
     public Task OpenLogFolder()
     {
-        dispatcherQueue.TryEnqueue(() =>
+        dispatcherQueue.TryEnqueue(async () =>
         {
             string folder = settingsService.GetDataLogFolder();
             if (string.IsNullOrEmpty(folder))
@@ -176,8 +176,8 @@ public partial record SettingsModel
 
 #if WINDOWS10_0_26100_0_OR_GREATER
             // TODO: Use a cross-platform API to open the folder.
-            // Windows.Storage.StorageFolder storageFolder = await Windows.Storage.StorageFolder.GetFolderFromPathAsync(folder);
-            // await Windows.System.Launcher.LaunchFolderAsync(storageFolder);
+            Windows.Storage.StorageFolder storageFolder = await Windows.Storage.StorageFolder.GetFolderFromPathAsync(folder);
+            await Windows.System.Launcher.LaunchFolderAsync(storageFolder);
 #endif
         });
         return Task.CompletedTask;

@@ -10,13 +10,15 @@ namespace PcmHacking.UnoUI.Presentation;
 
 public partial record LogModel
 {
+    private readonly ISettingsService settingsService;
     private readonly IConnectionService connectionService;
     private readonly ILogBuffer LogBuffer;
 
     public IState<IEnumerable<LogEntry>> LogEntries => State<IEnumerable<LogEntry>>.Value(this, () => this.LogBuffer.LogEntries);
 
-    public LogModel(IConnectionService connectionService, ILogBuffer logBuffer)
+    public LogModel(ISettingsService settingsService, IConnectionService connectionService, ILogBuffer logBuffer)
     {
+        this.settingsService = settingsService;
         this.connectionService = connectionService;
         this.LogBuffer = logBuffer;
     }
@@ -34,14 +36,30 @@ public partial record LogModel
         using (var lease = await this.connectionService.BeginActivity("Saving log"))
         {
             StringBuilder builder = new StringBuilder();
+            builder.AppendLine("<html>");
             foreach (LogEntry entry in this.LogBuffer.LogEntries)
             {
-                string line = string.Format("{0:yyyy-MM-dd HH:mm:ss} {1,5} {2}", entry.Time, entry.Type, entry.Message);
-                builder.AppendLine(entry.ToString());
+                builder.Append(string.Format("<br><span style=\"font-family:'Courier New'\">{0:yyyy-MM-dd HH:mm:ss}</span> ", entry.Time));
+                switch(entry.Type)
+                {
+                    case LogType.User:
+                        builder.Append("<b>");
+                        builder.Append(entry.Message);
+                        builder.Append("</b>");
+                        break;
+
+                    case LogType.Debug:
+                        builder.Append(entry.Message);
+                        break;
+                }
+                //string line = string.Format("{0:yyyy-MM-dd HH:mm:ss} {1,5} {2}", entry.Time, entry.Type, entry.Message);
+                //builder.AppendLine(entry.ToString());
             }
+            builder.AppendLine("</html>");
 
             string timestamp = DateTime.Now.ToString("yyyy-MM-dd-HH-mm-ss");
-            await File.WriteAllTextAsync($"pcm-hammer-log-{timestamp}.txt", builder.ToString());
+            string path = Path.Combine(this.settingsService.GetDataLogFolder(), $"pcm-hammer-log-{timestamp}.html");
+            await File.WriteAllTextAsync(path, builder.ToString());
         }
     }
 }    
