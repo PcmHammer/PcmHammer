@@ -85,7 +85,6 @@ public partial record DataLoggingParametersModel
     private readonly IConnectionService connectionService;
     private readonly ISettingsService settingsService;
 
-    private uint osid;
     private string canPortName;    
     private CanLogger? canLogger;
     private ConcurrentQueue<Tuple<Logger, LogFileWriter?, IEnumerable<string>>> logRowQueue = new ConcurrentQueue<Tuple<Logger, LogFileWriter?, IEnumerable<string>>>();
@@ -102,7 +101,7 @@ public partial record DataLoggingParametersModel
 
     public IState<string> RecordingButtonText => State<string>.Value(this, () => DataLoggingParametersModel.StartRecordingButtonText);
 
-    public IState<bool> RecordingButtonEnabled => State<bool>.Value(this, () => true);
+    public IState<bool> RecordingButtonEnabled => State<bool>.Value(this, () => false);
 
     public DataLoggingParametersModel(
         INavigator navigator,
@@ -415,26 +414,40 @@ public partial record DataLoggingParametersModel
 
     private async Task<Logger?> InitializeLogger(Vehicle vehicle, LogProfile currentProfile, CanLogger canLogger)
     {
-        Logger logger = vehicle.CreateLogger(this.osid, canLogger, currentProfile.Columns, this.progressLogger);
+        Logger logger = vehicle.CreateLogger(this.loggingContext.OperatingSystemId, canLogger, currentProfile.Columns, this.progressLogger);
 
         // Wait until the Page is ready.
         this.InitializationEvent.WaitOne();
         this.progressLogger.AddDebugMessage("DataLoggingParametersModel initialization unblocked.");
 
-        // This tells the view to update the UI with the new profile.
-        await this.LoggerWrapper.SetAsync(new LoggerWrapper(logger), CancellationToken.None);
-        await Task.Delay(100);
-        this.progressLogger.AddDebugMessage("DataLoggingParametersModel registered profile.");
-
         try
         {
             await logger.StartLogging();
             this.progressLogger.AddDebugMessage("DataLoggingParametersModel started logging.");
+
+            // This tells the view to prepare to render live data.
+            await this.LoggerWrapper.SetAsync(new LoggerWrapper(logger), CancellationToken.None);
+
+            // TODO: Wait for a signal from the view code instead using a fixed delay.
+            await Task.Delay(100);
+
+            await this.RecordingButtonEnabled.SetAsync(true);
+            this.progressLogger.AddDebugMessage("DataLoggingParametersModel started logging.");
             return logger;
         }
-        catch (Exception ex)
+        catch (Exception exception)
         {
-            await this.DisplayErrorMessage("Unable to start logging: " + Environment.NewLine + ex.Message);
+            await this.RecordingButtonEnabled.SetAsync(false);
+            this.progressLogger.AddDebugMessage("DataLoggingParametersModel unable to start logging.");
+            this.progressLogger.AddDebugMessage(exception.ToString());
+
+            // This tells the view to show an error message instead of live data.
+            await this.DisplayErrorMessage(
+                "Unable to start logging: " + 
+                Environment.NewLine + 
+                exception.Message +
+                Environment.NewLine +
+                "Will try again... ");
             return null;
         }
     }
