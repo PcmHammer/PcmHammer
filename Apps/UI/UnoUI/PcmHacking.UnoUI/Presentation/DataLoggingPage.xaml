@@ -74,7 +74,7 @@
             <ListView.ItemTemplate>
                 <DataTemplate>
                     <StackPanel Orientation="Vertical" Margin="8">
-                        <TextBlock Text="{Binding FileName}" FontSize="20" />
+                        <TextBlock Text="{Binding DisplayFileName}" FontSize="20" />
                         <TextBlock Text="{Binding Location}" FontSize="12" />
                     </StackPanel>
                 </DataTemplate>
