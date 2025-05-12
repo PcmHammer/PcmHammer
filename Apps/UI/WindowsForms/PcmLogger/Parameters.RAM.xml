@@ -51,7 +51,7 @@
     bitMapped="False">
     <Location os="12593358" address="0xFFA2A2" />
     <Location os="12587603" address="0xFFA716" />
-    <Conversion units="g/s" expression="x/128" format="0.00" />
+    <Conversion units="g/s" expression="x/128" format="0.0000" />
   </RamParameter>
 
   <RamParameter
@@ -62,7 +62,7 @@
     bitMapped="False">
     <Location os="12593358" address="0xFFA296" />
     <Location os="12587603" address="0xFFA716" />
-    <Conversion units="g/s" expression="x/128" format="0.00" />
+    <Conversion units="g/s" expression="x/128" format="0.0000" />
   </RamParameter>
 
   <RamParameter
@@ -73,7 +73,7 @@
     bitMapped="False">
     <Location os="12593358" address="0xFFA28C" />
     <Location os="12587603" address="0xFFA6FE" />
-    <Conversion units="g/s" expression="x/128" format="0.00" />
+    <Conversion units="g/s" expression="x/128" format="0.0000" />
   </RamParameter>
 
   <RamParameter

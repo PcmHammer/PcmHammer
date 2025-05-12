@@ -335,6 +335,7 @@ public partial class DataLoggingModel
         uint operatingSystemId = 0;
 
         // Load the log profile
+        // TODO TODO TODO retry if connection unavailable, exit retry on back-button
         using (var lease = await this.connectionService.BeginActivity("Loading Profile"))
         {
             
