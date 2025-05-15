@@ -348,19 +348,21 @@ public sealed partial class DataLoggingParametersPage : Page
     {
         this.dispatcherQueue.TryEnqueue(() =>
         {
-            this.ResetGrid();
+            this.ZoomedParameters.RowDefinitions.Clear();
+
             if (message != null)
             {
                 TextBlock errorTextBlock = new TextBlock();
                 errorTextBlock.HorizontalAlignment = HorizontalAlignment.Left;
                 errorTextBlock.VerticalAlignment = VerticalAlignment.Center;
                 errorTextBlock.Text = message;
-                errorTextBlock.SetValue(Grid.RowProperty, 0);
+                errorTextBlock.SetValue(Grid.RowProperty, 1);
                 errorTextBlock.SetValue(Grid.ColumnProperty, 0);
 
                 this.Parameters.RowDefinitions.Add(new RowDefinition());
+                this.Parameters.RowDefinitions.Add(new RowDefinition());
+                this.Parameters.RowDefinitions.Add(new RowDefinition());
                 this.Parameters.Children.Add(errorTextBlock);
-
             }
         });
 

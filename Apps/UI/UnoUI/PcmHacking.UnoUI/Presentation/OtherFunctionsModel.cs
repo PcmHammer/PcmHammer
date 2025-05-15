@@ -271,9 +271,10 @@ public partial record OtherFunctionsModel
         await this.navigator.NavigateViewModelAsync<CrankRelearnModel>(this);
     }
 
-    public async Task ReadCodes()
+    public Task ReadCodes()
     {
         // TODO: navigate to a read-OBD2-codes page
+        return Task.CompletedTask;
     }
 
     public async Task ResetCodes()
