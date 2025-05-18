@@ -2,9 +2,9 @@ namespace PcmHacking.UnoUI.Presentation;
 
 public sealed partial class DataLoggingEditPage : ContentDialog
 {
-    public event EventHandler OnApply;
-    public event EventHandler OnDelete;
-    public event EventHandler OnCancel;
+    public event EventHandler? OnApply;
+    public event EventHandler? OnDelete;
+    public event EventHandler? OnCancel;
 
     public DataLoggingEditPage()
     {

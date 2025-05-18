@@ -9,7 +9,7 @@ namespace PcmHacking.UnoUI.Utilities
 {
     internal class ColorUtilities
     {
-        private static ColorUtilities instance;
+        private static ColorUtilities? instance;
 
         public SolidColorBrush[] BackgroundBrushes { get; private set; }
 

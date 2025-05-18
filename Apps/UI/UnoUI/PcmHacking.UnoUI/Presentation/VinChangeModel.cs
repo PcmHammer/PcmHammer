@@ -2,6 +2,7 @@ using PcmHacking.UnoUI.Services;
 using PcmHacking.UnoUI.Utilities;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -34,7 +35,10 @@ public partial record VinChangeModel
         this.navigator = navigator ?? throw new ArgumentNullException(nameof(navigator));
         this.connectionService = connectionService ?? throw new ArgumentNullException(nameof(connectionService));
         this.loggerAdapter = loggerAdapter ?? throw new ArgumentNullException(nameof(loggerAdapter));
-        this.GetVin();
+
+        var worker = new BackgroundWorker();
+        worker.DoWork += async (sender, e) => await this.GetVin();
+        worker.RunWorkerAsync();
     }
 
     async Task GetVin()

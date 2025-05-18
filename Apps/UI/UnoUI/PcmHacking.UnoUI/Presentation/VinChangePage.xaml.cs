@@ -7,7 +7,7 @@ public sealed partial class VinChangePage : Page
         this.InitializeComponent();
     }
 
-    async Task NewVin_TextChanged(object sender, TextChangedEventArgs e)
+    void NewVin_TextChanged(object sender, TextChangedEventArgs e)
     {
         // Will need to revise this to support other platforms.
         string newVin = this.NewVin.Text ?? string.Empty;

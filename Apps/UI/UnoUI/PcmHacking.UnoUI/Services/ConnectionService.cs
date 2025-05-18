@@ -107,6 +107,12 @@ public class ConnectionService : IConnectionService
     public const string PollingActivity = "Checking...";
     public const string TestingActivity = "Testing Connection...";
 
+    // Fast retry is used when the user is waiting to reconnect.
+    private const int FastRetryPeriod = 100;
+
+    // Slow retry is used when app is idle.
+    private const int SlowRetryPeriod = 500;
+
     private readonly ISettingsService settingsService;
     private readonly LoggerAdapter logger;
     private readonly ILogBuffer logBuffer;
@@ -119,6 +125,7 @@ public class ConnectionService : IConnectionService
     private SemaphoreSlim semaphore = new SemaphoreSlim(1, 1);
     private CurrentSettings? newSettings;
     private CurrentSettings? lastSettings;
+    private int retryPeriod = SlowRetryPeriod;
 
     public IState<string> Port => State.Value(this, () => string.Empty);
     public IState<string> Device => State.Value(this, () => string.Empty);
@@ -252,11 +259,32 @@ public class ConnectionService : IConnectionService
 
         try
         {
+            // Retry for up to 5 seconds if the connection was lost.
+            try
+            {
+                int retries = 5000 / FastRetryPeriod;
+                for (int attempt = 1; attempt < retries; attempt++)
+                {
+                    if ((this.vehicle != null) && (this.internalState == ConnectionStates.Connected))
+                    {
+                        break;
+                    }
+
+                    this.retryPeriod = FastRetryPeriod;
+                    await Task.Delay(100);
+                }
+            }
+            finally
+            {
+                this.retryPeriod = SlowRetryPeriod;
+            }
+
             if (this.vehicle == null)
             {
                 throw new ConnectionUnavailableException("Not connected.");
             }
 
+            
             await this.BeginActivity(activity, nextState);
         }
         catch (Exception)
@@ -393,7 +421,7 @@ public class ConnectionService : IConnectionService
         this.timer = new System.Threading.Timer(
             TimerCallback,
             state: state,
-            dueTime: 1000,
+            dueTime: this.retryPeriod,
             period: Timeout.Infinite);
     }
 

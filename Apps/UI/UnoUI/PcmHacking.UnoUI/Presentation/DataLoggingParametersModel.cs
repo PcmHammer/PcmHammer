@@ -286,66 +286,87 @@ public partial record DataLoggingParametersModel
 
                 Logger? logger = null;
 
-                // TODO: Write debug logs to a circular buffer instead of disabling it entirely.
-                // ...and just append the last ~50 debug logs when logging is re-enabled.
-                this.logBuffer.Enabled = false;
                 LogFileWriter? logFileWriter = null;
                 StreamWriter? streamWriter = null;
 
                 while (!this.exitWaitHandle.WaitOne(0))
                 {
-                    if (this.editContext != null)
+                    try
                     {
-                        this.loggingContext.LogProfile = UpdateLogProfile();
+                        if (this.editContext != null)
+                        {
+                            this.loggingContext.LogProfile = UpdateLogProfile();
 
-                        // We only need to process the edit once, so we set this to null now.
-                        this.editContext = null;
+                            // We only need to process the edit once, so we set this to null now.
+                            this.editContext = null;
 
-                        // This lets the data logging menu page know that the profile has been modified.
-                        DataLoggingModel.ModifiedLoggingContext = this.loggingContext;
+                            // This lets the data logging menu page know that the profile has been modified.
+                            DataLoggingModel.ModifiedLoggingContext = this.loggingContext;
 
-                        // This forces the logger to be re-created with the new profile.
-                        logger = null;
-                    }
+                            // This forces the logger to be re-created with the new profile.
+                            logger = null;
+                        }
 
-                    if (logger == null)
-                    {
-                        logger = await InitializeLogger(vehicle, this.loggingContext.LogProfile, canLogger);
+
                         if (logger == null)
                         {
-                            await Task.Delay(250);
-                            continue;
+                            this.logBuffer.Enabled = true;
+
+                            logger = await InitializeLogger(vehicle, this.loggingContext.LogProfile, canLogger);
+                            if (logger == null)
+                            {
+                                await Task.Delay(250);
+                                continue;
+                            }
+
+                            // TODO: Write debug logs to a circular buffer instead of disabling it entirely.
+                            // ...and just append the last ~50 debug logs when debug logging is re-enabled.
+                            this.logBuffer.Enabled = false;
                         }
-                    }
 
-                    switch(this.writeState)
-                    {
-                        case WriteState.StartWriting:
-                            var tuple = await this.StartRecording(logger);
-                            logFileWriter = tuple.Item1;
-                            streamWriter = tuple.Item2;
-                            this.writeState = WriteState.Writing;
-                            await this.RecordingButtonEnabled.SetAsync(true);
-                            break;
-
-                        case WriteState.StopWriting:
-                            await this.StopRecording(streamWriter);
-                            streamWriter = null;
-                            logFileWriter = null;
-                            this.writeState = WriteState.None;
-                            await this.RecordingButtonEnabled.SetAsync(true);
-                            break;
-                    }
-
-                    IEnumerable<string> rowValues = await logger.GetNextRow();
-                    if (rowValues != null)
-                    {
-                        await this.Rows.SetAsync(new LogRowValues(rowValues));
-
-                        if (logFileWriter != null)
+                        switch (this.writeState)
                         {
-                            logFileWriter.WriteLine(rowValues);
+                            case WriteState.StartWriting:
+                                var tuple = await this.StartRecording(logger);
+                                logFileWriter = tuple.Item1;
+                                streamWriter = tuple.Item2;
+                                this.writeState = WriteState.Writing;
+                                await this.RecordingButtonEnabled.SetAsync(true);
+                                break;
+
+                            case WriteState.StopWriting:
+                                await this.StopRecording(streamWriter);
+                                streamWriter = null;
+                                logFileWriter = null;
+                                this.writeState = WriteState.None;
+                                await this.RecordingButtonEnabled.SetAsync(true);
+                                break;
                         }
+
+                        IEnumerable<string> rowValues = await logger.GetNextRow();
+                        if (rowValues != null)
+                        {
+                            await this.Rows.SetAsync(new LogRowValues(rowValues));
+
+                            if (logFileWriter != null)
+                            {
+                                logFileWriter.WriteLine(rowValues);
+                            }
+                        }
+                    }
+                    catch (Exception exception)
+                    {
+                        await this.RecordingButtonEnabled.SetAsync(false);
+                        this.progressLogger.AddDebugMessage("DataLoggingParametersModel unable to start logging.");
+                        this.progressLogger.AddDebugMessage(exception.ToString());
+
+                        // This tells the view to show an error message instead of live data.
+                        await this.DisplayErrorMessage(exception.Message);
+                        await Task.Delay(100);
+                    }
+                    finally
+                    {
+                        this.logBuffer.Enabled = true;
                     }
                 }
                 this.logBuffer.Enabled = true;
@@ -420,36 +441,25 @@ public partial record DataLoggingParametersModel
         this.InitializationEvent.WaitOne();
         this.progressLogger.AddDebugMessage("DataLoggingParametersModel initialization unblocked.");
 
-        try
-        {
-            await logger.StartLogging();
-            this.progressLogger.AddDebugMessage("DataLoggingParametersModel started logging.");
+        // This tells the view to prepare to render live data.
+        await this.LoggerWrapper.SetAsync(new LoggerWrapper(logger), CancellationToken.None);
 
-            // This tells the view to prepare to render live data.
-            await this.LoggerWrapper.SetAsync(new LoggerWrapper(logger), CancellationToken.None);
+        // This forces the grid to re-render. It's important to do this before
+        // logging starts, so that any unsupported parameters will be visible,
+        // so that the user can delete them.
+        var placeholderValues = new string[this.loggingContext.LogProfile.Columns.Count()];
+        await this.Rows.SetAsync(new LogRowValues(placeholderValues));
 
-            // TODO: Wait for a signal from the view code instead using a fixed delay.
-            await Task.Delay(100);
+        // Request the first row of real data.
+        await logger.StartLogging();
+        this.progressLogger.AddDebugMessage("DataLoggingParametersModel started logging.");
 
-            await this.RecordingButtonEnabled.SetAsync(true);
-            this.progressLogger.AddDebugMessage("DataLoggingParametersModel started logging.");
-            return logger;
-        }
-        catch (Exception exception)
-        {
-            await this.RecordingButtonEnabled.SetAsync(false);
-            this.progressLogger.AddDebugMessage("DataLoggingParametersModel unable to start logging.");
-            this.progressLogger.AddDebugMessage(exception.ToString());
+        // TODO: Wait for a signal from the view code instead using a fixed delay.
+        await Task.Delay(100);
 
-            // This tells the view to show an error message instead of live data.
-            await this.DisplayErrorMessage(
-                "Unable to start logging: " + 
-                Environment.NewLine + 
-                exception.Message +
-                Environment.NewLine +
-                "Will try again... ");
-            return null;
-        }
+        await this.RecordingButtonEnabled.SetAsync(true);
+        this.progressLogger.AddDebugMessage("DataLoggingParametersModel started logging.");
+        return logger;
     }
 
     private async Task DisplayErrorMessage(string message)

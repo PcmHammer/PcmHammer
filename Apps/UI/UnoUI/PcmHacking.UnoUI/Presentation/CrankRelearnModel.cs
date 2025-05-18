@@ -24,10 +24,14 @@ public partial record CrankRelearnModel()
     const string notReady = "Not Ready";
     const string unavailable = "---";
 
+// Non-nullable field must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring as nullable.
+// These are definitely valid when the constructor below returns. However, Uno's code generator also created a default constructor.
+#pragma warning disable CS8618
     private readonly INavigator navigator;
     private readonly IConnectionService connectionService;
     private readonly LoggerAdapter progressLogger;
     private readonly DispatcherQueue dispatcherQueue;
+#pragma warning restore CS8618
 
     private CancellationTokenSource cancellation = new CancellationTokenSource();
     private CrankRelearnStates state = CrankRelearnStates.WaitingForPcm;

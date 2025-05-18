@@ -174,7 +174,7 @@ namespace PcmHacking
                     dpidConfiguration.ParameterGroups.Add(group);
                     groupId--;
 
-                    if (groupId < 0xFB)
+                    if (groupId < 0xF9)
                     {
                         throw new ParameterNotSupportedException(
                             $"The PCM cannot send this much data.{System.Environment.NewLine}Please un-select some parameters.");

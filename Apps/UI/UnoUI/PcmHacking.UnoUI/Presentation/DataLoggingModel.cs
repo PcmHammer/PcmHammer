@@ -335,28 +335,52 @@ public partial class DataLoggingModel
         uint operatingSystemId = 0;
 
         // Load the log profile
-        // TODO TODO TODO retry if connection unavailable, exit retry on back-button
-        using (var lease = await this.connectionService.BeginActivity("Loading Profile"))
+        do
         {
-            
             try
             {
-                var osidQueryResult = await lease.Vehicle.QueryOperatingSystemId(CancellationToken.None);
-                operatingSystemId = osidQueryResult.Value;
-            }
-            catch (Exception ex)
-            {
-                this.progressLogger.AddDebugMessage("DataLoggingModel: Unable to query the operating system ID: " + Environment.NewLine + ex.Message);
+                using (var lease = await this.connectionService.BeginActivity("Loading Profile"))
+                {
+
+                    try
+                    {
+                        var osidQueryResult = await lease.Vehicle.QueryOperatingSystemId(CancellationToken.None);
+                        operatingSystemId = osidQueryResult.Value;
+                    }
+                    catch (Exception ex)
+                    {
+                        this.progressLogger.AddDebugMessage("DataLoggingModel: Unable to query the operating system ID: " + Environment.NewLine + ex.Message);
+                        return;
+                    }
+
+                    LogProfileReader reader = new LogProfileReader(database, operatingSystemId, this.progressLogger);
+                    profile = reader.Read(path);
+                    this.progressLogger.AddDebugMessage("DataLoggingParametersModel loaded profile.");
+                }
+
+                var profileAndDatabase = new LoggingContext(profile, path, operatingSystemId, this.database);
+
+                await this.navigator.NavigateViewModelAsync<DataLoggingParametersModel>(this, data: profileAndDatabase);
                 return;
             }
-
-            LogProfileReader reader = new LogProfileReader(database, operatingSystemId, this.progressLogger);
-            profile = reader.Read(path);
-            this.progressLogger.AddDebugMessage("DataLoggingParametersModel loaded profile.");
-        }
-
-        var profileAndDatabase = new LoggingContext(profile, path, operatingSystemId, this.database);
-
-        await this.navigator.NavigateViewModelAsync<DataLoggingParametersModel>(this, data: profileAndDatabase);
+            catch (ConnectionUnavailableException)
+            {
+                var yesNo = new ContentDialog();
+                yesNo.Title = "Unable to connect.";
+                yesNo.Content = "Try again?";
+                yesNo.PrimaryButtonText = "Yes";
+                yesNo.SecondaryButtonText = "No";
+                yesNo.XamlRoot = XamlRootService.GetXamlRoot();
+                var result = await yesNo.ShowAsync();
+                if (result == ContentDialogResult.Primary)
+                {
+                    continue;
+                }
+                else
+                {
+                    return;
+                }
+            }
+        } while (true);
     }
 }

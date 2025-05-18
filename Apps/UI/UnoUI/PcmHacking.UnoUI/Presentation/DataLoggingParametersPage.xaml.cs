@@ -289,6 +289,15 @@ public sealed partial class DataLoggingParametersPage : Page
                 {
                     break;
                 }
+
+                // TODO: investigate - this can happen if the profile contains
+                // and unsupported parameter, but logger.StartLogging should
+                // have thrown an exception - how did we get here?
+                if (value == null)
+                {
+                    continue;
+                }
+
                 var rowMetadata = this.parameterMetadata[column];
                 rowMetadata.Value.Text = value + " " + rowMetadata.Units;
                 if (rowMetadata.ZoomedValue?.Text != null)
@@ -297,6 +306,12 @@ public sealed partial class DataLoggingParametersPage : Page
                 }
 
                 column++;
+            }
+
+            if ((column > 0) && this.ErrorMessage.Visibility == Visibility.Visible)
+            {
+                this.ErrorMessage.Visibility = Visibility.Collapsed;
+                this.Controls.Visibility = Visibility.Visible;
             }
         });
 
@@ -348,22 +363,9 @@ public sealed partial class DataLoggingParametersPage : Page
     {
         this.dispatcherQueue.TryEnqueue(() =>
         {
-            this.ZoomedParameters.RowDefinitions.Clear();
-
-            if (message != null)
-            {
-                TextBlock errorTextBlock = new TextBlock();
-                errorTextBlock.HorizontalAlignment = HorizontalAlignment.Left;
-                errorTextBlock.VerticalAlignment = VerticalAlignment.Center;
-                errorTextBlock.Text = message;
-                errorTextBlock.SetValue(Grid.RowProperty, 1);
-                errorTextBlock.SetValue(Grid.ColumnProperty, 0);
-
-                this.Parameters.RowDefinitions.Add(new RowDefinition());
-                this.Parameters.RowDefinitions.Add(new RowDefinition());
-                this.Parameters.RowDefinitions.Add(new RowDefinition());
-                this.Parameters.Children.Add(errorTextBlock);
-            }
+            this.Controls.Visibility = Visibility.Collapsed;
+            this.ErrorMessage.Visibility = Visibility.Visible;
+            this.ErrorMessage.Text = message;
         });
 
         return ValueTask.CompletedTask;

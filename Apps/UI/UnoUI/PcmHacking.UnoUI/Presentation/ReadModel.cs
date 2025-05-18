@@ -84,7 +84,7 @@ public partial record ReadModel : IAsyncLogger
                 // I suspect a bug in the Uno Platform's ContentDialog implementation, hence the static object in the 'if' statement.
                 // See notes in WriteModel for details.
                 await this.navigator.GetDataAsync<DelayModel, DelayResult>(this, cancellation: cancellationToken);
-                if (DelayModel.Result.Proceed == false)
+                if (DelayModel.Result?.Proceed == false)
                 {
                     await this.AddUserMessage("Read aborted.");
                     return;

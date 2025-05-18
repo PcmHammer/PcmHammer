@@ -1,12 +1,16 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Package
   xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
   xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
   IgnorableNamespaces="uap rescap">
 
-  <Identity />
-  <Properties />
+  <Identity  Name="PCMHammer" Version="3.0.0" Publisher="CN=NSFW"/>
+  <Properties >
+    <Logo>PackageLogo.png</Logo>
+    <DisplayName>PCM Hammer</DisplayName>
+    <PublisherDisplayName>PCMHacking.net</PublisherDisplayName>
+  </Properties >
 
   
 
@@ -23,7 +27,10 @@
     <Application Id="App"
       Executable="$targetnametoken$.exe"
       EntryPoint="$targetentrypoint$">
-      <uap:VisualElements />
+      <uap:VisualElements  DisplayName="PCM Hammer" Description="An open-source tool to read and write the flash memory of some Powertrain Control Modules that were used in GM vehicles from rougly 1999-2007." Square150x150Logo="MediumTile.png" Square44x44Logo="AppIcon.png">
+        <uap:DefaultTile Square71x71Logo="SmallTile.png" Wide310x150Logo="WideTile.png" Square310x310Logo="LargeTile.png"/>
+        <uap:SplashScreen Image="SplashScreen.png"/>
+      </uap:VisualElements >
     </Application>
   </Applications>
 

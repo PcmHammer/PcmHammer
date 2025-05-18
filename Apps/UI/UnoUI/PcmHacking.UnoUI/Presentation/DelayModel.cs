@@ -13,8 +13,15 @@ public record DelayResult(bool Proceed);
 
 public partial record DelayModel : IDisposable
 {
-    public static DelayResult Result;
+    // This is hacky, but see notes in WriteModel.cs.
+    public static DelayResult? Result;
+
+// Non-nullable field must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring as nullable.
+// That's solved in the constructor below, but Uno's code generator also created a default constructor.
+#pragma warning disable CS8618
     private readonly INavigator navigator;
+#pragma warning restore CS8618
+
     private Timer? timer;
     private int secondsRemaining = 10;
     private bool exited = false;
@@ -23,7 +30,7 @@ public partial record DelayModel : IDisposable
 
     public DelayModel(INavigator navigator)
     {
-        this.navigator = navigator;
+        this.navigator = navigator ?? throw new ArgumentNullException(nameof(navigator));
         this.timer = new Timer(TimerCallback, null, 1000, 1000);
     }
     

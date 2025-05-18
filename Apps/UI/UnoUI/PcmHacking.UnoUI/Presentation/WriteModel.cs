@@ -176,7 +176,7 @@ public partial record WriteModel : IAsyncLogger
                 await this.navigator.GetDataAsync<DelayModel, DelayResult>(this, cancellation: cancellationToken);
 
                 // Hacky workaround:
-                if (DelayModel.Result.Proceed == false)
+                if (DelayModel.Result?.Proceed == false)
                 {
                     await this.AddUserMessage("Write aborted.");
                     return;

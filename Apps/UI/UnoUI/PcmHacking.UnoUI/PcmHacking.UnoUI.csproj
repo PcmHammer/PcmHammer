@@ -44,6 +44,8 @@
       ThemeService;
       Storage;
     </UnoFeatures>
+    <PackageCertificateThumbprint>E9055ABE166B5A0901A78706D44BBCA8573A5143</PackageCertificateThumbprint>
+    <AppxPackageSigningEnabled>True</AppxPackageSigningEnabled>
   </PropertyGroup>
   
   <ItemGroup>
