@@ -67,7 +67,7 @@
             ItemsSource="{Binding RecentFiles}"
             IsDoubleTapEnabled="true"
             Tapped="RecentFiles_Tapped"
-            DoubleTapped="ListView_DoubleTapped" 
+            DoubleTapped="RecentFiles_DoubleTapped" 
             PreviewKeyDown="ListView_KeyDown"
             IsTabStop="true">
 

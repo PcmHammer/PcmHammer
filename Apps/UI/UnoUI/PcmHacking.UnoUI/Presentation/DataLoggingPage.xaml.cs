@@ -13,7 +13,7 @@ public sealed partial class DataLoggingPage : Page
         this.InitializeComponent();
     }
 
-    private async void ListView_DoubleTapped(object sender, Microsoft.UI.Xaml.Input.DoubleTappedRoutedEventArgs? e)
+    private async void RecentFiles_DoubleTapped(object sender, Microsoft.UI.Xaml.Input.DoubleTappedRoutedEventArgs? e)
     {
         RecentFileListItem? recentFile = this.RecentFiles.SelectedItem as RecentFileListItem;
         if (recentFile == null)
@@ -66,7 +66,7 @@ public sealed partial class DataLoggingPage : Page
                 return;
             }
 
-            this.ListView_DoubleTapped(sender, null);
+            this.RecentFiles_DoubleTapped(sender, null);
         }
         finally
         {
