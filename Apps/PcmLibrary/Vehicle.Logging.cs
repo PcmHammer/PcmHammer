@@ -116,6 +116,7 @@ namespace PcmHacking
 
                     // Wait for a success or fail message.
                     // TODO: move this into the protocol layer.
+                    bool configured = false;
                     for (int attempt = 0; attempt < 3; attempt++)
                     {
                         Message responseMessage = await this.ReceiveMessage();
@@ -133,6 +134,7 @@ namespace PcmHacking
                         if (responseMessage[3] == 0x6C)
                         {
                             this.logger.AddDebugMessage("Configured " + column.ToString());
+                            configured = true;
                             break;
                         }
 
@@ -143,6 +145,10 @@ namespace PcmHacking
                         }
                     }
 
+                    if (!configured)
+                    {
+                        throw new ApplicationException("Unable to request parameter: " + column.ToString());
+                    }
 
                     position += byteCount;
                 }

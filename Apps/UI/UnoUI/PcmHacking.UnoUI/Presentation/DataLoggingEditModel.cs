@@ -50,10 +50,15 @@ public partial record DataLoggingEditModel()
         }
 
         await this.ConversionList.Update(updater: existing => newValue.Conversions.ToImmutableList(), ct);
+        
+        // TODO: wait for a signal from the update callback
+        await Task.Delay(100);
+        
         var firstConversion = newValue.Conversions.FirstOrDefault();
         if (firstConversion != null)
         {
-            await this.ConversionList.TrySelectAsync(firstConversion);
+            bool result = await this.ConversionList.TrySelectAsync(firstConversion);
+            result.ToString();
         }
     }
 

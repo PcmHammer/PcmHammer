@@ -22,7 +22,7 @@ first, get it working, and second, make it a viable alternative to the existing 
   * done - add new parameters
   * TODO: edit CAN parameters
 * Save data logs with basic start/stop controls
-* better handling of log profiles that contain unsupported parameters
+* testing - better handling of log profiles that contain unsupported parameters
   * show the whole parameter list
   * show error in the 'zoom' column
 * Adjust font sizes on the data logging parameter page to suit the window size.

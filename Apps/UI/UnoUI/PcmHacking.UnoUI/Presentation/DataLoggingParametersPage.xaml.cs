@@ -5,6 +5,7 @@ using System.Drawing.Text;
 using Microsoft.UI;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Shapes;
 using PcmHacking.UnoUI.Utilities;
 using Uno.Extensions.Reactive;
@@ -74,6 +75,15 @@ public sealed partial class DataLoggingParametersPage : Page
         this.model?.StopLogging();
     }
 
+    private void ResetGrid()
+    {
+        this.Parameters.RowDefinitions.Clear();
+        this.ZoomedParameters.RowDefinitions.Clear();
+        this.Parameters.Children.Clear();
+        this.ZoomedParameters.Children.Clear();
+        this.parameterMetadata.Clear();
+    }
+
     // This runs synchronously, but must return a ValueTask to because it's
     // invoked as a .ForEach() callback.
     private ValueTask InitializeParameters(Logger logger)
@@ -88,11 +98,7 @@ public sealed partial class DataLoggingParametersPage : Page
         // Operations that affect the UI need to run on the main thread.
         this.dispatcherQueue.TryEnqueue(() =>
         {
-            this.Parameters.RowDefinitions.Clear();
-            this.ZoomedParameters.RowDefinitions.Clear();
-            this.Parameters.Children.Clear();
-            this.ZoomedParameters.Children.Clear();
-            this.parameterMetadata.Clear();
+            this.ResetGrid();
 
             int mainRowIndex = 0;
             int zoomRowIndex = 0;
@@ -322,7 +328,7 @@ public sealed partial class DataLoggingParametersPage : Page
         if (parentName == "Parameters")
         {
             var metadata = this.parameterMetadata.Find(x => (rowIndex) == x?.Indices?.MainRowIndex);
-            if (metadata != null)
+            if (metadata != null && metadata.DataSource != null)
             {
                 await this.model?.EditParameter(metadata.DataSource);
             }
@@ -342,13 +348,22 @@ public sealed partial class DataLoggingParametersPage : Page
     {
         this.dispatcherQueue.TryEnqueue(() =>
         {
-            TextBlock errorTextBlock = new TextBlock();
-            errorTextBlock.HorizontalAlignment = HorizontalAlignment.Center;
-            errorTextBlock.VerticalAlignment = VerticalAlignment.Center;
-            errorTextBlock.Text = message;
+            this.ZoomedParameters.RowDefinitions.Clear();
 
-            // Replace the page content with the error message;
-            this.Content = errorTextBlock;
+            if (message != null)
+            {
+                TextBlock errorTextBlock = new TextBlock();
+                errorTextBlock.HorizontalAlignment = HorizontalAlignment.Left;
+                errorTextBlock.VerticalAlignment = VerticalAlignment.Center;
+                errorTextBlock.Text = message;
+                errorTextBlock.SetValue(Grid.RowProperty, 1);
+                errorTextBlock.SetValue(Grid.ColumnProperty, 0);
+
+                this.Parameters.RowDefinitions.Add(new RowDefinition());
+                this.Parameters.RowDefinitions.Add(new RowDefinition());
+                this.Parameters.RowDefinitions.Add(new RowDefinition());
+                this.Parameters.Children.Add(errorTextBlock);
+            }
         });
 
         return ValueTask.CompletedTask;

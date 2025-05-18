@@ -1,8 +1,8 @@
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.UI.Dispatching;
 using PcmHacking.UnoUI.Services;
+using System.Runtime.InteropServices;
 using Uno.Resizetizer;
-// using Windows.System;
 
 namespace PcmHacking.UnoUI;
 public partial class App : Application
@@ -181,6 +181,12 @@ public partial class App : Application
         MainWindow = builder.Window;
         StaticMainWindow = builder.Window;
         StaticMainWindow.Title = "PCM Hammer";
+
+#if WINDOWS
+        // It would be nice to maximize the window under Skia as well, but how?
+        var _hwnd = WinRT.Interop.WindowNative.GetWindowHandle(builder.Window);
+        Windows.Win32.PInvoke.ShowWindow((Windows.Win32.Foundation.HWND)_hwnd, Windows.Win32.UI.WindowsAndMessaging.SHOW_WINDOW_CMD.SW_MAXIMIZE);
+#endif
 
 #if DEBUG
         MainWindow.UseStudio();

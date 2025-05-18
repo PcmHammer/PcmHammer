@@ -529,7 +529,7 @@ public class ConnectionService : IConnectionService
         }
 
         // Sanity check. This should never happen, but it does happen if you break in the debugger for a while.
-        string activityName = await this.Activity.Value(cancellationToken);
+        string activityName = await this.Activity.Value(cancellationToken) ?? string.Empty;
         if ((activityName != PollingActivity) && (activityName != TestingActivity))
         {
             return false;

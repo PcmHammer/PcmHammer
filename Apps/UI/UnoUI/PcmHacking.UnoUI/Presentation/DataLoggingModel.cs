@@ -14,6 +14,13 @@ public record RecentFileListItem(string Path, bool Modified)
     {
         get
         {
+            return System.IO.Path.GetFileNameWithoutExtension(this.Path);
+        }
+    }
+    public string DisplayFileName
+    {
+        get
+        {
             string suffix = this.Modified ? " (modified)" : string.Empty;
             return System.IO.Path.GetFileNameWithoutExtension(this.Path) + suffix;
         }
@@ -233,7 +240,7 @@ public partial class DataLoggingModel
     {
         string? result = null;
 
-        string? currentFileName = (await this.RecentFileSelection.Value())?.FileName;
+        string? currentFileName = (await this.RecentFileSelection.Value())?.DisplayFileName;
         if (currentFileName == null)
         {
             return null;
@@ -328,6 +335,7 @@ public partial class DataLoggingModel
         uint operatingSystemId = 0;
 
         // Load the log profile
+        // TODO TODO TODO retry if connection unavailable, exit retry on back-button
         using (var lease = await this.connectionService.BeginActivity("Loading Profile"))
         {
             

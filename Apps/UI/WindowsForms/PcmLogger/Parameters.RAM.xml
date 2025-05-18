@@ -51,7 +51,7 @@
     bitMapped="False">
     <Location os="12593358" address="0xFFA2A2" />
     <Location os="12587603" address="0xFFA716" />
-    <Conversion units="g/s" expression="0.0009765625" format="0.00" />
+    <Conversion units="g/s" expression="x/128" format="0.0000" />
   </RamParameter>
 
   <RamParameter
@@ -62,7 +62,7 @@
     bitMapped="False">
     <Location os="12593358" address="0xFFA296" />
     <Location os="12587603" address="0xFFA716" />
-    <Conversion units="g/s" expression="0.0009765625" format="0.00" />
+    <Conversion units="g/s" expression="x/128" format="0.0000" />
   </RamParameter>
 
   <RamParameter
@@ -73,7 +73,7 @@
     bitMapped="False">
     <Location os="12593358" address="0xFFA28C" />
     <Location os="12587603" address="0xFFA6FE" />
-    <Conversion units="g/s" expression="0.0009765625" format="0.00" />
+    <Conversion units="g/s" expression="x/128" format="0.0000" />
   </RamParameter>
 
   <RamParameter
@@ -83,7 +83,7 @@
   storageType="int16"
   bitMapped="False">
     <Location os="12587603" address="0xFFA700" />
-    <Conversion units="g/s" expression="0.0009765625" format="0.00" />
+    <Conversion units="g/s" expression="x" format="0.00" />
   </RamParameter>
 
   <RamParameter
@@ -158,17 +158,27 @@
     description="1-Byte Idle control mode. 0=none, 1=speed, 2=PID, 3=startup"
     storageType="uint8"
     bitMapped="False">
-    <Location os="12587603" address="0xFFA6F7" />
+    <Location os="12587603" address="0xFF9528" />
     <Conversion units="mode" expression="x" format="0" />
   </RamParameter>
 
+  <RamParameter
+  id="RamIdleFeedbackFlags"
+  name="Idle Feedback Flags"
+  description="Indicates which types of feedback are active."
+  storageType="uint8"
+  bitMapped="False">
+    <Location os="12587603" address="0xFFA723" />
+    <Conversion units="mode" expression="x" format="0" />
+  </RamParameter>
+  
   <RamParameter
     id="RamThrottleControlMode"
     name="Throttle Control Mode"
     description="1-Byte Throttle control mode. 0=pedal, 1=idle, 2=cruise, 7=max-torque, 9=max-rpm"
     storageType="uint8"
     bitMapped="False">
-    <Location os="12587603" address="0xFF905F" />
+    <Location os="12587603" address="0xFF9060" />
     <Conversion units="mode" expression="x" format="0" />
   </RamParameter>
 
