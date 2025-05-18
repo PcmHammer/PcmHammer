@@ -165,7 +165,11 @@ public partial record SettingsModel
 
     public Task OpenLogFolder()
     {
-        dispatcherQueue.TryEnqueue(async () =>
+        dispatcherQueue.TryEnqueue(
+#if WINDOWS10_0_26100_0_OR_GREATER
+            async 
+#endif
+            () =>
         {
             string folder = settingsService.GetDataLogFolder();
             if (string.IsNullOrEmpty(folder))

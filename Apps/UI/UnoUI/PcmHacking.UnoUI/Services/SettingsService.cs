@@ -75,20 +75,24 @@ public class SettingsService : ISettingsService
         {
             if (localSettings == null)
             {
+#if DESKTOP1_0_OR_GREATER || WINAPPSDK_PACKAGED || MACCATALYST || IOS || ANDROID
+                localSettings = ApplicationData.Current.LocalSettings;
+#elif WINDOWS && !WINAPPSDK_PACKAGED
+                localSettings = ApplicationData.GetForUnpackaged("PcmHacking.net", "PCM Hammer");
+#else
                 try
                 {
-                    // This throws an exception when invoked from an unpackaged Windows app, because packaging
-                    // is how the app gets the app data folder to store settings in. 
                     // Users shouldn't encounter this, but it's confusing when this happens in the debugger.
                     localSettings = ApplicationData.Current.LocalSettings;
                 }
                 catch (Exception ex)
                 {
                     // TODO: there's probably a better way to log this.
-                    Console.WriteLine("Unable to load application settings. Is this an unpackaged Windows app?");
+                    Console.WriteLine("Unable to load application settings.");
                     Console.WriteLine(ex.ToString());
                     throw;
                 }
+#endif
             }
             return localSettings;
         }
