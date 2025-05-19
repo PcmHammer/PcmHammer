@@ -58,5 +58,17 @@ public sealed partial class DataLoggingEditPage : ContentDialog
         }
         this.Hide();
     }
+
+    private async Task TextBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        var vm = this.DataContext as DataLoggingEditViewModel;
+        var model = vm?.Model as DataLoggingEditModel;
+        if (model == null)
+        {
+            return;
+        }
+
+        await model.UpdateParameterList(this.Filter.Text);
+    }
 }
 

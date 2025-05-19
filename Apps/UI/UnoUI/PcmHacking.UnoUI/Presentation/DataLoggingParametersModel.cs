@@ -63,12 +63,14 @@ public class ParameterEditContext
     public uint Osid { get; private set; }
     public LogColumn? Input { get; private set; }
     public LogColumn? Output { get; set; }
+    public LogProfile LogProfile { get; private set; } // Added LogProfile property
 
-    public ParameterEditContext(ParameterDatabase database, uint osid, LogColumn? logColumn)
+    public ParameterEditContext(ParameterDatabase database, uint osid, LogColumn? logColumn, LogProfile logProfile)
     {
         this.Database = database;
         this.Osid = osid;
         this.Input = logColumn;
+        this.LogProfile = logProfile; // Assign LogProfile
     }
 }
 
@@ -139,7 +141,8 @@ public partial record DataLoggingParametersModel
                 ParameterEditContext temporaryEditContext = new(
                     this.loggingContext.ParameterDatabase, 
                     this.loggingContext.OperatingSystemId, 
-                    null);
+                    null,
+                    this.loggingContext.LogProfile); // Pass LogProfile
 
                 DataLoggingEditPage dataLoggingEditPage = new DataLoggingEditPage();
                 dataLoggingEditPage.XamlRoot = XamlRootService.GetXamlRoot();
@@ -171,7 +174,8 @@ public partial record DataLoggingParametersModel
                 ParameterEditContext temporaryEditContext = new(
                     this.loggingContext.ParameterDatabase, 
                     this.loggingContext.OperatingSystemId, 
-                    logColumn);
+                    logColumn,
+                    this.loggingContext.LogProfile); // Pass LogProfile
 
                 DataLoggingEditPage dataLoggingEditPage = new DataLoggingEditPage();
                 dataLoggingEditPage.XamlRoot = XamlRootService.GetXamlRoot();
@@ -312,12 +316,8 @@ public partial record DataLoggingParametersModel
                         {
                             this.logBuffer.Enabled = true;
 
+                            // This will throw if it can't start logging.
                             logger = await InitializeLogger(vehicle, this.loggingContext.LogProfile, canLogger);
-                            if (logger == null)
-                            {
-                                await Task.Delay(250);
-                                continue;
-                            }
 
                             // TODO: Write debug logs to a circular buffer instead of disabling it entirely.
                             // ...and just append the last ~50 debug logs when debug logging is re-enabled.
@@ -362,7 +362,7 @@ public partial record DataLoggingParametersModel
 
                         // This tells the view to show an error message instead of live data.
                         await this.DisplayErrorMessage(exception.Message);
-                        await Task.Delay(100);
+                        await Task.Delay(500);
                     }
                     finally
                     {
@@ -382,7 +382,7 @@ public partial record DataLoggingParametersModel
             {
                 this.dispatcherQueue.TryEnqueue(async () =>
                 {
-                    await Task.Delay(100);
+                    await Task.Delay(500);
                     worker.RunWorkerAsync();
                 });
             }
@@ -455,7 +455,7 @@ public partial record DataLoggingParametersModel
         this.progressLogger.AddDebugMessage("DataLoggingParametersModel started logging.");
 
         // TODO: Wait for a signal from the view code instead using a fixed delay.
-        await Task.Delay(100);
+        await Task.Delay(250);
 
         await this.RecordingButtonEnabled.SetAsync(true);
         this.progressLogger.AddDebugMessage("DataLoggingParametersModel started logging.");

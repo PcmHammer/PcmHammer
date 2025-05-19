@@ -9,9 +9,11 @@
       Loaded="ContentDialog_Loaded"
       Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
 
-    <Grid>
+    <Grid Width="500" Height="500">
         <Grid.RowDefinitions>
-            <RowDefinition Height="*" x:Name="Labels" />
+            <RowDefinition Height="*" x:Name="Label1" />
+            <RowDefinition Height="*" x:Name="Label2" />
+            <RowDefinition Height="*" x:Name="Label3" />
             <RowDefinition Height="4*" x:Name="UpperHalf" />
             <RowDefinition Height="4*" x:Name="LowerHalf" />
             <RowDefinition Height="*" x:Name="Whitespace" />
@@ -26,19 +28,38 @@
         <TextBlock Grid.Row="0"
                    Grid.Column="0"
                    Grid.ColumnSpan="2"
+                   Text="{Binding Prompt}"
+                   Margin="10"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center" />
+
+        <TextBlock Grid.Row="1"
+                   Grid.Column="0"
+                   Grid.ColumnSpan="2"
                    Text="Parameter"
                    HorizontalAlignment="Center"
                    VerticalAlignment="Center"
                    Margin="5" />
 
-        <TextBlock Grid.Row="0"
+        <TextBlock Grid.Row="1"
                    Grid.Column="2"
                    Text="Units"
                    HorizontalAlignment="Center"
                    VerticalAlignment="Center"
                    Margin="5" />
 
-        <ListView Grid.Row="1"
+        <TextBox Grid.Row="2"
+                 Grid.Column="0"
+                 Grid.ColumnSpan="2"
+                 Name="Filter"
+                 Width="200"
+                 TextChanged="TextBox_TextChanged"
+                 PlaceholderText="Filter..."
+                 HorizontalAlignment="Center"
+                 VerticalAlignment="Center"
+                 Margin="5" />
+
+        <ListView Grid.Row="3"
                   Grid.RowSpan="2"
                   Grid.Column="0"   
                   Grid.ColumnSpan="2"
@@ -46,20 +67,20 @@
                   ItemsSource="{Binding ParameterList}"
                   Margin="5" />
         
-        <ListView Grid.Row="1"
+        <ListView Grid.Row="3"
                   Grid.Column="2"
                   Name="Conversions"
                   ItemsSource="{Binding ConversionList}"
                   Margin="5" />
 
         <CheckBox 
-                  Grid.Row="2"
+                  Grid.Row="4"
                   Grid.Column="2"
                   Content="Zoom"
                   IsChecked="{Binding Zoom}"
                   Margin="5" />
 
-        <Button Grid.Row="4"
+        <Button Grid.Row="6"
                 Grid.Column="0"
                 HorizontalAlignment="Center"
                 VerticalAlignment="Center"
@@ -69,7 +90,7 @@
                 Content="Delete Parameter" 
                 Click="Delete_Clicked" />
         
-        <Button Grid.Row="4"
+        <Button Grid.Row="6"
                 Grid.Column="1"
                 HorizontalAlignment="Center"
                 VerticalAlignment="Center"
@@ -78,7 +99,7 @@
                 Content="Apply Changes" 
                 Click="Apply_Clicked"/>
 
-        <Button Grid.Row="4"
+        <Button Grid.Row="6"
                 Grid.Column="2"
                 HorizontalAlignment="Center"
                 VerticalAlignment="Center"

@@ -14,6 +14,8 @@ public partial record DataLoggingEditModel()
     public IListState<Parameter> ParameterList => ListState<Parameter>.Empty(this);
     public IListState<Conversion> ConversionList => ListState<Conversion>.Empty(this);
     public IState<bool> Zoom => State<bool>.Value(this, () => false);
+    public IState<string> Prompt => State<string>.Value(this, () => string.Empty);
+    public IState<string> Filter => State<string>.Value(this, () => string.Empty).ForEach(async (text, ct) => await UpdateParameterList(text));
     public IState<Parameter> SelectedParameter => State<Parameter>.Value(this, () => null);
     public IState<Visibility> DeleteButtonVisibility => State<Visibility>.Value(this, ()=> Visibility.Visible);
 
@@ -25,9 +27,15 @@ public partial record DataLoggingEditModel()
 
     public async Task Initialize()
     {
-        await this.ParameterList.Update(updater: existing => editContext.Database.ListParametersBySupportedOs(editContext.Osid).ToImmutableList(), ct: CancellationToken.None);
+        string prompt = this.editContext.Input == null ?
+            "Add a new parameter to the log..." :
+            $"Replace '{this.editContext.Input?.Parameter?.Name}' with...";
+        await this.Prompt.SetAsync(prompt);
+
+        await UpdateParameterList(null);
+
         await this.SelectedParameter.ForEach(SelectedParameterChanged);
-        await this.ParameterList.Selection(SelectedParameter);        
+        await this.ParameterList.Selection(SelectedParameter);
 
         if (this.editContext.Input != null)
         {
@@ -41,7 +49,26 @@ public partial record DataLoggingEditModel()
         {
             // TODO: select the first parameter - await this.ParameterList.TrySelectAsync(how?);
             await this.DeleteButtonVisibility.SetAsync(Visibility.Collapsed);
-        }        
+        }
+
+
+    }
+
+    public async ValueTask UpdateParameterList(string? filter)
+    {
+        // Exclude parameters already present in editContext.LogProfile.Columns
+        var existingParameterIds = editContext.LogProfile.Columns.Select(c => c.Parameter.Id).ToHashSet();
+
+        await this.ParameterList.Update(
+            updater: existing =>
+                editContext.Database
+                    .ListParametersBySupportedOs(editContext.Osid)
+                    .Where(p =>
+                        !existingParameterIds.Contains(p.Id) && 
+                        ((filter == null) || (p.Name.IndexOf(filter, StringComparison.CurrentCultureIgnoreCase) != -1)))
+                    .OrderBy(p => p.Name) // Sort by parameter name
+                    .ToImmutableList(),
+            ct: CancellationToken.None);
     }
 
     private async ValueTask SelectedParameterChanged(Parameter? newValue, CancellationToken ct)
