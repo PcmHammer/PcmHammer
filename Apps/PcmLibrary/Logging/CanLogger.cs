@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -129,62 +130,69 @@ namespace PcmHacking
             {
                 foreach(CanParameter parameter in parameters)
                 {
-                    switch(parameter.ByteCount)
+                    try
                     {
-                        case 0:
-                            rawValue = 1; // TODO: this should probably increment with each new message.
-                            result.Units = "";
-                            result.Name = parameter.Name;
-                            break;
+                        switch (parameter.ByteCount)
+                        {
+                            case 0:
+                                rawValue = 1; // TODO: this should probably increment with each new message.
+                                result.Units = "";
+                                result.Name = parameter.Name;
+                                break;
 
-                        case 1:
-                            rawValue = message.Payload[(int)parameter.ByteIndex];
-                            break;
+                            case 1:
+                                rawValue = message.Payload[(int)parameter.ByteIndex];
+                                break;
 
-                        case 2:
-                            if (parameter.HighByteFirst)
-                            {
-                                rawValue = (message.Payload[(int)parameter.ByteIndex] << 8)
-                                    + message.Payload[(int)parameter.ByteIndex + 1];
-                            }
-                            else
-                            {
-                                rawValue = (message.Payload[(int)parameter.ByteIndex + 1] << 8)
-                                    + message.Payload[(int)parameter.ByteIndex];
-                            }
-                            break;
+                            case 2:
+                                if (parameter.HighByteFirst)
+                                {
+                                    rawValue = (message.Payload[(int)parameter.ByteIndex] << 8)
+                                        + message.Payload[(int)parameter.ByteIndex + 1];
+                                }
+                                else
+                                {
+                                    rawValue = (message.Payload[(int)parameter.ByteIndex + 1] << 8)
+                                        + message.Payload[(int)parameter.ByteIndex];
+                                }
+                                break;
 
-                        case 3:
-                            if (parameter.HighByteFirst)
-                            {
-                                rawValue = (message.Payload[(int)parameter.ByteIndex] << 16)
-                                    + (message.Payload[(int)parameter.ByteIndex + 1] << 8)
-                                    + message.Payload[(int)parameter.ByteIndex + 2];
-                            }
-                            else
-                            {
-                                rawValue = (message.Payload[(int)parameter.ByteIndex + 2] << 16)
-                                    + (message.Payload[(int)parameter.ByteIndex + 1] << 8)
-                                    + message.Payload[(int)parameter.ByteIndex];
-                            }
-                            break;
+                            case 3:
+                                if (parameter.HighByteFirst)
+                                {
+                                    rawValue = (message.Payload[(int)parameter.ByteIndex] << 16)
+                                        + (message.Payload[(int)parameter.ByteIndex + 1] << 8)
+                                        + message.Payload[(int)parameter.ByteIndex + 2];
+                                }
+                                else
+                                {
+                                    rawValue = (message.Payload[(int)parameter.ByteIndex + 2] << 16)
+                                        + (message.Payload[(int)parameter.ByteIndex + 1] << 8)
+                                        + message.Payload[(int)parameter.ByteIndex];
+                                }
+                                break;
 
-                        case 4:
-                            if (parameter.HighByteFirst)
-                            {
-                                rawValue = (message.Payload[(int)parameter.ByteIndex] << 24) +
-                                    + (message.Payload[(int)parameter.ByteIndex + 1] << 16) +
-                                    + (message.Payload[(int)parameter.ByteIndex + 2] << 8) +
-                                    + message.Payload[(int)parameter.ByteIndex + 3];
-                            }
-                            else
-                            {
-                                rawValue = (message.Payload[(int)parameter.ByteIndex + 3] << 24) +
-                                    + (message.Payload[(int)parameter.ByteIndex + 2] << 16) +
-                                    + (message.Payload[(int)parameter.ByteIndex + 1] << 8) +
-                                    + message.Payload[(int)parameter.ByteIndex];
-                            }
-                            break;
+                            case 4:
+                                if (parameter.HighByteFirst)
+                                {
+                                    rawValue = (message.Payload[(int)parameter.ByteIndex] << 24) +
+                                        (message.Payload[(int)parameter.ByteIndex + 1] << 16) +
+                                        (message.Payload[(int)parameter.ByteIndex + 2] << 8) +
+                                        message.Payload[(int)parameter.ByteIndex + 3];
+                                }
+                                else
+                                {
+                                    rawValue = (message.Payload[(int)parameter.ByteIndex + 3] << 24) +
+                                        (message.Payload[(int)parameter.ByteIndex + 2] << 16) +
+                                        (message.Payload[(int)parameter.ByteIndex + 1] << 8) +
+                                        message.Payload[(int)parameter.ByteIndex];
+                                }
+                                break;
+                        }
+                    }
+                    catch (IndexOutOfRangeException)
+                    {
+                        // corrupted payload, ignore
                     }
 
                     Conversion conversion = parameter.SelectedConversion ?? parameter.Conversions.First();

@@ -260,6 +260,7 @@ public partial record DataLoggingParametersModel
 
     private async Task OpenProfile()
     {
+        Logger? logger = null;
         try
         {
             await this.RecordingButtonText.SetAsync(DataLoggingParametersModel.StartRecordingButtonText);
@@ -276,19 +277,19 @@ public partial record DataLoggingParametersModel
 
 
                 // Create the CAN logger.
-                this.canLogger = new CanLogger(this.loggingContext.ParameterDatabase);
-
-                if (string.IsNullOrEmpty(this.canPortName))
+                if (this.canLogger == null)
                 {
-                    await this.canLogger.SetPort(null);
-                }
-                else
-                {
-                    await this.canLogger.SetPort(new StandardPort(canPortName));
+                    this.canLogger = new CanLogger(this.loggingContext.ParameterDatabase);
 
+                    if (string.IsNullOrEmpty(this.canPortName))
+                    {
+                        await this.canLogger.SetPort(null);
+                    }
+                    else
+                    {
+                        await this.canLogger.SetPort(new StandardPort(canPortName));
+                    }
                 }
-
-                Logger? logger = null;
 
                 LogFileWriter? logFileWriter = null;
                 StreamWriter? streamWriter = null;
@@ -393,6 +394,7 @@ public partial record DataLoggingParametersModel
         }
         finally
         {
+            this.canLogger?.Dispose();
             this.logBuffer.Enabled = true;
         }
     }

@@ -59,7 +59,7 @@ public sealed partial class DataLoggingEditPage : ContentDialog
         this.Hide();
     }
 
-    private async Task TextBox_TextChanged(object sender, TextChangedEventArgs e)
+    private async void TextBox_TextChanged(object sender, TextChangedEventArgs e)
     {
         var vm = this.DataContext as DataLoggingEditViewModel;
         var model = vm?.Model as DataLoggingEditModel;
