@@ -108,10 +108,11 @@ public class ConnectionService : IConnectionService
     public const string TestingActivity = "Testing Connection...";
 
     // Fast retry is used when the user is waiting to reconnect.
-    private const int FastRetryPeriod = 100;
+    // Making this faster caused new problems and didn't reconnect faster.
+    private const int FastRetryPeriod = 1000;
 
     // Slow retry is used when app is idle.
-    private const int SlowRetryPeriod = 500;
+    private const int SlowRetryPeriod = 1000;
 
     private readonly ISettingsService settingsService;
     private readonly LoggerAdapter logger;

@@ -325,6 +325,12 @@ public partial record DataLoggingParametersModel
                             this.logBuffer.Enabled = false;
                         }
 
+                        if (logger == null)
+                        {
+                            await Task.Delay(500);
+                            continue;
+                        }
+
                         switch (this.writeState)
                         {
                             case WriteState.StartWriting:

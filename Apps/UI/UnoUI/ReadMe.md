@@ -20,15 +20,8 @@ first, get it working, and second, make it a viable alternative to the existing 
   * done - edit existing PCM parameters
   * done - remove parameters
   * done - add new parameters
-  * TODO: edit CAN parameters
-* Save data logs with basic start/stop controls
-* testing - better handling of log profiles that contain unsupported parameters
-  * show the whole parameter list
-  * show error in the 'zoom' column
-* Adjust font sizes on the data logging parameter page to suit the window size.
-* Native Windows
-  * Figure out how to get a 'packaged' Windows build to work, so it can run on Windows with native APIs.
-  * Use Windows Management API to get device driver names for serial ports, when running on Windows
+* done - save data logs with start/stop button
+* done - better handling of log profiles that contain unsupported parameters
 * Implement "message of the day" (so we can alert people to new versions)
 * Implement the help page
 * Implement the splash screen. Uno supports this, but there's a bug in VS that breaks the UI for editing the path to the image file.
@@ -38,6 +31,10 @@ All of the above are easier said than done. This will take some time.
 
 ## New features that would be fun to add:
 
+* Adjust font sizes on the data logging parameter page to suit the window size.
+* Native Windows
+  * Figure out how to get a 'packaged' Windows build to work, so it can run on Windows with native APIs.
+  * Use Windows Management API to get device driver names for serial ports, when running on Windows
 * Crank relearn - implemented, but not yet tested
 * DTC reader
 * XDF file downloader
@@ -49,6 +46,8 @@ All of the above are easier said than done. This will take some time.
   * dashboard look-and-feel (gauges, bar graphs)
   * seismographs
   * histograms that can be copy-pasted into Tuner Pro
+* Edit CAN parameter parsing
+* Be more rigorous about which CAN parameters get logged
 	
 ## Surprises
 

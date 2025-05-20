@@ -1,9 +1,6 @@
 ﻿using PcmHacking.UnoUI.Services;
-using System;
-using System.Collections.Generic;
-using System.Linq;
+using Microsoft.UI.Dispatching;
 using System.Text;
-using System.Threading.Tasks;
 using Uno.Extensions.Reactive.Commands;
 
 namespace PcmHacking.UnoUI.Presentation;
@@ -14,19 +11,32 @@ public partial record LogModel
     private readonly IConnectionService connectionService;
     private readonly ILogBuffer LogBuffer;
 
-    public IState<IEnumerable<LogEntry>> LogEntries => State<IEnumerable<LogEntry>>.Value(this, () => this.LogBuffer.LogEntries);
+    public IListState<LogEntry> LogEntries => ListState<LogEntry>.Empty(this);
 
-    public LogModel(ISettingsService settingsService, IConnectionService connectionService, ILogBuffer logBuffer)
+    public LogModel(
+        ISettingsService settingsService, 
+        IConnectionService connectionService, 
+        DispatcherQueue dispatcherQueue, 
+        ILogBuffer logBuffer)
     {
         this.settingsService = settingsService;
         this.connectionService = connectionService;
         this.LogBuffer = logBuffer;
+        dispatcherQueue.TryEnqueue(async () => await this.Load());
+    }
+
+    private async Task Load()
+    {
+        await this.LogEntries.Update(
+            updater: existing => this.LogBuffer.LogEntries.ToImmutableList(),
+            ct: CancellationToken.None);
     }
 
     [Command]
-    public void Clear()
+    public async Task Clear()
     {
         this.LogBuffer.Clear();
+        await this.Load();
     }
 
     [Command]
