@@ -2,8 +2,8 @@
 using Microsoft.UI.Dispatching;
 using System.Text;
 using Uno.Extensions.Reactive.Commands;
-
 namespace PcmHacking.UnoUI.Presentation;
+
 
 public partial record LogModel
 {

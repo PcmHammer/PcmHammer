@@ -8,8 +8,58 @@
       xmlns:utu="using:Uno.Toolkit.UI"
       Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
 
-      <TextBlock Text="{Binding Text}"
-        HorizontalAlignment="Left"
-        VerticalAlignment="Top"
-        Margin="8" />
+    <Grid utu:SafeArea.Insets="VisibleBounds">
+        <Grid.RowDefinitions>
+            <RowDefinition x:Name="TopButtons"/>
+            <RowDefinition x:Name="MiddleButtons"/>
+            <RowDefinition x:Name="BottomButtons"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition/>
+            <ColumnDefinition/>
+        </Grid.ColumnDefinitions>
+
+        <Button Grid.Row="0" Grid.Column="0" 
+              Content="Go To PcmHacking.net"
+              Margin="10"
+              Padding="10"
+              HorizontalAlignment="Stretch"
+              VerticalAlignment="Stretch"              
+              AutomationProperties.AutomationId="SettingsPageButton"
+              Command="{Binding OpenForum}" />
+
+        <Button Grid.Row="0" Grid.Column="1" 
+              Content="Go To GitHub.com/PcmHammer"
+              Margin="10"
+              Padding="10"
+              HorizontalAlignment="Stretch"
+              VerticalAlignment="Stretch"              
+              AutomationProperties.AutomationId="WritePcmButton"
+              Command="{Binding OpenGitHub}" />
+
+        <TextBlock Grid.Row="1" Grid.Column="0" Grid.RowSpan="2"
+              Text="{Binding Message}"
+              Margin="10"
+              Padding="10"
+              HorizontalAlignment="Stretch"
+              VerticalAlignment="Stretch" />
+
+        <Button Grid.Row="2" Grid.Column="0"
+              Content="View Debug Log"
+              Margin="10"
+              Padding="10"
+              HorizontalAlignment="Stretch"
+              VerticalAlignment="Stretch"              
+              AutomationProperties.AutomationId="LogButton"
+              Command="{Binding GoToLog}" />
+
+        <Button Grid.Row="2" Grid.Column="1"
+              Content="View Debug Log"
+              Margin="10"
+              Padding="10"
+              HorizontalAlignment="Stretch"
+              VerticalAlignment="Stretch"                            
+              AutomationProperties.AutomationId="LogButton2"
+              Command="{Binding GoToLog}" />
+    </Grid>
 </Page>

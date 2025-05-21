@@ -77,6 +77,9 @@
     <Compile Update="Presentation\DataLoggingEditPage.xaml.cs">
       <DependentUpon>DataLoggingEditPage.xaml</DependentUpon>
     </Compile>
+    <Compile Update="Presentation\Header.xaml.cs">
+      <DependentUpon>Header.xaml</DependentUpon>
+    </Compile>
     <Compile Update="Presentation\VinChangePage.xaml.cs">
       <DependentUpon>VinChangePage.xaml</DependentUpon>
     </Compile>
@@ -105,12 +108,6 @@
 
   <ItemGroup>
     <Page Update="Presentation\CommonTopBar.xaml">
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-  </ItemGroup>
-
-  <ItemGroup>
-    <Page Update="Presentation\MainPage.xaml">
       <Generator>MSBuild:Compile</Generator>
     </Page>
   </ItemGroup>
@@ -203,6 +200,12 @@
 
   <ItemGroup>
     <Page Update="Presentation\DataLoggingDeleteConfirmationDialog.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Page Update="Presentation\Header.xaml">
       <Generator>MSBuild:Compile</Generator>
     </Page>
   </ItemGroup>

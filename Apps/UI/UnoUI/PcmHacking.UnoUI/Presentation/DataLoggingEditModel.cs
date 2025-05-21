@@ -4,12 +4,9 @@ using Uno.Extensions.Reactive.Commands;
 
 namespace PcmHacking.UnoUI.Presentation;
 
-public partial record DataLoggingEditModel()
+public partial record DataLoggingEditModel
 {
-// Uno's code generator creates a default constructor, which leads to this warning.
-#pragma warning disable CS8618
     private ParameterEditContext editContext;
-#pragma warning restore CS8618
 
     public IListState<Parameter> ParameterList => ListState<Parameter>.Empty(this);
     public IListState<Conversion> ConversionList => ListState<Conversion>.Empty(this);
@@ -20,7 +17,7 @@ public partial record DataLoggingEditModel()
     public IState<Visibility> DeleteButtonVisibility => State<Visibility>.Value(this, ()=> Visibility.Visible);
 
     public DataLoggingEditModel(
-        ParameterEditContext editContext) : this()
+        ParameterEditContext editContext)
     {
         this.editContext = editContext ?? throw new ArgumentNullException(nameof(editContext));
     }

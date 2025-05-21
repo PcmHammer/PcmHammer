@@ -6,7 +6,7 @@ namespace PcmHacking.UnoUI.Presentation;
 
 public partial record MenuModel
 {
-    private INavigator navigator;
+    private readonly INavigator navigator;
 
     public MenuModel(
         IStringLocalizer localizer,
@@ -60,8 +60,8 @@ public partial record MenuModel
         await this.navigator.NavigateViewModelAsync<OtherFunctionsModel>(this);
     }
 
-    public async Task GoToLog()
+    public async Task GoToHelp()
     {
-        await this.navigator.NavigateViewModelAsync<LogModel>(this);
+        await this.navigator.NavigateViewModelAsync<HelpModel>(this);
     }
 }
