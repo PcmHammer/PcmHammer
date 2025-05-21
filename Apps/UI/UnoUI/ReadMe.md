@@ -22,11 +22,8 @@ first, get it working, and second, make it a viable alternative to the existing 
   * done - add new parameters
 * done - save data logs with start/stop button
 * done - better handling of log profiles that contain unsupported parameters
+* done - Implement the help page
 * Implement "message of the day" (so we can alert people to new versions)
-* Implement the help page
-  *	top third: button/icon/link to pcmhammer.org, button/icon/link to pcmhacking.net
-  * middle third: upgrade notice (if applicable)
-  * bottom third: button to view log
 * Implement the splash screen. Uno supports this, but there's a bug in VS that breaks the UI for editing the path to the image file.
 * Update the CI builds in GitHub - building now requires the Uno SDK.
 
