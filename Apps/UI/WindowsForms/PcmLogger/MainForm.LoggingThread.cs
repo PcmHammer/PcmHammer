@@ -157,9 +157,16 @@ namespace PcmHacking
 
             Logger logger = this.Vehicle.CreateLogger(this.osid, canLogger, this.currentProfile.Columns, this);
 
-            if (!await logger.StartLogging())
+            try
             {
-                throw new LogStartFailedException();
+                if (!await logger.StartLogging())
+                {
+                    throw new LogStartFailedException();
+                }
+            }
+            catch(Exception exception)
+            {
+                throw new LogStartFailedException(exception.Message);
             }
 
             return logger;
@@ -317,6 +324,15 @@ namespace PcmHacking
                                                     this.AddUserMessage(exception.Message);
                                                     this.startStopSaving.Enabled = false;
                                                     this.logValues.Text = exception.Message;
+                                                });
+                                        }
+                                        else
+                                        {
+                                            this.loggerProgress.Invoke(
+                                                (MethodInvoker)
+                                                delegate ()
+                                                {
+                                                    this.startStopSaving.Enabled = true;
                                                 });
                                         }
                                     }

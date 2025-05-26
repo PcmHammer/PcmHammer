@@ -117,8 +117,10 @@ namespace PcmHacking
         /// </summary>
         Task<int> IPort.Receive(byte[] buffer, int offset, int count)
         {
-            // Using the BaseStream causes data to be lost.
-            return Task<int>.FromResult(this.port.Read(buffer, offset, count));
+            return PcmHacking.TimeoutUtilities.TaskWithTimeoutAndFallback(
+                this.port.BaseStream.ReadAsync(buffer, offset, count),
+                TimeSpan.FromMilliseconds(this.port.ReadTimeout),
+                () => 0);
         }
 
         /// <summary>

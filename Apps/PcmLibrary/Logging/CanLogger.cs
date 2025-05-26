@@ -67,11 +67,20 @@ namespace PcmHacking
             {
                 SerialPortConfiguration configuration = new SerialPortConfiguration();
                 configuration.BaudRate = 2000000;
-                configuration.DataReceived = this.DataReceived;
+                configuration.Timeout = 50;
+                //configuration.DataReceived = this.DataReceived;
                 await this.canPort.OpenAsync(configuration);
 
                 // Discover what messages are available on the bus.
-                Thread.Sleep(1500);
+                // Loop for 1500 milliseconds
+                int startTime = Environment.TickCount;
+                while (Environment.TickCount < startTime + 1500)
+                {
+                    byte[] buffer = new byte[100];
+                    int bytesReceived = await this.canPort.Receive(buffer, 0, buffer.Length);
+                    this.DataReceived(buffer, bytesReceived);
+                }
+
                 lock (this.messages)
                 {
                     foreach (UInt32 key in this.messages.Keys)

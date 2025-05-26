@@ -53,6 +53,9 @@ namespace PcmHacking
 
             await this.SetDeviceTimeout(TimeoutScenario.ReadProperty);
 
+            Message suppressChatter = this.protocol.CreateDisableNormalMessageTransmission();
+            await this.SendMessage(suppressChatter);
+
             foreach (ParameterGroup group in dpidConfiguration.ParameterGroups)
             {
                 int position = 1;
