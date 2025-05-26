@@ -103,6 +103,8 @@ public partial record DataLoggingEditModel
             return;
         }
 
-        this.editContext.Output = new LogColumn(selectedParameter, selectedConversion, await this.Zoom.Value());
+        var zoom = await this.Zoom.Value();
+
+        this.editContext.Output = new LogColumn(selectedParameter, selectedConversion, zoom);
     }
 }

@@ -77,7 +77,7 @@
                   Grid.Row="4"
                   Grid.Column="2"
                   Content="Zoom"
-                  IsChecked="{Binding Zoom}"
+                  IsChecked="{Binding Zoom, Mode=TwoWay}"
                   Margin="5" />
 
         <Button Grid.Row="6"
