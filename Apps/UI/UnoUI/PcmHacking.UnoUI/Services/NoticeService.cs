@@ -24,7 +24,7 @@ namespace PcmHacking.UnoUI.Services
     public class NoticeService : INoticeService
     {
         private const string Branch = "nsfw/net8-uno-ui";
-        private const string NoticeUrl = $"https://github.com/PcmHammer/PcmHammer/blob/{Branch}/Apps/UI/UnoUI/notice.json";
+        private const string NoticeUrl = $"https://raw.githubusercontent.com/PcmHammer/PcmHammer/refs/heads/{Branch}/Apps/UI/UnoUI/PcmHacking.UnoUI/notice.json";
         private readonly NoticeData emptyNotice = new NoticeData
         {
             HelpButtonText = String.Empty,
