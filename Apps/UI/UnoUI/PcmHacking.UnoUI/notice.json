@@ -1,6 +1,6 @@
 {
-  "HelpButtonText":"Testing",
-  "NoticeText": "This is a test notice.",
-  "LinkText":"Visit the wiki.",
-  "LinkUrl":"https://github.com/PcmHammer/PcmHammer/wiki"
+  "HelpButtonText":"Help",
+  "NoticeText": "",
+  "LinkText":"",
+  "LinkUrl":""
 }
