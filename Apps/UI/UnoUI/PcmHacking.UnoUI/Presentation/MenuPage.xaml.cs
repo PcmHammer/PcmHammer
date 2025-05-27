@@ -5,7 +5,7 @@ public sealed partial class MenuPage : Page
     public MenuPage()
     {
         this.InitializeComponent();
-
+    
         // This would be the usual way to set the DataContext, but there's a race condition.
         // App.GetService depends on App.Host.
         // App.Host is not initalized until the app has booted, including display of the main page.

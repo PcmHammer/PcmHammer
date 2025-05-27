@@ -183,7 +183,7 @@ public class ConnectionService : IConnectionService
                 this.device = null;
             }
 
-            Device newDevice = DeviceFactory.CreateDevice(
+            Device? newDevice = DeviceFactory.CreateDevice(
                 this.logger,
                 settings.DeviceCategory,
                 settings.Obd2SerialPortName,
@@ -198,7 +198,7 @@ public class ConnectionService : IConnectionService
             await newDevice.Initialize();
 
             ToolPresentNotifier notifier = new ToolPresentNotifier(newDevice, this.protocol, this.logger);
-            Vehicle newVehicle = new Vehicle(newDevice, this.protocol, this.logger, notifier);
+            Vehicle? newVehicle = new Vehicle(newDevice, this.protocol, this.logger, notifier);
             await this.ConnectionState.SetAsync(ConnectionStates.Connecting);
 
             if (await this.TryPollOnce(newVehicle))

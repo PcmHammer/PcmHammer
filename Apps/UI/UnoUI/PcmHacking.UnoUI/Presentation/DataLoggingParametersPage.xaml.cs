@@ -63,7 +63,7 @@ public sealed partial class DataLoggingParametersPage : Page
 
         this.model.Rows.ForEach((row, ct) => this.UpdateParameterValues(row.Values));
 
-        this.model.ErrorMessage.ForEach((value, ct) => this.ShowErrorMessage(value));
+        this.model.ErrorMessage.ForEach((value, ct) => this.ShowErrorMessage(value ?? string.Empty));
 
         // Let the Model know that it's safe to continue.
         this.model.InitializationEvent.Set();

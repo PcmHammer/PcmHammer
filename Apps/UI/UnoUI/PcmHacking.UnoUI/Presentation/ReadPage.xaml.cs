@@ -52,7 +52,7 @@ namespace PcmHacking.UnoUI.Presentation
             ColorUtilities.Initialize(darkMode);
             this.ProgressBar.Background = ColorUtilities.Instance.AccentBackgroundBrush;
 
-            this.model.UserLog.ForEach(async (value, cancellationToken) => await this.OnUserLogChanged(value, cancellationToken));
+            this.model.UserLog.ForEach(async (value, cancellationToken) => await this.OnUserLogChanged(value ?? string.Empty, cancellationToken));
         }
 
         private Task OnUserLogChanged(string value, CancellationToken cancellationToken)

@@ -55,13 +55,15 @@
               Command="{Binding GoToTestWrite}" />
 
       <Button Grid.Row="2" Grid.Column="0"
-              Content="Help"
+              Content="{Binding HelpButtonText}"
               Margin="10"
               Padding="10"
               HorizontalAlignment="Stretch"
-              VerticalAlignment="Stretch"              
-              AutomationProperties.AutomationId="LogButton"
-              Command="{Binding GoToHelp}" />
+              VerticalAlignment="Stretch"           
+              Name="HelpButton"
+              AutomationProperties.AutomationId="HelpButton"
+              Command="{Binding GoToHelp}">
+      </Button>
 
       <Button Grid.Row="2" Grid.Column="1"
               Content="Data Logging"
