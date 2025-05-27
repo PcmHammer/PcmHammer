@@ -39,17 +39,22 @@ namespace PcmHacking.UnoUI.Services
         {
         }
 
+        /// <summary>
+        /// Fetch a JSON file that will be used to display a notice in the app.
+        /// </summary>
+        /// <remarks>
+        /// This feature was added to help notify users of important changes or updates to the app.
+        /// It gives us a way to customize the following:
+        /// * The text on the Help button on the front page of the app.
+        /// * A message that will be displayed on the help page.
+        /// * The text and URL of a link that will be displayed on the help page.
+        /// </remarks>
         public async Task GetNotice()
         {
             try
             {
                 using var client = new HttpClient();
                 string json = await client.GetStringAsync(NoticeUrl);
-
-                // set json to mock data for testing purposes
-                // string json = "{\"HelpButtonText\":\"Help\",\"NoticeText\":\"This is a test notice.\",\"LinkText\":\"Visit the wiki.\",\"LinkUrl\":\"https://pcmhacking.net/wiki/\"}";
-
-                // Convert the JSON string to a NoticeData object
                 var data = System.Text.Json.JsonSerializer.Deserialize<NoticeData>(json, new System.Text.Json.JsonSerializerOptions
                 {
                     PropertyNameCaseInsensitive = true
