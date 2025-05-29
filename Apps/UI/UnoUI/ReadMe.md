@@ -24,7 +24,7 @@ first, get it working, and second, make it a viable alternative to the existing 
 * done - better handling of log profiles that contain unsupported parameters
 * done - Implement the help page
 * done - Implement "message of the day" (so we can alert people to new versions)
-* Implement the splash screen. Uno supports this, but there's a bug in VS that breaks the UI for editing the path to the image file.
+* splash screen - why is it just a tiny thumbnail?
 * Update the CI builds in GitHub - building now requires the Uno SDK.
 
 All of the above are easier said than done. This will take some time.
