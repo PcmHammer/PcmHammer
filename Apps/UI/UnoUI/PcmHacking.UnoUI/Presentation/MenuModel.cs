@@ -7,18 +7,20 @@ namespace PcmHacking.UnoUI.Presentation;
 public partial record MenuModel
 {
     private readonly INavigator navigator;
+    private readonly INoticeService noticeService;
+
+    public IState<string> HelpButtonText => State<string>.Value(this, () => String.Empty);
 
     public MenuModel(
         IStringLocalizer localizer,
-        INavigator navigator)
+        INavigator navigator,
+        INoticeService noticeService)
     {
-        this.Title = localizer["ApplicationName"];
-        this.navigator = navigator;
+        this.navigator = navigator ?? throw new ArgumentNullException(nameof(navigator));
+        this.noticeService = noticeService ?? throw new ArgumentNullException(nameof(noticeService));
+        this.noticeService.NoticeData.ForEach(async (notice, ct) => await this.HelpButtonText.SetAsync(notice.HelpButtonText ?? String.Empty));
+        var _ = this.noticeService.GetNotice();
     }
-
-    public string? Title { get; }
-
-    public IState<string> Name => State<string>.Value(this, () => string.Empty);
 
     public async Task GoToDataLogging()
     {

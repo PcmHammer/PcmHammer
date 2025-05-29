@@ -53,8 +53,9 @@ namespace PcmHacking
 
             await this.SetDeviceTimeout(TimeoutScenario.ReadProperty);
 
-            Message suppressChatter = this.protocol.CreateDisableNormalMessageTransmission();
-            await this.SendMessage(suppressChatter);
+            // This seemed like a good idea, but it causes "service vehicle soon" on the dash.
+            // Message suppressChatter = this.protocol.CreateDisableNormalMessageTransmission();
+            // await this.SendMessage(suppressChatter);
 
             foreach (ParameterGroup group in dpidConfiguration.ParameterGroups)
             {

@@ -129,7 +129,7 @@ public partial class App : Application
                     services.AddSingleton<Services.IConnectionService, Services.ConnectionService>();
                     services.AddSingleton<MenuViewModel>();
                     services.AddSingleton<XamlRootService>();
-                    
+                    services.AddSingleton<Services.INoticeService, Services.NoticeService>();
                 })
 
                 .UseLogging(configure: (context, logBuilder) =>
