@@ -94,16 +94,21 @@ public partial record DataLoggingEditModel
         var selectedParameter = await this.ParameterList.GetSelectedItem();
         if (selectedParameter == null)
         {
-            return;
+            selectedParameter = this.editContext?.Input?.Parameter;
         }
 
         var selectedConversion = await this.ConversionList.GetSelectedItem();
         if (selectedConversion == null)
         {
-            return;
+            selectedConversion = this.editContext?.Input?.Conversion;
         }
 
         var zoom = await this.Zoom.Value();
+
+        if (this.editContext == null)
+        {
+            return;
+        }
 
         this.editContext.Output = new LogColumn(selectedParameter, selectedConversion, zoom);
     }

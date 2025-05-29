@@ -167,21 +167,6 @@ public sealed partial class DataLoggingParametersPage : Page
                         null,
                         canParameter.Units));
             }
-            /*
-            var blueDot = new Ellipse();
-            blueDot.Width = 50;
-            blueDot.Height = 50;
-            blueDot.Fill = new SolidColorBrush(Colors.Blue);
-
-            var newParameterButton = new Button();
-            newParameterButton.SetValue(Grid.RowProperty, 0);
-            newParameterButton.SetValue(Grid.ColumnProperty, 0);
-            newParameterButton.SetValue(Grid.RowSpanProperty, 2);
-            newParameterButton.SetValue(Grid.ColumnSpanProperty, 1);
-            newParameterButton.Content = blueDot;
-
-            this.Parameters.Children.Add(newParameterButton);
-            */
         });
 
         return ValueTask.CompletedTask;
@@ -333,6 +318,11 @@ public sealed partial class DataLoggingParametersPage : Page
         }
 
         if (border == null)
+        {
+            return;
+        }
+
+        if (this.model == null)
         {
             return;
         }
