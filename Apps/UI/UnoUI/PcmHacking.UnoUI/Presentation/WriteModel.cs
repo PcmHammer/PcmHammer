@@ -218,9 +218,17 @@ public partial record WriteModel : IAsyncLogger
     [Command]
     public async Task ChooseFile()
     {
-        string path = await this.PromptForFileOpenPath() ?? String.Empty;
-        this.settingsService.SetLastWrittenFile(path);
-        await this.Path.SetAsync(path);
+        try
+        {
+            await this.StartEnabled.SetAsync(false);
+            string path = await this.PromptForFileOpenPath() ?? String.Empty;
+            this.settingsService.SetLastWrittenFile(path);
+            await this.Path.SetAsync(path);
+        }
+        finally
+        { 
+            await this.StartEnabled.SetAsync(true);
+        }
     }
 
     [Command]

@@ -135,7 +135,16 @@ public partial record ReadModel : IAsyncLogger
     [Command]
     public async Task ChooseFile()
     {
-        await this.Path.SetAsync(await this.PromptForFileSavePath());
+        try
+        {
+            await this.StartEnabled.SetAsync(false);
+            string path = await this.PromptForFileSavePath();
+            await this.Path.SetAsync(path);
+        }
+        finally
+        {
+            await this.StartEnabled.SetAsync(true);
+        }
     }
 
     private async Task Invoke(Action action)
