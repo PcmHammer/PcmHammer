@@ -183,6 +183,9 @@ public class ConnectionService : IConnectionService
                 this.device = null;
             }
 
+            // Allow time for port to reset.
+            await Task.Delay(100);
+
             Device? newDevice = DeviceFactory.CreateDevice(
                 this.logger,
                 settings.DeviceCategory,
@@ -498,6 +501,8 @@ public class ConnectionService : IConnectionService
                 bool success = await this.TryPollOnce(acquiredVehicle);
                 if (!success)
                 {
+                    this.internalState = ConnectionStates.NotConnected;
+
                     // This only affects the debug message written at the end of this method.
                     disconnected = true;
 
