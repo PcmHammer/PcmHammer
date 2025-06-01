@@ -24,6 +24,7 @@ first, get it working, and second, make it a viable alternative to the existing 
 * done - better handling of log profiles that contain unsupported parameters
 * done - Implement the help page
 * done - Implement "message of the day" (so we can alert people to new versions)
+* read/write pages - disable start button when user clicks select-file button,re-enable after file chose and committed
 * splash screen - why is it just a tiny thumbnail?
 * Update the CI builds in GitHub - building now requires the Uno SDK.
 
