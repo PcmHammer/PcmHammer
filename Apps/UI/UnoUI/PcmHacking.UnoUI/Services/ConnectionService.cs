@@ -455,6 +455,7 @@ public class ConnectionService : IConnectionService
             // This log line made more sense before logging was disabled in this scenario...
             this.logger.AddDebugMessage($"ConnectionService timer callback. Internal state: {this.internalState}.");
 
+            // Re-create the connection if the settings have changed.
             if (this.newSettings != null && this.newSettings != this.lastSettings)
             {
                 // This will call TryPollOnce, and will return true if that succeeds.
@@ -466,6 +467,21 @@ public class ConnectionService : IConnectionService
                 else
                 {
                     this.logger.AddUserMessage("Unable to connect with new settings.");
+                }
+
+                return;
+            }
+
+            // Re-create the connection if the connection was lost.
+            if (this.internalState == ConnectionStates.NotConnected && this.lastSettings != null)
+            {
+                if (await this.TryConnect(this.lastSettings))
+                {
+                    this.logger.AddUserMessage("Re-onnected with current settings.");
+                }
+                else
+                {
+                    this.logger.AddUserMessage("Unable to reconnect with current settings.");
                 }
 
                 return;
