@@ -157,16 +157,9 @@ namespace PcmHacking
 
             Logger logger = this.Vehicle.CreateLogger(this.osid, canLogger, this.currentProfile.Columns, this);
 
-            try
+            if (!await logger.StartLogging())
             {
-                if (!await logger.StartLogging())
-                {
-                    throw new LogStartFailedException();
-                }
-            }
-            catch(Exception exception)
-            {
-                throw new LogStartFailedException(exception.Message);
+                throw new LogStartFailedException();
             }
 
             return logger;
