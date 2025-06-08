@@ -1,14 +1,11 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using System.Runtime.CompilerServices;
-using System.Data;
-using System.Data.Common;
 
 namespace PcmHacking
 {
@@ -157,9 +154,16 @@ namespace PcmHacking
 
             Logger logger = this.Vehicle.CreateLogger(this.osid, canLogger, this.currentProfile.Columns, this);
 
-            if (!await logger.StartLogging())
+            try
             {
-                throw new LogStartFailedException();
+                if (!await logger.StartLogging())
+                {
+                    throw new LogStartFailedException();
+                }
+            }
+            catch (Exception exception)
+            {
+                throw new LogStartFailedException(exception.Message);
             }
 
             return logger;
@@ -317,6 +321,15 @@ namespace PcmHacking
                                                     this.AddUserMessage(exception.Message);
                                                     this.startStopSaving.Enabled = false;
                                                     this.logValues.Text = exception.Message;
+                                                });
+                                        }
+                                        else
+                                        {
+                                            this.loggerProgress.Invoke(
+                                                (MethodInvoker)
+                                                delegate ()
+                                                {
+                                                    this.startStopSaving.Enabled = true;
                                                 });
                                         }
                                     }
