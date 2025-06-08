@@ -265,17 +265,25 @@ namespace PcmHacking
         /// </summary>
         public async Task<bool> StartLogging()
         {
-            this.dpids = await this.vehicle.ConfigureDpids(this.dpidConfiguration, this.osid);
-
-            if (this.dpids == null)
+            try
             {
-                return false;
+                this.dpids = await this.vehicle.ConfigureDpids(this.dpidConfiguration, this.osid);
+
+                if (this.dpids == null)
+                {
+                    return false;
+                }
+
+                // This part differs for the fast and slow loggers.
+                await this.StartLoggingInternal();
+                return true;
             }
-
-            // This part differs for the fast and slow loggers.
-            await this.StartLoggingInternal();
-
-            return true;
+            catch (Exception exception)
+            {
+                this.uiLogger.AddUserMessage("Unable to start logging: " + exception.Message);
+                this.uiLogger.AddDebugMessage(exception.ToString());
+                return false;
+            }            
         }
 
         protected abstract Task<bool> StartLoggingInternal();
