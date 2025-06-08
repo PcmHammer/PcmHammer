@@ -53,6 +53,9 @@ namespace PcmHacking
 
             await this.SetDeviceTimeout(TimeoutScenario.ReadProperty);
 
+            // If we were logging, the queue might be full of incoming data.
+            this.ClearDeviceMessageQueue();
+
             // This seemed like a good idea, but it causes "service vehicle soon" on the dash.
             // Message suppressChatter = this.protocol.CreateDisableNormalMessageTransmission();
             // await this.SendMessage(suppressChatter);

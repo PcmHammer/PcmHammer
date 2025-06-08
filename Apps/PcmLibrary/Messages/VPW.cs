@@ -170,6 +170,7 @@ namespace PcmHacking
         public const byte UploadOK = 0x00;
 
         // Logging
+        public const byte HaltStream = 0x00;
         public const byte SingleRow = 0x01;
         public const byte Stream1 = 0x14;
         public const byte Stream2= 0x24;

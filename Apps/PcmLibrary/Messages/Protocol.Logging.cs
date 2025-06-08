@@ -55,24 +55,25 @@ namespace PcmHacking
         /// </summary>
         public Message ConfigureDynamicData(byte dpid, DefineBy defineBy, int offset, int size, UInt32 id)
         {
+            // bits: ddooosss
             int combined = (((int)defineBy) << 6) | (offset << 3) | size;
             byte byte1, byte2, byte3;
 
             switch (defineBy)
             {
-                case DefineBy.Offset:
+                case DefineBy.Offset: // 0
                     byte1 = (byte)id;
                     byte2 = 0xFF;
                     byte3 = 0xFF;
                     break;
 
-                case DefineBy.Pid:
+                case DefineBy.Pid: // 1
                     byte1 = (byte)(id >> 8);
                     byte2 = (byte)id;
                     byte3 = 0xFF;
                     break;
 
-                case DefineBy.Address:
+                case DefineBy.Address: // 2
                     byte1 = (byte)(id >> 16);
                     byte2 = (byte)(id >> 8);
                     byte3 = (byte)id;
