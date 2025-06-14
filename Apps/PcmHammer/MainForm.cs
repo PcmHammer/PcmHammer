@@ -1484,7 +1484,7 @@ namespace PcmHacking
                             if (recoveryMode)
                             {
                                 this.AddUserMessage("PCM is in recovery mode.");
-                                needUnlock = true;
+                                needUnlock = false;
                             }
                             else
                             {
