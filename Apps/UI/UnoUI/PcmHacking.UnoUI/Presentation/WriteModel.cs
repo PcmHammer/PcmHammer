@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using PcmHacking.UnoUI.Services;
 using PcmHacking.UnoUI.Utilities;
 using System;
+using System.Globalization;
 using System.Text;
 using Uno.Extensions;
 using Uno.Extensions.Reactive.Commands;
@@ -43,6 +44,12 @@ public partial record WriteModel : IAsyncLogger
     public IState<bool> PreferCalibrationWrite => State<bool>.Value(this, () => false)
         .ForEach((value, ct) => this.PreferCalibrationWriteChanged(value, ct));
 
+    public IState<bool> UseCustomKey => State<bool>.Value(this, () => false).ForEach((value, ct) => UseCustomKeyChanged(value, ct));
+    public IState<bool> UseCustomKeyEnabled => State<bool>.Value(this, () => true);
+    public IState<string> CustomKey => State<string>.Value(this, () => "");
+    public IState<bool> CustomKeyEnabled => State<bool>.Value(this, () => true);
+
+
     public WriteModel(
         INavigator navigator,
         IConnectionService connectionService,
@@ -61,7 +68,9 @@ public partial record WriteModel : IAsyncLogger
         // Fire-and-forget initialization
         var _1 = this.Path.SetAsync(this.settingsService.GetLastWrittenFile());
         var _2 = this.PreferCalibrationWrite.SetAsync(this.settingsService.IsCalibrationWritePreferred());
-        var _3 = this.EnableControls(false);
+        var _3 = this.UseCustomKey.SetAsync(this.settingsService.GetUseCustomKey());
+        var _4 = this.CustomKey.SetAsync(this.settingsService.GetCustomKey());
+        var _5 = this.EnableControls(false);        
     }
 
     private string GetStartButtonText()
@@ -122,10 +131,25 @@ public partial record WriteModel : IAsyncLogger
         return ValueTask.CompletedTask;
     }
 
+    private async ValueTask UseCustomKeyChanged(bool value, CancellationToken ct)
+    {
+        await this.CustomKeyEnabled.SetAsync(value, ct);
+        this.settingsService.SetUseCustomKey(value);
+    }
+
+    public async Task CustomKeyChanged(string value)
+    {
+        await this.CustomKey.SetAsync(value);
+        this.settingsService.SetCustomKey(value);
+    }
+
     private async Task EnableControls(bool busy)
     {
         await this.StartEnabled.SetAsync(!busy);
-        await this.CancelEnabled.SetAsync(busy);
+        await this.UseCustomKeyEnabled.SetAsync(!busy);
+        await this.CustomKeyEnabled.SetAsync(!busy);
+
+        await this.CancelEnabled.SetAsync(busy);        
 
         if ((this.writeType == WriteType.TestWrite) || (this.writeType == WriteType.Compare))
         {
@@ -185,6 +209,20 @@ public partial record WriteModel : IAsyncLogger
                 lease.Vehicle.Enable4xReadWrite = this.settingsService.Is4xReadWriteEnabled();
                 WriteType actualWriteType = await this.GetActualWriteType();
 
+                string customKeyString = await this.CustomKey.Value() ?? String.Empty;
+                uint customKey;
+                if (UInt32.TryParse(customKeyString,
+                    System.Globalization.NumberStyles.HexNumber,
+                    CultureInfo.InvariantCulture,
+                    out customKey) && await this.UseCustomKey.Value())
+                {
+                    lease.Vehicle.UserDefinedKey = (int)customKey;
+                }
+                else
+                {
+                    lease.Vehicle.UserDefinedKey = -1;
+                }
+
                 WriteManager writeManager = new(
                     this.loggerAdapter,
                     lease.Vehicle,
@@ -205,7 +243,7 @@ public partial record WriteModel : IAsyncLogger
         {
             await this.AddUserMessage("Write failed: ");
             await this.AddUserMessage(exception.Message);
-            await Task.Delay(1000);
+            await Task.Delay(1000, cancellationToken);
             await this.AddDebugMessage(exception.ToString());
         }
         finally

@@ -65,5 +65,14 @@ namespace PcmHacking.UnoUI.Presentation
             return Task.CompletedTask;
         }
 
+        public async void CustomKey_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            string newKey = this.CustomKey.Text ?? string.Empty;
+            var model = (this.DataContext as ReadViewModel)?.Model;
+            if (model != null)
+            {
+                await model.CustomKeyChanged(newKey);
+            }
+        }
     }
 }

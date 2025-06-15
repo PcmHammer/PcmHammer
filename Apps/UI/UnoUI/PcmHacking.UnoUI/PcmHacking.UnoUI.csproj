@@ -77,8 +77,8 @@
     <Compile Update="Presentation\DataLoggingEditPage.xaml.cs">
       <DependentUpon>DataLoggingEditPage.xaml</DependentUpon>
     </Compile>
-    <Compile Update="Presentation\Header.xaml.cs">
-      <DependentUpon>Header.xaml</DependentUpon>
+    <Compile Update="Presentation\MainPage.xaml.cs">
+      <DependentUpon>MainPage.xaml</DependentUpon>
     </Compile>
     <Compile Update="Presentation\VinChangePage.xaml.cs">
       <DependentUpon>VinChangePage.xaml</DependentUpon>
@@ -205,7 +205,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Page Update="Presentation\Header.xaml">
+    <Page Update="Presentation\MainPage.xaml">
       <Generator>MSBuild:Compile</Generator>
     </Page>
   </ItemGroup>

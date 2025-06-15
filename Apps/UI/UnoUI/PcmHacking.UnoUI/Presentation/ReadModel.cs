@@ -1,11 +1,12 @@
-using System.Runtime.CompilerServices;
+using Microsoft.Extensions.Logging;
 using Microsoft.UI.Dispatching;
 using PcmHacking.UnoUI.Services;
+using PcmHacking.UnoUI.Utilities;
+using System.Globalization;
+using System.Runtime.CompilerServices;
 using Uno.Extensions.Reactive.Commands;
 using Windows.Devices.Bluetooth.Advertisement;
 using Windows.Storage.Pickers;
-using PcmHacking.UnoUI.Utilities;
-using Microsoft.Extensions.Logging;
 
 namespace PcmHacking.UnoUI.Presentation;
 
@@ -33,6 +34,11 @@ public partial record ReadModel : IAsyncLogger
     public IState<string> Kbps => State<string>.Value(this, () => String.Empty);
     public IState<double> Progress => State<double>.Value(this, () => 0.0);
 
+    public IState<bool> UseCustomKey => State<bool>.Value(this, () => false).ForEach((value, ct) => UseCustomKeyChanged(value, ct));
+    public IState<bool> UseCustomKeyEnabled => State<bool>.Value(this, () => true);
+    public IState<string> CustomKey => State<string>.Value(this, () => "");
+    public IState<bool> CustomKeyEnabled => State<bool>.Value(this, () => true);
+
     public ReadModel(
         INavigator navigator,
         IConnectionService connectionService,
@@ -46,16 +52,36 @@ public partial record ReadModel : IAsyncLogger
         this.dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
         this.loggerAdapter = loggerAdapter;
 
-        // The right way would be put to this into the XAML:
-        // Loaded="{Binding Start}"
-        // this.dispatcher.TryEnqueue(() => this.Start(CancellationToken.None));
+        var _1 = this.UseCustomKey.SetAsync(this.settingsService.GetUseCustomKey());
+        var _2 = this.CustomKey.SetAsync(this.settingsService.GetCustomKey());
+        var _3 = this.EnableControls(false);
+    }
+
+    private async ValueTask UseCustomKeyChanged(bool value, CancellationToken ct)
+    {
+        await this.CustomKeyEnabled.SetAsync(value, ct);
+        this.settingsService.SetUseCustomKey(value);
+    }
+
+    public async Task CustomKeyChanged(string value)
+    {
+        await this.CustomKey.SetAsync(value);
+        this.settingsService.SetCustomKey(value);
+    }
+
+    private async Task EnableControls(bool busy)
+    {
+        await this.StartEnabled.SetAsync(!busy);
+        await this.UseCustomKeyEnabled.SetAsync(!busy);
+        await this.CustomKeyEnabled.SetAsync(!busy);
+
+        await this.CancelEnabled.SetAsync(busy);
     }
 
     [Command]
     public async ValueTask Start(CancellationToken cancellationToken)
     {
-        await this.StartEnabled.SetAsync(false);
-        await this.CancelEnabled.SetAsync(true);
+        await this.EnableControls(true);
 
         string? path = await this.Path.Value();
         if (string.IsNullOrWhiteSpace(path) || string.Compare(path, defaultPath, StringComparison.OrdinalIgnoreCase) == 0)
@@ -91,6 +117,21 @@ public partial record ReadModel : IAsyncLogger
                 }
 
                 lease.Vehicle.Enable4xReadWrite = this.settingsService.Is4xReadWriteEnabled();
+
+                string customKeyString = await this.CustomKey.Value() ?? String.Empty;
+                uint customKey;
+                if (UInt32.TryParse(customKeyString,
+                    System.Globalization.NumberStyles.HexNumber,
+                    CultureInfo.InvariantCulture,
+                    out customKey) && await this.UseCustomKey.Value())
+                {
+                    lease.Vehicle.UserDefinedKey = (int)customKey;
+                }
+                else
+                {
+                    lease.Vehicle.UserDefinedKey = -1;
+                }
+
                 ReadManager readManager = new(
                     this.loggerAdapter,
                     lease.Vehicle,
@@ -119,8 +160,7 @@ public partial record ReadModel : IAsyncLogger
         finally
         {
             this.tokenSource = null;
-            await this.StartEnabled.SetAsync(true);
-            await this.CancelEnabled.SetAsync(false);
+            await this.EnableControls(false);
         }
     }
 

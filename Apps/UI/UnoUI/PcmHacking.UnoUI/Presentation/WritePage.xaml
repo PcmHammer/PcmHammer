@@ -32,7 +32,20 @@
             <TextBlock Text="{Binding Path}" Margin="10" HorizontalTextAlignment="Right" VerticalAlignment="Center"/>
         </StackPanel>
 
-        <CheckBox Grid.Row="1" Grid.Column="0" 
+        <StackPanel Grid.Row="1" Grid.Column="0"
+            Orientation="Horizontal">
+            <CheckBox IsChecked="{Binding UseCustomKey, Mode=TwoWay}"
+                      IsEnabled="{Binding UseCustomKeyEnabled}"
+                      Margin="10,0,10,0"
+                      Content="Use Custom Key" />
+            <TextBox Name="CustomKey"
+                     Text="{Binding CustomKey}" 
+                     Width="50"
+                     IsEnabled="{Binding CustomKeyEnabled, Mode=TwoWay}"
+                     TextChanged="{x:Bind CustomKey_TextChanged}"/>
+        </StackPanel>
+
+        <CheckBox Grid.Row="1" Grid.Column="1" 
                   IsEnabled="{Binding PreferCalibrationWriteEnabled}"
                   IsChecked="{Binding PreferCalibrationWrite, Mode=TwoWay}"
                   Margin="10,0,0,0"

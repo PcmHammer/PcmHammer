@@ -201,20 +201,31 @@ public partial class App : Application
     {
         views.Register(
             new ViewMap(ViewModel: typeof(ShellModel)),
-            new ViewMap<Header, HeaderModel>(),
+
+            // Main page and main menu
+            new ViewMap<MainPage, MainModel>(),
             new ViewMap<MenuPage, MenuModel>(),
-            new ViewMap<LogPage, LogModel>(),
-            new ViewMap<DataLoggingPage, DataLoggingModel>(),
-            new ViewMap<ReadPage, ReadModel>(),
-            // new DataViewMap<WritePage, WriteViewModel, WriteTypeEntity>(), // This should work, but I can't make it work.
-            new DataViewMap<DataLoggingEditPage, DataLoggingEditModel, ParameterEditContext>(),
-            new ViewMap<WritePage, WriteModel>(), // Hacky workaround for now.
+
+            // Features on the main menu ("Test Write" is implemented with WritePage)
             new ViewMap<SettingsPage, SettingsModel>(),
-            new ViewMap<HelpPage, HelpModel>(),
+            new ViewMap<WritePage, WriteModel>(),
             new ViewMap<OtherFunctionsPage, OtherFunctionsModel>(),
+            new ViewMap<HelpPage, HelpModel>(),
+            new ViewMap<DataLoggingPage, DataLoggingModel>(),
+
+            // "Other functions" pages
+            new ViewMap<ReadPage, ReadModel>(),
             new ViewMap<VinChangePage, VinChangeModel>(),
             new ViewMap<CrankRelearnPage, CrankRelearnModel>(),
+
+            // View troubleshooting log (accessible from the Help page)
+            new ViewMap<LogPage, LogModel>(),
+            
+            // Data logging pages
+            new DataViewMap<DataLoggingEditPage, DataLoggingEditModel, ParameterEditContext>(),
             new DataViewMap<DataLoggingParametersPage, DataLoggingParametersModel, LoggingContext>(),
+
+            // This implements the delay before a read or write operation
             new ResultDataViewMap<DelayPage, DelayModel, DelayResult>()
         );
 
@@ -222,8 +233,7 @@ public partial class App : Application
             new RouteMap("", View: views.FindByViewModel<ShellModel>(),
                 Nested:
                 [
-                    new ("Main", View: views.FindByViewModel<HeaderModel>(), IsDefault:true),
-//                    new ("Second", View: views.FindByViewModel<DataLoggingModel>()),
+                    new ("Main", View: views.FindByViewModel<MainModel>(), IsDefault:true),
                     new ("Settings", View: views.FindByViewModel<SettingsModel>())
                 ]
             )

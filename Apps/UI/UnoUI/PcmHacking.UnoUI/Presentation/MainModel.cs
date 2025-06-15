@@ -4,13 +4,13 @@ using Uno.Extensions.Reactive.Commands;
 
 namespace PcmHacking.UnoUI.Presentation;
 
-public partial record HeaderModel
+public partial record MainModel
 {
     private INavigator navigator;
     private ISettingsService settingsService;
     private IConnectionService connectionService;
 
-    public HeaderModel(
+    public MainModel(
         IStringLocalizer localizer,
         INavigator navigator,
         ISettingsService settingsService,

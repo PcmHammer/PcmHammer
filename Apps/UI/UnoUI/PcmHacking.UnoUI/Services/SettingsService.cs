@@ -40,6 +40,11 @@ public interface ISettingsService
 
     string GetLastWrittenFile();
     void SetLastWrittenFile(string path);
+
+    string GetCustomKey();
+    void SetCustomKey(string value);
+    bool GetUseCustomKey();
+    void SetUseCustomKey(bool value);
 }
 
 public class SettingsService : ISettingsService
@@ -56,6 +61,8 @@ public class SettingsService : ISettingsService
     private const string Is4xReadWriteEnabledKey = "Is4xReadWriteEnabled";
     private const string PreferCalibrationWriteKey = "PreferCalibrationWrite";
     private const string LastWrittenFileKey = "LastWrittenFile";
+    private const string CustomKeyKey = "CustomKey";
+    private const string UseCustomKeyKey = "UseCustomKey";
 
     public SettingsService()
     {
@@ -256,5 +263,25 @@ public class SettingsService : ISettingsService
     public void SetLastWrittenFile(string path)
     {
         LocalSettings.Values[LastWrittenFileKey] = path;
+    }
+
+    public string GetCustomKey()
+    {
+        return LocalSettings.Values[CustomKeyKey] as string ?? string.Empty;
+    }
+
+    public void SetCustomKey(string value)
+    {
+        LocalSettings.Values[CustomKeyKey] = value;
+    }
+
+    public bool GetUseCustomKey()
+    {
+        return (bool)(LocalSettings.Values[UseCustomKeyKey] ?? false);
+    }
+
+    public void SetUseCustomKey(bool value)
+    {
+        LocalSettings.Values[UseCustomKeyKey] = value;
     }
 }
