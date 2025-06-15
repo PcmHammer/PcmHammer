@@ -15,6 +15,7 @@ namespace PcmHacking
         P05,
         P08,
         P10,
+        P11,
         P12,
         E54, //E54 (01-04 LB7 Duramax) 
         E60, //E60 (04-05 LLY Duramax)
@@ -531,9 +532,15 @@ namespace PcmHacking
                     this.KeyAlgorithm = 14;
                     break;
 
+                case 1273051:
+                case 1273052:
+                case 1273053:
+                case 1273054:
+                case 1273055:
+                case 1273056:
                 case 1273057:
                     PCMInfo(PcmType.P01_P59);
-                    this.Description = "VCM Suite COS 1M";
+                    this.Description = "VCM Suite P59 COS 1M";
                     this.KeyAlgorithm = 40;
                     this.ImageSize = 1024 * 1024;
                     break;
