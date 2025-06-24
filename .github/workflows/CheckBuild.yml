@@ -85,9 +85,6 @@ jobs:
     - name: Setup NuGet
       uses: NuGet/setup-nuget@v2.0.0
 
-    - name: Restore NuGet Packages
-      run: nuget restore Apps/PcmApps.sln
-
     - name: Download Kernels artifact
       uses: actions/download-artifact@v4.1.8
       with:
@@ -103,6 +100,9 @@ jobs:
       run: |
         dotnet tool install --global Uno.Check --version 1.29.4
         uno-check -v --ci --non-interactive --fix --skip vswin --skip androidemulator --skip androidsdk
+
+    - name: Restore NuGet Packages
+      run: nuget restore Apps/PcmApps.sln
 
     - name: Build Applications
       run: msbuild Apps/PcmApps.sln
