@@ -99,6 +99,11 @@ jobs:
       with:
         name: Kernels_${{github.sha}}
 
+    - name: Install Uno-Check
+      run: |
+        dotnet tool install --global Uno.Check --version 1.29.4
+        uno-check -v --ci --non-interactive --fix --skip vswin --skip androidemulator --skip androidsdk
+
     - name: Build Applications
       run: msbuild Apps/PcmApps.sln
 
