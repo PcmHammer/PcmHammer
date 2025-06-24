@@ -171,7 +171,7 @@
   </ItemGroup>
 
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
-    <Exec Command="copy $(ProjectDir)\..\..\WindowsForms\PcmLogger\*.xml $(OutDir)&#xD;&#xA;copy $(ProjectDir)\..\..\..\..\Kernels\*.bin $(OutDir)" />
+    <Exec Command="copy $(ProjectDir)\..\..\WindowsForms\PcmLogger\*.xml $(OutDir)&#xD;&#xA;" />
   </Target>
 
   <ItemGroup>

@@ -24,8 +24,8 @@ first, get it working, and second, make it a viable alternative to the existing 
 * done - better handling of log profiles that contain unsupported parameters
 * done - Implement the help page
 * done - Implement "message of the day" (so we can alert people to new versions)
-* read/write pages - disable start button when user clicks select-file button,re-enable after file chose and committed
-* add support for user-defined unlock keys for reading and writing
+* done - read/write pages - disable start button when user clicks select-file button,re-enable after file chose and committed
+* done - add support for user-defined unlock keys for reading and writing
 * splash screen - why is it just a tiny thumbnail?
 * Update the CI builds in GitHub - building now requires the Uno SDK.
 
@@ -41,6 +41,7 @@ All of the above are easier said than done. This will take some time.
 * DTC reader
 * XDF file downloader
 * More options for saving data logs
+  * The data logger should be able to log twice as many parameters
   * control via cruise enable/disable
   * tap cruise button to save the last few seconds of log
   * auto-save last few seconds based on PCM data (knock retard) or CAN message
