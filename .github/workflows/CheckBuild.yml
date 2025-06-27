@@ -64,11 +64,23 @@ jobs:
           fi
         done
 
-    - name: Upload artifacts
+    - name: Upload artifacts - default
       uses: actions/upload-artifact@v4
       with:
         name: Kernels_${{github.sha}}
         path: TemporaryArtifactStorage
+
+    - name: Upload artifacts - skia
+      uses: actions/upload-artifact@v4
+      with:
+        name: Kernels_${{github.sha}}
+        path: TemporaryArtifactStorage/Skia
+
+    - name: Upload artifacts - windows unpackaged
+      uses: actions/upload-artifact@v4
+      with:
+        name: Kernels_${{github.sha}}
+        path: TemporaryArtifactStorage/WindowsUnpackaged
 
   PCMHammer:
     needs: Kernels
@@ -107,13 +119,13 @@ jobs:
     - name: Build Applications
       run: msbuild Apps/PcmApps.sln
 
-    - name: Add PCM Hammer to temporary artifact storage
+    - name: Add WinForms PCM Hammer to temporary artifact storage
       run: |
         Copy-Item -Path "Apps/UI/WindowsForms/PcmHammer/bin/Debug/PcmHammer.*" -Destination TemporaryArtifactStorage
         Copy-Item -Path "Apps/UI/WindowsForms/PcmHammer/bin/Debug/*.dll" -Destination TemporaryArtifactStorage
         Copy-Item -Path "Apps/UI/WindowsForms/PcmHammer/bin/Debug/*.pdb" -Destination TemporaryArtifactStorage
 
-    - name: Add PCM Logger to temporary artifact storage
+    - name: Add WinForms PCM Logger to temporary artifact storage
       run: |
         Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/bin/Debug/PcmLogger.*" -Destination TemporaryArtifactStorage
         Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/bin/Debug/*.dll" -Destination TemporaryArtifactStorage
@@ -121,14 +133,36 @@ jobs:
         Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/*.LogProfile" -Destination TemporaryArtifactStorage
         Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/Parameters.*.xml" -Destination TemporaryArtifactStorage
 
-    - name: Add VPW Explorer to temporary artifact storage
+    - name: Add WinForms VPW Explorer to temporary artifact storage
       run: |
         Copy-Item -Path "Apps/UI/WindowsForms/VpwExplorer/bin/Debug/VpwExplorer.*" -Destination TemporaryArtifactStorage
         Copy-Item -Path "Apps/UI/WindowsForms/VpwExplorer/bin/Debug/*.dll" -Destination TemporaryArtifactStorage
         Copy-Item -Path "Apps/UI/WindowsForms/VpwExplorer/bin/Debug/*.pdb" -Destination TemporaryArtifactStorage
 
-    - name: Is it all there ??
+    - name: Add Uno Skia binaries to temporary artifact storage - until proper Windows builds work
+      run: |
+        Copy-Item -Path "Apps/UI/UnoUI/PcmHacking.UnoUI/bin/Debug/net8.0-desktop/*.exe" -Destination TemporaryArtifactStorage/Skia
+        Copy-Item -Path "Apps/UI/UnoUI/PcmHacking.UnoUI/bin/Debug/net8.0-desktop/*.dll" -Destination TemporaryArtifactStorage/Skia
+        Copy-Item -Path "Apps/UI/UnoUI/PcmHacking.UnoUI/bin/Debug/net8.0-desktop/*.pdb" -Destination TemporaryArtifactStorage/Skia
+        Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/*.LogProfile"     -Destination TemporaryArtifactStorage/WindowsUnpackaged/Skia
+        Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/Parameters.*.xml" -Destination TemporaryArtifactStorage/WindowsUnpackaged/Skia
+
+    - name: Add Uno Windows binaries to temporary artifact storage - windows unpackaged
+      run: |
+        Copy-Item -Path "Apps/UI/UnoUI/PcmHacking.UnoUI/bin/Debug/net8.0-windows10.0.26100/*.exe" -Destination TemporaryArtifactStorage/WindowsUnpackaged
+        Copy-Item -Path "Apps/UI/UnoUI/PcmHacking.UnoUI/bin/Debug/net8.0-windows10.0.26100/*.dll" -Destination TemporaryArtifactStorage/WindowsUnpackaged
+        Copy-Item -Path "Apps/UI/UnoUI/PcmHacking.UnoUI/bin/Debug/net8.0-windows10.0.26100/*.pdb" -Destination TemporaryArtifactStorage/WindowsUnpackaged
+        Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/*.LogProfile"     -Destination TemporaryArtifactStorage/WindowsUnpackaged
+        Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/Parameters.*.xml" -Destination TemporaryArtifactStorage/WindowsUnpackaged
+
+    - name: Is it all there - default
       run: ls -l TemporaryArtifactStorage/
+
+    - name: Is it all there - skia
+      run: ls -l TemporaryArtifactStorage/Skia
+
+    - name: Is it all there - windows unpackaged
+      run: ls -l TemporaryArtifactStorage/WindowsUnpackaged
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4.4.0
