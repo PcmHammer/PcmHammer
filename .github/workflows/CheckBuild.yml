@@ -25,7 +25,10 @@ jobs:
       run: sudo apt-get install -y gcc-m68k-linux-gnu make
 
     - name: Create temporary artifact storage
-      run: mkdir TemporaryArtifactStorage
+      run: |
+        mkdir TemporaryArtifactStorage
+        mkdir TemporaryArtifactStorage/Skia
+        mkdir TemporaryArtifactStorage/WindowsUnpackaged
 
     - name: Build Assembly Kernels and Loaders
       run: |
@@ -109,9 +112,10 @@ jobs:
         name: Kernels_${{github.sha}}
 
     - name: Install Uno-Check
-      run: |
-        dotnet tool install --global Uno.Check --version 1.29.4
-        uno-check -v --ci --non-interactive --fix --skip vswin --skip androidemulator --skip androidsdk
+      run: dotnet tool install --global Uno.Check --version 1.29.4
+
+    - name: Run Uno-Check
+      run: uno-check -v --ci --non-interactive --fix --skip vswin --skip androidemulator --skip androidsdk
 
     - name: Restore NuGet Packages
       run: nuget restore Apps/PcmApps.sln
@@ -139,15 +143,15 @@ jobs:
         Copy-Item -Path "Apps/UI/WindowsForms/VpwExplorer/bin/Debug/*.dll" -Destination TemporaryArtifactStorage
         Copy-Item -Path "Apps/UI/WindowsForms/VpwExplorer/bin/Debug/*.pdb" -Destination TemporaryArtifactStorage
 
-    - name: Add Uno Skia binaries to temporary artifact storage - until proper Windows builds work
+    - name: Add Uno Skia binaries to temporary artifact storage (until proper Windows builds work)
       run: |
         Copy-Item -Path "Apps/UI/UnoUI/PcmHacking.UnoUI/bin/Debug/net8.0-desktop/*.exe" -Destination TemporaryArtifactStorage/Skia
         Copy-Item -Path "Apps/UI/UnoUI/PcmHacking.UnoUI/bin/Debug/net8.0-desktop/*.dll" -Destination TemporaryArtifactStorage/Skia
         Copy-Item -Path "Apps/UI/UnoUI/PcmHacking.UnoUI/bin/Debug/net8.0-desktop/*.pdb" -Destination TemporaryArtifactStorage/Skia
-        Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/*.LogProfile"     -Destination TemporaryArtifactStorage/WindowsUnpackaged/Skia
-        Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/Parameters.*.xml" -Destination TemporaryArtifactStorage/WindowsUnpackaged/Skia
+        Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/*.LogProfile"     -Destination TemporaryArtifactStorage/Skia
+        Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/Parameters.*.xml" -Destination TemporaryArtifactStorage/Skia
 
-    - name: Add Uno Windows binaries to temporary artifact storage - windows unpackaged
+    - name: Add Uno Windows binaries to temporary artifact storage
       run: |
         Copy-Item -Path "Apps/UI/UnoUI/PcmHacking.UnoUI/bin/Debug/net8.0-windows10.0.26100/*.exe" -Destination TemporaryArtifactStorage/WindowsUnpackaged
         Copy-Item -Path "Apps/UI/UnoUI/PcmHacking.UnoUI/bin/Debug/net8.0-windows10.0.26100/*.dll" -Destination TemporaryArtifactStorage/WindowsUnpackaged
