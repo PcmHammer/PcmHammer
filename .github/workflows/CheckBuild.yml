@@ -99,7 +99,7 @@ jobs:
         name: Kernels_${{github.sha}}
         path: TemporaryArtifactStorage
 
-    - name: Remove Stale Kernels artifact
+    - name: Remove stale kernel artifact
       uses: geekyeggo/delete-artifact@v5.1.0
       with:
         name: Kernels_${{github.sha}}
@@ -107,13 +107,13 @@ jobs:
     - name: Install Uno-Check
       run: dotnet tool install --global Uno.Check --version 1.29.4
 
-    - name: Run Uno-Check
+    - name: Run Uno-Check to install dependencies
       run: uno-check -v --ci --non-interactive --fix --skip vswin --skip androidemulator --skip androidsdk
 
-    - name: Restore NuGet Packages
+    - name: Restore NuGet packages
       run: nuget restore Apps/PcmApps.sln
 
-    - name: Build Applications
+    - name: Build applications
       run: msbuild Apps/PcmApps.sln
 
     - name: Add WinForms PCM Hammer to temporary artifact storage
@@ -152,13 +152,13 @@ jobs:
         Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/*.LogProfile"     -Destination TemporaryArtifactStorage/WindowsUnpackaged
         Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/Parameters.*.xml" -Destination TemporaryArtifactStorage/WindowsUnpackaged
 
-    - name: Is it all there - default
+    - name: Is it all there - Default
       run: ls -l TemporaryArtifactStorage/
 
-    - name: Is it all there - skia
+    - name: Is it all there - Skia
       run: ls -l TemporaryArtifactStorage/Skia
 
-    - name: Is it all there - windows unpackaged
+    - name: Is it all there - Windows
       run: ls -l TemporaryArtifactStorage/WindowsUnpackaged
 
     - name: Upload artifacts
