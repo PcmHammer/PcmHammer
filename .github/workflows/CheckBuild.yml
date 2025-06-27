@@ -109,23 +109,23 @@ jobs:
 
     - name: Add PCM Hammer to temporary artifact storage
       run: |
-        Copy-Item -Path "Apps/PcmHammer/bin/Debug/PcmHammer.*" -Destination TemporaryArtifactStorage
-        Copy-Item -Path "Apps/PcmHammer/bin/Debug/*.dll" -Destination TemporaryArtifactStorage
-        Copy-Item -Path "Apps/PcmHammer/bin/Debug/*.pdb" -Destination TemporaryArtifactStorage
+        Copy-Item -Path "Apps/UI/WindowsForms/PcmHammer/bin/Debug/PcmHammer.*" -Destination TemporaryArtifactStorage
+        Copy-Item -Path "Apps/UI/WindowsForms/PcmHammer/bin/Debug/*.dll" -Destination TemporaryArtifactStorage
+        Copy-Item -Path "Apps/UI/WindowsForms/PcmHammer/bin/Debug/*.pdb" -Destination TemporaryArtifactStorage
 
     - name: Add PCM Logger to temporary artifact storage
       run: |
-        Copy-Item -Path "Apps/PcmLogger/bin/Debug/PcmLogger.*" -Destination TemporaryArtifactStorage
-        Copy-Item -Path "Apps/PcmLogger/bin/Debug/*.dll" -Destination TemporaryArtifactStorage
-        Copy-Item -Path "Apps/PcmLogger/bin/Debug/*.pdb" -Destination TemporaryArtifactStorage
-        Copy-Item -Path "Apps/PcmLogger/*.LogProfile" -Destination TemporaryArtifactStorage
-        Copy-Item -Path "Apps/PcmLogger/Parameters.*.xml" -Destination TemporaryArtifactStorage
+        Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/bin/Debug/PcmLogger.*" -Destination TemporaryArtifactStorage
+        Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/bin/Debug/*.dll" -Destination TemporaryArtifactStorage
+        Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/bin/Debug/*.pdb" -Destination TemporaryArtifactStorage
+        Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/*.LogProfile" -Destination TemporaryArtifactStorage
+        Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/Parameters.*.xml" -Destination TemporaryArtifactStorage
 
     - name: Add VPW Explorer to temporary artifact storage
       run: |
-        Copy-Item -Path "Apps/VpwExplorer/bin/Debug/VpwExplorer.*" -Destination TemporaryArtifactStorage
-        Copy-Item -Path "Apps/VpwExplorer/bin/Debug/*.dll" -Destination TemporaryArtifactStorage
-        Copy-Item -Path "Apps/VpwExplorer/bin/Debug/*.pdb" -Destination TemporaryArtifactStorage
+        Copy-Item -Path "Apps/UI/WindowsForms/VpwExplorer/bin/Debug/VpwExplorer.*" -Destination TemporaryArtifactStorage
+        Copy-Item -Path "Apps/UI/WindowsForms/VpwExplorer/bin/Debug/*.dll" -Destination TemporaryArtifactStorage
+        Copy-Item -Path "Apps/UI/WindowsForms/VpwExplorer/bin/Debug/*.pdb" -Destination TemporaryArtifactStorage
 
     - name: Is it all there ??
       run: ls -l TemporaryArtifactStorage/
