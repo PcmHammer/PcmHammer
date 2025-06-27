@@ -11,6 +11,8 @@
     <Grid Name="OuterGrid">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
@@ -23,9 +25,39 @@
                    Grid.Row="0"
                    Grid.Column="0"
                    />
+
+        <Grid Name="AutosaveOptions"
+              Grid.Row="1"
+              Grid.Column="0"
+              Visibility="Visible">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <TextBlock Grid.Column="0"
+                       VerticalAlignment="Center"
+                       Margin="10,0,0,0"
+                       Text="Auto-save Options:" />
+
+            <CheckBox Grid.Column="1"
+                      Content="Throttle above 80%" />
+
+            <CheckBox Grid.Column="2"
+                      Content="Cruise Enabled" />
+
+            <CheckBox Grid.Column="3"
+                      Content="Cruise Set Button" />
+        </Grid>
+              
         
         <Grid Name="Controls"
-              Grid.Row="0">
+              Grid.Row="2">
             <Grid.RowDefinitions>
                 <RowDefinition Height="*" />
                 <RowDefinition Height="*" />
@@ -76,7 +108,7 @@
         </Grid>
 
         <Grid 
-            Grid.Row="1"
+            Grid.Row="3"
             Name="ParameterGrid"
             IsDoubleTapEnabled="true"
             DoubleTapped="ParameterGrid_DoubleTapped">

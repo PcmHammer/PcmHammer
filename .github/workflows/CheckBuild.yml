@@ -67,23 +67,16 @@ jobs:
           fi
         done
 
-    - name: Upload artifacts - default
+    - name: Copy kernels into Skia and WindowsUnpackaged folders
+      run: |
+        cp TemporaryArtifactStorage/*.bin TemporaryArtifactStorage/Skia
+        cp TemporaryArtifactStorage/*.bin TemporaryArtifactStorage/WindowsUnpackaged
+
+    - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
         name: Kernels_${{github.sha}}
         path: TemporaryArtifactStorage
-
-    - name: Upload artifacts - skia
-      uses: actions/upload-artifact@v4
-      with:
-        name: Kernels_${{github.sha}}
-        path: TemporaryArtifactStorage/Skia
-
-    - name: Upload artifacts - windows unpackaged
-      uses: actions/upload-artifact@v4
-      with:
-        name: Kernels_${{github.sha}}
-        path: TemporaryArtifactStorage/WindowsUnpackaged
 
   PCMHammer:
     needs: Kernels
