@@ -1,6 +1,7 @@
 ﻿using PcmHacking;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Text;
@@ -74,11 +75,20 @@ namespace PcmHacking
                 // Discover what messages are available on the bus.
                 // Loop for 1500 milliseconds
                 int startTime = Environment.TickCount;
-                while (Environment.TickCount < startTime + 1500)
+                int duration = 1500; // declared here to make it easy to adjust in the debugger
+                while (Environment.TickCount < startTime + duration)
                 {
                     byte[] buffer = new byte[100];
-                    int bytesReceived = await this.canPort.Receive(buffer, 0, buffer.Length);
-                    this.DataReceived(buffer, bytesReceived);
+
+                    try
+                    {
+                        int bytesReceived = await this.canPort.Receive(buffer, 0, buffer.Length);
+                        this.DataReceived(buffer, bytesReceived);
+                    }
+                    catch (Exception)
+                    {
+                        // ignore timeout exceptions
+                    }
                 }
 
                 lock (this.messages)

@@ -341,10 +341,12 @@ public partial class DataLoggingModel
             {
                 using (var lease = await this.connectionService.BeginActivity("Loading Profile"))
                 {
-
                     try
                     {
-                        var osidQueryResult = await lease.Vehicle.QueryOperatingSystemId(CancellationToken.None);
+                        var osidQueryResult = await TimeoutUtilities.TaskWithTimeoutAndException(
+                            lease.Vehicle.QueryOperatingSystemId(CancellationToken.None),
+                            TimeSpan.FromSeconds(1));
+
                         operatingSystemId = osidQueryResult.Value;
                     }
                     catch (Exception ex)

@@ -123,7 +123,7 @@ public class ConnectionService : IConnectionService
     private Vehicle? vehicle = null;
     private System.Threading.Timer? timer = null;
     private ConnectionStates internalState = ConnectionStates.NotConfigured;
-    private SemaphoreSlim semaphore = new SemaphoreSlim(1, 1);
+    private SemaphoreSlim stateChangeSemaphore = new SemaphoreSlim(1, 1);
     private CurrentSettings? newSettings;
     private CurrentSettings? lastSettings;
     private int retryPeriod = SlowRetryPeriod;
@@ -156,14 +156,14 @@ public class ConnectionService : IConnectionService
         try
         {
             // The public BeginActivity will throw if not connected, so we go
-            // around it and call the private BeginActivity. That requires
-            // managing the semaphore explicitly.
-            await this.semaphore.WaitAsync();
+            // around it and call the private BeginActivity. That requires us
+            // to acquire the semaphore explicitly first.
+            await this.stateChangeSemaphore.WaitAsync();
             
             await this.Port.SetAsync(settings.Obd2SerialPortName);
             await this.Device.SetAsync(settings.Obd2SerialDeviceName);
 
-            await this.BeginActivity(TestingActivity, ConnectionStates.Connecting);
+            await this.BeginActivityInternal(TestingActivity, ConnectionStates.Connecting);
 
             // Clear the settings shown in the UI, and allow time for the UI to update.
             await this.ResetVehicleInfo();
@@ -241,6 +241,22 @@ public class ConnectionService : IConnectionService
         return isConnected;
     }
 
+    // 
+
+    /// <summary>
+    /// Acquire a lease on the Vehicle object and underlying connection.
+    /// </summary>
+    /// <remarks>
+    /// The public BeginActivity just ensures that we have a connection, and
+    /// exclusive ownership of the state-change semapore. The real work happens
+    /// in BeginActivityInternal.
+    /// </remarks>
+    /// <param name="activity">The name of the activity, for the UI and debug log.</param>
+    /// <param name="canInterrupt">If true, this is a background activity (polling)
+    /// so the user can interrupt it. If false, the activity must not be interrupted.</param>
+    /// <returns>A lease on the connection. The activity will be ended when the lease
+    /// object is Dispose()d.</returns>
+    /// <exception cref="ConnectionUnavailableException"></exception>
     public async Task<ConnectionLease> BeginActivity(string activity, bool canInterrupt)
     {
         ConnectionStates nextState = ConnectionStates.Active;
@@ -259,11 +275,12 @@ public class ConnectionService : IConnectionService
                 break;
         }
 
-        await this.semaphore.WaitAsync();
+        // This will wait for any in-progress operations to complete, then acquire the semaphore.
+        await this.stateChangeSemaphore.WaitAsync();
 
         try
         {
-            // Retry for up to 5 seconds if the connection was lost.
+            // We want to be connected in order to proceed. Retry for up to 5 seconds.
             try
             {
                 int retries = 5000 / FastRetryPeriod;
@@ -289,21 +306,21 @@ public class ConnectionService : IConnectionService
             }
 
             
-            await this.BeginActivity(activity, nextState);
+            await this.BeginActivityInternal(activity, nextState);
         }
         catch (Exception)
         {
             // If an exception is thrown (e.g. because the connection can't be
             // acquired) the 'using' pattern won't call the Dispose method,
             // so the semaphore has to be released explicitly.
-            this.semaphore.Release();
+            this.stateChangeSemaphore.Release();
             throw;
         }
 
         return new ConnectionLease(this, this.vehicle, activity);
     }
 
-    private async Task BeginActivity(string activity, ConnectionStates desiredState)
+    private async Task BeginActivityInternal(string activity, ConnectionStates desiredState)
     {
         if (string.IsNullOrEmpty(activity))
         {
@@ -409,12 +426,16 @@ public class ConnectionService : IConnectionService
                 this.ForceTransition(ConnectionStates.NotConnected);
                 await this.ConnectionState.SetAsync(ConnectionStates.NotConnected);
             }
-
-            await this.Activity.SetAsync(String.Empty);
+        }
+        catch (Exception exception)
+        {
+            this.logger.AddDebugMessage("Exception in ConnectionService.EndActivity: " + exception.ToString());
+            this.ForceTransition(ConnectionStates.NotConnected);
         }
         finally
         {
-            this.semaphore.Release();
+            await this.Activity.SetAsync(String.Empty);
+            this.stateChangeSemaphore.Release();
         }
 
         this.StartTimer(null);

@@ -96,6 +96,12 @@ public partial record DataLoggingParametersModel
     private ParameterEditContext? editContext;
     private WriteState writeState = WriteState.None;
 
+    // Writes formatted low rows to an underlying StreamWriter.
+    private LogFileWriter? logFileWriter = null;
+
+    // The underlying StreamWriter for the LogFileWriter.
+    private StreamWriter? streamWriter = null;
+
     public LoggerAdapter ProgressLogger { get { return this.progressLogger; } }
     public ManualResetEvent InitializationEvent { get; private set; }
 
@@ -227,7 +233,7 @@ public partial record DataLoggingParametersModel
         await this.RecordingButtonEnabled.SetAsync(false);
     }
 
-    private async Task<Tuple<LogFileWriter, StreamWriter>> StartRecording(Logger logger)
+    private async Task StartRecording(Logger logger)
     {
         await this.RecordingButtonText.SetAsync(DataLoggingParametersModel.StopRecordingButtonText);
 
@@ -236,20 +242,24 @@ public partial record DataLoggingParametersModel
         string outputFileName = $"{timestamp}_{profileName}.csv";
         string path = Path.Combine(this.settingsService.GetDataLogFolder(), outputFileName);
 
-        var streamWriter = new StreamWriter(path);
-        var logFileWriter = new LogFileWriter(streamWriter);
-        await logFileWriter.WriteHeader(logger.GetColumnNames());
-
-        // TODO: make LogFileWriter respondible for disposing the StreamWriter, so this
-        // can just return the LogFileWriter. Might wait until after the .Net 8 / Uno
-        // branch becomes the main branch, to avoid complicating things.
-        // TODO: Why isn't the tuple syntax working?
-        return new Tuple<LogFileWriter, StreamWriter>(logFileWriter, streamWriter);
+        this.streamWriter = new StreamWriter(path);
+        this.logFileWriter = new LogFileWriter(streamWriter);
+        await this.logFileWriter.WriteHeader(logger.GetColumnNames());
     }
 
-    private async Task StopRecording(StreamWriter? streamWriter)
+    private async Task StopRecording()
     {
-        streamWriter?.Dispose();
+        // TODO: make LogFileWriter respondible for disposing the StreamWriter.
+        // Might wait until after the .Net 8 / Uno branch becomes the main
+        // branch, to avoid complicating things.
+        this.logFileWriter = null;
+
+        // Let's not dispose the underlying StreamWriter while the logger
+        // is using it. This will cause the UI to hang for a moment. :(
+        await Task.Delay(500);
+
+        this.streamWriter?.Dispose();
+        this.streamWriter = null;
         await this.RecordingButtonText.SetAsync(DataLoggingParametersModel.StartRecordingButtonText);
     }
 
@@ -267,6 +277,7 @@ public partial record DataLoggingParametersModel
             using (var lease = await this.connectionService.BeginActivity("Logging", true))
             using (new AwayMode())
             {
+                // This probably isn't needed anymore...
                 if (lease == null)
                 {
                     this.progressLogger.AddUserMessage("No vehicle connected.");
@@ -274,7 +285,6 @@ public partial record DataLoggingParametersModel
                 }
 
                 var vehicle = lease.Vehicle;
-
 
                 // Create the CAN logger.
                 if (this.canLogger == null)
@@ -287,12 +297,10 @@ public partial record DataLoggingParametersModel
                     }
                     else
                     {
-                        await this.canLogger.SetPort(new StandardPort(canPortName));
+                        IPort canPort = new StandardPort(canPortName);
+                        await this.canLogger.SetPort(canPort);
                     }
                 }
-
-                LogFileWriter? logFileWriter = null;
-                StreamWriter? streamWriter = null;
 
                 while (!this.exitWaitHandle.WaitOne(0))
                 {
@@ -317,8 +325,9 @@ public partial record DataLoggingParametersModel
                         {
                             this.logBuffer.Enabled = true;
 
-                            // This will throw if it can't start logging.
-                            logger = await InitializeLogger(vehicle, this.loggingContext.LogProfile, canLogger);
+                            logger = await TimeoutUtilities.TaskWithTimeoutAndException(
+                                InitializeLogger(vehicle, this.loggingContext.LogProfile, canLogger),
+                                TimeSpan.FromSeconds(2));
 
                             // TODO: Write debug logs to a circular buffer instead of disabling it entirely.
                             // ...and just append the last ~50 debug logs when debug logging is re-enabled.
@@ -334,23 +343,22 @@ public partial record DataLoggingParametersModel
                         switch (this.writeState)
                         {
                             case WriteState.StartWriting:
-                                var tuple = await this.StartRecording(logger);
-                                logFileWriter = tuple.Item1;
-                                streamWriter = tuple.Item2;
+                                await this.StartRecording(logger);
                                 this.writeState = WriteState.Writing;
                                 await this.RecordingButtonEnabled.SetAsync(true);
                                 break;
 
                             case WriteState.StopWriting:
-                                await this.StopRecording(streamWriter);
-                                streamWriter = null;
-                                logFileWriter = null;
+                                await this.StopRecording();
                                 this.writeState = WriteState.None;
                                 await this.RecordingButtonEnabled.SetAsync(true);
                                 break;
                         }
 
-                        IEnumerable<string> rowValues = await logger.GetNextRow();
+                        IEnumerable<string> rowValues = await TimeoutUtilities.TaskWithTimeoutAndException(
+                            logger.GetNextRow(),
+                            TimeSpan.FromSeconds(2));
+
                         if (rowValues != null)
                         {
                             await this.Rows.SetAsync(new LogRowValues(rowValues));
@@ -363,6 +371,7 @@ public partial record DataLoggingParametersModel
                     }
                     catch (Exception exception)
                     {
+                        this.logBuffer.Enabled = true;
                         await this.RecordingButtonEnabled.SetAsync(false);
                         this.progressLogger.AddDebugMessage("DataLoggingParametersModel unable to start logging.");
                         this.progressLogger.AddDebugMessage(exception.ToString());
@@ -371,15 +380,10 @@ public partial record DataLoggingParametersModel
                         await this.DisplayErrorMessage(exception.Message);
                         await Task.Delay(500);
                     }
-                    finally
-                    {
-                        this.logBuffer.Enabled = true;
-                    }
                 }
                 this.logBuffer.Enabled = true;
-
                 this.progressLogger.AddDebugMessage("DataLoggingParametersModel stopped logging.");
-            }
+            } // ConnectionLease.Dispose is invoked here, on the way out of the 'using' block.
         }
         catch (Exception ex)
         {
@@ -400,8 +404,9 @@ public partial record DataLoggingParametersModel
         }
         finally
         {
-            this.canLogger?.Dispose();
             this.logBuffer.Enabled = true;
+            this.canLogger?.Dispose();
+            await this.StopRecording();
         }
     }
 
@@ -477,6 +482,13 @@ public partial record DataLoggingParametersModel
         this.progressLogger.AddDebugMessage(message);
     }
 
+    /// <summary>
+    /// Invoked by the UI when the user clicks the back-button.
+    /// </summary>
+    /// <remarks>
+    /// Setting the handle causes the logging code to stop looping,
+    /// then release the connection and clean everything up.
+    /// </remarks>
     public void StopLogging()
     {
         this.exitWaitHandle.Set();
