@@ -22,17 +22,20 @@ namespace PcmHacking
             }
         }
 
+        private readonly ParameterDatabase parameterDatabase;
+        private readonly ILogger logger;
+
         private IPort canPort;
         private CanParser parser = new CanParser();
         List<UInt32> keySnapshot = new List<UInt32>();
-        ParameterDatabase parameterDatabase;
 
         // Note that this is accessed by multiple threads, so it must only be used within "lock(messages)"
         Dictionary<UInt32, ParameterValue> messages = new Dictionary<uint, ParameterValue>();
 
-        public CanLogger(ParameterDatabase parameterDatabase)
+        public CanLogger(ParameterDatabase parameterDatabase, ILogger logger)
         {
             this.parameterDatabase = parameterDatabase;
+            this.logger = logger;
         }
 
         public void Dispose()
@@ -80,6 +83,11 @@ namespace PcmHacking
                 }
 
                 this.keySnapshot.Sort();
+                this.logger.AddUserMessage($"CanLogger found {keySnapshot.Count} CAN messages.");
+                foreach(UInt32 key in this.keySnapshot)
+                {
+                    this.logger.AddUserMessage($"CAN ID: {key:X}");
+                }
             }
         }
 
