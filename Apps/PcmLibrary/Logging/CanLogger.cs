@@ -28,15 +28,18 @@ namespace PcmHacking
 
         private IPort canPort;
         private CanParser parser = new CanParser();
+        private ILogger logger;
         List<UInt32> keySnapshot = new List<UInt32>();
         ParameterDatabase parameterDatabase;
+
 
         // Note that this is accessed by multiple threads, so it must only be used within "lock(messages)"
         Dictionary<UInt32, ParameterValue> messages = new Dictionary<uint, ParameterValue>();
 
-        public CanLogger(ParameterDatabase parameterDatabase)
+        public CanLogger(ParameterDatabase parameterDatabase, ILogger logger)
         {
             this.parameterDatabase = parameterDatabase;
+            this.logger = logger;
         }
 
         public void Dispose()

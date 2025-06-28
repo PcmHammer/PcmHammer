@@ -300,7 +300,7 @@ public partial record DataLoggingParametersModel
                 // Create the CAN logger.
                 if (this.canLogger == null)
                 {
-                    this.canLogger = new CanLogger(this.loggingContext.ParameterDatabase);
+                    this.canLogger = new CanLogger(this.loggingContext.ParameterDatabase, this.progressLogger);
 
                     if (string.IsNullOrEmpty(this.canPortName))
                     {
