@@ -113,7 +113,7 @@ namespace PcmHacking
 
             foreach (CanLogger.ParameterValue pv in logger.CanLogger.GetParameterValues())
             {
-                builder.Append(pv.Value);
+                builder.Append(pv.ValueAsString);
                 builder.Append('\t');
                 builder.Append(pv.Units);
                 builder.Append('\t');

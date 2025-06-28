@@ -67,12 +67,21 @@
                        Text="Auto-save Options:" />
 
                 <CheckBox Grid.Column="1"
+                      Name="AutoSaveThrottle"
+                      IsEnabled="{Binding AutoSaveThrottleEnabled}"
+                      IsChecked="{Binding AutoSaveThrottleChecked, Mode=TwoWay}"
                       Content="Throttle above 80%" />
 
                 <CheckBox Grid.Column="2"
-                      Content="Cruise Enabled" />
+                      Name="AutoSaveCruiseSwitch"
+                      IsEnabled="{Binding AutoSaveCruiseSwitchEnabled}"
+                      IsChecked="{Binding AutoSaveCruiseSwitchChecked, Mode=TwoWay}"
+                      Content="Cruise Enable Switch" />
 
                 <CheckBox Grid.Column="3"
+                      Name="AutoSaveCruiseButton"
+                      IsEnabled="{Binding AutoSaveCruiseButtonEnabled}"
+                      IsChecked="{Binding AutoSaveCruiseButtonChecked, Mode=TwoWay}"
                       Content="Cruise Set Button" />
             </Grid>
             <Button 

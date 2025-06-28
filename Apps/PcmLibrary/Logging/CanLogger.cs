@@ -12,11 +12,13 @@ namespace PcmHacking
 {
     public class CanLogger : IDisposable
     {
+        // TODO: Rename this to ParameterAndValue in the develop branch
         public class ParameterValue
         {
             public string Name { get; set; }
             public string Units { get; set; }
-            public string Value { get; set; }
+            public string ValueAsString { get; set; }
+            public double ValueAsNumber { get; set; }
 
             public override string ToString()
             {
@@ -119,13 +121,15 @@ namespace PcmHacking
                 if (message.Payload.Length >= 2)
                 {
                     rawValue = (message.Payload[0] << 8) | message.Payload[1];
-                    result.Value = rawValue.ToString();
+                    result.ValueAsString = rawValue.ToString();
+                    result.ValueAsNumber = rawValue;
                     result.Units = "raw";
-                    result.Name = this.messageId.ToString("X8");
+                    result.Name = message.MessageId.ToString("X8");
                 }
                 else
                 {
-                    result.Value = "Unknown";
+                    result.ValueAsString = "Unknown";
+                    result.ValueAsNumber = 0;
                     result.Units = "";
                     result.Name = message.MessageId.ToString("X8");
                 }
@@ -204,7 +208,8 @@ namespace PcmHacking
                     string formattedValue;
                     ValueConverter.Convert(rawValue, parameter.Name, conversion, out convertedValue, out formattedValue);
 
-                    result.Value = formattedValue;
+                    result.ValueAsNumber = convertedValue;
+                    result.ValueAsString = formattedValue;
                     result.Units = conversion.Units;
                     result.Name = parameter.Name;
                 }
@@ -213,6 +218,10 @@ namespace PcmHacking
             return result;
 
         }
+
+        /*
+        UInt32 messageId = 0;
+        byte[] messageData = new byte[8];
 
         private ParameterValue Deprecated(CanMessage message)
         { 
@@ -275,6 +284,7 @@ namespace PcmHacking
                     return result;
             }
         }
+        */
 
         public IEnumerable<string> GetParameterNames()
         {
@@ -302,8 +312,18 @@ namespace PcmHacking
             }
         }
 
-        UInt32 messageId = 0;
-        byte[] messageData = new byte[8];
-
+        public IEnumerable<LogRowElement> GetParameterValuesV2()
+        {
+            foreach (UInt32 key in this.keySnapshot)
+            {
+                ParameterValue pv;
+                lock (this.messages)
+                {
+                    pv = this.messages[key];
+                }
+                yield return new LogRowElement(pv.Name, pv.Name, pv.Units, pv.ValueAsString, pv.ValueAsNumber);
+            }
+        }
     }
 }
+

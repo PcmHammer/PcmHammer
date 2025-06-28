@@ -79,6 +79,10 @@ public partial record DataLoggingParametersModel
     private const string StartRecordingButtonText = "Start Recording";
     private const string StopRecordingButtonText = "Stop Recording";
 
+    private const string AcceleratorPedalParameterId = "AcceleratorPedal";
+    private const string CruiseOnOffParameterId = "CruiseOnOffSwitch";
+    private const string CruiseSetCoastSwitchParameterId = "CruiseSetCoastSwitch";
+
     private readonly LoggerAdapter progressLogger;
     private readonly ILogBuffer logBuffer;
     private readonly DispatcherQueue dispatcherQueue;
@@ -86,6 +90,13 @@ public partial record DataLoggingParametersModel
     private readonly INavigator navigator;
     private readonly IConnectionService connectionService;
     private readonly ISettingsService settingsService;
+
+    public IState<bool> AutoSaveThrottleEnabled => State<bool>.Value(this, () => false);
+    public IState<bool> AutoSaveThrottleChecked => State<bool>.Value(this, () => false);
+    public IState<bool> AutoSaveCruiseSwitchEnabled => State<bool>.Value(this, () => false);
+    public IState<bool> AutoSaveCruiseSwitchChecked => State<bool>.Value(this, () => false);
+    public IState<bool> AutoSaveCruiseButtonEnabled => State<bool>.Value(this, () => false);
+    public IState<bool> AutoSaveCruiseButtonChecked => State<bool>.Value(this, () => false);
 
     private string canPortName;    
     private CanLogger? canLogger;
@@ -308,7 +319,7 @@ public partial record DataLoggingParametersModel
                     {
                         if (this.editContext != null)
                         {
-                            this.loggingContext.LogProfile = UpdateLogProfile();
+                            this.loggingContext.LogProfile = this.UpdateLogProfile();
 
                             // We only need to process the edit once, so we set this to null now.
                             this.editContext = null;
@@ -328,6 +339,8 @@ public partial record DataLoggingParametersModel
                             logger = await TimeoutUtilities.TaskWithTimeoutAndException(
                                 InitializeLogger(vehicle, this.loggingContext.LogProfile, canLogger),
                                 TimeSpan.FromSeconds(2));
+
+                            await this.UpdateAutoSaveCheckboxes(this.loggingContext.LogProfile);
 
                             // TODO: Write debug logs to a circular buffer instead of disabling it entirely.
                             // ...and just append the last ~50 debug logs when debug logging is re-enabled.
@@ -355,9 +368,13 @@ public partial record DataLoggingParametersModel
                                 break;
                         }
 
-                        IEnumerable<string> rowValues = await TimeoutUtilities.TaskWithTimeoutAndException(
-                            logger.GetNextRow(),
+                        IEnumerable<LogRowElement> row = await TimeoutUtilities.TaskWithTimeoutAndException(
+                            logger.GetNextRowV2(),
                             TimeSpan.FromSeconds(2));
+
+                        await this.UpdateRecordingOptions(row);
+
+                        IEnumerable<string> rowValues = row.Select(x => x.ValueAsString);
 
                         if (rowValues != null)
                         {
@@ -473,6 +490,125 @@ public partial record DataLoggingParametersModel
         await this.RecordingButtonEnabled.SetAsync(true);
         this.progressLogger.AddDebugMessage("DataLoggingParametersModel started logging.");
         return logger;
+    }
+
+    private async Task UpdateAutoSaveCheckboxes(LogProfile profile)
+    {
+        bool throttlePresent = false;
+        bool cruiseSwitchPresent = false;
+        bool cruiseButtonPresent = false;
+
+        foreach (var column in profile.Columns)
+        {
+            switch (column.Parameter.Id)
+            {
+                case AcceleratorPedalParameterId:
+                    throttlePresent = true;
+                    break;
+
+                case CruiseOnOffParameterId:
+                    cruiseSwitchPresent = true;
+                    break;
+
+                case CruiseSetCoastSwitchParameterId:
+                    cruiseButtonPresent = true;
+                    break;
+            }
+        }
+
+        await this.AutoSaveThrottleEnabled.SetAsync(throttlePresent);
+        if (!throttlePresent)
+        {
+            await this.AutoSaveThrottleChecked.SetAsync(false);
+        }
+
+        await this.AutoSaveCruiseSwitchEnabled.SetAsync(cruiseSwitchPresent);
+        if (!cruiseSwitchPresent)
+        {
+            await this.AutoSaveCruiseSwitchChecked.SetAsync(false);
+        }
+
+        await this.AutoSaveCruiseButtonEnabled.SetAsync(cruiseButtonPresent);
+        if (!cruiseButtonPresent)
+        {
+            await this.AutoSaveCruiseButtonChecked.SetAsync(false);
+        }
+    }
+
+    private async Task UpdateRecordingOptions(IEnumerable<LogRowElement> row)
+    {
+        bool autoSaveThrottleChecked = await this.AutoSaveThrottleChecked.Value();
+        bool autoSaveCruiseSwitchChecked = await this.AutoSaveCruiseSwitchChecked.Value();
+        bool autoSaveCruiseButtonChecked = await this.AutoSaveCruiseButtonChecked.Value();
+
+        bool autoEnabled = autoSaveThrottleChecked ||
+            autoSaveCruiseSwitchChecked ||
+            autoSaveCruiseButtonChecked;
+
+        bool buttonEnabled = await this.RecordingButtonEnabled.Value();
+
+        if (autoEnabled && buttonEnabled) {
+            await this.RecordingButtonText.SetAsync("Auto");
+            await this.RecordingButtonEnabled.SetAsync(false);
+        }
+        else if (!autoEnabled && !buttonEnabled)
+        {
+            // Choose the right text for the Start/Stop recording button.
+            string buttonText;
+            switch (this.writeState)
+            {
+                case WriteState.Writing:
+                case WriteState.StopWriting:
+                    buttonText = StartRecordingButtonText;
+                    break;
+
+                case WriteState.None:
+                case WriteState.StartWriting:
+                    buttonText = StopRecordingButtonText;
+                    break;
+
+                default:
+                    buttonText = "Bug";
+                    break;
+            }
+
+            await this.RecordingButtonText.SetAsync(buttonText);
+        }
+        
+        if (!autoEnabled)
+        {
+            return;
+        }
+
+        bool isWriting = this.writeState == WriteState.Writing || this.writeState == WriteState.StartWriting;
+        bool shouldBeWriting = false;
+        foreach(var element in row)
+        {
+            if (autoSaveThrottleChecked && element.ParameterId == AcceleratorPedalParameterId)
+            {
+                shouldBeWriting = element.ValueAsNumber > 80;
+            }
+
+            if (autoSaveCruiseSwitchChecked && element.ParameterId == CruiseOnOffParameterId)
+            {
+                shouldBeWriting = element.ValueAsString == "On";
+            }
+
+            if (autoSaveCruiseButtonChecked && element.ParameterId == CruiseSetCoastSwitchParameterId)
+            {
+                shouldBeWriting = element.ValueAsString == "Pressed";
+            }
+        }
+
+        if (!isWriting && shouldBeWriting)
+        {
+            this.writeState = WriteState.StartWriting;
+        }
+
+        if (isWriting && !shouldBeWriting)
+        {
+            this.writeState = WriteState.StopWriting;
+        }
     }
 
     private async Task DisplayErrorMessage(string message)
