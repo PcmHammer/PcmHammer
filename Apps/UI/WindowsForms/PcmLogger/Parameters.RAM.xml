@@ -61,7 +61,7 @@
     storageType="int16"
     bitMapped="False">
     <Location os="12593358" address="0xFFA296" />
-    <Location os="12587603" address="0xFFA716" />
+    <Location os="12587603" address="0xFFA712" />
     <Conversion units="g/s" expression="x/128" format="0.0000" />
   </RamParameter>
 
