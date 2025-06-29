@@ -79,7 +79,11 @@ public partial record DataLoggingParametersModel
     private const string StartRecordingButtonText = "Start Recording";
     private const string StopRecordingButtonText = "Stop Recording";
 
-    private const string AcceleratorPedalParameterId = "AcceleratorPedal";
+    // This one works on my car, but it might ONLY work on drive-by-wire cars.
+    private const string AcceleratorPedalParameterId1 = "AcceleratorPedalPosition";
+
+    // Ths one always reads zero on my car - might only work on cable-throttle cars.
+    private const string AcceleratorPedalParameterId2 = "AcceleratorPedal";
     private const string CruiseOnOffParameterId = "CruiseOnOffSwitch";
     private const string CruiseSetCoastSwitchParameterId = "CruiseSetCoastSwitch";
 
@@ -502,7 +506,8 @@ public partial record DataLoggingParametersModel
         {
             switch (column.Parameter.Id)
             {
-                case AcceleratorPedalParameterId:
+                case AcceleratorPedalParameterId1:
+                case AcceleratorPedalParameterId2:
                     throttlePresent = true;
                     break;
 
@@ -584,7 +589,7 @@ public partial record DataLoggingParametersModel
         bool shouldBeWriting = false;
         foreach(var element in row)
         {
-            if (autoSaveThrottleChecked && element.ParameterId == AcceleratorPedalParameterId)
+            if (autoSaveThrottleChecked && (element.ParameterId == AcceleratorPedalParameterId1 || element.ParameterId == AcceleratorPedalParameterId2))
             {
                 shouldBeWriting = element.ValueAsNumber > 80;
             }
