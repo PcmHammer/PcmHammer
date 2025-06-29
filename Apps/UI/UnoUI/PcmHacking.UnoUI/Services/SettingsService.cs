@@ -45,6 +45,15 @@ public interface ISettingsService
     void SetCustomKey(string value);
     bool GetUseCustomKey();
     void SetUseCustomKey(bool value);
+
+    bool GetUseAcceleratorToSaveLogs();
+    void SetUseAcceleratorToSaveLogs(bool value);
+
+    bool GetUseCruiseButtonToSaveLogs();
+    void SetUseCruiseButtonToSaveLogs(bool value);
+
+    bool GetUseKnockRetardToSaveLogs();
+    void SetUseKnockRetardToSaveLogs(bool value);
 }
 
 public class SettingsService : ISettingsService
@@ -63,6 +72,9 @@ public class SettingsService : ISettingsService
     private const string LastWrittenFileKey = "LastWrittenFile";
     private const string CustomKeyKey = "CustomKey";
     private const string UseCustomKeyKey = "UseCustomKey";
+    private const string UseAcceleratorToSaveLogsKey = "UseAcceleratorToSaveLogs";
+    private const string UseCruiseButtonToSaveLogsKey = "UseCruiseButtonToSaveLogs";
+    private const string UseKnockRetardToSaveLogsKey = "UseKnockRetardToSaveLogs";
 
     public SettingsService()
     {
@@ -283,5 +295,36 @@ public class SettingsService : ISettingsService
     public void SetUseCustomKey(bool value)
     {
         LocalSettings.Values[UseCustomKeyKey] = value;
+    }
+
+    public bool GetUseAcceleratorToSaveLogs()
+    {
+        return (bool)(LocalSettings.Values[UseAcceleratorToSaveLogsKey] ?? false);
+    }
+
+    public void SetUseAcceleratorToSaveLogs(bool value)
+    {
+        LocalSettings.Values[UseAcceleratorToSaveLogsKey] = value;
+    }
+
+    public bool GetUseCruiseButtonToSaveLogs()
+    {
+        return (bool)(LocalSettings.Values[UseCruiseButtonToSaveLogsKey] ?? false);
+    }
+
+    public void SetUseCruiseButtonToSaveLogs(bool value)
+    {
+        LocalSettings.Values[UseCruiseButtonToSaveLogsKey] = value;
+    }
+
+
+    public bool GetUseKnockRetardToSaveLogs()
+    {
+        return (bool)(LocalSettings.Values[UseKnockRetardToSaveLogsKey] ?? false);
+    }
+
+    public void SetUseKnockRetardToSaveLogs(bool value)
+    {
+        LocalSettings.Values[UseKnockRetardToSaveLogsKey] = value;
     }
 }

@@ -81,10 +81,14 @@ public partial record DataLoggingParametersModel
 
     // This one works on my car, but it might ONLY work on drive-by-wire cars.
     private const string AcceleratorPedalParameterId1 = "AcceleratorPedalPosition";
-
     // Ths one always reads zero on my car - might only work on cable-throttle cars.
     private const string AcceleratorPedalParameterId2 = "AcceleratorPedal";
-    private const string CruiseOnOffParameterId = "CruiseOnOffSwitch";
+    // Not tested yet.
+    private const string KnockRetardParameterId = "KnockRetardDegrees";
+    // Proven. But note that the cruise control must be enabled, which means we can either use
+    // the cruise set button OR the cruise enable switch - but not both. I chose the button,
+    // because it's much easier to operate without taking eyes off the road or hands off the
+    // wheel.
     private const string CruiseSetCoastSwitchParameterId = "CruiseSetCoastSwitch";
 
     private readonly LoggerAdapter progressLogger;
@@ -95,12 +99,12 @@ public partial record DataLoggingParametersModel
     private readonly IConnectionService connectionService;
     private readonly ISettingsService settingsService;
 
-    public IState<bool> AutoSaveThrottleEnabled => State<bool>.Value(this, () => false);
-    public IState<bool> AutoSaveThrottleChecked => State<bool>.Value(this, () => false);
-    public IState<bool> AutoSaveCruiseSwitchEnabled => State<bool>.Value(this, () => false);
-    public IState<bool> AutoSaveCruiseSwitchChecked => State<bool>.Value(this, () => false);
-    public IState<bool> AutoSaveCruiseButtonEnabled => State<bool>.Value(this, () => false);
-    public IState<bool> AutoSaveCruiseButtonChecked => State<bool>.Value(this, () => false);
+    public IState<bool> UseAcceleratorToSaveLogsEnabled => State<bool>.Value(this, () => false);
+    public IState<bool> UseAcceleratorToSaveLogsChecked => State<bool>.Value(this, () => false).ForEach(SetUseAcceleratorToSaveLogs);
+    public IState<bool> UseKnockRetardToSaveLogsEnabled => State<bool>.Value(this, () => false);
+    public IState<bool> UseKnockRetardToSaveLogsChecked => State<bool>.Value(this, () => false).ForEach(SetUseKnockRetardToSaveLogs);
+    public IState<bool> UseCruiseButtonToSaveLogsEnabled => State<bool>.Value(this, () => false);
+    public IState<bool> UseCruiseButtonToSaveLogsChecked => State<bool>.Value(this, () => false).ForEach(SetUseCruiseButtonToSaveLogs);
 
     private string canPortName;    
     private CanLogger? canLogger;
@@ -499,7 +503,7 @@ public partial record DataLoggingParametersModel
     private async Task UpdateAutoSaveCheckboxes(LogProfile profile)
     {
         bool throttlePresent = false;
-        bool cruiseSwitchPresent = false;
+        bool knockRetardPresent = false;
         bool cruiseButtonPresent = false;
 
         foreach (var column in profile.Columns)
@@ -511,8 +515,8 @@ public partial record DataLoggingParametersModel
                     throttlePresent = true;
                     break;
 
-                case CruiseOnOffParameterId:
-                    cruiseSwitchPresent = true;
+                case KnockRetardParameterId:
+                    knockRetardPresent = true;
                     break;
 
                 case CruiseSetCoastSwitchParameterId:
@@ -521,42 +525,28 @@ public partial record DataLoggingParametersModel
             }
         }
 
-        await this.AutoSaveThrottleEnabled.SetAsync(throttlePresent);
-        if (!throttlePresent)
-        {
-            await this.AutoSaveThrottleChecked.SetAsync(false);
-        }
-
-        await this.AutoSaveCruiseSwitchEnabled.SetAsync(cruiseSwitchPresent);
-        if (!cruiseSwitchPresent)
-        {
-            await this.AutoSaveCruiseSwitchChecked.SetAsync(false);
-        }
-
-        await this.AutoSaveCruiseButtonEnabled.SetAsync(cruiseButtonPresent);
-        if (!cruiseButtonPresent)
-        {
-            await this.AutoSaveCruiseButtonChecked.SetAsync(false);
-        }
+        await this.UseAcceleratorToSaveLogsEnabled.SetAsync(throttlePresent);
+        await this.UseKnockRetardToSaveLogsEnabled.SetAsync(knockRetardPresent);
+        await this.UseCruiseButtonToSaveLogsEnabled.SetAsync(cruiseButtonPresent);
     }
 
     private async Task UpdateRecordingOptions(IEnumerable<LogRowElement> row)
     {
-        bool autoSaveThrottleChecked = await this.AutoSaveThrottleChecked.Value();
-        bool autoSaveCruiseSwitchChecked = await this.AutoSaveCruiseSwitchChecked.Value();
-        bool autoSaveCruiseButtonChecked = await this.AutoSaveCruiseButtonChecked.Value();
+        bool useAcceleratorToSaveLogsChecked = await this.UseAcceleratorToSaveLogsChecked.Value();
+        bool useKnockRetardToSaveLogsChecked = await this.UseKnockRetardToSaveLogsChecked.Value();
+        bool useCruiseButtonToSaveLogsChecked = await this.UseCruiseButtonToSaveLogsChecked.Value();
 
-        bool autoEnabled = autoSaveThrottleChecked ||
-            autoSaveCruiseSwitchChecked ||
-            autoSaveCruiseButtonChecked;
+        bool autoSaveEnabled = useAcceleratorToSaveLogsChecked ||
+            useKnockRetardToSaveLogsChecked ||
+            useCruiseButtonToSaveLogsChecked;
 
         bool buttonEnabled = await this.RecordingButtonEnabled.Value();
 
-        if (autoEnabled && buttonEnabled) {
+        if (autoSaveEnabled && buttonEnabled) {
             await this.RecordingButtonText.SetAsync("Auto");
             await this.RecordingButtonEnabled.SetAsync(false);
         }
-        else if (!autoEnabled && !buttonEnabled)
+        else if (!autoSaveEnabled && !buttonEnabled)
         {
             // Choose the right text for the Start/Stop recording button.
             string buttonText;
@@ -580,7 +570,7 @@ public partial record DataLoggingParametersModel
             await this.RecordingButtonText.SetAsync(buttonText);
         }
         
-        if (!autoEnabled)
+        if (!autoSaveEnabled)
         {
             return;
         }
@@ -589,17 +579,17 @@ public partial record DataLoggingParametersModel
         bool shouldBeWriting = false;
         foreach(var element in row)
         {
-            if (autoSaveThrottleChecked && (element.ParameterId == AcceleratorPedalParameterId1 || element.ParameterId == AcceleratorPedalParameterId2))
+            if (useAcceleratorToSaveLogsChecked && (element.ParameterId == AcceleratorPedalParameterId1 || element.ParameterId == AcceleratorPedalParameterId2))
             {
                 shouldBeWriting = element.ValueAsNumber > 80;
             }
 
-            if (autoSaveCruiseSwitchChecked && element.ParameterId == CruiseOnOffParameterId)
+            if (useKnockRetardToSaveLogsChecked && element.ParameterId == KnockRetardParameterId)
             {
-                shouldBeWriting = element.ValueAsString == "On";
+                shouldBeWriting = element.ValueAsNumber > 0;
             }
 
-            if (autoSaveCruiseButtonChecked && element.ParameterId == CruiseSetCoastSwitchParameterId)
+            if (useCruiseButtonToSaveLogsChecked && element.ParameterId == CruiseSetCoastSwitchParameterId)
             {
                 shouldBeWriting = element.ValueAsString == "Pressed";
             }
@@ -614,6 +604,24 @@ public partial record DataLoggingParametersModel
         {
             this.writeState = WriteState.StopWriting;
         }
+    }
+
+    private ValueTask SetUseAcceleratorToSaveLogs(bool value, CancellationToken ct)
+    {
+        this.settingsService.SetUseAcceleratorToSaveLogs(value);
+        return ValueTask.CompletedTask;
+    }
+
+    private ValueTask SetUseCruiseButtonToSaveLogs(bool value, CancellationToken ct)
+    {
+        this.settingsService.SetUseCruiseButtonToSaveLogs(value);
+        return ValueTask.CompletedTask;
+    }
+
+    private ValueTask SetUseKnockRetardToSaveLogs(bool value, CancellationToken ct)
+    {
+        this.settingsService.SetUseKnockRetardToSaveLogs(value);
+        return ValueTask.CompletedTask;
     }
 
     private async Task DisplayErrorMessage(string message)

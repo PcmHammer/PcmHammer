@@ -58,6 +58,7 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
                 <TextBlock Grid.Column="0"
@@ -66,16 +67,22 @@
                        Text="Auto-save Options:" />
 
                 <CheckBox Grid.Column="1"
-                      Name="AutoSaveThrottle"
-                      IsEnabled="{Binding AutoSaveThrottleEnabled}"
-                      IsChecked="{Binding AutoSaveThrottleChecked, Mode=TwoWay}"
-                      Content="Throttle above 80%" />
+                      Name="UseAcceleratorToSaveLogs"
+                      IsEnabled="{Binding UseAcceleratorToSaveLogsEnabled}"
+                      IsChecked="{Binding UseAcceleratorToSaveLogsChecked, Mode=TwoWay}"
+                      Content="Accelerator Above 80%" />
+
+                <CheckBox Grid.Column="2"
+                      Name="UseCruiseButtonToSaveLogs"
+                      IsEnabled="{Binding UseCruiseButtonToSaveLogsEnabled}"
+                      IsChecked="{Binding UseCruiseButtonToSaveLogsChecked, Mode=TwoWay}"
+                      Content="Cruise Set Button" />
 
                 <CheckBox Grid.Column="3"
-                      Name="AutoSaveCruiseButton"
-                      IsEnabled="{Binding AutoSaveCruiseButtonEnabled}"
-                      IsChecked="{Binding AutoSaveCruiseButtonChecked, Mode=TwoWay}"
-                      Content="Cruise Set Button" />
+                      Name="UseKnockRetardToSaveLogs"
+                      IsEnabled="{Binding UseKnockRetardToSaveLogsEnabled}"
+                      IsChecked="{Binding UseKnockRetardToSaveLogsChecked, Mode=TwoWay}"
+                      Content="Knock Retard" />
             </Grid>
             <Button 
                 Grid.Row="0"
