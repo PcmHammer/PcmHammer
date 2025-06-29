@@ -58,7 +58,6 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
                 <TextBlock Grid.Column="0"
@@ -71,12 +70,6 @@
                       IsEnabled="{Binding AutoSaveThrottleEnabled}"
                       IsChecked="{Binding AutoSaveThrottleChecked, Mode=TwoWay}"
                       Content="Throttle above 80%" />
-
-                <CheckBox Grid.Column="2"
-                      Name="AutoSaveCruiseSwitch"
-                      IsEnabled="{Binding AutoSaveCruiseSwitchEnabled}"
-                      IsChecked="{Binding AutoSaveCruiseSwitchChecked, Mode=TwoWay}"
-                      Content="Cruise Enable Switch" />
 
                 <CheckBox Grid.Column="3"
                       Name="AutoSaveCruiseButton"
