@@ -1,0 +1,1 @@
+copy ..\WindowsForms\PcmLogger\Parameters.*.xml PcmHacking.UnoUi\bin\debug\net8.0-desktop
