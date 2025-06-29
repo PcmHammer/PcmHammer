@@ -5,20 +5,30 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 
 namespace PcmHacking
 {
     public class CanLogger : IDisposable
     {
-        public class ParameterValue
+        public class ParameterAndValue
         {
-            public string Name { get; set; }
-            public string Units { get; set; }
-            public string Value { get; set; }
+            public CanParameter Parameter { get; private set; }
+            public string Units { get; private set; }
+            public string ValueAsString { get; private set; }
+            public double ValueAsNumber { get; private set; }
+
+            public ParameterAndValue(CanParameter parameter, string units, string valueAsString, double valueAsNumber)
+            {
+                this.Parameter = parameter;
+                this.Units = units;
+                this.ValueAsString = valueAsString;
+                this.ValueAsNumber = valueAsNumber;
+            }
 
             public override string ToString()
             {
-                return this.Name;
+                return $"{this.Parameter.Name}, {this.ValueAsString} {this.Units}";
             }
         }
 
@@ -28,7 +38,7 @@ namespace PcmHacking
         ParameterDatabase parameterDatabase;
 
         // Note that this is accessed by multiple threads, so it must only be used within "lock(messages)"
-        Dictionary<UInt32, ParameterValue> messages = new Dictionary<uint, ParameterValue>();
+        Dictionary<UInt32, Dictionary<string, List<ParameterAndValue>>> messages = new Dictionary<UInt32, Dictionary<string, List<ParameterAndValue>>>();
 
         public CanLogger(ParameterDatabase parameterDatabase)
         {
@@ -83,6 +93,18 @@ namespace PcmHacking
             }
         }
 
+        /// <summary>
+        /// Created for testing, but might be preferable to sniffing during SetPort.
+        /// </summary>
+        public void UseDatabaseKeys()
+        {
+            IReadOnlyDictionary<UInt32, IEnumerable<CanParameter>> canParameters = this.parameterDatabase.GetCanParameters();
+            foreach (UInt32 key in canParameters.Keys)
+            {
+                this.keySnapshot.Add(key);
+            }
+        }
+
         public void DataReceived(byte[] buffer, int bytesReceived)
         {
             for(int i = 0; i < bytesReceived; i++)
@@ -90,66 +112,99 @@ namespace PcmHacking
                 CanMessage message;
                 if (this.parser.IsCompleteMessage(buffer[i], out message))
                 {
-                    ParameterValue pv = this.TranslateValue(message);
-                    if (pv != null)
+                    IEnumerable<ParameterAndValue> results = this.TranslateValue(message);
+
+                    lock (this.messages)
                     {
-                        lock (this.messages)
+                        Dictionary<string, List<ParameterAndValue>> parameters;
+                        if (!this.messages.TryGetValue(message.MessageId, out parameters))
                         {
-                            this.messages[message.MessageId] = pv;
+                            parameters = new Dictionary<string, List<ParameterAndValue>>();
+                            this.messages[message.MessageId] = parameters;
+                        }
+
+                        foreach (ParameterAndValue pv in results)
+                        {
+                            List<ParameterAndValue> list;
+                            if (!parameters.TryGetValue(pv.Parameter.Id, out list))
+                            {
+                                list = new List<ParameterAndValue>();
+                                parameters[pv.Parameter.Id] = list;
+                            }
+
+                            list.Add(pv);
                         }
                     }
                 }
             }
         }
 
-        private ParameterValue TranslateValue(CanMessage message)
+        private IEnumerable<ParameterAndValue> TranslateValue(CanMessage message)
         {
             IReadOnlyDictionary<UInt32, IEnumerable<CanParameter>> canParameters = this.parameterDatabase.GetCanParameters();
-            IEnumerable<CanParameter> parameters;
-            ParameterValue result = new ParameterValue();
-            double rawValue = 0;
-
+            IEnumerable<CanParameter> parameters;            
+            
             if (!canParameters.TryGetValue(message.MessageId, out parameters))
             {
-                if (message.Payload.Length >= 2)
+                string name = message.MessageId.ToString("X8");
+                CanParameter placeholderParameter = new CanParameter(
+                    message.MessageId,
+                    0,
+                    0,
+                    true,
+                    name,
+                    name,
+                    string.Empty,
+                    new Conversion[0]);
+
+                string valueAsString;
+                ulong valueAsNumber = 0;
+                
+                for (int byteIndex = 0; byteIndex < message.Payload.Length; byteIndex++)
                 {
-                    rawValue = (message.Payload[0] << 8) | message.Payload[1];
-                    result.Value = rawValue.ToString();
-                    result.Units = "raw";
-                    result.Name = this.messageId.ToString("X8");
+                    valueAsNumber <<= 8;
+                    valueAsNumber |= message.Payload[byteIndex];
+                }
+
+                if (message.Payload.Length > 0)
+                {
+                    valueAsString = valueAsNumber.ToString("X8");
                 }
                 else
                 {
-                    result.Value = "Unknown";
-                    result.Units = "";
-                    result.Name = message.MessageId.ToString("X8");
+                    valueAsString = "Empty";
                 }
+
+                ParameterAndValue result = new ParameterAndValue(placeholderParameter, "raw", valueAsString, valueAsNumber);
+                yield return result;
             }
             else
             {
-                foreach(CanParameter parameter in parameters)
-                {
-                    switch(parameter.ByteCount)
+                string valueAsString = String.Empty;
+                double valueAsNumber = 0;
+
+                foreach (CanParameter parameter in parameters)
+                {                    
+                    switch (parameter.ByteCount)
                     {
                         case 0:
-                            rawValue = 1; // TODO: this should probably increment with each new message.
-                            result.Units = "";
-                            result.Name = parameter.Name;
+                            valueAsString = "Event";
+                            valueAsNumber = 0;
                             break;
 
                         case 1:
-                            rawValue = message.Payload[(int)parameter.ByteIndex];
+                            valueAsNumber = message.Payload[(int)parameter.ByteIndex];
                             break;
 
                         case 2:
                             if (parameter.HighByteFirst)
                             {
-                                rawValue = (message.Payload[(int)parameter.ByteIndex] << 8)
+                                valueAsNumber = (message.Payload[(int)parameter.ByteIndex] << 8)
                                     + message.Payload[(int)parameter.ByteIndex + 1];
                             }
                             else
                             {
-                                rawValue = (message.Payload[(int)parameter.ByteIndex + 1] << 8)
+                                valueAsNumber = (message.Payload[(int)parameter.ByteIndex + 1] << 8)
                                     + message.Payload[(int)parameter.ByteIndex];
                             }
                             break;
@@ -157,13 +212,13 @@ namespace PcmHacking
                         case 3:
                             if (parameter.HighByteFirst)
                             {
-                                rawValue = (message.Payload[(int)parameter.ByteIndex] << 16)
+                                valueAsNumber = (message.Payload[(int)parameter.ByteIndex] << 16)
                                     + (message.Payload[(int)parameter.ByteIndex + 1] << 8)
                                     + message.Payload[(int)parameter.ByteIndex + 2];
                             }
                             else
                             {
-                                rawValue = (message.Payload[(int)parameter.ByteIndex + 2] << 16)
+                                valueAsNumber = (message.Payload[(int)parameter.ByteIndex + 2] << 16)
                                     + (message.Payload[(int)parameter.ByteIndex + 1] << 8)
                                     + message.Payload[(int)parameter.ByteIndex];
                             }
@@ -172,14 +227,14 @@ namespace PcmHacking
                         case 4:
                             if (parameter.HighByteFirst)
                             {
-                                rawValue = (message.Payload[(int)parameter.ByteIndex] << 24) +
+                                valueAsNumber = (message.Payload[(int)parameter.ByteIndex] << 24) +
                                     + (message.Payload[(int)parameter.ByteIndex + 1] << 16) +
                                     + (message.Payload[(int)parameter.ByteIndex + 2] << 8) +
                                     + message.Payload[(int)parameter.ByteIndex + 3];
                             }
                             else
                             {
-                                rawValue = (message.Payload[(int)parameter.ByteIndex + 3] << 24) +
+                                valueAsNumber = (message.Payload[(int)parameter.ByteIndex + 3] << 24) +
                                     + (message.Payload[(int)parameter.ByteIndex + 2] << 16) +
                                     + (message.Payload[(int)parameter.ByteIndex + 1] << 8) +
                                     + message.Payload[(int)parameter.ByteIndex];
@@ -190,77 +245,11 @@ namespace PcmHacking
                     Conversion conversion = parameter.SelectedConversion ?? parameter.Conversions.First();
                     double convertedValue = 0;
                     string formattedValue;
-                    ValueConverter.Convert(rawValue, parameter.Name, conversion, out convertedValue, out formattedValue);
+                    ValueConverter.Convert(valueAsNumber, parameter.Name, conversion, out convertedValue, out formattedValue);
 
-                    result.Value = formattedValue;
-                    result.Units = conversion.Units;
-                    result.Name = parameter.Name;
+                    ParameterAndValue result = new ParameterAndValue(parameter, conversion.Units, valueAsString, valueAsNumber);
+                    yield return result;
                 }
-            }
-
-            return result;
-
-        }
-
-        private ParameterValue Deprecated(CanMessage message)
-        { 
-            ParameterValue result = new ParameterValue();
-            int valueRaw = 0;
-            double value;
-            switch (message.MessageId)
-            {
-                case (uint)0x000a0301:
-                    valueRaw = (this.messageData[0] << 8) | this.messageData[1];
-                    value = valueRaw;
-                    value = value * 0.01; // bar
-                    value = value * 14.5037738; // psi
-                    result.Value = ((int)value).ToString("0.00");
-                    result.Units = "F";
-                    result.Name = "AEM Pressue";
-                    return result;
-
-                case (uint)0x000a0302:
-                    valueRaw = (message.Payload[0] << 8) | message.Payload[1];
-                    value = valueRaw;
-                    value = (value * 1.8) + 32.0;
-                    result.Value = ((int)value).ToString("0.00");
-                    result.Units = "F";
-                    result.Name = "AEM Temperature";
-                    return result;
-
-                case (uint)0x00000180:
-                    valueRaw = (message.Payload[0] << 8) | message.Payload[1];
-                    value = valueRaw;
-                    value = (value * 0.0001) * 14.7;
-                    result.Value = value.ToString("0.00");
-                    result.Units = "AFR";
-                    result.Name = "AEM AFR 1";
-                    return result;
-
-                case (uint)0x00000181:
-                    valueRaw = (message.Payload[0] << 8) | message.Payload[1];
-                    value = valueRaw;
-                    value = (value * 0.0001) * 14.7;
-                    result.Value = value.ToString("0.00");
-                    result.Units = "AFR";
-                    result.Name = "AEM AFR 2";
-                    return result;
-
-                default:
-                    if (message.Payload.Length >= 2)
-                    {
-                        valueRaw = (message.Payload[0] << 8) | message.Payload[1];
-                        result.Value = valueRaw.ToString();
-                        result.Units = "raw";
-                        result.Name = this.messageId.ToString("X8");
-                    }
-                    else
-                    {
-                        result.Value = "";
-                        result.Units = "";
-                        result.Name = "Empty";
-                    }
-                    return result;
             }
         }
 
@@ -271,27 +260,48 @@ namespace PcmHacking
                 string name;
                 lock(this.messages)
                 {
-                    name = this.messages[key].Name + "(" + this.messages[key].Units + ")";
-                }
-                yield return name;
+                    var parametersInThisMessage = this.messages[key];
+                    foreach (var parameterId in parametersInThisMessage.Keys)
+                    {
+                        var list = parametersInThisMessage[parameterId];
+                        foreach (var pv in list)
+                        {
+                            name = pv.Parameter.Name + "(" + pv.Units + ")";
+                            yield return name;
+                        }
+                    }
+                }                
             }
         }
 
-        public IEnumerable<ParameterValue> GetParameterValues()
+        public IEnumerable<ParameterAndValue> GetParameterValues()
         {
             foreach(UInt32 key in this.keySnapshot)
             {
-                ParameterValue value;
                 lock(this.messages)
                 {
-                    value = this.messages[key];
+                    Dictionary<string, List<ParameterAndValue>> parametersInThisMessage;
+                    if (this.messages.TryGetValue(key, out parametersInThisMessage))
+                    {
+                        foreach (var parameterId in parametersInThisMessage.Keys)
+                        {
+                            // TODO: this should be a list of values that were received with this ID
+                            // They should be aggregated before returning (average or sum or last-one-wins).
+                            var list = parametersInThisMessage[parameterId];
+                            foreach (var pv in list)
+                            {
+                                yield return pv;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // TODO: return default values for parameters that were not updated since the last call
+                        // Will require changing keySnapshot to something like:
+                        // Dictionary<messageId, IEnumerable<parameterId, CanParameter>>
+                    }
                 }
-                yield return value;
             }
         }
-
-        UInt32 messageId = 0;
-        byte[] messageData = new byte[8];
-
     }
 }

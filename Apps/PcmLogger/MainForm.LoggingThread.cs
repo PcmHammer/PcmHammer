@@ -108,13 +108,13 @@ namespace PcmHacking
 
 
 
-            foreach (CanLogger.ParameterValue pv in logger.CanLogger.GetParameterValues())
+            foreach (CanLogger.ParameterAndValue pv in logger.CanLogger.GetParameterValues())
             {
-                builder.Append(pv.Value);
+                builder.Append(pv.ValueAsString);
                 builder.Append('\t');
                 builder.Append(pv.Units);
                 builder.Append('\t');
-                builder.AppendLine(pv.Name);
+                builder.AppendLine(pv.Parameter.Name);
 
 
                 /* TODO: How to make this work for CAN?

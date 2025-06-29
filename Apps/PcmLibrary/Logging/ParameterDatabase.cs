@@ -40,6 +40,14 @@ namespace PcmHacking
         }
 
         /// <summary>
+        /// For test use only.
+        /// </summary>
+        public ParameterDatabase(Dictionary<UInt32, IEnumerable<CanParameter>> canParameters)
+        {
+            this.canParameters = canParameters;
+        }
+
+        /// <summary>
         /// Gets a parameter using the specified generic type, with the specified id.
         /// </summary>
         /// <typeparam name="T">The type of parameter, must be subclass of Parameter</typeparam>

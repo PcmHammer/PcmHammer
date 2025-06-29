@@ -1,6 +1,4 @@
-﻿//#define FAST_LOGGING
-
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -304,7 +302,7 @@ namespace PcmHacking
                 PcmParameterValues dpidValues = row.Evaluate();
 
                 IEnumerable<string> mathValues = this.mathValueProcessor.GetMathValues(dpidValues);
-                IEnumerable<string> canValues = this.canLogger.GetParameterValues().Select(x => x.Value);
+                IEnumerable<string> canValues = this.canLogger.GetParameterValues().Select(x => x.ValueAsString);
 
                 return dpidValues
                         .Select(x => x.Value.ValueAsString)
