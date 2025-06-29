@@ -879,7 +879,7 @@
   <Parameter
       id="AcceleratorPedal"
       pid="1151"
-      name="Accelerator Pedal"
+      name="Accelerator Pedal (Cable only?)"
       description=""
       storageType="uint8"
       bitMapped="False">
