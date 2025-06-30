@@ -252,10 +252,21 @@ namespace PcmHacking
                     uint firstByte = uint.Parse(parameterElement.Attribute("firstByte").Value);
                     uint byteCount = uint.Parse(parameterElement.Attribute("byteCount").Value);
                     bool highByteFirst = bool.Parse(parameterElement.Attribute("highByteFirst").Value);
+                    string aggregationString = parameterElement.Attribute("aggregation").Value;
+                    Aggregation aggregation = (Aggregation)Enum.Parse(typeof(Aggregation), aggregationString);
 
                     List<Conversion> conversions = GetConversions(parameterElement);
 
-                    CanParameter parameter = new CanParameter(messageId, firstByte, byteCount, highByteFirst, id, name, description, conversions);
+                    CanParameter parameter = new CanParameter(
+                        messageId, 
+                        firstByte, 
+                        byteCount, 
+                        highByteFirst, 
+                        id, 
+                        name, 
+                        description, 
+                        conversions, 
+                        aggregation);
 
                     parameters.Add(parameter);
                 }

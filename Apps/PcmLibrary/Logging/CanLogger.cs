@@ -1,14 +1,16 @@
-﻿using PcmHacking;
+﻿using DynamicExpresso;
+using PcmHacking;
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 
+
 namespace PcmHacking
-{
+{ 
     public class CanLogger : IDisposable
     {
         public class ParameterAndValue
@@ -34,7 +36,9 @@ namespace PcmHacking
 
         private IPort canPort;
         private CanParser parser = new CanParser();
-        List<UInt32> keySnapshot = new List<UInt32>();
+        Dictionary<UInt32, Dictionary<string, ParameterAndValue>> snapshot = new Dictionary<UInt32, Dictionary<string, ParameterAndValue>>();
+        IEnumerable<UInt32> sortedMessageIds;
+        Dictionary<UInt32, IEnumerable<string>> sortedParameterIds;
         ParameterDatabase parameterDatabase;
 
         // Note that this is accessed by multiple threads, so it must only be used within "lock(messages)"
@@ -65,7 +69,7 @@ namespace PcmHacking
             this.canPort = port;
 
             // Remove all known messages
-            this.keySnapshot.Clear();
+            this.snapshot.Clear();
 
             lock (this.messages)
             {
@@ -85,11 +89,31 @@ namespace PcmHacking
                 {
                     foreach (UInt32 key in this.messages.Keys)
                     {
-                        this.keySnapshot.Add(key);
+                        Dictionary<string, ParameterAndValue> entry = new Dictionary<string, ParameterAndValue>();
+                        this.snapshot.Add(key, entry);
+
+                        Dictionary<string, List<ParameterAndValue>> idsAndParameters = this.messages[key];
+                        foreach (string id in idsAndParameters.Keys)
+                        {
+                            entry.Add(id, idsAndParameters[id].FirstOrDefault());
+                        }
                     }
                 }
+                this.Sort();
+            }
+        }
 
-                this.keySnapshot.Sort();
+        private void Sort()
+        {
+            // Sort the message IDs and the parameter IDs of each message, so that the
+            // log columns will come out in the same order every time.
+            this.sortedMessageIds = this.snapshot.Keys.ToList().ToImmutableSortedSet();
+            this.sortedParameterIds = new Dictionary<uint, IEnumerable<string>>();
+            foreach (UInt32 messageId in this.sortedMessageIds)
+            {
+                Dictionary<string, ParameterAndValue> parameterIds = this.snapshot[messageId];
+                IEnumerable<string> sortedIds = parameterIds.Keys.ToList().ToImmutableSortedSet();
+                this.sortedParameterIds[messageId] = sortedIds;
             }
         }
 
@@ -99,10 +123,17 @@ namespace PcmHacking
         public void UseDatabaseKeys()
         {
             IReadOnlyDictionary<UInt32, IEnumerable<CanParameter>> canParameters = this.parameterDatabase.GetCanParameters();
-            foreach (UInt32 key in canParameters.Keys)
+            foreach (UInt32 messageId in canParameters.Keys)
             {
-                this.keySnapshot.Add(key);
+                Dictionary<string, ParameterAndValue> temp = new Dictionary<string, ParameterAndValue>();
+                foreach(CanParameter parameter in canParameters[messageId])
+                {
+                    temp[parameter.Id] = new ParameterAndValue(parameter, parameter.SelectedConversion.Units, "0", 0);
+                }
+                this.snapshot[messageId] = temp;
             }
+
+            this.Sort();
         }
 
         public void DataReceived(byte[] buffer, int bytesReceived)
@@ -155,7 +186,8 @@ namespace PcmHacking
                     name,
                     name,
                     string.Empty,
-                    new Conversion[0]);
+                    new Conversion[0],
+                    Aggregation.LastWins);
 
                 string valueAsString;
                 ulong valueAsNumber = 0;
@@ -193,59 +225,91 @@ namespace PcmHacking
                             break;
 
                         case 1:
-                            valueAsNumber = message.Payload[(int)parameter.ByteIndex];
-                            break;
-
-                        case 2:
-                            if (parameter.HighByteFirst)
+                            if ((int)parameter.ByteIndex <= message.Payload.Length)
                             {
-                                valueAsNumber = (message.Payload[(int)parameter.ByteIndex] << 8)
-                                    + message.Payload[(int)parameter.ByteIndex + 1];
+                                valueAsNumber = message.Payload[(int)parameter.ByteIndex];
                             }
                             else
                             {
-                                valueAsNumber = (message.Payload[(int)parameter.ByteIndex + 1] << 8)
-                                    + message.Payload[(int)parameter.ByteIndex];
+                                valueAsNumber = 0;
+                            }
+                            break;
+
+                        case 2:
+                            if ((int)parameter.ByteIndex + 1 <= message.Payload.Length)
+                            {
+                                if (parameter.HighByteFirst)
+                                {
+                                    valueAsNumber =
+                                        (message.Payload[(int)parameter.ByteIndex] << 8) +
+                                        message.Payload[(int)parameter.ByteIndex + 1];
+                                }
+                                else
+                                {
+                                    valueAsNumber =
+                                        (message.Payload[(int)parameter.ByteIndex + 1] << 8) +
+                                        message.Payload[(int)parameter.ByteIndex];
+                                }
+                            }
+                            else
+                            {
+                                valueAsNumber = 0;
                             }
                             break;
 
                         case 3:
-                            if (parameter.HighByteFirst)
+                            if ((int)parameter.ByteIndex + 2 <= message.Payload.Length)
                             {
-                                valueAsNumber = (message.Payload[(int)parameter.ByteIndex] << 16)
-                                    + (message.Payload[(int)parameter.ByteIndex + 1] << 8)
-                                    + message.Payload[(int)parameter.ByteIndex + 2];
+                                if (parameter.HighByteFirst)
+                                {
+                                    valueAsNumber = 
+                                        (message.Payload[(int)parameter.ByteIndex] << 16) +
+                                        (message.Payload[(int)parameter.ByteIndex + 1] << 8) +
+                                        message.Payload[(int)parameter.ByteIndex + 2];
+                                }
+                                else
+                                {
+                                    valueAsNumber = 
+                                        (message.Payload[(int)parameter.ByteIndex + 2] << 16) +
+                                        (message.Payload[(int)parameter.ByteIndex + 1] << 8) +
+                                        message.Payload[(int)parameter.ByteIndex];
+                                }
                             }
                             else
                             {
-                                valueAsNumber = (message.Payload[(int)parameter.ByteIndex + 2] << 16)
-                                    + (message.Payload[(int)parameter.ByteIndex + 1] << 8)
-                                    + message.Payload[(int)parameter.ByteIndex];
+                                valueAsNumber = 0;
                             }
                             break;
 
                         case 4:
-                            if (parameter.HighByteFirst)
+                            if ((int)parameter.ByteIndex + 4 <= message.Payload.Length)
                             {
-                                valueAsNumber = (message.Payload[(int)parameter.ByteIndex] << 24) +
-                                    + (message.Payload[(int)parameter.ByteIndex + 1] << 16) +
-                                    + (message.Payload[(int)parameter.ByteIndex + 2] << 8) +
-                                    + message.Payload[(int)parameter.ByteIndex + 3];
+                                if (parameter.HighByteFirst)
+                                {
+                                    valueAsNumber = 
+                                        (message.Payload[(int)parameter.ByteIndex] << 24) +
+                                        (message.Payload[(int)parameter.ByteIndex + 1] << 16) +
+                                        (message.Payload[(int)parameter.ByteIndex + 2] << 8) +
+                                        message.Payload[(int)parameter.ByteIndex + 3]; 
+                                }
+                                else
+                                {
+                                    valueAsNumber = 
+                                        (message.Payload[(int)parameter.ByteIndex + 3] << 24) +
+                                        (message.Payload[(int)parameter.ByteIndex + 2] << 16) +
+                                        (message.Payload[(int)parameter.ByteIndex + 1] << 8) +
+                                        message.Payload[(int)parameter.ByteIndex];
+                                }
                             }
                             else
                             {
-                                valueAsNumber = (message.Payload[(int)parameter.ByteIndex + 3] << 24) +
-                                    + (message.Payload[(int)parameter.ByteIndex + 2] << 16) +
-                                    + (message.Payload[(int)parameter.ByteIndex + 1] << 8) +
-                                    + message.Payload[(int)parameter.ByteIndex];
+                                valueAsNumber = 0;
                             }
                             break;
                     }
 
                     Conversion conversion = parameter.SelectedConversion ?? parameter.Conversions.First();
-                    double convertedValue = 0;
-                    string formattedValue;
-                    ValueConverter.Convert(valueAsNumber, parameter.Name, conversion, out convertedValue, out formattedValue);
+                    ValueConverter.Convert(valueAsNumber, parameter.Name, conversion, out valueAsNumber, out valueAsString);
 
                     ParameterAndValue result = new ParameterAndValue(parameter, conversion.Units, valueAsString, valueAsNumber);
                     yield return result;
@@ -255,53 +319,119 @@ namespace PcmHacking
 
         public IEnumerable<string> GetParameterNames()
         {
-            foreach (UInt32 key in this.keySnapshot)
+            foreach (UInt32 messageId in this.sortedMessageIds)
             {
-                string name;
-                lock(this.messages)
+                foreach (string parameterId in this.sortedParameterIds[messageId])
                 {
-                    var parametersInThisMessage = this.messages[key];
-                    foreach (var parameterId in parametersInThisMessage.Keys)
-                    {
-                        var list = parametersInThisMessage[parameterId];
-                        foreach (var pv in list)
-                        {
-                            name = pv.Parameter.Name + "(" + pv.Units + ")";
-                            yield return name;
-                        }
-                    }
-                }                
+                    ParameterAndValue pv = this.snapshot[messageId][parameterId];
+                    string name = pv.Parameter.Name + "(" + pv.Units + ")";
+                    yield return name;
+                }
             }
         }
 
         public IEnumerable<ParameterAndValue> GetParameterValues()
         {
-            foreach(UInt32 key in this.keySnapshot)
+            foreach (UInt32 messageId in this.sortedMessageIds)
             {
-                lock(this.messages)
+                var parameterCacheForThisMessage = this.snapshot[messageId];
+                foreach (string parameterId in sortedParameterIds[messageId])
                 {
-                    Dictionary<string, List<ParameterAndValue>> parametersInThisMessage;
-                    if (this.messages.TryGetValue(key, out parametersInThisMessage))
+                    ParameterAndValue parameterAndValue;
+                    if (this.TryGetParameter(messageId, parameterId, out parameterAndValue))
                     {
-                        foreach (var parameterId in parametersInThisMessage.Keys)
+                        parameterCacheForThisMessage[parameterId] = parameterAndValue;
+                        yield return parameterAndValue;
+                    }
+                    else
+                    {
+                        yield return parameterCacheForThisMessage[parameterId];
+                    }
+                }
+            }
+        }
+
+        private bool TryGetParameter(uint messageId, string parameterId, out ParameterAndValue parameterAndValue)
+        {
+            lock (this.messages)
+            {
+                Dictionary<string, List<ParameterAndValue>> parametersForThisMessage;
+                if (this.messages.TryGetValue(messageId, out parametersForThisMessage))
+                {
+                    List<ParameterAndValue> receivedList;
+                    if (parametersForThisMessage.TryGetValue(parameterId, out receivedList))
+                    {
+                        if (this.TryAggregate(receivedList, out parameterAndValue))
                         {
-                            // TODO: this should be a list of values that were received with this ID
-                            // They should be aggregated before returning (average or sum or last-one-wins).
-                            var list = parametersInThisMessage[parameterId];
-                            foreach (var pv in list)
-                            {
-                                yield return pv;
-                            }
+                            receivedList.Clear();
+                            return true;
+                        }
+                        else
+                        {
+                            parameterAndValue = null;
+                            return false;
                         }
                     }
                     else
                     {
-                        // TODO: return default values for parameters that were not updated since the last call
-                        // Will require changing keySnapshot to something like:
-                        // Dictionary<messageId, IEnumerable<parameterId, CanParameter>>
+                        parameterAndValue = null;
+                        return false;
                     }
                 }
+                else
+                {
+                    parameterAndValue = null;
+                    return false;
+                }
             }
+        }
+
+        private bool TryAggregate(List<ParameterAndValue> receivedList, out ParameterAndValue parameterAndValue)
+        {
+            if (receivedList.Count == 0)
+            {
+                parameterAndValue = null;
+                return false;
+            }
+
+            if (receivedList.Count == 1)
+            {
+                parameterAndValue = receivedList[0];
+                return true;
+            }
+
+            ParameterAndValue pv = receivedList[0];
+            double aggregated = 0;
+            switch (pv.Parameter.Aggregation)
+            {
+                case Aggregation.Sum:
+                    foreach (var parameter in receivedList)
+                    {
+                        aggregated += parameter.ValueAsNumber;
+                    }
+                    break;
+
+                case Aggregation.Average:
+                    int samples = 0;
+                    foreach (var parameter in receivedList)
+                    {
+                        aggregated += parameter.ValueAsNumber;
+                        samples++;
+                    }
+                    aggregated /= samples;
+                    break;
+
+                default:
+                case Aggregation.LastWins:
+                    aggregated = receivedList[receivedList.Count - 1].ValueAsNumber;
+                    break;
+            }
+
+            Conversion conversion = pv.Parameter.SelectedConversion ?? pv.Parameter.Conversions.First();
+            string valueAsString = aggregated.ToString(conversion.Format);
+            
+            parameterAndValue = new ParameterAndValue(pv.Parameter, conversion.Units, valueAsString, aggregated);
+            return true;
         }
     }
 }
