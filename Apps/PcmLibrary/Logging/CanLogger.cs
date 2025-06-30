@@ -84,6 +84,16 @@ namespace PcmHacking
                 await this.canPort.OpenAsync(configuration);
 
                 // Discover what messages are available on the bus.
+                //
+                // The idea here to automatically add columns to the log if the devices
+                // are present, and don't add them if the devices are not present. So,
+                // we can add every known device to Parameters.CAN.xml and user will just
+                // automatically get data from whatever devices are in their vehicles.
+                //
+                // This seemed like a better idea than using checkboxes like the PCM and
+                // math parameters. I'm not entirely sure it really was a better idea.
+                // It adds a lot of complexity to the code, and it adds a pause at the
+                // start of every logging session.
                 Thread.Sleep(1500);
                 lock (this.messages)
                 {
