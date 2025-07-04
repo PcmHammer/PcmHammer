@@ -437,7 +437,12 @@ namespace PcmHacking
                     break;
             }
 
-            Conversion conversion = pv.Parameter.SelectedConversion ?? pv.Parameter.Conversions.First();
+            // Return the selected conversion, or if there are conversions use the first converion, else use Converison.DefaultConversion.
+            Conversion conversion = pv.Parameter.SelectedConversion ??
+                ((pv.Parameter.Conversions.Count() > 0) ? 
+                    pv.Parameter.Conversions.First() :
+                    Conversion.DefaultConversion);
+
             string valueAsString = aggregated.ToString(conversion.Format);
             
             parameterAndValue = new ParameterAndValue(pv.Parameter, conversion.Units, valueAsString, aggregated);

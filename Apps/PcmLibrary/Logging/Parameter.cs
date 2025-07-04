@@ -52,6 +52,8 @@ namespace PcmHacking
             return this.Units;
         }
 
+        public static Conversion DefaultConversion = new Conversion("raw", "x", "0");
+
         /// <summary>
         /// The expression parser doesn't support bit-shift operators.
         /// So we hack them into division operators here.
