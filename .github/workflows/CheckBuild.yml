@@ -30,6 +30,25 @@ jobs:
         mkdir TemporaryArtifactStorage/Skia
         mkdir TemporaryArtifactStorage/WindowsUnpackaged
 
+    - name: Build C Kernels
+      run: |
+        cd Kernels
+        #
+        # The following loop is the one location that needs to be updated when adding a new C kernel.
+        #
+        for p in "P12 FF2000"; do
+          pcm=${p%% *}
+          address=${p##* }
+
+          echo Building Kernel ":    ${pcm}"
+          make -f makefile PREFIX=/usr/bin/m68k-linux-gnu- pcm=${pcm} address=${address}
+          echo "    Copy-Item Kernel-${pcm}.bin to TemporaryArtifactStorage"
+          cp Kernel-${pcm}.bin ../TemporaryArtifactStorage/
+          echo "    Cleanup after Kernel-${pcm}"
+          echo
+          make clean
+        done
+
     - name: Build Assembly Kernels and Loaders
       run: |
         cd Kernels
@@ -39,7 +58,7 @@ jobs:
         # 2: Kernel Base Address
         # 3: Loader Base Address or NOLOADER if a loader is not used.
         #
-        for p in "P01 FF8000 NOLOADER" "P04 FF8000 FF9890" "P04_Early FF8000 NOLOADER" "P08 FFAC00 NOLOADER" "P10 FFB800 NOLOADER" "P12 FF2000 NOLOADER" "E54 FF9100 NOLOADER" "BlackBox FFC300 NOLOADER"; do
+        for p in "P01 FF8000 NOLOADER" "P04 FF8000 FF9890" "P04_Early FF8000 NOLOADER" "P08 FFAC00 NOLOADER" "P10 FFB800 NOLOADER" "E54 FF9100 NOLOADER" "BlackBox FFC300 NOLOADER"; do
           pcm="${p%% *}";
           p="${p#* }"
           address="${p%% *}"

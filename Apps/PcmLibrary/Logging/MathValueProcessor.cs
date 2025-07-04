@@ -2,7 +2,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 
 // This was needed for a while and I still can't figure out why.
 // None of the code in this file uses it directly, and I don't
