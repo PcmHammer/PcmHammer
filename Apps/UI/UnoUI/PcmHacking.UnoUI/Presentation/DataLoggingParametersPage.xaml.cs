@@ -15,7 +15,7 @@ using Windows.UI.ViewManagement;
 namespace PcmHacking.UnoUI.Presentation;
 
 public record Indices(int MainRowIndex, int ZoomRowIndex);
-public record DataSource(LogColumn? LogColumn, CanLogger.ParameterValue? CanParameter);
+public record DataSource(LogColumn? LogColumn, CanLogger.ParameterAndValue? CanParameter);
 public record RowMetadata(DataSource DataSource, Indices Indices, TextBlock Value, TextBlock? ZoomedValue, string Units);
 
 public sealed partial class DataLoggingParametersPage : Page
@@ -154,9 +154,9 @@ public sealed partial class DataLoggingParametersPage : Page
                 mainRowIndex++;
             }
 
-            foreach (CanLogger.ParameterValue canParameter in logger.CanLogger.GetParameterValues())
+            foreach (CanLogger.ParameterAndValue canParameter in logger.CanLogger.GetParameterValues())
             {
-                this.AddParameter(mainRowIndex, canParameter.Name, canParameter.Units, out TextBlock valueTextBlock);
+                this.AddParameter(mainRowIndex, canParameter.Parameter.Id, canParameter.Units, out TextBlock valueTextBlock);
                 mainRowIndex++;
 
                 this.parameterMetadata.Add(

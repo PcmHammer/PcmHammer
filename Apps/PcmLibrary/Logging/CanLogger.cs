@@ -368,6 +368,34 @@ namespace PcmHacking
             }
         }
 
+        public IEnumerable<LogRowElement> GetParameterValuesV2()
+        {
+            foreach (UInt32 messageId in this.sortedMessageIds)
+            {
+                var parameterCacheForThisMessage = this.snapshot[messageId];
+                foreach (string parameterId in sortedParameterIds[messageId])
+                {
+                    ParameterAndValue parameterAndValue;
+                    if (this.TryGetParameter(messageId, parameterId, out parameterAndValue))
+                    {
+                        parameterCacheForThisMessage[parameterId] = parameterAndValue;
+                    }
+                    else
+                    {
+                        parameterAndValue = parameterCacheForThisMessage[parameterId];
+                    }
+
+                    yield return new LogRowElement(
+                        parameterAndValue.Parameter.Id,
+                        parameterAndValue.Parameter.Name,
+                        parameterAndValue.Units,
+                        parameterAndValue.ValueAsString,
+                        parameterAndValue.ValueAsNumber);
+                }
+            }
+        }
+
+
         private bool TryGetParameter(uint messageId, string parameterId, out ParameterAndValue parameterAndValue)
         {
             lock (this.messages)
