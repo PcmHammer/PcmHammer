@@ -85,7 +85,7 @@ namespace PcmHacking
 
                 // Discover what messages are available on the bus.
                 //
-                // The idea here to automatically add columns to the log if the devices
+                // The idea here is to automatically add columns to the log if the devices
                 // are present, and don't add them if the devices are not present. So,
                 // we can add every known device to Parameters.CAN.xml and user will just
                 // automatically get data from whatever devices are in their vehicles.
