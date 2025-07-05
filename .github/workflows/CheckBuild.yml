@@ -118,11 +118,12 @@ jobs:
       with:
         name: Kernels_${{github.sha}}
 
-    - name: Build Applications
-      uses: actions/checkout@v4
+    - name: Fetch .Net
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '4.6.1'
+
+    - name: Build Applications
       run: dotnet build Apps/PcmApps.sln
 
     - name: Add PCM Hammer to temporary artifact storage
