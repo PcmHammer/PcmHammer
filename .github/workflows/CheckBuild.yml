@@ -121,7 +121,7 @@ jobs:
     - name: Build Applications
       uses: actions/checkout@v4
       uses: actions/setup-dotnet@v4
-        with:
+      with:
         dotnet-version: '4.6.1'
       run: dotnet build Apps/PcmApps.sln
 
