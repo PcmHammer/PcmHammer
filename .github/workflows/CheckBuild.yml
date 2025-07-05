@@ -101,8 +101,6 @@ jobs:
     - name: Setup MSBuild Path
       uses: microsoft/setup-msbuild@v2.0.0
 
-      https://go.microsoft.com/fwlink/?linkid=2099466
-
     - name: Setup NuGet
       uses: NuGet/setup-nuget@v2.0.0
 
