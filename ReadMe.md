@@ -12,6 +12,8 @@ Click "Assets" (below the description of the release) and download the .zip file
 
 Extract the contents of the zip file, and run PcmHammer.exe or PcmLogger.exe.
 
+If you get an error about not having the right version of .NET, you download and install the .NET 4.6.2 runtime. You can get it [here](https://dotnet.microsoft.com/en-us/download/dotnet-framework/thank-you/net462-web-installer).
+
 ## Links
 
 [The GM section of pcmhacking.net](https://pcmhacking.net/forums/viewforum.php?f=42)
