@@ -118,10 +118,10 @@ jobs:
       with:
         name: Kernels_${{github.sha}}
 
-    - name: Fetch .Net
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: '4.6.1'
+    - name: Fetch .Net 4.6.2
+      run: |
+        Invoke-WebRequest $myDownloadUrl -OutFile .\NDP462-DevPack-KB3151934-ENU.exe
+        .\NDP462-DevPack-KB3151934-ENU.exe /passive /norestart
 
     - name: Build Applications
       run: dotnet build Apps/PcmApps.sln
