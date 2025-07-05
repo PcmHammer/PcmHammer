@@ -120,7 +120,7 @@ jobs:
 
     - name: Fetch .Net 4.6.2
       run: |
-        Invoke-WebRequest $myDownloadUrl -OutFile .\NDP462-DevPack-KB3151934-ENU.exe
+        Invoke-WebRequest https://go.microsoft.com/fwlink/?linkid=2099466 -OutFile .\NDP462-DevPack-KB3151934-ENU.exe
         .\NDP462-DevPack-KB3151934-ENU.exe /passive /norestart
 
     - name: Build Applications
