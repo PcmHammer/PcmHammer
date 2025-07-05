@@ -101,6 +101,8 @@ jobs:
     - name: Setup MSBuild Path
       uses: microsoft/setup-msbuild@v2.0.0
 
+      https://go.microsoft.com/fwlink/?linkid=2099466
+
     - name: Setup NuGet
       uses: NuGet/setup-nuget@v2.0.0
 
@@ -119,7 +121,11 @@ jobs:
         name: Kernels_${{github.sha}}
 
     - name: Build Applications
-      run: msbuild Apps/PcmApps.sln
+      uses: actions/checkout@v4
+      uses: actions/setup-dotnet@v4
+        with:
+        dotnet-version: '4.6.1'
+      run: dotnet build Apps/PcmApps.sln
 
     - name: Add PCM Hammer to temporary artifact storage
       run: |
