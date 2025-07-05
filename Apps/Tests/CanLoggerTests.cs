@@ -18,7 +18,7 @@ namespace Tests
             Conversion simpleConversion = new Conversion("test", "x", "0.00");
             Conversion[] conversionArray = new Conversion[] { simpleConversion };
 
-            CanParameter param1 = new CanParameter(0x01, 0, 2, true, "1", "1", "1", conversionArray, Aggregation.LastWins);
+            CanParameter param1 = new CanParameter(0x01, 0, 2, true, "1", "1", "1", conversionArray, Aggregation.Last);
             CanParameter param21 = new CanParameter(0x02, 0, 2, true, "21", "21", "21", conversionArray, Aggregation.Sum);
             CanParameter param22 = new CanParameter(0x02, 2, 2, true, "22", "22", "22", conversionArray, Aggregation.Average);
 

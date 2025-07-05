@@ -294,7 +294,7 @@ namespace PcmHacking
 
     public enum Aggregation
     {
-        LastWins,
+        Last,
         Sum,
         Average
     }

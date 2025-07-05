@@ -197,7 +197,7 @@ namespace PcmHacking
                     name,
                     string.Empty,
                     new Conversion[0],
-                    Aggregation.LastWins);
+                    Aggregation.Last);
 
                 string valueAsString;
                 ulong valueAsNumber = 0;
@@ -432,7 +432,7 @@ namespace PcmHacking
                     break;
 
                 default:
-                case Aggregation.LastWins:
+                case Aggregation.Last:
                     aggregated = receivedList[receivedList.Count - 1].ValueAsNumber;
                     break;
             }
