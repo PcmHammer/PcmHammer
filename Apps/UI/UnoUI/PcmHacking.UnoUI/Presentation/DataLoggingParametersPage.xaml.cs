@@ -156,7 +156,7 @@ public sealed partial class DataLoggingParametersPage : Page
 
             foreach (CanLogger.ParameterAndValue canParameter in logger.CanLogger.GetParameterValues())
             {
-                this.AddParameter(mainRowIndex, canParameter.Parameter.Id, canParameter.Units, out TextBlock valueTextBlock);
+                this.AddParameter(mainRowIndex, canParameter.Parameter.Name, canParameter.Units, out TextBlock valueTextBlock);
                 mainRowIndex++;
 
                 this.parameterMetadata.Add(

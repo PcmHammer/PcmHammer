@@ -23,7 +23,7 @@
       highByteFirst="true"
       name="AEM Temperature"
       description=""
-      aggregation="Last">
+      aggregation="LastWins">
       <Conversion units="F" expression="x * 1.8 + 32.0" format="0.0"/>
       <Conversion units="C" expression="x" format="0"/>
     </Parameter>
@@ -63,7 +63,7 @@
       firstByte="0"
       byteCount ="2"
       highByteFirst="true"
-      name="Knock Level"
+      name="Plex Knock Level"
       description=""
       aggregation="Average">
       <Conversion units="Count" expression="x" format="0"/>
@@ -73,19 +73,19 @@
       firstByte="2"
       byteCount ="2"
       highByteFirst="true"
+      name="Plex Knock Rate"      
       description="Knock rate"
-      aggregation="Average"
-      name="Knock Rate"
-      description="">
-      <Conversion units="Count" expression="x" format="0"/>
+      aggregation="Average">
+      <Conversion units="Rate" expression="x" format="0"/>
     </Parameter>
     <Parameter
       id="CAN_Plex_KnockCount"
       firstByte="4"
       byteCount ="2"
       highByteFirst="true"
-      aggregation="LastWins"
-      description="">
+      name="Plex Knock Count"
+      description=""
+      aggregation="LastWins">
       <Conversion units="Rate" expression="x" format="0"/>
     </Parameter>
   </Message>
@@ -96,7 +96,7 @@
       firstByte="0"
       byteCount ="2"
       highByteFirst="true"
-      name="Battery Voltage"
+      name="Plex Battery Voltage"
       aggregation="LastWins"
       description="">
       <Conversion units="Voltage" expression="x/256" format="0.00"/>
@@ -106,7 +106,7 @@
       firstByte="2"
       byteCount ="2"
       highByteFirst="true"
-      name="Engine Speed"
+      name="Plex Engine Speed"
       aggregation="Average"
       description="">
       <Conversion units="RPM" expression="x" format="0"/>
