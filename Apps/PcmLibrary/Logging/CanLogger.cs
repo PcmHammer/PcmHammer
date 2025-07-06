@@ -466,6 +466,17 @@ namespace PcmHacking
                     aggregated /= samples;
                     break;
 
+                case Aggregation.Max:
+                    aggregated = -double.MinValue;
+                    foreach (var parameter in receivedList)
+                    {
+                        if (parameter.ValueAsNumber > aggregated)
+                        {
+                            aggregated = parameter.ValueAsNumber;
+                        }
+                    }
+                    break;
+
                 default:
                 case Aggregation.LastWins:
                     aggregated = receivedList[receivedList.Count - 1].ValueAsNumber;

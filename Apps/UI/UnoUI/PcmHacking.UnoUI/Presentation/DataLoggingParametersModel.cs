@@ -99,12 +99,21 @@ public partial record DataLoggingParametersModel
     private readonly IConnectionService connectionService;
     private readonly ISettingsService settingsService;
 
-    public IState<bool> UseAcceleratorToSaveLogsEnabled => State<bool>.Value(this, () => false);
-    public IState<bool> UseAcceleratorToSaveLogsChecked => State<bool>.Value(this, () => false).ForEach(SetUseAcceleratorToSaveLogs);
-    public IState<bool> UseKnockRetardToSaveLogsEnabled => State<bool>.Value(this, () => false);
-    public IState<bool> UseKnockRetardToSaveLogsChecked => State<bool>.Value(this, () => false).ForEach(SetUseKnockRetardToSaveLogs);
-    public IState<bool> UseCruiseButtonToSaveLogsEnabled => State<bool>.Value(this, () => false);
-    public IState<bool> UseCruiseButtonToSaveLogsChecked => State<bool>.Value(this, () => false).ForEach(SetUseCruiseButtonToSaveLogs);
+    public IState<bool> UseAcceleratorToSaveLogsEnabled => State<bool>
+        .Value(this, () => false);
+    public IState<bool> UseAcceleratorToSaveLogsChecked => State<bool>
+        .Value(this, () => this.settingsService.GetUseAcceleratorToSaveLogs())
+        .ForEach(SetUseAcceleratorToSaveLogs);
+    public IState<bool> UseKnockRetardToSaveLogsEnabled => State<bool>
+        .Value(this, () => false);
+    public IState<bool> UseKnockRetardToSaveLogsChecked => State<bool>
+        .Value(this, () => this.settingsService.GetUseKnockRetardToSaveLogs())
+        .ForEach(SetUseKnockRetardToSaveLogs);
+    public IState<bool> UseCruiseButtonToSaveLogsEnabled => State<bool>
+        .Value(this, () => false);
+    public IState<bool> UseCruiseButtonToSaveLogsChecked => State<bool>
+        .Value(this, () => this.settingsService.GetUseCruiseButtonToSaveLogs())
+        .ForEach(SetUseCruiseButtonToSaveLogs);
 
     private string canPortName;    
     private CanLogger? canLogger;
@@ -581,17 +590,17 @@ public partial record DataLoggingParametersModel
         {
             if (useAcceleratorToSaveLogsChecked && (element.ParameterId == AcceleratorPedalParameterId1 || element.ParameterId == AcceleratorPedalParameterId2))
             {
-                shouldBeWriting = element.ValueAsNumber > 80;
+                shouldBeWriting |= element.ValueAsNumber > 80;
             }
 
             if (useKnockRetardToSaveLogsChecked && element.ParameterId == KnockRetardParameterId)
             {
-                shouldBeWriting = element.ValueAsNumber > 0;
+                shouldBeWriting |= element.ValueAsNumber > 0;
             }
 
             if (useCruiseButtonToSaveLogsChecked && element.ParameterId == CruiseSetCoastSwitchParameterId)
             {
-                shouldBeWriting = element.ValueAsString == "Pressed";
+                shouldBeWriting |= element.ValueAsString == "Pressed";
             }
         }
 

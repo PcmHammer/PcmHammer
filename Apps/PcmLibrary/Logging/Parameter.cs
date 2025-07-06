@@ -296,7 +296,8 @@ namespace PcmHacking
     {
         LastWins,
         Sum,
-        Average
+        Average,
+        Max
     }
 
     public class CanParameter : Parameter

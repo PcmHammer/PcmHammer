@@ -65,7 +65,7 @@
       highByteFirst="true"
       name="Plex Knock Level"
       description=""
-      aggregation="Average">
+      aggregation="Max">
       <Conversion units="Count" expression="x" format="0"/>
     </Parameter>
     <Parameter
@@ -75,7 +75,7 @@
       highByteFirst="true"
       name="Plex Knock Rate"      
       description="Knock rate"
-      aggregation="Average">
+      aggregation="Max">
       <Conversion units="Rate" expression="x" format="0"/>
     </Parameter>
     <Parameter
