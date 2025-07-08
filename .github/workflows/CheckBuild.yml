@@ -92,7 +92,7 @@ jobs:
   PCMHammer:
     needs: Kernels
 
-    runs-on: windows-2019
+    runs-on: windows-2025
 
     steps:
     - name: Checkout Code
@@ -117,6 +117,11 @@ jobs:
       uses: geekyeggo/delete-artifact@v5.1.0
       with:
         name: Kernels_${{github.sha}}
+
+    - name: Fetch .Net 4.6.2
+      run: |
+        Invoke-WebRequest https://go.microsoft.com/fwlink/?linkid=2099466 -OutFile .\NDP462-DevPack-KB3151934-ENU.exe
+        .\NDP462-DevPack-KB3151934-ENU.exe /passive /norestart
 
     - name: Build Applications
       run: msbuild Apps/PcmApps.sln

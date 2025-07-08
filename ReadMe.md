@@ -12,6 +12,14 @@ Click "Assets" (below the description of the release) and download the .zip file
 
 Extract the contents of the zip file, and run PcmHammer.exe or PcmLogger.exe.
 
+If you get an error about not having the right version of .NET, you need to download and install the .NET 4.6.2 runtime. You can get it [here](https://dotnet.microsoft.com/en-us/download/dotnet-framework/thank-you/net462-web-installer).
+
+## Building
+
+You will need Visual Studio 2019 or later, and the .NET 4.6.2 SDK.
+
+You can get the .NET 4.6.2 SDK [here](https://go.microsoft.com/fwlink/?linkid=2099466)
+
 ## Links
 
 [The GM section of pcmhacking.net](https://pcmhacking.net/forums/viewforum.php?f=42)
