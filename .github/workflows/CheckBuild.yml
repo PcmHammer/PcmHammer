@@ -122,7 +122,7 @@ jobs:
         .\NDP462-DevPack-KB3151934-ENU.exe /passive /norestart
 
     - name: Build Applications
-      run: dotnet build Apps/PcmApps.sln
+      run: msbuild Apps/PcmApps.sln
 
     - name: Add PCM Hammer to temporary artifact storage
       run: |
