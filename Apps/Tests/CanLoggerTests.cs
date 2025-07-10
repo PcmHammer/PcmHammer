@@ -32,7 +32,7 @@ namespace Tests
         public void SimpleMessage_Unknown()
         {
             byte[] data = { 0xAA, 0xE2, 0x21, 0x30, 0x03, 0x01, 0x11, 0x22, 0x55 };
-            CanLogger logger = new CanLogger(parameterDatabase);
+            CanLogger logger = new CanLogger(parameterDatabase, new MockLogger());
             logger.UseDatabaseKeys();
             logger.DataReceived(data, data.Length);
 
@@ -48,7 +48,7 @@ namespace Tests
         public void SimpleMessage_Known()
         {
             byte[] data = { 0xAA, 0xE2, 0x01, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0x55 };
-            CanLogger logger = new CanLogger(parameterDatabase);
+            CanLogger logger = new CanLogger(parameterDatabase, new MockLogger());
             logger.UseDatabaseKeys();
             logger.DataReceived(data, data.Length);
 
@@ -69,7 +69,7 @@ namespace Tests
             byte[] data2 = { 0xAA, 0xE2, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x55 };
             byte[] data3 = { 0xAA, 0xE2, 0x01, 0x00, 0x00, 0x00, 0x00, 0xFF, 0x55 };
 
-            CanLogger logger = new CanLogger(parameterDatabase);
+            CanLogger logger = new CanLogger(parameterDatabase, new MockLogger());
             logger.UseDatabaseKeys();
             logger.DataReceived(data1, data1.Length);
             logger.DataReceived(data2, data2.Length);
@@ -92,7 +92,7 @@ namespace Tests
             byte[] data2 = { 0xAA, 0xE4, 0x02, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x04, 0x55 };
             byte[] data3 = { 0xAA, 0xE4, 0x02, 0x00, 0x00, 0x00, 0x00, 0x03, 0x00, 0x06, 0x55 };
 
-            CanLogger logger = new CanLogger(parameterDatabase);
+            CanLogger logger = new CanLogger(parameterDatabase, new MockLogger());
             logger.UseDatabaseKeys();
             logger.DataReceived(data1, data1.Length);
             logger.DataReceived(data2, data2.Length);
