@@ -42,7 +42,6 @@ namespace PcmHacking
         Dictionary<UInt32, Dictionary<string, ParameterAndValue>> snapshot = new Dictionary<UInt32, Dictionary<string, ParameterAndValue>>();
         IEnumerable<UInt32> sortedMessageIds;
         Dictionary<UInt32, IEnumerable<string>> sortedParameterIds;
-        ParameterDatabase parameterDatabase;
 
         // Note that this is accessed by multiple threads, so it must only be used within "lock(messages)"
         Dictionary<UInt32, Dictionary<string, List<ParameterAndValue>>> messages = new Dictionary<UInt32, Dictionary<string, List<ParameterAndValue>>>();
