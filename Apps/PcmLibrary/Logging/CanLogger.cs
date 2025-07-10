@@ -129,7 +129,7 @@ namespace PcmHacking
                 this.sortedParameterIds[messageId] = sortedIds;
             }
 
-            this.logger.AddUserMessage($"CanLogger found {this.sortedMessageIds.Count} CAN messages.");
+            this.logger.AddUserMessage($"CanLogger found {this.sortedMessageIds.Count()} CAN messages.");
             foreach(UInt32 messageId in this.sortedMessageIds)
             {
                 this.logger.AddUserMessage($"CAN ID: {messageId:X}");
