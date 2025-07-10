@@ -34,6 +34,9 @@ namespace PcmHacking
             }
         }
 
+        private readonly ParameterDatabase parameterDatabase;
+        private readonly ILogger logger;
+
         private IPort canPort;
         private CanParser parser = new CanParser();
         Dictionary<UInt32, Dictionary<string, ParameterAndValue>> snapshot = new Dictionary<UInt32, Dictionary<string, ParameterAndValue>>();
@@ -44,9 +47,10 @@ namespace PcmHacking
         // Note that this is accessed by multiple threads, so it must only be used within "lock(messages)"
         Dictionary<UInt32, Dictionary<string, List<ParameterAndValue>>> messages = new Dictionary<UInt32, Dictionary<string, List<ParameterAndValue>>>();
 
-        public CanLogger(ParameterDatabase parameterDatabase)
+        public CanLogger(ParameterDatabase parameterDatabase, ILogger logger)
         {
             this.parameterDatabase = parameterDatabase;
+            this.logger = logger;
         }
 
         public void Dispose()
@@ -124,6 +128,12 @@ namespace PcmHacking
                 Dictionary<string, ParameterAndValue> parameterIds = this.snapshot[messageId];
                 IEnumerable<string> sortedIds = parameterIds.Keys.ToList().ToImmutableSortedSet();
                 this.sortedParameterIds[messageId] = sortedIds;
+            }
+
+            this.logger.AddUserMessage($"CanLogger found {this.sortedMessageIds.Count} CAN messages.");
+            foreach(UInt32 messageId in this.sortedMessageIds)
+            {
+                this.logger.AddUserMessage($"CAN ID: {messageId:X}");
             }
         }
 

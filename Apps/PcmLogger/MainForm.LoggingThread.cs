@@ -140,7 +140,7 @@ namespace PcmHacking
         private async Task<Logger> RecreateLogger(ParameterDatabase parameterDatabase)
         {
             this.canLogger?.Dispose();
-            this.canLogger = new CanLogger(parameterDatabase);
+            this.canLogger = new CanLogger(parameterDatabase, this);
 
             if (string.IsNullOrEmpty(this.canPortName))
             {

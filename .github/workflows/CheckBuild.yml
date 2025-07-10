@@ -91,9 +91,7 @@ jobs:
 
   PCMHammer:
     needs: Kernels
-
-    runs-on: windows-2022
-
+    runs-on: windows-2025
     steps:
     - name: Checkout Code
       uses: actions/checkout@v4.1.7
@@ -118,11 +116,10 @@ jobs:
       with:
         name: Kernels_${{github.sha}}
 
-
     - name: Fetch .Net 4.6.2
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: '4.6.2'
+      run: |
+        Invoke-WebRequest https://go.microsoft.com/fwlink/?linkid=2099466 -OutFile .\NDP462-DevPack-KB3151934-ENU.exe
+        .\NDP462-DevPack-KB3151934-ENU.exe /passive /norestart
 
     - name: Build Applications
       run: dotnet build Apps/PcmApps.sln
