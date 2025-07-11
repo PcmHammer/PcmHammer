@@ -91,9 +91,7 @@ jobs:
 
   PCMHammer:
     needs: Kernels
-
     runs-on: windows-2025
-
     steps:
     - name: Checkout Code
       uses: actions/checkout@v4.1.7
