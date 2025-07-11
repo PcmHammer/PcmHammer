@@ -64,7 +64,7 @@
       byteCount ="2"
       highByteFirst="true"
       name="Knock Count S1"
-      aggregation="LastWins"
+      aggregation="Last"
       description="">
       <Conversion units="Count" expression="x" format="0"/>
     </Parameter>
@@ -74,7 +74,7 @@
       byteCount ="2"
       highByteFirst="true"
       name="Knock Count S2"
-      aggregation="LastWins"
+      aggregation="Last"
       description="">
       <Conversion units="Count" expression="x" format="0"/>
     </Parameter>
@@ -107,7 +107,7 @@
       byteCount ="2"
       highByteFirst="true"
       name="Battery Voltage"
-      aggregation="LastWins"
+      aggregation="Last"
       description="">
       <Conversion units="Voltage" expression="x/256" format="0.00"/>
     </Parameter>
