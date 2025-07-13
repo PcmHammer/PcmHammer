@@ -102,10 +102,24 @@ namespace PcmHacking
                 // It adds a lot of complexity to the code, and it adds a pause at the
                 // start of every logging session.
                 Thread.Sleep(1500);
+
+                ISet<uint> knownIds = new HashSet<uint>(this.parameterDatabase.GetCanParameters().Keys);
                 lock (this.messages)
                 {
                     foreach (UInt32 key in this.messages.Keys)
                     {
+
+                        // When troubleshooting the CAN parser & serial port code, it is
+                        // helpful to see whether anything got mistaken for a valid message.
+                        //
+                        // This was also helpful to discover what's present on the CAN
+                        // bus, but sniffing should be a dedicated feature of the app,
+                        // not something that happens randomly when starting every log.
+//                        if (!knownIds.Contains(key))
+ //                       {
+  //                          continue;
+   //                     }
+
                         Dictionary<string, ParameterAndValue> entry = new Dictionary<string, ParameterAndValue>();
                         this.snapshot.Add(key, entry);
 
@@ -204,7 +218,7 @@ namespace PcmHacking
                     name,
                     string.Empty,
                     new Conversion[0],
-                    Aggregation.LastWins);
+                    Aggregation.Last);
 
                 string valueAsString;
                 ulong valueAsNumber = 0;
@@ -242,7 +256,7 @@ namespace PcmHacking
                             break;
 
                         case 1:
-                            if ((int)parameter.ByteIndex <= message.Payload.Length)
+                            if ((int)parameter.ByteIndex < message.Payload.Length)
                             {
                                 valueAsNumber = message.Payload[(int)parameter.ByteIndex];
                             }
@@ -253,7 +267,7 @@ namespace PcmHacking
                             break;
 
                         case 2:
-                            if ((int)parameter.ByteIndex + 1 <= message.Payload.Length)
+                            if ((int)parameter.ByteIndex + 1 < message.Payload.Length)
                             {
                                 if (parameter.HighByteFirst)
                                 {
@@ -275,7 +289,7 @@ namespace PcmHacking
                             break;
 
                         case 3:
-                            if ((int)parameter.ByteIndex + 2 <= message.Payload.Length)
+                            if ((int)parameter.ByteIndex + 2 < message.Payload.Length)
                             {
                                 if (parameter.HighByteFirst)
                                 {
@@ -299,7 +313,7 @@ namespace PcmHacking
                             break;
 
                         case 4:
-                            if ((int)parameter.ByteIndex + 4 <= message.Payload.Length)
+                            if ((int)parameter.ByteIndex + 4 < message.Payload.Length)
                             {
                                 if (parameter.HighByteFirst)
                                 {
@@ -327,6 +341,11 @@ namespace PcmHacking
 
                     Conversion conversion = parameter.SelectedConversion ?? parameter.Conversions.First();
                     ValueConverter.Convert(valueAsNumber, parameter.Name, conversion, out valueAsNumber, out valueAsString);
+
+                    if (message.MessageId == 0x2050 && valueAsNumber > 0)
+                    {
+                        //Debugger.Break();
+                    }
 
                     ParameterAndValue result = new ParameterAndValue(parameter, conversion.Units, valueAsString, valueAsNumber);
                     yield return result;
@@ -478,7 +497,7 @@ namespace PcmHacking
                     break;
 
                 default:
-                case Aggregation.LastWins:
+                case Aggregation.Last:
                     aggregated = receivedList[receivedList.Count - 1].ValueAsNumber;
                     break;
             }
