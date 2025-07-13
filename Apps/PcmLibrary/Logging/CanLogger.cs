@@ -486,7 +486,7 @@ namespace PcmHacking
                     break;
 
                 case Aggregation.Max:
-                    aggregated = -double.MinValue;
+                    aggregated = double.MinValue;
                     foreach (var parameter in receivedList)
                     {
                         if (parameter.ValueAsNumber > aggregated)
