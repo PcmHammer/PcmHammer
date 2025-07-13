@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO.Ports;
 using System.Linq;
 using System.Text;
@@ -69,12 +70,6 @@ namespace PcmHacking
 
             if (this.port.IsOpen == true) this.port.Close();
 
-            if (config.DataReceived != null)
-            {
-                this.dataReceived= config.DataReceived;
-                this.port.DataReceived += this.Port_DataReceived;
-            }
-
             this.port.Open();
 
             // This line must come AFTER the call to port.Open().
@@ -85,7 +80,38 @@ namespace PcmHacking
             // to implement the timeout yourself if you use the async approach.
             this.port.BaseStream.ReadTimeout = this.port.ReadTimeout;
 
+            if (config.DataReceived != null)
+            {
+                this.dataReceived = config.DataReceived;
+                Task.Run(this.Receiver);
+            }
+
             return Task.CompletedTask;
+        }
+
+        private async void Receiver()
+        {
+            byte[] buffer = new byte[100];
+            while(this.port != null)
+            {
+                try
+                {
+                    int bytesReceived = await this.port.BaseStream.ReadAsync(buffer, 0, buffer.Length);
+                    if (bytesReceived > 0)
+                    {
+                        this.dataReceived(buffer, bytesReceived);
+                    }
+                }
+                catch(Exception exception)
+                {
+                    if (exception is ObjectDisposedException)
+                    {
+                        break;
+                    }
+
+                    Debug.WriteLine("StandardPort.DataListener: " + exception.ToString());
+                }
+            }
         }
 
         /// <summary>
