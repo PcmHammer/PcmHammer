@@ -23,7 +23,7 @@
       highByteFirst="true"
       name="AEM Temperature"
       description=""
-      aggregation="LastWins">
+      aggregation="Last">
       <Conversion units="F" expression="x * 1.8 + 32.0" format="0.0"/>
       <Conversion units="C" expression="x" format="0"/>
     </Parameter>
@@ -97,9 +97,9 @@
       byteCount ="2"
       highByteFirst="true"
       name="Plex Battery Voltage"
-      aggregation="LastWins"
+      aggregation="Last"
       description="">
-      <Conversion units="Voltage" expression="x/256" format="0.00"/>
+      <Conversion units="Voltage" expression="x/1024" format="0.00"/>
     </Parameter>
     <Parameter
       id="CAN_Plex_RPM"
