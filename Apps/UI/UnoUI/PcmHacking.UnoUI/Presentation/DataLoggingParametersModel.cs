@@ -77,6 +77,7 @@ public class ParameterEditContext
 public partial record DataLoggingParametersModel
 {
     private const string StartRecordingButtonText = "Start Recording";
+    
     private const string StopRecordingButtonText = "Stop Recording";
 
     // This one works on my car, but it might ONLY work on drive-by-wire cars.
@@ -115,6 +116,12 @@ public partial record DataLoggingParametersModel
         .Value(this, () => this.settingsService.GetUseCruiseButtonToSaveLogs())
         .ForEach(SetUseCruiseButtonToSaveLogs);
 
+    public IState<string> ErrorMessage => State<string>.Empty(this);
+
+    public IState<string> RecordingButtonText => State<string>.Value(this, () => DataLoggingParametersModel.StartRecordingButtonText);
+
+    public IState<bool> RecordingButtonEnabled => State<bool>.Value(this, () => false);
+
     private string canPortName;    
     private CanLogger? canLogger;
     private ConcurrentQueue<Tuple<Logger, LogFileWriter?, IEnumerable<string>>> logRowQueue = new ConcurrentQueue<Tuple<Logger, LogFileWriter?, IEnumerable<string>>>();
@@ -130,14 +137,13 @@ public partial record DataLoggingParametersModel
     // The underlying StreamWriter for the LogFileWriter.
     private StreamWriter? streamWriter = null;
 
+    // Buffer for pre-trigger log rows (2 seconds worth)
+    private PcmHacking.CircularBuffer<IEnumerable<string>> preTriggerBuffer;
+    private const int PreTriggerBufferSeconds = 2;
+    private const int EstimatedSamplingRate = 10; // rows per second, adjust as needed
+    
     public LoggerAdapter ProgressLogger { get { return this.progressLogger; } }
     public ManualResetEvent InitializationEvent { get; private set; }
-
-    public IState<string> ErrorMessage => State<string>.Empty(this);
-
-    public IState<string> RecordingButtonText => State<string>.Value(this, () => DataLoggingParametersModel.StartRecordingButtonText);
-
-    public IState<bool> RecordingButtonEnabled => State<bool>.Value(this, () => false);
 
     public DataLoggingParametersModel(
         INavigator navigator,
@@ -156,6 +162,9 @@ public partial record DataLoggingParametersModel
         this.dispatcherQueue = dispatcherQueue;
         this.loggingContext = loggingContext;
         this.canPortName = settingsService.GetCanSerialPortName();
+
+        // Buffer for 2 seconds of pre-trigger data
+        preTriggerBuffer = new PcmHacking.CircularBuffer<IEnumerable<string>>(PreTriggerBufferSeconds * EstimatedSamplingRate);
 
         this.InitializationEvent = new ManualResetEvent(false);
         worker.DoWork += async (sender, e) => await this.OpenProfile();
@@ -374,6 +383,11 @@ public partial record DataLoggingParametersModel
                         {
                             case WriteState.StartWriting:
                                 await this.StartRecording(logger);
+                                foreach (var bufferedRow in preTriggerBuffer)
+                                {
+                                    this.logFileWriter?.WriteLine(bufferedRow);
+                                }
+
                                 this.writeState = WriteState.Writing;
                                 await this.RecordingButtonEnabled.SetAsync(true);
                                 break;
@@ -397,6 +411,11 @@ public partial record DataLoggingParametersModel
                         {
                             await this.Rows.SetAsync(new LogRowValues(rowValues));
 
+
+                            // Add the row to the pre-trigger buffer.
+                            this.preTriggerBuffer.Add(rowValues);
+ 
+                            // Add the row to the output file, if we're writing to one.
                             if (logFileWriter != null)
                             {
                                 logFileWriter.WriteLine(rowValues);
