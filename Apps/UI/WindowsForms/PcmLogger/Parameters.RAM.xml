@@ -203,13 +203,32 @@
   </RamParameter>
   
   <RamParameter
-    id="RamKnockSensorAverage"
-    name="Knock noise (global)"
-    description="Background noise from the knock sensor. Only valid when per-cylinder knock is disabled."
+    id="RamKnockSensorNoise"
+    name="Knock sensor noise (global)"
+    description="Expected background noise. Only valid when per-cylinder knock is disabled."
     storageType="uint16"
     bitMapped="False">
-    <Location os="12587603" address="0xFF9D4" />
+    <Location os="12587603" address="0xFF9D46" />
     <Conversion units="v" expression="x*0.003906250" format="0.000" />
   </RamParameter>
 
+  <RamParameter
+    id="RamKnockSensorRaw"
+    name="Knock sensor raw (global)"
+    description="Raw data from the knock sensor. Only valid when per-cylinder knock is disabled."
+    storageType="uint16"
+    bitMapped="False">
+    <Location os="12587603" address="0xFF9D56" />
+    <Conversion units="v" expression="x*0.003906250" format="0.000" />
+  </RamParameter>
+
+  <RamParameter
+    id="RamKnockSensorSignal"
+    name="Knock sensor signal (global)"
+    description="Knock activity minus noise. Only valid when per-cylinder knock is disabled."
+    storageType="uint16"
+    bitMapped="False">
+    <Location os="12587603" address="0xFF9D68" />
+    <Conversion units="v" expression="x*0.003906250" format="0.000" />
+  </RamParameter>
 </RamParameters>
