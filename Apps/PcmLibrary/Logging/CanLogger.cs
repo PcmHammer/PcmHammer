@@ -368,6 +368,11 @@ namespace PcmHacking
 
         public IEnumerable<ParameterAndValue> GetParameterValues()
         {
+            if (this.sortedMessageIds == null)
+            {
+                yield break;
+            }
+
             foreach (UInt32 messageId in this.sortedMessageIds)
             {
                 var parameterCacheForThisMessage = this.snapshot[messageId];
