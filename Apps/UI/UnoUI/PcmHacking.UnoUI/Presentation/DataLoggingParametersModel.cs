@@ -308,40 +308,41 @@ public partial record DataLoggingParametersModel
     private async Task OpenProfile()
     {
         Logger? logger = null;
-        try
+        while (!this.exitWaitHandle.WaitOne(0))
         {
-            await this.RecordingButtonText.SetAsync(DataLoggingParametersModel.StartRecordingButtonText);
-            using (var lease = await this.connectionService.BeginActivity("Logging", true))
-            using (new AwayMode())
+            try
             {
-                // This probably isn't needed anymore...
-                if (lease == null)
+                await this.RecordingButtonText.SetAsync(DataLoggingParametersModel.StartRecordingButtonText);
+                using (var lease = await this.connectionService.BeginActivity("Logging", true))
+                using (new AwayMode())
                 {
-                    this.progressLogger.AddUserMessage("No vehicle connected.");
-                    return;
-                }
-
-                var vehicle = lease.Vehicle;
-
-                // Create the CAN logger.
-                if (this.canLogger == null)
-                {
-                    this.canLogger = new CanLogger(this.loggingContext.ParameterDatabase, this.progressLogger);
-
-                    if (string.IsNullOrEmpty(this.canPortName))
+                    // This probably isn't needed anymore...
+                    if (lease == null)
                     {
-                        await this.canLogger.SetPort(null);
+                        this.progressLogger.AddUserMessage("No vehicle connected.");
+                        return;
                     }
-                    else
-                    {
-                        IPort canPort = new StandardPort(canPortName);
-                        await this.canLogger.SetPort(canPort);
-                    }
-                }
 
-                while (!this.exitWaitHandle.WaitOne(0))
-                {
-                    try
+                    var vehicle = lease.Vehicle;
+
+                    // Create the CAN logger.
+                    if (this.canLogger == null)
+                    {
+                        this.canLogger = new CanLogger(this.loggingContext.ParameterDatabase, this.progressLogger);
+
+                        if (string.IsNullOrEmpty(this.canPortName))
+                        {
+                            await this.canLogger.SetPort(null);
+                        }
+                        else
+                        {
+                            IPort canPort = new StandardPort(canPortName);
+                            await this.canLogger.SetPort(canPort);
+                        }
+                    }
+
+                    // Main logging loop
+                    while (!this.exitWaitHandle.WaitOne(0))
                     {
                         if (this.editContext != null)
                         {
@@ -414,52 +415,35 @@ public partial record DataLoggingParametersModel
 
                             // Add the row to the pre-trigger buffer.
                             this.preTriggerBuffer.Add(rowValues);
- 
+
                             // Add the row to the output file, if we're writing to one.
                             if (logFileWriter != null)
                             {
                                 logFileWriter.WriteLine(rowValues);
                             }
                         }
-                    }
-                    catch (Exception exception)
-                    {
-                        this.logBuffer.Enabled = true;
-                        await this.RecordingButtonEnabled.SetAsync(false);
-                        this.progressLogger.AddDebugMessage("DataLoggingParametersModel unable to start logging.");
-                        this.progressLogger.AddDebugMessage(exception.ToString());
-
-                        // This tells the view to show an error message instead of live data.
-                        await this.DisplayErrorMessage(exception.Message);
-                        await Task.Delay(500);
-                    }
-                }
+                    } // end logging loop
+                } // end 'using'
                 this.logBuffer.Enabled = true;
                 this.progressLogger.AddDebugMessage("DataLoggingParametersModel stopped logging.");
-            } // ConnectionLease.Dispose is invoked here, on the way out of the 'using' block.
-        }
-        catch (Exception ex)
-        {
-            this.logBuffer.Enabled = true;
-            this.ProgressLogger.AddDebugMessage("Data logging exception: " + ex.Message);
-            if (!this.exitWaitHandle.WaitOne(0))
+            } // outermost 'try' - ConnectionLease.Dispose is invoked here, on the way out of the 'using' block.
+            catch (Exception exception)
             {
-                this.dispatcherQueue.TryEnqueue(async () =>
-                {
-                    await Task.Delay(500);
-                    worker.RunWorkerAsync();
-                });
+                this.logBuffer.Enabled = true;
+                this.ProgressLogger.AddDebugMessage("Data logging exception: " + exception.Message);
+                this.progressLogger.AddDebugMessage(exception.ToString());
+                await this.RecordingButtonEnabled.SetAsync(false);
+
+                // This tells the view to show an error message instead of live data.
+                await this.DisplayErrorMessage(exception.Message);
+                await Task.Delay(500);                
             }
-            else
+            finally
             {
-                this.progressLogger.AddDebugMessage("DataLoggingParametersModel stopped trying to connect.");
+                this.logBuffer.Enabled = true;
+                this.canLogger?.Dispose();
+                await this.StopRecording();
             }
-        }
-        finally
-        {
-            this.logBuffer.Enabled = true;
-            this.canLogger?.Dispose();
-            await this.StopRecording();
         }
     }
 

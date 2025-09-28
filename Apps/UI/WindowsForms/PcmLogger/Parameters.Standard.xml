@@ -1426,7 +1426,7 @@
       description=""
       storageType="uint8"
       bitMapped="False">
-    <Conversion units="%" expression="x" format="0.00" />
+    <Conversion units="raw" expression="x" format="0" />
     <OS id="all" />
   </Parameter>
   <Parameter
@@ -1436,7 +1436,7 @@
       description=""
       storageType="uint8"
       bitMapped="False">
-    <Conversion units="%" expression="x" format="0.00" />
+    <Conversion units="raw" expression="x" format="0" />
     <OS id="all" />
   </Parameter>
   <Parameter
@@ -1446,7 +1446,7 @@
       description=""
       storageType="uint8"
       bitMapped="False">
-    <Conversion units="%" expression="x" format="0.00" />
+    <Conversion units="raw" expression="x" format="0" />
     <OS id="all" />
   </Parameter>
   <Parameter
@@ -1494,7 +1494,7 @@
       pid="12BB"
       name="APP Sensor 3 Voltage"
       description=""
-      storageType="uint8"
+      storageType="uint16"
       bitMapped="False">
     <Conversion units="Volt" expression="(x/51)" format="0.00" />
     <OS id="all" />
@@ -1504,7 +1504,7 @@
       pid="12BC"
       name="APP Sensor 2 Voltage"
       description=""
-      storageType="uint8"
+      storageType="uint16"
       bitMapped="False">
     <Conversion units="Volt" expression="(x/51)" format="0.00" />
     <OS id="all" />
@@ -1983,7 +1983,7 @@
       description=""
       storageType="uint8"
       bitMapped="False">
-    <Conversion units="Boolean" expression="x" format="0.00" />
+    <Conversion units="Raw" expression="x" format="0.00" />
     <OS id="all" />
   </Parameter>
   <Parameter

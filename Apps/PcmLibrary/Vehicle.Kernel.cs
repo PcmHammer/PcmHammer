@@ -547,6 +547,7 @@ namespace PcmHacking
         /// </summary>
         private async Task<List<byte>> RequestHighSpeedPermission(ToolPresentNotifier notifier)
         {
+            await this.device.SetTimeout(TimeoutScenario.ReadProperty);
             Message permissionCheck = this.protocol.CreateHighSpeedPermissionRequest(DeviceId.Broadcast);
             await this.device.SendMessage(permissionCheck);
 
