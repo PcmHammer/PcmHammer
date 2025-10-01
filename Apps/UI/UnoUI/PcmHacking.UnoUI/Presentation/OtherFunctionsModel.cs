@@ -253,6 +253,11 @@ public partial record OtherFunctionsModel
         await this.navigator.NavigateViewModelAsync<ReadModel>(this);
     }
 
+    public async Task GoToDumpRam()
+    {
+        await this.navigator.NavigateViewModelAsync<DumpRamModel>(this);
+    }
+
     public async Task GoToVerify()
     {
         // See comments in MenuModel.GoToWrite()

@@ -1,14 +1,16 @@
 ﻿<LogProfile>
     <PidParameters>
-        <PidParameter id="000B" units="kPa" />
-        <PidParameter id="000C" units="RPM" />
-        <PidParameter id="000D" units="km/h" />
-        <PidParameter id="000E" units="°" />
-        <PidParameter id="000F" units="°C" />
-        <PidParameter id="0010" units="g/s" />
-        <PidParameter id="1143" units="Volts" />
-        <PidParameter id="11A6" units="°" />
+        <PidParameter id="EngineSpeed" units="RPM" zoom="False" />
+        <PidParameter id="IgnitionTiming" units="°" zoom="True" />
+        <PidParameter id="KnockRetardDegrees" units="°" zoom="True" />
+        <PidParameter id="MAFSensor" units="g/s" zoom="False" />
+        <PidParameter id="MAPSensor" units="kPa" zoom="False" />
+        <PidParameter id="TPSensor" units="Volts" zoom="True" />
+        <PidParameter id="IATSensor" units="°F" zoom="False" />
+        <PidParameter id="VehicleSpeedSensor" units="mph" zoom="False" />
     </PidParameters>
-    <RamParameters />
+    <RamParameters>
+        <RamParameter id="RamThrottleControlMode" units="mode" zoom="False" />
+    </RamParameters>
     <MathParameters />
 </LogProfile>

@@ -159,13 +159,14 @@ VerticalAlignment="Stretch">
                 <TextBlock Text="Crank Relearn" />
             </Button>
 
-            <Button Grid.Row="0" Grid.Column="2" Command="{Binding ReadCodes}"
+            <Button Grid.Row="0" Grid.Column="2" Command="{Binding GoToDumpRam}"
           Margin="10"
           Padding="10"
           HorizontalAlignment="Stretch"
           VerticalAlignment="Stretch">
-                <TextBlock Text="Do Nothing" />
+                <TextBlock Text="Dump RAM" />
             </Button>
+
 
             <Button Grid.Row="1" Grid.Column="2" Command="{Binding ResetCodes}"
           Margin="10"
