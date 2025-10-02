@@ -419,7 +419,7 @@ public partial record DataLoggingParametersModel
                     {
                         this.logBuffer.Enabled = true;
                         await this.RecordingButtonEnabled.SetAsync(false);
-                        this.progressLogger.AddDebugMessage("DataLoggingParametersModel unable to start logging.");
+                        this.progressLogger.AddDebugMessage("DataLoggingParametersModel unable to log.");
                         this.progressLogger.AddDebugMessage(exception.ToString());
 
                         // This tells the view to show an error message instead of live data.
