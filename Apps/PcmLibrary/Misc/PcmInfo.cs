@@ -1496,12 +1496,12 @@ namespace PcmHacking
                 case 16256047:
                 case 16257159:
                 case 16257165:
-                case 16257166:
+                case 16257166: // this one found on a 9380717
                 case 16257169:
                 case 16257171:
                     PCMInfo(PcmType.P04);
                     this.KeyAlgorithm = 0x0E;
-                    this.Description = "P04 512KiB Service No 9374997 (algo 14)";
+                    this.Description = "P04 512KiB Service No 9374997 or 9380717 (algo 14)";
                     this.ServiceNumber = 9374997;
                     break;
 
