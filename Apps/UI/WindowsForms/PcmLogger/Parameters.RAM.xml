@@ -231,4 +231,14 @@
     <Location os="12587603" address="0xFF9D68" />
     <Conversion units="v" expression="x*0.003906250" format="0.000" />
   </RamParameter>
+
+  <RamParameter
+    id="RamCurrentGear"
+    name="Current Gear (Manual)"
+    description="Current gear, for manual transmission cars."
+    storageType="uint8"
+    bitMapped="False">
+    <Location os="12587603" address="0xFFA3B8" />
+    <Conversion units="v" expression="x" format="0" />
+  </RamParameter>
 </RamParameters>
