@@ -223,7 +223,7 @@ namespace PcmHacking
         /// </summary>
         public Message CreateRamRequest(int address)
         { 
-            Message request = new Message(new byte[] { Priority.Physical0, DeviceId.Pcm, DeviceId.Tool, Mode.GetRam,
+            Message request = new Message(new byte[] { Priority.Block, DeviceId.Pcm, DeviceId.Tool, Mode.GetRam,
                 (byte)(address >> 16), (byte)(address >> 8), (byte)address, 0x01 });
 
             return request;

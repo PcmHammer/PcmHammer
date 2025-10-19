@@ -98,7 +98,7 @@ namespace PcmHacking
                 // Setting timeout to a large value. Since we use STPX commands,
                 // the device will stop listening when it receives the expected
                 // number of responses, rather than waiting for the timeout.
-                this.Logger.AddDebugMessage(await this.SendRequest("STPTO 3000"));
+                this.Logger.AddDebugMessage(await this.SendRequest("STPTO 1000"));
 
             }
             catch (Exception exception)
