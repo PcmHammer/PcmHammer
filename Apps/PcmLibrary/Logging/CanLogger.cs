@@ -355,6 +355,11 @@ namespace PcmHacking
 
         public IEnumerable<string> GetParameterNames()
         {
+            if (this.sortedParameterIds == null)
+            {
+                yield break;
+            }
+
             foreach (UInt32 messageId in this.sortedMessageIds)
             {
                 foreach (string parameterId in this.sortedParameterIds[messageId])

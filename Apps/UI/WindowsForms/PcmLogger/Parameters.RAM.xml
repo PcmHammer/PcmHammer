@@ -241,4 +241,14 @@
     <Location os="12587603" address="0xFFA3B8" />
     <Conversion units="v" expression="x" format="0" />
   </RamParameter>
+
+  <RamParameter
+    id="EngineVehicleSpeedRatio"
+    name="Engine Speed / Vehicle Speed Ratio (Manual)"
+    description="This is used in conjunction with the gear ratio thresholds table to determine the current gear."
+    storageType="uint16"
+    bitMapped="False">
+    <Location os="12587603" address="0xFFA3BC" />
+    <Conversion units="v" expression="(x / 128) * 0.03125" format="0.000" />
+  </RamParameter>
 </RamParameters>
