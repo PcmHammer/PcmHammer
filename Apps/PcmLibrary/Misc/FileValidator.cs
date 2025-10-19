@@ -255,6 +255,7 @@ namespace PcmHacking
                 case PcmType.P04_Early:
                 case PcmType.P04:
                 case PcmType.P05:
+                    success &= ValidateParamBlockP04();
                     this.logger.AddUserMessage("\tStart\tEnd\tStored\t\tNeeded\t\tVerdict\tSegment Name");
                     success &= ValidateRangeP04(true);
                     break;
@@ -811,6 +812,49 @@ namespace PcmHacking
 
             this.logger.AddUserMessage(error);
             return verdict;
+        }
+
+        /// <summary>
+        /// The purpose is to block flash of images extracted from TIS that are being circulated.
+        /// They have valid checksums but no param block and cause a soft brick.
+        /// Consider P04 256KiB, 512KiB (no param block), 512KiB (has param block), and P05 1MiB bin
+        /// 256KiB and early 512KB bins dont have a param block. 
+        /// Param block may be at 4000-5FFF or 6000-7FFF
+        /// 256KiB = skip the check, pass
+        /// 512KiB = check if one param block is empty. Pass if both have data (assume no param block)
+        /// 512KiB = validate param block if one block is empty, pass or fail
+        /// 1MiB   = always validate param block, pass or fail
+        /// </summary>
+        private bool ValidateParamBlockP04()
+        {
+            switch (this.image.Length)
+            {
+                case 256 * 1024:
+                    this.logger.AddDebugMessage("256KiB P04, no param block required");
+                    return true;
+                case 512 * 1024:
+                case 1024 * 1024:
+                    if (Utility.IsBlank(this.image, 0x4000, 0x2000) || Utility.IsBlank(this.image, 0x6000, 0x2000))
+                    {
+                        this.logger.AddUserMessage("P04/P05 1998+, checking for valid paramater block");
+                        if ((image[0x43F6] == 0xA5) && (image[0x43F7] == 0xA0))
+                        {
+                            this.logger.AddUserMessage("Param block at 0x4000");
+                            return true;
+                        }
+                        if ((image[0x63F6] == 0xA5) && (image[0x63F7] == 0xA0))
+                        {
+                            this.logger.AddUserMessage("Param block at 0x6000");
+                            return true;
+                        }
+                        this.logger.AddUserMessage("1998+ P04/P05 with missing param block. This file is bad and would soft brick your PCM.");
+                        return false;
+                    }
+                    this.logger.AddUserMessage("1997 type P04, Param block not needed");
+                    return true;
+            }
+            this.logger.AddDebugMessage("BUG: ValidateParamBlockP04 called with image of invalid size");
+            return false; // unreachable
         }
     }
 }
