@@ -1,6 +1,35 @@
 ## Overview
 
-These tools currently support reading, writing, and data logging with General Motors P01, P04, P08, P10, P12, P59, 4 connector 98-02 Black Box and E54 Powertrain Control Modules (PCMs). 
+PCM Hammer and tools support reading, writing, and data logging with General Motors P01, P04, P08, P10, P12, P59, 4 connector 98-02 Black Box and E54 Powertrain Control Modules (PCMs).
+
+```
++---------+--------+-------+---------+----------+---------+-------+--------+---------+
+|         |        |       | Clone   | Segment  | Recovery| Slave |        |         |
+|PCM Type | Logging| Read  | Write   | Write    | Write   | Write | Loader | Kernel  |
++---------+--------+-------+---------+----------+---------+-------+--------+---------+
+|Black    |        |       |         |          |         |       |        |         |
+|Box 4    |        |       |         |          |         |       |        |         |
+|Connector| Yes    | Yes   | Yes     | N/A      | ?       | N/A   | N/A    | Assembly|
+|P01      | Yes    | Yes   | Yes     | Yes      | Yes     | N/A   | N/A    | C       |
+|P04      | Yes    | Yes   | Yes     | N/A      | N/A     | N/A   | Yes    | Assembly|
+|P08      | Yes    | Yes   | Yes     | Yes      | No      | N/A   | N/A    | Assembly|
+|P10      | Yes    | Yes   | Yes     | Yes      | Yes     | No    | N/A    | C       |
+|P12      | Yes    | Yes   | Yes     | Yes      | Yes     | No    | N/A    | C       |
+|P59      | Yes    | Yes   | Yes     | Yes      | Yes     | N/A   | N/A    | C       |
+|E54      | Yes    | Yes   | Yes     | Yes      | No      | N/A   | N/A    | Assembly|
++---------+--------+-------+---------+----------+---------+-------+--------+---------+
+```
+
+Yes means an operation is supported by the PCM, and tested in PCM Hammer.
+No means an operation is possible in the PCM, but is known not to work in this version of PCM Hammer.
+N/A means an operation is not possible in the PCM.
+
+The C kernels are older and trusted.
+The Assembly kernels are working on the bench, but have been reported to lock up the DLC in the field under some circumstances.
+We do not yet know the cause, or how often this happens. It is not believed to be common and has not been observed on the bench.
+Therefore the PCM Hammer team recommends to flash PCMs on the bench and with a good power supply with around 12.5v to 14v. 
+The required current is around 1 amp. Phone chargers and other cheap switch mode power supplies can cause flash failure due to poor quality power.
+Quality lab type power supplies, or charged car batteries with good floating voltages are recommended.
 
 ## Installation
 
