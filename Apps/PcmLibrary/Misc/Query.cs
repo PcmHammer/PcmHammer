@@ -129,6 +129,11 @@ namespace PcmHacking
                         return result;
                     }
 
+                    if (result.Status == ResponseStatus.Error)
+                    {
+                        return Response.Create(ResponseStatus.Error, default(T));
+                    }
+
                     this.logger.AddDebugMessage(
                         string.Format(
                             "Received an unexpected response. Attempt #{0}, status {1}.",

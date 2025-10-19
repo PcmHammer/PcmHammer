@@ -36,8 +36,8 @@ public class ConnectionUnavailableException : InvalidOperationException
 public class ConnectionLease : IDisposable
 {
     private readonly ConnectionService connectionService;
-    private readonly Vehicle vehicle;
     private readonly string activityName;
+    private Vehicle vehicle;
     private bool isDisposed = false;
     private bool connectionLost = false;
 
@@ -64,6 +64,11 @@ public class ConnectionLease : IDisposable
         this.connectionService = vehicleService ?? throw new ArgumentNullException(nameof(vehicleService));
         this.vehicle = vehicle ?? throw new ArgumentNullException(nameof(vehicle));
         this.activityName = activityName ?? throw new ArgumentNullException(nameof(activityName));
+    }
+
+    public async Task Reconnect()
+    {
+        this.vehicle = await this.connectionService.Reconnect();
     }
 
     public void Dispose()
@@ -159,7 +164,7 @@ public class ConnectionService : IConnectionService
             // around it and call the private BeginActivity. That requires us
             // to acquire the semaphore explicitly first.
             await this.stateChangeSemaphore.WaitAsync();
-            
+
             await this.Port.SetAsync(settings.Obd2SerialPortName);
             await this.Device.SetAsync(settings.Obd2SerialDeviceName);
 
@@ -169,40 +174,11 @@ public class ConnectionService : IConnectionService
             await this.ResetVehicleInfo();
             await Task.Delay(100);
 
-            if (this.vehicle != null)
-            {
-                this.vehicle.Dispose();
-                this.vehicle = null;
-            }
-
-            // This ends up being a no-op because vehicle.Dispose() also disposes the underlying connection.
-            // Not sure if that's a good thing or a bad thing, but it's probably fine.
-            if (this.device != null)
-            {
-                this.device.Dispose();
-                this.device = null;
-            }
-
-            // Allow time for port to reset.
-            await Task.Delay(100);
-
-            Device? newDevice = DeviceFactory.CreateDevice(
-                this.logger,
-                settings.DeviceCategory,
-                settings.Obd2SerialPortName,
-                settings.Obd2SerialDeviceName,
-                settings.J2534DeviceName);
-
-            if (newDevice == null)
+            (Device? newDevice, Vehicle? newVehicle) = await TryReconnect(settings);
+            if (newDevice == null || newVehicle == null)
             {
                 return false;
             }
-
-            await newDevice.Initialize();
-
-            ToolPresentNotifier notifier = new ToolPresentNotifier(newDevice, this.protocol, this.logger);
-            Vehicle? newVehicle = new Vehicle(newDevice, this.protocol, this.logger, notifier);
-            await this.ConnectionState.SetAsync(ConnectionStates.Connecting);
 
             if (await this.TryPollOnce(newVehicle))
             {
@@ -239,6 +215,59 @@ public class ConnectionService : IConnectionService
         }
 
         return isConnected;
+    }
+
+    /// <summary>
+    /// Reconnect after a connection loss.
+    /// </summary>
+    /// <remarks>
+    /// This should only be invoked from ConnectionLease.Reconnect(), because
+    /// it assumes that the caller holds the semaphore.
+    /// </remarks>
+    public async Task<Vehicle?> Reconnect()
+    {
+        (Device? newDevice, Vehicle? newVehicle) = await TryReconnect(this.lastSettings);
+        this.device = newDevice;
+        this.vehicle = newVehicle;
+        return this.vehicle;
+    }
+
+    private async Task<(Device? newDevice, Vehicle? newVehicle)> TryReconnect(CurrentSettings settings)
+    {
+        if (this.vehicle != null)
+        {
+            this.vehicle.Dispose();
+            this.vehicle = null;
+        }
+
+        // This ends up being a no-op because vehicle.Dispose() also disposes the underlying connection.
+        // Not sure if that's a good thing or a bad thing, but it's probably fine.
+        if (this.device != null)
+        {
+            this.device.Dispose();
+            this.device = null;
+        }
+
+        // Allow time for port to reset.
+        await Task.Delay(100);
+
+        Device newDevice = DeviceFactory.CreateDevice(
+            this.logger,
+            settings.DeviceCategory,
+            settings.Obd2SerialPortName,
+            settings.Obd2SerialDeviceName,
+            settings.J2534DeviceName);
+        if (newDevice == null)
+        {
+            return (null, null);
+        }
+
+        await newDevice.Initialize();
+
+        ToolPresentNotifier notifier = new ToolPresentNotifier(newDevice, this.protocol, this.logger);
+        Vehicle newVehicle = new Vehicle(newDevice, this.protocol, this.logger, notifier);
+        await this.ConnectionState.SetAsync(ConnectionStates.Connecting);
+        return (newDevice, newVehicle);
     }
 
     // 
@@ -491,9 +520,8 @@ public class ConnectionService : IConnectionService
                 else
                 {
                     this.logger.AddUserMessage("Unable to connect with new settings.");
+                    return;
                 }
-
-                return;
             }
 
             // Re-create the connection if the connection was lost.
@@ -506,9 +534,8 @@ public class ConnectionService : IConnectionService
                 else
                 {
                     this.logger.AddUserMessage("Unable to reconnect with current settings.");
+                    return;
                 }
-
-                return;
             }
 
             using (ConnectionLease lease = await this.BeginActivity(PollingActivity, true))

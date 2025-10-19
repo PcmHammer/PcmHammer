@@ -412,7 +412,6 @@ public partial record DataLoggingParametersModel
                         {
                             await this.Rows.SetAsync(new LogRowValues(rowValues));
 
-
                             // Add the row to the pre-trigger buffer.
                             this.preTriggerBuffer.Add(rowValues);
 
