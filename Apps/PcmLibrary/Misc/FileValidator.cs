@@ -127,7 +127,7 @@ namespace PcmHacking
 
             if (pcmInfo.HardwareType == fileInfo.HardwareType)
             {
-                this.logger.AddUserMessage("PCM and file are both for the same Hardware " + fileInfo.HardwareType.ToString());
+                this.logger.AddUserMessage("PCM and file are both for the same hardware " + fileInfo.HardwareType.ToString());
                 return true;
             }
 

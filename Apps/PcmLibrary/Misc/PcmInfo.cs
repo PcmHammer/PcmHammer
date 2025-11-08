@@ -259,6 +259,23 @@ namespace PcmHacking
                 case PcmType.P05:
                     this.Description = "P05";
                     this.HardwareType = PcmType.P05;
+                    this.HardwareSlaveCPU = false;
+                    this.IsSupported = true;
+                    this.IsSupportedRead = true;
+                    this.IsSupportedWrite = false;
+                    this.IsSupportedWriteSlaveCPU = false;
+                    this.IsSupportedWriteBySegment = false;
+                    this.LoaderRequired = false;
+                    this.KernelFileName = "Kernel-P05.bin";
+                    this.KernelBaseAddress = 0xFFC100;
+                    this.ImageBaseAddress = 0x0;
+                    this.ImageSize = 1024 * 1024;
+                    this.KeyAlgorithm = 0x35;
+                    this.ChecksumSupport = true;
+                    this.FlashCRCSupport = true;
+                    this.FlashIDSupport = true;
+                    this.KernelVersionSupport = true;
+                    this.KernelMaxBlockSize = 4096;
                     break;
 
                 case PcmType.P08:
@@ -2836,6 +2853,12 @@ namespace PcmHacking
                     this.ServiceNumber = 16236757;
                     break;
 
+                case 12584057:
+                    PCMInfo(PcmType.P05);
+                    this.Description = "P05 Service No 12584054";
+                    this.ServiceNumber = 12584054;
+                    break;
+
                 // P08 Service Number 9356249
                 case 9364970:
                 case 12206029:
@@ -2854,7 +2877,7 @@ namespace PcmHacking
                     this.ServiceNumber = 9356249;
                     break;
 
-                    // P08 Service Number 12202203
+                // P08 Service Number 12202203
                 case 9392792:
                 case 9392795:
                 case 9392796:

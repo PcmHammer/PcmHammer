@@ -145,6 +145,39 @@ namespace PcmHacking
                     };
                     break;
 
+                // Intel 28F800F3
+                case 0x008988F2:
+                    size = 1024 * 1024;
+                    description = "Intel 28F800F3, Fast Boot Block (120ns) 1024KiB";
+                    memoryRanges = new MemoryRange[]
+                    {
+                        // These addresses are for a bottom fill chip (B) in byte mode (not word)
+                        new MemoryRange(0xF0000, 0x10000, BlockType.Calibration),   //  32kb general block 22
+                        new MemoryRange(0xE0000, 0x10000, BlockType.Calibration),   //  32kb general block 21
+                        new MemoryRange(0xD0000, 0x10000, BlockType.Calibration),   //  32kb general block 20
+                        new MemoryRange(0xC0000, 0x10000, BlockType.Calibration),   //  32kb general block 19
+                        new MemoryRange(0xB0000, 0x10000, BlockType.Calibration),   //  32kb general block 18
+                        new MemoryRange(0xA0000, 0x10000, BlockType.Calibration),   //  32kb general block 17
+                        new MemoryRange(0x90000, 0x10000, BlockType.Calibration),   //  32kb general block 16
+                        new MemoryRange(0x80000, 0x10000, BlockType.Calibration),   //  32kb general block 15
+                        new MemoryRange(0x70000, 0x10000, BlockType.Calibration),   //  32kb general block 14
+                        new MemoryRange(0x60000, 0x10000, BlockType.Calibration),   //  32kb general block 13
+                        new MemoryRange(0x50000, 0x10000, BlockType.Calibration),   //  32kb general block 12
+                        new MemoryRange(0x40000, 0x10000, BlockType.Calibration),   //  32kb general block 11
+                        new MemoryRange(0x30000, 0x10000, BlockType.Calibration),   //  32kb general block 10
+                        new MemoryRange(0x20000, 0x10000, BlockType.Calibration),   //  32kb general block 09
+                        new MemoryRange(0x10000, 0x10000, BlockType.Calibration),   //  32kb general block 08
+                        new MemoryRange(0x0E000, 0x02000, BlockType.Calibration),   //   4kb general block 07
+                        new MemoryRange(0x0C000, 0x02000, BlockType.Calibration),   //   4kb general block 06
+                        new MemoryRange(0x0A000, 0x02000, BlockType.Calibration),   //   4kb general block 05
+                        new MemoryRange(0x08000, 0x02000, BlockType.Calibration),   //   4kb general block 04
+                        new MemoryRange(0x06000, 0x02000, BlockType.Calibration),   //   4kb general block 03
+                        new MemoryRange(0x04000, 0x02000, BlockType.Calibration),   //   4kb general block 02
+                        new MemoryRange(0x02000, 0x02000, BlockType.Calibration),   //   4kb general block 01
+                        new MemoryRange(0x00000, 0x02000, BlockType.Boot),          //   4kb boot    block 00
+                    };
+                    break;
+
                 // AM29F400BB
                 case 0x000122AB:
                     size = 512 * 1024;
