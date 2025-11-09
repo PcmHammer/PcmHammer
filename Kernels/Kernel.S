@@ -3,7 +3,7 @@
 | 2023-03-25 @21:00 Gampy <@pcmhacking.net>
 | 2024-06-11 @21:00 Antus / PCMHacking.net Backport Gampy's akernel changes (shared without source), cleanup build system
 | 2024-07-16 @19:00 Antus / PCMHacking.net Add P04_Early, BlackBox (98-02 4 connector)
-| 2025-11-08 @19:00 Antus / PCMHacking.net Add P05 (VPW), WIP
+| 2025-11-08 @19:00 Antus / PCMHacking.net Add P05b (VPW)
 | ===========================================================================
 |
 | C directives will only work if the source filename is .S, yup, capital S.
@@ -17,7 +17,10 @@
 #include "Common-Assembly.h"
 
 | Flash elements
-#if defined P05 || defined P12
+#if defined P05b
+  .equ SIM_BASE,             0xFA00
+  .equ SIM_20,               (SIM_BASE + 0x20) | Lock functions
+#elif defined P12
   .equ SIM_BASE,             0xFA30
   .equ SIM_20,               (SIM_BASE + 0x20) | Lock functions
 #else
@@ -99,8 +102,8 @@ start:
     ori     #0x700, %sr                | Disable Interrupts
 #endif
 
-#if defined P05 | defined P08 | defined E54
-    movea.w #0xB800, %sp               | Move the stack out the way P05/P08/E54
+#if defined P05b | defined P08 | defined E54
+    movea.w #0xB800, %sp               | Move the stack out the way P05b/P08/E54
 #endif
 
     move.b  #0x03, (J1850_Command).l   | Flush frame except for completion code
@@ -195,12 +198,12 @@ ProcessKernelID:
     move.b  #0x44, 8(%a0)              | P04 256k
 #elif defined P04
     move.b  #0x04, 8(%a0)              | P04
-#elif defined P05
-    move.b  #0x05, 8(%a0)              | P05
+#elif defined P05b
+    move.b  #0x05, 8(%a0)              | P05b
 #elif defined P08
     move.b  #0x08, 8(%a0)              | P08
 #elif defined P10
-    move.b  #0x10, 8(%a0)              | P10
+    move.b  #0x0A, 8(%a0)              | P10
 #elif defined P12
     move.b  #0x0C, 8(%a0)              | P12
 #elif defined E54
@@ -228,7 +231,7 @@ ProcessOsID:
     movea.l #0x3FFFA, %a1              | Pointer to OsID location in Flash
 #elif defined P04
     movea.l #0x7FFFA, %a1              | Pointer to OsID location in Flash
-#elif defined P05
+#elif defined P05b
     movea.l #0xFFFFA, %a1              | Pointer to OsID location in Flash
 #elif defined P08
     movea.l #0x8000, %a1               | Pointer to OsID location in Flash
@@ -347,7 +350,7 @@ ProcessCRCPolynomial:
 |   d1 - Manufacture ID
 |
 ProcessFlashID:
-#if defined P05 || defined P12
+#if defined P05b || defined P12
     move.w  #0xF322, (SIM_CSOR0).w     | 0xFA7E
 #else
     move.w  #0x0007, (SIM_CSBAR0).w    | 0xFA4C Set CS registers
@@ -383,7 +386,7 @@ ProcessFlashID:
     moveq   #0, %d1                    | Not found
 
 ProcessFlashIDFound:
-#if defined P05 || defined P12
+#if defined P05b || defined P12
     move.w  #0xA332, (SIM_CSOR0).w     | 0xFA7E
 #else
     move.w  #0x1060, (SIM_CSOR0).w     | 0xFA4E
@@ -516,7 +519,7 @@ ProcessWriteFlashFinal:
 |   d1 - Mode 0=Erase, 1=Write, is only used for the P12 currently (AMD AM29BL chips)
 |
 AMDFlashUnlock:
-#if defined P05 || defined P12
+#if defined P05b || defined P12
     andi.w  #0xFEFF, (SIM_20).w        | SIM_20 &= 0xFEFF;
     ori.w   #0x1000, (SIM_CSOR0).w     | SIM_CSOR0 |= 0x1000;
     andi.w  #0xFFF8, (SIM_CSBAR0).w    | SIM_CSBAR0 &= 0xFFF8;
@@ -547,7 +550,7 @@ AMDFlashUnlockDone:
 |   AM29BL162C (2m)
 |
 AMDFlashLock:
-#if defined P05 || defined P12
+#if defined P05b || defined P12
     andi.w  #0xEFFF, (SIM_CSOR0).w     | SIM_CSOR0 &= 0xEFFF;
     andi.w  #0xFEFF, (SIM_20).w        | SIM_20 &= 0xFEFF;
     ori.w   #0x0100, (SIM_20).w        | SIM_20 |= 0x0100;
@@ -717,12 +720,17 @@ AMDWriteSectorFinal:
 |   d1 - Scratch
 |
 IntelFlashUnlock:
+#if defined P05b || defined P12
+    andi.w  #0xFEFF, (SIM_20).w        | SIM_20 &= 0xFEFF;
+    ori.w   #0x1000, (SIM_CSOR0).w     | SIM_CSOR0 |= 0x1000;
+    andi.w  #0xFFF8, (SIM_CSBAR0).w    | SIM_CSBAR0 &= 0xFFF8;
+#else
 #if defined P08
-    move.w  #0x0F, (REG_FFF408).w      | Hardware Setup
-    move.w  #0x05, (REG_FFF4C8).w      | Hardware Setup
+        move.w  #0x0F, (REG_FFF408).w      | Hardware Setup
+        move.w  #0x05, (REG_FFF4C8).w      | Hardware Setup
 #elif defined BlackBox
-    move.b  #0xF8, (PORTFDIR).w        | Port F Direction
-    move.b  #0x00, (PORTFASN).w        | Port F Assignment
+        move.b  #0xF8, (PORTFDIR).w        | Port F Direction
+        move.b  #0x00, (PORTFASN).w        | Port F Assignment
 #endif
 
     move.w  #0x0007, (SIM_CSBARBT).w   | $FFFFFA48
@@ -734,17 +742,18 @@ IntelFlashUnlock:
 
     | Enable +12v Vpp
 #if defined P04_Early
-    bset    #VPP_BIT2, (REG_FFC002).w
-    bset    #VPP_BIT4, (REG_FFC000).w
+        bset    #VPP_BIT2, (REG_FFC002).w
+        bset    #VPP_BIT4, (REG_FFC000).w
 #elif defined P08
-    bset    #VPP_BIT, (HARDWARE_IO).w  | Does not work on P01, needed for P08
+        bset    #VPP_BIT, (HARDWARE_IO).w  | Does not work on P01, needed for P08
 #elif defined BlackBox
-    bsr.w   WasteTime                  | Twiddle thumbs
-    move.b  #0x18,(HARDWARE_IO).w      | Vortec Blackbox needs it done this way
+        bsr.w   WasteTime                  | Twiddle thumbs
+        move.b  #0x18,(HARDWARE_IO).w      | Vortec Blackbox needs it done this way
 #else
-    move.w  (HARDWARE_IO).w, %d1       | Move Vpp Latch Address value to register
-    bset    #VPP_BIT, %d1              | Set Vpp Latch Bit
-    move.w  %d1, (HARDWARE_IO).w       | Move modified value back to Latch Address
+        move.w  (HARDWARE_IO).w, %d1       | Move Vpp Latch Address value to register
+        bset    #VPP_BIT, %d1              | Set Vpp Latch Bit
+        move.w  %d1, (HARDWARE_IO).w       | Move modified value back to Latch Address
+#endif
 #endif
     move.w  #32767, %d1                | 32768 loops
 IntelFlashUnlockWait:                  | Allow Vpp ripple to settle
@@ -765,6 +774,11 @@ IntelFlashUnlockWait:                  | Allow Vpp ripple to settle
 |   d1 - Scratch
 |
 IntelFlashLock:
+#if defined P05b || defined P12
+    andi.w  #0xEFFF, (SIM_CSOR0).w     | SIM_CSOR0 &= 0xEFFF;
+    andi.w  #0xFEFF, (SIM_20).w        | SIM_20 &= 0xFEFF;
+    ori.w   #0x0100, (SIM_20).w        | SIM_20 |= 0x0100;
+#else
     move.w  #0x0007, (SIM_CSBARBT).w   | $FFFFFA48
     move.w  #0x6820, (SIM_CSORBT).w    | $FFFFFA4A
     move.w  #0x0007, (SIM_CSBAR0).w    | $FFFFFA4C
@@ -774,16 +788,17 @@ IntelFlashLock:
 
     | Disable +12v Vpp
 #if defined P04_Early
-    bclr    #VPP_BIT2, (REG_FFC002).w
-    bclr    #VPP_BIT4, (REG_FFC000).w
+        bclr    #VPP_BIT2, (REG_FFC002).w
+        bclr    #VPP_BIT4, (REG_FFC000).w
 #elif defined P08
-    bclr    #VPP_BIT, (HARDWARE_IO).w  | Does not work on P01, needed for P08
+        bclr    #VPP_BIT, (HARDWARE_IO).w  | Does not work on P01, needed for P08
 #elif defined BlackBox
-    move.b  #0x00,(HARDWARE_IO).w      | Vortec Blackbox needs it done this way
+        move.b  #0x00,(HARDWARE_IO).w      | Vortec Blackbox needs it done this way
 #else
-    move.w  (HARDWARE_IO).w, %d1       | Move Vpp Latch Address value to register
-    bclr    #VPP_BIT, %d1              | Set Vpp Latch Bit
-    move.w  %d1, (HARDWARE_IO).w       | Move modified value back to Latch Address
+        move.w  (HARDWARE_IO).w, %d1       | Move Vpp Latch Address value to register
+        bclr    #VPP_BIT, %d1              | Set Vpp Latch Bit
+        move.w  %d1, (HARDWARE_IO).w       | Move modified value back to Latch Address
+#endif
 #endif
     rts
 
@@ -1189,11 +1204,12 @@ OsIDReply:      .byte  0x6C, toolid, pcmid, 0x7D, 0x03, 0x00, 0x00, 0x00, 0x00, 
 | P01/P59   = 01
 | P04_Early = 44
 | P04       = 04
-| P05       = 05
+| P05b      = 05
 | P08       = 08
 | P10       = 0A
 | P12       = 0C
 | E54       = 36
+| BlackBox  = 88
 KernelIDReply:  .byte  0x6C, toolid, pcmid, 0x7D, 0x00, 0x82, 0x40, 0x02, 0x00, 0xAA
 
 | Mode34 Reply, 6 bytes - 6C F0 10 74 00 44, Default Success

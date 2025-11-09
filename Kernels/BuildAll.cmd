@@ -56,7 +56,7 @@ for %%A in (
   "-pP01 -aFF8000 -x",
   "-pP04 -aFF8000 -lFF9890 -x",
   "-pP04_Early -aFF8000 -x",
-  "-pP05 -aFFC100 -x",
+  "-pP05b -aFFC100 -x",
   "-pP08 -aFFAC00 -x",
   "-pP10 -aFFB800 -x",
   "-pP12 -aFF2000",

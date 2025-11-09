@@ -26,28 +26,34 @@ If you do not use the default install location, PREFIX can be used to point to t
 
 You will need to move Kernels-*.bin and Loader-*.bin to the PcmHammer directory.
 
+Add -x to the build options to build the smaller assembly kernel implementation.
+Some PCMs default to C or Assembly for the mose perceived reliable option. It is best to use the BuildAll.cmd for default build options.
+
 $ cd Kernels
 $ make clean
 
 $ make pcm=P01 address=FF8000
 $ make clean
 
-$ make pcm=P04 address=FF8000
-$ make pcm=P04 address=FF9890 name=Loader
-$ make pcm=P04_Early address=FF8000
+$ make -x pcm=P04 address=FF8000
+$ make -x pcm=P04 address=FF9890 name=Loader
+$ make -x pcm=P04_Early address=FF8000
 $ make clean
 
-$ make pcm=P08 address=FFAC00
+$ make -x pcm=P05b address=FFC100
 $ make clean
 
-$ make pcm=P10 address=FFB800
+$ make -x pcm=P08 address=FFAC00
+$ make clean
+
+$ make -x pcm=P10 address=FFB800
 $ make clean
 
 $ make pcm=P12 address=FF2000
 $ make clean
 
-$ make pcm=E54 address=FF9100
+$ make -x pcm=E54 address=FF9100
 $ make clean
 
-$ make pcm=BlackBox address=FFC300
+$ make -x pcm=BlackBox address=FFC300
 $ make clean
