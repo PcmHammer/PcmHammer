@@ -2878,6 +2878,12 @@ namespace PcmHacking
                 // 2008 P05c service number 12600930 is CAN only
                 // 2006-2009 P05c service number 12604962 is CAN only
 
+                case 12603217:
+                    PCMInfo(PcmType.P05b);
+                    this.Description = "2005 P05c (VPW+CAN) Service No 12604963";
+                    this.ServiceNumber = 12604963;
+                    break;
+
                 // P08 Service Number 9356249
                 case 9364970:
                 case 12206029:
