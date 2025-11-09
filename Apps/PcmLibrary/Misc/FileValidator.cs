@@ -127,7 +127,7 @@ namespace PcmHacking
 
             if (pcmInfo.HardwareType == fileInfo.HardwareType)
             {
-                this.logger.AddUserMessage("PCM and file are both for the same hardware " + fileInfo.HardwareType.ToString());
+                this.logger.AddUserMessage("PCM and file match hardware " + fileInfo.HardwareType.ToString());
                 return true;
             }
 
@@ -174,7 +174,7 @@ namespace PcmHacking
                         }
                         break;
 
-                    case PcmType.P05:
+                    case PcmType.P05b:
                         osid = ReadUnsigned(image, 0xFFFFA);
                         break;
 
@@ -237,7 +237,7 @@ namespace PcmHacking
                 // no segment table
                 case PcmType.P04:
                 case PcmType.P04_Early:
-                case PcmType.P05:
+                case PcmType.P05b:
                 case PcmType.P08:
                 case PcmType.E54:
                     break;
@@ -254,7 +254,7 @@ namespace PcmHacking
             {
                 case PcmType.P04_Early:
                 case PcmType.P04:
-                case PcmType.P05:
+                case PcmType.P05b:
                     success &= ValidateParamBlockP04();
                     this.logger.AddUserMessage("\tStart\tEnd\tStored\t\tNeeded\t\tVerdict\tSegment Name");
                     success &= ValidateRangeP04(true);
@@ -466,7 +466,7 @@ namespace PcmHacking
                 if ((image[0xFFFFE] == 0xA5) && (image[0xFFFFF] == 0x5A))
                 {
                     this.logger.AddUserMessage("File is P05 1024KiB.");
-                    return PcmType.P05;
+                    return PcmType.P05b;
                 }
 
                 this.logger.AddDebugMessage("Trying P12 1024KiB");

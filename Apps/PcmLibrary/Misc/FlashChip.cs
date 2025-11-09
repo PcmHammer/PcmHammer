@@ -146,6 +146,7 @@ namespace PcmHacking
                     break;
 
                 // Intel 28F800F3
+                // TODO: Inspect the OS partitioning more closely to see if we can break this in to calibration and operating system sectors.
                 case 0x008988F2:
                     size = 1024 * 1024;
                     description = "Intel 28F800F3, Fast Boot Block (120ns) 1024KiB";
@@ -171,9 +172,9 @@ namespace PcmHacking
                         new MemoryRange(0x0C000, 0x02000, BlockType.Calibration),   //   4kb general block 06
                         new MemoryRange(0x0A000, 0x02000, BlockType.Calibration),   //   4kb general block 05
                         new MemoryRange(0x08000, 0x02000, BlockType.Calibration),   //   4kb general block 04
-                        new MemoryRange(0x06000, 0x02000, BlockType.Calibration),   //   4kb general block 03
-                        new MemoryRange(0x04000, 0x02000, BlockType.Calibration),   //   4kb general block 02
-                        new MemoryRange(0x02000, 0x02000, BlockType.Calibration),   //   4kb general block 01
+                        new MemoryRange(0x06000, 0x02000, BlockType.Parameter),     //   4kb param   block 03
+                        new MemoryRange(0x04000, 0x02000, BlockType.Parameter),     //   4kb param   block 02
+                        new MemoryRange(0x02000, 0x02000, BlockType.Boot),          //   4kb boot    block 01
                         new MemoryRange(0x00000, 0x02000, BlockType.Boot),          //   4kb boot    block 00
                     };
                     break;

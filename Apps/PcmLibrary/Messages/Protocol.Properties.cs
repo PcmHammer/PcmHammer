@@ -191,7 +191,7 @@ namespace PcmHacking
                 return Response.Create(status, result);
             }
 
-            // P05 returns 4 data bytes for response1, 1 data byte for response2 and 5 data bytes for response 3.
+            // P05b returns 4 data bytes for response1, 1 data byte for response2 and 5 data bytes for response 3.
             // This code is tuned to use min of data payload size to avoid read overflows, and max of 5 bytes to prevent target buffer overflow (15 bytes).
             byte[] serialBytes = new byte[15];
             Buffer.BlockCopy(response1.GetBytes(), 5, serialBytes, 0, Math.Min(response1.GetBytes().Length - 5, 5));
