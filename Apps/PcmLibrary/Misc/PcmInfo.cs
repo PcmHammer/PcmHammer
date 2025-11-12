@@ -2855,6 +2855,7 @@ namespace PcmHacking
 
                 case 12584057: //12581501
                 case 12588933: //12581501
+                case 12619742: //12581501
                     PCMInfo(PcmType.P05b);
                     this.Description = "2004 P05b (VPW) Service No 12581501";
                     this.ServiceNumber = 12584054;
