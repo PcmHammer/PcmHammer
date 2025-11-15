@@ -175,11 +175,14 @@ namespace PcmHacking
                         break;
 
                     case PcmType.P05:
-                        osid = ReadUnsigned(image, 0xFFFFA);
-                        if (osid==0xFFFFFFFF)
+                        if (ReadUnsigned(image, 0x20882) == 0x012380)
                         {
-                            logger.AddDebugMessage("P05 bin with missing OSID at FFFFA. Reading ascii at 0x208AA. We have only seen one file like this, and may not be the right approach. Please let us know at pcmhacking.net and share this file.");
+                            logger.AddDebugMessage("P05c Variant, Reading OSID from ASCII at 0x208AA");
                             osid = ReadAsciiUInt32(image, 0x208AA);
+                        }
+                        else
+                        {
+                            osid = ReadUnsigned(image, 0xFFFFA);
                         }
                         break;
 
@@ -261,8 +264,16 @@ namespace PcmHacking
                 case PcmType.P04:
                 case PcmType.P05:
                     success &= ValidateParamBlockP04();
-                    this.logger.AddUserMessage("\tStart\tEnd\tStored\t\tNeeded\t\tVerdict\tSegment Name");
-                    success &= ValidateRangeP04(true);
+                    if (ReadUnsigned(image, 0x20882) == 0x012380) { // P05c special case
+                        this.logger.AddUserMessage("\tStart\tEnd\tStored\tNeeded\tVerdict\tSegment Name");
+                        success &= ValidateRangeWordSum(type, 0x0000, 0xFFFFF, 0x20880, "Operating System");
+                        success &= ValidateRangeWordSum(type, 0x8002, 0x1FFFF, 0x8000, "Engine Calibration");
+                    }
+                    else
+                    {
+                        this.logger.AddUserMessage("\tStart\tEnd\tStored\t\tNeeded\t\tVerdict\tSegment Name");
+                        success &= ValidateRangeP04(true);
+                    }
                     break;
                 case PcmType.P08:
                     this.logger.AddUserMessage("\tStart\tEnd\tStored\tNeeded\tVerdict\tSegment Name");
@@ -489,11 +500,19 @@ namespace PcmHacking
                     }
                 }
 
-                // P05 1024KiB
-                this.logger.AddDebugMessage("Trying P05 1024KiB")
+                // P05/P05c 1024KiB
+                this.logger.AddDebugMessage("Trying P05/P05c 1024KiB");
                 if ((image[0xFFFFE] == 0xA5) && (image[0xFFFFF] == 0x5A))
                 {
-                    this.logger.AddUserMessage("File is P05 1024KiB.");
+                    if ((image[0x1FFFE] == 0xA5) && (image[0x1FFFF] == 0x5A) &&
+                        (image[0x20883] == 0x01) && (image[0x20884] == 0x23) && (image[0x20885] == 0x80))
+                    {
+                        this.logger.AddUserMessage("File is P05c 1024KiB.");
+                    }
+                    else
+                    {
+                        this.logger.AddUserMessage("File is P05 1024KiB.");
+                    }
                     return PcmType.P05;
                 }
 
@@ -577,35 +596,38 @@ namespace PcmHacking
 
             for (UInt32 address = start; address <= end; address += 2)
             {
+
+                // Sums cannot be part of their own calculation, so they are always skipped
+                // Used by P01_P59, P05c, P10
+                if (address == storage) 
+                {
+                    address += 2;
+                }
                 switch (type)
                 {
                     case PcmType.P01_P59:
-                        if (address == 0x500)
-                        {
-                            address = 0x502;
-                        }
-
                         if (address == 0x4000)
                         {
                             address = 0x20000;
                         }
                         break;
 
+                    case PcmType.P05: // Only used for P05c, Other P05s use P04 routines.
+                        if (address == 0x4000)
+                        {
+                            address = 0x20000;
+                        }
+                        break;
                     case PcmType.P08:
                         if (address == 0x4000)
                         {
                             address = 0x8010;
                         }
-
                         break;
 
                     case PcmType.P10:
                         switch (address)
                         {
-                            case 0x52A:
-                                address = 0x52C;
-                                break;
-
                             case 0x4000:
                                 address = 0x20000;
                                 break;
