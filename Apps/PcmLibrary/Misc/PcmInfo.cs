@@ -326,6 +326,28 @@ namespace PcmHacking
                     this.KernelMaxBlockSize = 4096;
                     break;
 
+                case PcmType.P11:
+                    this.Description = "P11";
+                    this.HardwareType = PcmType.P11;
+                    this.HardwareSlaveCPU = false;
+                    this.IsSupported = false;
+                    this.IsSupportedRead = false;
+                    this.IsSupportedWrite = false;
+                    this.IsSupportedWriteSlaveCPU = false;
+                    this.IsSupportedWriteBySegment = false;
+                    this.LoaderRequired = false;
+                    this.KernelFileName = "Kernel-P11.bin";
+                    this.KernelBaseAddress = 0xFFC100;
+                    this.ImageBaseAddress = 0x0;
+                    this.ImageSize = 1024 * 1024;
+                    this.KeyAlgorithm = 0x35;
+                    this.ChecksumSupport = true;
+                    this.FlashCRCSupport = true;
+                    this.FlashIDSupport = true;
+                    this.KernelVersionSupport = true;
+                    this.KernelMaxBlockSize = 4096;
+                    break;
+
                 case PcmType.P12:
                     this.Description = "P12 1Mb (Atlas I4/I5/I6)";
                     this.HardwareType = PcmType.P12;
@@ -2853,9 +2875,10 @@ namespace PcmHacking
                     this.ServiceNumber = 16236757;
                     break;
 
-                case 12584057: //12581501
-                case 12588933: //12581501
-                case 12619742: //12581501
+                case 12584057:
+                case 12584058:
+                case 12588933:
+                case 12619742:
                     PCMInfo(PcmType.P05);
                     this.Description = "2004 P05 (VPW) Service No 12581501";
                     this.ServiceNumber = 12584054;

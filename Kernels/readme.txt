@@ -49,6 +49,9 @@ $ make clean
 $ make -x pcm=P10 address=FFB800
 $ make clean
 
+$ make -x pcm=P11 address=FF????
+$ make clean
+
 $ make pcm=P12 address=FF2000
 $ make clean
 
