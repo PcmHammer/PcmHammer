@@ -1,6 +1,6 @@
 ## Overview
 
-PCM Hammer and tools support reading, writing, and data logging with General Motors P01, P04, P05c (VPW), P08, P10, P12, P59, 4 connector 98-02 Black Box and E54 Powertrain Control Modules (PCMs).
+PCM Hammer and tools support reading, writing, and data logging with General Motors P01, P04, P05 (VPW), P08, P10, P12, P59, 4 connector 98-02 Black Box and E54 Powertrain Control Modules (PCMs).
 
 ```
 +---------+--------+-------+---------+----------+---------+-------+--------+---------+
@@ -12,7 +12,7 @@ PCM Hammer and tools support reading, writing, and data logging with General Mot
 |Connector| Yes    | Yes   | Yes     | N/A      | ?       | N/A   | N/A    | Assembly|
 |P01      | Yes    | Yes   | Yes     | Yes      | Yes     | N/A   | N/A    | C       |
 |P04      | Yes    | Yes   | Yes     | N/A      | N/A     | N/A   | Yes    | Assembly|
-|P05c(VPW)| Yes    | Yes   | Yes     | N/A      | ?       | N/A   | N/A    | Assembly|
+|P05(VPW) | Yes    | Yes   | Yes     | N/A      | ?       | N/A   | N/A    | Assembly|
 |P08      | Yes    | Yes   | Yes     | Yes      | No      | N/A   | N/A    | Assembly|
 |P10      | Yes    | Yes   | Yes     | Yes      | Yes     | No    | N/A    | C       |
 |P12      | Yes    | Yes   | Yes     | Yes      | Yes     | No    | N/A    | C       |

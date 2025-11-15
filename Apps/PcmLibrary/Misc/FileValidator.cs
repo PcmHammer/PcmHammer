@@ -174,7 +174,7 @@ namespace PcmHacking
                         }
                         break;
 
-                    case PcmType.P05c:
+                    case PcmType.P05:
                         osid = ReadUnsigned(image, 0xFFFFA);
                         if (osid==0xFFFFFFFF)
                         {
@@ -242,7 +242,7 @@ namespace PcmHacking
                 // no segment table
                 case PcmType.P04:
                 case PcmType.P04_Early:
-                case PcmType.P05c:
+                case PcmType.P05:
                 case PcmType.P08:
                 case PcmType.E54:
                     break;
@@ -259,7 +259,7 @@ namespace PcmHacking
             {
                 case PcmType.P04_Early:
                 case PcmType.P04:
-                case PcmType.P05c:
+                case PcmType.P05:
                     success &= ValidateParamBlockP04();
                     this.logger.AddUserMessage("\tStart\tEnd\tStored\t\tNeeded\t\tVerdict\tSegment Name");
                     success &= ValidateRangeP04(true);
@@ -490,11 +490,11 @@ namespace PcmHacking
                 }
 
                 // P05 1024KiB
-                this.logger.AddDebugMessage("Trying P05 1024KiB");
+                this.logger.AddDebugMessage("Trying P05 1024KiB")
                 if ((image[0xFFFFE] == 0xA5) && (image[0xFFFFF] == 0x5A))
                 {
                     this.logger.AddUserMessage("File is P05 1024KiB.");
-                    return PcmType.P05c;
+                    return PcmType.P05;
                 }
 
                 this.logger.AddDebugMessage("Trying P12 1024KiB");

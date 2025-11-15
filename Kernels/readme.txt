@@ -40,7 +40,7 @@ $ make -x pcm=P04 address=FF9890 name=Loader
 $ make -x pcm=P04_Early address=FF8000
 $ make clean
 
-$ make -x pcm=P05c address=FFC100
+$ make -x pcm=P05 address=FFC100
 $ make clean
 
 $ make -x pcm=P08 address=FFAC00

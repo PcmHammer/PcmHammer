@@ -12,7 +12,7 @@ namespace PcmHacking
         P01_P59,
         P04_Early,
         P04,
-        P05c,
+        P05,
         P08,
         P10,
         P11,
@@ -256,9 +256,9 @@ namespace PcmHacking
                     this.KernelMaxBlockSize = 4096;
                     break;
 
-                case PcmType.P05c:
-                    this.Description = "P05c (VPW)";
-                    this.HardwareType = PcmType.P05c;
+                case PcmType.P05:
+                    this.Description = "P05 (VPW)";
+                    this.HardwareType = PcmType.P05;
                     this.HardwareSlaveCPU = false;
                     this.IsSupported = true;
                     this.IsSupportedRead = true;
@@ -266,7 +266,7 @@ namespace PcmHacking
                     this.IsSupportedWriteSlaveCPU = false;
                     this.IsSupportedWriteBySegment = false;
                     this.LoaderRequired = false;
-                    this.KernelFileName = "Kernel-P05c.bin";
+                    this.KernelFileName = "Kernel-P05.bin";
                     this.KernelBaseAddress = 0xFFC100;
                     this.ImageBaseAddress = 0x0;
                     this.ImageSize = 1024 * 1024;
@@ -2856,14 +2856,14 @@ namespace PcmHacking
                 case 12584057: //12581501
                 case 12588933: //12581501
                 case 12619742: //12581501
-                    PCMInfo(PcmType.P05c);
-                    this.Description = "2004 P05c (VPW) Service No 12581501";
+                    PCMInfo(PcmType.P05);
+                    this.Description = "2004 P05 (VPW) Service No 12581501";
                     this.ServiceNumber = 12584054;
                     break;
 
 /*                case xxxxx:
-                    PCMInfo(PcmType.P05c);
-                    this.Description = "2005 P05c (VPW) Service No 12581598";
+                    PCMInfo(PcmType.P05);
+                    this.Description = "2005 P05 (VPW) Service No 12581598";
                     this.ServiceNumber = 12584054;
                     break;
 */
@@ -2871,17 +2871,17 @@ namespace PcmHacking
                 case 12612950:
                 case 12619714:
                 case 12619715:
-                    PCMInfo(PcmType.P05c);
-                    this.Description = "2005 P05c (VPW) Service No 12591279";
+                    PCMInfo(PcmType.P05);
+                    this.Description = "2005 P05 (VPW) Service No 12591279";
                     this.ServiceNumber = 12584054;
                     break;
 
-                // 2008 P05c service number 12600930 is CAN only
-                // 2006-2009 P05c service number 12604962 is CAN only
+                // 2008 P05 service number 12600930 is CAN only
+                // 2006-2009 P05 service number 12604962 is CAN only
 
                 case 12603217:
-                    PCMInfo(PcmType.P05c);
-                    this.Description = "2005 P05c (VPW+CAN) Service No 12604963";
+                    PCMInfo(PcmType.P05);
+                    this.Description = "2005 P05 (VPW+CAN) Service No 12604963";
                     this.ServiceNumber = 12604963;
                     break;
 
