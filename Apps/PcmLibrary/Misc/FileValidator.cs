@@ -174,8 +174,13 @@ namespace PcmHacking
                         }
                         break;
 
-                    case PcmType.P05b:
+                    case PcmType.P05c:
                         osid = ReadUnsigned(image, 0xFFFFA);
+                        if (osid==0xFFFFFFFF)
+                        {
+                            logger.AddDebugMessage("P05 bin with missing OSID at FFFFA. Reading ascii at 0x208AA. We have only seen one file like this, and may not be the right approach. Please let us know at pcmhacking.net and share this file.");
+                            osid = ReadAsciiUInt32(image, 0x208AA);
+                        }
                         break;
 
                     case PcmType.P08:
@@ -237,7 +242,7 @@ namespace PcmHacking
                 // no segment table
                 case PcmType.P04:
                 case PcmType.P04_Early:
-                case PcmType.P05b:
+                case PcmType.P05c:
                 case PcmType.P08:
                 case PcmType.E54:
                     break;
@@ -254,7 +259,7 @@ namespace PcmHacking
             {
                 case PcmType.P04_Early:
                 case PcmType.P04:
-                case PcmType.P05b:
+                case PcmType.P05c:
                     success &= ValidateParamBlockP04();
                     this.logger.AddUserMessage("\tStart\tEnd\tStored\t\tNeeded\t\tVerdict\tSegment Name");
                     success &= ValidateRangeP04(true);
@@ -349,6 +354,29 @@ namespace PcmHacking
         private UInt32 ReadUnsigned(byte[] image, UInt32 offset)
         {
             return BitConverter.ToUInt32(image.Skip((int)offset).Take(4).Reverse().ToArray(), 0);
+        }
+
+        /// <summary>
+        /// ReadIntFromASCII, used to convert a number from ascii text to an int
+        /// Reads ascii numbers up to a max of 16 bytes deeps, protects from overflow
+        /// returns 0 if it hits the max length, or the data read is not ascii numerical
+        /// </summary>
+        public uint ReadAsciiUInt32(byte[] image, uint offset)
+        {
+            uint max = (uint)Math.Min((uint)image.Length, offset + 16);
+
+            uint end = offset;
+            while (end < max && image[end] != 0) end++;
+
+            uint val = 0;
+            for (uint i = offset; i < end; i++)
+            {
+                byte b = image[i];
+                if (b < '0' || b > '9') return 0;
+                val = val * 10 + (uint)(b - '0');
+            }
+
+            return end == offset ? 0 : val;
         }
 
         /// <summary>
@@ -466,7 +494,7 @@ namespace PcmHacking
                 if ((image[0xFFFFE] == 0xA5) && (image[0xFFFFF] == 0x5A))
                 {
                     this.logger.AddUserMessage("File is P05 1024KiB.");
-                    return PcmType.P05b;
+                    return PcmType.P05c;
                 }
 
                 this.logger.AddDebugMessage("Trying P12 1024KiB");

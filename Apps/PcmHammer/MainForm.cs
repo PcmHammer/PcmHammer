@@ -836,8 +836,8 @@ namespace PcmHacking
                     }
                 }
 
-                // Disable HardwareID lookup for the P05b, P10, P12 and E54.
-                if (pcmInfo != null && pcmInfo.HardwareType != PcmType.P05b && pcmInfo.HardwareType != PcmType.P10 && pcmInfo.HardwareType != PcmType.P12 && pcmInfo.HardwareType != PcmType.E54)
+                // Disable HardwareID lookup for the P05c, P10, P12 and E54.
+                if (pcmInfo != null && pcmInfo.HardwareType != PcmType.P05c && pcmInfo.HardwareType != PcmType.P10 && pcmInfo.HardwareType != PcmType.P12 && pcmInfo.HardwareType != PcmType.E54)
                 {
                     var hardwareResponse = await this.Vehicle.QueryHardwareId();
                     if (hardwareResponse.Status == ResponseStatus.Success)
@@ -1260,7 +1260,7 @@ namespace PcmHacking
                         return;
                     }
 
-                    if (pcmInfo.HardwareType == PcmType.P05b)
+                    if (pcmInfo.HardwareType == PcmType.P05c)
                     {
                         string msg = $"WARNING: {pcmInfo.HardwareType.ToString()} Support is still in development.";
                         this.AddUserMessage(msg);
