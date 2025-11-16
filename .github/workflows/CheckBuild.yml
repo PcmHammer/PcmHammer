@@ -4,7 +4,8 @@
 # 2023-04-16 - GampyG28 <github.com> Added Assembly Kernels and Loaders
 # 2023-07-16 - GampyG28 <github.com> Removed C Kernel builds
 # 2024-09-05 - Antus <pcmhacking.net> Update actions
-# 2025-09-11 - Antus <pcmhacking.net> Add P05
+# 2025-11-09 - Antus <pcmhacking.net> Add P05
+# 2025-11-16 - Antus <pcmhacking.net> Add P11
 #
 name: CheckBuild
 
@@ -56,7 +57,7 @@ jobs:
         # 2: Kernel Base Address
         # 3: Loader Base Address or NOLOADER if a loader is not used.
         #
-        for p in "P01 FF8000 NOLOADER" "P04 FF8000 FF9890" "P04_Early FF8000 NOLOADER" "P05 FFC100 NOLOADER" "P08 FFAC00 NOLOADER" "P10 FFB800 NOLOADER" "E54 FF9100 NOLOADER" "BlackBox FFC300 NOLOADER"; do
+        for p in "P01 FF8000 NOLOADER" "P04 FF8000 FF9890" "P04_Early FF8000 NOLOADER" "P05 FFC100 NOLOADER" "P08 FFAC00 NOLOADER" "P10 FFB800 NOLOADER" "P11 FFC100 NOLOADER" "E54 FF9100 NOLOADER" "BlackBox FFC300 NOLOADER"; do
           pcm="${p%% *}";
           p="${p#* }"
           address="${p%% *}"
