@@ -88,7 +88,7 @@ goto beginning
   )
   echo.
   echo     -p^<pcm^>
-  echo       Set the PCM (P01 (P01 includes P59), P04_Early, P04, P05, P08, P10, P12, E54, BlackBox, Micro, Read, Test). (no space)
+  echo       Set the PCM (P01 (P01 includes P59), P04_Early, P04, P05, P08, P10, P11, P12, E54, BlackBox, Micro, Read, Test). (no space)
   echo       Value: %PCM%
   echo.
   echo     -t^<path^>

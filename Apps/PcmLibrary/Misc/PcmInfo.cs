@@ -330,8 +330,8 @@ namespace PcmHacking
                     this.Description = "P11";
                     this.HardwareType = PcmType.P11;
                     this.HardwareSlaveCPU = false;
-                    this.IsSupported = false;
-                    this.IsSupportedRead = false;
+                    this.IsSupported = true;
+                    this.IsSupportedRead = true;
                     this.IsSupportedWrite = false;
                     this.IsSupportedWriteSlaveCPU = false;
                     this.IsSupportedWriteBySegment = false;
