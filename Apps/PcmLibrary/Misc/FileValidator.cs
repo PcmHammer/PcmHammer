@@ -194,6 +194,7 @@ namespace PcmHacking
                         osid = ReadUnsigned(image, 0x52E);
                         break;
 
+                    case PcmType.P11:
                     case PcmType.P12:
                         osid = ReadUnsigned(image, 0x8004);
                         break;
@@ -247,6 +248,7 @@ namespace PcmHacking
                 case PcmType.P04_Early:
                 case PcmType.P05:
                 case PcmType.P08:
+                case PcmType.P11:
                 case PcmType.E54:
                     break;
 
@@ -278,6 +280,10 @@ namespace PcmHacking
                 case PcmType.P08:
                     this.logger.AddUserMessage("\tStart\tEnd\tStored\tNeeded\tVerdict\tSegment Name");
                     success &= ValidateRangeByteSum(type, 0, 0x7FFFB, 0x8004, "Whole File");
+                    break;
+                case PcmType.P11:
+                    this.logger.AddUserMessage("\tStart\tEnd\tStored\tNeeded\tVerdict\tSegment Name");
+                    success &= ValidateRangeWordSum(type, 0x0000, 0x7FFFB, 0x8000, "Operating System");
                     break;
                 case PcmType.P12:
                     this.logger.AddUserMessage("\tStart\tEnd\tStored\tNeeded\tVerdict\tSegment Name");
@@ -467,14 +473,21 @@ namespace PcmHacking
                     this.logger.AddUserMessage("File is P04 512KiB.");
                     return PcmType.P04;
                 }
-
-                this.logger.AddDebugMessage("Trying P10 512KiB");
+                this.logger.AddDebugMessage("Trying P10/P11 512KiB");
                 if ((image[0x17FFE] == 0x55) && (image[0x17FFF] == 0x55))
                 {
                     if ((image[0x7FFFC] == 0xA5) && (image[0x7FFFD] == 0x5A) && (image[0x7FFFE] == 0xA5) && (image[0x7FFFF] == 0xA5))
                     {
-                        this.logger.AddUserMessage("File is P10 512KiB.");
-                        return PcmType.P10;
+                        if ((image[0x534] == 0) && (image[0x535] == 00))
+                        {
+                            this.logger.AddUserMessage("File is P10 512KiB.");
+                            return PcmType.P10;
+                        }
+                        if ((image[0x534] == 0xAA) && (image[0x535] == 0xAA))
+                        {
+                            this.logger.AddUserMessage("File is P11 512KiB.");
+                            return PcmType.P11;
+                        }
                     }
                 }
 
@@ -631,9 +644,19 @@ namespace PcmHacking
                             case 0x4000:
                                 address = 0x20000;
                                 break;
-
                             case 0x7FFFA:
-                                end = 0x7FFFA; // A hacky way to short circuit the end
+                                end = 0x7FFFA; // Short circuit to the end
+                                break;
+                        }
+                        break;
+                    case PcmType.P11:
+                        switch (address)
+                        {
+                            case 0x4000:
+                                address = 0x8002;
+                                break;
+                            case 0x18000:
+                                address = 0x20000;
                                 break;
                         }
                         break;

@@ -2881,22 +2881,23 @@ namespace PcmHacking
                 case 12619742:
                     PCMInfo(PcmType.P05);
                     this.Description = "2004 P05 (VPW) Service No 12581501";
-                    this.ServiceNumber = 12584054;
+                    this.ServiceNumber = 12581501;
                     break;
 
-/*                case xxxxx:
+                /*                
+                case xxxxx:
                     PCMInfo(PcmType.P05);
                     this.Description = "2005 P05 (VPW) Service No 12581598";
-                    this.ServiceNumber = 12584054;
+                    this.ServiceNumber = 12581598;
                     break;
-*/
+                */
                 case 12608100:
                 case 12612950:
                 case 12619714:
                 case 12619715:
                     PCMInfo(PcmType.P05);
                     this.Description = "2005 P05 (VPW) Service No 12591279";
-                    this.ServiceNumber = 12584054;
+                    this.ServiceNumber = 12591279;
                     break;
 
                 // 2008 P05 service number 12600930 is CAN only
