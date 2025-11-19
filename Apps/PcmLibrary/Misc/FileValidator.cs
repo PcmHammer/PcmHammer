@@ -631,6 +631,7 @@ namespace PcmHacking
                             address = 0x20000;
                         }
                         break;
+
                     case PcmType.P08:
                         if (address == 0x4000)
                         {

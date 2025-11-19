@@ -2576,7 +2576,7 @@ namespace PcmHacking
                 case 12593468:
                 case 12593469:
                 case 12593470:
-                case 12593523:
+                // case 12593523: could be a P11? https://pcmhacking.net/forums/viewtopic.php?p=120275#p120275
                 case 12593525:
                 case 12593819:
                 case 12593820:
@@ -2891,6 +2891,7 @@ namespace PcmHacking
                     this.ServiceNumber = 12581598;
                     break;
                 */
+                case 12597270:
                 case 12608100:
                 case 12612950:
                 case 12619714:
@@ -3017,6 +3018,12 @@ namespace PcmHacking
                     PCMInfo(PcmType.P10);
                     this.Description = "P10 Service No 12574976";
                     this.ServiceNumber = 12574976;
+                    break;
+
+                case 12593523: // https://pcmhacking.net/forums/viewtopic.php?p=120275#p120275
+                    PCMInfo(PcmType.P11);
+                    this.Description = "P11 Service No ?";
+                    this.ServiceNumber = 0;
                     break;
 
                 // P12 1m
