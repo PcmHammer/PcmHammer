@@ -440,7 +440,7 @@ namespace PcmHacking
         public OSIDInfo(uint osid)
         {
             this.OSID = osid;
-
+            
             switch (osid)
             {
                 // LB7 Duramax EFI Live COS
@@ -1814,7 +1814,6 @@ namespace PcmHacking
                 case 12220115:
                 case 12220117:
                 case 12220118:
-                case 12221087:
                 case 12221090:
                 case 12221092:
                 case 12221098:
@@ -2891,7 +2890,7 @@ namespace PcmHacking
                     this.ServiceNumber = 12581598;
                     break;
                 */
-                case 12597270:
+                case 12597270: // tested on bench as dual protocol can + vpw on 12591279
                 case 12608100:
                 case 12612950:
                 case 12619714:
@@ -2991,7 +2990,11 @@ namespace PcmHacking
                     this.Description = "P08 Service No 16228016";
                     this.ServiceNumber = 16228016;
                     break;
-
+                case 12221087:
+                    PCMInfo(PcmType.P08);
+                    this.Description = "P08 Service No 9356249";
+                    this.ServiceNumber = 9356249;
+                    break;
                 // P10 Service No 12576463
                 case 12213305:
                 case 12571911:
