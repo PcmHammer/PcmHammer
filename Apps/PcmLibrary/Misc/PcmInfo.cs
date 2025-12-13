@@ -1818,7 +1818,6 @@ namespace PcmHacking
                 case 12221092:
                 case 12221098:
                 case 12221101:
-                case 12221111:
                 case 12221112:
                 case 12582150:
                 case 12582151:
@@ -2176,8 +2175,6 @@ namespace PcmHacking
                 case 12222130:
                 case 12222131:
                 case 12222132:
-                case 12222135:
-                case 12222446:
                 case 12222447:
                 case 12223042:
                 case 12223435:
@@ -2911,17 +2908,28 @@ namespace PcmHacking
 
                 // P08 Service Number 9356249
                 case 9364970:
+                case 9382954:  // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136159
+                case 9387226:  // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136159
+                case 12202774: // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136159
+                case 12205537: // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136159
+                case 12205561: // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136159
                 case 12206029:
+                case 12206030: // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136159
                 case 12206044:
                 case 12208154:
                 case 12208156:
+                case 12208767: // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136159
                 case 12208773:
+                case 12216187: // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136159
                 case 12216489:
-                case 12216571:
+                case 12216571: // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136159
                 case 12221096:
+                case 12221111: // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136159
                 case 12222128:
                 case 12222134:
+                case 12222135: // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136159
                 case 16257436:
+                case 12222446: // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136159
                     PCMInfo(PcmType.P08);
                     this.Description = "P08 Service No 9356249";
                     this.ServiceNumber = 9356249;
