@@ -1832,7 +1832,7 @@ namespace PcmHacking
                     this.ServiceNumber = 9380717;
                     break;
 
-                // P04 V6 Service number 12209624
+                // P04 V6 Service number 12209624 This list contains a lot of P08, incorrectly. Need better data.
                 case 9354438:
                 case 9354966:
                 case 9354967:
@@ -1922,7 +1922,6 @@ namespace PcmHacking
                 case 12206031:
                 case 12206035:
                 case 12206036:
-                case 12206037:
                 case 12206038:
                 case 12206039:
                 case 12206040:
@@ -2235,8 +2234,6 @@ namespace PcmHacking
                 case 12225341:
                 case 12225342:
                 case 12225344:
-                case 12225345:
-                case 12225346:
                 case 12226103:
                 case 12226105:
                 case 12226106:
@@ -2908,28 +2905,31 @@ namespace PcmHacking
 
                 // P08 Service Number 9356249
                 case 9364970:
-                case 9382954:  // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136159
-                case 9387226:  // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136159
-                case 12202774: // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136159
-                case 12205537: // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136159
-                case 12205561: // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136159
+                case 9382954:  // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136163
+                case 9387226:  // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136163
+                case 12202774: // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136163
+                case 12205537: // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136163
+                case 12205561: // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136163
                 case 12206029:
-                case 12206030: // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136159
+                case 12206030: // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136163
+                case 12206037: // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136159 2000 Cavalier 2.2 manual
                 case 12206044:
                 case 12208154:
                 case 12208156:
-                case 12208767: // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136159
+                case 12208767: // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136163
                 case 12208773:
-                case 12216187: // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136159
+                case 12216187: // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136163
                 case 12216489:
-                case 12216571: // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136159
+                case 12216571: // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136163
                 case 12221096:
-                case 12221111: // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136159
-                case 12222128:
-                case 12222134:
-                case 12222135: // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136159
+                case 12221111: // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136163
+                case 12222128: // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136159 2000 Cavalier 2.4 auto
+                case 12222134: // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136159 grand am 2.4
+                case 12222135: // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136159 grand am 2.4
+                case 12225346: // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136159 2000 Cavalier 2.2 manual
+                case 12225345: // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136159 2000 Cavalier 2.2 manual
                 case 16257436:
-                case 12222446: // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136159
+                case 12222446: // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136163
                     PCMInfo(PcmType.P08);
                     this.Description = "P08 Service No 9356249";
                     this.ServiceNumber = 9356249;
@@ -2945,7 +2945,7 @@ namespace PcmHacking
                 case 12223044:
                 case 12223046:
                 case 12225338:
-                case 12225340:
+                case 12225340: // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136159 2000 Cavalier 2.2 manual
                 case 12571886:
                 case 12580027:
                 case 12580029:
@@ -2998,7 +2998,7 @@ namespace PcmHacking
                     this.Description = "P08 Service No 16228016";
                     this.ServiceNumber = 16228016;
                     break;
-                case 12221087:
+                case 12221087: // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136159 2000 Cavalier 2.2 auto
                     PCMInfo(PcmType.P08);
                     this.Description = "P08 Service No 9356249";
                     this.ServiceNumber = 9356249;
