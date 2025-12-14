@@ -620,6 +620,7 @@ namespace PcmHacking
                 case 1271014:
                 case 1271016:
                 case 1271018:
+                case 1273012: // reported on FB https://www.facebook.com/groups/pcmhammerusers/permalink/25879085071683496/
                 case 1281005:
                 case 1281006:
                 case 1281008:
