@@ -459,7 +459,7 @@ namespace PcmHacking
                     case '0': // P01
                         PCMInfo(PcmType.P01_P59);
                         this.Description = "VCM Suite P01 COS 512KiB";
-                        this.ImageSize = 1024 * 1024;
+                        this.ImageSize = 512 * 1024;
                         return;
                     case '5': // P59
                         PCMInfo(PcmType.P01_P59);
