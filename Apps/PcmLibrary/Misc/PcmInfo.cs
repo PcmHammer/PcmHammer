@@ -440,7 +440,36 @@ namespace PcmHacking
         public OSIDInfo(uint osid)
         {
             this.OSID = osid;
-            
+
+            // special cases for COS
+            string osidString = osid.ToString();
+
+            // Some COS formats appear to follow the following convention. Note counting from 0, not 1.
+            // 0 = 1
+            // 1 = 2
+            // 2 = COS type. Have observed 5 = 2 Bar RTT, 6 = 3 Bar Non-RTT, 7 = 1 Bar RTT, 8 = MAF RTT
+            // 3 = Version number. 1 Appears to have custom keys, 2 and 3 do not.
+            // 4 = 0
+            // 5 = 0 for P01, 5 for P59
+            // 6 = OS variant
+            if (osidString.Length == 7 && osidString.Substring(0, 2) == "12" && osidString[4] == '0' &&  (osidString[2] == '2' || osidString[2] == '3')) // Version 2 & 3 handled here.
+            {
+                switch (osidString[5])
+                {
+                    case '0': // P01
+                        PCMInfo(PcmType.P01_P59);
+                        this.Description = "VCM Suite P01 COS 512KiB";
+                        this.ImageSize = 1024 * 1024;
+                        return;
+                    case '5': // P59
+                        PCMInfo(PcmType.P01_P59);
+                        this.Description = "VCM Suite P59 COS 1MiB";
+                        this.ImageSize = 1024 * 1024;
+                        return;
+                }
+            }
+
+            // OSID Lookups
             switch (osid)
             {
                 // LB7 Duramax EFI Live COS
@@ -505,7 +534,7 @@ namespace PcmHacking
                     this.Description = "LLY EFILive COS";
                     break;
 
-                // VCM Suite COS
+                // VCM Suite COS Version 1
                 case 1251001:
                     PCMInfo(PcmType.P01_P59);
                     this.Description = "VCM Suite 2 Bar";
@@ -576,19 +605,6 @@ namespace PcmHacking
                     PCMInfo(PcmType.P01_P59);
                     this.Description = "VCM Suite MAF RTT";
                     this.KeyAlgorithm = 14;
-                    break;
-
-                case 1273051:
-                case 1273052:
-                case 1273053:
-                case 1273054:
-                case 1273055:
-                case 1273056:
-                case 1273057:
-                    PCMInfo(PcmType.P01_P59);
-                    this.Description = "VCM Suite P59 COS 1M";
-                    this.KeyAlgorithm = 40;
-                    this.ImageSize = 1024 * 1024;
                     break;
 
                 //------- HPT COS -----------
