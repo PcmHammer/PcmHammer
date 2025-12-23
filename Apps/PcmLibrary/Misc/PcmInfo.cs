@@ -452,7 +452,7 @@ namespace PcmHacking
             // 4 = 0
             // 5 = 0 for P01, 5 for P59
             // 6 = OS variant
-            if (osidString.Length == 7 && osidString.Substring(0, 2) == "12" && osidString[4] == '0' &&  (osidString[2] == '2' || osidString[2] == '3')) // Version 2 & 3 handled here.
+            if (osidString.Length == 7 && osidString.Substring(0, 2) == "12" && osidString[4] == '0' &&  (osidString[3] == '2' || osidString[3] == '3')) // Version 2 & 3 handled here.
             {
                 switch (osidString[5])
                 {
