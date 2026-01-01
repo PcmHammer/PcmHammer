@@ -1310,8 +1310,6 @@ namespace PcmHacking
                 case 9365287:
                 case 9365302:
                 case 9365304:
-                case 9365308:
-                case 9365310:
                 case 9365311:
                 case 9365314:
                 case 9365316:
@@ -1537,13 +1535,11 @@ namespace PcmHacking
                 case 9383066:
                 case 9383068:
                 case 9383074:
-                case 9383079:
                 case 9383081:
                 case 9383084:
                 case 9383086:
                 case 9383087:
                 case 9383088:
-                case 9383089:
                 case 9383091:
                 case 9386582:
                 case 9386586:
@@ -1846,7 +1842,6 @@ namespace PcmHacking
                 case 12220118:
                 case 12221090:
                 case 12221092:
-                case 12221098:
                 case 12221101:
                 case 12221112:
                 case 12582150:
@@ -2086,12 +2081,9 @@ namespace PcmHacking
                 case 12216129:
                 case 12216136:
                 case 12216186:
-                case 12216490:
                 case 12216522:
                 case 12216524:
                 case 12216566:
-                case 12216567:
-                case 12216568:
                 case 12216625:
                 case 12216640:
                 case 12217063:
@@ -2202,7 +2194,6 @@ namespace PcmHacking
                 case 12222126:
                 case 12222127:
                 case 12222130:
-                case 12222131:
                 case 12222132:
                 case 12222447:
                 case 12223042:
@@ -2258,7 +2249,6 @@ namespace PcmHacking
                 case 12225135:
                 case 12225136:
                 case 12225137:
-                case 12225336:
                 case 12225337:
                 case 12225339:
                 case 12225341:
@@ -2282,7 +2272,6 @@ namespace PcmHacking
                 case 12571887:
                 case 12571888:
                 case 12571889:
-                case 12571890:
                 case 12571891:
                 case 12571892:
                 case 12571893:
@@ -2304,7 +2293,6 @@ namespace PcmHacking
                 case 12578904:
                 case 12578905:
                 case 12579862:
-                case 12580025:
                 case 12580026:
                 case 12580028:
                 case 12580030:
@@ -2312,9 +2300,7 @@ namespace PcmHacking
                 case 12580032:
                 case 12580033:
                 case 12580048:
-                case 12580049:
                 case 12580050:
-                case 12580051:
                 case 12580052:
                 case 12580524:
                 case 12580525:
@@ -2337,7 +2323,6 @@ namespace PcmHacking
                 case 12583590:
                 case 12583591:
                 case 12583592:
-                case 12583655:
                 case 12583710:
                 case 12583711:
                 case 12583754:
@@ -2752,7 +2737,6 @@ namespace PcmHacking
                 case 9361291:
                 case 9361300:
                 case 9364326:
-                case 9364356:
                 case 9364357:
                 case 9364358:
                 case 9364360:
@@ -2780,7 +2764,6 @@ namespace PcmHacking
                 case 9374773:
                 case 9374775:
                 case 9374785:
-                case 9374787:
                 case 9374788:
                 case 9374790:
                 case 9374958:
@@ -3033,6 +3016,83 @@ namespace PcmHacking
                     this.Description = "P08 Service No 9356249";
                     this.ServiceNumber = 9356249;
                     break;
+
+                // P08s of unknown service number
+                case 9351290:
+                case 9351297:
+                case 9351321:
+                case 9353418:
+                case 9353422:
+                case 9354904:
+                case 9354907:
+                case 9354910:
+                case 9353732:
+                case 9353738:
+                case 9355300:
+                case 9355302:
+                case 9356822:
+                case 9364356:
+                case 9354914:
+                case 9365276:
+                case 9365292:
+                case 9365308:
+                case 9365310:
+                case 9365324:
+                case 9368451:
+                case 9367522:
+                case 9368547:
+                case 9373177:
+                case 9372478:
+                case 9374787:
+                case 9387229:
+                case 9382927:
+                case 9382928:
+                case 9382941:
+                case 9382948:
+                case 9382957:
+                case 9383079:
+                case 9383089:
+                case 9387205:
+                case 9387214:
+                case 9387552:
+                case 12201228:
+                case 12201231:
+                case 12201238:
+                case 12205538:
+                case 12205545:
+                case 12206019:
+                case 12206025:
+                case 12206042:
+                case 12206045:
+                case 12206049:
+                case 12208535:
+                case 12215090:
+                case 12215092:
+                case 12216490:
+                case 12208527:
+                case 12216567:
+                case 12216568:
+                case 12217195:
+                case 12218876:
+                case 12218878:
+                case 12221098:
+                case 12222110:
+                case 12222131:
+                case 12223050:
+                case 12225336:
+                case 12580049:
+                case 12580051:
+                case 12571890:
+                case 12578485:
+                case 12580025:
+                case 12583655:
+                case 16267114:
+                case 16267097:
+                    PCMInfo(PcmType.P08);
+                    this.Description = "P08";
+                    this.ServiceNumber = 16228016; // unknown, use any for now.
+                    break;
+
                 // P10 Service No 12576463
                 case 12213305:
                 case 12571911:
