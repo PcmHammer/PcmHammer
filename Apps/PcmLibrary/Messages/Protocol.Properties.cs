@@ -56,15 +56,23 @@ namespace PcmHacking
             {
                 return Response.Create(ResponseStatus.Error, (UInt32)result);
             }
-            if (bytes.Length < 9)
+            if (bytes.Length < 8)
             {
                 return Response.Create(ResponseStatus.Truncated, (UInt32)result);
             }
-
-            result = bytes[5] << 24;
-            result += bytes[6] << 16;
-            result += bytes[7] << 8;
-            result += bytes[8];
+            if (bytes.Length == 8) // 3 byte value
+            {
+                result += bytes[5] << 16;
+                result += bytes[6] << 8;
+                result += bytes[7];
+            }
+            else // 4 byte value
+            {
+                result = bytes[5] << 24;
+                result += bytes[6] << 16;
+                result += bytes[7] << 8;
+                result += bytes[8];
+            }
 
             return Response.Create(ResponseStatus.Success, (UInt32)result);
         }
