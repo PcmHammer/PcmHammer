@@ -2884,6 +2884,7 @@ namespace PcmHacking
                 case 12584057:
                 case 12584058:
                 case 12588933:
+                case 12619740:
                 case 12619742:
                     PCMInfo(PcmType.P05);
                     this.Description = "2004 P05 (VPW) Service No 12581501";
