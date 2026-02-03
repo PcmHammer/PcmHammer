@@ -11,6 +11,32 @@ namespace PcmHacking
     public class FileValidator
     {
         /// <summary>
+        /// Names of segments in P10 operating systems.
+        /// </summary>
+        private readonly string[] segmentNames_P10 =
+        {
+            "Operating system",
+            "Engine calibration",
+            "Transmission calibration",
+            "System",
+            "Speedometer",
+        };
+
+        /// <summary>
+        /// Names of segments in BlackBox operating systems.
+        /// </summary>
+        private readonly string[] segmentNames_BlackBox =
+        {
+            "Operating system",
+            "Engine calibration",
+            "Fuel system",
+            "System",
+            "Speedometer",
+            "VIN",
+            "Transmission calibration",
+        };
+
+        /// <summary>
         /// Names of segments in P01 and P59 operating systems.
         /// </summary>
         private readonly string[] segmentNames_P01_P59 =
@@ -21,18 +47,6 @@ namespace PcmHacking
             "Transmission calibration",
             "Transmission diagnostics",
             "Fuel system",
-            "System",
-            "Speedometer",
-        };
-
-        /// <summary>
-        /// Names of segments in P10 operating systems.
-        /// </summary>
-        private readonly string[] segmentNames_P10 =
-        {
-            "Operating system",
-            "Engine calibration",
-            "Transmission calibration",
             "System",
             "Speedometer",
         };
@@ -231,7 +245,7 @@ namespace PcmHacking
 
                 case PcmType.BlackBox:
                     tableAddress = 0x2000C;
-                    segments = 5;
+                    segments = 7;
                     break;
 
                 // no segment table
@@ -323,6 +337,10 @@ namespace PcmHacking
                         {
                             case PcmType.P10:
                                 segmentName = segmentNames_P10[segment];
+                                break;
+
+                            case PcmType.BlackBox:
+                                segmentName = segmentNames_BlackBox[segment];
                                 break;
 
                             default:
