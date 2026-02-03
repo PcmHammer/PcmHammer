@@ -260,7 +260,7 @@ namespace PcmHacking
                     this.Description = "P05 (VPW)";
                     this.HardwareType = PcmType.P05;
                     this.HardwareSlaveCPU = false;
-                    this.IsSupported = true;
+                    this.IsSupported = false;
                     this.IsSupportedRead = true;
                     this.IsSupportedWrite = true;
                     this.IsSupportedWriteSlaveCPU = false;
@@ -330,7 +330,7 @@ namespace PcmHacking
                     this.Description = "P11";
                     this.HardwareType = PcmType.P11;
                     this.HardwareSlaveCPU = false;
-                    this.IsSupported = true;
+                    this.IsSupported = false;
                     this.IsSupportedRead = true;
                     this.IsSupportedWrite = false;
                     this.IsSupportedWriteSlaveCPU = false;
