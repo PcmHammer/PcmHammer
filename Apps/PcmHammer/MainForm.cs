@@ -836,8 +836,8 @@ namespace PcmHacking
                     }
                 }
 
-                // Disable HardwareID lookup for the P10, P12 and E54.
-                if (pcmInfo != null && pcmInfo.HardwareType != PcmType.P10 && pcmInfo.HardwareType != PcmType.P12 && pcmInfo.HardwareType != PcmType.E54)
+                // Disable HardwareID lookup for the P05, P10, P12 and E54.
+                if (pcmInfo != null && pcmInfo.HardwareType != PcmType.P05 && pcmInfo.HardwareType != PcmType.P10 && pcmInfo.HardwareType != PcmType.P12 && pcmInfo.HardwareType != PcmType.E54)
                 {
                     var hardwareResponse = await this.Vehicle.QueryHardwareId();
                     if (hardwareResponse.Status == ResponseStatus.Success)
@@ -1412,16 +1412,24 @@ namespace PcmHacking
                     this.AddUserMessage(path);
 
                     byte[] image;
-                    using (Stream stream = File.OpenRead(path))
+                    try
                     {
-                        image = new byte[stream.Length];
-                        int bytesRead = await stream.ReadAsync(image, 0, (int)stream.Length);
-                        if (bytesRead != stream.Length)
+                        using (Stream stream = File.OpenRead(path))
                         {
-                            // If this happens too much, we should try looping rather than reading the whole file in one shot.
-                            this.AddUserMessage("Unable to load file.");
-                            return;
+                            image = new byte[stream.Length];
+                            int bytesRead = await stream.ReadAsync(image, 0, (int)stream.Length);
+                            if (bytesRead != stream.Length)
+                            {
+                                // If this happens too much, we should try looping rather than reading the whole file in one shot.
+                                this.AddUserMessage("Unable to load file.");
+                                return;
+                            }
                         }
+                    }
+                    catch (Exception ex)
+                    {
+                        this.AddUserMessage($"Unable to open file: {ex.Message}");
+                        return;
                     }
 
                     // Sanity checks. 
@@ -1686,16 +1694,24 @@ namespace PcmHacking
             this.AddUserMessage("Examining " + path);
 
             byte[] image;
-            using (Stream stream = File.OpenRead(path))
+            try
             {
-                image = new byte[stream.Length];
-                int bytesRead = await stream.ReadAsync(image, 0, (int)stream.Length);
-                if (bytesRead != stream.Length)
+                using (Stream stream = File.OpenRead(path))
                 {
-                    // If this happens too much, we should try looping rather than reading the whole file in one shot.
-                    this.AddUserMessage("Unable to load file.");
-                    return;
+                    image = new byte[stream.Length];
+                    int bytesRead = await stream.ReadAsync(image, 0, (int)stream.Length);
+                    if (bytesRead != stream.Length)
+                    {
+                        // If this happens too much, we should try looping rather than reading the whole file in one shot.
+                        this.AddUserMessage("Unable to load file.");
+                        return;
+                    }
                 }
+            }
+            catch (Exception ex)
+            {
+                this.AddUserMessage($"Unable to open file: {ex.Message}");
+                return;
             }
 
             // Sanity checks. 

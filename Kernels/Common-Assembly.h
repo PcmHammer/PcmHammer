@@ -1,4 +1,5 @@
 | 2023-03-25 Gampy <@pcmhacking.net>
+| 2023+      Antus <@pcmhacking.net>
 | Common elements between Loader.S and Kernel.S
 | ===========================================================================
 |
@@ -9,7 +10,7 @@
 |
 
 | J1850 registers
-#if defined P01 || defined P08 || defined P10 || defined P12 || defined E54
+#if defined P01 || defined P05 || defined P08 || defined P10 || defined P11 || defined P12 || defined E54
   .equ J1850_Config,     0xFFF600
   .equ J1850_Command,    0xFFF60C
   .equ J1850_TX_FIFO,    0xFFF60D
@@ -21,7 +22,7 @@
   #elif defined P10
     .equ COP1,           0xFFFA27
     .equ COP2,           0x800806
-  #elif defined P12
+  #elif defined P05 || defined P11 || defined P12
     .equ COP1,           0xFFFA55
     .equ COP2,           0xFFFA21
   #else
