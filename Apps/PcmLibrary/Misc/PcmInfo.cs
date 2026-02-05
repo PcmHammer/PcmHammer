@@ -2886,6 +2886,7 @@ namespace PcmHacking
                 case 12588933:
                 case 12619740:
                 case 12619742:
+                case 12612937: // service number not known, it just needs to go somewhere.
                     PCMInfo(PcmType.P05);
                     this.Description = "2004 P05 (VPW) Service No 12581501";
                     this.ServiceNumber = 12581501;
@@ -3123,6 +3124,7 @@ namespace PcmHacking
                     break;
 
                 case 12593523: // https://pcmhacking.net/forums/viewtopic.php?p=120275#p120275
+                case 12586586:
                     PCMInfo(PcmType.P11);
                     this.Description = "P11 Service No ?";
                     this.ServiceNumber = 0;

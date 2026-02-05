@@ -1,4 +1,4 @@
-﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 using PcmHacking;
 using System;
 using System.Collections.Generic;
@@ -6,7 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Tests
+namespace PcmHammer.Tests
 {
     [TestClass]
     public class CanLoggerTests
@@ -19,8 +19,11 @@ namespace Tests
             Conversion[] conversionArray = new Conversion[] { simpleConversion };
 
             CanParameter param1 = new CanParameter(0x01, 0, 2, true, "1", "1", "1", conversionArray, Aggregation.Last);
+            param1.SelectedConversion = simpleConversion;
             CanParameter param21 = new CanParameter(0x02, 0, 2, true, "21", "21", "21", conversionArray, Aggregation.Sum);
+            param21.SelectedConversion = simpleConversion;
             CanParameter param22 = new CanParameter(0x02, 2, 2, true, "22", "22", "22", conversionArray, Aggregation.Average);
+            param22.SelectedConversion = simpleConversion;
 
             Dictionary<UInt32, IEnumerable<CanParameter>> result = new Dictionary<UInt32, IEnumerable<CanParameter>>();
             result.Add(0x01, new CanParameter[] { param1 });
@@ -38,8 +41,14 @@ namespace Tests
 
             IEnumerable<CanLogger.ParameterAndValue> results = logger.GetParameterValues();
             Assert.IsNotNull(results);
-            CanLogger.ParameterAndValue result = results.FirstOrDefault();
-            Assert.IsNull(result);
+            IList<CanLogger.ParameterAndValue> array = results.ToArray();
+            Assert.AreEqual(3, array.Count, "Expected all configured parameters.");
+            foreach (CanLogger.ParameterAndValue result in array)
+            {
+                Assert.AreEqual(0, result.ValueAsNumber, "valueAsNumber");
+                Assert.IsTrue(result.ValueAsString == "0.00" || result.ValueAsString == "0", "valueAsString");
+                Assert.AreEqual("test", result.Units, "Units");
+            }
 
             // If we wanted to log unexpected messages, we could... not sure it's a good idea though.
         }

@@ -1,8 +1,8 @@
-﻿using System;
+using System;
 using PcmHacking;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-namespace Tests
+namespace PcmHammer.Tests
 {
     public class TestScenarios
     {

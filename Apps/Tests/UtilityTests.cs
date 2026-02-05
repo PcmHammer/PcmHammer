@@ -2,7 +2,7 @@ using System;
 using PcmHacking;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-namespace Tests
+namespace PcmHammer.Tests
 {
     [TestClass]
     public class UtilityTests

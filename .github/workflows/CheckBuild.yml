@@ -85,6 +85,24 @@ jobs:
           fi
         done
 
+    - name: Verify Kernel SHA256
+      run: |
+        cd TemporaryArtifactStorage
+        cat > sha256sums.txt <<'EOF'
+        83a99daece53fc7f2e8f21a392a137f1a326b9e83d0371334b183917d7f83c2a  Kernel-BlackBox.bin
+        08a0c6e0b90740e13ac6c525292fb17200af577d79387c32bc14336a7da86b60  Kernel-E54.bin
+        bb7ae5856741202cc55d45eb73aae5dccfef5ab1cfcb3a88efb73fd1814fd2cf  Kernel-P01.bin
+        1e9a119513895830fb00ce136d17149a751f590b8cc313fd68533e8cdb794ed7  Kernel-P04.bin
+        85e58aa9af3ca97acbcd70a476409d9e81703defd0b1a2e8f0917aee100b916c  Kernel-P04_Early.bin
+        966d9cd2ebac79eccd4178f7661d48f789691602cd92a69efba75ed2327debf7  Kernel-P05.bin
+        e5f15e8cb91d2e57ed5b5722b8a6ee37b939a5c26e187eeb6a9920a9906bf372  Kernel-P08.bin
+        0824c10c88ab5f097545684ca46b9f4d75ecf23a23fb0542e40945cdbb71c63a  Kernel-P10.bin
+        2fc2233e094eebad4eeedb41cc7de4dd7e9f039b9575cbcecc3c6f0356185f42  Kernel-P11.bin
+        868ccae5858919d22d67ad6d477549b91d6a786490128a3dd7338ea6a52fc7cd  Kernel-P12.bin
+        48b0d3d29fd7a8514f85dc20174d94f19cb19095189f0e8b04650747f4c9bac7  Loader-P04.bin
+        EOF
+        sha256sum -c sha256sums.txt
+
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
@@ -154,4 +172,3 @@ jobs:
       with:
         name: PCMHacks_${{github.sha}}
         path: TemporaryArtifactStorage
-
