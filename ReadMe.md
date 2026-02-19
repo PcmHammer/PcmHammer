@@ -15,7 +15,7 @@ PCM Hammer and tools support reading, writing, and data logging with General Mot
 |P05(VPW) | Yes    | WIP   | WIP     | N/A      | ?       | N/A   | N/A    | Assembly|
 |P08      | Yes    | Yes   | Yes     | Yes      | No      | N/A   | N/A    | Assembly|
 |P10      | Yes    | Yes   | Yes     | Yes      | Yes     | No    | N/A    | C       |
-|P12      | Yes    | Yes   | Yes     | Yes      | Yes     | No    | N/A    | C       |
+|P12      | Yes    | Yes   | WIP     | WIP      | No      | No    | N/A    | C       |
 |P59      | Yes    | Yes   | Yes     | Yes      | Yes     | N/A   | N/A    | C       |
 |E54      | Yes    | Yes   | Yes     | Yes      | No      | N/A   | N/A    | Assembly|
 +---------+--------+-------+---------+----------+---------+-------+--------+---------+
@@ -32,6 +32,8 @@ Therefore the PCM Hammer team recommends to flash PCMs on the bench and with a g
 The required current is around 1 amp. Phone chargers and other cheap switch mode power supplies can cause flash failure due to poor quality power.
 Quality lab type power supplies, or charged car batteries with good floating voltages are recommended.
 There are mutiple revisions of P05 PCM. PCMHammer only works with VPW capable units and does not support CAN.
+P12 note: There have been problems with writing the P12 and P12b boot sector. The clone function has been removed until this is resolved.
+P05 and P11 are under development.
 
 ## Installation
 

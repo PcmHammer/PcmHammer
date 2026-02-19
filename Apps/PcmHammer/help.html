@@ -43,31 +43,33 @@
         well under $100. This is the recommended interface. Full disclosure: The guys behind this company have also helped with PCM Hammer development and testing. Buying through this link supports development hardware costs as well as future development.
 
     <p>
-        <b><a href="https://www.scantool.net/obdlink-sx/">ObdLink Scantool SX</a></b> - This is inexpensive and superior to ELM knock-off devices,
+        <b><a href="https://www.scantool.net/obdlink-sx/">ObdLink Scantool SX</a></b> - This is inexpensive and more capable than ELM knock-off devices,
         however it does not support 4x (high speed) mode, and it only supports relatively short messages, so a full read from a 512kb PCM takes a little over 20 minutes. Not recommended.
 
-    <p><b><a href="https://www.scantool.net/obdlink-mxp/">ObdLink Scantool MX/MX+</a></b> - Similar to the SX, but Bluetooth wireless. The connection to windows via Bluetooth can be troublesome, but when correctly configured it does work. Not recommended.
+    <p><b><a href="https://www.scantool.net/obdlink-mxp/">ObdLink Scantool MX/MX+</a></b> - Similar to the SX, but Bluetooth wireless. The connection to windows via Bluetooth can be troublesome,
+	    but when correctly configured it does work. Not recommended.
 
     <p>
         <b><a href="https://www.scantool.net/obdlink-lx/">ObdLink Scantool LX</a></b> - It's like an SX or MX+, but wireless. Not Recommended.
     <p>
         <b><a href="http://www.avt-hq.com/852_hw.htm">AVT 852</a></b> - This is the most expensive option, and the company doesn't cater to individual purchasers,
-        but this was one of the first interfaces to properly support J1850 VPW high-speed mode. No longer in production.
+        but this was one of the first interfaces to properly support J1850 VPW high-speed mode. No longer in production but solid if you have one in the toolkit.
     <p>
         <b>Any J2534-compatible interface that supports J1850 VPW</b> - At least in theory, these should all work. There are quite a few of those on the market,
         and we cannot test them all, but if you have one, give it a try. As time goes by we'll list the ones that are proven to work. The genuine GM MDI is one
         device which is known to work well. Over time we hope to confirm that other, less expensive devices will also work. Usually the sub $50 J2534 tools do not work.
+		GM/Bosch MDI and MDI2 work well and are recommended.
 
-    <P>Note that the Tactrix OpenPort 2.0 does not support J1850 VPW despite some advertising saying that it does. VPW is required so it is not supported.
+    <P>Note that the Tactrix OpenPort 2.0 does not support J1850 VPW despite some advertising saying that it does. VPW is required and it is not capable / supported.
 
     <p>
         <b><a href="http://www.obddiag.net/products.html">ObdDiag AllPro</a></b> - Only the USB and dev-board versions are supported (not bluetooth).
-        The AllPro devices were quite inexpensive, and ObdDiag was an early partner in this project, incorporating changes and responding to feedback.
-        However the man behind the company has moved on to other things, so these devices are no longer available.
+        The AllPro devices were quite inexpensive, and ObdDiag was originally enthusiastic about this project, incorporating changes and responding to feedback.
+        However the man behind the company has moved on to other things, and these devices are no longer available.
         Also, note that AllPro devices purchased before early June 2018 will need a firmware update to version 1.21 or later.
 		Not recommended.
     <p>
-        Other devices based on the Scantool OBD2 chip may or may not work, depending on their message size limits.
+        Other devices based on the Scantool OBD2 chip may or may not work, depending on their message size limits. Not recommended.
     <p>
         Note that most ELM-based devices are <i>not</i> supported, because they do not work. Reading and clearing OBD2 trouble codes is one thing; rewriting firmware is quite another.
 
