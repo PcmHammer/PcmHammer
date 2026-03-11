@@ -1,19 +1,19 @@
-using Uno.UI.Runtime.Skia;
+using Uno.UI.Hosting;
 
 namespace PcmHacking.UnoUI;
+
 public class Program
 {
     [STAThread]
     public static void Main(string[] args)
     {
-        var host = SkiaHostBuilder.Create()
+        UnoPlatformHostBuilder.Create()
             .App(() => new App())
             .UseX11()
             .UseLinuxFrameBuffer()
             .UseMacOS()
             .UseWindows()
-            .Build();
-
-        host.Run();
+            .Build()
+            .Run();
     }
 }
