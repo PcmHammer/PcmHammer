@@ -94,24 +94,7 @@ public class SettingsService : ISettingsService
         {
             if (localSettings == null)
             {
-#if DESKTOP1_0_OR_GREATER || WINAPPSDK_PACKAGED || MACCATALYST || IOS || ANDROID
                 localSettings = ApplicationData.Current.LocalSettings;
-#elif WINDOWS && !WINAPPSDK_PACKAGED
-                localSettings = ApplicationData.GetForUnpackaged("PcmHacking.net", "PCM Hammer");
-#else
-                try
-                {
-                    // Users shouldn't encounter this, but it's confusing when this happens in the debugger.
-                    localSettings = ApplicationData.Current.LocalSettings;
-                }
-                catch (Exception ex)
-                {
-                    // TODO: there's probably a better way to log this.
-                    Console.WriteLine("Unable to load application settings.");
-                    Console.WriteLine(ex.ToString());
-                    throw;
-                }
-#endif
             }
             return localSettings;
         }
