@@ -157,13 +157,13 @@ jobs:
 
     - name: Add Uno Skia binaries to temporary artifact storage (until proper Windows builds work)
       run: |
-        Copy-Item -Recurse -Path "Apps/UI/UnoUI/PcmHacking.UnoUI/bin/Debug/net8.0-desktop/*" -Destination TemporaryArtifactStorage/Skia
+        Copy-Item -Recurse -Path "Apps/UI/UnoUI/PcmHacking.UnoUI/bin/Debug/net10.0-desktop/*" -Destination TemporaryArtifactStorage/Skia
         Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/*.LogProfile"     -Destination TemporaryArtifactStorage/Skia
         Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/Parameters.*.xml" -Destination TemporaryArtifactStorage/Skia
 
     - name: Add Uno Windows binaries to temporary artifact storage
       run: |
-        Copy-Item -Recurse -Path "Apps/UI/UnoUI/PcmHacking.UnoUI/bin/Debug/net8.0-windows10.0.26100/*" -Destination TemporaryArtifactStorage/WindowsUnpackaged
+        Copy-Item -Recurse -Path "Apps/UI/UnoUI/PcmHacking.UnoUI/bin/Debug/net10.0-windows10.0.26100/*" -Destination TemporaryArtifactStorage/WindowsUnpackaged
         Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/*.LogProfile"     -Destination TemporaryArtifactStorage/WindowsUnpackaged
         Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/Parameters.*.xml" -Destination TemporaryArtifactStorage/WindowsUnpackaged
 
