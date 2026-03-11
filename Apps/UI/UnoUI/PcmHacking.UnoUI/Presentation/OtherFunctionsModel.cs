@@ -255,7 +255,7 @@ public partial record OtherFunctionsModel
 
     public async Task GoToDumpRam()
     {
-        //await this.navigator.NavigateViewModelAsync<DumpRamModel>(this);
+        await this.navigator.NavigateViewModelAsync<DumpRamModel>(this);
     }
 
     public async Task GoToVerify()
