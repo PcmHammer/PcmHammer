@@ -1,10 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using Newtonsoft.Json.Linq;
+using Windows.Foundation.Collections;
 
 namespace PcmHacking.UnoUI.Services;
 
@@ -22,7 +25,7 @@ public interface ISettingsService
     CurrentSettings LoadConnectionSettings();
     void SaveConnectionSettings(CurrentSettings settings);
 
-    IEnumerable<string> GetMruLogProfiles();    
+    IEnumerable<string> GetMruLogProfiles();
     void AddMruLogProfile(string path);
 
     // Directory for storing profiles (to initialize file-open dialog)
@@ -76,101 +79,125 @@ public class SettingsService : ISettingsService
     private const string UseCruiseButtonToSaveLogsKey = "UseCruiseButtonToSaveLogs";
     private const string UseKnockRetardToSaveLogsKey = "UseKnockRetardToSaveLogs";
 
-    public SettingsService()
-    {
-    }
+
 
     //#if WINDOWS10_0_26100_0_OR_GREATER
     //    Microsoft.Storage.ApplicationData.ApplicationDataContainer? localSettings;
     //#else
     // This is supported on most platforms, but not for Unpackaged Windows apps,
     // because it depends on an app-data folder that only exists for packaged apps.
-    ApplicationDataContainer? localSettings;
-//#endif
-
-    private ApplicationDataContainer LocalSettings
+    // 
+    // This mock interface will allow us to switch where the data originates from,
+    // giving us the ability to use this service as is for most platforms while 
+    // freely allowing a custom option for Unpackaged windows.
+    private IPropertySet _settingsListInterface
     {
         get
         {
-            if (localSettings == null)
-            {
 #if DESKTOP1_0_OR_GREATER || WINAPPSDK_PACKAGED || MACCATALYST || IOS || ANDROID
-                localSettings = ApplicationData.Current.LocalSettings;
-#elif WINDOWS && !WINAPPSDK_PACKAGED
-                localSettings = ApplicationData.GetForUnpackaged("PcmHacking.net", "PCM Hammer");
-#else
+            return ApplicationData.Current.LocalSettings.Values;
+#elif WINDOWS && !WINAPPSDK_PACKAGED            
+            if (_unpackagedSettingsStore == null)
+            {
                 try
                 {
-                    // Users shouldn't encounter this, but it's confusing when this happens in the debugger.
-                    localSettings = ApplicationData.Current.LocalSettings;
+                    FileInfo loadedExe = new(Assembly.GetExecutingAssembly().Location);
+                    string cfgPath = $@"{loadedExe.Directory.FullName}\Settings.Windows.json";
+                    if (!File.Exists(cfgPath))
+                    {
+                        File.Create(cfgPath).Close();
+                        _unpackagedSettingsStore = [];
+                        return (IPropertySet)_unpackagedSettingsStore;
+                    }
+                    FileStream settingsStream = File.OpenRead(cfgPath);
+                    _unpackagedSettingsStore = JsonSerializer.Deserialize<AutoSaveDictionary<string, object>>(settingsStream) ?? [];
                 }
-                catch (Exception ex)
+                catch
                 {
-                    // TODO: there's probably a better way to log this.
-                    Console.WriteLine("Unable to load application settings.");
-                    Console.WriteLine(ex.ToString());
-                    throw;
+                    _unpackagedSettingsStore = [];
                 }
-#endif
             }
-            return localSettings;
+            // TODO: Introduce a local file path and name, and try to load data into this array.
+            return (IPropertySet)_unpackagedSettingsStore;
+#else
+            try
+            {
+                // Users shouldn't encounter this, but it's confusing when this happens in the debugger.
+                return ApplicationData.Current.LocalSettings.Values;
+            }
+            catch (Exception ex)
+            {
+                // TODO: there's probably a better way to log this.
+                Console.WriteLine("Unable to load application settings.");
+                Console.WriteLine(ex.ToString());
+                throw;
+            }
+#endif
         }
     }
 
+    private AutoSaveDictionary<string, object> _unpackagedSettingsStore { get; set; }
+
+
+    public SettingsService()
+    {
+    }
+
+
     public string GetObd2DeviceCategory()
     {
-        return LocalSettings.Values[Obd2DeviceCategoryKey] as string ?? string.Empty;
+        return _settingsListInterface[Obd2DeviceCategoryKey] as string ?? string.Empty;
     }
 
     public string GetObd2SerialPortName()
     {
-        return LocalSettings.Values[Obd2SerialPortNameKey] as string ?? string.Empty;
+        return _settingsListInterface[Obd2SerialPortNameKey] as string ?? string.Empty;
     }
 
     public string GetObd2SerialDeviceName()
     {
-        return LocalSettings.Values[Obd2SerialDeviceNameKey] as string ?? string.Empty;
+        return _settingsListInterface[Obd2SerialDeviceNameKey] as string ?? string.Empty;
     }
 
     public string GetJ2534DeviceName()
     {
-        return LocalSettings.Values[J2534DeviceNameKey] as string ?? string.Empty;
+        return _settingsListInterface[J2534DeviceNameKey] as string ?? string.Empty;
     }
 
     public bool IsCanEnabled()
     {
-        return LocalSettings.Values[CanEnabledKey] as string == "true";
+        return _settingsListInterface[CanEnabledKey] as string == "true";
     }
 
     public string GetCanSerialPortName()
     {
-        return LocalSettings.Values[CanSerialPortNameKey] as string ?? string.Empty;
+        return _settingsListInterface[CanSerialPortNameKey] as string ?? string.Empty;
     }
 
     public CurrentSettings LoadConnectionSettings()
     {
         return new CurrentSettings(
-            LocalSettings.Values[Obd2DeviceCategoryKey] as string ?? string.Empty,
-            LocalSettings.Values[Obd2SerialPortNameKey] as string ?? string.Empty,
-            LocalSettings.Values[Obd2SerialDeviceNameKey] as string ?? string.Empty,
-            LocalSettings.Values[J2534DeviceNameKey] as string ?? string.Empty,
-            LocalSettings.Values[CanEnabledKey] as string == "true",
-            LocalSettings.Values[CanSerialPortNameKey] as string ?? string.Empty);
+            _settingsListInterface[Obd2DeviceCategoryKey] as string ?? string.Empty,
+            _settingsListInterface[Obd2SerialPortNameKey] as string ?? string.Empty,
+            _settingsListInterface[Obd2SerialDeviceNameKey] as string ?? string.Empty,
+            _settingsListInterface[J2534DeviceNameKey] as string ?? string.Empty,
+            _settingsListInterface[CanEnabledKey] as string == "true",
+            _settingsListInterface[CanSerialPortNameKey] as string ?? string.Empty);
     }
 
     public void SaveConnectionSettings(CurrentSettings settings)
     {
-        LocalSettings.Values[J2534DeviceNameKey] = settings.J2534DeviceName;
-        LocalSettings.Values[Obd2DeviceCategoryKey] = settings.DeviceCategory;
-        LocalSettings.Values[Obd2SerialPortNameKey] = settings.Obd2SerialPortName;
-        LocalSettings.Values[Obd2SerialDeviceNameKey] = settings.Obd2SerialDeviceName;
-        LocalSettings.Values[CanEnabledKey] = settings.CanEnabled ? "true" : "false";
-        LocalSettings.Values[CanSerialPortNameKey] = settings.CanPort;
+        _settingsListInterface[J2534DeviceNameKey] = settings.J2534DeviceName;
+        _settingsListInterface[Obd2DeviceCategoryKey] = settings.DeviceCategory;
+        _settingsListInterface[Obd2SerialPortNameKey] = settings.Obd2SerialPortName;
+        _settingsListInterface[Obd2SerialDeviceNameKey] = settings.Obd2SerialDeviceName;
+        _settingsListInterface[CanEnabledKey] = settings.CanEnabled ? "true" : "false";
+        _settingsListInterface[CanSerialPortNameKey] = settings.CanPort;
     }
 
     public IEnumerable<string> GetMruLogProfiles()
     {
-        string json = LocalSettings.Values[LogMruProfilesKey] as string ?? string.Empty;
+        string json = _settingsListInterface[LogMruProfilesKey] as string ?? string.Empty;
         if (string.IsNullOrEmpty(json))
         {
             return new string[0];
@@ -181,10 +208,8 @@ public class SettingsService : ISettingsService
         {
             return new string[0];
         }
-
-        JObject j = JObject.Parse(json);
         List<string> result = new List<string>();
-        foreach (var item in j)
+        foreach (var item in jsonObject)
         {
             string? path = item.Value?.ToString();
             if (!string.IsNullOrEmpty(path))
@@ -216,115 +241,115 @@ public class SettingsService : ISettingsService
             j.Add(item, item);
         }
 
-        LocalSettings.Values[LogMruProfilesKey] = j.ToString();
+        _settingsListInterface[LogMruProfilesKey] = j.ToString();
     }
 
     // Not used - the OpenFilePicker doesn't support it
     public string GetMruLogProfilePath()
     {
-        string? path = LocalSettings.Values[LogMruProfilePathKey] as string ?? string.Empty;
+        string? path = _settingsListInterface[LogMruProfilePathKey] as string ?? string.Empty;
         return path;
     }
 
     // Not used - the OpenFilePicker doesn't support it
     public void SetMruLogProfilePath(string path)
     {
-        LocalSettings.Values[LogMruProfilePathKey] = path;
+        _settingsListInterface[LogMruProfilePathKey] = path;
     }
 
 
     public string GetDataLogFolder()
     {
-        string? folder = LocalSettings.Values[DataLogFolderKey] as string;
+        string? folder = _settingsListInterface[DataLogFolderKey] as string;
         if (string.IsNullOrEmpty(folder))
         {
             return "[no location configured]";
         }
 
-        return LocalSettings.Values[DataLogFolderKey] as string ?? string.Empty;
+        return _settingsListInterface[DataLogFolderKey] as string ?? string.Empty;
     }
     public void SetDataLogFolder(string folder)
     {
-        LocalSettings.Values[DataLogFolderKey] = folder;
+        _settingsListInterface[DataLogFolderKey] = folder;
     }
 
     public bool Is4xReadWriteEnabled()
     {
-        return (bool)(LocalSettings.Values[Is4xReadWriteEnabledKey] ?? true);
+        return (bool)(_settingsListInterface[Is4xReadWriteEnabledKey] ?? true);
     }
     public void Is4xReadWriteEnabled(bool enabled)
     {
-        LocalSettings.Values[Is4xReadWriteEnabledKey] = enabled;
+        _settingsListInterface[Is4xReadWriteEnabledKey] = enabled;
     }
 
     public bool IsCalibrationWritePreferred()
     {
-        return (bool)(LocalSettings.Values[PreferCalibrationWriteKey] ?? false);
+        return (bool)(_settingsListInterface[PreferCalibrationWriteKey] ?? false);
     }
 
     public void ShouldPreferCalibrationWrite(bool preferCalibrationWrite)
     {
-        LocalSettings.Values[PreferCalibrationWriteKey] = preferCalibrationWrite;
+        _settingsListInterface[PreferCalibrationWriteKey] = preferCalibrationWrite;
     }
 
     public string GetLastWrittenFile()
     {
-        return LocalSettings.Values[LastWrittenFileKey] as string ?? string.Empty;
+        return _settingsListInterface[LastWrittenFileKey] as string ?? string.Empty;
     }
 
     public void SetLastWrittenFile(string path)
     {
-        LocalSettings.Values[LastWrittenFileKey] = path;
+        _settingsListInterface[LastWrittenFileKey] = path;
     }
 
     public string GetCustomKey()
     {
-        return LocalSettings.Values[CustomKeyKey] as string ?? string.Empty;
+        return _settingsListInterface[CustomKeyKey] as string ?? string.Empty;
     }
 
     public void SetCustomKey(string value)
     {
-        LocalSettings.Values[CustomKeyKey] = value;
+        _settingsListInterface[CustomKeyKey] = value;
     }
 
     public bool GetUseCustomKey()
     {
-        return (bool)(LocalSettings.Values[UseCustomKeyKey] ?? false);
+        return (bool)(_settingsListInterface[UseCustomKeyKey] ?? false);
     }
 
     public void SetUseCustomKey(bool value)
     {
-        LocalSettings.Values[UseCustomKeyKey] = value;
+        _settingsListInterface[UseCustomKeyKey] = value;
     }
 
     public bool GetUseAcceleratorToSaveLogs()
     {
-        return (bool)(LocalSettings.Values[UseAcceleratorToSaveLogsKey] ?? false);
+        return (bool)(_settingsListInterface[UseAcceleratorToSaveLogsKey] ?? false);
     }
 
     public void SetUseAcceleratorToSaveLogs(bool value)
     {
-        LocalSettings.Values[UseAcceleratorToSaveLogsKey] = value;
+        _settingsListInterface[UseAcceleratorToSaveLogsKey] = value;
     }
 
     public bool GetUseCruiseButtonToSaveLogs()
     {
-        return (bool)(LocalSettings.Values[UseCruiseButtonToSaveLogsKey] ?? false);
+        return (bool)(_settingsListInterface[UseCruiseButtonToSaveLogsKey] ?? false);
     }
 
     public void SetUseCruiseButtonToSaveLogs(bool value)
     {
-        LocalSettings.Values[UseCruiseButtonToSaveLogsKey] = value;
+        _settingsListInterface[UseCruiseButtonToSaveLogsKey] = value;
     }
 
 
     public bool GetUseKnockRetardToSaveLogs()
     {
-        return (bool)(LocalSettings.Values[UseKnockRetardToSaveLogsKey] ?? false);
+        return (bool)(_settingsListInterface[UseKnockRetardToSaveLogsKey] ?? false);
     }
 
     public void SetUseKnockRetardToSaveLogs(bool value)
     {
-        LocalSettings.Values[UseKnockRetardToSaveLogsKey] = value;
+        _settingsListInterface[UseKnockRetardToSaveLogsKey] = value;
     }
 }
