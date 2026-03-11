@@ -136,7 +136,7 @@ jobs:
       run: nuget restore Apps/PcmApps.sln
 
     - name: Restore solution dependencies (for packages that require msbuild restore)
-      run: msbuild restore Apps/PcmApps.sln
+      run: msbuild Apps/PcmApps.sln /t:Restore
 
     - name: Build applications
       run: msbuild Apps/PcmApps.sln
