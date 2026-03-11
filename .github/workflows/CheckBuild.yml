@@ -133,7 +133,7 @@ jobs:
       run: nuget restore Apps/PcmApps.sln
 
     - name: Build applications
-      run: msbuild Apps/PcmApps.sln
+      run: msbuild Apps/PcmApps.sln /t:Restore,Build
 
     - name: Add WinForms PCM Hammer to temporary artifact storage
       run: |
