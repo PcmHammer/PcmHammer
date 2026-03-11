@@ -215,7 +215,7 @@ public partial class App : Application
 
             // "Other functions" pages
             new ViewMap<ReadPage, ReadModel>(),
-            new ViewMap<DumpRamPage, DumpRamModel>(),
+            //new ViewMap<DumpRamPage, DumpRamModel>(),
             new ViewMap<VinChangePage, VinChangeModel>(),
             new ViewMap<CrankRelearnPage, CrankRelearnModel>(),
 
