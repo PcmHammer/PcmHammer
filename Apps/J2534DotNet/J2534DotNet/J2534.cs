@@ -62,6 +62,11 @@ namespace J2534DotNet
             return returnValue;
         }
 
+        public bool IsInstanceValid()
+        {
+            return m_device != null && m_wrapper != null;
+        }
+
         public J2534Err Close(int deviceId)
         {
             return (J2534Err)m_wrapper.Close(deviceId);
