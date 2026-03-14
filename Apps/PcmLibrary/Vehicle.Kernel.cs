@@ -193,18 +193,18 @@ namespace PcmHacking
             Message clearCodesRequest = this.protocol.CreateClearDiagnosticTroubleCodesRequest();
 
             await Task.Delay(250);
-            await this.device.SendMessage(clearCodesRequest);
+            this.device.SendMessage(clearCodesRequest).Wait(1000);
             await Task.Delay(250);
-            await this.device.SendMessage(clearCodesRequest);
+            this.device.SendMessage(clearCodesRequest).Wait(1000);
 
             // This is a conventional message, but the response from the PCM might get lost 
             // among the responses from other modules on the bus, so again we just send it twice.
             Message clearDiagnosticInformationRequest = this.protocol.CreateClearDiagnosticInformationRequest();
 
             await Task.Delay(250);
-            await this.device.SendMessage(clearDiagnosticInformationRequest);
+            this.device.SendMessage(clearDiagnosticInformationRequest).Wait(1000);
             await Task.Delay(250);
-            await this.device.SendMessage(clearDiagnosticInformationRequest);
+            this.device.SendMessage(clearDiagnosticInformationRequest).Wait(1000);
         }
 
         /// <summary>
