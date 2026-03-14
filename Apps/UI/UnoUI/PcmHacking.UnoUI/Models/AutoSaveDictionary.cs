@@ -26,6 +26,18 @@ namespace PcmHacking.UnoUI.Models
                 {
                     _storageContainer.Add(key, null);
                 }
+                if(_storageContainer[key] is JsonElement)
+                {
+                    JsonElement element = (JsonElement)_storageContainer[key];
+                    try
+                    {
+                        return element.GetBoolean();
+                    }
+                    catch
+                    {
+                        return element.GetString();
+                    }
+                }
                 return _storageContainer[key];
             }
             set
