@@ -265,6 +265,12 @@ namespace PcmHacking
             return false;
         }
 
+        public Device GetDevice() => this.device;
+
+        public Device SetDevice(Device device) => this.device = device;
+
+        public bool IsValidDevice() => device != null && device.IsValid();
+
         /// <summary>
         /// Unlock the PCM by requesting a 'seed' and then sending the corresponding 'key' value.
         /// </summary>
