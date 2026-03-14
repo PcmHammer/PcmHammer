@@ -3,12 +3,13 @@ using Microsoft.UI.Dispatching;
 using PcmHacking.UnoUI.Services;
 using PcmHacking.UnoUI.Utilities;
 using System.Globalization;
+using System.IO;
 using System.Runtime.CompilerServices;
 using Uno.Extensions.Reactive.Commands;
 using Windows.Devices.Bluetooth.Advertisement;
-using Windows.Storage.Pickers;
 using Windows.Storage;
-using System.IO;
+using Windows.Storage.Pickers;
+using WinRT.Interop;
 
 namespace PcmHacking.UnoUI.Presentation;
 
@@ -258,9 +259,14 @@ public partial record DumpRamModel : IAsyncLogger
     {
         // Open a Save-As dialog to get the file path
         FileSavePicker savePicker = new FileSavePicker();
+#if WINDOWS
+        nint handle = WindowNative.GetWindowHandle(App.StaticMainWindow);
+        InitializeWithWindow.Initialize(savePicker, handle);
+#endif
+
         savePicker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
-        savePicker.FileTypeChoices.Add("RAM Binary", new List<string>() { ".ram.bin" });
-        savePicker.SuggestedFileName = "Untitled.ram.bin";
+        savePicker.FileTypeChoices.Add("Binary", new List<string>() { ".bin" });
+        savePicker.SuggestedFileName = "Untitled.bin";
         StorageFile file = await savePicker.PickSaveFileAsync();
         if (file == null)
         {

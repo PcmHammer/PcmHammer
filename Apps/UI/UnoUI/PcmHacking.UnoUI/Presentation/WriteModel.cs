@@ -7,6 +7,7 @@ using System.Text;
 using Uno.Extensions;
 using Uno.Extensions.Reactive.Commands;
 using Windows.Storage.Pickers;
+using WinRT.Interop;
 
 namespace PcmHacking.UnoUI.Presentation;
 
@@ -282,6 +283,10 @@ public partial record WriteModel : IAsyncLogger
         // Use the standard open-file dialog to get the file path
         // TODO: find/create a touch-friendly file picker
         FileOpenPicker openPicker = new FileOpenPicker();
+#if WINDOWS
+        nint handle = WindowNative.GetWindowHandle(App.StaticMainWindow);
+        InitializeWithWindow.Initialize(openPicker, handle);
+#endif
         openPicker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
         openPicker.FileTypeFilter.Add(".bin");
         StorageFile file = await openPicker.PickSingleFileAsync();

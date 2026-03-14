@@ -1,12 +1,9 @@
-using Microsoft.Extensions.Logging;
-using Microsoft.UI.Dispatching;
 using PcmHacking.UnoUI.Services;
 using PcmHacking.UnoUI.Utilities;
 using System.Globalization;
-using System.Runtime.CompilerServices;
 using Uno.Extensions.Reactive.Commands;
-using Windows.Devices.Bluetooth.Advertisement;
 using Windows.Storage.Pickers;
+using WinRT.Interop;
 
 namespace PcmHacking.UnoUI.Presentation;
 
@@ -51,7 +48,7 @@ public partial record ReadModel : IAsyncLogger
         this.settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
         this.dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
         this.loggerAdapter = loggerAdapter;
-
+       
         var _1 = this.UseCustomKey.SetAsync(this.settingsService.GetUseCustomKey());
         var _2 = this.CustomKey.SetAsync(this.settingsService.GetCustomKey());
         var _3 = this.EnableControls(false);
@@ -74,7 +71,6 @@ public partial record ReadModel : IAsyncLogger
         await this.StartEnabled.SetAsync(!busy);
         await this.UseCustomKeyEnabled.SetAsync(!busy);
         await this.CustomKeyEnabled.SetAsync(!busy);
-
         await this.CancelEnabled.SetAsync(busy);
     }
 
@@ -145,8 +141,6 @@ public partial record ReadModel : IAsyncLogger
                 using (new AwayMode())
                 {
                     await readManager.Read(path);
-                    await lease.Vehicle.ExitKernel();
-                    await lease.Vehicle.ClearTroubleCodes();
                 }
             }
         }
@@ -209,6 +203,10 @@ public partial record ReadModel : IAsyncLogger
     {
         // Open a Save-As dialog to get the file path
         FileSavePicker savePicker = new FileSavePicker();
+#if WINDOWS
+        nint handle = WindowNative.GetWindowHandle(App.StaticMainWindow);
+        InitializeWithWindow.Initialize(savePicker, handle);
+#endif
         savePicker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
         savePicker.FileTypeChoices.Add("Binary", new List<string>() { ".bin" });
         savePicker.SuggestedFileName = "Untitled.bin";
