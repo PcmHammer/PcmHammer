@@ -27,14 +27,14 @@ namespace PcmHacking
             }
         }
 
-        public static Device CreateDevice(ILogger logger, string deviceCategory, string serialPort, string serialPortDeviceType, string j2534DeviceType)
+        public static Device CreateDevice(ILogger logger, string deviceCategory, string serialPort, string serialPortDeviceType)
         {
             switch (deviceCategory)
             {
                 case DeviceConfiguration.Constants.DeviceCategorySerial:
                     return CreateSerialDevice(serialPort, serialPortDeviceType, logger);
                 case DeviceConfiguration.Constants.DeviceCategoryJ2534:
-                    return CreateJ2534Device(j2534DeviceType, logger);
+                    return CreateJ2534Device(serialPortDeviceType, logger);
                 default:
                     return null;
             }
