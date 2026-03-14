@@ -43,11 +43,10 @@ public partial record SettingsModel
 
     public IState<bool> UseSerialDevice => State<bool>
         .Async(this, ct => ValueTask.FromResult(settingsService.IsSerialDevice()))
-        .ForEach(this.ConnectionSettingsChanged);
-    public IState<bool> UseJ2534Device => State<bool>
-        .Async(this, ct => ValueTask.FromResult(!settingsService.IsSerialDevice()))
-        .ForEach(this.ConnectionSettingsChanged);
+        .ForEach(this.SerialRadioButtonChanged);
 
+    public IState<bool> UseJ2534Device => State<bool>
+        .Async(this, ct => ValueTask.FromResult(!settingsService.IsSerialDevice()));
     public IState<bool> UseCanDevice => State<bool>
         .Async(this, ct => ValueTask.FromResult(settingsService.IsCanEnabled()))
         .ForEach(ConnectionSettingsChanged);
@@ -117,12 +116,20 @@ public partial record SettingsModel
         return ValueTask.FromResult(value1 == value2);
     }
 
+    private async ValueTask SerialRadioButtonChanged(bool newValue, CancellationToken ct)
+    {
+        await UseSerialDevice.SetAsync(newValue);
+        await SelectedObd2DeviceType.SetAsync("");
+        await SelectedObd2Port.SetAsync(newValue ? "" : "J2534");
+        await SelectedJDevice.SetAsync("");
+    }
+
     private async ValueTask ConnectionSettingsChanged<T>(T newValue, CancellationToken ct)
     {
         CurrentSettings currentSettings = new CurrentSettings(
             await this.UseSerialDevice.Value() ? "Serial" : "J2534",
-            settingsService.IsSerialDevice() ? await this.SelectedObd2Port.Value() : "J2534 Device" ?? "",
-            settingsService.IsSerialDevice() ? await this.SelectedObd2DeviceType.Value() : await this.SelectedJDevice.Value() ?? "",
+            await this.SelectedObd2Port.Value() ?? "",
+            await this.UseSerialDevice.Value() ? await this.SelectedObd2DeviceType.Value() : await this.SelectedJDevice.Value() ?? "",
             await this.SelectedJDevice.Value() ?? "",
             await this.UseCanDevice.Value(),
             await this.SelectedCanPort.Value() ?? "");
