@@ -161,7 +161,7 @@ rem * -p Set default PCM.
 set PCM=P01
 
 rem * -t Set default target <path> where to copy Kernel-<PCM>.bin.
-set BIN_LOCATION=..\Apps\PcmHammer\bin\Debug\
+set BIN_LOCATION=..\Apps\UI\UnoUI\PcmHacking.UnoUI\bin\x86\Debug\net10.0-windows10.0.26100.0\win-x86\
 
 rem * -x Set flag to build an Assembly Kernel (and or Loader) versus C Kernel.
 set ASSEMBLY_KERNEL=
