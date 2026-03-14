@@ -198,6 +198,8 @@ namespace PcmHacking
             this.Speed = VpwSpeed.Standard;
         }
 
+        public abstract bool IsValid();
+
         /// <summary>
         /// Finalizer (invoked during garbage collection).
         /// </summary>

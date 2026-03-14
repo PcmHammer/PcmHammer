@@ -419,5 +419,10 @@ namespace PcmHacking
             this.Port.DiscardBuffers();
             System.Threading.Thread.Sleep(50);
         }
+
+        public override bool IsValid()
+        {
+            return true;
+        }
     }    
 }

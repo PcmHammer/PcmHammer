@@ -1069,5 +1069,10 @@ namespace PcmHacking
 
             return result;
         }
+
+        public override bool IsValid()
+        {
+            return true;
+        }
     }
 }

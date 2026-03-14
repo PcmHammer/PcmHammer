@@ -126,5 +126,10 @@ namespace PcmHacking
                 this.port.DiscardBuffers();
             }
         }
+
+        public override bool IsValid()
+        {
+            return true;
+        }
     }
 }
