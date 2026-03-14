@@ -234,8 +234,7 @@ public partial class App : Application
             new RouteMap("", View: views.FindByViewModel<ShellModel>(),
                 Nested:
                 [
-                    new ("Main", View: views.FindByViewModel<MainModel>(), IsDefault:true),
-                    new ("Settings", View: views.FindByViewModel<SettingsModel>())
+                    new ("Main", View: views.FindByViewModel<MainModel>(), IsDefault:true)
                 ]
             )
         );
