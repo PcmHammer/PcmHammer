@@ -18,8 +18,8 @@ public interface ISettingsService
     bool IsSerialDevice();
     string GetObd2DeviceCategory();
     string GetJ2534DeviceName();
-    string GetObd2SerialPortName();
-    string GetObd2SerialDeviceName();
+    string GetObd2PortName();
+    string GetObd2DeviceName();
     bool IsCanEnabled();
     string GetCanSerialPortName();
 
@@ -154,12 +154,12 @@ public class SettingsService : ISettingsService
         return _settingsListInterface[Obd2DeviceCategoryKey] as string ?? string.Empty;
     }
 
-    public string GetObd2SerialPortName()
+    public string GetObd2PortName()
     {
         return _settingsListInterface[Obd2SerialPortNameKey] as string ?? string.Empty;
     }
 
-    public string GetObd2SerialDeviceName()
+    public string GetObd2DeviceName()
     {
         return _settingsListInterface[Obd2SerialDeviceNameKey] as string ?? string.Empty;
     }
@@ -171,7 +171,7 @@ public class SettingsService : ISettingsService
 
     public bool IsCanEnabled()
     {
-        return _settingsListInterface[CanEnabledKey] as string == "true";
+        return (string)_settingsListInterface[CanEnabledKey] == true.ToString();
     }
 
     public string GetCanSerialPortName()
@@ -192,11 +192,11 @@ public class SettingsService : ISettingsService
 
     public void SaveConnectionSettings(CurrentSettings settings)
     {
-        _settingsListInterface[J2534DeviceNameKey] = settings.J2534DeviceName;
         _settingsListInterface[Obd2DeviceCategoryKey] = settings.DeviceCategory;
         _settingsListInterface[Obd2SerialPortNameKey] = settings.Obd2SerialPortName;
         _settingsListInterface[Obd2SerialDeviceNameKey] = settings.Obd2SerialDeviceName;
-        _settingsListInterface[CanEnabledKey] = settings.CanEnabled ? "true" : "false";
+        _settingsListInterface[J2534DeviceNameKey] = settings.J2534DeviceName;
+        _settingsListInterface[CanEnabledKey] = settings.CanEnabled ? "True" : "False";
         _settingsListInterface[CanSerialPortNameKey] = settings.CanPort;
     }
 
