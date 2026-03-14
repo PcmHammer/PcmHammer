@@ -26,7 +26,7 @@
                  Text="Do you have a serial, or J2534 interface?"/>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                 <RadioButton Content="Serial" IsChecked="{Binding Path=UseSerialDevice, Mode=TwoWay}"  Margin="0,0,20,0"/>
-                <RadioButton Content="J2534" IsChecked="{Binding Path=UseJ2534Device}" />
+                <RadioButton Content="J2534" IsChecked="{Binding Path=UseJ2534Device, Mode=TwoWay}"/>
             </StackPanel>
         </StackPanel>
         
@@ -35,9 +35,11 @@
                  Text="Which COM port does your OBD2 device use?" />
 
         <ListView Grid.Row="2" Grid.Column="0" 
-          Visibility="{Binding Path=UseSerialDevice}" ItemsSource="{Binding Obd2Ports}" BorderThickness="1" />
-
-
+                  Visibility="{Binding Path=UseSerialDevice}" ItemsSource="{Binding Obd2Ports}" BorderThickness="1" />
+        
+        <ListView Grid.Row="2" Grid.Column="0" 
+                  Visibility="{Binding Path=UseJ2534Device}" ItemsSource="{Binding JDevices}" BorderThickness="1" />
+        
         <StackPanel Grid.Row="3" Grid.Column="0" Margin="10">
             <TextBlock Visibility="{Binding Path=UseSerialDevice}" TextAlignment="Center" VerticalAlignment="Bottom" TextWrapping="WrapWholeWords" Margin="0,20,0,0"
                  Text="Which sort of OBD2 device do you have?" />

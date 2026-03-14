@@ -1,20 +1,17 @@
+using Microsoft.UI.Dispatching;
+using PcmHacking.UnoUI.Services;
+using PcmHacking.UnoUI.Utilities;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
-using PcmHacking.UnoUI.Services;
-using Uno.Extensions.Reactive;
-using Windows.Networking;
-using Windows.Storage.Pickers;
-//using Windows.System;
-using Microsoft.UI.Dispatching;
-using PcmHacking.UnoUI.Utilities;
 
 namespace PcmHacking.UnoUI.Presentation;
 
 public record CurrentSettings(
     string DeviceCategory, 
     string Obd2SerialPortName, 
-    string Obd2SerialDeviceName, 
-    string J2534DeviceName, 
+    string Obd2SerialDeviceName,
+    string J2534DeviceName,
     bool CanEnabled, 
     string CanPort);
 
@@ -39,15 +36,17 @@ public partial record SettingsModel
         this.dispatcherQueue = dispatcherQueue;
     }
 
-    public IListFeed<string> SerialDeviceTypes => ListFeed<string>.Async(ct => this.GetObd2SerialDeviceTypes(ct)).Selection(SelectedObd2SerialDeviceType);
+    public IListFeed<string> SerialDeviceTypes => ListFeed<string>.Async(ct => this.GetObd2SerialDeviceTypes(ct)).Selection(SelectedObd2DeviceType);
     public IListFeed<string> Obd2Ports => ListFeed.Async<string>(ct => this.GetPortNames(ct)).Selection(SelectedObd2Port);
     public IListFeed<string> CanPorts => ListFeed.Async<string>(ct => this.GetPortNames(ct)).Selection(SelectedCanPort);
+    public IListFeed<string> JDevices => ListFeed.Async<string>(ct => this.GetJDevices(ct)).Selection(SelectedJDevice);
 
     public IState<bool> UseSerialDevice => State<bool>
-        .Async(this, ct => this.AreEqual("Serial", settingsService.GetObd2DeviceCategory()))
+        .Async(this, ct => ValueTask.FromResult(settingsService.IsSerialDevice()))
         .ForEach(this.ConnectionSettingsChanged);
     public IState<bool> UseJ2534Device => State<bool>
-        .Async(this, ct => this.AreEqual("J2534", settingsService.GetObd2DeviceCategory()));
+        .Async(this, ct => ValueTask.FromResult(!settingsService.IsSerialDevice()))
+        .ForEach(this.ConnectionSettingsChanged);
 
     public IState<bool> UseCanDevice => State<bool>
         .Async(this, ct => ValueTask.FromResult(settingsService.IsCanEnabled()))
@@ -56,13 +55,16 @@ public partial record SettingsModel
         .Async(this, ct => ValueTask.FromResult(!settingsService.IsCanEnabled()));
 
     public IState<string> SelectedObd2Port => State<string>
-        .Async(this, ct => ValueTask.FromResult(settingsService.GetObd2SerialPortName()))
+        .Async(this, ct => ValueTask.FromResult(settingsService.GetObd2PortName()))
+        .ForEach(this.ConnectionSettingsChanged); 
+    public IState<string> SelectedJDevice => State<string>
+        .Async(this, ct => ValueTask.FromResult(settingsService.GetJ2534DeviceName()))
         .ForEach(this.ConnectionSettingsChanged);
     public IState<string> SelectedCanPort => State<string>
         .Async(this, ct => ValueTask.FromResult(settingsService.GetCanSerialPortName()))
         .ForEach(this.ConnectionSettingsChanged);
-    public IState<string> SelectedObd2SerialDeviceType => State<string>
-        .Async(this, ct => ValueTask.FromResult(settingsService.GetObd2SerialDeviceName()))
+    public IState<string> SelectedObd2DeviceType => State<string>
+        .Async(this, ct => ValueTask.FromResult(settingsService.GetObd2DeviceName()))
         .ForEach(this.ConnectionSettingsChanged);
 
     public IState<string> DataLogFolder => State<string>
@@ -74,6 +76,7 @@ public partial record SettingsModel
 
     private ValueTask<IImmutableList<string>> GetPortNames(CancellationToken ct)
     {
+        IList<string> portList = [];
 #if ANDROID || IOS || MACOS
         IImmutableList<string> result = ImmutableList.CreateRange(new string[0]);
         return ValueTask.FromResult(result);
@@ -81,18 +84,25 @@ public partial record SettingsModel
         // WORKS_BUT_NO_DRIVER_NAMES
         // TODO: Use Windows Management API to get the device driver names.
         string[] portNames = System.IO.Ports.SerialPort.GetPortNames();
-        IList<string> portList = new List<string>(portNames);
+        portList = new List<string>(portNames);
         portList.Add(MockPort.PortName);
         IImmutableList<string> result = ImmutableList.CreateRange(portList);
         return ValueTask.FromResult(result);
 #endif
-        /*
-        #if DOES_NOT_WORK
-                IEnumerable<SerialPortInfo> ports = PortDiscovery.GetPorts(this.progressLogger);
-                IImmutableList<string> result = ImmutableList.CreateRange(ports.Select(port => $"${port.PortName} - ${port.DeviceID}"));
-                return ValueTask.FromResult(result);
-        #endif
-        */
+    }
+
+    private ValueTask<IImmutableList<string>> GetJDevices(CancellationToken ct)
+    {
+        List<string> jDevices = [];
+#if WINDOWS
+            foreach (J2534DotNet.J2534Device device in J2534DeviceFinder.FindInstalledJ2534DLLs(this.progressLogger))
+            {
+                jDevices.Add(device.Name);
+            }
+#endif
+            IImmutableList<string> res = ImmutableList.CreateRange(jDevices);
+            return ValueTask.FromResult(res);
+
     }
 
     private ValueTask<IImmutableList<string>> GetObd2SerialDeviceTypes(CancellationToken ct)
@@ -111,9 +121,9 @@ public partial record SettingsModel
     {
         CurrentSettings currentSettings = new CurrentSettings(
             await this.UseSerialDevice.Value() ? "Serial" : "J2534",
-            await this.SelectedObd2Port.Value() ?? "",
-            await this.SelectedObd2SerialDeviceType.Value() ?? "",
-            "", // TODO: J2534 device name
+            settingsService.IsSerialDevice() ? await this.SelectedObd2Port.Value() : "J2534 Device" ?? "",
+            settingsService.IsSerialDevice() ? await this.SelectedObd2DeviceType.Value() : await this.SelectedJDevice.Value() ?? "",
+            await this.SelectedJDevice.Value() ?? "",
             await this.UseCanDevice.Value(),
             await this.SelectedCanPort.Value() ?? "");
 
