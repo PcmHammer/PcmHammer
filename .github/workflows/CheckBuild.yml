@@ -27,7 +27,6 @@ jobs:
     - name: Create temporary artifact storage
       run: |
         mkdir TemporaryArtifactStorage
-        mkdir TemporaryArtifactStorage/Skia
         mkdir TemporaryArtifactStorage/WindowsUnpackaged
 
     - name: Build C Kernels
@@ -86,9 +85,8 @@ jobs:
           fi
         done
 
-    - name: Copy kernels into Skia and WindowsUnpackaged folders
+    - name: Copy kernels into WindowsUnpackaged folders
       run: |
-        cp TemporaryArtifactStorage/*.bin TemporaryArtifactStorage/Skia
         cp TemporaryArtifactStorage/*.bin TemporaryArtifactStorage/WindowsUnpackaged
 
     - name: Upload artifacts
@@ -161,12 +159,6 @@ jobs:
         Copy-Item -Path "Apps/UI/WindowsForms/VpwExplorer/bin/Debug/*.dll" -Destination TemporaryArtifactStorage
         Copy-Item -Path "Apps/UI/WindowsForms/VpwExplorer/bin/Debug/*.pdb" -Destination TemporaryArtifactStorage
 
-    - name: Add Uno Skia binaries to temporary artifact storage (until proper Windows builds work)
-      run: |
-        Copy-Item -Recurse -Path "Apps/UI/UnoUI/PcmHacking.UnoUI/bin/Debug/net10.0-desktop/*" -Destination TemporaryArtifactStorage/Skia
-        Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/*.LogProfile"     -Destination TemporaryArtifactStorage/Skia
-        Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/Parameters.*.xml" -Destination TemporaryArtifactStorage/Skia
-
     - name: Add Uno Windows binaries to temporary artifact storage
       run: |
         Copy-Item -Recurse -Path "Apps/UI/UnoUI/PcmHacking.UnoUI/bin/Debug/net10.0-windows10.0.26100.0/*" -Destination TemporaryArtifactStorage/WindowsUnpackaged
@@ -175,9 +167,6 @@ jobs:
 
     - name: Is it all there - Default
       run: ls -l TemporaryArtifactStorage/
-
-    - name: Is it all there - Skia
-      run: ls -l TemporaryArtifactStorage/Skia
 
     - name: Is it all there - Windows
       run: ls -l TemporaryArtifactStorage/WindowsUnpackaged
