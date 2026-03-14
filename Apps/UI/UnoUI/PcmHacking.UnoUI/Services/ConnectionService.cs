@@ -72,7 +72,7 @@ public class ConnectionLease : IDisposable
     }
 
     public void Dispose()
-    {        
+    {
         this.Dispose(true);
         GC.SuppressFinalize(this);
     }
@@ -174,8 +174,8 @@ public class ConnectionService : IConnectionService
             await this.ResetVehicleInfo();
             await Task.Delay(100);
 
-            (Device? newDevice, Vehicle? newVehicle) = await TryReconnect(settings);
-            if (newDevice == null || newVehicle == null)
+            Vehicle? newVehicle = await TryReconnect(settings);
+            if (newVehicle == null || newVehicle.GetDevice() == null)
             {
                 return false;
             }
@@ -187,17 +187,17 @@ public class ConnectionService : IConnectionService
                 this.lastSettings = settings;
                 this.settingsService.SaveConnectionSettings(settings);
                 isConnected = true;
-                this.device = newDevice;
+                this.device = newVehicle.GetDevice();
                 this.vehicle = newVehicle;
             }
             else
             {
                 this.logger.AddUserMessage("Connection test failed.");
                 this.newSettings = settings;
+                newVehicle.GetDevice().Dispose();
+                newVehicle.SetDevice(null);
                 newVehicle.Dispose();
                 newVehicle = null;
-                newDevice.Dispose();
-                newDevice = null;
             }
 
         }
@@ -226,40 +226,37 @@ public class ConnectionService : IConnectionService
     /// </remarks>
     public async Task<Vehicle?> Reconnect()
     {
-        (Device? newDevice, Vehicle? newVehicle) = await TryReconnect(this.lastSettings);
-        this.device = newDevice;
-        this.vehicle = newVehicle;
-        return this.vehicle;
+        return await TryReconnect(this.lastSettings);
     }
 
-    private async Task<(Device? newDevice, Vehicle? newVehicle)> TryReconnect(CurrentSettings settings)
+    private async Task<Vehicle> TryReconnect(CurrentSettings settings)
     {
+        // This ends up being a no-op because vehicle.Dispose() also disposes the underlying connection.
+        // Not sure if that's a good thing or a bad thing, but it's probably fine.
+
         if (this.vehicle != null)
         {
+            if (this.vehicle.IsValidDevice())
+            {
+                this.device.Dispose();
+                this.device = null;
+            }
             this.vehicle.Dispose();
             this.vehicle = null;
         }
 
-        // This ends up being a no-op because vehicle.Dispose() also disposes the underlying connection.
-        // Not sure if that's a good thing or a bad thing, but it's probably fine.
-        if (this.device != null)
-        {
-            this.device.Dispose();
-            this.device = null;
-        }
-
         // Allow time for port to reset.
         await Task.Delay(100);
+        bool isSerial = settings.DeviceCategory == "Serial";
 
         Device newDevice = DeviceFactory.CreateDevice(
             this.logger,
             settings.DeviceCategory,
-            settings.Obd2SerialPortName,
-            settings.Obd2SerialDeviceName,
-            settings.J2534DeviceName);
+            isSerial ? settings.Obd2SerialPortName : "J2534",
+            isSerial ? settings.Obd2SerialDeviceName : settings.J2534DeviceName);
         if (newDevice == null)
         {
-            return (null, null);
+            return null;
         }
 
         await newDevice.Initialize();
@@ -267,7 +264,8 @@ public class ConnectionService : IConnectionService
         ToolPresentNotifier notifier = new ToolPresentNotifier(newDevice, this.protocol, this.logger);
         Vehicle newVehicle = new Vehicle(newDevice, this.protocol, this.logger, notifier);
         await this.ConnectionState.SetAsync(ConnectionStates.Connecting);
-        return (newDevice, newVehicle);
+ 
+        return newVehicle;
     }
 
     // 
@@ -620,7 +618,7 @@ public class ConnectionService : IConnectionService
     /// </summary>
     private async Task<bool> TryRequestVehicleInfo(Vehicle vehicle, CancellationToken cancellationToken)
     {
-        if (vehicle == null)
+        if (!vehicle.IsValidDevice())
         {
             await this.ConnectionState.SetAsync(ConnectionStates.NotConnected);
             return false;
