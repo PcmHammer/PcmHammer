@@ -161,7 +161,7 @@ jobs:
 
     - name: Add Uno Windows binaries to temporary artifact storage
       run: |
-        Copy-Item -Recurse -Path "Apps/UI/UnoUI/PcmHacking.UnoUI/bin/Debug/net10.0-windows10.0.26100.0/*" -Destination TemporaryArtifactStorage/WindowsUnpackaged
+        Copy-Item -Recurse -Path "Apps/UI/UnoUI/PcmHacking.UnoUI/bin/x86/Debug/net10.0-windows10.0.26100.0/win-x86/*" -Destination TemporaryArtifactStorage/WindowsUnpackaged
         Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/*.LogProfile"     -Destination TemporaryArtifactStorage/WindowsUnpackaged
         Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/Parameters.*.xml" -Destination TemporaryArtifactStorage/WindowsUnpackaged
 
