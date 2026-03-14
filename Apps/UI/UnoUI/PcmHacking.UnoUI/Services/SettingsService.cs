@@ -15,6 +15,7 @@ public class SettingsChangedMessage { }
 
 public interface ISettingsService
 {
+    bool IsSerialDevice();
     string GetObd2DeviceCategory();
     string GetJ2534DeviceName();
     string GetObd2SerialPortName();
@@ -143,6 +144,10 @@ public class SettingsService : ISettingsService
     {
     }
 
+    public bool IsSerialDevice()
+    {
+        return (string)_settingsListInterface[Obd2DeviceCategoryKey] == "Serial";
+    }
 
     public string GetObd2DeviceCategory()
     {
