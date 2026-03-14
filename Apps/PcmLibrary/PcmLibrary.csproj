@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
@@ -11,6 +11,7 @@
     <Copyright>2018-2024 PcmHacking.Net</Copyright>
     <PackageProjectUrl>https://PcmHammer.org</PackageProjectUrl>
     <PackageReleaseNotes>This is an untested experiment. You almost certainly don't want to use it.</PackageReleaseNotes>
+    <Platforms>AnyCPU;x86</Platforms>
   </PropertyGroup>
 
   <ItemGroup>
@@ -27,9 +28,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Reference Include="System.Windows.Forms">
-      <HintPath>..\..\..\..\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.6.1\System.Windows.Forms.dll</HintPath>
-    </Reference>
+    <Folder Include="ECUs\Controllers\" />
   </ItemGroup>
 
 </Project>
