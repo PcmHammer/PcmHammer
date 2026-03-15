@@ -52,31 +52,24 @@ namespace PcmHacking.UnoUI.Models
                     return dictionary;
                 }
 
-                Dictionary<string, JsonElement>? persistedEntries = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(contents);
+                Dictionary<string, TypeAndValue>? persistedEntries = JsonSerializer.Deserialize<Dictionary<string, TypeAndValue>>(contents);
                 if (persistedEntries is null)
                 {
                     return dictionary;
                 }
 
-                foreach (KeyValuePair<string, JsonElement> entry in persistedEntries)
+                foreach (KeyValuePair<string, TypeAndValue> entry in persistedEntries)
                 {
-                    TypeAndValue? wrapper = ConvertJsonElementToWrapper(entry.Value);
-                    if (wrapper is not null)
-                    {
-                        dictionary._storageContainer[entry.Key] = wrapper;
-                        continue;
-                    }
-
-                    object? materialized = entry.Value.Deserialize<object?>();
-                    dictionary._storageContainer[entry.Key] = CreateTypeAnnotatedValue(materialized);
+                    dictionary._storageContainer[entry.Key] = entry.Value is null
+                        ? null
+                        : DeserializeWrapper(entry.Value);
                 }
-
-                return dictionary;
             }
             catch
             {
-                return dictionary;
             }
+
+            return dictionary;
         }
 
         public object this[string key]
@@ -89,38 +82,17 @@ namespace PcmHacking.UnoUI.Models
                     return null;
                 }
 
-                return ExtractValue(key, storedValue);
+                return storedValue;
             }
             set
             {
-                _storageContainer[key] = CreateTypeAnnotatedValue(value);
-                try
-                {
-                    string filePath = AutoSaveDictionary.getFilePath();
-                    string contents = JsonSerializer.Serialize(_storageContainer);
-                    if (!string.IsNullOrEmpty(contents))
-                    {
-                        File.WriteAllText(filePath, contents);
-                    }
-                }
-                catch { }
+                _storageContainer[key] = value;
+                PersistStorage();
             }
         }
 
         public ICollection<string> Keys => _storageContainer.Keys;
-        public ICollection<object?> Values
-        {
-            get
-            {
-                List<object?> values = new(_storageContainer.Count);
-                foreach (KeyValuePair<string, object?> entry in _storageContainer)
-                {
-                    values.Add(DeserializeStoredValue(entry.Value));
-                }
-
-                return values;
-            }
-        }
+        public ICollection<object?> Values => _storageContainer.Values;
 
         public int Count => _storageContainer.Count;
 
@@ -130,12 +102,12 @@ namespace PcmHacking.UnoUI.Models
 
         public void Add(string key, object value)
         {
-            _storageContainer.Add(key, CreateTypeAnnotatedValue(value));
+            _storageContainer.Add(key, value);
         }
 
         public void Add(KeyValuePair<string, object> item)
         {
-            _storageContainer.Add(item.Key, CreateTypeAnnotatedValue(item.Value));
+            _storageContainer.Add(item.Key, item.Value);
         }
 
         public void Clear()
@@ -145,13 +117,7 @@ namespace PcmHacking.UnoUI.Models
 
         public bool Contains(KeyValuePair<string, object> item)
         {
-            if (!_storageContainer.TryGetValue(item.Key, out object? storedValue))
-            {
-                return false;
-            }
-
-            object? currentValue = ExtractValue(item.Key, storedValue);
-            return Equals(currentValue, item.Value);
+            return _storageContainer.TryGetValue(item.Key, out object? storedValue) && Equals(storedValue, item.Value);
         }
 
         public bool ContainsKey(string key)
@@ -168,7 +134,7 @@ namespace PcmHacking.UnoUI.Models
         {
             foreach (KeyValuePair<string, object?> entry in _storageContainer)
             {
-                yield return new KeyValuePair<string, object>(entry.Key, DeserializeStoredValue(entry.Value)!);
+                yield return new KeyValuePair<string, object>(entry.Key, entry.Value!);
             }
         }
 
@@ -186,7 +152,7 @@ namespace PcmHacking.UnoUI.Models
         {
             if (_storageContainer.TryGetValue(key, out object? storedValue))
             {
-                value = ExtractValue(key, storedValue);
+                value = storedValue;
                 return true;
             }
 
@@ -208,12 +174,6 @@ namespace PcmHacking.UnoUI.Models
 
             if (value is JsonElement jsonElement)
             {
-                TypeAndValue? elementWrapper = ConvertJsonElementToWrapper(jsonElement);
-                if (elementWrapper is not null)
-                {
-                    return elementWrapper;
-                }
-
                 object? materialized = jsonElement.Deserialize<object?>();
                 return CreateTypeAnnotatedValue(materialized);
             }
@@ -221,59 +181,6 @@ namespace PcmHacking.UnoUI.Models
             Type actualType = value?.GetType() ?? typeof(object);
             JsonElement serializedValue = JsonSerializer.SerializeToElement(value, actualType);
             return new TypeAndValue(GetTypeIdentifier(actualType), serializedValue);
-        }
-
-        private static object? DeserializeStoredValue(object? storedValue)
-        {
-            return storedValue switch
-            {
-                TypeAndValue wrapper => DeserializeWrapper(wrapper),
-                JsonElement jsonElement => ConvertJsonElementToWrapper(jsonElement) is { } wrapper
-                    ? DeserializeWrapper(wrapper)
-                    : jsonElement.Deserialize<object?>(),
-                _ => storedValue
-            };
-        }
-
-        private object? ExtractValue(string key, object? storedValue)
-        {
-            TypeAndValue wrapper = storedValue switch
-            {
-                TypeAndValue existing => existing,
-                JsonElement jsonElement => ConvertJsonElementToWrapper(jsonElement) ?? CreateTypeAnnotatedValue(jsonElement.Deserialize<object?>()),
-                _ => CreateTypeAnnotatedValue(storedValue)
-            };
-
-            _storageContainer[key] = wrapper;
-            return DeserializeWrapper(wrapper);
-        }
-
-        private static TypeAndValue? ConvertJsonElementToWrapper(JsonElement element)
-        {
-            if (element.ValueKind != JsonValueKind.Object)
-            {
-                return null;
-            }
-
-            string? typeName = null;
-            JsonElement? valueElement = null;
-
-            if (element.TryGetProperty(nameof(TypeAndValue.Type), out JsonElement typeProperty))
-            {
-                typeName = typeProperty.GetString();
-            }
-
-            if (element.TryGetProperty(nameof(TypeAndValue.Value), out JsonElement valueProperty))
-            {
-                valueElement = valueProperty;
-            }
-
-            if (typeName is null && valueElement is null)
-            {
-                return null;
-            }
-
-            return new TypeAndValue(typeName, valueElement);
         }
 
         private static object? DeserializeWrapper(TypeAndValue wrapper)
@@ -305,6 +212,28 @@ namespace PcmHacking.UnoUI.Models
         private static string GetTypeIdentifier(Type type)
         {
             return type.AssemblyQualifiedName ?? type.FullName ?? type.Name;
+        }
+
+        private void PersistStorage()
+        {
+            try
+            {
+                string filePath = AutoSaveDictionary.getFilePath();
+                Dictionary<string, TypeAndValue> serializedEntries = new(_storageContainer.Count);
+                foreach (KeyValuePair<string, object?> entry in _storageContainer)
+                {
+                    serializedEntries[entry.Key] = CreateTypeAnnotatedValue(entry.Value);
+                }
+
+                string contents = JsonSerializer.Serialize(serializedEntries);
+                if (!string.IsNullOrEmpty(contents))
+                {
+                    File.WriteAllText(filePath, contents);
+                }
+            }
+            catch
+            {
+            }
         }
 
         private static string getFilePath()
