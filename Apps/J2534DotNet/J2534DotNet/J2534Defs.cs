@@ -31,7 +31,10 @@ namespace J2534DotNet
 {
     public class PassThruMsg
     {
-        public PassThruMsg() { }
+        public PassThruMsg() {
+            this.Data = new byte[0];
+        }
+
         public PassThruMsg(ProtocolID myProtocolId, TxFlag myTxFlag, byte[] myByteArray)
         {
             ProtocolID = myProtocolId;

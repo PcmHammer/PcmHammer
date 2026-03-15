@@ -1,8 +1,9 @@
 @echo off
 set SOURCE=..\..\Kernels
-set UNO_DEBUG=UnoUI\PcmHacking.Uno\bin\debug
+set UNO_DEBUG=UnoUI\PcmHacking.UnoUI\bin\debug
 echo Source: %SOURCE%
 echo Debug: %DEBUG%
 
-for %%T in (net8.0 net8.0-android net8.0-desktop net8.0-ios net8.0-maccatalyst net8.0-windows10.0.26100) do copy %SOURCE%\*.bin %UNO_DEBUG%\%%T
+set NET_VERSION=net10.0
+for %%T in ("" android desktop ios maccatalyst windows10.0.26100.0) do copy %SOURCE%\*.bin %UNO_DEBUG%\%NET_VERSION%-%%T
 copy %SOURCE%\*.bin WindowsForms\PcmHammer\bin\debug
