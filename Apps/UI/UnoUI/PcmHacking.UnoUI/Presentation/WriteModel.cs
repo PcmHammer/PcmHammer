@@ -20,8 +20,10 @@ public partial record WriteModel : IAsyncLogger
     private readonly INavigator navigator;
     private readonly IConnectionService connectionService;
     private readonly ISettingsService settingsService;
-    private readonly IDispatcher dispatcher;
     private readonly LoggerAdapter loggerAdapter;
+    private readonly IPlatformService platformService;
+    private readonly IDispatcher dispatcher;
+
     private CancellationTokenSource? tokenSource;
     const string defaultPath = "No file selected.";
 
@@ -53,16 +55,18 @@ public partial record WriteModel : IAsyncLogger
     public WriteModel(
         INavigator navigator,
         IConnectionService connectionService,
+        ISettingsService settingsService,
         LoggerAdapter loggerAdapter,
-        ISettingsService settingsService, 
+        IPlatformService platformService,
         IDispatcher dispatcher)
     {
         this.navigator = navigator;
         this.connectionService = connectionService ?? throw new ArgumentNullException(nameof(connectionService));
         this.settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
+        this.loggerAdapter = loggerAdapter ?? throw new ArgumentNullException(nameof(loggerAdapter));
+        this.platformService = platformService ?? throw new ArgumentNullException(nameof(platformService));
         this.dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
 
-        this.loggerAdapter = loggerAdapter;
         this.writeType = WriteModel.WriteType; // hacky workaround
 
         // Fire-and-forget initialization
@@ -282,6 +286,7 @@ public partial record WriteModel : IAsyncLogger
         // Use the standard open-file dialog to get the file path
         // TODO: find/create a touch-friendly file picker
         FileOpenPicker openPicker = new FileOpenPicker();
+        this.platformService.PrepareChildWindow(openPicker);
         openPicker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
         openPicker.FileTypeFilter.Add(".bin");
         StorageFile file = await openPicker.PickSingleFileAsync();

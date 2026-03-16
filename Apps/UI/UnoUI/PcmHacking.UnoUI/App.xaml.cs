@@ -130,6 +130,7 @@ public partial class App : Application
                     services.AddSingleton<MenuViewModel>();
                     services.AddSingleton<XamlRootService>();
                     services.AddSingleton<Services.INoticeService, Services.NoticeService>();
+                    services.AddSingleton<IPlatformService, PlatformService>();
                 })
 
                 .UseLogging(configure: (context, logBuilder) =>
@@ -234,8 +235,7 @@ public partial class App : Application
             new RouteMap("", View: views.FindByViewModel<ShellModel>(),
                 Nested:
                 [
-                    new ("Main", View: views.FindByViewModel<MainModel>(), IsDefault:true),
-                    new ("Settings", View: views.FindByViewModel<SettingsModel>())
+                    new ("Main", View: views.FindByViewModel<MainModel>(), IsDefault:true)
                 ]
             )
         );
