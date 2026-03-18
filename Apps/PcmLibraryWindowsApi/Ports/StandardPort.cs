@@ -143,10 +143,15 @@ namespace PcmHacking
         /// </summary>
         Task<int> IPort.Receive(byte[] buffer, int offset, int count)
         {
-            return PcmHacking.TimeoutUtilities.TaskWithTimeoutAndFallback(
-                this.port.BaseStream.ReadAsync(buffer, offset, count),
-                TimeSpan.FromMilliseconds(this.port.ReadTimeout),
-                () => 0);
+            try
+            {
+                return TimeoutUtilities.TaskWithTimeoutAndException(
+                    Task.Run(() => this.port.Read(buffer, offset, count)),
+                    TimeSpan.FromMilliseconds(this.port.ReadTimeout));
+            } catch (TimeoutException) 
+            {
+                return Task.FromResult(0);
+            }
         }
 
         /// <summary>
