@@ -1,9 +1,12 @@
+# Someday perhaps Uno will happily build to all platforms under one csproj
 @echo off
 set SOURCE=..\..\Kernels
-set UNO_DEBUG=UnoUI\PcmHacking.UnoUI\bin\debug
+set ARCH32=x86\Debug
+set ARCH64=Debug
+set UNO_PATH=UnoUI\PcmHacking.UnoUI\bin
 echo Source: %SOURCE%
 echo Debug: %DEBUG%
 
 set NET_VERSION=net10.0
-for %%T in ("" android desktop ios maccatalyst windows10.0.26100.0) do copy %SOURCE%\*.bin %UNO_DEBUG%\%NET_VERSION%-%%T
+for %%T in (%ARCH64%\%NET_VERSION%-android %ARCH32%\%NET_VERSION%-windows10.0.26100.0\win-x86) do copy %SOURCE%\*.bin %UNO_PATH%\%%T
 copy %SOURCE%\*.bin WindowsForms\PcmHammer\bin\debug
