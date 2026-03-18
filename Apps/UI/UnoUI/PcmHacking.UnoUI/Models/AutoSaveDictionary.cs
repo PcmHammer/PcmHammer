@@ -2,15 +2,31 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.IO;
 using System.Reflection;
-using System.Text;
 using System.Text.Json;
 using Windows.Foundation.Collections;
 
 namespace PcmHacking.UnoUI.Models
 {
-    public class AutoSaveDictionary<K, V> : IPropertySet, IObservableMap<string, object>, IDictionary<string, object>, ICollection<KeyValuePair<string, object>>, IEnumerable<KeyValuePair<string, object>>, IEnumerable
+    public class AutoSaveDictionary : IPropertySet
     {
+        private class TypeAndValue
+        {
+            public string? Type { get; set; }
+            public JsonElement? Value { get; set; }
+
+            public TypeAndValue()
+            {
+            }
+
+            public TypeAndValue(string? type, JsonElement? value)
+            {
+                Type = type;
+                Value = value;
+            }
+        }
+
         private readonly Dictionary<string, object?> _storageContainer;
 
         public AutoSaveDictionary()
@@ -18,47 +34,64 @@ namespace PcmHacking.UnoUI.Models
             _storageContainer = [];
         }
 
+        public static AutoSaveDictionary Load()
+        {
+            AutoSaveDictionary dictionary = new();
+            try
+            {
+                string filePath = AutoSaveDictionary.getFilePath();
+                if (!File.Exists(filePath))
+                {
+                    using FileStream stream = File.Create(filePath);
+                    return dictionary;
+                }
+
+                string contents = File.ReadAllText(filePath);
+                if (string.IsNullOrWhiteSpace(contents))
+                {
+                    return dictionary;
+                }
+
+                Dictionary<string, JsonElement>? persistedEntries = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(contents);
+                if (persistedEntries is null)
+                {
+                    return dictionary;
+                }
+
+                foreach (KeyValuePair<string, JsonElement> entry in persistedEntries)
+                {
+                    dictionary._storageContainer[entry.Key] = DeserializePersistedEntry(entry.Value);
+                }
+
+                return dictionary;
+            }
+            catch
+            {
+                return dictionary;
+            }
+        }
+
         public object this[string key]
         {
             get
             {
-                if (!_storageContainer.ContainsKey(key))
+                if (!_storageContainer.TryGetValue(key, out object? storedValue))
                 {
-                    _storageContainer.Add(key, null);
+                    _storageContainer[key] = null;
+                    return null;
                 }
-                if(_storageContainer[key] is JsonElement)
-                {
-                    JsonElement element = (JsonElement)_storageContainer[key];
-                    try
-                    {
-                        return element.GetBoolean();
-                    }
-                    catch
-                    {
-                        return element.GetString();
-                    }
-                }
-                return _storageContainer[key];
+
+                return storedValue;
             }
             set
             {
                 _storageContainer[key] = value;
-                try
-                {
-                    FileInfo loadedExe = new(Assembly.GetExecutingAssembly().Location);
-                    string cfgPath = $@"{loadedExe.Directory.FullName}\Settings.Windows.json";
-                    string contents = JsonSerializer.Serialize(_storageContainer);
-                    if (!string.IsNullOrEmpty(contents))
-                    {
-                        File.WriteAllText(cfgPath, contents);
-                    }
-                }
-                catch { }
+                Persist();
             }
         }
 
         public ICollection<string> Keys => _storageContainer.Keys;
-        public ICollection<object> Values => _storageContainer.Values;
+        public ICollection<object?> Values => _storageContainer.Values;
 
         public int Count => _storageContainer.Count;
 
@@ -83,7 +116,12 @@ namespace PcmHacking.UnoUI.Models
 
         public bool Contains(KeyValuePair<string, object> item)
         {
-            return _storageContainer.ContainsKey(item.Key) && _storageContainer[item.Key] == item.Value;
+            if (!_storageContainer.TryGetValue(item.Key, out object? storedValue))
+            {
+                return false;
+            }
+
+            return Equals(storedValue, item.Value);
         }
 
         public bool ContainsKey(string key)
@@ -98,7 +136,10 @@ namespace PcmHacking.UnoUI.Models
 
         public IEnumerator<KeyValuePair<string, object>> GetEnumerator()
         {
-            return _storageContainer.GetEnumerator();
+            foreach (KeyValuePair<string, object?> entry in _storageContainer)
+            {
+                yield return new KeyValuePair<string, object>(entry.Key, entry.Value!);
+            }
         }
 
         public bool Remove(string key)
@@ -113,12 +154,142 @@ namespace PcmHacking.UnoUI.Models
 
         public bool TryGetValue(string key, [MaybeNullWhen(false)] out object value)
         {
-            return _storageContainer.TryGetValue(key, out value);
+            if (_storageContainer.TryGetValue(key, out object? storedValue))
+            {
+                value = storedValue;
+                return true;
+            }
+
+            value = null;
+            return false;
         }
 
         IEnumerator IEnumerable.GetEnumerator()
         {
             return GetEnumerator();
+        }
+
+        private static TypeAndValue CreateTypeAnnotatedValue(object? value)
+        {
+            if (value is TypeAndValue wrapper)
+            {
+                return wrapper;
+            }
+
+            Type actualType = value?.GetType() ?? typeof(object);
+            JsonElement serializedValue = value is JsonElement jsonElement
+                ? jsonElement
+                : JsonSerializer.SerializeToElement(value, actualType);
+
+            return new TypeAndValue(GetTypeIdentifier(actualType), serializedValue);
+        }
+
+        private void Persist()
+        {
+            try
+            {
+                string filePath = AutoSaveDictionary.getFilePath();
+                Dictionary<string, TypeAndValue> persistedEntries = new(_storageContainer.Count);
+
+                foreach (KeyValuePair<string, object?> entry in _storageContainer)
+                {
+                    persistedEntries[entry.Key] = CreateTypeAnnotatedValue(entry.Value);
+                }
+
+                string contents = JsonSerializer.Serialize(persistedEntries);
+                if (!string.IsNullOrEmpty(contents))
+                {
+                    File.WriteAllText(filePath, contents);
+                }
+            }
+            catch
+            {
+            }
+        }
+
+        private static object? DeserializePersistedEntry(JsonElement element)
+        {
+            if (TryConvertJsonElementToWrapper(element, out TypeAndValue? wrapper))
+            {
+                return DeserializeWrapper(wrapper);
+            }
+
+            try
+            {
+                return element.Deserialize<object?>();
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static bool TryConvertJsonElementToWrapper(JsonElement element, [NotNullWhen(true)] out TypeAndValue? typeAndValue)
+        {
+            if (element.ValueKind != JsonValueKind.Object)
+            {
+                typeAndValue = null;
+                return false;
+            }
+
+            string? typeName = null;
+            JsonElement? valueElement = null;
+
+            if (element.TryGetProperty(nameof(TypeAndValue.Type), out JsonElement typeProperty))
+            {
+                typeName = typeProperty.GetString();
+            }
+
+            if (element.TryGetProperty(nameof(TypeAndValue.Value), out JsonElement valueProperty))
+            {
+                valueElement = valueProperty;
+            }
+
+            if (typeName is null && valueElement is null)
+            {
+                typeAndValue = null;
+                return false;
+            }
+
+            typeAndValue = new TypeAndValue(typeName, valueElement);
+            return true;
+        }
+
+        private static object? DeserializeWrapper(TypeAndValue wrapper)
+        {
+            if (wrapper.Value is null)
+            {
+                return null;
+            }
+
+            Type? targetType = null;
+
+            if (!string.IsNullOrWhiteSpace(wrapper.Type))
+            {
+                targetType = Type.GetType(wrapper.Type);
+            }
+
+            targetType ??= typeof(object);
+
+            try
+            {
+                return JsonSerializer.Deserialize(wrapper.Value.Value, targetType);
+            }
+            catch
+            {
+                return wrapper.Value.Value.Deserialize<object?>();
+            }
+        }
+
+        private static string GetTypeIdentifier(Type type)
+        {
+            return type.AssemblyQualifiedName ?? type.FullName ?? type.Name;
+        }
+
+        private static string getFilePath()
+        {
+            FileInfo loadedExe = new(Assembly.GetExecutingAssembly().Location);
+            return $@"{loadedExe.Directory.FullName}\Settings.Windows.json";
         }
     }
 }

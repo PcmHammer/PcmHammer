@@ -100,23 +100,7 @@ public class SettingsService : ISettingsService
 #elif WINDOWS && !WINAPPSDK_PACKAGED            
             if (_unpackagedSettingsStore == null)
             {
-                try
-                {
-                    FileInfo loadedExe = new(Assembly.GetExecutingAssembly().Location);
-                    string cfgPath = $@"{loadedExe.Directory.FullName}\Settings.Windows.json";
-                    if (!File.Exists(cfgPath))
-                    {
-                        File.Create(cfgPath).Close();
-                        _unpackagedSettingsStore = [];
-                        return (IPropertySet)_unpackagedSettingsStore;
-                    }
-                    FileStream settingsStream = File.OpenRead(cfgPath);
-                    _unpackagedSettingsStore = JsonSerializer.Deserialize<AutoSaveDictionary<string, object>>(settingsStream) ?? [];
-                }
-                catch
-                {
-                    _unpackagedSettingsStore = [];
-                }
+                _unpackagedSettingsStore = AutoSaveDictionary.Load();
             }
             // TODO: Introduce a local file path and name, and try to load data into this array.
             return (IPropertySet)_unpackagedSettingsStore;
@@ -137,7 +121,7 @@ public class SettingsService : ISettingsService
         }
     }
 
-    private AutoSaveDictionary<string, object> _unpackagedSettingsStore { get; set; }
+    private AutoSaveDictionary _unpackagedSettingsStore { get; set; }
 
 
     public SettingsService()

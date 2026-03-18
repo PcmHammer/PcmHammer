@@ -12,8 +12,10 @@ public partial record ReadModel : IAsyncLogger
     private readonly INavigator navigator;
     private readonly IConnectionService connectionService;
     private readonly ISettingsService settingsService;
-    private readonly IDispatcher dispatcher;
     private readonly LoggerAdapter loggerAdapter;
+    private readonly IPlatformService platformService;
+    private readonly IDispatcher dispatcher;
+
     private CancellationTokenSource? tokenSource;
     const string defaultPath = "No file selected.";
 
@@ -39,16 +41,18 @@ public partial record ReadModel : IAsyncLogger
     public ReadModel(
         INavigator navigator,
         IConnectionService connectionService,
-        LoggerAdapter loggerAdapter,
         ISettingsService settingsService,
+        LoggerAdapter loggerAdapter,
+        IPlatformService platformService,
         IDispatcher dispatcher)
     {
         this.navigator = navigator ?? throw new ArgumentNullException(nameof(navigator));
         this.connectionService = connectionService ?? throw new ArgumentNullException(nameof(connectionService));
         this.settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
+        this.loggerAdapter = loggerAdapter ?? throw new ArgumentNullException(nameof(loggerAdapter));
+        this.platformService = platformService ?? throw new ArgumentNullException(nameof(platformService));
         this.dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
-        this.loggerAdapter = loggerAdapter;
-       
+        
         var _1 = this.UseCustomKey.SetAsync(this.settingsService.GetUseCustomKey());
         var _2 = this.CustomKey.SetAsync(this.settingsService.GetCustomKey());
         var _3 = this.EnableControls(false);
@@ -203,10 +207,7 @@ public partial record ReadModel : IAsyncLogger
     {
         // Open a Save-As dialog to get the file path
         FileSavePicker savePicker = new FileSavePicker();
-#if WINDOWS
-        nint handle = WindowNative.GetWindowHandle(App.StaticMainWindow);
-        InitializeWithWindow.Initialize(savePicker, handle);
-#endif
+        this.platformService.PrepareChildWindow(savePicker);
         savePicker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
         savePicker.FileTypeChoices.Add("Binary", new List<string>() { ".bin" });
         savePicker.SuggestedFileName = "Untitled.bin";

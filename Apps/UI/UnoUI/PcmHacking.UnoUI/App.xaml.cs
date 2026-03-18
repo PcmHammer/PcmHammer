@@ -130,6 +130,7 @@ public partial class App : Application
                     services.AddSingleton<MenuViewModel>();
                     services.AddSingleton<XamlRootService>();
                     services.AddSingleton<Services.INoticeService, Services.NoticeService>();
+                    services.AddSingleton<IPlatformService, PlatformService>();
                 })
 
                 .UseLogging(configure: (context, logBuilder) =>
