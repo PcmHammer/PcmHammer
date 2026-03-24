@@ -63,13 +63,19 @@ public class AutoSaveDictionaryTests
     public void AutoSaveDictionary_PersistsStringArrayValues()
     {
         string[] expected = new[] { "Uno", "Dos", "Tres" };
+        string[] expected2 = ["true", "two", "LSx"];
         string key = Guid.NewGuid().ToString();
+        string key2 = Guid.NewGuid().ToString();
         AutoSaveDictionary dictionary = new();
 
         dictionary[key] = expected;
+        dictionary[key2] = expected2;
 
         AutoSaveDictionary rehydrated = AutoSaveDictionary.Load();
         rehydrated[key].Should().BeEquivalentTo(expected);
+        rehydrated[key].Should().BeOfType<string[]>();
+        rehydrated[key2].Should().BeEquivalentTo(expected2);
+        rehydrated[key2].Should().BeOfType<string[]>();
     }
 
     [Test]
@@ -112,9 +118,12 @@ public class AutoSaveDictionaryTests
         rehydrated[key].Should().Be(expected);
     }
 
+    // The only object `AutoSaveDictionary` is programmed to
+    // handle is a `ConnectionSettings` object, verify rejection
+    // of a different object type.
     [Test]
-    public void AutoSaveDictionary_ObjectDiscrepencyTest()
-    {
+    public void AutoSaveDictionary_ObjectDiscrepancyTest()
+    { 
         Message incorrectObject = new([0xFF], 1, 1);
         string key = Guid.NewGuid().ToString();
         AutoSaveDictionary dictionary = new();

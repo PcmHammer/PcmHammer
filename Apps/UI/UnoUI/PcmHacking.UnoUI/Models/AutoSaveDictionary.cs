@@ -13,7 +13,16 @@ namespace PcmHacking.UnoUI.Models
     public class AutoSaveDictionary : IPropertySet
     {
         private readonly Dictionary<string, object?> _storageContainer;
-        private static readonly JsonSerializerOptions _serializerOptions = new() { WriteIndented = true, UnmappedMemberHandling = System.Text.Json.Serialization.JsonUnmappedMemberHandling.Disallow};
+
+        // Setting `UnmappedMemberHandling` to `Disallow` will cause
+        // the (De)Serializer to reject and throw an exception if an
+        // attempt to load an incorrect object type occurs. Used in
+        // the `TryDeserialize` method, as well as load and save.
+        private static readonly JsonSerializerOptions _serializerOptions = new() 
+        {
+            WriteIndented = true, 
+            UnmappedMemberHandling = System.Text.Json.Serialization.JsonUnmappedMemberHandling.Disallow
+        };
 
         public AutoSaveDictionary()
         {
@@ -80,7 +89,7 @@ namespace PcmHacking.UnoUI.Models
                             var array = element.EnumerateArray().ToArray();
                             if (array.Length > 0)
                             {
-                                switch (array[0].ValueKind)
+                                switch (array[0].ValueKind) // This of course has potential for failure, 
                                 {
                                     case JsonValueKind.String:
                                         return array.Select(x => x.ToString()).ToArray();
