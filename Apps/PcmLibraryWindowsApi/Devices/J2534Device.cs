@@ -83,7 +83,14 @@ namespace PcmHacking
         // it just wraps a private method that does the real work and returns a bool.
         public override async Task<bool> Initialize()
         {
+            try
+            {
             return await Task.FromResult(this.InitializeInternal());
+        }
+            catch (NullReferenceException)
+            {
+                return false;
+            }
         }
 
         // This returns 'bool' for the sake of readability. That bool needs to be

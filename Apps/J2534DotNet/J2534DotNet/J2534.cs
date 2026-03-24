@@ -44,11 +44,19 @@ namespace J2534DotNet
 
         public bool FreeLibrary()
         {
+            if (m_wrapper == null)
+            {
+                throw new NullReferenceException("J2534 wrapper object is null.");
+            }
             return m_wrapper.FreeLibrary();
         }
 
         public J2534Err Open(ref int deviceId)
         {
+            if (m_wrapper == null || m_device == null)
+            {
+                throw new NullReferenceException("J2534 wrapper object is null.");
+            }
             IntPtr DeviceNamePtr = IntPtr.Zero;
             IntPtr DeviceIDPtr = Marshal.AllocHGlobal(4);
             Marshal.WriteInt32(DeviceIDPtr, deviceId);
@@ -64,36 +72,59 @@ namespace J2534DotNet
 
         public J2534Err Close(int deviceId)
         {
+            if (m_wrapper == null || m_device == null)
+            {
+                throw new NullReferenceException("J2534 wrapper object is null.");
+            }
+
             return (J2534Err)m_wrapper.Close(deviceId);
         }
 
         public J2534Err Connect(int deviceId, ProtocolID protocolId, ConnectFlag flags, BaudRate baudRate, ref int channelId)
         {
+            if (m_wrapper == null || m_device == null)
+            {
+                throw new NullReferenceException("J2534 wrapper object is null.");
+            }
+
             return (J2534Err)m_wrapper.Connect(deviceId, (int)protocolId, (int)flags, (int)baudRate, ref channelId);
         }
 
         public J2534Err Connect(int deviceId, ProtocolID protocolId, ConnectFlag flags, int baudRate, ref int channelId)
         {
-            return (J2534Err)m_wrapper.Connect(deviceId, (int)protocolId, (int)flags, baudRate, ref channelId);
+            if (m_wrapper == null || m_device == null)
+            {
+                throw new NullReferenceException("J2534 wrapper object is null.");
+            }
+
+            return (J2534Err)m_wrapper?.Connect(deviceId, (int)protocolId, (int)flags, baudRate, ref channelId);
         }
 
         public J2534Err Disconnect(int channelId)
         {
-            return (J2534Err)m_wrapper.Disconnect(channelId);
+            if (m_wrapper == null || m_device == null)
+            {
+                throw new NullReferenceException("J2534 wrapper object is null.");
+            }
+            return (J2534Err)m_wrapper?.Disconnect(channelId);
         }
 
         public J2534Err ReadMsgs(int channelId, ref List<PassThruMsg> msgs, ref int numMsgs, int timeout)
         {
+            if (m_wrapper == null || m_device == null)
+            {
+                throw new NullReferenceException("J2534 wrapper object is null.");
+            }
             IntPtr pMsg = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(UnsafePassThruMsg)));
             IntPtr pNextMsg = IntPtr.Zero;
             IntPtr[] pMsgs = new IntPtr[50];
             J2534Err returnValue = (J2534Err)m_wrapper.ReadMsgs(channelId, pMsg, ref numMsgs, timeout);
-            
+
             if (returnValue == J2534Err.STATUS_NOERROR)
             {
                 for (int i = 0; i < numMsgs; i++)
                 {
-                    pNextMsg = (IntPtr)(Marshal.SizeOf(typeof(UnsafePassThruMsg))*i + (int)pMsg);
+                    pNextMsg = (IntPtr)(Marshal.SizeOf(typeof(UnsafePassThruMsg)) * i + (int)pMsg);
                     UnsafePassThruMsg uMsg = (UnsafePassThruMsg)Marshal.PtrToStructure(pMsg, typeof(UnsafePassThruMsg));
                     msgs.Add(ConvertPassThruMsg(uMsg));
                 }
@@ -106,6 +137,11 @@ namespace J2534DotNet
 
         public J2534Err WriteMsgs(int channelId, ref PassThruMsg msg, ref int numMsgs, int timeout)
         {
+            if (m_wrapper == null || m_device == null)
+            {
+                throw new NullReferenceException("J2534 wrapper object is null.");
+            }
+
             UnsafePassThruMsg uMsg = ConvertPassThruMsg(msg);
             // TODO: change function to accept a list? of PassThruMsg
             return (J2534Err)m_wrapper.WriteMsgs(channelId, ref uMsg, ref numMsgs, timeout);
@@ -113,12 +149,20 @@ namespace J2534DotNet
 
         public J2534Err StartPeriodicMsg(int channelId, ref PassThruMsg msg, ref int msgId, int timeInterval)
         {
+            if (m_wrapper == null || m_device == null)
+            {
+                throw new NullReferenceException("J2534 wrapper object is null.");
+            }
             UnsafePassThruMsg uMsg = ConvertPassThruMsg(msg);
             return (J2534Err)m_wrapper.StartPeriodicMsg(channelId, ref uMsg, ref msgId, timeInterval);
         }
 
         public J2534Err StopPeriodicMsg(int channelId, int msgId)
         {
+            if (m_wrapper == null || m_device == null)
+            {
+                throw new NullReferenceException("J2534 wrapper object is null.");
+            }
             return (J2534Err)m_wrapper.StopPeriodicMsg(channelId, msgId);
         }
 
@@ -132,16 +176,20 @@ namespace J2534DotNet
             ref int filterId
         )
         {
+            if (m_wrapper == null || m_device == null)
+            {
+                throw new NullReferenceException("J2534 wrapper object is null.");
+            }
             UnsafePassThruMsg uMaskMsg = ConvertPassThruMsg(maskMsg);
             UnsafePassThruMsg uPatternMsg = ConvertPassThruMsg(patternMsg);
             UnsafePassThruMsg uFlowControlMsg = ConvertPassThruMsg(flowControlMsg);
             return (J2534Err)m_wrapper.StartMsgFilter
                     (
-                        channelid, 
+                        channelid,
                         (int)filterType,
                         ref uMaskMsg,
                         ref uPatternMsg,
-                        ref uFlowControlMsg, 
+                        ref uFlowControlMsg,
                         ref filterId
                     );
         }
@@ -155,6 +203,10 @@ namespace J2534DotNet
             ref int filterId
         )
         {
+            if (m_wrapper == null || m_device == null)
+            {
+                throw new NullReferenceException("J2534 wrapper object is null.");
+            }
             int nada = 0;
             UnsafePassThruMsg uMaskMsg = ConvertPassThruMsg(maskMsg);
             UnsafePassThruMsg uPatternMsg = ConvertPassThruMsg(patternMsg);
@@ -171,16 +223,28 @@ namespace J2534DotNet
 
         public J2534Err StopMsgFilter(int channelId, int filterId)
         {
+            if (m_wrapper == null || m_device == null)
+            {
+                throw new NullReferenceException("J2534 wrapper object is null.");
+            }
             return (J2534Err)m_wrapper.StopMsgFilter(channelId, filterId);
         }
 
         public J2534Err SetProgrammingVoltage(int deviceId, PinNumber pinNumber, int voltage)
         {
+            if (m_wrapper == null || m_device == null)
+            {
+                throw new NullReferenceException("J2534 wrapper object is null.");
+            }
             return (J2534Err)m_wrapper.SetProgrammingVoltage(deviceId, (int)pinNumber, voltage);
         }
 
         public J2534Err ReadVersion(int deviceId, ref string firmwareVersion, ref string dllVersion, ref string apiVersion)
         {
+            if (m_wrapper == null || m_device == null)
+            {
+                throw new NullReferenceException("J2534 wrapper object is null.");
+            }
             IntPtr pFirmwareVersion = Marshal.AllocHGlobal(120);
             IntPtr pDllVersion = Marshal.AllocHGlobal(120);
             IntPtr pApiVersion = Marshal.AllocHGlobal(120);
@@ -201,6 +265,10 @@ namespace J2534DotNet
 
         public J2534Err GetLastError(ref string errorDescription)
         {
+            if (m_wrapper == null || m_device == null)
+            {
+                throw new NullReferenceException("J2534 wrapper object is null.");
+            }
             IntPtr pErrorDescription = Marshal.AllocHGlobal(120);
             J2534Err returnValue = (J2534Err)m_wrapper.GetLastError(pErrorDescription);
             if (returnValue == J2534Err.STATUS_NOERROR)
@@ -215,6 +283,10 @@ namespace J2534DotNet
 
         public J2534Err GetConfig(int channelId, ref List<SConfig> config)
         {
+            if (m_wrapper == null || m_device == null)
+            {
+                throw new NullReferenceException("J2534 wrapper object is null.");
+            }
             IntPtr input = IntPtr.Zero;
             IntPtr output = IntPtr.Zero;
 
@@ -223,6 +295,10 @@ namespace J2534DotNet
 
         public J2534Err SetConfig(int channelId, ref List<SConfig> config)
         {
+            if (m_wrapper == null || m_device == null)
+            {
+                throw new NullReferenceException("J2534 wrapper object is null.");
+            }
             IntPtr input = IntPtr.Zero;
             IntPtr output = IntPtr.Zero;
 
@@ -231,6 +307,10 @@ namespace J2534DotNet
 
         public J2534Err ReadBatteryVoltage(int deviceId, ref int voltage)
         {
+            if (m_wrapper == null || m_device == null)
+            {
+                throw new NullReferenceException("J2534 wrapper object is null.");
+            }
             IntPtr input = IntPtr.Zero;
             IntPtr output = Marshal.AllocHGlobal(8);
 
@@ -247,6 +327,10 @@ namespace J2534DotNet
 
         public J2534Err FiveBaudInit(int channelId, byte targetAddress, ref byte keyword1, ref byte keyword2)
         {
+            if (m_wrapper == null || m_device == null)
+            {
+                throw new NullReferenceException("J2534 wrapper object is null.");
+            }
             J2534Err returnValue;
             IntPtr input = IntPtr.Zero;
             IntPtr output = IntPtr.Zero;
@@ -271,6 +355,10 @@ namespace J2534DotNet
 
         public J2534Err FastInit(int channelId, PassThruMsg txMsg, ref PassThruMsg rxMsg)
         {
+            if (m_wrapper == null || m_device == null)
+            {
+                throw new NullReferenceException("J2534 wrapper object is null.");
+            }
             IntPtr input = IntPtr.Zero;
             IntPtr output = IntPtr.Zero;
             UnsafePassThruMsg uTxMsg = ConvertPassThruMsg(txMsg);
@@ -291,6 +379,10 @@ namespace J2534DotNet
 
         public J2534Err ClearTxBuffer(int channelId)
         {
+            if (m_wrapper == null || m_device == null)
+            {
+                throw new NullReferenceException("J2534 wrapper object is null.");
+            }
             IntPtr input = IntPtr.Zero;
             IntPtr output = IntPtr.Zero;
 
@@ -299,6 +391,10 @@ namespace J2534DotNet
 
         public J2534Err ClearRxBuffer(int channelId)
         {
+            if (m_wrapper == null || m_device == null)
+            {
+                throw new NullReferenceException("J2534 wrapper object is null.");
+            }
             IntPtr input = IntPtr.Zero;
             IntPtr output = IntPtr.Zero;
 
@@ -307,6 +403,10 @@ namespace J2534DotNet
 
         public J2534Err ClearPeriodicMsgs(int channelId)
         {
+            if (m_wrapper == null || m_device == null)
+            {
+                throw new NullReferenceException("J2534 wrapper object is null.");
+            }
             IntPtr input = IntPtr.Zero;
             IntPtr output = IntPtr.Zero;
 
@@ -315,6 +415,10 @@ namespace J2534DotNet
 
         public J2534Err ClearMsgFilters(int channelId)
         {
+            if (m_wrapper == null || m_device == null)
+            {
+                throw new NullReferenceException("J2534 wrapper object is null.");
+            }
             IntPtr input = IntPtr.Zero;
             IntPtr output = IntPtr.Zero;
 
@@ -323,6 +427,10 @@ namespace J2534DotNet
 
         public J2534Err ClearFunctMsgLookupTable(int channelId)
         {
+            if (m_wrapper == null || m_device == null)
+            {
+                throw new NullReferenceException("J2534 wrapper object is null.");
+            }
             IntPtr input = IntPtr.Zero;
             IntPtr output = IntPtr.Zero;
 
@@ -331,6 +439,10 @@ namespace J2534DotNet
 
         public J2534Err AddToFunctMsgLookupTable(int channelId)
         {
+            if (m_wrapper == null || m_device == null)
+            {
+                throw new NullReferenceException("J2534 wrapper object is null.");
+            }
             IntPtr input = IntPtr.Zero;
             IntPtr output = IntPtr.Zero;
             // TODO: fix this
@@ -339,6 +451,10 @@ namespace J2534DotNet
 
         public J2534Err DeleteFromFunctMsgLookupTable(int channelId)
         {
+            if (m_wrapper == null || m_device == null)
+            {
+                throw new NullReferenceException("J2534 wrapper object is null.");
+            }
             IntPtr input = IntPtr.Zero;
             IntPtr output = IntPtr.Zero;
             // TODO: fix this
@@ -347,6 +463,10 @@ namespace J2534DotNet
 
         private UnsafePassThruMsg ConvertPassThruMsg(PassThruMsg msg)
         {
+            if (m_wrapper == null || m_device == null)
+            {
+                throw new NullReferenceException("J2534 wrapper object is null.");
+            }
             UnsafePassThruMsg uMsg = new UnsafePassThruMsg();
 
             uMsg.ProtocolID = (int)msg.ProtocolID;
