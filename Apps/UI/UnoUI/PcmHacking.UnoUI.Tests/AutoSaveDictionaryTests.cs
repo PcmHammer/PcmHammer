@@ -101,7 +101,7 @@ public class AutoSaveDictionaryTests
     [Test]
     public void AutoSaveDictionary_PersistsConnectionSettings()
     {
-        CurrentSettings expected = new("Serial", "COM9", "OBDX", true, "CAN0");
+        CurrentSettings expected = new("Serial", "COM9", "OBDX", "JDevice", true, "CAN0");
         string key = Guid.NewGuid().ToString();
         AutoSaveDictionary dictionary = new();
 
