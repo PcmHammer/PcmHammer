@@ -34,9 +34,9 @@ namespace J2534DotNet
         private const string PASSTHRU_REGISTRY_PATH = "Software\\PassThruSupport.04.04";
         private const string PASSTHRU_REGISTRY_PATH_6432 = "Software\\Wow6432Node\\PassThruSupport.04.04";
 
-        static public List<J2534Device> ListDevices()
+        static public List<J2534DeviceInfo> ListDevices()
         {
-            List<J2534Device> j2534Devices = new List<J2534Device>();
+            List<J2534DeviceInfo> j2534Devices = new List<J2534DeviceInfo>();
             RegistryKey myKey = Registry.LocalMachine.OpenSubKey(PASSTHRU_REGISTRY_PATH, false);
             if (myKey == null)
             {
@@ -47,7 +47,7 @@ namespace J2534DotNet
             string[] devices = myKey.GetSubKeyNames();
             foreach (string device in devices)
             {
-                J2534Device tempDevice = new J2534Device();
+                J2534DeviceInfo tempDevice = new J2534DeviceInfo();
                 RegistryKey deviceKey = myKey.OpenSubKey(device);
                 if(deviceKey == null)
                     continue;

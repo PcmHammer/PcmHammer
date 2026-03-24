@@ -30,7 +30,7 @@ namespace J2534DotNet
 {
     public interface IJ2534
     {
-        bool LoadLibrary(J2534Device device);
+        bool LoadLibrary(J2534DeviceInfo device);
         bool FreeLibrary();
         J2534Err Open(ref int deviceId);
         J2534Err Close(int deviceId);

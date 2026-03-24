@@ -60,7 +60,7 @@
     <Compile Include="IJ2534.cs" />
     <Compile Include="J2534.cs" />
     <Compile Include="J2534Defs.cs" />
-    <Compile Include="J2534Device.cs" />
+    <Compile Include="J2534DeviceInfo.cs" />
     <Compile Include="J2534DllWrapper.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>

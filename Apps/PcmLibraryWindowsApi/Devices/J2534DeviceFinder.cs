@@ -13,9 +13,9 @@ namespace PcmHacking
         /// <summary>
         /// Find all installed J2534 DLLs
         /// </summary>
-        public static List<J2534DotNet.J2534Device> FindInstalledJ2534DLLs(ILogger logger)
+        public static List<J2534DeviceInfo> FindInstalledJ2534DLLs(ILogger logger)
         {
-            List<J2534DotNet.J2534Device> installedDLLs = new List<J2534DotNet.J2534Device>();
+            List<J2534DeviceInfo> installedDLLs = new List<J2534DeviceInfo>();
             try
             {
                 installedDLLs = J2534DotNet.J2534Detect.ListDevices();

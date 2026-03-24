@@ -51,10 +51,10 @@ namespace PcmHacking
         struct J2534_Struct
         {
             public J2534 Functions;
-            public J2534DotNet.J2534Device LoadedDevice;
+            public J2534DeviceInfo LoadedDevice;
         }
 
-        public J2534Device(J2534DotNet.J2534Device jport, ILogger logger) : base(logger)
+        public J2534Device(J2534DeviceInfo jport, ILogger logger) : base(logger)
         {
             J2534Port = new J2534_Struct();
             J2534Port.Functions = new J2534();
@@ -304,7 +304,7 @@ namespace PcmHacking
         /// <summary>
         /// Load in dll
         /// </summary>
-        private Response<bool> LoadLibrary(J2534DotNet.J2534Device TempDevice)
+        private Response<bool> LoadLibrary(J2534DeviceInfo TempDevice)
         {
             ToolName = TempDevice.Name;
             J2534Port.LoadedDevice = TempDevice;

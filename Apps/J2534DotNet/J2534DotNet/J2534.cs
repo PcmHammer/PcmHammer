@@ -32,10 +32,10 @@ namespace J2534DotNet
 {
     public class J2534 : IJ2534
     {
-        private J2534Device m_device;
+        private J2534DeviceInfo m_device;
         private J2534DllWrapper m_wrapper;
 
-        public bool LoadLibrary(J2534Device device)
+        public bool LoadLibrary(J2534DeviceInfo device)
         {
             m_device = device;
             m_wrapper = new J2534DllWrapper();

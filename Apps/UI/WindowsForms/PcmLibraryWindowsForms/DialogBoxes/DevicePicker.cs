@@ -183,7 +183,7 @@ namespace PcmHacking
             this.j2534DeviceList.Items.Add(prompt);
             this.j2534DeviceList.SelectedIndex = 0;
 
-            foreach(J2534DotNet.J2534Device device in J2534DeviceFinder.FindInstalledJ2534DLLs(this.logger))
+            foreach(J2534DeviceInfo device in J2534DeviceFinder.FindInstalledJ2534DLLs(this.logger))
             {
                 this.j2534DeviceList.Items.Add(device);
             }

@@ -26,7 +26,7 @@
 #endregion License
 namespace J2534DotNet
 {
-    public class J2534Device
+    public class J2534DeviceInfo
     {
         public string Vendor { get; set; }
         public string Name { get; set; }
