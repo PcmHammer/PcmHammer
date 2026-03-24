@@ -254,9 +254,9 @@ public class ConnectionService : IConnectionService
         Device newDevice = DeviceFactory.CreateDevice(
             this.logger,
             settings.DeviceCategory,
-            settings.Obd2SerialPortName,
-            settings.Obd2SerialDeviceName,
-            settings.J2534DeviceName);
+            settings.PortName,
+            settings.DeviceName);
+        if (newDevice == null || !await newDevice.Initialize())
         if (newDevice == null)
         {
             return (null, null);

@@ -127,6 +127,9 @@ public class SettingsService : ISettingsService
     {
     }
 
+    private bool IsSerialDevice() => (string)_settingsListInterface[Obd2DeviceCategoryKey] == "Serial";
+
+    public string GetActiveDeviceName() => IsSerialDevice() ? GetObd2SerialDeviceName() : GetJ2534DeviceName();
 
     public string GetObd2DeviceCategory()
     {
@@ -162,19 +165,18 @@ public class SettingsService : ISettingsService
     {
         return new CurrentSettings(
             _settingsListInterface[Obd2DeviceCategoryKey] as string ?? string.Empty,
-            _settingsListInterface[Obd2SerialPortNameKey] as string ?? string.Empty,
-            _settingsListInterface[Obd2SerialDeviceNameKey] as string ?? string.Empty,
-            _settingsListInterface[J2534DeviceNameKey] as string ?? string.Empty,
+            IsSerialDevice() ? ((string)_settingsListInterface[Obd2SerialPortNameKey]) : "J2534" ?? string.Empty,
+            IsSerialDevice() ? ((string)_settingsListInterface[Obd2SerialDeviceNameKey]) : ((string)_settingsListInterface[J2534DeviceNameKey]) ?? string.Empty,
             _settingsListInterface[CanEnabledKey] as string == "true",
             _settingsListInterface[CanSerialPortNameKey] as string ?? string.Empty);
     }
 
     public void SaveConnectionSettings(CurrentSettings settings)
     {
-        _settingsListInterface[J2534DeviceNameKey] = settings.J2534DeviceName;
         _settingsListInterface[Obd2DeviceCategoryKey] = settings.DeviceCategory;
-        _settingsListInterface[Obd2SerialPortNameKey] = settings.Obd2SerialPortName;
-        _settingsListInterface[Obd2SerialDeviceNameKey] = settings.Obd2SerialDeviceName;
+        _settingsListInterface[Obd2SerialPortNameKey] = IsSerialDevice() ? settings.PortName : (string)_settingsListInterface[Obd2SerialPortNameKey]; // Don't overwrite with "J25
+        _settingsListInterface[Obd2SerialDeviceNameKey] = IsSerialDevice() ? settings.DeviceName : (string)_settingsListInterface[Obd2SerialDeviceNameKey];
+        _settingsListInterface[J2534DeviceNameKey] = !IsSerialDevice() ? settings.DeviceName : (string)_settingsListInterface[J2534DeviceNameKey];
         _settingsListInterface[CanEnabledKey] = settings.CanEnabled ? "true" : "false";
         _settingsListInterface[CanSerialPortNameKey] = settings.CanPort;
     }

@@ -12,9 +12,8 @@ namespace PcmHacking.UnoUI.Presentation;
 
 public record CurrentSettings(
     string DeviceCategory, 
-    string Obd2SerialPortName, 
-    string Obd2SerialDeviceName, 
-    string J2534DeviceName, 
+    string PortName, 
+    string DeviceName, 
     bool CanEnabled, 
     string CanPort);
 
@@ -109,11 +108,17 @@ public partial record SettingsModel
 
     private async ValueTask ConnectionSettingsChanged<T>(T newValue, CancellationToken ct)
     {
+        bool useSerial = await this.UseSerialDevice.Value();
+        if (!useSerial)
+        {
+            string? selectedJDevice = await SelectedJDevice.Value();
+            await SelectedDeviceType.SetAsync(selectedJDevice);
+            await SelectedObd2Port.SetAsync("J2534");
+        }
         CurrentSettings currentSettings = new CurrentSettings(
-            await this.UseSerialDevice.Value() ? "Serial" : "J2534",
+            useSerial ? "Serial" : "J2534",
             await this.SelectedObd2Port.Value() ?? "",
-            await this.SelectedObd2SerialDeviceType.Value() ?? "",
-            "", // TODO: J2534 device name
+            await this.SelectedDeviceType.Value() ?? "",
             await this.UseCanDevice.Value(),
             await this.SelectedCanPort.Value() ?? "");
 
