@@ -110,11 +110,17 @@ namespace PcmHacking.UnoUI.Models
                             return element.GetBoolean();
                     }
                 }
-                if(storedValue == null || storedValue is string || storedValue is bool)
+                if(storedValue is string ||
+                   storedValue is bool ||
+                   storedValue is int ||
+                   storedValue is string[] ||
+                   storedValue is bool[] ||
+                   storedValue is int[] ||
+                   storedValue is CurrentSettings) // We should also define all expected object types, to catch any possible mutations.
                 {
                     return storedValue;
                 }
-                return null; // At this point, if it's not a simple string or boolean type, we have a problem...
+                return null; // At this point, if it's not a simple string or boolean type, return null.
             }
             set
             {

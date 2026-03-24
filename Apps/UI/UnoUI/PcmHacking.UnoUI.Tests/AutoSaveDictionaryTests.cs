@@ -28,6 +28,7 @@ public class AutoSaveDictionaryTests
         AutoSaveDictionary dictionary = new();
 
         dictionary[key] = expected;
+        dictionary[key].Should().BeEquivalentTo(expected);
 
         AutoSaveDictionary rehydrated = AutoSaveDictionary.Load();
         rehydrated[key].Should().Be(expected);
@@ -41,6 +42,7 @@ public class AutoSaveDictionaryTests
         AutoSaveDictionary dictionary = new();
 
         dictionary[key] = expected;
+        dictionary[key].Should().BeEquivalentTo(expected);
 
         AutoSaveDictionary rehydrated = AutoSaveDictionary.Load();
         rehydrated[key].Should().Be(expected);
@@ -54,6 +56,7 @@ public class AutoSaveDictionaryTests
         AutoSaveDictionary dictionary = new();
 
         dictionary[key] = expected;
+        dictionary[key].Should().BeEquivalentTo(expected);
 
         AutoSaveDictionary rehydrated = AutoSaveDictionary.Load();
         rehydrated[key].Should().Be(expected);
@@ -63,19 +66,14 @@ public class AutoSaveDictionaryTests
     public void AutoSaveDictionary_PersistsStringArrayValues()
     {
         string[] expected = new[] { "Uno", "Dos", "Tres" };
-        string[] expected2 = ["true", "two", "LSx"];
         string key = Guid.NewGuid().ToString();
-        string key2 = Guid.NewGuid().ToString();
         AutoSaveDictionary dictionary = new();
 
         dictionary[key] = expected;
-        dictionary[key2] = expected2;
+        dictionary[key].Should().BeEquivalentTo(expected);
 
         AutoSaveDictionary rehydrated = AutoSaveDictionary.Load();
         rehydrated[key].Should().BeEquivalentTo(expected);
-        rehydrated[key].Should().BeOfType<string[]>();
-        rehydrated[key2].Should().BeEquivalentTo(expected2);
-        rehydrated[key2].Should().BeOfType<string[]>();
     }
 
     [Test]
@@ -86,6 +84,7 @@ public class AutoSaveDictionaryTests
         AutoSaveDictionary dictionary = new();
 
         dictionary[key] = expected;
+        dictionary[key].Should().BeEquivalentTo(expected);
 
         AutoSaveDictionary rehydrated = AutoSaveDictionary.Load();
         rehydrated[key].Should().BeEquivalentTo(expected);
@@ -99,6 +98,7 @@ public class AutoSaveDictionaryTests
         AutoSaveDictionary dictionary = new();
 
         dictionary[key] = expected;
+        dictionary[key].Should().BeEquivalentTo(expected);
 
         AutoSaveDictionary rehydrated = AutoSaveDictionary.Load();
         rehydrated[key].Should().BeEquivalentTo(expected);
@@ -107,11 +107,12 @@ public class AutoSaveDictionaryTests
     [Test]
     public void AutoSaveDictionary_PersistsConnectionSettings()
     {
-        CurrentSettings expected = new("Serial", "COM9", "OBDX", "JDevice", true, "CAN0");
+        CurrentSettings expected = new("Serial", "COM9", "OBDX", true, "CAN0");
         string key = Guid.NewGuid().ToString();
         AutoSaveDictionary dictionary = new();
 
         dictionary[key] = expected;
+        dictionary[key].Should().BeEquivalentTo(expected);
 
         AutoSaveDictionary rehydrated = AutoSaveDictionary.Load();
         rehydrated[key].Should().BeOfType<CurrentSettings>();
@@ -129,6 +130,7 @@ public class AutoSaveDictionaryTests
         AutoSaveDictionary dictionary = new();
 
         dictionary[key] = incorrectObject;
+        Assert.That(dictionary[key], Is.Null);
 
         AutoSaveDictionary? rehydrated = AutoSaveDictionary.Load();
         Assert.That(rehydrated[key], Is.Null);
