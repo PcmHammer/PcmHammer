@@ -34,7 +34,7 @@ public partial record WriteModel : IAsyncLogger
     public IState<bool> PreferCalibrationWriteEnabled => State<bool>.Value(this, () => true);
 
     public IState<string> Path => State<string>.Value(this, () => defaultPath);
-    public IState<string> UserLog => State<string>.Value(this, () => String.Empty);
+    public IListState<string> UserLog => ListState<string>.Empty(this);
     public IState<string> Activity => State<string>.Value(this, () => String.Empty);
     public IState<string> TimeRemaining => State<string>.Value(this, () => String.Empty);
     public IState<string> PercentDone => State<string>.Value(this, () => String.Empty);
@@ -312,7 +312,7 @@ public partial record WriteModel : IAsyncLogger
 
     public async Task AddUserMessage(string message)
     {
-        await this.UserLog.SetAsync(this.UserLog.Value() + Environment.NewLine + message);
+        await this.UserLog.Update(updater: existing => existing.Add(message), ct: CancellationToken.None);
     }
 
     public Task AddDebugMessage(string message)

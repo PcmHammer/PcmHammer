@@ -52,14 +52,17 @@ namespace PcmHacking.UnoUI.Presentation
             ColorUtilities.Initialize(darkMode);
             this.ProgressBar.Background = ColorUtilities.Instance.AccentBackgroundBrush;
 
-            this.model.UserLog.ForEach(async (value, cancellationToken) => await this.OnUserLogChanged(value ?? string.Empty, cancellationToken));
+            this.model.UserLog.ForEach(async (value, cancellationToken) => await this.OnUserLogChanged(cancellationToken));
         }
 
-        private Task OnUserLogChanged(string value, CancellationToken cancellationToken)
+        private Task OnUserLogChanged(CancellationToken cancellationToken)
         {
             this.DispatcherQueue.TryEnqueue(() =>
             {
-                this.UserLogScrollViewer.ScrollToVerticalOffset(this.UserLogScrollViewer.ScrollableHeight);
+                if (this.UserLog.Items.Count > 0)
+                {
+                    this.UserLog.ScrollIntoView(this.UserLog.Items[this.UserLog.Items.Count - 1]);
+                }
             });
 
             return Task.CompletedTask;

@@ -122,6 +122,14 @@ namespace PcmHacking
         public const byte Physical0 = 0x6C;
 
         /// <summary>
+        /// 0x8A: 1000=Priority 4, GM. C=1010 GM, Physical, Type 2
+        /// </summary>
+        /// <remarks>
+        /// Has been observed when communicating to IPC / DIC.
+        /// </remarks>
+        public const byte Physical2High = 0x8A; 
+
+        /// <summary>
         /// 0x8C: 1000=Priority 4, GM. C=1100 GM, Physical, Type 0
         /// </summary>
         public const byte Physical0High = 0x8C;

@@ -44,8 +44,16 @@ namespace PcmHacking.UnoUI.Presentation
 
             this.model = newModel;
 
-            // TODO: Auto-scroll
-            // this.model.UserLog.ForEach((entry, token) => this.UserLogScrollViewer.ChangeView(0, this.UserLogScrollViewer.ScrollableHeight, 1), this.DispatcherQueue.GetForCurrentThread());
+            this.model.UserLog.ForEach(async (value, cancellationToken) =>
+            {
+                this.DispatcherQueue.TryEnqueue(() =>
+                {
+                    if (this.UserLog.Items.Count > 0)
+                    {
+                        this.UserLog.ScrollIntoView(this.UserLog.Items[this.UserLog.Items.Count - 1]);
+                    }
+                });
+            });
         }
     }
 }

@@ -63,9 +63,25 @@
               Command="{Binding Cancel}"
               IsEnabled="{Binding CancelEnabled}"/>
 
-        <ScrollViewer Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" Name="UserLogScrollViewer" Margin="0, 10, 0, 0">
-            <TextBlock Margin="10" FontFamily="Courier New" Text="{Binding UserLog}"/>
-        </ScrollViewer>
+        <ListView Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" Name="UserLog" ItemsSource="{Binding UserLog}" Margin="0, 10, 0, 0">
+            <ListView.ItemContainerStyle>
+                <Style TargetType="ListViewItem">
+                    <Setter Property="MinHeight" Value="0"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="ListViewItem">
+                                <ListViewItemPresenter ContentMargin="0" Padding="0" />
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </ListView.ItemContainerStyle>
+            <ListView.ItemTemplate>
+                <DataTemplate>
+                    <TextBox Text="{Binding}" FontFamily="Courier New" IsReadOnly="True" BorderThickness="0" Background="Transparent" />
+                </DataTemplate>
+            </ListView.ItemTemplate>
+        </ListView>
 
         <ProgressBar Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2" Margin="5" Height="20" Value="{Binding Progress}" Minimum="0" Maximum="100" Name="ProgressBar"/>
 
