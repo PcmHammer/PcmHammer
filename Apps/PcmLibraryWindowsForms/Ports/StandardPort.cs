@@ -118,15 +118,7 @@ namespace PcmHacking
         /// </summary>
         Task<int> IPort.Receive(byte[] buffer, int offset, int count)
         {
-            try
-            {
-                return TimeoutUtilities.TaskWithTimeoutAndException(
-                    Task.Run(() => this.port.Read(buffer, offset, count)),
-                    TimeSpan.FromMilliseconds(this.port.ReadTimeout));
-            } catch (TimeoutException) 
-            {
-                return Task.FromResult(0);
-            }
+            return Task<int>.FromResult(this.port.Read(buffer, offset, count));
         }
 
         /// <summary>
