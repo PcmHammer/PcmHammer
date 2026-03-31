@@ -1,0 +1,82 @@
+﻿<Page
+    x:Class="PcmHacking.UnoUI.Presentation.WritePage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:PcmHacking.UnoUI.Presentation"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+
+    <Grid VerticalAlignment="Stretch">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" x:Name="PathRow"/>
+            <RowDefinition Height="Auto" x:Name="CheckBoxRow"/>
+            <RowDefinition Height="Auto" x:Name="ButtonsRow"/>
+            <RowDefinition Height="*" x:Name="LogRow"/>
+
+            <RowDefinition Height="Auto" x:Name="ProgressBarRow"/>
+            <RowDefinition Height="Auto" x:Name="ActivityRow"/>
+            <RowDefinition Height="Auto" x:Name="TimeAndPercentRow"/>
+            <RowDefinition Height="Auto" x:Name="RetryAndKbpsRow"/>
+            
+        </Grid.RowDefinitions>
+
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="1*" />
+            <ColumnDefinition Width="1*" />
+        </Grid.ColumnDefinitions>
+
+        <StackPanel Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal">
+            <Button Content="Choose File" Margin="10" Command="{Binding ChooseFile}"/>
+            <TextBlock Text="{Binding Path}" Margin="10" HorizontalTextAlignment="Right" VerticalAlignment="Center"/>
+        </StackPanel>
+
+        <StackPanel Grid.Row="1" Grid.Column="0"
+            Orientation="Horizontal">
+            <CheckBox IsChecked="{Binding UseCustomKey, Mode=TwoWay}"
+                      IsEnabled="{Binding UseCustomKeyEnabled}"
+                      Margin="10,0,10,0"
+                      Content="Use Custom Key" />
+            <TextBox Name="CustomKey"
+                     Text="{Binding CustomKey}" 
+                     Width="50"
+                     IsEnabled="{Binding CustomKeyEnabled, Mode=TwoWay}"
+                     TextChanged="{x:Bind CustomKey_TextChanged}"/>
+        </StackPanel>
+
+        <CheckBox Grid.Row="1" Grid.Column="1" 
+                  IsEnabled="{Binding PreferCalibrationWriteEnabled}"
+                  IsChecked="{Binding PreferCalibrationWrite, Mode=TwoWay}"
+                  Margin="10,0,0,0"
+                  Content="{Binding CalibrationOnlyCheckboxText}" />
+
+        <Button Grid.Row="2" Grid.Column="0" Content="{Binding StartButtonText}" Margin="10"
+              HorizontalAlignment="Stretch"
+              VerticalAlignment="Stretch"
+              Command="{Binding Start}"
+              IsEnabled="{Binding StartEnabled}"
+              />
+        <Button Grid.Row="2" Grid.Column="1" Content="Cancel" Margin="10"
+              HorizontalAlignment="Stretch"
+              VerticalAlignment="Stretch"              
+              Command="{Binding Cancel}"
+              IsEnabled="{Binding CancelEnabled}"/>
+
+        <ScrollViewer Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" Name="UserLogScrollViewer" Margin="0, 10, 0, 0">
+            <TextBlock Margin="10" FontFamily="Courier New" Text="{Binding UserLog}"/>
+        </ScrollViewer>
+
+        <ProgressBar Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2" Margin="5" Height="20" Value="{Binding Progress}" Minimum="0" Maximum="100" Name="ProgressBar"/>
+
+
+        <TextBlock Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="2" Margin="5" Text="{Binding Activity}" />
+
+        <TextBlock Grid.Row="6" Grid.Column="0" Margin="5" Text="{Binding TimeRemaining}" />
+        <TextBlock Grid.Row="6" Grid.Column="1" Margin="5" Text="{Binding Kbps}" />
+
+        <TextBlock Grid.Row="7" Grid.Column="0" Margin="5" Text="{Binding PercentDone}"  />
+        <TextBlock Grid.Row="7" Grid.Column="1" Margin="5" Text="{Binding RetryCount}" />
+
+    </Grid>
+</Page>

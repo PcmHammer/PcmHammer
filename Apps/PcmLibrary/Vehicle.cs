@@ -1,7 +1,9 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -41,7 +43,7 @@ namespace PcmHacking
         /// This class knows how to generate message to send to the PCM.
         /// </summary>
         private Protocol protocol;
-        
+
         /// <summary>
         /// This is how we send user-friendly status messages and developer-oriented debug messages to the UI.
         /// </summary>
@@ -116,7 +118,7 @@ namespace PcmHacking
         /// Constructor.
         /// </summary>
         public Vehicle(
-            Device device, 
+            Device device,
             Protocol protocol,
             ILogger logger,
             ToolPresentNotifier notifier)
@@ -213,8 +215,8 @@ namespace PcmHacking
         /// Query factory. One could argue that this is in the wrong place.
         /// </summary>
         public Query<T> CreateQuery<T>(
-            Func<Message> generator, 
-            Func<Message,Response<T>> parser, 
+            Func<Message> generator,
+            Func<Message, Response<T>> parser,
             CancellationToken cancellationToken)
         {
             return new Query<T>(
@@ -332,7 +334,7 @@ namespace PcmHacking
 
             // if we have a user defined key the user might be trying to recover from a corrupted param block
             // so we still let it though
-            if ((seedValue == 0x0000) && (UserDefinedKey == -1)) 
+            if ((seedValue == 0x0000) && (UserDefinedKey == -1))
             {
                 this.logger.AddUserMessage("PCM Unlock not required");
                 return true;
@@ -430,7 +432,7 @@ namespace PcmHacking
         /// </summary>
         private async Task<bool> WaitForSuccess(Func<Message, Response<bool>> filter, CancellationToken cancellationToken, int attempts = MaxReceiveAttempts)
         {
-            for(int attempt = 1; attempt<=attempts; attempt++)
+            for (int attempt = 1; attempt <= attempts; attempt++)
             {
                 if (cancellationToken.IsCancellationRequested)
                 {
@@ -438,7 +440,7 @@ namespace PcmHacking
                 }
 
                 Message message = await this.device.ReceiveMessage();
-                if(message == null)
+                if (message == null)
                 {
                     await this.SendToolPresentNotification();
                     continue;
@@ -502,6 +504,18 @@ namespace PcmHacking
             }
 
             return Response.Create<byte[]>(lastStatus, new byte[0]);
+        }
+
+        public async Task<Response<int>> BeginCrankRelearn()
+        {
+            Message request = this.protocol.CreateCrankRelearnRequest();
+            if (!await this.TrySendMessage(request, "Crank relearn request"))
+            {
+                this.logger.AddDebugMessage("Unable to send crank relearn request.");
+                return Response.Create(ResponseStatus.Error, 0);
+            }
+
+            return Response.Create(ResponseStatus.Success, 1);
         }
     }
 }

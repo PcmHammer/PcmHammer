@@ -85,7 +85,7 @@ namespace CaptureSerial
             byte[] buffer = new byte[1024 * 64];
             int totalBytes = 0;
 
-            bool useCallback = false;
+            bool useCallback = true;
 
             using (Stream output = File.OpenWrite(fileName))
             using (SerialPort port = new SerialPort(portName, baud, Parity.None, 8, StopBits.One))
