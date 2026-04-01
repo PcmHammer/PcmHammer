@@ -28,6 +28,7 @@ public class AutoSaveDictionaryTests
         AutoSaveDictionary dictionary = new();
 
         dictionary[key] = expected;
+        dictionary[key].Should().BeEquivalentTo(expected);
 
         AutoSaveDictionary rehydrated = AutoSaveDictionary.Load();
         rehydrated[key].Should().Be(expected);
@@ -41,6 +42,7 @@ public class AutoSaveDictionaryTests
         AutoSaveDictionary dictionary = new();
 
         dictionary[key] = expected;
+        dictionary[key].Should().BeEquivalentTo(expected);
 
         AutoSaveDictionary rehydrated = AutoSaveDictionary.Load();
         rehydrated[key].Should().Be(expected);
@@ -54,6 +56,7 @@ public class AutoSaveDictionaryTests
         AutoSaveDictionary dictionary = new();
 
         dictionary[key] = expected;
+        dictionary[key].Should().BeEquivalentTo(expected);
 
         AutoSaveDictionary rehydrated = AutoSaveDictionary.Load();
         rehydrated[key].Should().Be(expected);
@@ -67,6 +70,35 @@ public class AutoSaveDictionaryTests
         AutoSaveDictionary dictionary = new();
 
         dictionary[key] = expected;
+        dictionary[key].Should().BeEquivalentTo(expected);
+
+        AutoSaveDictionary rehydrated = AutoSaveDictionary.Load();
+        rehydrated[key].Should().BeEquivalentTo(expected);
+    }
+
+    [Test]
+    public void AutoSaveDictionary_PersistsNumberArrayValues()
+    {
+        int[] expected = [1, 2, 3];
+        string key = Guid.NewGuid().ToString();
+        AutoSaveDictionary dictionary = new();
+
+        dictionary[key] = expected;
+        dictionary[key].Should().BeEquivalentTo(expected);
+
+        AutoSaveDictionary rehydrated = AutoSaveDictionary.Load();
+        rehydrated[key].Should().BeEquivalentTo(expected);
+    }
+
+    [Test]
+    public void AutoSaveDictionary_PersistsBoolArrayValues()
+    {
+        bool[] expected = [false, true, false];
+        string key = Guid.NewGuid().ToString();
+        AutoSaveDictionary dictionary = new();
+
+        dictionary[key] = expected;
+        dictionary[key].Should().BeEquivalentTo(expected);
 
         AutoSaveDictionary rehydrated = AutoSaveDictionary.Load();
         rehydrated[key].Should().BeEquivalentTo(expected);
@@ -80,10 +112,28 @@ public class AutoSaveDictionaryTests
         AutoSaveDictionary dictionary = new();
 
         dictionary[key] = expected;
+        dictionary[key].Should().BeEquivalentTo(expected);
 
         AutoSaveDictionary rehydrated = AutoSaveDictionary.Load();
         rehydrated[key].Should().BeOfType<CurrentSettings>();
         rehydrated[key].Should().Be(expected);
+    }
+
+    // The only object `AutoSaveDictionary` is programmed to
+    // handle is a `ConnectionSettings` object, verify rejection
+    // of a different object type.
+    [Test]
+    public void AutoSaveDictionary_ObjectDiscrepancyTest()
+    { 
+        Message incorrectObject = new([0xFF], 1, 1);
+        string key = Guid.NewGuid().ToString();
+        AutoSaveDictionary dictionary = new();
+
+        dictionary[key] = incorrectObject;
+        Assert.That(dictionary[key], Is.Null);
+
+        AutoSaveDictionary? rehydrated = AutoSaveDictionary.Load();
+        Assert.That(rehydrated[key], Is.Null);
     }
 
     private static string GetSettingsFilePath()

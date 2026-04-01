@@ -5,29 +5,24 @@ using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Reflection;
 using System.Text.Json;
+using Uno.Extensions.Specialized;
 using Windows.Foundation.Collections;
 
 namespace PcmHacking.UnoUI.Models
 {
     public class AutoSaveDictionary : IPropertySet
     {
-        private class TypeAndValue
-        {
-            public string? Type { get; set; }
-            public JsonElement? Value { get; set; }
-
-            public TypeAndValue()
-            {
-            }
-
-            public TypeAndValue(string? type, JsonElement? value)
-            {
-                Type = type;
-                Value = value;
-            }
-        }
-
         private readonly Dictionary<string, object?> _storageContainer;
+
+        // Setting `UnmappedMemberHandling` to `Disallow` will cause
+        // the (De)Serializer to reject and throw an exception if an
+        // attempt to load an incorrect object type occurs. Used in
+        // the `TryDeserialize` method, as well as load and save.
+        private static readonly JsonSerializerOptions _serializerOptions = new() 
+        {
+            WriteIndented = true, 
+            UnmappedMemberHandling = System.Text.Json.Serialization.JsonUnmappedMemberHandling.Disallow
+        };
 
         public AutoSaveDictionary()
         {
@@ -39,7 +34,7 @@ namespace PcmHacking.UnoUI.Models
             AutoSaveDictionary dictionary = new();
             try
             {
-                string filePath = AutoSaveDictionary.getFilePath();
+                string filePath = getFilePath();
                 if (!File.Exists(filePath))
                 {
                     using FileStream stream = File.Create(filePath);
@@ -52,17 +47,12 @@ namespace PcmHacking.UnoUI.Models
                     return dictionary;
                 }
 
-                Dictionary<string, JsonElement>? persistedEntries = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(contents);
+                Dictionary<string, object>? persistedEntries = JsonSerializer.Deserialize<Dictionary<string, object>>(contents, _serializerOptions);
                 if (persistedEntries is null)
                 {
                     return dictionary;
                 }
-
-                foreach (KeyValuePair<string, JsonElement> entry in persistedEntries)
-                {
-                    dictionary._storageContainer[entry.Key] = DeserializePersistedEntry(entry.Value);
-                }
-
+                dictionary.AddRange(persistedEntries);
                 return dictionary;
             }
             catch
@@ -80,14 +70,76 @@ namespace PcmHacking.UnoUI.Models
                     _storageContainer[key] = null;
                     return null;
                 }
-
-                return storedValue;
+                if (storedValue is JsonElement)
+                {
+                    JsonElement element = (JsonElement)storedValue;
+                    switch (element.ValueKind)
+                    {
+                        case JsonValueKind.Undefined:
+                        case JsonValueKind.Object: // Storing class objects in a JsonElement is possible, but will need manual testing to pull it back out.
+                            string json = element.ToString();
+                            if (TryDeserialize(json, out CurrentSettings settings))
+                            {
+                                return settings;
+                            }
+                            break;
+                        case JsonValueKind.Null:
+                            return null; // These cases should not happen.
+                        case JsonValueKind.Array: // Arrays will need some manual handling.
+                            var array = element.EnumerateArray().ToArray();
+                            if (array.Length > 0)
+                            {
+                                switch (array[0].ValueKind) // This of course has potential for failure, 
+                                {
+                                    case JsonValueKind.String:
+                                        return array.Select(x => x.ToString()).ToArray();
+                                    case JsonValueKind.Number:
+                                        return array.Select(x => x.GetInt32()).ToArray();
+                                    case JsonValueKind.True:
+                                    case JsonValueKind.False:
+                                        return array.Select(x => x.GetBoolean()).ToArray();
+                                }
+                            }
+                                break;
+                        case JsonValueKind.String:
+                            return element.GetString();
+                        case JsonValueKind.Number:
+                            return element.GetInt32();
+                        case JsonValueKind.True:
+                        case JsonValueKind.False:
+                            return element.GetBoolean();
+                    }
+                }
+                if(storedValue is string ||
+                   storedValue is bool ||
+                   storedValue is int ||
+                   storedValue is string[] ||
+                   storedValue is bool[] ||
+                   storedValue is int[] ||
+                   storedValue is CurrentSettings) // We should also define all expected object types, to catch any possible mutations.
+                {
+                    return storedValue;
+                }
+                return null; // At this point, if it's not a simple string or boolean type, return null.
             }
             set
             {
                 _storageContainer[key] = value;
                 Persist();
             }
+        }
+
+        private bool TryDeserialize<T>(string jsonString, out T outputObject)
+        {
+            try
+            {
+                outputObject = JsonSerializer.Deserialize<T>(jsonString, _serializerOptions);
+            } catch (Exception)
+            {
+                outputObject = default(T);
+                return false;
+            }
+            return true;
         }
 
         public ICollection<string> Keys => _storageContainer.Keys;
@@ -169,34 +221,12 @@ namespace PcmHacking.UnoUI.Models
             return GetEnumerator();
         }
 
-        private static TypeAndValue CreateTypeAnnotatedValue(object? value)
-        {
-            if (value is TypeAndValue wrapper)
-            {
-                return wrapper;
-            }
-
-            Type actualType = value?.GetType() ?? typeof(object);
-            JsonElement serializedValue = value is JsonElement jsonElement
-                ? jsonElement
-                : JsonSerializer.SerializeToElement(value, actualType);
-
-            return new TypeAndValue(GetTypeIdentifier(actualType), serializedValue);
-        }
-
         private void Persist()
         {
             try
             {
                 string filePath = AutoSaveDictionary.getFilePath();
-                Dictionary<string, TypeAndValue> persistedEntries = new(_storageContainer.Count);
-
-                foreach (KeyValuePair<string, object?> entry in _storageContainer)
-                {
-                    persistedEntries[entry.Key] = CreateTypeAnnotatedValue(entry.Value);
-                }
-
-                string contents = JsonSerializer.Serialize(persistedEntries);
+                string contents = JsonSerializer.Serialize(_storageContainer, _serializerOptions);
                 if (!string.IsNullOrEmpty(contents))
                 {
                     File.WriteAllText(filePath, contents);
@@ -205,85 +235,6 @@ namespace PcmHacking.UnoUI.Models
             catch
             {
             }
-        }
-
-        private static object? DeserializePersistedEntry(JsonElement element)
-        {
-            if (TryConvertJsonElementToWrapper(element, out TypeAndValue? wrapper))
-            {
-                return DeserializeWrapper(wrapper);
-            }
-
-            try
-            {
-                return element.Deserialize<object?>();
-            }
-            catch
-            {
-                return null;
-            }
-        }
-
-        private static bool TryConvertJsonElementToWrapper(JsonElement element, [NotNullWhen(true)] out TypeAndValue? typeAndValue)
-        {
-            if (element.ValueKind != JsonValueKind.Object)
-            {
-                typeAndValue = null;
-                return false;
-            }
-
-            string? typeName = null;
-            JsonElement? valueElement = null;
-
-            if (element.TryGetProperty(nameof(TypeAndValue.Type), out JsonElement typeProperty))
-            {
-                typeName = typeProperty.GetString();
-            }
-
-            if (element.TryGetProperty(nameof(TypeAndValue.Value), out JsonElement valueProperty))
-            {
-                valueElement = valueProperty;
-            }
-
-            if (typeName is null && valueElement is null)
-            {
-                typeAndValue = null;
-                return false;
-            }
-
-            typeAndValue = new TypeAndValue(typeName, valueElement);
-            return true;
-        }
-
-        private static object? DeserializeWrapper(TypeAndValue wrapper)
-        {
-            if (wrapper.Value is null)
-            {
-                return null;
-            }
-
-            Type? targetType = null;
-
-            if (!string.IsNullOrWhiteSpace(wrapper.Type))
-            {
-                targetType = Type.GetType(wrapper.Type);
-            }
-
-            targetType ??= typeof(object);
-
-            try
-            {
-                return JsonSerializer.Deserialize(wrapper.Value.Value, targetType);
-            }
-            catch
-            {
-                return wrapper.Value.Value.Deserialize<object?>();
-            }
-        }
-
-        private static string GetTypeIdentifier(Type type)
-        {
-            return type.AssemblyQualifiedName ?? type.FullName ?? type.Name;
         }
 
         private static string getFilePath()
