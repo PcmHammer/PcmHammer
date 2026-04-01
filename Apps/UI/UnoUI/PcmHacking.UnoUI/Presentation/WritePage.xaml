@@ -42,7 +42,7 @@
                      Text="{Binding CustomKey}" 
                      Width="50"
                      IsEnabled="{Binding CustomKeyEnabled, Mode=TwoWay}"
-                     TextChanged="{x:Bind CustomKey_TextChanged}"/>
+                     TextChanged="CustomKey_TextChanged"/>
         </StackPanel>
 
         <CheckBox Grid.Row="1" Grid.Column="1" 

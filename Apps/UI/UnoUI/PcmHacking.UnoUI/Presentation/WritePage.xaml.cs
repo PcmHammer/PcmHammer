@@ -59,7 +59,9 @@ namespace PcmHacking.UnoUI.Presentation
 
         private Task OnUserLogChanged(CancellationToken cancellationToken)
         {
-            this.DispatcherQueue.TryEnqueue(() =>
+            // Copilot/Claude thinks that running this at a low priority will reduce race conditions.
+            // Not sure if that's true but it's worth a try.
+            this.DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
             {
                 if (this.UserLog.Items.Count > 0)
                 {

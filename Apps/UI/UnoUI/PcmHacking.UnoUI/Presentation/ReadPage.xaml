@@ -43,7 +43,7 @@
                      Text="{Binding CustomKey}" 
                      Width="50"
                      IsEnabled="{Binding CustomKeyEnabled, Mode=TwoWay}"
-                     TextChanged="{x:Bind CustomKey_TextChanged}"/>
+                     TextChanged="CustomKey_TextChanged"/>
         </StackPanel>
 
         <Button Grid.Row="2" Grid.Column="0" Content="Start Reading" Margin="10"
