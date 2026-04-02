@@ -264,3 +264,14 @@ paket-files/
 # Python Tools for Visual Studio (PTVS)
 __pycache__/
 *.pyc
+/Apps/UI/UnoUI/PcmHacking.UnoUI/Assets/BuildFiles/Kernel-BlackBox.bin
+/Apps/UI/UnoUI/PcmHacking.UnoUI/Assets/BuildFiles/Kernel-E54.bin
+/Apps/UI/UnoUI/PcmHacking.UnoUI/Assets/BuildFiles/Kernel-P01.bin
+/Apps/UI/UnoUI/PcmHacking.UnoUI/Assets/BuildFiles/Kernel-P04.bin
+/Apps/UI/UnoUI/PcmHacking.UnoUI/Assets/BuildFiles/Kernel-P04_Early.bin
+/Apps/UI/UnoUI/PcmHacking.UnoUI/Assets/BuildFiles/Kernel-P05.bin
+/Apps/UI/UnoUI/PcmHacking.UnoUI/Assets/BuildFiles/Kernel-P08.bin
+/Apps/UI/UnoUI/PcmHacking.UnoUI/Assets/BuildFiles/Kernel-P10.bin
+/Apps/UI/UnoUI/PcmHacking.UnoUI/Assets/BuildFiles/Kernel-P11.bin
+/Apps/UI/UnoUI/PcmHacking.UnoUI/Assets/BuildFiles/Kernel-P12.bin
+/Apps/UI/UnoUI/PcmHacking.UnoUI/Assets/BuildFiles/Loader-P04.bin
