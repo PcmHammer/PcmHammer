@@ -89,7 +89,7 @@ public partial record MainModel
     {
         ConnectionStates currentState = await this.connectionService.ConnectionState.Value(ct);
         string currentActivity = await this.connectionService.Activity.Value(ct) ?? String.Empty;
-        bool connectionNotActive = currentState != ConnectionStates.Active;
+        bool connectionNotActive = currentState != ConnectionStates.Active || currentState != ConnectionStates.Polling;
         bool justPolling = currentActivity == ConnectionService.PollingActivity;
         bool canGoBack = await this.navigator.CanGoBack();
         bool backButtonEnabled = canGoBack && (connectionNotActive || justPolling);
