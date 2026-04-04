@@ -12,6 +12,16 @@ public sealed partial class MainPage : Page
     private void Page_Loaded(object sender, RoutedEventArgs e)
     {
         XamlRootService.Initialize(this.XamlRoot);
+#if ANDROID
+        if (Android.OS.Build.VERSION.SdkInt >= Android.OS.BuildVersionCodes.R)
+        {
+            var result = global::Android.OS.Environment.IsExternalStorageManager;
+            if (!result)
+            {
+                Droid.MainActivity.RequestFilePermisions();
+            }
+        }
+#endif
     }
 
     public void FrameNavigated(object sender, NavigationEventArgs e)
