@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -150,6 +150,11 @@ namespace PcmHacking
         public int KernelMaxBlockSize { get; private set; }
 
         /// <summary>
+        /// If false, writes must be blocked when a boot-sector write is required.
+        /// </summary>
+        public bool IsSupportedWriteBootSector { get; private set; }
+
+        /// <summary>
         /// Populate this object based on the given PcmType.
         /// </summary>
         public bool PCMInfo(PcmType pcmType)
@@ -159,6 +164,7 @@ namespace PcmHacking
             this.IsSupportedWrite = false;
             this.IsSupportedWriteSlaveCPU = false;
             this.IsSupportedWriteBySegment = false;
+            this.IsSupportedWriteBootSector = true;
             this.Description = "Not Set";
             this.LoaderRequired = false;
             this.HardwareType = PcmType.Undefined;
@@ -175,6 +181,7 @@ namespace PcmHacking
             this.FlashIDSupport = false;
             this.KernelVersionSupport = false;
             this.KernelMaxBlockSize = 4096;
+
 
             switch (pcmType)
             {
@@ -260,11 +267,12 @@ namespace PcmHacking
                     this.Description = "P05 (VPW)";
                     this.HardwareType = PcmType.P05;
                     this.HardwareSlaveCPU = false;
-                    this.IsSupported = false;
+                    this.IsSupported = true;
                     this.IsSupportedRead = true;
                     this.IsSupportedWrite = true;
                     this.IsSupportedWriteSlaveCPU = false;
                     this.IsSupportedWriteBySegment = false;
+                    this.IsSupportedWriteBootSector = false;
                     this.LoaderRequired = false;
                     this.KernelFileName = "Kernel-P05.bin";
                     this.KernelBaseAddress = 0xFFC100;
@@ -335,6 +343,7 @@ namespace PcmHacking
                     this.IsSupportedWrite = false;
                     this.IsSupportedWriteSlaveCPU = false;
                     this.IsSupportedWriteBySegment = false;
+                    this.IsSupportedWriteBootSector = false;
                     this.LoaderRequired = false;
                     this.KernelFileName = "Kernel-P11.bin";
                     this.KernelBaseAddress = 0xFFC100;
@@ -357,6 +366,7 @@ namespace PcmHacking
                     this.IsSupportedWrite = true;
                     this.IsSupportedWriteSlaveCPU = false;
                     this.IsSupportedWriteBySegment = true;
+                    this.IsSupportedWriteBootSector = false;
                     this.LoaderRequired = false;
                     this.KernelFileName = "Kernel-P12.bin";
                     this.KernelBaseAddress = 0xFF2000; // or FF0000? https://pcmhacking.net/forums/viewtopic.php?f=42&t=7742&start=450#p115622
@@ -2899,6 +2909,7 @@ namespace PcmHacking
                     break;
                 */
                 case 12597270: // tested on bench as dual protocol can + vpw on 12591279
+                case 12599697: // unknown service number, P05b can+vpw type with AMD
                 case 12608100:
                 case 12612950:
                 case 12619714:

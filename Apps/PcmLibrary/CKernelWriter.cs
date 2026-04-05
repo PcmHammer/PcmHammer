@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -316,6 +316,16 @@ namespace PcmHacking
                     return true;
                 }
 
+                // Preflight policy gate: block before any erase/write if this PCM
+                // does not allow boot-sector writes and boot would be written.
+                if (!this.IsWritePlanAllowedByPcmInfo(flashChip, relevantBlocks))
+                {
+                    this.logger.AddUserMessage("Abort: Boot sector write is required for this operation.");
+                    this.logger.AddUserMessage($"The {this.pcmInfo.HardwareType} boot sector is write protected in hardware and cannot be written.");
+                    await this.vehicle.Cleanup();
+                    return false;
+                }
+
                 // Erase and rewrite the required memory ranges.
                 DateTime startTime = DateTime.Now;
                 UInt32 totalSize = this.GetTotalSize(flashChip, relevantBlocks);
@@ -461,6 +471,41 @@ namespace PcmHacking
             if ((range.Type & relevantBlocks) == 0)
             {
                 return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Check write plan against PCM policy before any erase/write occurs.
+        /// </summary>
+        private bool IsWritePlanAllowedByPcmInfo(FlashChip flashChip, BlockType relevantBlocks)
+        {
+            // Compare and test-write are non-destructive.
+            if (this.writeType == WriteType.Compare || this.writeType == WriteType.TestWrite)
+            {
+                return true;
+            }
+
+            // Allow attempts to write boot sector on PCMs that do not support it
+            if (this.pcmInfo.IsSupportedWriteBootSector)
+            {
+                return true;
+            }
+
+            foreach (MemoryRange range in flashChip.MemoryRanges)
+            {
+                // ShouldProcess means this range is relevant AND differs (for real writes).
+                if (!this.ShouldProcess(range, relevantBlocks))
+                {
+                    continue;
+                }
+
+                // Block attempts to write boot sector on PCMs that do not support it
+                if ((range.Type & BlockType.Boot) != 0)
+                {
+                    return false;
+                }
             }
 
             return true;
