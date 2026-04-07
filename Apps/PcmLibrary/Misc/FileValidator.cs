@@ -1,6 +1,7 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
 
 namespace PcmHacking
@@ -10,6 +11,11 @@ namespace PcmHacking
     /// </summary>
     public class FileValidator
     {
+        /// <summary>
+        /// Known SHA-256 of P11 boot sector bytes [0x000000..0x001FFF].
+        /// </summary>
+        private const string P11BootSectorSha256 = "7c0d299b51356a50b4f9291cbd3869bd1b7b606df21a5d8d4f4f3b3781e4e8d2";
+
         /// <summary>
         /// Names of segments in P01 and P59 operating systems.
         /// </summary>
@@ -45,6 +51,16 @@ namespace PcmHacking
         private readonly byte[] image;
 
         /// <summary>
+        /// Optional forced PCM type used in manual selection mode.
+        /// </summary>
+        private readonly PcmType? forcedType;
+
+        /// <summary>
+        /// Prevent repeating forced-type user message for each signature pass.
+        /// </summary>
+        private bool forcedTypeLogged;
+
+        /// <summary>
         /// For reporting progress and success/fail.
         /// </summary>
         private readonly ILogger logger;
@@ -52,10 +68,12 @@ namespace PcmHacking
         /// <summary>
         /// Constructor.
         /// </summary>
-        public FileValidator(byte[] image, ILogger logger)
+        public FileValidator(byte[] image, ILogger logger, PcmType? forcedType = null)
         {
             this.image = image;
             this.logger = logger;
+            this.forcedType = forcedType;
+            this.forcedTypeLogged = false;
         }
 
         /// <summary>
@@ -90,10 +108,24 @@ namespace PcmHacking
                 return false;
             }
 
-            UInt32 fileOsid = this.GetOsidFromImage();
-            this.logger.AddUserMessage("File operating system ID: " + fileOsid);
+            try
+            {
+                if (!this.TryPrepareValidation(out PcmType type))
+                {
+                    return false;
+                }
 
-            return this.ValidateChecksums();
+                UInt32 fileOsid = this.GetOsidFromImage(type);
+                this.logger.AddUserMessage("File operating system ID: " + fileOsid);
+
+                return this.ValidateChecksums(type);
+            }
+            catch (Exception exception)
+            {
+                this.logger.AddUserMessage("Unable to validate file format/checksums.");
+                this.logger.AddDebugMessage(exception.ToString());
+                return false;
+            }
         }
 
         /// <summary>
@@ -142,82 +174,86 @@ namespace PcmHacking
         /// </summary>
         public uint GetOsidFromImage()
         {
-            UInt32 osid = 0;
-
-            if (image.Length == 256 * 1024 || image.Length == 512 * 1024 || image.Length == 1024 * 1024 || image.Length == 2048 * 1024) // bin valid sizes
+            if (!this.TryPrepareValidation(out PcmType type))
             {
-                PcmType type = this.ValidateSignatures();
-                switch (type)
-                {
-                    case PcmType.P01_P59:
-                        osid = ReadUnsigned(image, 0x504);
-                        break;
-
-                    case PcmType.P04:
-                    case PcmType.P04_Early:
-                        switch (image.Length)
-                        {
-                            case 256 * 1024:
-                                osid = ReadUnsigned(image, 0x3FFFA);
-                                break;
-
-                            case 512 * 1024:
-                                if (image[0x7FFFE] == 0xFF && image[0x7FFFF] == 0xFF)
-                                {
-                                    osid = ReadUnsigned(image, 0x7FFF8); // some 1998 P04 
-                                }
-                                else
-                                {
-                                    osid = ReadUnsigned(image, 0x7FFFA);
-                                }
-                                break;
-                        }
-                        break;
-
-                    case PcmType.P05:
-                        if (ReadUnsigned(image, 0x20882) == 0x012380)
-                        {
-                            logger.AddDebugMessage("P05c Variant, Reading OSID from ASCII at 0x208AA");
-                            osid = ReadAsciiUInt32(image, 0x208AA);
-                        }
-                        else
-                        {
-                            osid = ReadUnsigned(image, 0xFFFFA);
-                        }
-                        break;
-
-                    case PcmType.P08:
-                        osid = ReadUnsigned(image, 0x8000);
-                        break;
-
-                    case PcmType.P10:
-                        osid = ReadUnsigned(image, 0x52E);
-                        break;
-
-                    case PcmType.P11:
-                    case PcmType.P12:
-                        osid = ReadUnsigned(image, 0x8004);
-                        break;
-
-                    case PcmType.E54:
-                    case PcmType.BlackBox:
-                        osid = ReadUnsigned(image, 0x20004);
-                        break;
-                }
+                return 0;
             }
+
+            return this.GetOsidFromImage(type);
+        }
+
+        private uint GetOsidFromImage(PcmType type)
+        {
+            UInt32 osid = 0;
+            switch (type)
+            {
+                case PcmType.P01_P59:
+                    osid = ReadUnsigned(image, 0x504);
+                    break;
+
+                case PcmType.P04:
+                case PcmType.P04_Early:
+                    switch (image.Length)
+                    {
+                        case 256 * 1024:
+                            osid = ReadUnsigned(image, 0x3FFFA);
+                            break;
+
+                        case 512 * 1024:
+                            if (image[0x7FFFE] == 0xFF && image[0x7FFFF] == 0xFF)
+                            {
+                                osid = ReadUnsigned(image, 0x7FFF8); // some 1998 P04 
+                            }
+                            else
+                            {
+                                osid = ReadUnsigned(image, 0x7FFFA);
+                            }
+                            break;
+                    }
+                    break;
+
+                case PcmType.P05:
+                    if (ReadUnsigned(image, 0x20882) == 0x012380)
+                    {
+                        logger.AddDebugMessage("P05c Variant, Reading OSID from ASCII at 0x208AA");
+                        osid = ReadAsciiUInt32(image, 0x208AA);
+                    }
+                    else
+                    {
+                        osid = ReadUnsigned(image, 0xFFFFA);
+                    }
+                    break;
+
+                case PcmType.P08:
+                    osid = ReadUnsigned(image, 0x8000);
+                    break;
+
+                case PcmType.P10:
+                    osid = ReadUnsigned(image, 0x52E);
+                    break;
+
+                case PcmType.P11:
+                case PcmType.P12:
+                    osid = ReadUnsigned(image, 0x8004);
+                    break;
+
+                case PcmType.E54:
+                case PcmType.BlackBox:
+                    osid = ReadUnsigned(image, 0x20004);
+                    break;
+            }
+
             return osid;
         }
 
         /// <summary>
         /// Validate a binary image of a known type
         /// </summary>
-        private bool ValidateChecksums()
+        private bool ValidateChecksums(PcmType type)
         {
             bool success = true;
             UInt32 tableAddress = 0;
             UInt32 segments = 0;
-
-            PcmType type = this.ValidateSignatures();
 
             switch (type)
             {
@@ -283,7 +319,7 @@ namespace PcmHacking
                     break;
                 case PcmType.P11:
                     this.logger.AddUserMessage("\tStart\tEnd\tStored\tNeeded\tVerdict\tSegment Name");
-                    success &= ValidateRangeWordSum(type, 0x0000, 0x7FFFB, 0x8000, "Operating System");
+                    success &= ValidateRangeWordSum(type, 0x0000, 0x7FFFB, 0x8000, "Whole File");
                     break;
                 case PcmType.P12:
                     this.logger.AddUserMessage("\tStart\tEnd\tStored\tNeeded\tVerdict\tSegment Name");
@@ -401,6 +437,17 @@ namespace PcmHacking
         /// </summary>
         private PcmType ValidateSignatures()
         {
+            if (this.forcedType.HasValue && this.forcedType.Value != PcmType.Undefined)
+            {
+                if (!this.forcedTypeLogged)
+                {
+                    this.logger.AddUserMessage("File type forced to " + this.forcedType.Value + " (manual selection).");
+                    this.forcedTypeLogged = true;
+                }
+
+                return this.forcedType.Value;
+            }
+
             // All currently supported bins are 256KiB, 512KiB, 1024KiB or 20248KiB
             if ((image.Length != 256 * 1024) && (image.Length != 512 * 1024) && (image.Length != 1024 * 1024) && (image.Length != 2048 * 1024))
             {
@@ -473,7 +520,8 @@ namespace PcmHacking
                     this.logger.AddUserMessage("File is P04 512KiB.");
                     return PcmType.P04;
                 }
-                this.logger.AddDebugMessage("Trying P10/P11 512KiB");
+
+                this.logger.AddDebugMessage("Trying P10 512KiB");
                 if ((image[0x17FFE] == 0x55) && (image[0x17FFF] == 0x55))
                 {
                     if ((image[0x7FFFC] == 0xA5) && (image[0x7FFFD] == 0x5A) && (image[0x7FFFE] == 0xA5) && (image[0x7FFFF] == 0xA5))
@@ -482,11 +530,6 @@ namespace PcmHacking
                         {
                             this.logger.AddUserMessage("File is P10 512KiB.");
                             return PcmType.P10;
-                        }
-                        if ((image[0x534] == 0xAA) && (image[0x535] == 0xAA))
-                        {
-                            this.logger.AddUserMessage("File is P11 512KiB.");
-                            return PcmType.P11;
                         }
                     }
                 }
@@ -527,6 +570,14 @@ namespace PcmHacking
                         this.logger.AddUserMessage("File is P05 1024KiB.");
                     }
                     return PcmType.P05;
+                }
+
+                // P11 1024KiB (boot-sector SHA-256 identity check).
+                this.logger.AddDebugMessage("Trying P11 1024KiB boot hash");
+                if (this.IsKnownP11BootSector())
+                {
+                    this.logger.AddUserMessage("File is P11 1024KiB.");
+                    return PcmType.P11;
                 }
 
                 this.logger.AddDebugMessage("Trying P12 1024KiB");
@@ -708,14 +759,16 @@ namespace PcmHacking
             // Lookup the start and end of each block, and add it to the sum
             for (UInt32 block = 0; block < blocks; block++)
             {
-                start  = image[index + (block * 8) + 0] << 24;
-                start += image[index + (block * 8) + 1] << 16;
-                start += image[index + (block * 8) + 2] << 8;
-                start += image[index + (block * 8) + 3];
-                end    = image[index + (block * 8) + 4] << 24;
-                end   += image[index + (block * 8) + 5] << 16;
-                end   += image[index + (block * 8) + 6] << 8;
-                end   += image[index + (block * 8) + 7];
+                UInt32 blockOffset = index + (block * 8);
+
+                start  = image[blockOffset + 0] << 24;
+                start += image[blockOffset + 1] << 16;
+                start += image[blockOffset + 2] << 8;
+                start += image[blockOffset + 3];
+                end    = image[blockOffset + 4] << 24;
+                end   += image[blockOffset + 5] << 16;
+                end   += image[blockOffset + 6] << 8;
+                end   += image[blockOffset + 7];
 
                 for (UInt32 address = (UInt32) start; address <= end; address += 2)
                 {
@@ -759,12 +812,13 @@ namespace PcmHacking
             UInt32 start = 0;
             UInt32 end = (UInt32)(image.Length);
             UInt32 sumaddr = 0;
+            bool sumFound = false;
 
             // Thanks Joukoy for Universal Patcher and the idea to use a pattern search for the P04 sum address.
             // Working for all tested 1024KiB (P05)
             if (image.Length == 1024 * 1024)
             {
-                for (UInt32 i = start; i < end; i++)
+                for (UInt32 i = start; (i + 19) < end; i++)
                 {
                     if (image[i] == 0xE0 &&
                     image[i + 1] == 0x8A &&
@@ -784,6 +838,7 @@ namespace PcmHacking
                         sumaddr |= (UInt32)image[i + 18] << 8;
                         sumaddr |= (UInt32)image[i + 19];
                         logger.AddDebugMessage(string.Format("Pattern found at {0:X8}, sum address {1:X8}", i, sumaddr));
+                        sumFound = true;
                         break;
                     }
                 }
@@ -791,7 +846,7 @@ namespace PcmHacking
             else
             {
                 // Working for all tested 256K and 512K
-                for (UInt32 i = start; i < end; i++)
+                for (UInt32 i = start; (i + 19) < end; i++)
                 {
                     if ( image[i    ] == 0x3C &&
                          image[i + 1] == 0x00 &&
@@ -819,9 +874,16 @@ namespace PcmHacking
                         sumaddr |= (UInt32)image[i + 13] << 8;
                         sumaddr |= (UInt32)image[i + 14];
                         logger.AddDebugMessage(string.Format("Pattern found at {0:X8}, sum address {1:X8}", i, sumaddr));
+                        sumFound = true;
                         break;
                     }
                 }
+            }
+
+            if (!sumFound || ((sumaddr + 3) >= this.image.Length))
+            {
+                this.logger.AddUserMessage("Unable to locate a valid checksum pointer for this P04/P05 image.");
+                return false;
             }
 
             storedChecksum  = (UInt32)image[sumaddr] << 24;
@@ -929,6 +991,201 @@ namespace PcmHacking
             }
             this.logger.AddDebugMessage("BUG: ValidateParamBlockP04 called with image of invalid size");
             return false; // unreachable
+        }
+
+        /// <summary>
+        /// Verify type/size/layout once up front so later stages can assume sane offsets.
+        /// </summary>
+        private bool TryPrepareValidation(out PcmType type)
+        {
+            type = this.ValidateSignatures();
+            if (type == PcmType.Undefined)
+            {
+                return false;
+            }
+
+            if (!this.ValidateTypeLayout(type))
+            {
+                this.logger.AddUserMessage("The file structure does not match the selected or detected PCM type.");
+                return false;
+            }
+
+            return true;
+        }
+
+        private bool ValidateTypeLayout(PcmType type)
+        {
+            switch (type)
+            {
+                case PcmType.P01_P59:
+                    return this.HasSize(512 * 1024, 1024 * 1024) &&
+                        this.HasRange(0x504, 4, "P01/P59 OSID") &&
+                        this.HasRange(0x50C, 8 * 8, "P01/P59 segment table");
+
+                case PcmType.P04_Early:
+                    return this.HasSize(256 * 1024, 512 * 1024);
+
+                case PcmType.P04:
+                    return this.HasSize(512 * 1024);
+
+                case PcmType.P05:
+                    return this.HasSize(1024 * 1024) &&
+                        this.HasRange(0x20882, 4, "P05 variant marker") &&
+                        this.HasRange(0xFFFFA, 4, "P05 OSID");
+
+                case PcmType.P08:
+                    return this.HasSize(512 * 1024) &&
+                        this.HasRange(0x8000, 4, "P08 OSID") &&
+                        this.HasRange(0x8004, 2, "P08 checksum");
+
+                case PcmType.P10:
+                    return this.HasSize(512 * 1024) &&
+                        this.HasRange(0x52E, 4, "P10 OSID") &&
+                        this.HasRange(0x546, 5 * 8, "P10 segment table");
+
+                case PcmType.P11:
+                    return this.HasSize(1024 * 1024) &&
+                        this.IsKnownP11BootSector();
+
+                case PcmType.P12:
+                    return this.HasSize(1024 * 1024, 2048 * 1024) &&
+                        this.HasRange(0x8004, 4, "P12 OSID") &&
+                        this.ValidateP12Layout();
+
+                case PcmType.E54:
+                    return this.HasSize(512 * 1024) &&
+                        this.HasRange(0x20004, 4, "E54 OSID");
+
+                case PcmType.BlackBox:
+                    return this.HasSize(512 * 1024) &&
+                        this.HasRange(0x20004, 4, "BlackBox OSID") &&
+                        this.HasRange(0x2000C, 5 * 8, "BlackBox segment table");
+            }
+
+            return false;
+        }
+
+        private bool ValidateP12Layout()
+        {
+            UInt32[] layout = new UInt32[]
+            {
+                0x922, 0x900, 0x94A, 2,
+                0x8022, 0, 0x804A, 2,
+                0x80C4, 0, 0x80E4, 2,
+                0x80F7, 0, 0x8117, 2,
+                0x812A, 0, 0x814A, 2,
+                0x815D, 0, 0x817D, 2,
+                0x805E, 0, 0x807E, 2,
+                0x8091, 0, 0x80B1, 2
+            };
+
+            for (int i = 0; i < layout.Length; i += 4)
+            {
+                UInt32 segment = layout[i];
+                UInt32 offset = layout[i + 1];
+                UInt32 index = layout[i + 2];
+                UInt32 blocks = layout[i + 3];
+
+                if (!this.HasRange(segment, 4, "P12 checksum segment pointer"))
+                {
+                    return false;
+                }
+
+                if (!this.HasRange(index, blocks * 8, "P12 checksum block table"))
+                {
+                    return false;
+                }
+
+                UInt32 sumaddr = this.ReadUnsigned(this.image, segment);
+                if (!this.HasRange(sumaddr + offset, 2, "P12 checksum location"))
+                {
+                    return false;
+                }
+
+                for (UInt32 block = 0; block < blocks; block++)
+                {
+                    UInt32 blockOffset = index + (block * 8);
+                    UInt32 start = this.ReadUnsigned(this.image, blockOffset);
+                    UInt32 end = this.ReadUnsigned(this.image, blockOffset + 4);
+
+                    if (start > end || end >= this.image.Length)
+                    {
+                        this.logger.AddDebugMessage("P12 checksum block range is invalid.");
+                        return false;
+                    }
+                }
+            }
+
+            return true;
+        }
+
+        private bool HasSize(params int[] sizes)
+        {
+            foreach (int size in sizes)
+            {
+                if (this.image.Length == size)
+                {
+                    return true;
+                }
+            }
+
+            this.logger.AddDebugMessage("Unexpected file size for selected/detected type.");
+            return false;
+        }
+
+        private bool HasRange(UInt32 start, UInt32 length, string purpose)
+        {
+            if (length == 0)
+            {
+                return true;
+            }
+
+            UInt64 endExclusive = (UInt64)start + (UInt64)length;
+            if (endExclusive <= (UInt64)this.image.Length)
+            {
+                return true;
+            }
+
+            this.logger.AddDebugMessage($"{purpose} is out of range.");
+            return false;
+        }
+
+        /// <summary>
+        /// Verify the boot sector hash used to positively identify P11 images.
+        /// </summary>
+        private bool IsKnownP11BootSector()
+        {
+            if (!this.HasRange(0x0000, 0x2000, "P11 boot hash range"))
+            {
+                return false;
+            }
+
+            string hash = this.ComputeSha256Hex(0x0000, 0x2000);
+            bool match = string.Equals(hash, P11BootSectorSha256, StringComparison.OrdinalIgnoreCase);
+            if (!match)
+            {
+                this.logger.AddDebugMessage("P11 boot sector hash did not match known value.");
+            }
+
+            return match;
+        }
+
+        private string ComputeSha256Hex(UInt32 offset, UInt32 length)
+        {
+            byte[] segment = new byte[(int)length];
+            Buffer.BlockCopy(this.image, (int)offset, segment, 0, (int)length);
+
+            using (SHA256 sha256 = SHA256.Create())
+            {
+                byte[] hash = sha256.ComputeHash(segment);
+                StringBuilder builder = new StringBuilder(hash.Length * 2);
+                for (int i = 0; i < hash.Length; i++)
+                {
+                    builder.Append(hash[i].ToString("x2"));
+                }
+
+                return builder.ToString();
+            }
         }
     }
 }

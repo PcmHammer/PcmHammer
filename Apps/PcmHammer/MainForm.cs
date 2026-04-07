@@ -1,4 +1,4 @@
-﻿using CommandLine;
+using CommandLine;
 using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
@@ -657,9 +657,10 @@ namespace PcmHacking
             this.userDefinedKeyToolStripMenuItem.Enabled = false;
 
             this.readPropertiesButton.Enabled = false;
-
-            this.testWriteButton.Enabled = false;
+            this.readPcmButton.Enabled = false;
             this.writeCalibrationButton.Enabled = false;
+            this.testWriteButton.Enabled = false;
+            this.verifyPcmButton.Enabled = false;
             this.exitKernelButton.Enabled = false;
             this.reinitializeButton.Enabled = false;
         }
@@ -688,9 +689,10 @@ namespace PcmHacking
                 this.userDefinedKeyToolStripMenuItem.Enabled = true;
 
                 this.readPropertiesButton.Enabled = true;
-
-                this.testWriteButton.Enabled = true;
+                this.readPcmButton.Enabled = true;
                 this.writeCalibrationButton.Enabled = true;
+                this.testWriteButton.Enabled = true;
+                this.verifyPcmButton.Enabled = true;
                 this.exitKernelButton.Enabled = true;
                 this.reinitializeButton.Enabled = true;
             });
@@ -971,9 +973,58 @@ namespace PcmHacking
         {
             if (!BackgroundWorker.IsAlive)
             {
-                BackgroundWorker = new System.Threading.Thread(() => readFullContents_BackgroundThread());
+                this.StartOperationFromDialog(false, WriteType.Full);
+            }
+        }
+
+        private void StartOperationFromDialog(bool defaultIsWrite, WriteType defaultWriteType)
+        {
+            using (OperationSelectionDialogBox dialog = new OperationSelectionDialogBox(defaultIsWrite, defaultWriteType))
+            {
+                DialogResult result = dialog.ShowDialog(this);
+                if (result != DialogResult.OK || dialog.Selection == null)
+                {
+                    return;
+                }
+
+                OperationSelection selection = dialog.Selection;
+
+                if (selection.IsWrite)
+                {
+                    if (!ConfirmBeforeWrite(this.GetWriteConfirmationText(selection.WriteType)))
+                    {
+                        return;
+                    }
+
+                    BackgroundWorker = new System.Threading.Thread(
+                        () => write_BackgroundThread(selection.WriteType, null, selection.UseAutoPcmType, selection.SelectedPcmType));
+                }
+                else
+                {
+                    BackgroundWorker = new System.Threading.Thread(
+                        () => readFullContents_BackgroundThread(selection.UseAutoPcmType, selection.SelectedPcmType));
+                }
+
                 BackgroundWorker.IsBackground = true;
                 BackgroundWorker.Start();
+            }
+        }
+
+        private string GetWriteConfirmationText(WriteType writeType)
+        {
+            switch (writeType)
+            {
+                case WriteType.Parameters:
+                    return "This will update the parameter block on your PCM.";
+
+                case WriteType.OsPlusCalibrationPlusBoot:
+                    return "This will replace the operating system and calibration on your PCM.";
+
+                case WriteType.Full:
+                    return "This will replace the contents of the flash memory on your PCM.";
+
+                default:
+                    return "This will update your PCM.";
             }
         }
 
@@ -1029,12 +1080,7 @@ namespace PcmHacking
         {
             if (!BackgroundWorker.IsAlive)
             {
-                if (ConfirmBeforeWrite("This will update the calibration on your PCM."))
-                { 
-                    BackgroundWorker = new System.Threading.Thread(() => write_BackgroundThread(WriteType.Calibration));
-                    BackgroundWorker.IsBackground = true;
-                    BackgroundWorker.Start();
-                }
+                this.StartOperationFromDialog(true, WriteType.OsPlusCalibrationPlusBoot);
             }
         }
 
@@ -1045,12 +1091,7 @@ namespace PcmHacking
         {
             if (!BackgroundWorker.IsAlive)
             {
-                if (ConfirmBeforeWrite("This will update the parameter block on your PCM."))
-                {
-                    BackgroundWorker = new System.Threading.Thread(() => write_BackgroundThread(WriteType.Parameters));
-                    BackgroundWorker.IsBackground = true;
-                    BackgroundWorker.Start();
-                }
+                this.StartOperationFromDialog(true, WriteType.Parameters);
             }
         }
 
@@ -1061,12 +1102,7 @@ namespace PcmHacking
         {
             if (!BackgroundWorker.IsAlive)
             {
-                if (ConfirmBeforeWrite("This will replace the operating system and calibration on your PCM."))
-                {
-                    BackgroundWorker = new System.Threading.Thread(() => write_BackgroundThread(WriteType.OsPlusCalibrationPlusBoot));
-                    BackgroundWorker.IsBackground = true;
-                    BackgroundWorker.Start();
-                }
+                this.StartOperationFromDialog(true, WriteType.OsPlusCalibrationPlusBoot);
             }
         }
 
@@ -1077,12 +1113,7 @@ namespace PcmHacking
         {
             if (!BackgroundWorker.IsAlive)
             {
-                if (ConfirmBeforeWrite("This will replace the contents of the flash memory on your PCM."))
-                { 
-                    BackgroundWorker = new System.Threading.Thread(() => write_BackgroundThread(WriteType.Full));
-                    BackgroundWorker.IsBackground = true;
-                    BackgroundWorker.Start();
-                }
+                this.StartOperationFromDialog(true, WriteType.Full);
             }
         }
 
@@ -1149,7 +1180,7 @@ namespace PcmHacking
         /// <summary>
         /// Read the entire contents of the flash.
         /// </summary>
-        private async void readFullContents_BackgroundThread()
+        private async void readFullContents_BackgroundThread(bool useAutoPcmType = true, PcmType selectedPcmType = PcmType.Undefined)
         {
             using (new AwayMode())
             {
@@ -1198,49 +1229,38 @@ namespace PcmHacking
 
                     this.cancellationTokenSource = new CancellationTokenSource();
 
-                    this.AddUserMessage("Querying operating system of current PCM.");
-                    Response<uint> osidResponse = await this.Vehicle.QueryOperatingSystemId(this.cancellationTokenSource.Token);
-                    if (osidResponse.Status != ResponseStatus.Success)
+                    OSIDInfo pcmInfo;
+                    if (!useAutoPcmType)
                     {
-                        this.AddUserMessage("Operating system query failed, will retry: " + osidResponse.Status);
-                        await this.Vehicle.ExitKernel();
-
-                        osidResponse = await this.Vehicle.QueryOperatingSystemId(this.cancellationTokenSource.Token);
+                        pcmInfo = new OSIDInfo(selectedPcmType);
+                        this.AddUserMessage("Using manually selected PCM type: " + pcmInfo.HardwareType);
+                    }
+                    else
+                    {
+                        this.AddUserMessage("Querying operating system of current PCM.");
+                        Response<uint> osidResponse = await this.Vehicle.QueryOperatingSystemId(this.cancellationTokenSource.Token);
                         if (osidResponse.Status != ResponseStatus.Success)
                         {
-                            this.AddUserMessage("Operating system query failed: " + osidResponse.Status);
-                        }
-                    }
+                            this.AddUserMessage("Operating system query failed, will retry: " + osidResponse.Status);
+                            await this.Vehicle.ExitKernel();
 
-                    OSIDInfo pcmInfo;
-                    if (osidResponse.Status == ResponseStatus.Success)
-                    {
+                            osidResponse = await this.Vehicle.QueryOperatingSystemId(this.cancellationTokenSource.Token);
+                            if (osidResponse.Status != ResponseStatus.Success)
+                            {
+                                this.AddUserMessage("Operating system query failed: " + osidResponse.Status);
+                            }
+                        }
+
+                        if (osidResponse.Status != ResponseStatus.Success)
+                        {
+                            this.AddUserMessage("Unable to determine PCM type automatically. Choose a manual PCM type from the operation dialog.");
+                            return;
+                        }
+
                         // Look up the information about this PCM, based on the OSID;
                         this.AddUserMessage("OSID: " + osidResponse.Value);
                         pcmInfo = new OSIDInfo(osidResponse.Value);
                         this.AddUserMessage("Description: " + pcmInfo.Description);
-                    }
-                    else
-                    {
-                        this.AddUserMessage("Unable to get operating system ID. Will assume this can be unlocked with the default seed/key algorithm.");
-
-                        UInt32 OperatingSystemId = 0;
-
-                        await Vehicle.ForceSendToolPresentNotification();
-                        this.Invoke((MethodInvoker)delegate ()
-                        {
-                            OperatingSystemIDDialogBox osDialog = new OperatingSystemIDDialogBox();
-                            DialogResult dialogResult = osDialog.ShowDialog();
-                            if (dialogResult == DialogResult.OK)
-                            {
-                                OperatingSystemId = osDialog.OperatingSystemId;
-                            }
-                        });
-                        await Vehicle.ForceSendToolPresentNotification();
-
-                        pcmInfo = new OSIDInfo(OperatingSystemId); // osid
-
-                        AddUserMessage($"Using OsID: {pcmInfo.OSID}");
                     }
 
                     // Pre flight checks to block invalid write operations by PCM type.
@@ -1360,7 +1380,7 @@ namespace PcmHacking
         /// <summary>
         /// Write changes to the PCM's flash memory.
         /// </summary>
-        private async void write_BackgroundThread(WriteType writeType, string path = null)
+        private async void write_BackgroundThread(WriteType writeType, string path = null, bool useAutoPcmType = true, PcmType selectedPcmType = PcmType.Undefined)
         {
             using (new AwayMode())
             {
@@ -1433,7 +1453,8 @@ namespace PcmHacking
                     }
 
                     // Sanity checks. 
-                    FileValidator validator = new FileValidator(image, this);
+                    PcmType? forcedFileType = useAutoPcmType ? (PcmType?)null : selectedPcmType;
+                    FileValidator validator = new FileValidator(image, this, forcedFileType);
                     if (!validator.IsValid())
                     {
                         this.AddUserMessage("This file is corrupt or its format is unknown to PCMHammer. It would render your PCM unusable.");
@@ -1450,86 +1471,97 @@ namespace PcmHacking
                         (writeType != WriteType.Full) &&
                         (writeType != WriteType.TestWrite);
 
-                    this.AddUserMessage("Requesting operating system ID...");
-                    Response<uint> osidResponse = await this.Vehicle.QueryOperatingSystemId(this.cancellationTokenSource.Token);
-                    if (osidResponse.Status == ResponseStatus.Success)
+                    if (!useAutoPcmType)
                     {
-                        pcmInfo = new OSIDInfo(osidResponse.Value);
+                        pcmInfo = new OSIDInfo(selectedPcmType);
                         keyAlgorithm = pcmInfo.KeyAlgorithm;
                         needUnlock = true;
-
-                        if (!validator.IsSameHardware(osidResponse.Value))
-                        {
-                            return;
-                        }
-
-                        if (!validator.IsSameOperatingSystem(osidResponse.Value))
-                        {
-                            Utility.ReportOperatingSystems(validator.GetOsidFromImage(), osidResponse.Value, writeType, this, out shouldHalt);
-                            if (shouldHalt)
-                            {
-                                return;
-                            }
-                        }
-
                         needToCheckOperatingSystem = false;
+                        this.AddUserMessage("Using manually selected PCM type: " + pcmInfo.HardwareType);
                     }
                     else
                     {
-                        if (this.cancellationTokenSource.Token.IsCancellationRequested)
+                        this.AddUserMessage("Requesting operating system ID...");
+                        Response<uint> osidResponse = await this.Vehicle.QueryOperatingSystemId(this.cancellationTokenSource.Token);
+                        if (osidResponse.Status == ResponseStatus.Success)
                         {
-                            return;
-                        }
+                            pcmInfo = new OSIDInfo(osidResponse.Value);
+                            keyAlgorithm = pcmInfo.KeyAlgorithm;
+                            needUnlock = true;
 
-                        this.AddUserMessage("Operating system request failed, checking for a live kernel...");
-
-                        kernelVersion = await this.Vehicle.GetKernelVersion();
-                        if (kernelVersion == 0)
-                        {
-                            this.AddUserMessage("Checking for recovery mode...");
-                            bool recoveryMode = await this.Vehicle.IsInRecoveryMode();
-
-                            if (recoveryMode)
+                            if (!validator.IsSameHardware(osidResponse.Value))
                             {
-                                this.AddUserMessage("PCM is in recovery mode.");
-                                needUnlock = false;
+                                return;
                             }
-                            else
+
+                            if (!validator.IsSameOperatingSystem(osidResponse.Value))
                             {
-                                this.AddUserMessage("PCM is not responding to OSID, kernel version, or recovery mode checks.");
-                                this.AddUserMessage("Unlock may not work, but we'll try...");
-                                needUnlock = true;
-                            }
-                            pcmInfo = new OSIDInfo(validator.GetOsidFromImage()); // Prevent Null Reference Exceptions from breaking Recovery Mode
-                        }
-                        else
-                        {
-                            needUnlock = false;
-
-                            this.AddUserMessage("Kernel version: " + kernelVersion.ToString("X8"));
-
-                            this.AddUserMessage("Asking kernel for the PCM's operating system ID...");
-
-                            if (needToCheckOperatingSystem)
-                            {
-                                osidResponse = await this.Vehicle.QueryOperatingSystemIdFromKernel(this.cancellationTokenSource.Token);
-                                if (osidResponse.Status != ResponseStatus.Success)
-                                {
-                                    // The kernel seems broken. This shouldn't happen, but if it does, halt.
-                                    this.AddUserMessage("The kernel did not respond to operating system ID query.");
-                                    return;
-                                }
-
                                 Utility.ReportOperatingSystems(validator.GetOsidFromImage(), osidResponse.Value, writeType, this, out shouldHalt);
                                 if (shouldHalt)
                                 {
                                     return;
                                 }
-
-                                pcmInfo = new OSIDInfo(osidResponse.Value);
                             }
 
                             needToCheckOperatingSystem = false;
+                        }
+                        else
+                        {
+                            if (this.cancellationTokenSource.Token.IsCancellationRequested)
+                            {
+                                return;
+                            }
+
+                            this.AddUserMessage("Operating system request failed, checking for a live kernel...");
+
+                            kernelVersion = await this.Vehicle.GetKernelVersion();
+                            if (kernelVersion == 0)
+                            {
+                                this.AddUserMessage("Checking for recovery mode...");
+                                bool recoveryMode = await this.Vehicle.IsInRecoveryMode();
+
+                                if (recoveryMode)
+                                {
+                                    this.AddUserMessage("PCM is in recovery mode.");
+                                    needUnlock = false;
+                                }
+                                else
+                                {
+                                    this.AddUserMessage("PCM is not responding to OSID, kernel version, or recovery mode checks.");
+                                    this.AddUserMessage("Unlock may not work, but we'll try...");
+                                    needUnlock = true;
+                                }
+                                pcmInfo = new OSIDInfo(validator.GetOsidFromImage()); // Prevent Null Reference Exceptions from breaking Recovery Mode
+                            }
+                            else
+                            {
+                                needUnlock = false;
+
+                                this.AddUserMessage("Kernel version: " + kernelVersion.ToString("X8"));
+
+                                this.AddUserMessage("Asking kernel for the PCM's operating system ID...");
+
+                                if (needToCheckOperatingSystem)
+                                {
+                                    osidResponse = await this.Vehicle.QueryOperatingSystemIdFromKernel(this.cancellationTokenSource.Token);
+                                    if (osidResponse.Status != ResponseStatus.Success)
+                                    {
+                                        // The kernel seems broken. This shouldn't happen, but if it does, halt.
+                                        this.AddUserMessage("The kernel did not respond to operating system ID query.");
+                                        return;
+                                    }
+
+                                    Utility.ReportOperatingSystems(validator.GetOsidFromImage(), osidResponse.Value, writeType, this, out shouldHalt);
+                                    if (shouldHalt)
+                                    {
+                                        return;
+                                    }
+
+                                    pcmInfo = new OSIDInfo(osidResponse.Value);
+                                }
+
+                                needToCheckOperatingSystem = false;
+                            }
                         }
                     }
 
@@ -1615,7 +1647,7 @@ namespace PcmHacking
                     // This will suppress the scary warnings prior to writing.
                     Configuration.Settings.ConnectionVerified = true;
                 }
-                catch (IOException exception)
+                catch (Exception exception)
                 {
                     this.AddUserMessage(exception.ToString());
                 }

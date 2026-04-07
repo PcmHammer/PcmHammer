@@ -338,21 +338,21 @@ namespace PcmHacking
                     this.Description = "P11";
                     this.HardwareType = PcmType.P11;
                     this.HardwareSlaveCPU = false;
-                    this.IsSupported = false;
+                    this.IsSupported = true;
                     this.IsSupportedRead = true;
-                    this.IsSupportedWrite = false;
+                    this.IsSupportedWrite = true;
                     this.IsSupportedWriteSlaveCPU = false;
-                    this.IsSupportedWriteBySegment = false;
+                    this.IsSupportedWriteBySegment = true;
                     this.IsSupportedWriteBootSector = false;
                     this.LoaderRequired = false;
                     this.KernelFileName = "Kernel-P11.bin";
-                    this.KernelBaseAddress = 0xFFC100;
+                    this.KernelBaseAddress = 0xFFC000;
                     this.ImageBaseAddress = 0x0;
                     this.ImageSize = 1024 * 1024;
-                    this.KeyAlgorithm = 0x35;
+                    this.KeyAlgorithm = 0x0D;
                     this.ChecksumSupport = true;
                     this.FlashCRCSupport = true;
-                    this.FlashIDSupport = true;
+                    //this.FlashIDSupport = true;
                     this.KernelVersionSupport = true;
                     this.KernelMaxBlockSize = 4096;
                     break;
@@ -442,6 +442,15 @@ namespace PcmHacking
                 default: return false;
             }
             return true;
+        }
+
+        /// <summary>
+        /// Populate this object based on the given PCM type.
+        /// </summary>
+        public OSIDInfo(PcmType pcmType)
+        {
+            this.OSID = 0;
+            this.PCMInfo(pcmType);
         }
 
         /// <summary>
@@ -3029,7 +3038,7 @@ namespace PcmHacking
                     this.ServiceNumber = 9356249;
                     break;
 
-                // P08s of unknown service number
+                // P08s of unknown service number (includes some P11) :(
                 case 9351290:
                 case 9351297:
                 case 9351321:
@@ -3086,7 +3095,6 @@ namespace PcmHacking
                 case 12216568:
                 case 12217195:
                 case 12218876:
-                case 12218878:
                 case 12221098:
                 case 12222110:
                 case 12222131:
@@ -3133,9 +3141,10 @@ namespace PcmHacking
                     this.ServiceNumber = 12574976;
                     break;
 
+                case 12218878: // Antus' P11
                 case 12593523: // https://pcmhacking.net/forums/viewtopic.php?p=120275#p120275
                     PCMInfo(PcmType.P11);
-                    this.Description = "P11 Service No ?";
+                    this.Description = "P11 Service No 12210553";
                     this.ServiceNumber = 0;
                     break;
 

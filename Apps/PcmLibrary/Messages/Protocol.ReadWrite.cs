@@ -60,6 +60,7 @@ namespace PcmHacking
             switch (info.HardwareType)
             {
                 case PcmType.P10:
+                case PcmType.P11:
                 case PcmType.P12:
                     byte[] requestBytesP12 = { Priority.Physical0, DeviceId.Pcm, DeviceId.Tool, Mode.PCMUploadRequest };
                     return new Message(requestBytesP12);
