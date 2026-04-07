@@ -18,7 +18,7 @@ jobs:
 
     steps:
     - name: Checkout Code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
 
     - name: Update Package Repository
       run: sudo apt-get update
@@ -86,7 +86,7 @@ jobs:
         done
 
     - name: Upload artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: Kernels_${{github.sha}}
         path: TemporaryArtifactStorage
@@ -96,25 +96,25 @@ jobs:
     runs-on: windows-2025
     steps:
     - name: Checkout Code
-      uses: actions/checkout@v4.1.7
+      uses: actions/checkout@v6
 
     - name: Setup MSBuild Path
-      uses: microsoft/setup-msbuild@v2.0.0
+      uses: microsoft/setup-msbuild@v3
 
     - name: Setup NuGet
-      uses: NuGet/setup-nuget@v2.0.0
+      uses: NuGet/setup-nuget@v3
 
     - name: Restore NuGet Packages
       run: nuget restore Apps/PcmApps.sln
 
     - name: Download Kernels artifact
-      uses: actions/download-artifact@v4.1.8
+      uses: actions/download-artifact@v8
       with:
         name: Kernels_${{github.sha}}
         path: TemporaryArtifactStorage
 
     - name: Remove Stale Kernels artifact
-      uses: geekyeggo/delete-artifact@v5.1.0
+      uses: geekyeggo/delete-artifact@v6
       with:
         name: Kernels_${{github.sha}}
 
@@ -150,8 +150,7 @@ jobs:
       run: ls -l TemporaryArtifactStorage/
 
     - name: Upload artifacts
-      uses: actions/upload-artifact@v4.4.0
+      uses: actions/upload-artifact@v7
       with:
         name: PCMHacks_${{github.sha}}
         path: TemporaryArtifactStorage
-
