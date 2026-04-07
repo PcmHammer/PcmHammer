@@ -11,9 +11,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 
-using System.Xml.Linq;
-
-
 namespace PcmHacking
 { 
     public class CanLogger : IDisposable
@@ -36,18 +33,17 @@ namespace PcmHacking
             public override string ToString()
             {
                 return $"{this.Parameter.Name}, {this.ValueAsString} {this.Units}";
-                return $"{this.Parameter.Name}, {this.ValueAsString} {this.Units}";
             }
         }
 
         private readonly ParameterDatabase parameterDatabase;
         private readonly ILogger logger;
 
-        private IPort canPort;
+        private IPort? canPort;
         private CanParser parser = new CanParser();
         Dictionary<UInt32, Dictionary<string, ParameterAndValue>> snapshot = new Dictionary<UInt32, Dictionary<string, ParameterAndValue>>();
-        IEnumerable<UInt32> sortedMessageIds;
-        Dictionary<UInt32, IEnumerable<string>> sortedParameterIds;
+        IEnumerable<UInt32> sortedMessageIds = Enumerable.Empty<UInt32>();
+        Dictionary<UInt32, IEnumerable<string>> sortedParameterIds = new Dictionary<UInt32, IEnumerable<string>>();
 
         // Note that this is accessed by multiple threads, so it must only be used within "lock(messages)"
         Dictionary<UInt32, Dictionary<string, List<ParameterAndValue>>> messages = new Dictionary<UInt32, Dictionary<string, List<ParameterAndValue>>>();
@@ -162,7 +158,7 @@ namespace PcmHacking
                 Dictionary<string, ParameterAndValue> temp = new Dictionary<string, ParameterAndValue>();
                 foreach(CanParameter parameter in canParameters[messageId])
                 {
-                    temp[parameter.Id] = new ParameterAndValue(parameter, parameter.SelectedConversion.Units, "0", 0);
+                    temp[parameter.Id] = new ParameterAndValue(parameter, parameter.SelectedConversion?.Units ?? String.Empty, "0", 0);
                 }
                 this.snapshot[messageId] = temp;
             }
@@ -462,6 +458,10 @@ namespace PcmHacking
                         }
                         else
                         {
+                            // The obvious fix would be to make the parameter nullable, but when this function returns true
+                            // the out parameter is guaranteed to be non-null, so it is cleaner to just return false here
+                            // and not have to deal with nullability in the calling code. 
+#pragma warning disable CS8625 // Cannot convert null literal to non-nullable reference type.
                             parameterAndValue = null;
                             return false;
                         }
@@ -477,6 +477,7 @@ namespace PcmHacking
                     parameterAndValue = null;
                     return false;
                 }
+#pragma warning restore CS8625 // Cannot convert null literal to non-nullable reference type.
             }
         }
 
@@ -484,7 +485,12 @@ namespace PcmHacking
         {
             if (receivedList.Count == 0)
             {
+                // The obvious fix would be to make the parameter nullable, but when this function returns true
+                // the out parameter is guaranteed to be non-null, so it is cleaner to just return false here
+                // and not have to deal with nullability in the calling code. 
+#pragma warning disable CS8625 // Cannot convert null literal to non-nullable reference type.
                 parameterAndValue = null;
+#pragma warning restore CS8625 // Cannot convert null literal to non-nullable reference type.
                 return false;
             }
 
