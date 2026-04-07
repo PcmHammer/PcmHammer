@@ -1,4 +1,5 @@
 ﻿using DynamicExpresso;
+using DynamicExpresso;
 using PcmHacking;
 using System;
 using System.Collections.Generic;
@@ -11,13 +12,29 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 
+using System.Xml.Linq;
+
 
 namespace PcmHacking
+{ 
 { 
     public class CanLogger : IDisposable
     {
         public class ParameterAndValue
+        public class ParameterAndValue
         {
+            public CanParameter Parameter { get; private set; }
+            public string Units { get; private set; }
+            public string ValueAsString { get; private set; }
+            public double ValueAsNumber { get; private set; }
+
+            public ParameterAndValue(CanParameter parameter, string units, string valueAsString, double valueAsNumber)
+            {
+                this.Parameter = parameter;
+                this.Units = units;
+                this.ValueAsString = valueAsString;
+                this.ValueAsNumber = valueAsNumber;
+            }
             public CanParameter Parameter { get; private set; }
             public string Units { get; private set; }
             public string ValueAsString { get; private set; }
@@ -34,8 +51,12 @@ namespace PcmHacking
             public override string ToString()
             {
                 return $"{this.Parameter.Name}, {this.ValueAsString} {this.Units}";
+                return $"{this.Parameter.Name}, {this.ValueAsString} {this.Units}";
             }
         }
+
+        private readonly ParameterDatabase parameterDatabase;
+        private readonly ILogger logger;
 
         private IPort canPort;
         private CanParser parser = new CanParser();
@@ -48,10 +69,13 @@ namespace PcmHacking
 
         // Note that this is accessed by multiple threads, so it must only be used within "lock(messages)"
         Dictionary<UInt32, Dictionary<string, List<ParameterAndValue>>> messages = new Dictionary<UInt32, Dictionary<string, List<ParameterAndValue>>>();
+        Dictionary<UInt32, Dictionary<string, List<ParameterAndValue>>> messages = new Dictionary<UInt32, Dictionary<string, List<ParameterAndValue>>>();
 
+        public CanLogger(ParameterDatabase parameterDatabase, ILogger logger)
         public CanLogger(ParameterDatabase parameterDatabase, ILogger logger)
         {
             this.parameterDatabase = parameterDatabase;
+            this.logger = logger;
             this.logger = logger;
         }
 
@@ -177,10 +201,29 @@ namespace PcmHacking
                     IEnumerable<ParameterAndValue> results = this.TranslateValue(message);
 
                     lock (this.messages)
+                    IEnumerable<ParameterAndValue> results = this.TranslateValue(message);
+
+                    lock (this.messages)
                     {
                         Dictionary<string, List<ParameterAndValue>> parameters;
                         if (!this.messages.TryGetValue(message.MessageId, out parameters))
+                        Dictionary<string, List<ParameterAndValue>> parameters;
+                        if (!this.messages.TryGetValue(message.MessageId, out parameters))
                         {
+                            parameters = new Dictionary<string, List<ParameterAndValue>>();
+                            this.messages[message.MessageId] = parameters;
+                        }
+
+                        foreach (ParameterAndValue pv in results)
+                        {
+                            List<ParameterAndValue> list;
+                            if (!parameters.TryGetValue(pv.Parameter.Id, out list))
+                            {
+                                list = new List<ParameterAndValue>();
+                                parameters[pv.Parameter.Id] = list;
+                            }
+
+                            list.Add(pv);
                             parameters = new Dictionary<string, List<ParameterAndValue>>();
                             this.messages[message.MessageId] = parameters;
                         }
@@ -202,8 +245,11 @@ namespace PcmHacking
         }
 
         private IEnumerable<ParameterAndValue> TranslateValue(CanMessage message)
+        private IEnumerable<ParameterAndValue> TranslateValue(CanMessage message)
         {
             IReadOnlyDictionary<UInt32, IEnumerable<CanParameter>> canParameters = this.parameterDatabase.GetCanParameters();
+            IEnumerable<CanParameter> parameters;            
+            
             IEnumerable<CanParameter> parameters;            
             
             if (!canParameters.TryGetValue(message.MessageId, out parameters))
@@ -232,11 +278,39 @@ namespace PcmHacking
                 if (message.Payload.Length > 0)
                 {
                     valueAsString = valueAsNumber.ToString("X8");
+                string name = message.MessageId.ToString("X8");
+                CanParameter placeholderParameter = new CanParameter(
+                    message.MessageId,
+                    0,
+                    0,
+                    true,
+                    name,
+                    name,
+                    string.Empty,
+                    new Conversion[0],
+                    Aggregation.Last);
+
+                string valueAsString;
+                ulong valueAsNumber = 0;
+                
+                for (int byteIndex = 0; byteIndex < message.Payload.Length; byteIndex++)
+                {
+                    valueAsNumber <<= 8;
+                    valueAsNumber |= message.Payload[byteIndex];
+                }
+
+                if (message.Payload.Length > 0)
+                {
+                    valueAsString = valueAsNumber.ToString("X8");
                 }
                 else
                 {
                     valueAsString = "Empty";
+                    valueAsString = "Empty";
                 }
+
+                ParameterAndValue result = new ParameterAndValue(placeholderParameter, "raw", valueAsString, valueAsNumber);
+                yield return result;
 
                 ParameterAndValue result = new ParameterAndValue(placeholderParameter, "raw", valueAsString, valueAsNumber);
                 yield return result;
@@ -249,8 +323,16 @@ namespace PcmHacking
                 foreach (CanParameter parameter in parameters)
                 {                    
                     switch (parameter.ByteCount)
+                string valueAsString = String.Empty;
+                double valueAsNumber = 0;
+
+                foreach (CanParameter parameter in parameters)
+                {                    
+                    switch (parameter.ByteCount)
                     {
                         case 0:
+                            valueAsString = "Event";
+                            valueAsNumber = 0;
                             valueAsString = "Event";
                             valueAsNumber = 0;
                             break;
@@ -285,6 +367,7 @@ namespace PcmHacking
                             else
                             {
                                 valueAsNumber = 0;
+                                valueAsNumber = 0;
                             }
                             break;
 
@@ -308,6 +391,7 @@ namespace PcmHacking
                             }
                             else
                             {
+                                valueAsNumber = 0;
                                 valueAsNumber = 0;
                             }
                             break;
@@ -334,6 +418,7 @@ namespace PcmHacking
                             }
                             else
                             {
+                                valueAsNumber = 0;
                                 valueAsNumber = 0;
                             }
                             break;
@@ -381,6 +466,8 @@ namespace PcmHacking
                     ParameterAndValue parameterAndValue;
                     if (this.TryGetParameter(messageId, parameterId, out parameterAndValue))
                     {
+                        parameterCacheForThisMessage[parameterId] = parameterAndValue;
+                        yield return parameterAndValue;
                         parameterCacheForThisMessage[parameterId] = parameterAndValue;
                         yield return parameterAndValue;
                     }

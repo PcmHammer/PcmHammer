@@ -35,9 +35,9 @@
       firstByte="0"
       byteCount ="2"
       highByteFirst="true"
-      name="AEM Lambda Left"
-      description=""
-      aggregation="Average">
+      name="AEM Lambda 1"
+      aggregation="Average"
+      description="">
       <Conversion units="AFR (gasoline)" expression="x * 0.00147" format="0.00"/>
       <Conversion units="Lambda" expression="x * 0.0001" format="0.000"/>
     </Parameter>
@@ -49,9 +49,9 @@
       firstByte="0"
       byteCount ="2"
       highByteFirst="true"
-      name="AEM Lambda Right"
-      description=""
-      aggregation="Average">
+      name="AEM Lambda 2"
+      aggregation="Average"
+      description="">
       <Conversion units="AFR (gasoline)" expression="x * 0.00147" format="0.00"/>
       <Conversion units="Lambda" expression="x * 0.0001" format="0.000"/>
     </Parameter>

@@ -23,7 +23,7 @@
 
     <hr />
     <P id="readfirst"><h3>Read This First</h3>
-    <P>This software is very new, and was written by a few guys in their free time. While it has worked well for us, we can't promise that it has the reliability and trustworthiness that you would expect from a commercial product. If you require foolproof commercial-quality tools, this software is not for you. But we do hope that this will reach that point eventually.
+    <P>This software is very new, and was written by a few people in their free time. While it has worked well for us, we can't promise that it has the reliability and trustworthiness that you would expect from a commercial product. If you require foolproof commercial-quality tools, this software is not for you.
 
     <p>For several seconds after you turn the key, the PCM will be busy booting. Most operations will fail during that period. This is why the app asks you to wait before proceeding with complex operations. If you skip that waiting period, you won't do any lasting damage, but whatever you're trying to do might not work, and you might need to pull the PCM's fuse for a few seconds to reset it.
 
@@ -43,33 +43,33 @@
         well under $100. This is the recommended interface. Full disclosure: The guys behind this company have also helped with PCM Hammer development and testing. Buying through this link supports development hardware costs as well as future development.
 
     <p>
-        <b><a href="https://www.scantool.net/obdlink-sx/">ObdLink Scantool SX</a></b> - This is inexpensive and superior to ELM knock-off devices,
-        however it does not support 4x (high speed) mode, and it only supports relatively short messages, so a full read from a 512kb PCM takes a little over 20 minutes.
+        <b><a href="https://www.scantool.net/obdlink-sx/">ObdLink Scantool SX</a></b> - This is inexpensive and more capable than ELM knock-off devices,
+        however it does not support 4x (high speed) mode, and it only supports relatively short messages, so a full read from a 512kb PCM takes a little over 20 minutes. Not recommended.
 
-    <p><b><a href="https://www.scantool.net/obdlink-mxp/">ObdLink Scantool MX/MX+</a></b> - Similar to the SX, but Bluetooth wireless. The connection to windows via Bluetooth can be troublesome, but when correctly configured it does work. Not recommended.
+    <p><b><a href="https://www.scantool.net/obdlink-mxp/">ObdLink Scantool MX/MX+</a></b> - Similar to the SX, but Bluetooth wireless. The connection to windows via Bluetooth can be troublesome,
+	    but when correctly configured it does work. Not recommended.
 
     <p>
-        <b><a href="https://www.scantool.net/obdlink-lx/">ObdLink Scantool LX</a></b> - It's like an SX or MX+, but wireless.
+        <b><a href="https://www.scantool.net/obdlink-lx/">ObdLink Scantool LX</a></b> - It's like an SX or MX+, but wireless. Not Recommended.
     <p>
         <b><a href="http://www.avt-hq.com/852_hw.htm">AVT 852</a></b> - This is the most expensive option, and the company doesn't cater to individual purchasers,
-        but this was one of the first interfaces to properly support J1850 VPW high-speed mode. No longer in production.
+        but this was one of the first interfaces to properly support J1850 VPW high-speed mode. No longer in production but solid if you have one in the toolkit.
     <p>
         <b>Any J2534-compatible interface that supports J1850 VPW</b> - At least in theory, these should all work. There are quite a few of those on the market,
         and we cannot test them all, but if you have one, give it a try. As time goes by we'll list the ones that are proven to work. The genuine GM MDI is one
-        device which is known to work well. Over time we hope to confirm that other, less expensive devices will also work. Usually the sub $25 J2534 tools do not work.
+        device which is known to work well. Over time we hope to confirm that other, less expensive devices will also work. Usually the sub $50 J2534 tools do not work.
+		GM/Bosch MDI and MDI2 work well and are recommended.
 
-    <P>Note that the Tactrix OpenPort 2.0 does not support J1850 VPW despite some advertising saying that it does. VPW is required so it is not supported.
+    <P>Note that the Tactrix OpenPort 2.0 does not support J1850 VPW despite some advertising saying that it does. VPW is required and it is not capable / supported.
 
     <p>
         <b><a href="http://www.obddiag.net/products.html">ObdDiag AllPro</a></b> - Only the USB and dev-board versions are supported (not bluetooth).
-        The AllPro devices were quite inexpensive, and ObdDiag was an early partner in this project, incorporating changes and responding to feedback.
-        However the man behind the company has moved on to other things, so these devices are no longer available.
+        The AllPro devices were quite inexpensive, and ObdDiag was originally enthusiastic about this project, incorporating changes and responding to feedback.
+        However the man behind the company has moved on to other things, and these devices are no longer available.
         Also, note that AllPro devices purchased before early June 2018 will need a firmware update to version 1.21 or later.
 		Not recommended.
     <p>
-        Other devices based on the Scantool OBD2 chip may or may not work, depending on their message size limits.
-        If you find another one that works (or doesn't), please let us know.
-
+        Other devices based on the Scantool OBD2 chip may or may not work, depending on their message size limits. Not recommended.
     <p>
         Note that most ELM-based devices are <i>not</i> supported, because they do not work. Reading and clearing OBD2 trouble codes is one thing; rewriting firmware is quite another.
 
@@ -143,25 +143,31 @@
         <hr />
     <p id="contributing"><h3>Contributing</h3>
 
-    <p>The source code is at <a href="https://github.com/LegacyNsfw/PcmHacks">https://github.com/LegacyNsfw/PcmHacks</a>, and the authors welcome contributions.
+    <p>The source code is at <a href="https://github.com/pcmHammer/PcmHammer/">https://github.com/pcmHammer/PcmHammer/</a>, and the authors welcome contributions.
 
     <p id="related"><h3>Related Resources</h3>
 
-    <dl>
-        <dt>TunerPro</dt>
-        <dd>After using PCM Hammer to read the contents of your PCM, you will want to edit your new ".bin" file. <a href="http://tunerpro.net/">TunerPro</a> is the recommended tool for that job.</dd>
+                    <dl>
+                        <dt>TunerPro</dt>
+                        <dd>After using PCM Hammer to read the contents of your PCM, you will want to edit your new ".bin" file. <a href="http://tunerpro.net/">TunerPro</a> is the recommended tool for that job.</dd>
+                        <dd>Alternatively, look in to <a href="https://universalpatcher.net/about/">Universal Patcher</a>. It can identify tuneable items in a generic way.</dd>
 
-        <dt>XDF Files</dt>
-        <dd>TunerPro is a generic editing tool. It does not know anything about your PCM or your .bin file. 
-        It needs a <i>definition file</i> to tell it which bytes of the .bin file control which aspects of the PCM. 
-        You can find collections of XDF files <a href="https://github.com/Snoman002/Engine-Tune-Repository-TunerPro-EFIlive-TunerCat/tree/master/General%20Motors">here</a>
-        and <a href="https://github.com/BoredTruckOwner/LS_Based_Engine_Repository">here</a>.</dd>
+                        <dt>XDF Files</dt>
+                        <dd>
+                            TunerPro is a generic editing tool. It does not know anything about your PCM or your .bin file.
+                            It needs a <i>definition file</i> to tell it which bytes of the .bin file control which aspects of the PCM.
+                            PCM Hammer will tell you the operating system id (OSID) of your PCM once you are setup and click "Read Properties". You can search for that OSID and XDF to see what is out there on the internet.
+                            Note that you will need to identify quality XDFs. Generally these will come recommended online, or in posts on PCMHacking.net with lots of downloads and comments in the thread from people using them.
+                            Sometimes it is best to consider changing the operating system to a more common compatible OSID so that you can get features or one with a good XDF.
+                        </dd>
 
-        <dt>LogViewer</dt>
-        <dd>After using PCM Logger to read data from your PCM, you will want to view the contents of your new ".csv" file.  
-        There are many tools for this.
-        The LogViewer tool is the simplest possible thing you can use - <a href="https://github.com/LegacyNsfw/LogViewer/raw/master/bin/Debug/LogViewer.exe">Click here</a> to download it.</dd>
-    </dl>
+                        <dt>LogViewer</dt>
+                        <dd>
+                            After using PCM Logger to read data from your PCM, you will want to view the contents of your new ".csv" file.
+                            There are many tools for this.
+                            The LogViewer tool is the simplest possible thing you can use - <a href="https://github.com/LegacyNsfw/LogViewer/raw/master/bin/Debug/LogViewer.exe">Click here</a> to download it.
+                        </dd>
+                    </dl>
     
 </body>
 </html>

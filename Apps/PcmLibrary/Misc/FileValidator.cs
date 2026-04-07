@@ -11,6 +11,32 @@ namespace PcmHacking
     public class FileValidator
     {
         /// <summary>
+        /// Names of segments in P10 operating systems.
+        /// </summary>
+        private readonly string[] segmentNames_P10 =
+        {
+            "Operating system",
+            "Engine calibration",
+            "Transmission calibration",
+            "System",
+            "Speedometer",
+        };
+
+        /// <summary>
+        /// Names of segments in BlackBox operating systems.
+        /// </summary>
+        private readonly string[] segmentNames_BlackBox =
+        {
+            "Operating system",
+            "Engine calibration",
+            "Fuel system",
+            "System",
+            "Speedometer",
+            "VIN",
+            "Transmission calibration",
+        };
+
+        /// <summary>
         /// Names of segments in P01 and P59 operating systems.
         /// </summary>
         private readonly string[] segmentNames_P01_P59 =
@@ -21,18 +47,6 @@ namespace PcmHacking
             "Transmission calibration",
             "Transmission diagnostics",
             "Fuel system",
-            "System",
-            "Speedometer",
-        };
-
-        /// <summary>
-        /// Names of segments in P10 operating systems.
-        /// </summary>
-        private readonly string[] segmentNames_P10 =
-        {
-            "Operating system",
-            "Engine calibration",
-            "Transmission calibration",
             "System",
             "Speedometer",
         };
@@ -127,7 +141,7 @@ namespace PcmHacking
 
             if (pcmInfo.HardwareType == fileInfo.HardwareType)
             {
-                this.logger.AddUserMessage("PCM and file are both for the same Hardware " + fileInfo.HardwareType.ToString());
+                this.logger.AddUserMessage("PCM and file match hardware " + fileInfo.HardwareType.ToString());
                 return true;
             }
 
@@ -175,7 +189,15 @@ namespace PcmHacking
                         break;
 
                     case PcmType.P05:
-                        osid = ReadUnsigned(image, 0xFFFFA);
+                        if (ReadUnsigned(image, 0x20882) == 0x012380)
+                        {
+                            logger.AddDebugMessage("P05c Variant, Reading OSID from ASCII at 0x208AA");
+                            osid = ReadAsciiUInt32(image, 0x208AA);
+                        }
+                        else
+                        {
+                            osid = ReadUnsigned(image, 0xFFFFA);
+                        }
                         break;
 
                     case PcmType.P08:
@@ -186,6 +208,7 @@ namespace PcmHacking
                         osid = ReadUnsigned(image, 0x52E);
                         break;
 
+                    case PcmType.P11:
                     case PcmType.P12:
                         osid = ReadUnsigned(image, 0x8004);
                         break;
@@ -231,7 +254,7 @@ namespace PcmHacking
 
                 case PcmType.BlackBox:
                     tableAddress = 0x2000C;
-                    segments = 5;
+                    segments = 7;
                     break;
 
                 // no segment table
@@ -239,6 +262,7 @@ namespace PcmHacking
                 case PcmType.P04_Early:
                 case PcmType.P05:
                 case PcmType.P08:
+                case PcmType.P11:
                 case PcmType.E54:
                     break;
 
@@ -255,12 +279,25 @@ namespace PcmHacking
                 case PcmType.P04_Early:
                 case PcmType.P04:
                 case PcmType.P05:
-                    this.logger.AddUserMessage("\tStart\tEnd\tStored\t\tNeeded\t\tVerdict\tSegment Name");
-                    success &= ValidateRangeP04(true);
+                    success &= ValidateParamBlockP04();
+                    if (ReadUnsigned(image, 0x20882) == 0x012380) { // P05c special case
+                        this.logger.AddUserMessage("\tStart\tEnd\tStored\tNeeded\tVerdict\tSegment Name");
+                        success &= ValidateRangeWordSum(type, 0x0000, 0xFFFFF, 0x20880, "Operating System");
+                        success &= ValidateRangeWordSum(type, 0x8002, 0x1FFFF, 0x8000, "Engine Calibration");
+                    }
+                    else
+                    {
+                        this.logger.AddUserMessage("\tStart\tEnd\tStored\t\tNeeded\t\tVerdict\tSegment Name");
+                        success &= ValidateRangeP04(true);
+                    }
                     break;
                 case PcmType.P08:
                     this.logger.AddUserMessage("\tStart\tEnd\tStored\tNeeded\tVerdict\tSegment Name");
                     success &= ValidateRangeByteSum(type, 0, 0x7FFFB, 0x8004, "Whole File");
+                    break;
+                case PcmType.P11:
+                    this.logger.AddUserMessage("\tStart\tEnd\tStored\tNeeded\tVerdict\tSegment Name");
+                    success &= ValidateRangeWordSum(type, 0x0000, 0x7FFFB, 0x8000, "Operating System");
                     break;
                 case PcmType.P12:
                     this.logger.AddUserMessage("\tStart\tEnd\tStored\tNeeded\tVerdict\tSegment Name");
@@ -324,6 +361,10 @@ namespace PcmHacking
                                 segmentName = segmentNames_P10[segment];
                                 break;
 
+                            case PcmType.BlackBox:
+                                segmentName = segmentNames_BlackBox[segment];
+                                break;
+
                             default:
                                 segmentName = segmentNames_P01_P59[segment];
                                 break;
@@ -348,6 +389,29 @@ namespace PcmHacking
         private UInt32 ReadUnsigned(byte[] image, UInt32 offset)
         {
             return BitConverter.ToUInt32(image.Skip((int)offset).Take(4).Reverse().ToArray(), 0);
+        }
+
+        /// <summary>
+        /// ReadIntFromASCII, used to convert a number from ascii text to an int
+        /// Reads ascii numbers up to a max of 16 bytes deeps, protects from overflow
+        /// returns 0 if it hits the max length, or the data read is not ascii numerical
+        /// </summary>
+        public uint ReadAsciiUInt32(byte[] image, uint offset)
+        {
+            uint max = (uint)Math.Min((uint)image.Length, offset + 16);
+
+            uint end = offset;
+            while (end < max && image[end] != 0) end++;
+
+            uint val = 0;
+            for (uint i = offset; i < end; i++)
+            {
+                byte b = image[i];
+                if (b < '0' || b > '9') return 0;
+                val = val * 10 + (uint)(b - '0');
+            }
+
+            return end == offset ? 0 : val;
         }
 
         /// <summary>
@@ -427,14 +491,21 @@ namespace PcmHacking
                     this.logger.AddUserMessage("File is P04 512KiB.");
                     return PcmType.P04;
                 }
-
-                this.logger.AddDebugMessage("Trying P10 512KiB");
+                this.logger.AddDebugMessage("Trying P10/P11 512KiB");
                 if ((image[0x17FFE] == 0x55) && (image[0x17FFF] == 0x55))
                 {
                     if ((image[0x7FFFC] == 0xA5) && (image[0x7FFFD] == 0x5A) && (image[0x7FFFE] == 0xA5) && (image[0x7FFFF] == 0xA5))
                     {
-                        this.logger.AddUserMessage("File is P10 512KiB.");
-                        return PcmType.P10;
+                        if ((image[0x534] == 0) && (image[0x535] == 00))
+                        {
+                            this.logger.AddUserMessage("File is P10 512KiB.");
+                            return PcmType.P10;
+                        }
+                        if ((image[0x534] == 0xAA) && (image[0x535] == 0xAA))
+                        {
+                            this.logger.AddUserMessage("File is P11 512KiB.");
+                            return PcmType.P11;
+                        }
                     }
                 }
 
@@ -460,11 +531,19 @@ namespace PcmHacking
                     }
                 }
 
-                // P05 1024KiB
-                this.logger.AddDebugMessage("Trying P05 1024KiB");
+                // P05/P05c 1024KiB
+                this.logger.AddDebugMessage("Trying P05/P05c 1024KiB");
                 if ((image[0xFFFFE] == 0xA5) && (image[0xFFFFF] == 0x5A))
                 {
-                    this.logger.AddUserMessage("File is P05 1024KiB.");
+                    if ((image[0x1FFFE] == 0xA5) && (image[0x1FFFF] == 0x5A) &&
+                        (image[0x20883] == 0x01) && (image[0x20884] == 0x23) && (image[0x20885] == 0x80))
+                    {
+                        this.logger.AddUserMessage("File is P05c 1024KiB.");
+                    }
+                    else
+                    {
+                        this.logger.AddUserMessage("File is P05 1024KiB.");
+                    }
                     return PcmType.P05;
                 }
 
@@ -548,14 +627,23 @@ namespace PcmHacking
 
             for (UInt32 address = start; address <= end; address += 2)
             {
+
+                // Sums cannot be part of their own calculation, so they are always skipped
+                // Used by P01_P59, P05c, P10
+                if (address == storage) 
+                {
+                    address += 2;
+                }
                 switch (type)
                 {
                     case PcmType.P01_P59:
-                        if (address == 0x500)
+                        if (address == 0x4000)
                         {
-                            address = 0x502;
+                            address = 0x20000;
                         }
+                        break;
 
+                    case PcmType.P05: // Only used for P05c, Other P05s use P04 routines.
                         if (address == 0x4000)
                         {
                             address = 0x20000;
@@ -567,22 +655,27 @@ namespace PcmHacking
                         {
                             address = 0x8010;
                         }
-
                         break;
 
                     case PcmType.P10:
                         switch (address)
                         {
-                            case 0x52A:
-                                address = 0x52C;
-                                break;
-
                             case 0x4000:
                                 address = 0x20000;
                                 break;
-
                             case 0x7FFFA:
-                                end = 0x7FFFA; // A hacky way to short circuit the end
+                                end = 0x7FFFA; // Short circuit to the end
+                                break;
+                        }
+                        break;
+                    case PcmType.P11:
+                        switch (address)
+                        {
+                            case 0x4000:
+                                address = 0x8002;
+                                break;
+                            case 0x18000:
+                                address = 0x20000;
                                 break;
                         }
                         break;
@@ -811,6 +904,49 @@ namespace PcmHacking
 
             this.logger.AddUserMessage(error);
             return verdict;
+        }
+
+        /// <summary>
+        /// The purpose is to block flash of images extracted from TIS that are being circulated.
+        /// They have valid checksums but no param block and cause a soft brick.
+        /// Consider P04 256KiB, 512KiB (no param block), 512KiB (has param block), and P05 1MiB bin
+        /// 256KiB and early 512KB bins dont have a param block. 
+        /// Param block may be at 4000-5FFF or 6000-7FFF
+        /// 256KiB = skip the check, pass
+        /// 512KiB = check if one param block is empty. Pass if both have data (assume no param block)
+        /// 512KiB = validate param block if one block is empty, pass or fail
+        /// 1MiB   = always validate param block, pass or fail
+        /// </summary>
+        private bool ValidateParamBlockP04()
+        {
+            switch (this.image.Length)
+            {
+                case 256 * 1024:
+                    this.logger.AddDebugMessage("256KiB P04, no param block required");
+                    return true;
+                case 512 * 1024:
+                case 1024 * 1024:
+                    if (Utility.IsBlank(this.image, 0x4000, 0x2000) || Utility.IsBlank(this.image, 0x6000, 0x2000))
+                    {
+                        this.logger.AddUserMessage("P04/P05 1998+, checking for valid paramater block");
+                        if ((image[0x43F6] == 0xA5) && (image[0x43F7] == 0xA0))
+                        {
+                            this.logger.AddUserMessage("Param block at 0x4000");
+                            return true;
+                        }
+                        if ((image[0x63F6] == 0xA5) && (image[0x63F7] == 0xA0))
+                        {
+                            this.logger.AddUserMessage("Param block at 0x6000");
+                            return true;
+                        }
+                        this.logger.AddUserMessage("1998+ P04/P05 with missing param block. This file is bad and would soft brick your PCM.");
+                        return false;
+                    }
+                    this.logger.AddUserMessage("1997 type P04, Param block not needed");
+                    return true;
+            }
+            this.logger.AddDebugMessage("BUG: ValidateParamBlockP04 called with image of invalid size");
+            return false; // unreachable
         }
     }
 }

@@ -54,6 +54,8 @@ namespace PcmHacking
 
         public static Conversion DefaultConversion = new Conversion("raw", "x", "0");
 
+        public static Conversion DefaultConversion = new Conversion("raw", "x", "0");
+
         /// <summary>
         /// The expression parser doesn't support bit-shift operators.
         /// So we hack them into division operators here.
@@ -308,6 +310,7 @@ namespace PcmHacking
         public bool HighByteFirst { get; private set; }
         public Conversion SelectedConversion { get; set; }
         public Aggregation Aggregation { get; private set; }
+        public Aggregation Aggregation { get; private set; }
 
         /// <summary>
         /// This doesn't really make sense in the context of CAN logging, but
@@ -316,6 +319,7 @@ namespace PcmHacking
         /// </summary>
         public override bool IsSupported(uint osid) { return true; }
 
+        public CanParameter(uint messageId, uint byteIndex, uint byteCount, bool highByteFirst, string id, string name, string description, IEnumerable<Conversion> conversions, Aggregation aggregation)
         public CanParameter(uint messageId, uint byteIndex, uint byteCount, bool highByteFirst, string id, string name, string description, IEnumerable<Conversion> conversions, Aggregation aggregation)
         {
             this.MessageId = messageId;
@@ -326,6 +330,7 @@ namespace PcmHacking
             this.Name = name;
             this.Description = description;
             this.Conversions = conversions;
+            this.Aggregation = aggregation;
             this.Aggregation = aggregation;
         }
     }

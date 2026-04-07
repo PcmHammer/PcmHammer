@@ -56,15 +56,23 @@ namespace PcmHacking
             {
                 return Response.Create(ResponseStatus.Error, (UInt32)result);
             }
-            if (bytes.Length < 9)
+            if (bytes.Length < 8)
             {
                 return Response.Create(ResponseStatus.Truncated, (UInt32)result);
             }
-
-            result = bytes[5] << 24;
-            result += bytes[6] << 16;
-            result += bytes[7] << 8;
-            result += bytes[8];
+            if (bytes.Length == 8) // 3 byte value
+            {
+                result += bytes[5] << 16;
+                result += bytes[6] << 8;
+                result += bytes[7];
+            }
+            else // 4 byte value
+            {
+                result = bytes[5] << 24;
+                result += bytes[6] << 16;
+                result += bytes[7] << 8;
+                result += bytes[8];
+            }
 
             return Response.Create(ResponseStatus.Success, (UInt32)result);
         }
@@ -191,10 +199,12 @@ namespace PcmHacking
                 return Response.Create(status, result);
             }
 
-            byte[] serialBytes = new byte[12];
-            Buffer.BlockCopy(response1.GetBytes(), 5, serialBytes, 0, 4);
-            Buffer.BlockCopy(response2.GetBytes(), 5, serialBytes, 4, 4);
-            Buffer.BlockCopy(response3.GetBytes(), 5, serialBytes, 8, 4);
+            // P05 returns 4 data bytes for response1, 1 data byte for response2 and 5 data bytes for response 3.
+            // This code is tuned to use min of data payload size to avoid read overflows, and max of 5 bytes to prevent target buffer overflow (15 bytes).
+            byte[] serialBytes = new byte[15];
+            Buffer.BlockCopy(response1.GetBytes(), 5, serialBytes, 0, Math.Min(response1.GetBytes().Length - 5, 5));
+            Buffer.BlockCopy(response2.GetBytes(), 5, serialBytes, 4, Math.Min(response2.GetBytes().Length - 5, 5));
+            Buffer.BlockCopy(response3.GetBytes(), 5, serialBytes, 8, Math.Min(response3.GetBytes().Length - 5, 5));
 
             byte[] printableBytes = Utility.GetPrintable(serialBytes);
             string serial = System.Text.Encoding.ASCII.GetString(printableBytes);
