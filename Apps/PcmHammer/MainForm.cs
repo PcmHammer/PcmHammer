@@ -1280,11 +1280,11 @@ namespace PcmHacking
                         return;
                     }
 
-                    if (pcmInfo.HardwareType == PcmType.P05)
+                    if (pcmInfo.IsUnderDevelopment)
                     {
-                        string msg = $"WARNING: {pcmInfo.HardwareType.ToString()} Support is still in development.";
+                        string msg = $"WARNING: {pcmInfo.HardwareType.ToString()} Support is still in development.\r\nThere is additional brick risk in this operation\r\nDo you want to continue?";
                         this.AddUserMessage(msg);
-                        DialogResult dialogResult = MessageBox.Show(msg, "Continue?", MessageBoxButtons.YesNo);
+                        DialogResult dialogResult = MessageBox.Show(msg, "Brick Risk", MessageBoxButtons.YesNo);
                         if (dialogResult == DialogResult.No)
                         {
                             this.AddUserMessage("User chose not to proceed.");
