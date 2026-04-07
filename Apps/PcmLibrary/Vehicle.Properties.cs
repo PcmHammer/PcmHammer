@@ -206,8 +206,8 @@ namespace PcmHacking
             this.logger.AddDebugMessage("OSID query returned 0xFFFFFFFF for 3C 0A. Retrying 3C 0B.");
 
             var fallbackQuery = this.CreateQuery(
-                this.protocol.CreateOperatingSystemIdReadRequestJ2190,
-                this.protocol.ParseUInt32FromJ2190OperatingSystemIdReadResponse,
+                this.protocol.CreateEngineCalIDReadRequest,
+                this.protocol.ParseUInt32FromBlockReadResponse,
                 cancellationToken);
 
             Response<UInt32> fallbackResponse = await fallbackQuery.Execute();
