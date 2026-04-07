@@ -131,7 +131,7 @@ namespace PcmHacking
                         break;
 
                     case TimeoutScenario.ReadCrc:
-                        milliseconds = 3000;
+                        milliseconds = 4000;
                         break;
 
                     case TimeoutScenario.ReadMemoryBlock:
@@ -143,7 +143,7 @@ namespace PcmHacking
                         break;
 
                     case TimeoutScenario.WriteMemoryBlock:
-                        milliseconds = 140; // 125 works, added some for safety
+                        milliseconds = 250; // Bluetooth needs a touch longer. (MX+ tested)
                         break;
 
                     case TimeoutScenario.SendKernel:

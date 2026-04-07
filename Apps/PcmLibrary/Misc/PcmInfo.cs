@@ -369,7 +369,7 @@ namespace PcmHacking
                     this.HardwareSlaveCPU = true;
                     this.IsSupported = true;
                     this.IsSupportedRead = true;
-                    this.IsSupportedWrite = true;
+                    this.IsSupportedWrite = false;
                     this.IsSupportedWriteSlaveCPU = false;
                     this.IsSupportedWriteBySegment = true;
                     this.IsSupportedWriteBootSector = false;
@@ -2946,6 +2946,7 @@ namespace PcmHacking
                 // P08 Service Number 9356249
                 case 9364970:
                 case 9382954:  // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136163
+                case 9384480:  // via PM
                 case 9387226:  // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136163
                 case 12202774: // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136163
                 case 12205537: // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136163
@@ -3192,6 +3193,7 @@ namespace PcmHacking
                 case 12606374: //L52 - Atlas I5 (3500) P12
                 case 12606375: //L52 - Atlas I5 (3500) P12
                 case 12627883:
+                case 12627885: //2007 Trailblazer P12 (service number not confirmed, variant is)
                     this.Description = "P12 1Mb Service No 12597521";
                     this.ServiceNumber = 12597521;
                     PCMInfo(PcmType.P12);
@@ -3202,7 +3204,6 @@ namespace PcmHacking
                 case 12611642:
                 case 12613422: //2007 Chevy Trailblazer 4.2L
                 case 12618164:
-                case 12627885:
                     PCMInfo(PcmType.P12);
                     this.Description = "P12b (2Mb) Service No 12569773";
                     this.ImageSize = 2048 * 1024;
