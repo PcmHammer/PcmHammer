@@ -155,6 +155,11 @@ namespace PcmHacking
         public bool IsSupportedWriteBootSector { get; private set; }
 
         /// <summary>
+        /// Indicates that support for this PCM type is still in development.
+        /// </summary>
+        public bool IsUnderDevelopment { get; private set; }
+
+        /// <summary>
         /// Populate this object based on the given PcmType.
         /// </summary>
         public bool PCMInfo(PcmType pcmType)
@@ -181,6 +186,7 @@ namespace PcmHacking
             this.FlashIDSupport = false;
             this.KernelVersionSupport = false;
             this.KernelMaxBlockSize = 4096;
+            this.IsUnderDevelopment = false;
 
 
             switch (pcmType)
@@ -348,7 +354,7 @@ namespace PcmHacking
                     this.KernelFileName = "Kernel-P11.bin";
                     this.KernelBaseAddress = 0xFFC000;
                     this.ImageBaseAddress = 0x0;
-                    this.ImageSize = 1024 * 1024;
+                    this.ImageSize = 512 * 1024;
                     this.KeyAlgorithm = 0x0D;
                     this.ChecksumSupport = true;
                     this.FlashCRCSupport = true;
@@ -3145,6 +3151,11 @@ namespace PcmHacking
                 case 12593523: // https://pcmhacking.net/forums/viewtopic.php?p=120275#p120275
                     PCMInfo(PcmType.P11);
                     this.Description = "P11 Service No 12210553";
+                    this.ServiceNumber = 0;
+                    break;
+                case 12586586: // Service number 12576162
+                    PCMInfo(PcmType.P11);
+                    this.Description = "P11 Service No 12576162";
                     this.ServiceNumber = 0;
                     break;
 

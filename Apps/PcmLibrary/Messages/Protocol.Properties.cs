@@ -58,10 +58,9 @@ namespace PcmHacking
         {
             byte[] bytes = message.GetBytes();
             int result = 0;
-            ResponseStatus status;
 
             byte[] expected = new byte[] { Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, responseMode };
-            if (!TryVerifyInitialBytes(bytes, expected, out status))
+            if (!TryVerifyInitialBytes(bytes, expected, out ResponseStatus status))
             {
                 return Response.Create(ResponseStatus.Error, (UInt32)result);
             }
@@ -126,10 +125,9 @@ namespace PcmHacking
         public Response<string> ParseVinResponses(byte[] response1, byte[] response2, byte[] response3)
         {
             string result = "Unknown";
-            ResponseStatus status;
 
             byte[] expected = new byte[] { Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, Mode.ReadBlock + Mode.Response, BlockId.Vin1 };
-            if (!TryVerifyInitialBytes(response1, expected, out status))
+            if (!TryVerifyInitialBytes(response1, expected, out ResponseStatus status))
             {
                 return Response.Create(status, result);
             }
@@ -188,10 +186,9 @@ namespace PcmHacking
         public Response<string> ParseSerialResponses(Message response1, Message response2, Message response3)
         {
             string result = "Unknown";
-            ResponseStatus status;
 
             byte[] expected = new byte[] { Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, Mode.ReadBlock + Mode.Response, BlockId.Serial1 };
-            if (!TryVerifyInitialBytes(response1, expected, out status))
+            if (!TryVerifyInitialBytes(response1, expected, out ResponseStatus status))
             {
                 return Response.Create(status, result);
             }
@@ -236,11 +233,10 @@ namespace PcmHacking
         public Response<string> ParseBCCresponse(Message responseMessage)
         {
             string result = "Unknown";
-            ResponseStatus status;
             byte[] response = responseMessage.GetBytes();
 
             byte[] expected = new byte[] { Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, Mode.ReadBlock + Mode.Response, BlockId.BCC };
-            if (!TryVerifyInitialBytes(response, expected, out status))
+            if (!TryVerifyInitialBytes(response, expected, out ResponseStatus status))
             {
                 return Response.Create(status, result);
             }
@@ -269,11 +265,10 @@ namespace PcmHacking
         public Response<string> ParseMECresponse(Message responseMessage)
         {
             string result = "Unknown";
-            ResponseStatus status;
             byte[] response = responseMessage.GetBytes();
 
             byte[] expected = new byte[] { Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, Mode.ReadBlock + Mode.Response, BlockId.MEC };
-            if (!TryVerifyInitialBytes(response, expected, out status))
+            if (!TryVerifyInitialBytes(response, expected, out ResponseStatus status))
             {
                 return Response.Create(status, result);
             }

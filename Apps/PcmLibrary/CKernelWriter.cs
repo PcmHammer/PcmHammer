@@ -247,14 +247,16 @@ namespace PcmHacking
             logger.AddUserMessage("Flash chip: " + flashChip.ToString());
 
             // This is the only thing preventing a P01 os write to a P59 or vice-versa because of the shared P01_P59 type
-            // But a P10 has a 1Mb chip that is only 512Kb used, so that can be allowed.
-            if (pcmInfo.HardwareType == PcmType.P10 && image.Length == 512 * 1024 && flashChip.Size == 1024 * 1024)
+            // But a P10/P11 can have a 1Mb chip while using 512KiB images, so that can be allowed.
+            if ((pcmInfo.HardwareType == PcmType.P10 || pcmInfo.HardwareType == PcmType.P11) &&
+                image.Length == 512 * 1024 &&
+                flashChip.Size == 1024 * 1024)
             {
-                this.logger.AddUserMessage(string.Format("File size {0:n0} for flash chip size {1:n0}. Allowable for P10.", image.Length, flashChip.Size));
+                this.logger.AddUserMessage(string.Format("File size {0:n0} for flash chip size {1:n0}. Allowable for {2}.", image.Length, flashChip.Size, pcmInfo.HardwareType));
             }
-            else if (flashChip.Size != image.Length)
+            else if (image.Length != flashChip.Size)
             {
-                this.logger.AddUserMessage(string.Format("File size {0:n0} does not match PCM size {1:n0}. This image is not compatible with this PCM.", image.Length, pcmInfo.ImageSize));
+                this.logger.AddUserMessage(string.Format("File size {0:n0} does not match flash chip size {1:n0}. This image is not compatible with this PCM.", image.Length, flashChip.Size));
                 await this.vehicle.Cleanup();
                 return false;
             }
@@ -320,8 +322,8 @@ namespace PcmHacking
                 // does not allow boot-sector writes and boot would be written.
                 if (!this.IsWritePlanAllowedByPcmInfo(flashChip, relevantBlocks))
                 {
-                    this.logger.AddUserMessage("Abort: Boot sector write is required for this operation.");
-                    this.logger.AddUserMessage($"The {this.pcmInfo.HardwareType} boot sector is write protected in hardware and cannot be written.");
+                    this.logger.AddUserMessage("Boot sector write is required for this operation.");
+                    this.logger.AddUserMessage($"Abort: The {this.pcmInfo.HardwareType} boot sector is write protected. This PCM is not compatible with this file.");
                     await this.vehicle.Cleanup();
                     return false;
                 }

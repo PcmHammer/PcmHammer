@@ -12,9 +12,14 @@ namespace PcmHacking
     public class FileValidator
     {
         /// <summary>
-        /// Known SHA-256 of P11 boot sector bytes [0x000000..0x001FFF].
+        /// Known SHA-256 of P11 boot sector bytes [0x000000..0x001FFF] for service number 12210553.
         /// </summary>
-        private const string P11BootSectorSha256 = "7c0d299b51356a50b4f9291cbd3869bd1b7b606df21a5d8d4f4f3b3781e4e8d2";
+        private const string P11BootSectorSha256_12210553 = "7c0d299b51356a50b4f9291cbd3869bd1b7b606df21a5d8d4f4f3b3781e4e8d2";
+
+        /// <summary>
+        /// Known SHA-256 of P11 boot sector bytes [0x000000..0x001FFF] for service number 12576162.
+        /// </summary>
+        private const string P11BootSectorSha256_12576162 = "50db097c55a56378cf71a53e746796d366f3b84b967fdc43f10f80d1daebbbc1";
 
         /// <summary>
         /// Names of segments in P01 and P59 operating systems.
@@ -319,7 +324,7 @@ namespace PcmHacking
                     break;
                 case PcmType.P11:
                     this.logger.AddUserMessage("\tStart\tEnd\tStored\tNeeded\tVerdict\tSegment Name");
-                    success &= ValidateRangeWordSum(type, 0x0000, 0x7FFFB, 0x8000, "Whole File");
+                    success &= ValidateRangeWordSum(type, 0, 0x7FFFB, 0x8000, "Whole File");
                     break;
                 case PcmType.P12:
                     this.logger.AddUserMessage("\tStart\tEnd\tStored\tNeeded\tVerdict\tSegment Name");
@@ -534,6 +539,14 @@ namespace PcmHacking
                     }
                 }
 
+                // P11 512KiB (boot-sector SHA-256 + 0x7FFFC marker).
+                this.logger.AddDebugMessage("Trying P11 512KiB boot hash + marker");
+                if (this.HasP11TailMarkerAt7FFFC() && this.IsKnownP11BootSector())
+                {
+                    this.logger.AddUserMessage("File is P11 512KiB.");
+                    return PcmType.P11;
+                }
+
                 // P08 512KiB
                 this.logger.AddDebugMessage("Trying P08 512KiB");
                 if ((image[0x7FFFC] == 0xA5) && (image[0x7FFFD] == 0x5A) && (image[0x7FFFE] == 0xA5) && (image[0x7FFFF] == 0xA5))
@@ -572,9 +585,9 @@ namespace PcmHacking
                     return PcmType.P05;
                 }
 
-                // P11 1024KiB (boot-sector SHA-256 identity check).
-                this.logger.AddDebugMessage("Trying P11 1024KiB boot hash");
-                if (this.IsKnownP11BootSector())
+                // P11 1024KiB (boot-sector SHA-256 + 0x7FFFC marker).
+                this.logger.AddDebugMessage("Trying P11 1024KiB boot hash + marker");
+                if (this.HasP11TailMarkerAt7FFFC() && this.IsKnownP11BootSector())
                 {
                     this.logger.AddUserMessage("File is P11 1024KiB.");
                     return PcmType.P11;
@@ -1044,7 +1057,8 @@ namespace PcmHacking
                         this.HasRange(0x546, 5 * 8, "P10 segment table");
 
                 case PcmType.P11:
-                    return this.HasSize(1024 * 1024) &&
+                    return this.HasSize(512 * 1024, 1024 * 1024) &&
+                        this.HasP11TailMarkerAt7FFFC() &&
                         this.IsKnownP11BootSector();
 
                 case PcmType.P12:
@@ -1161,10 +1175,39 @@ namespace PcmHacking
             }
 
             string hash = this.ComputeSha256Hex(0x0000, 0x2000);
-            bool match = string.Equals(hash, P11BootSectorSha256, StringComparison.OrdinalIgnoreCase);
+            bool match =
+                string.Equals(hash, P11BootSectorSha256_12210553, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(hash, P11BootSectorSha256_12576162, StringComparison.OrdinalIgnoreCase);
             if (!match)
             {
-                this.logger.AddDebugMessage("P11 boot sector hash did not match known value.");
+                this.logger.AddDebugMessage(
+                    "P11 boot sector hash mismatch. Found: " + hash +
+                    ", Expected one of: " + P11BootSectorSha256_12210553 +
+                    " (12210553), " + P11BootSectorSha256_12576162 + " (12576162).");
+            }
+
+            return match;
+        }
+
+        /// <summary>
+        /// Verify the P11 marker A5 5A A5 A5 at address 0x7FFFC.
+        /// </summary>
+        private bool HasP11TailMarkerAt7FFFC()
+        {
+            if (!this.HasRange(0x7FFFC, 4, "P11 marker range"))
+            {
+                return false;
+            }
+
+            bool match =
+                (this.image[0x7FFFC] == 0xA5) &&
+                (this.image[0x7FFFD] == 0x5A) &&
+                (this.image[0x7FFFE] == 0xA5) &&
+                (this.image[0x7FFFF] == 0xA5);
+
+            if (!match)
+            {
+                this.logger.AddDebugMessage("P11 marker A5 5A A5 A5 was not found at 0x7FFFC.");
             }
 
             return match;
