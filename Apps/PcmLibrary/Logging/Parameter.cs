@@ -21,9 +21,9 @@ namespace PcmHacking
 
         public int BitIndex { get; private set; }
 
-        public string TrueValue { get; private set; }
+        public string? TrueValue { get; private set; }
 
-        public string FalseValue { get; private set; }
+        public string? FalseValue { get; private set; }
 
         public Conversion(string units, string expression, string format)
         {
@@ -51,8 +51,6 @@ namespace PcmHacking
         {
             return this.Units;
         }
-
-        public static Conversion DefaultConversion = new Conversion("raw", "x", "0");
 
         public static Conversion DefaultConversion = new Conversion("raw", "x", "0");
 
@@ -310,7 +308,6 @@ namespace PcmHacking
         public bool HighByteFirst { get; private set; }
         public Conversion SelectedConversion { get; set; }
         public Aggregation Aggregation { get; private set; }
-        public Aggregation Aggregation { get; private set; }
 
         /// <summary>
         /// This doesn't really make sense in the context of CAN logging, but
@@ -319,7 +316,6 @@ namespace PcmHacking
         /// </summary>
         public override bool IsSupported(uint osid) { return true; }
 
-        public CanParameter(uint messageId, uint byteIndex, uint byteCount, bool highByteFirst, string id, string name, string description, IEnumerable<Conversion> conversions, Aggregation aggregation)
         public CanParameter(uint messageId, uint byteIndex, uint byteCount, bool highByteFirst, string id, string name, string description, IEnumerable<Conversion> conversions, Aggregation aggregation)
         {
             this.MessageId = messageId;

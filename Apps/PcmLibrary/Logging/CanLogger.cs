@@ -1,5 +1,4 @@
 ﻿using DynamicExpresso;
-using DynamicExpresso;
 using PcmHacking;
 using System;
 using System.Collections.Generic;
@@ -17,24 +16,10 @@ using System.Xml.Linq;
 
 namespace PcmHacking
 { 
-{ 
     public class CanLogger : IDisposable
     {
         public class ParameterAndValue
-        public class ParameterAndValue
         {
-            public CanParameter Parameter { get; private set; }
-            public string Units { get; private set; }
-            public string ValueAsString { get; private set; }
-            public double ValueAsNumber { get; private set; }
-
-            public ParameterAndValue(CanParameter parameter, string units, string valueAsString, double valueAsNumber)
-            {
-                this.Parameter = parameter;
-                this.Units = units;
-                this.ValueAsString = valueAsString;
-                this.ValueAsNumber = valueAsNumber;
-            }
             public CanParameter Parameter { get; private set; }
             public string Units { get; private set; }
             public string ValueAsString { get; private set; }
@@ -60,22 +45,16 @@ namespace PcmHacking
 
         private IPort canPort;
         private CanParser parser = new CanParser();
-        private ILogger logger;
         Dictionary<UInt32, Dictionary<string, ParameterAndValue>> snapshot = new Dictionary<UInt32, Dictionary<string, ParameterAndValue>>();
         IEnumerable<UInt32> sortedMessageIds;
         Dictionary<UInt32, IEnumerable<string>> sortedParameterIds;
-        ParameterDatabase parameterDatabase;
-
 
         // Note that this is accessed by multiple threads, so it must only be used within "lock(messages)"
         Dictionary<UInt32, Dictionary<string, List<ParameterAndValue>>> messages = new Dictionary<UInt32, Dictionary<string, List<ParameterAndValue>>>();
-        Dictionary<UInt32, Dictionary<string, List<ParameterAndValue>>> messages = new Dictionary<UInt32, Dictionary<string, List<ParameterAndValue>>>();
 
-        public CanLogger(ParameterDatabase parameterDatabase, ILogger logger)
         public CanLogger(ParameterDatabase parameterDatabase, ILogger logger)
         {
             this.parameterDatabase = parameterDatabase;
-            this.logger = logger;
             this.logger = logger;
         }
 
@@ -201,12 +180,7 @@ namespace PcmHacking
                     IEnumerable<ParameterAndValue> results = this.TranslateValue(message);
 
                     lock (this.messages)
-                    IEnumerable<ParameterAndValue> results = this.TranslateValue(message);
-
-                    lock (this.messages)
                     {
-                        Dictionary<string, List<ParameterAndValue>> parameters;
-                        if (!this.messages.TryGetValue(message.MessageId, out parameters))
                         Dictionary<string, List<ParameterAndValue>> parameters;
                         if (!this.messages.TryGetValue(message.MessageId, out parameters))
                         {
@@ -245,39 +219,12 @@ namespace PcmHacking
         }
 
         private IEnumerable<ParameterAndValue> TranslateValue(CanMessage message)
-        private IEnumerable<ParameterAndValue> TranslateValue(CanMessage message)
         {
             IReadOnlyDictionary<UInt32, IEnumerable<CanParameter>> canParameters = this.parameterDatabase.GetCanParameters();
             IEnumerable<CanParameter> parameters;            
             
-            IEnumerable<CanParameter> parameters;            
-            
             if (!canParameters.TryGetValue(message.MessageId, out parameters))
             {
-                string name = message.MessageId.ToString("X8");
-                CanParameter placeholderParameter = new CanParameter(
-                    message.MessageId,
-                    0,
-                    0,
-                    true,
-                    name,
-                    name,
-                    string.Empty,
-                    new Conversion[0],
-                    Aggregation.Last);
-
-                string valueAsString;
-                ulong valueAsNumber = 0;
-                
-                for (int byteIndex = 0; byteIndex < message.Payload.Length; byteIndex++)
-                {
-                    valueAsNumber <<= 8;
-                    valueAsNumber |= message.Payload[byteIndex];
-                }
-
-                if (message.Payload.Length > 0)
-                {
-                    valueAsString = valueAsNumber.ToString("X8");
                 string name = message.MessageId.ToString("X8");
                 CanParameter placeholderParameter = new CanParameter(
                     message.MessageId,
@@ -311,18 +258,9 @@ namespace PcmHacking
 
                 ParameterAndValue result = new ParameterAndValue(placeholderParameter, "raw", valueAsString, valueAsNumber);
                 yield return result;
-
-                ParameterAndValue result = new ParameterAndValue(placeholderParameter, "raw", valueAsString, valueAsNumber);
-                yield return result;
             }
             else
             {
-                string valueAsString = String.Empty;
-                double valueAsNumber = 0;
-
-                foreach (CanParameter parameter in parameters)
-                {                    
-                    switch (parameter.ByteCount)
                 string valueAsString = String.Empty;
                 double valueAsNumber = 0;
 
