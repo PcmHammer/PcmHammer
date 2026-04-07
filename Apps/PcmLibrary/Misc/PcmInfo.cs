@@ -349,7 +349,7 @@ namespace PcmHacking
                     this.IsSupportedWrite = true;
                     this.IsSupportedWriteSlaveCPU = false;
                     this.IsSupportedWriteBySegment = true;
-                    this.IsSupportedWriteBootSector = false;
+                    this.IsSupportedWriteBootSector = true;
                     this.LoaderRequired = false;
                     this.KernelFileName = "Kernel-P11.bin";
                     this.KernelBaseAddress = 0xFFC000;
@@ -358,7 +358,7 @@ namespace PcmHacking
                     this.KeyAlgorithm = 0x0D;
                     this.ChecksumSupport = true;
                     this.FlashCRCSupport = true;
-                    //this.FlashIDSupport = true;
+                    this.FlashIDSupport = true;
                     this.KernelVersionSupport = true;
                     this.KernelMaxBlockSize = 4096;
                     break;
