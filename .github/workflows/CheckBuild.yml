@@ -6,6 +6,7 @@
 # 2024-09-05 - Antus <pcmhacking.net> Update actions
 # 2025-11-09 - Antus <pcmhacking.net> Add P05
 # 2025-11-16 - Antus <pcmhacking.net> Add P11
+# 2026-04-07 - Antus <pcmhacking.net> Update dependencies
 #
 name: CheckBuild
 
