@@ -1015,13 +1015,13 @@ namespace PcmHacking
             switch (writeType)
             {
                 case WriteType.Parameters:
-                    return "This will update the parameter block on your PCM.";
+                    return "This will update the parameter block on your PCM, which includes Security / VATS / VIN.";
 
                 case WriteType.OsPlusCalibrationPlusBoot:
-                    return "This will replace the operating system and calibration on your PCM.";
+                    return "This will replace the operating system (if required) and calibration on your PCM.";
 
                 case WriteType.Full:
-                    return "This will replace the contents of the flash memory on your PCM.";
+                    return "This will replace the entire contents of the flash memory on your PCM.";
 
                 default:
                     return "This will update your PCM.";

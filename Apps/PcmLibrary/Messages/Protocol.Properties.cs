@@ -25,13 +25,12 @@ namespace PcmHacking
         }
 
         /// <summary>
-        /// Create a request to read the PCM's operating system ID using the J2190 3C 0B service.
+        /// Create a request to read the PCM's operating system ID via EngineCalID 3C 0B service.
         /// Used as a fallback for PCMs that return 0xFFFFFFFF to block 0x0A.
         /// </summary>
-        public Message CreateOperatingSystemIdReadRequestJ2190()
+        public Message CreateEngineCalIDReadRequest()
         {
-            // 0x0B is used by J2190 on some P11 variants to return a 3-byte OSID.
-            return CreateReadRequest(0x0B);
+            return CreateReadRequest(BlockId.EngineCalID);
         }
 
         /// <summary>
@@ -93,35 +92,6 @@ namespace PcmHacking
         public Response<UInt32> ParseUInt32FromBlockReadResponse(Message message)
         {
             return ParseUInt32(message, Mode.ReadBlock + Mode.Response);
-        }
-
-        /// <summary>
-        /// Parse the response to a J2190 OSID block-read request (3C 0B -> 7C 0B).
-        /// Expected payload is OSID[3..0], then optional trailing bytes.
-        /// </summary>
-        public Response<UInt32> ParseUInt32FromJ2190OperatingSystemIdReadResponse(Message message)
-        {
-            byte[] bytes = message.GetBytes();
-
-            if (bytes.Length < 9)
-            {
-                return Response.Create(ResponseStatus.Truncated, (UInt32)0);
-            }
-
-            // Be tolerant of tool ID (F0/F1/etc) and only enforce priority/mode/submode/source.
-            if (bytes[0] != Priority.Physical0 || bytes[2] != DeviceId.Pcm || bytes[3] != (Mode.ReadBlock + Mode.Response) || bytes[4] != 0x0B)
-            {
-                return Response.Create(ResponseStatus.UnexpectedResponse, (UInt32)0);
-            }
-
-            // 4-byte OSID (same packing as 3C 0A).
-            UInt32 result =
-                (UInt32)(bytes[5] << 24) |
-                (UInt32)(bytes[6] << 16) |
-                (UInt32)(bytes[7] << 8) |
-                bytes[8];
-
-            return Response.Create(ResponseStatus.Success, result);
         }
 
         #region VIN
