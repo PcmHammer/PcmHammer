@@ -1,4 +1,4 @@
-﻿namespace PcmHacking
+namespace PcmHacking
 {
     partial class MainForm
     {
@@ -34,6 +34,8 @@
             this.selectButton = new System.Windows.Forms.Button();
             this.deviceDescription = new System.Windows.Forms.Label();
             this.operationsBox = new System.Windows.Forms.GroupBox();
+            this.verifyPcmButton = new System.Windows.Forms.Button();
+            this.readPcmButton = new System.Windows.Forms.Button();
             this.testWriteButton = new System.Windows.Forms.Button();
             this.exitKernelButton = new System.Windows.Forms.Button();
             this.cancelButton = new System.Windows.Forms.Button();
@@ -133,6 +135,8 @@
             // 
             this.operationsBox.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
             | System.Windows.Forms.AnchorStyles.Left)));
+            this.operationsBox.Controls.Add(this.verifyPcmButton);
+            this.operationsBox.Controls.Add(this.readPcmButton);
             this.operationsBox.Controls.Add(this.testWriteButton);
             this.operationsBox.Controls.Add(this.exitKernelButton);
             this.operationsBox.Controls.Add(this.cancelButton);
@@ -147,13 +151,35 @@
             this.operationsBox.TabStop = false;
             this.operationsBox.Text = "Operations";
             // 
+            // verifyPcmButton
+            // 
+            this.verifyPcmButton.Location = new System.Drawing.Point(4, 134);
+            this.verifyPcmButton.Margin = new System.Windows.Forms.Padding(2);
+            this.verifyPcmButton.Name = "verifyPcmButton";
+            this.verifyPcmButton.Size = new System.Drawing.Size(216, 25);
+            this.verifyPcmButton.TabIndex = 7;
+            this.verifyPcmButton.Text = "&Verify PCM";
+            this.verifyPcmButton.UseVisualStyleBackColor = true;
+            this.verifyPcmButton.Click += new System.EventHandler(this.quickComparisonButton_Click);
+            // 
+            // readPcmButton
+            // 
+            this.readPcmButton.Location = new System.Drawing.Point(4, 47);
+            this.readPcmButton.Margin = new System.Windows.Forms.Padding(2);
+            this.readPcmButton.Name = "readPcmButton";
+            this.readPcmButton.Size = new System.Drawing.Size(216, 25);
+            this.readPcmButton.TabIndex = 4;
+            this.readPcmButton.Text = "Read P&CM";
+            this.readPcmButton.UseVisualStyleBackColor = true;
+            this.readPcmButton.Click += new System.EventHandler(this.readFullContentsButton_Click);
+            // 
             // testWriteButton
             // 
-            this.testWriteButton.Location = new System.Drawing.Point(4, 47);
+            this.testWriteButton.Location = new System.Drawing.Point(4, 105);
             this.testWriteButton.Margin = new System.Windows.Forms.Padding(2);
             this.testWriteButton.Name = "testWriteButton";
             this.testWriteButton.Size = new System.Drawing.Size(216, 25);
-            this.testWriteButton.TabIndex = 4;
+            this.testWriteButton.TabIndex = 6;
             this.testWriteButton.Text = "T&est Write";
             this.testWriteButton.UseVisualStyleBackColor = true;
             this.testWriteButton.Click += new System.EventHandler(this.testWriteButton_Click);
@@ -189,7 +215,7 @@
             this.writeCalibrationButton.Name = "writeCalibrationButton";
             this.writeCalibrationButton.Size = new System.Drawing.Size(216, 25);
             this.writeCalibrationButton.TabIndex = 5;
-            this.writeCalibrationButton.Text = "&Write Calibration";
+            this.writeCalibrationButton.Text = "&Write PCM";
             this.writeCalibrationButton.UseVisualStyleBackColor = true;
             this.writeCalibrationButton.Click += new System.EventHandler(this.writeCalibrationButton_Click);
             // 
@@ -567,6 +593,8 @@
 
         private System.Windows.Forms.GroupBox interfaceBox;
         private System.Windows.Forms.GroupBox operationsBox;
+        private System.Windows.Forms.Button verifyPcmButton;
+        private System.Windows.Forms.Button readPcmButton;
         private System.Windows.Forms.Button writeCalibrationButton;
         private System.Windows.Forms.Button readPropertiesButton;
         private System.Windows.Forms.TabControl tabs;

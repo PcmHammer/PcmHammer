@@ -196,7 +196,26 @@ namespace PcmHacking
         public async Task<Response<UInt32>> QueryOperatingSystemId(CancellationToken cancellationToken)
         {
             await this.device.SetTimeout(TimeoutScenario.ReadProperty);
-            return await this.QueryUnsignedValue(this.protocol.CreateOperatingSystemIdReadRequest, cancellationToken);
+
+            Response<UInt32> response = await this.QueryUnsignedValue(this.protocol.CreateOperatingSystemIdReadRequest, cancellationToken);
+            if (response.Status != ResponseStatus.Success || response.Value != 0xFFFFFFFF)
+            {
+                return response;
+            }
+
+            this.logger.AddDebugMessage("OSID query returned 0xFFFFFFFF for 3C 0A. Retrying 3C 0B.");
+
+            var fallbackQuery = this.CreateQuery(
+                this.protocol.CreateOperatingSystemIdReadRequestJ2190,
+                this.protocol.ParseUInt32FromJ2190OperatingSystemIdReadResponse,
+                cancellationToken);
+
+            Response<UInt32> fallbackResponse = await fallbackQuery.Execute();
+            if (fallbackResponse.Status == ResponseStatus.Success)
+            {
+                return fallbackResponse;
+            }
+            return response;
         }
 
         /// <summary>

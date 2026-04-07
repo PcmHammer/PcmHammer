@@ -17,19 +17,35 @@
 #include "Common-Assembly.h"
 
 | Flash elements
-#if defined P05 || defined P11
+#if defined P11
+  | P11 write-kernel mapping from disassembly:
+  |   FA18 bit 6 controls flash mapping path
+  |   FA6C/FA7C/FA7E control CS window/options during ID/read/write
+  .equ SIM_20,               0xFA18
+  .equ SIM_CSBARBT,          0xFA6C
+  .equ SIM_CSBAR0,           0xFA7C
+  .equ SIM_CSOR0,            0xFA7E
+#elif defined P05
   .equ SIM_BASE,             0xFA00
   .equ SIM_20,               (SIM_BASE + 0x20) | Lock functions
+  .equ SIM_CSBARBT,          (SIM_BASE + 0x48) | (SIM_BASE + 0x48) (FA48)
+  .equ SIM_CSORBT,           (SIM_BASE + 0x4A) | (SIM_BASE + 0x4A) (FA4A)
+  .equ SIM_CSBAR0,           (SIM_BASE + 0x4C) | (SIM_BASE + 0x4C) (FA4C)
+  .equ SIM_CSOR0,            (SIM_BASE + 0x4E) | (SIM_BASE + 0x4E) (FA4E)
 #elif defined P12
   .equ SIM_BASE,             0xFA30
   .equ SIM_20,               (SIM_BASE + 0x20) | Lock functions
+  .equ SIM_CSBARBT,          (SIM_BASE + 0x48) | (SIM_BASE + 0x48) (FA78)
+  .equ SIM_CSORBT,           (SIM_BASE + 0x4A) | (SIM_BASE + 0x4A) (FA7A)
+  .equ SIM_CSBAR0,           (SIM_BASE + 0x4C) | (SIM_BASE + 0x4C) (FA7C)
+  .equ SIM_CSOR0,            (SIM_BASE + 0x4E) | (SIM_BASE + 0x4E) (FA7E)
 #else
   .equ SIM_BASE,             0xFA00
+  .equ SIM_CSBARBT,          (SIM_BASE + 0x48) | (SIM_BASE + 0x48) (FA48)
+  .equ SIM_CSORBT,           (SIM_BASE + 0x4A) | (SIM_BASE + 0x4A) (FA4A)
+  .equ SIM_CSBAR0,           (SIM_BASE + 0x4C) | (SIM_BASE + 0x4C) (FA4C)
+  .equ SIM_CSOR0,            (SIM_BASE + 0x4E) | (SIM_BASE + 0x4E) (FA4E)
 #endif
-.equ SIM_CSBARBT,            (SIM_BASE + 0x48) | (SIM_BASE + 0x48) (FA48)
-.equ SIM_CSORBT,             (SIM_BASE + 0x4A) | (SIM_BASE + 0x4A) (FA4A)
-.equ SIM_CSBAR0,             (SIM_BASE + 0x4C) | (SIM_BASE + 0x4C) (FA4C)
-.equ SIM_CSOR0,              (SIM_BASE + 0x4E) | (SIM_BASE + 0x4E) (FA4E)
 
 #if defined P04_Early
   .equ REG_FFC000,            0xC000
@@ -102,8 +118,8 @@ start:
     ori     #0x700, %sr                | Disable Interrupts
 #endif
 
-#if defined P05 | defined P08 | defined P11 | defined E54
-    movea.w #0xB800, %sp               | Move the stack out the way P05/P08/P11/E54
+#if defined P05 | defined P08 | defined E54
+    movea.w #0xB800, %sp               | Move the stack out the way P05/P08/E54
 #endif
 
     move.b  #0x03, (J1850_Command).l   | Flush frame except for completion code
@@ -239,9 +255,7 @@ ProcessOsID:
     movea.l #0x8000, %a1               | Pointer to OsID location in Flash
 #elif defined P10
     movea.l #0x52E, %a1                | Pointer to OsID location in Flash
-#elif defined P11
-    movea.l #0x8004, %a1               | Pointer to OsID location in Flash
-#elif defined P12
+#elif defined P11 || defined P12
     movea.l #0x8004, %a1               | Pointer to OsID location in Flash
 #elif defined E54 || defined BlackBox
     movea.l #0x20004, %a1              | Pointer to OsID location in Flash
@@ -354,7 +368,12 @@ ProcessCRCPolynomial:
 |   d1 - Manufacture ID
 |
 ProcessFlashID:
-#if defined P05 || defined P11 ||defined P12
+#if defined P11
+    bset    #6, (SIM_20).w            | Disassembly maps flash window via FA18 bit 6
+    move.w  #0xF322, (SIM_CSOR0).w    | CS option for ID/read access
+    move.w  #0x0004, (SIM_CSBAR0).w   | CS base mode for erase-style access
+    move.w  #0xFC01, (SIM_CSBARBT).w  | Companion CS base option
+#elif defined P05 || defined P12
     move.w  #0xF322, (SIM_CSOR0).w     | 0xFA7E
 #else
     move.w  #0x0007, (SIM_CSBAR0).w    | 0xFA4C Set CS registers
@@ -390,7 +409,9 @@ ProcessFlashID:
     moveq   #0, %d1                    | Not found
 
 ProcessFlashIDFound:
-#if defined P05 || defined P11 | defined P12
+#if defined P11
+    move.w  #0xA332, (SIM_CSOR0).w    | Return to normal mapped access after ID read
+#elif defined P05 || defined P12
     move.w  #0xA332, (SIM_CSOR0).w     | 0xFA7E
 #else
     move.w  #0x1060, (SIM_CSOR0).w     | 0xFA4E
@@ -523,7 +544,24 @@ ProcessWriteFlashFinal:
 |   d1 - Mode 0=Erase, 1=Write, is only used for the P12 currently (AMD AM29BL chips)
 |
 AMDFlashUnlock:
-#if defined P05 || defined P11 || defined P12
+#if defined P11
+    bset    #6, (SIM_20).w            | Enable P11 flash mapping path
+    move.w  #0xF322, (SIM_CSOR0).w    | CS option for flash command mode
+    move.w  #0xFC01, (SIM_CSBARBT).w  | Companion CS base option
+    andi.w  #0xFFF8, (SIM_CSBAR0).w   | Clear mode bits
+
+    tst.b   %d1                       | d1: 0 = erase, non-zero = write
+    bne.s   AMDFlashUnlockModeWrite   | Branch if write mode
+
+|AMDFlashUnlockModeErase
+    ori.w   #0x0004, (SIM_CSBAR0).w   | Erase access mode
+    bra.s   AMDFlashUnlockDone
+
+AMDFlashUnlockModeWrite:
+    ori.w   #0x0005, (SIM_CSBAR0).w   | Write access mode
+
+AMDFlashUnlockDone:
+#elif defined P05 || defined P12
     andi.w  #0xFEFF, (SIM_20).w        | SIM_20 &= 0xFEFF;
     ori.w   #0x1000, (SIM_CSOR0).w     | SIM_CSOR0 |= 0x1000;
     andi.w  #0xFFF8, (SIM_CSBAR0).w    | SIM_CSBAR0 &= 0xFFF8;
@@ -554,7 +592,10 @@ AMDFlashUnlockDone:
 |   AM29BL162C (2m)
 |
 AMDFlashLock:
-#if defined P05 || defined P11 || defined P12
+#if defined P11
+    move.w  #0xA332, (SIM_CSOR0).w    | Return CS option to normal mapped access
+    bclr    #6, (SIM_20).w            | Disable P11 flash mapping path
+#elif defined P05 || defined P12
     andi.w  #0xEFFF, (SIM_CSOR0).w     | SIM_CSOR0 &= 0xEFFF;
     andi.w  #0xFEFF, (SIM_20).w        | SIM_20 &= 0xFEFF;
     ori.w   #0x0100, (SIM_20).w        | SIM_20 |= 0x0100;
@@ -724,7 +765,13 @@ AMDWriteSectorFinal:
 |   d1 - Scratch
 |
 IntelFlashUnlock:
-#if defined P05 || defined P11 || defined P12
+#if defined P11
+    bset    #6, (SIM_20).w            | Enable P11 flash mapping path
+    move.w  #0xF322, (SIM_CSOR0).w    | CS option for flash command mode
+    move.w  #0xFC01, (SIM_CSBARBT).w  | Companion CS base option
+    andi.w  #0xFFF8, (SIM_CSBAR0).w   | Clear mode bits
+    ori.w   #0x0004, (SIM_CSBAR0).w   | Intel erase/read command mode
+#elif defined P05 || defined P12
     andi.w  #0xFEFF, (SIM_20).w        | SIM_20 &= 0xFEFF;
     ori.w   #0x1000, (SIM_CSOR0).w     | SIM_CSOR0 |= 0x1000;
     andi.w  #0xFFF8, (SIM_CSBAR0).w    | SIM_CSBAR0 &= 0xFFF8;
@@ -778,7 +825,10 @@ IntelFlashUnlockWait:                  | Allow Vpp ripple to settle
 |   d1 - Scratch
 |
 IntelFlashLock:
-#if defined P05 || defined P11 || defined P12
+#if defined P11
+    move.w  #0xA332, (SIM_CSOR0).w    | Return CS option to normal mapped access
+    bclr    #6, (SIM_20).w            | Disable P11 flash mapping path
+#elif defined P05 || defined P12
     andi.w  #0xEFFF, (SIM_CSOR0).w     | SIM_CSOR0 &= 0xEFFF;
     andi.w  #0xFEFF, (SIM_20).w        | SIM_20 &= 0xFEFF;
     ori.w   #0x0100, (SIM_20).w        | SIM_20 |= 0x0100;
