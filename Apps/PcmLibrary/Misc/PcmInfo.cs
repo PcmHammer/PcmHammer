@@ -343,6 +343,7 @@ namespace PcmHacking
                 case PcmType.P11:
                     this.Description = "P11";
                     this.HardwareType = PcmType.P11;
+                    this.IsUnderDevelopment =true;
                     this.HardwareSlaveCPU = false;
                     this.IsSupported = true;
                     this.IsSupportedRead = true;
