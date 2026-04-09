@@ -128,6 +128,13 @@ jobs:
       with:
         name: Kernels_${{github.sha}}
 
+    - name: Inject kernels into Uno assets
+      shell: pwsh
+      run: |
+        $assetKernelPath = "Apps/UI/UnoUI/PcmHacking.UnoUI/Assets/Kernels"
+        New-Item -ItemType Directory -Force -Path $assetKernelPath | Out-Null
+        Copy-Item -Path "TemporaryArtifactStorage/Kernels/*.bin" -Destination $assetKernelPath -Force
+
     - name: Install Uno-Check
       run: dotnet tool install --global Uno.Check --version 1.34.1.0
 
@@ -199,23 +206,17 @@ jobs:
     - name: Stage WinForms artifact payload
       shell: pwsh
       run: |
-        New-Item -ItemType Directory -Force -Path TemporaryArtifactStorage/WinForms | Out-Null
+        New-Item -ItemType Directory -Force -Path TemporaryArtifactStorage/WinForms/PcmHammer | Out-Null
+        New-Item -ItemType Directory -Force -Path TemporaryArtifactStorage/WinForms/PcmLogger | Out-Null
+        New-Item -ItemType Directory -Force -Path TemporaryArtifactStorage/WinForms/VpwExplorer | Out-Null
 
-        Copy-Item -Path "TemporaryArtifactStorage/Kernels/*.bin" -Destination "TemporaryArtifactStorage/WinForms" -Force
+        Copy-Item -Path "TemporaryArtifactStorage/Kernels/*.bin" -Destination "TemporaryArtifactStorage/WinForms/PcmHammer" -Force
 
-        Copy-Item -Path "Apps/UI/WindowsForms/PcmHammer/bin/Debug/PcmHammer.*" -Destination "TemporaryArtifactStorage/WinForms" -Force
-        Copy-Item -Path "Apps/UI/WindowsForms/PcmHammer/bin/Debug/*.dll" -Destination "TemporaryArtifactStorage/WinForms" -Force
-        Copy-Item -Path "Apps/UI/WindowsForms/PcmHammer/bin/Debug/*.pdb" -Destination "TemporaryArtifactStorage/WinForms" -Force
-
-        Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/bin/Debug/PcmLogger.*" -Destination "TemporaryArtifactStorage/WinForms" -Force
-        Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/bin/Debug/*.dll" -Destination "TemporaryArtifactStorage/WinForms" -Force
-        Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/bin/Debug/*.pdb" -Destination "TemporaryArtifactStorage/WinForms" -Force
-        Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/*.LogProfile" -Destination "TemporaryArtifactStorage/WinForms" -Force
-        Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/Parameters.*.xml" -Destination "TemporaryArtifactStorage/WinForms" -Force
-
-        Copy-Item -Path "Apps/UI/WindowsForms/VpwExplorer/bin/Debug/VpwExplorer.*" -Destination "TemporaryArtifactStorage/WinForms" -Force
-        Copy-Item -Path "Apps/UI/WindowsForms/VpwExplorer/bin/Debug/*.dll" -Destination "TemporaryArtifactStorage/WinForms" -Force
-        Copy-Item -Path "Apps/UI/WindowsForms/VpwExplorer/bin/Debug/*.pdb" -Destination "TemporaryArtifactStorage/WinForms" -Force
+        Copy-Item -Path "Apps/UI/WindowsForms/PcmHammer/bin/Debug/*" -Destination "TemporaryArtifactStorage/WinForms/PcmHammer" -Recurse -Force
+        Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/bin/Debug/*" -Destination "TemporaryArtifactStorage/WinForms/PcmLogger" -Recurse -Force
+        Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/*.LogProfile" -Destination "TemporaryArtifactStorage/WinForms/PcmLogger" -Force
+        Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/Parameters.*.xml" -Destination "TemporaryArtifactStorage/WinForms/PcmLogger" -Force
+        Copy-Item -Path "Apps/UI/WindowsForms/VpwExplorer/bin/Debug/*" -Destination "TemporaryArtifactStorage/WinForms/VpwExplorer" -Recurse -Force
 
     - name: Stage Uno Windows artifact payload
       shell: pwsh
@@ -242,18 +243,38 @@ jobs:
       shell: pwsh
       run: |
         $androidBinRoot = (Resolve-Path "Apps/UI/UnoUI/PcmHacking.UnoUI/bin").Path
-        $androidOutputs = Get-ChildItem -Path $androidBinRoot -Recurse -Directory -Filter "net10.0-android*" -ErrorAction SilentlyContinue
-        if (!$androidOutputs -or $androidOutputs.Count -eq 0) {
-          throw "Uno Android output folder not found under Apps/UI/UnoUI/PcmHacking.UnoUI/bin"
+        $androidApks = Get-ChildItem -Path $androidBinRoot -Recurse -File -Filter "*.apk" -ErrorAction SilentlyContinue `
+          | Where-Object { $_.FullName -like "*net10.0-android*" }
+
+        if (!$androidApks -or $androidApks.Count -eq 0) {
+          throw "Uno Android APK files not found under Apps/UI/UnoUI/PcmHacking.UnoUI/bin"
         }
 
         New-Item -ItemType Directory -Force -Path TemporaryArtifactStorage/UnoAndroid | Out-Null
-        Copy-Item -Path "TemporaryArtifactStorage/Kernels/*.bin" -Destination "TemporaryArtifactStorage/UnoAndroid" -Force
-        foreach ($dir in $androidOutputs) {
-          $relative = $dir.FullName.Substring($androidBinRoot.Length).TrimStart('\')
-          $dest = Join-Path "TemporaryArtifactStorage/UnoAndroid" $relative
-          New-Item -ItemType Directory -Force -Path $dest | Out-Null
-          Copy-Item -Path "$($dir.FullName)/*" -Destination $dest -Recurse -Force
+
+        # Prefer a signed/unsigned pair when available; otherwise include all APKs found.
+        $signedApk = $androidApks | Where-Object { $_.Name -match "(?i)signed" } | Select-Object -First 1
+        $unsignedApk = $androidApks | Where-Object { $_.Name -match "(?i)unsigned" } | Select-Object -First 1
+
+        $apkSelection = @()
+        if ($signedApk) { $apkSelection += $signedApk }
+        if ($unsignedApk) { $apkSelection += $unsignedApk }
+        if ($apkSelection.Count -eq 0) { $apkSelection = $androidApks }
+
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        foreach ($apk in ($apkSelection | Sort-Object FullName -Unique)) {
+          $zip = [System.IO.Compression.ZipFile]::OpenRead($apk.FullName)
+          try {
+            $kernelEntries = $zip.Entries | Where-Object { $_.FullName -like "assets/Kernel-*.bin" -or $_.FullName -like "assets/Loader-*.bin" }
+            if (!$kernelEntries -or $kernelEntries.Count -eq 0) {
+              throw "APK '$($apk.Name)' does not contain kernel assets (assets/Kernel-*.bin)."
+            }
+          }
+          finally {
+            $zip.Dispose()
+          }
+
+          Copy-Item -Path $apk.FullName -Destination "TemporaryArtifactStorage/UnoAndroid" -Force
         }
 
     - name: Upload WinForms artifact
