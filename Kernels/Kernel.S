@@ -373,10 +373,17 @@ ProcessCRCPolynomial:
 |
 ProcessFlashID:
 #if defined P11
+<<<<<<< HEAD
+    bset    #6, (SIM_18).w             | 0xFA18
+    move.w  #0xF322, (SIM_CSOR0).w     | 0xFA7E
+    move.w  #0x0004, (SIM_CSBAR0).w    | 0xFA7C
+    move.w  #0xFC01, (SIM_CSBAR8).w    | 0xFA6C
+=======
     bset    #6, (SIM_18).w     | 0xFA18
     move.w  #0xF322, (SIM_CSOR0).w    | 0xFA7E
     move.w  #0x0004, (SIM_CSBAR0).w   | 0xFA7C
     move.w  #0xFC01, (SIM_CSBAR8).w   | 0xFA6C
+>>>>>>> 92f88b96e92879c356cbf02f542db2c9082d6d60
 #elif defined P05 || defined P12
     move.w  #0xF322, (SIM_CSOR0).w     | 0xFA7E
 #else
@@ -597,8 +604,13 @@ AMDFlashUnlockDone:
 |
 AMDFlashLock:
 #if defined P11
+<<<<<<< HEAD
+    move.w  #0xA332, (SIM_CSOR0).w     | 0xFA7E
+    bclr    #6, (SIM_18).w             | 0xFA18
+=======
     move.w  #0xA332, (SIM_CSOR0).w    | 0xFA7E
     bclr    #6, (SIM_18).w     | 0xFA18
+>>>>>>> 92f88b96e92879c356cbf02f542db2c9082d6d60
 #elif defined P05 || defined P12
     andi.w  #0xEFFF, (SIM_CSOR0).w     | SIM_CSOR0 &= 0xEFFF;
     andi.w  #0xFEFF, (SIM_20).w        | SIM_20 &= 0xFEFF;
@@ -1244,7 +1256,7 @@ VPWSendBlockWaitForBuffer2:
 | ---------------------------------------------------------------------------
 
 .data
-.ascii "(c)2024 pcmhacking.net" | An Antus / Gampy collaboration
+.ascii "(c)2026 pcmhacking.net" | An Antus / Gampy collaboration
 
 | All AA bytes are padding for alignment
 
