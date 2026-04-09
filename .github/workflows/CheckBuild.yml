@@ -7,7 +7,9 @@
 # 2025-11-09 - Antus <pcmhacking.net> Add P05
 # 2025-11-16 - Antus <pcmhacking.net> Add P11
 # 2026-04-07 - Antus <pcmhacking.net> Update dependencies
+# 2026-04-10 - Antus <pcmhacking.net> Update for WinForms + Uno Windows + Uno Android
 #
+
 name: CheckBuild
 
 on: [ pull_request, push ]
@@ -86,18 +88,31 @@ jobs:
           fi
         done
 
-    - name: Upload artifacts
+    - name: Upload kernels artifact
       uses: actions/upload-artifact@v7
       with:
         name: Kernels_${{github.sha}}
         path: TemporaryArtifactStorage
 
-  PCMHammer:
+  Applications:
     needs: Kernels
     runs-on: windows-2025
+
     steps:
     - name: Checkout Code
       uses: actions/checkout@v6
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v5
+      with:
+        dotnet-version: |
+          10.0.x
+
+    - name: Setup Java (Android toolchain)
+      uses: actions/setup-java@v5
+      with:
+        distribution: temurin
+        java-version: '17'
 
     - name: Setup MSBuild Path
       uses: microsoft/setup-msbuild@v3
@@ -105,53 +120,129 @@ jobs:
     - name: Setup NuGet
       uses: NuGet/setup-nuget@v3
 
-    - name: Restore NuGet Packages
-      run: nuget restore Apps/PcmApps.sln
-
-    - name: Download Kernels artifact
+    - name: Download kernels artifact
       uses: actions/download-artifact@v8
       with:
         name: Kernels_${{github.sha}}
-        path: TemporaryArtifactStorage
+        path: TemporaryArtifactStorage/Kernels
 
-    - name: Remove Stale Kernels artifact
+    - name: Remove stale kernels artifact
       uses: geekyeggo/delete-artifact@v6
       with:
         name: Kernels_${{github.sha}}
 
-    - name: Fetch .Net 4.6.2
+    - name: Install Uno-Check
+      run: dotnet tool install --global Uno.Check --version 1.34.1.0
+
+    - name: Run Uno-Check to install dependencies
+      run: uno-check -v --ci --non-interactive --fix --skip vswin --skip androidemulator
+
+    - name: Restore Uno workloads
+      run: dotnet workload restore Apps/PcmApps.sln
+
+    - name: Restore NuGet packages
+      run: nuget restore Apps/PcmApps.sln
+
+    - name: Restore solution dependencies (MSBuild restore)
+      run: msbuild Apps/PcmApps.sln /t:Restore
+
+    - name: Ensure .NET Framework 4.6.2 Developer Pack
       run: |
         Invoke-WebRequest https://go.microsoft.com/fwlink/?linkid=2099466 -OutFile .\NDP462-DevPack-KB3151934-ENU.exe
         .\NDP462-DevPack-KB3151934-ENU.exe /passive /norestart
 
-    - name: Build Applications
-      run: msbuild Apps/PcmApps.sln
-
-    - name: Add PCM Hammer to temporary artifact storage
+    - name: Build WinForms applications (Debug)
       run: |
-        Copy-Item -Path "Apps/PcmHammer/bin/Debug/PcmHammer.*" -Destination TemporaryArtifactStorage
-        Copy-Item -Path "Apps/PcmHammer/bin/Debug/*.dll" -Destination TemporaryArtifactStorage
-        Copy-Item -Path "Apps/PcmHammer/bin/Debug/*.pdb" -Destination TemporaryArtifactStorage
+        msbuild Apps/UI/WindowsForms/PcmHammer/PcmHammer.csproj /p:Configuration=Debug
+        msbuild Apps/UI/WindowsForms/PcmLogger/PcmLogger.csproj /p:Configuration=Debug
+        msbuild Apps/UI/WindowsForms/VpwExplorer/VpwExplorer.csproj /p:Configuration=Debug
 
-    - name: Add PCM Logger to temporary artifact storage
+    - name: Build Uno Windows (Debug, win-x86)
+      run: dotnet build Apps/UI/UnoUI/PcmHacking.UnoUI/PcmHacking.UnoUI.csproj -c Debug -f net10.0-windows10.0.26100.0 -r win-x86
+
+    - name: Build Uno Android (Debug)
+      run: dotnet build Apps/UI/UnoUI/PcmHacking.UnoUI/PcmHacking.UnoUI.csproj -c Debug -f net10.0-android
+
+    - name: Read app versions
+      shell: pwsh
       run: |
-        Copy-Item -Path "Apps/PcmLogger/bin/Debug/PcmLogger.*" -Destination TemporaryArtifactStorage
-        Copy-Item -Path "Apps/PcmLogger/bin/Debug/*.dll" -Destination TemporaryArtifactStorage
-        Copy-Item -Path "Apps/PcmLogger/bin/Debug/*.pdb" -Destination TemporaryArtifactStorage
-        Copy-Item -Path "Apps/PcmLogger/*.LogProfile" -Destination TemporaryArtifactStorage
-        Copy-Item -Path "Apps/PcmLogger/Parameters.*.xml" -Destination TemporaryArtifactStorage
+        [xml]$uno = Get-Content "Apps/UI/UnoUI/PcmHacking.UnoUI/PcmHacking.UnoUI.csproj"
+        $unoDisplay = ($uno.Project.PropertyGroup | Where-Object { $_.ApplicationDisplayVersion } | Select-Object -First 1).ApplicationDisplayVersion
+        $unoVersion = ($uno.Project.PropertyGroup | Where-Object { $_.ApplicationVersion } | Select-Object -First 1).ApplicationVersion
 
-    - name: Add VPW Explorer to temporary artifact storage
+        $assemblyInfo = Get-Content "Apps/UI/WindowsForms/PcmHammer/Properties/AssemblyInfo.cs" -Raw
+        $winFormsVersion = ([regex]::Match($assemblyInfo, 'AssemblyFileVersion\\(\"([^\"]+)\"\\)')).Groups[1].Value
+        if ([string]::IsNullOrWhiteSpace($winFormsVersion)) { $winFormsVersion = "unknown" }
+
+        "UNO_DISPLAY_VERSION=$unoDisplay" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        "UNO_APP_VERSION=$unoVersion" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        "WINFORMS_VERSION=$winFormsVersion" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+    - name: Stage WinForms artifact payload
+      shell: pwsh
       run: |
-        Copy-Item -Path "Apps/VpwExplorer/bin/Debug/VpwExplorer.*" -Destination TemporaryArtifactStorage
-        Copy-Item -Path "Apps/VpwExplorer/bin/Debug/*.dll" -Destination TemporaryArtifactStorage
-        Copy-Item -Path "Apps/VpwExplorer/bin/Debug/*.pdb" -Destination TemporaryArtifactStorage
+        New-Item -ItemType Directory -Force -Path TemporaryArtifactStorage/WinForms | Out-Null
 
-    - name: Is it all there ??
-      run: ls -l TemporaryArtifactStorage/
+        Copy-Item -Path "TemporaryArtifactStorage/Kernels/*.bin" -Destination "TemporaryArtifactStorage/WinForms" -Force
 
-    - name: Upload artifacts
+        Copy-Item -Path "Apps/UI/WindowsForms/PcmHammer/bin/Debug/PcmHammer.*" -Destination "TemporaryArtifactStorage/WinForms" -Force
+        Copy-Item -Path "Apps/UI/WindowsForms/PcmHammer/bin/Debug/*.dll" -Destination "TemporaryArtifactStorage/WinForms" -Force
+        Copy-Item -Path "Apps/UI/WindowsForms/PcmHammer/bin/Debug/*.pdb" -Destination "TemporaryArtifactStorage/WinForms" -Force
+
+        Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/bin/Debug/PcmLogger.*" -Destination "TemporaryArtifactStorage/WinForms" -Force
+        Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/bin/Debug/*.dll" -Destination "TemporaryArtifactStorage/WinForms" -Force
+        Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/bin/Debug/*.pdb" -Destination "TemporaryArtifactStorage/WinForms" -Force
+        Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/*.LogProfile" -Destination "TemporaryArtifactStorage/WinForms" -Force
+        Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/Parameters.*.xml" -Destination "TemporaryArtifactStorage/WinForms" -Force
+
+        Copy-Item -Path "Apps/UI/WindowsForms/VpwExplorer/bin/Debug/VpwExplorer.*" -Destination "TemporaryArtifactStorage/WinForms" -Force
+        Copy-Item -Path "Apps/UI/WindowsForms/VpwExplorer/bin/Debug/*.dll" -Destination "TemporaryArtifactStorage/WinForms" -Force
+        Copy-Item -Path "Apps/UI/WindowsForms/VpwExplorer/bin/Debug/*.pdb" -Destination "TemporaryArtifactStorage/WinForms" -Force
+
+    - name: Stage Uno Windows artifact payload
+      shell: pwsh
+      run: |
+        $unoWindowsOutput = "Apps/UI/UnoUI/PcmHacking.UnoUI/bin/x86/Debug/net10.0-windows10.0.26100.0/win-x86"
+        if (!(Test-Path $unoWindowsOutput)) {
+          throw "Uno Windows output folder not found: $unoWindowsOutput"
+        }
+
+        New-Item -ItemType Directory -Force -Path TemporaryArtifactStorage/UnoWindows | Out-Null
+        Copy-Item -Path "TemporaryArtifactStorage/Kernels/*.bin" -Destination "TemporaryArtifactStorage/UnoWindows" -Force
+        Copy-Item -Path "$unoWindowsOutput/*" -Destination "TemporaryArtifactStorage/UnoWindows" -Recurse -Force
+        Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/*.LogProfile" -Destination "TemporaryArtifactStorage/UnoWindows" -Force
+        Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/Parameters.*.xml" -Destination "TemporaryArtifactStorage/UnoWindows" -Force
+
+    - name: Stage Uno Android artifact payload
+      shell: pwsh
+      run: |
+        $androidOutputs = Get-ChildItem -Path "Apps/UI/UnoUI/PcmHacking.UnoUI/bin/Debug" -Directory -Filter "net10.0-android*" -ErrorAction SilentlyContinue
+        if (!$androidOutputs -or $androidOutputs.Count -eq 0) {
+          throw "Uno Android output folder not found under Apps/UI/UnoUI/PcmHacking.UnoUI/bin/Debug"
+        }
+
+        New-Item -ItemType Directory -Force -Path TemporaryArtifactStorage/UnoAndroid | Out-Null
+        Copy-Item -Path "TemporaryArtifactStorage/Kernels/*.bin" -Destination "TemporaryArtifactStorage/UnoAndroid" -Force
+        foreach ($dir in $androidOutputs) {
+          $dest = Join-Path "TemporaryArtifactStorage/UnoAndroid" $dir.Name
+          New-Item -ItemType Directory -Force -Path $dest | Out-Null
+          Copy-Item -Path "$($dir.FullName)/*" -Destination $dest -Recurse -Force
+        }
+
+    - name: Upload WinForms artifact
       uses: actions/upload-artifact@v7
       with:
-        name: PCMHacks_${{github.sha}}
-        path: TemporaryArtifactStorage
+        name: PCMHammer_WinForms_v${{ env.WINFORMS_VERSION }}_${{ github.sha }}
+        path: TemporaryArtifactStorage/WinForms
+
+    - name: Upload Uno Windows artifact
+      uses: actions/upload-artifact@v7
+      with:
+        name: PCMHammer_UnoWindows_v${{ env.UNO_DISPLAY_VERSION }}.${{ env.UNO_APP_VERSION }}_${{ github.sha }}
+        path: TemporaryArtifactStorage/UnoWindows
+
+    - name: Upload Uno Android artifact
+      uses: actions/upload-artifact@v7
+      with:
+        name: PCMHammer_UnoAndroid_v${{ env.UNO_DISPLAY_VERSION }}.${{ env.UNO_APP_VERSION }}_${{ github.sha }}
+        path: TemporaryArtifactStorage/UnoAndroid
