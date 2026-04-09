@@ -230,12 +230,22 @@ namespace PcmHacking
         {
             for (int retries = 0; retries < 3; retries++)
             {
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    return 0;
+                }
+
                 await this.SetDeviceTimeout(TimeoutScenario.ReadProperty);
                 Query<UInt32> chipIdQuery = this.CreateQuery<UInt32>(
                     this.protocol.CreateFlashMemoryTypeQuery,
                     this.protocol.ParseFlashMemoryType,
                     cancellationToken);
                 Response<UInt32> chipIdResponse = await chipIdQuery.Execute();
+
+                if (chipIdResponse.Status == ResponseStatus.Cancelled)
+                {
+                    return 0;
+                }
 
                 if (chipIdResponse.Status != ResponseStatus.Success)
                 {
@@ -250,6 +260,11 @@ namespace PcmHacking
                 return chipIdResponse.Value;
             }
 
+            if (cancellationToken.IsCancellationRequested)
+            {
+                return 0;
+            }
+
             logger.AddUserMessage("Unable to determine which flash chip is in this PCM");
             return 0;
         }
@@ -260,9 +275,19 @@ namespace PcmHacking
         /// <returns></returns>
         public async Task<UInt32> GetKernelVersion()
         {
+            return await this.GetKernelVersion(CancellationToken.None);
+        }
+
+        public async Task<UInt32> GetKernelVersion(CancellationToken cancellationToken)
+        {
             Message query = this.protocol.CreateKernelVersionQuery();
             for (int retryCount = 0; retryCount < 5; retryCount++)
             {
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    return 0;
+                }
+
                 if (!await this.device.SendMessage(query))
                 {
                     await Task.Delay(100);
@@ -283,6 +308,11 @@ namespace PcmHacking
                 }
 
                 if (response.Status == ResponseStatus.Refused)
+                {
+                    return 0;
+                }
+
+                if (cancellationToken.IsCancellationRequested)
                 {
                     return 0;
                 }
@@ -418,11 +448,19 @@ namespace PcmHacking
 
             this.logger.AddUserMessage($"{(info.LoaderRequired ? "Loader" : "Kernel")} upload 100% complete.");
 
+            if (cancellationToken.IsCancellationRequested)
+            {
+                return false;
+            }
+
             if (ReportKernelID && info.KernelVersionSupport)
             {
-                // Consider: Allowing caller to call GetKernelVersion(...)?
-                // Consider: return kernel version rather than boolean?
-                UInt32 kernelVersion = await this.GetKernelVersion();
+                UInt32 kernelVersion = await this.GetKernelVersion(cancellationToken);
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    return false;
+                }
+
                 if (kernelVersion == 0)
                 {
                     this.logger.AddUserMessage($"{(info.LoaderRequired ? "Loader" : "Kernel")} failed to start.");

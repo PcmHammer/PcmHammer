@@ -110,22 +110,40 @@ namespace PcmHacking
 
                 if (!await this.vehicle.PCMExecute(this.pcmInfo, response.Value, cancellationToken))
                 {
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        return Response.Create(ResponseStatus.Cancelled, (Stream)null);
+                    }
+
                     logger.AddUserMessage("Failed to upload kernel to PCM");
 
-                    return new Response<Stream>(
-                        cancellationToken.IsCancellationRequested ? ResponseStatus.Cancelled : ResponseStatus.Error,
-                        null);
+                    return Response.Create(ResponseStatus.Error, (Stream)null);
                 }
 
                 logger.AddUserMessage("Kernel uploaded to PCM successfully. Requesting data...");
 
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    return Response.Create(ResponseStatus.Cancelled, (Stream)null);
+                }
+
                 // Which flash chip?
                 await this.vehicle.SendToolPresentNotification();
+
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    return Response.Create(ResponseStatus.Cancelled, (Stream)null);
+                }
 
                 FlashChip flashChip = FlashChip.Create(0x12345678, this.logger);
                 if (this.pcmInfo.FlashIDSupport)
                 {
                     UInt32 chipId = await this.vehicle.QueryFlashChipId(cancellationToken);
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        return Response.Create(ResponseStatus.Cancelled, (Stream)null);
+                    }
+
                     flashChip = FlashChip.Create(chipId, this.logger);
                     logger.AddUserMessage("Flash chip: " + flashChip.ToString());
                 }

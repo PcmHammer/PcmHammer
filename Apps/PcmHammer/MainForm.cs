@@ -58,7 +58,7 @@ namespace PcmHacking
         private static readonly string ClickOkToContinue = "Click OK to continue.";
 
         /// <summary>
-        /// This will become the first half of the Window caption, and will 
+        /// This will become the first half of the Window caption, and will
         /// be printed to the user and debug logs each time a device is 
         /// initialized.
         /// </summary>
@@ -1290,6 +1290,10 @@ namespace PcmHacking
                             this.AddUserMessage("User chose not to proceed.");
                             return;
                         }
+                        else
+                        {
+                            this.AddUserMessage("User chose to proceed.");
+                        }
                     }
 
                     await this.Vehicle.SuppressChatter();
@@ -1580,6 +1584,22 @@ namespace PcmHacking
                         this.AddUserMessage(msg);
                         DialogResult dialogResult = MessageBox.Show(msg, "Abort");
                         return;
+                    }
+
+                    if (pcmInfo.IsUnderDevelopment)
+                    {
+                        string msg = $"WARNING: {pcmInfo.HardwareType.ToString()} Support is still in development.\r\nThere is additional brick risk in this operation\r\nDo you want to continue?";
+                        this.AddUserMessage(msg);
+                        DialogResult dialogResult = MessageBox.Show(msg, "Brick Risk", MessageBoxButtons.YesNo);
+                        if (dialogResult == DialogResult.No)
+                        {
+                            this.AddUserMessage("User chose not to proceed.");
+                            return;
+                        }
+                        else
+                        {
+                            this.AddUserMessage("User chose to proceed.");
+                        }
                     }
 
                     // If the factory binary is not paritioned we cant write by segment, block the non-full write types
