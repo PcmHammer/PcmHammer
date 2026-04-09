@@ -102,6 +102,10 @@ for /r "%UNO_BIN_ROOT%" %%F in (pcm*.exe) do (
   echo   Found app executable: "%%~fF"
   call :CopyBinsToTarget "%%~dpF"
 )
+for /r "%UNO_BIN_ROOT%" %%F in (pcm*.dll) do (
+  echo   Found app assembly: "%%~fF"
+  call :CopyBinsToTarget "%%~dpF"
+)
 
 goto :EOF
 
