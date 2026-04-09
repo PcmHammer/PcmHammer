@@ -1,4 +1,4 @@
-﻿//#define FAST_LOGGING
+//#define FAST_LOGGING
 
 using System;
 using System.Collections.Generic;
@@ -55,24 +55,25 @@ namespace PcmHacking
         /// </summary>
         public Message ConfigureDynamicData(byte dpid, DefineBy defineBy, int offset, int size, UInt32 id)
         {
+            // bits: ddooosss
             int combined = (((int)defineBy) << 6) | (offset << 3) | size;
             byte byte1, byte2, byte3;
 
             switch (defineBy)
             {
-                case DefineBy.Offset:
+                case DefineBy.Offset: // 0
                     byte1 = (byte)id;
                     byte2 = 0xFF;
                     byte3 = 0xFF;
                     break;
 
-                case DefineBy.Pid:
+                case DefineBy.Pid: // 1
                     byte1 = (byte)(id >> 8);
                     byte2 = (byte)id;
                     byte3 = 0xFF;
                     break;
 
-                case DefineBy.Address:
+                case DefineBy.Address: // 2
                     byte1 = (byte)(id >> 16);
                     byte2 = (byte)(id >> 8);
                     byte3 = (byte)id;
@@ -151,6 +152,11 @@ namespace PcmHacking
             return true;
         }
 
+        public Message CreateCrankRelearnRequest()
+        {
+            return new Message(new byte[] { Priority.Physical0, DeviceId.Pcm, DeviceId.Tool, Mode.SpecialFunctions, 0x01, 0x00, 0x00, 0x00, 0x00, 0x80, 0x00 });
+        }
+
         /// <summary>
         /// Create a request for a single PID.
         /// </summary>
@@ -217,7 +223,7 @@ namespace PcmHacking
         /// </summary>
         public Message CreateRamRequest(int address)
         { 
-            Message request = new Message(new byte[] { Priority.Physical0, DeviceId.Pcm, DeviceId.Tool, Mode.GetRam,
+            Message request = new Message(new byte[] { Priority.Block, DeviceId.Pcm, DeviceId.Tool, Mode.GetRam,
                 (byte)(address >> 16), (byte)(address >> 8), (byte)address, 0x01 });
 
             return request;

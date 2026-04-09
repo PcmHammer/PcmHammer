@@ -27,7 +27,9 @@ jobs:
       run: sudo apt-get install -y gcc-m68k-linux-gnu make
 
     - name: Create temporary artifact storage
-      run: mkdir TemporaryArtifactStorage
+      run: |
+        mkdir TemporaryArtifactStorage
+        mkdir TemporaryArtifactStorage/WindowsUnpackaged
 
     - name: Build C Kernels
       run: |
@@ -85,6 +87,10 @@ jobs:
           fi
         done
 
+    - name: Copy kernels into WindowsUnpackaged folder
+      run: |
+        cp TemporaryArtifactStorage/*.bin TemporaryArtifactStorage/WindowsUnpackaged
+
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
@@ -93,7 +99,9 @@ jobs:
 
   PCMHammer:
     needs: Kernels
-    runs-on: windows-2025
+
+    runs-on: windows-2025-vs2026
+
     steps:
     - name: Checkout Code
       uses: actions/checkout@v4.1.7
@@ -104,50 +112,66 @@ jobs:
     - name: Setup NuGet
       uses: NuGet/setup-nuget@v2.0.0
 
-    - name: Restore NuGet Packages
-      run: nuget restore Apps/PcmApps.sln
-
     - name: Download Kernels artifact
       uses: actions/download-artifact@v4.1.8
       with:
         name: Kernels_${{github.sha}}
         path: TemporaryArtifactStorage
 
-    - name: Remove Stale Kernels artifact
+    - name: Remove stale kernel artifact
       uses: geekyeggo/delete-artifact@v5.1.0
       with:
         name: Kernels_${{github.sha}}
 
-    - name: Fetch .Net 4.6.2
-      run: |
-        Invoke-WebRequest https://go.microsoft.com/fwlink/?linkid=2099466 -OutFile .\NDP462-DevPack-KB3151934-ENU.exe
-        .\NDP462-DevPack-KB3151934-ENU.exe /passive /norestart
+    - name: Install Uno-Check
+      run: dotnet tool install --global Uno.Check --version 1.34.1.0
 
-    - name: Build Applications
+    - name: Run Uno-Check to install dependencies
+      run: uno-check -v --ci --non-interactive --fix --skip vswin --skip androidemulator --skip androidsdk
+
+    - name: Install any missing workloads
+      run: dotnet workload restore Apps/PcmApps.sln
+
+    - name: Restore NuGet packages
+      run: nuget restore Apps/PcmApps.sln
+
+    - name: Restore solution dependencies (for packages that require msbuild restore)
+      run: msbuild Apps/PcmApps.sln /t:Restore
+
+    - name: Build applications
       run: msbuild Apps/PcmApps.sln
 
-    - name: Add PCM Hammer to temporary artifact storage
+    - name: Add WinForms PCM Hammer to temporary artifact storage
       run: |
-        Copy-Item -Path "Apps/PcmHammer/bin/Debug/PcmHammer.*" -Destination TemporaryArtifactStorage
-        Copy-Item -Path "Apps/PcmHammer/bin/Debug/*.dll" -Destination TemporaryArtifactStorage
-        Copy-Item -Path "Apps/PcmHammer/bin/Debug/*.pdb" -Destination TemporaryArtifactStorage
+        Copy-Item -Path "Apps/UI/WindowsForms/PcmHammer/bin/Debug/PcmHammer.*" -Destination TemporaryArtifactStorage
+        Copy-Item -Path "Apps/UI/WindowsForms/PcmHammer/bin/Debug/*.dll" -Destination TemporaryArtifactStorage
+        Copy-Item -Path "Apps/UI/WindowsForms/PcmHammer/bin/Debug/*.pdb" -Destination TemporaryArtifactStorage
 
-    - name: Add PCM Logger to temporary artifact storage
+    - name: Add WinForms PCM Logger to temporary artifact storage
       run: |
-        Copy-Item -Path "Apps/PcmLogger/bin/Debug/PcmLogger.*" -Destination TemporaryArtifactStorage
-        Copy-Item -Path "Apps/PcmLogger/bin/Debug/*.dll" -Destination TemporaryArtifactStorage
-        Copy-Item -Path "Apps/PcmLogger/bin/Debug/*.pdb" -Destination TemporaryArtifactStorage
-        Copy-Item -Path "Apps/PcmLogger/*.LogProfile" -Destination TemporaryArtifactStorage
-        Copy-Item -Path "Apps/PcmLogger/Parameters.*.xml" -Destination TemporaryArtifactStorage
+        Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/bin/Debug/PcmLogger.*" -Destination TemporaryArtifactStorage
+        Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/bin/Debug/*.dll" -Destination TemporaryArtifactStorage
+        Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/bin/Debug/*.pdb" -Destination TemporaryArtifactStorage
+        Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/*.LogProfile" -Destination TemporaryArtifactStorage
+        Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/Parameters.*.xml" -Destination TemporaryArtifactStorage
 
-    - name: Add VPW Explorer to temporary artifact storage
+    - name: Add WinForms VPW Explorer to temporary artifact storage
       run: |
-        Copy-Item -Path "Apps/VpwExplorer/bin/Debug/VpwExplorer.*" -Destination TemporaryArtifactStorage
-        Copy-Item -Path "Apps/VpwExplorer/bin/Debug/*.dll" -Destination TemporaryArtifactStorage
-        Copy-Item -Path "Apps/VpwExplorer/bin/Debug/*.pdb" -Destination TemporaryArtifactStorage
+        Copy-Item -Path "Apps/UI/WindowsForms/VpwExplorer/bin/Debug/VpwExplorer.*" -Destination TemporaryArtifactStorage
+        Copy-Item -Path "Apps/UI/WindowsForms/VpwExplorer/bin/Debug/*.dll" -Destination TemporaryArtifactStorage
+        Copy-Item -Path "Apps/UI/WindowsForms/VpwExplorer/bin/Debug/*.pdb" -Destination TemporaryArtifactStorage
 
-    - name: Is it all there ??
+    - name: Add Uno Windows binaries to temporary artifact storage
+      run: |
+        Copy-Item -Recurse -Path "Apps/UI/UnoUI/PcmHacking.UnoUI/bin/x86/Debug/net10.0-windows10.0.26100.0/win-x86/*" -Destination TemporaryArtifactStorage/WindowsUnpackaged
+        Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/*.LogProfile"     -Destination TemporaryArtifactStorage/WindowsUnpackaged
+        Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/Parameters.*.xml" -Destination TemporaryArtifactStorage/WindowsUnpackaged
+
+    - name: Is it all there - Default
       run: ls -l TemporaryArtifactStorage/
+
+    - name: Is it all there - Windows
+      run: ls -l TemporaryArtifactStorage/WindowsUnpackaged
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4.4.0

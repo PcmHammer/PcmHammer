@@ -1,0 +1,169 @@
+﻿<Page x:Class="PcmHacking.UnoUI.Presentation.CrankRelearnPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:local="using:PcmHacking.UnoUI.Presentation"
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+      xmlns:uen="using:Uno.Extensions.Navigation.UI"
+      xmlns:utu="using:Uno.Toolkit.UI"
+      Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+
+  <Grid utu:SafeArea.Insets="VisibleBounds">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="1*" x:Name="Coolant"/>
+      <RowDefinition Height="1*" x:Name="Coolant2"/>
+      <RowDefinition Height="1*" x:Name="RPM"/>
+      <RowDefinition Height="1*" x:Name="RPM2"/>
+      <RowDefinition Height="1*" x:Name="Brake"/>
+      <RowDefinition Height="1*" x:Name="Brake2"/>
+      <RowDefinition Height="1*" x:Name="AC"/>
+      <RowDefinition Height="1*" x:Name="AC2"/>
+      <RowDefinition Height="2*" x:Name="Status"/>
+      <RowDefinition Height="2*" x:Name="Instructions"/>
+      <RowDefinition Height="2*" x:Name="Button"/>
+    </Grid.RowDefinitions>
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="1*" />
+      <ColumnDefinition Width="1*" />
+      <ColumnDefinition Width="1*" />
+    </Grid.ColumnDefinitions>
+
+    <TextBlock
+        Text="Coolant Temperature"
+        Grid.Row="0"
+        Grid.Column="0"
+        HorizontalAlignment="Center"
+        VerticalAlignment="Bottom" />
+
+    <TextBlock
+        Text="{Binding CoolantTemperature}"
+        Grid.Row="0"
+        Grid.Column="1"
+        HorizontalAlignment="Center"
+        VerticalAlignment="Bottom" />
+
+    <TextBlock
+        Text="{Binding CoolantTemperatureStatus}"
+        Grid.Row="0"
+        Grid.Column="2"
+        HorizontalAlignment="Center"
+        VerticalAlignment="Bottom" />
+
+    <TextBlock
+        Text="Must be greater than 80 °C."
+        Grid.Row="1"
+        Grid.Column="1"
+        HorizontalAlignment="Center"
+        VerticalAlignment="Top" />
+
+    <TextBlock
+        Text="Engine Speed"
+        Grid.Row="2"
+        Grid.Column="0"
+        HorizontalAlignment="Center"
+        VerticalAlignment="Bottom" />
+
+    <TextBlock
+        Text="{Binding Rpm}"
+        Grid.Row="2"
+        Grid.Column="1"
+        HorizontalAlignment="Center"
+        VerticalAlignment="Bottom" />
+
+    <TextBlock
+        Text="{Binding RpmStatus}"
+        Grid.Row="2"
+        Grid.Column="2"
+        HorizontalAlignment="Center"
+        VerticalAlignment="Bottom" />
+
+    <TextBlock
+        Text="Must be less than 1000."
+        Grid.Row="3"
+        Grid.Column="1"
+        HorizontalAlignment="Center"
+        VerticalAlignment="Top" />
+
+    <TextBlock
+        Text="Brake Pedal"
+        Grid.Row="4"
+        Grid.Column="0"
+        HorizontalAlignment="Center"
+        VerticalAlignment="Bottom" />
+
+    <TextBlock
+        Text="{Binding BrakePedal}"
+        Grid.Row="4"
+        Grid.Column="1"
+        HorizontalAlignment="Center"
+        VerticalAlignment="Bottom" />
+
+    <TextBlock
+        Text="{Binding BrakePedalStatus}"
+        Grid.Row="4"
+        Grid.Column="2"
+        HorizontalAlignment="Center"
+        VerticalAlignment="Bottom" />
+
+    <TextBlock
+        Text="Must be held down."
+        Grid.Row="5"
+        Grid.Column="1"
+        HorizontalAlignment="Center"
+        VerticalAlignment="Top" />
+
+    <TextBlock
+        Text="Air Conditioning"
+        Grid.Row="6"
+        Grid.Column="0"
+        HorizontalAlignment="Center"
+        VerticalAlignment="Bottom" />
+
+    <TextBlock
+        Text="{Binding AirConditioning}"
+        Grid.Row="6"
+        Grid.Column="1"
+        HorizontalAlignment="Center"
+        VerticalAlignment="Bottom" />
+
+    <TextBlock
+        Text="{Binding AirConditioningStatus}"
+        Grid.Row="6"
+        Grid.Column="2"
+        HorizontalAlignment="Center"
+        VerticalAlignment="Bottom" />
+
+    <TextBlock
+        Text="Must be off."
+        Grid.Row="7"
+        Grid.Column="1"
+        HorizontalAlignment="Center"
+        VerticalAlignment="Top" />
+
+    <TextBlock
+        Text="{Binding Status}"
+        Grid.Row="8"
+        Grid.Column="0"
+        Grid.ColumnSpan="3"
+        HorizontalAlignment="Center"
+        VerticalAlignment="Center" />
+
+    <TextBlock
+        Text="{Binding Instructions}"
+        Grid.Row="9"
+        Grid.Column="0"
+        Grid.ColumnSpan="3"
+        HorizontalAlignment="Center"
+        VerticalAlignment="Center" />
+
+    <Button
+        Content="Start"
+        Grid.Row="10"
+        Grid.Column="0"
+        Grid.ColumnSpan="3"
+        HorizontalAlignment="Stretch"
+        VerticalAlignment="Stretch"
+        Command="{Binding StartClicked}"
+        IsEnabled="{Binding StartEnabled}"/>
+  </Grid>
+</Page>

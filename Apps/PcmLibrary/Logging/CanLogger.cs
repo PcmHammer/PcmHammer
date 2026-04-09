@@ -2,12 +2,14 @@
 using PcmHacking;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Linq.Expressions;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
-
 
 namespace PcmHacking
 { 
@@ -37,11 +39,11 @@ namespace PcmHacking
         private readonly ParameterDatabase parameterDatabase;
         private readonly ILogger logger;
 
-        private IPort canPort;
+        private IPort? canPort;
         private CanParser parser = new CanParser();
         Dictionary<UInt32, Dictionary<string, ParameterAndValue>> snapshot = new Dictionary<UInt32, Dictionary<string, ParameterAndValue>>();
-        IEnumerable<UInt32> sortedMessageIds;
-        Dictionary<UInt32, IEnumerable<string>> sortedParameterIds;
+        IEnumerable<UInt32> sortedMessageIds = Enumerable.Empty<UInt32>();
+        Dictionary<UInt32, IEnumerable<string>> sortedParameterIds = new Dictionary<UInt32, IEnumerable<string>>();
 
         // Note that this is accessed by multiple threads, so it must only be used within "lock(messages)"
         Dictionary<UInt32, Dictionary<string, List<ParameterAndValue>>> messages = new Dictionary<UInt32, Dictionary<string, List<ParameterAndValue>>>();
@@ -83,6 +85,7 @@ namespace PcmHacking
             {
                 SerialPortConfiguration configuration = new SerialPortConfiguration();
                 configuration.BaudRate = 2000000;
+                configuration.Timeout = 50;
                 configuration.DataReceived = this.DataReceived;
                 await this.canPort.OpenAsync(configuration);
 
@@ -98,10 +101,24 @@ namespace PcmHacking
                 // It adds a lot of complexity to the code, and it adds a pause at the
                 // start of every logging session.
                 Thread.Sleep(1500);
+
+                ISet<uint> knownIds = new HashSet<uint>(this.parameterDatabase.GetCanParameters().Keys);
                 lock (this.messages)
                 {
                     foreach (UInt32 key in this.messages.Keys)
                     {
+
+                        // When troubleshooting the CAN parser & serial port code, it is
+                        // helpful to see whether anything got mistaken for a valid message.
+                        //
+                        // This was also helpful to discover what's present on the CAN
+                        // bus, but sniffing should be a dedicated feature of the app,
+                        // not something that happens randomly when starting every log.
+//                        if (!knownIds.Contains(key))
+ //                       {
+  //                          continue;
+   //                     }
+
                         Dictionary<string, ParameterAndValue> entry = new Dictionary<string, ParameterAndValue>();
                         this.snapshot.Add(key, entry);
 
@@ -128,12 +145,6 @@ namespace PcmHacking
                 IEnumerable<string> sortedIds = parameterIds.Keys.ToList().ToImmutableSortedSet();
                 this.sortedParameterIds[messageId] = sortedIds;
             }
-
-            this.logger.AddUserMessage($"CanLogger found {this.sortedMessageIds.Count()} CAN messages.");
-            foreach(UInt32 messageId in this.sortedMessageIds)
-            {
-                this.logger.AddUserMessage($"CAN ID: {messageId:X}");
-            }
         }
 
         /// <summary>
@@ -147,7 +158,7 @@ namespace PcmHacking
                 Dictionary<string, ParameterAndValue> temp = new Dictionary<string, ParameterAndValue>();
                 foreach(CanParameter parameter in canParameters[messageId])
                 {
-                    temp[parameter.Id] = new ParameterAndValue(parameter, parameter.SelectedConversion.Units, "0", 0);
+                    temp[parameter.Id] = new ParameterAndValue(parameter, parameter.SelectedConversion?.Units ?? String.Empty, "0", 0);
                 }
                 this.snapshot[messageId] = temp;
             }
@@ -239,12 +250,13 @@ namespace PcmHacking
                     switch (parameter.ByteCount)
                     {
                         case 0:
+
                             valueAsString = "Event";
                             valueAsNumber = 0;
                             break;
 
                         case 1:
-                            if ((int)parameter.ByteIndex <= message.Payload.Length)
+                            if ((int)parameter.ByteIndex < message.Payload.Length)
                             {
                                 valueAsNumber = message.Payload[(int)parameter.ByteIndex];
                             }
@@ -255,7 +267,7 @@ namespace PcmHacking
                             break;
 
                         case 2:
-                            if ((int)parameter.ByteIndex + 1 <= message.Payload.Length)
+                            if ((int)parameter.ByteIndex + 1 < message.Payload.Length)
                             {
                                 if (parameter.HighByteFirst)
                                 {
@@ -277,7 +289,7 @@ namespace PcmHacking
                             break;
 
                         case 3:
-                            if ((int)parameter.ByteIndex + 2 <= message.Payload.Length)
+                            if ((int)parameter.ByteIndex + 2 < message.Payload.Length)
                             {
                                 if (parameter.HighByteFirst)
                                 {
@@ -301,7 +313,7 @@ namespace PcmHacking
                             break;
 
                         case 4:
-                            if ((int)parameter.ByteIndex + 4 <= message.Payload.Length)
+                            if ((int)parameter.ByteIndex + 4 < message.Payload.Length)
                             {
                                 if (parameter.HighByteFirst)
                                 {
@@ -351,6 +363,11 @@ namespace PcmHacking
 
         public IEnumerable<ParameterAndValue> GetParameterValues()
         {
+            if (this.sortedMessageIds == null)
+            {
+                yield break;
+            }
+
             foreach (UInt32 messageId in this.sortedMessageIds)
             {
                 var parameterCacheForThisMessage = this.snapshot[messageId];
@@ -370,6 +387,34 @@ namespace PcmHacking
             }
         }
 
+        public IEnumerable<LogRowElement> GetParameterValuesV2()
+        {
+            foreach (UInt32 messageId in this.sortedMessageIds)
+            {
+                var parameterCacheForThisMessage = this.snapshot[messageId];
+                foreach (string parameterId in sortedParameterIds[messageId])
+                {
+                    ParameterAndValue parameterAndValue;
+                    if (this.TryGetParameter(messageId, parameterId, out parameterAndValue))
+                    {
+                        parameterCacheForThisMessage[parameterId] = parameterAndValue;
+                    }
+                    else
+                    {
+                        parameterAndValue = parameterCacheForThisMessage[parameterId];
+                    }
+
+                    yield return new LogRowElement(
+                        parameterAndValue.Parameter.Id,
+                        parameterAndValue.Parameter.Name,
+                        parameterAndValue.Units,
+                        parameterAndValue.ValueAsString,
+                        parameterAndValue.ValueAsNumber);
+                }
+            }
+        }
+
+
         private bool TryGetParameter(uint messageId, string parameterId, out ParameterAndValue parameterAndValue)
         {
             lock (this.messages)
@@ -387,6 +432,10 @@ namespace PcmHacking
                         }
                         else
                         {
+                            // The obvious fix would be to make the parameter nullable, but when this function returns true
+                            // the out parameter is guaranteed to be non-null, so it is cleaner to just return false here
+                            // and not have to deal with nullability in the calling code. 
+#pragma warning disable CS8625 // Cannot convert null literal to non-nullable reference type.
                             parameterAndValue = null;
                             return false;
                         }
@@ -402,6 +451,7 @@ namespace PcmHacking
                     parameterAndValue = null;
                     return false;
                 }
+#pragma warning restore CS8625 // Cannot convert null literal to non-nullable reference type.
             }
         }
 
@@ -409,7 +459,12 @@ namespace PcmHacking
         {
             if (receivedList.Count == 0)
             {
+                // The obvious fix would be to make the parameter nullable, but when this function returns true
+                // the out parameter is guaranteed to be non-null, so it is cleaner to just return false here
+                // and not have to deal with nullability in the calling code. 
+#pragma warning disable CS8625 // Cannot convert null literal to non-nullable reference type.
                 parameterAndValue = null;
+#pragma warning restore CS8625 // Cannot convert null literal to non-nullable reference type.
                 return false;
             }
 
@@ -438,6 +493,17 @@ namespace PcmHacking
                         samples++;
                     }
                     aggregated /= samples;
+                    break;
+
+                case Aggregation.Max:
+                    aggregated = double.MinValue;
+                    foreach (var parameter in receivedList)
+                    {
+                        if (parameter.ValueAsNumber > aggregated)
+                        {
+                            aggregated = parameter.ValueAsNumber;
+                        }
+                    }
                     break;
 
                 default:

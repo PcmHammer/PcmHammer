@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -63,7 +63,10 @@ namespace PcmHacking
 
             StringBuilder builder = new StringBuilder();
             this.Logger.AddDebugMessage("Sending message " + message.GetBytes().ToHex());
-            this.port.Send(message.GetBytes());
+            if (this.port is MockPort)
+            {
+                this.port.Send(message.GetBytes());
+            }
             return Task.FromResult(true);
         }
 
@@ -77,12 +80,15 @@ namespace PcmHacking
 
             //List<byte> incoming = new List<byte>(5000);
             byte[] incoming = new byte[5000];
-            int count = await this.port.Receive(incoming, 0, incoming.Length);
-            if(count > 0)
+            if (this.port is MockPort)
             {
-                byte[] sized = new byte[count];
-                Buffer.BlockCopy(incoming, 0, sized, 0, count);
-                base.Enqueue(new Message(sized));
+                int count = await this.port.Receive(incoming, 0, incoming.Length);
+                if (count > 0)
+                {
+                    byte[] sized = new byte[count];
+                    Buffer.BlockCopy(incoming, 0, sized, 0, count);
+                    base.Enqueue(new Message(sized));
+                }
             }
 
             return;
@@ -115,7 +121,10 @@ namespace PcmHacking
         /// </summary>
         public override void ClearMessageBuffer()
         {
-            this.port.DiscardBuffers();
+            if (this.port is MockPort)
+            {
+                this.port.DiscardBuffers();
+            }
         }
     }
 }

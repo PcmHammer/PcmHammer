@@ -34,6 +34,7 @@ namespace PcmHacking
                 if (this.Port != null)
                 {
                     this.Port.Dispose();
+                    this.Port = null;
                 }
             }
         }

@@ -325,6 +325,7 @@ namespace PcmHacking
             }
 
             logger.AddDebugMessage($"Sending upload request for {(info.LoaderRequired ? "loader" : "kernel")} size {payload.Length}, loadaddress {loadAddress.ToString("X6")}");
+            logger.AddUserMessage("Requesting upload permission.");
 
             Query<bool> uploadPermissionQuery = new Query<bool>(
                 this.device,
