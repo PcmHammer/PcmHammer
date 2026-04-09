@@ -114,9 +114,6 @@ jobs:
         distribution: temurin
         java-version: '17'
 
-    - name: Setup MSBuild Path
-      uses: microsoft/setup-msbuild@v3
-
     - name: Setup NuGet
       uses: NuGet/setup-nuget@v3
 
@@ -143,8 +140,8 @@ jobs:
     - name: Restore NuGet packages
       run: nuget restore Apps/PcmApps.sln
 
-    - name: Restore solution dependencies (MSBuild restore)
-      run: msbuild Apps/PcmApps.sln /t:Restore
+    - name: Restore solution dependencies (dotnet restore)
+      run: dotnet restore Apps/PcmApps.sln
 
     - name: Ensure .NET Framework 4.6.2 Developer Pack
       run: |
@@ -153,9 +150,9 @@ jobs:
 
     - name: Build WinForms applications (Debug)
       run: |
-        msbuild Apps/UI/WindowsForms/PcmHammer/PcmHammer.csproj /p:Configuration=Debug
-        msbuild Apps/UI/WindowsForms/PcmLogger/PcmLogger.csproj /p:Configuration=Debug
-        msbuild Apps/UI/WindowsForms/VpwExplorer/VpwExplorer.csproj /p:Configuration=Debug
+        dotnet build Apps/UI/WindowsForms/PcmHammer/PcmHammer.csproj -c Debug
+        dotnet build Apps/UI/WindowsForms/PcmLogger/PcmLogger.csproj -c Debug
+        dotnet build Apps/UI/WindowsForms/VpwExplorer/VpwExplorer.csproj -c Debug
 
     - name: Build Uno Windows (Debug, win-x86)
       run: dotnet build Apps/UI/UnoUI/PcmHacking.UnoUI/PcmHacking.UnoUI.csproj -c Debug -f net10.0-windows10.0.26100.0 -r win-x86
