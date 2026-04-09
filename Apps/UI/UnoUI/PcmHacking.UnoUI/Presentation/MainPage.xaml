@@ -1,0 +1,50 @@
+﻿<Page x:Class="PcmHacking.UnoUI.Presentation.MainPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:local="using:PcmHacking.UnoUI.Presentation"
+      xmlns:uen="using:Uno.Extensions.Navigation.UI"
+      xmlns:utu="using:Uno.Toolkit.UI"
+      NavigationCacheMode="Required"
+      Loaded="Page_Loaded"
+      >
+    <Grid utu:SafeArea.Insets="VisibleBounds">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="30" x:Name="Status1"/>
+            <RowDefinition Height="30" x:Name="Status2"/>
+            <RowDefinition x:Name="PageRow"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="1*" />
+            <ColumnDefinition Width="2*" />
+            <ColumnDefinition Width="3*" />
+            <ColumnDefinition Width="3*" />
+            <ColumnDefinition Width="3*" />
+            <ColumnDefinition Width="3*" />
+        </Grid.ColumnDefinitions>
+
+        <Button Grid.Row="0" Grid.Column="0" Grid.RowSpan="2" x:Name="BackButton" Margin="0"
+                VerticalAlignment="Center"
+                Style="{StaticResource NavigationBackButtonNormalStyle}"
+                IsEnabled="{Binding BackButtonEnabled}"
+                Command="{Binding GoBack}"
+                ToolTipService.ToolTip="Back" />
+
+        <TextBlock Grid.Row="0" Grid.Column="1" TextAlignment="Center" VerticalAlignment="Bottom" Text="Serial Port" />
+        <TextBlock Grid.Row="1" Grid.Column="1" TextAlignment="Center" VerticalAlignment="Top" Text="{Binding SerialPortName}" />
+
+        <TextBlock Grid.Row="0" Grid.Column="2" TextAlignment="Center" VerticalAlignment="Bottom" Text="Device" />
+        <TextBlock Grid.Row="1" Grid.Column="2" TextAlignment="Center" VerticalAlignment="Top" Text="{Binding DeviceName}" />
+
+        <TextBlock Grid.Row="0" Grid.Column="3" TextAlignment="Center" VerticalAlignment="Center" Text="{Binding ConnectionState}" Grid.RowSpan="2" />
+
+        <TextBlock Grid.Row="0" Grid.Column="4" TextAlignment="Center" VerticalAlignment="Bottom" Text="OSID" />
+        <TextBlock Grid.Row="1" Grid.Column="4" TextAlignment="Center" VerticalAlignment="Top" Text="{Binding OperatingSystemId}" />
+
+        <TextBlock Grid.Row="0" Grid.Column="5" TextAlignment="Center" VerticalAlignment="Bottom" Text="Voltage" />
+        <TextBlock Grid.Row="1" Grid.Column="5" TextAlignment="Center" VerticalAlignment="Top" Text="{Binding Voltage}" />
+
+        <Frame Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="6"
+               x:Name="ContentFrame" uen:Region.Attached="True"
+               Navigated="{x:Bind FrameNavigated}"/>
+    </Grid>
+</Page>

@@ -89,6 +89,7 @@ namespace PcmHacking
                             logger.AddUserMessage("Failed to load loader from file.");
                             return false;
                         }
+                        logger.AddUserMessage("Kernel loader loaded from file.");
 
                         if (cancellationToken.IsCancellationRequested)
                         {
@@ -113,6 +114,7 @@ namespace PcmHacking
                         logger.AddUserMessage("Failed to load kernel from file.");
                         return false;
                     }
+                    logger.AddUserMessage("Kernel loaded from file.");
 
                     if (cancellationToken.IsCancellationRequested)
                     {

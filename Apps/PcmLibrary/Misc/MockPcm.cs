@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -221,6 +221,19 @@ namespace PcmHacking
                 response.Add(this.GetCrc());
 
                 this.responseBuffer = response.ToArray();
+            }
+            else if (modeByte == Mode.GetPid)
+            {
+                if ((payload[0] == 0x11) && (payload[1] == 0x41))
+                {
+                    // PID 0x1141 = voltage
+                    this.responseBuffer = new byte[] { Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, Mode.GetPid + Mode.Response, payload[0], payload[1], 0x80 };
+                }
+                else
+                {
+                    // Any other PID will return 0x8080.
+                    this.responseBuffer = new byte[] { Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, Mode.GetPid + Mode.Response, payload[0], payload[1], 0x80, 0x80 };
+                }
             }
         }
 

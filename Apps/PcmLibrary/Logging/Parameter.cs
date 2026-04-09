@@ -21,9 +21,9 @@ namespace PcmHacking
 
         public int BitIndex { get; private set; }
 
-        public string TrueValue { get; private set; }
+        public string? TrueValue { get; private set; }
 
-        public string FalseValue { get; private set; }
+        public string? FalseValue { get; private set; }
 
         public Conversion(string units, string expression, string format)
         {
@@ -103,10 +103,20 @@ namespace PcmHacking
     /// </summary>
     public abstract class Parameter : IEqualityComparer<Parameter>
     {
+        private static readonly IEnumerable<Conversion> noConversions = new List<Conversion>();
+
         public string Id { get; protected set; }
         public string Name { get; protected set; }
         public string Description { get; protected set; }
         public IEnumerable<Conversion> Conversions { get; protected set; }
+
+        public Parameter()
+        {
+            this.Id = "";
+            this.Name = "";
+            this.Description = "";
+            this.Conversions = noConversions;
+        }
 
         public override string ToString()
         {
@@ -137,7 +147,12 @@ namespace PcmHacking
     /// </summary>
     public abstract class PcmParameter : Parameter
     {
-        public string StorageType { get; protected set; }
+        public string StorageType { get; private set; }
+
+        public PcmParameter(string storageType)
+        {
+            this.StorageType = storageType;
+        }
 
         public int ByteCount
         {
@@ -202,13 +217,12 @@ namespace PcmHacking
             bool bitMapped,
             IEnumerable<Conversion> conversions,
             uint pid,
-            IEnumerable<uint> osids)
+            IEnumerable<uint> osids) : base(storageType)
         {
             this.Id = id;
             this.PID = pid;
             this.Name = name;
             this.Description = description;
-            this.StorageType = storageType;
             this.BitMapped = bitMapped;
             this.Conversions = conversions;
             this.Osids = osids;
@@ -238,12 +252,11 @@ namespace PcmHacking
             string storageType,
             bool bitMapped,
             IEnumerable<Conversion> conversions,
-            Dictionary<uint, uint> addresses)
+            Dictionary<uint, uint> addresses) : base(storageType)
         {
             this.Id = id;
             this.Name = name;
             this.Description = description;
-            this.StorageType = storageType;
             this.BitMapped = bitMapped;
             this.Conversions = conversions;
             this.addresses = addresses;
@@ -296,7 +309,8 @@ namespace PcmHacking
     {
         Last,
         Sum,
-        Average
+        Average,
+        Max
     }
 
     public class CanParameter : Parameter
@@ -305,7 +319,7 @@ namespace PcmHacking
         public uint ByteIndex { get; private set; }
         public uint ByteCount { get; private set; }
         public bool HighByteFirst { get; private set; }
-        public Conversion SelectedConversion { get; set; }
+        public Conversion? SelectedConversion { get; set; }
         public Aggregation Aggregation { get; private set; }
 
         /// <summary>
@@ -315,7 +329,16 @@ namespace PcmHacking
         /// </summary>
         public override bool IsSupported(uint osid) { return true; }
 
-        public CanParameter(uint messageId, uint byteIndex, uint byteCount, bool highByteFirst, string id, string name, string description, IEnumerable<Conversion> conversions, Aggregation aggregation)
+        public CanParameter(
+            uint messageId,
+            uint byteIndex,
+            uint byteCount,
+            bool highByteFirst,
+            string id,
+            string name,
+            string description,
+            IEnumerable<Conversion> conversions,
+            Aggregation aggregation)
         {
             this.MessageId = messageId;
             this.ByteIndex = byteIndex;
@@ -325,6 +348,7 @@ namespace PcmHacking
             this.Name = name;
             this.Description = description;
             this.Conversions = conversions;
+            this.Aggregation = aggregation;
             this.Aggregation = aggregation;
         }
     }

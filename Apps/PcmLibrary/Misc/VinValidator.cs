@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Text;
 
@@ -78,7 +78,7 @@ namespace PcmHacking
 
             char CheckDigit = 'X';
 
-            if (checksum < 10)
+            if (checksum <= 10)
             {
                 CheckDigit = checksum.ToString()[0];
             }

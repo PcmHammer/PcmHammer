@@ -145,9 +145,9 @@ namespace PcmHacking
             }
 
             byte[] vinBytes = new byte[17];
-            Buffer.BlockCopy(response1, 6, vinBytes, 0, 5);
-            Buffer.BlockCopy(response2, 5, vinBytes, 5, 6);
-            Buffer.BlockCopy(response3, 5, vinBytes, 11, 6);
+            Buffer.BlockCopy(response1, 6, vinBytes, 0, Math.Min(5, response1.Length));
+            Buffer.BlockCopy(response2, 5, vinBytes, 5, Math.Min(6, response2.Length));
+            Buffer.BlockCopy(response3, 5, vinBytes, 11, Math.Min(6, response3.Length));
             string vin = System.Text.Encoding.ASCII.GetString(vinBytes);
             return Response.Create(ResponseStatus.Success, vin);
         }
