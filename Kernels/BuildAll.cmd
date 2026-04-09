@@ -82,13 +82,25 @@ call :CopyBinsToTarget "..\Apps\UI\WindowsForms\PcmHammer\bin\Debug"
 call :CopyBinsToTarget "..\Apps\UI\WindowsForms\PcmHammer\bin\Release"
 
 rem Uno targets (detected by output folder patterns)
-echo Scanning Uno Android output targets...
-for /d %%D in ("..\Apps\UI\UnoUI\PcmHacking.UnoUI\bin\*\net10.0-android") do call :CopyBinsToTarget "%%~fD"
-echo Scanning Uno Windows output targets...
-for /d %%D in ("..\Apps\UI\UnoUI\PcmHacking.UnoUI\bin\*\net10.0-windows10.0.26100.0\win-*") do call :CopyBinsToTarget "%%~fD"
+call :CopyToDetectedUnoTargets
 
 if "%COPY_TARGET_COUNT%" == "0" (
   echo No output targets detected. Kernels remain in %cd%.
+)
+
+goto :EOF
+
+:CopyToDetectedUnoTargets
+set "UNO_BIN_ROOT=..\Apps\UI\UnoUI\PcmHacking.UnoUI\bin"
+if not exist "%UNO_BIN_ROOT%" (
+  echo Uno bin root not found: "%UNO_BIN_ROOT%"
+  goto :EOF
+)
+
+echo Scanning Uno bin output targets for app executables...
+for /r "%UNO_BIN_ROOT%" %%F in (pcm*.exe) do (
+  echo   Found app executable: "%%~fF"
+  call :CopyBinsToTarget "%%~dpF"
 )
 
 goto :EOF

@@ -203,11 +203,12 @@ jobs:
       shell: pwsh
       run: |
         $unoWindowsOutput = Get-ChildItem -Path "Apps/UI/UnoUI/PcmHacking.UnoUI/bin" -Recurse -Directory -Filter "net10.0-windows*" -ErrorAction SilentlyContinue `
+          | Where-Object { (Get-ChildItem -Path $_.FullName -File -Filter "pcm*.exe" -ErrorAction SilentlyContinue | Measure-Object).Count -gt 0 } `
           | Sort-Object FullName `
           | Select-Object -First 1
 
         if (!$unoWindowsOutput) {
-          throw "Uno Windows output folder not found under Apps/UI/UnoUI/PcmHacking.UnoUI/bin"
+          throw "Uno Windows output folder containing pcm*.exe not found under Apps/UI/UnoUI/PcmHacking.UnoUI/bin"
         }
 
         New-Item -ItemType Directory -Force -Path TemporaryArtifactStorage/UnoWindows | Out-Null
@@ -219,15 +220,17 @@ jobs:
     - name: Stage Uno Android artifact payload
       shell: pwsh
       run: |
-        $androidOutputs = Get-ChildItem -Path "Apps/UI/UnoUI/PcmHacking.UnoUI/bin/Debug" -Directory -Filter "net10.0-android*" -ErrorAction SilentlyContinue
+        $androidBinRoot = (Resolve-Path "Apps/UI/UnoUI/PcmHacking.UnoUI/bin").Path
+        $androidOutputs = Get-ChildItem -Path $androidBinRoot -Recurse -Directory -Filter "net10.0-android*" -ErrorAction SilentlyContinue
         if (!$androidOutputs -or $androidOutputs.Count -eq 0) {
-          throw "Uno Android output folder not found under Apps/UI/UnoUI/PcmHacking.UnoUI/bin/Debug"
+          throw "Uno Android output folder not found under Apps/UI/UnoUI/PcmHacking.UnoUI/bin"
         }
 
         New-Item -ItemType Directory -Force -Path TemporaryArtifactStorage/UnoAndroid | Out-Null
         Copy-Item -Path "TemporaryArtifactStorage/Kernels/*.bin" -Destination "TemporaryArtifactStorage/UnoAndroid" -Force
         foreach ($dir in $androidOutputs) {
-          $dest = Join-Path "TemporaryArtifactStorage/UnoAndroid" $dir.Name
+          $relative = $dir.FullName.Substring($androidBinRoot.Length).TrimStart('\')
+          $dest = Join-Path "TemporaryArtifactStorage/UnoAndroid" $relative
           New-Item -ItemType Directory -Force -Path $dest | Out-Null
           Copy-Item -Path "$($dir.FullName)/*" -Destination $dest -Recurse -Force
         }
