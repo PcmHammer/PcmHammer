@@ -150,12 +150,15 @@ jobs:
 
     - name: Build WinForms applications (Debug)
       run: |
-        dotnet build Apps/UI/WindowsForms/PcmHammer/PcmHammer.csproj -c Debug
-        dotnet build Apps/UI/WindowsForms/PcmLogger/PcmLogger.csproj -c Debug
-        dotnet build Apps/UI/WindowsForms/VpwExplorer/VpwExplorer.csproj -c Debug
+        dotnet build Apps/PcmLibrary/PcmLibrary.csproj -c Debug -p:GenerateResourceUsePreserializedResources=true
+        dotnet build Apps/PcmLibraryWindowsApi/PcmLibraryWindowsApi.csproj -c Debug -p:GenerateResourceUsePreserializedResources=true
+        dotnet build Apps/UI/WindowsForms/PcmLibraryWindowsForms/PcmLibraryWindowsForms.csproj -c Debug -p:GenerateResourceUsePreserializedResources=true
+        dotnet build Apps/UI/WindowsForms/PcmHammer/PcmHammer.csproj -c Debug -p:GenerateResourceUsePreserializedResources=true
+        dotnet build Apps/UI/WindowsForms/PcmLogger/PcmLogger.csproj -c Debug -p:GenerateResourceUsePreserializedResources=true
+        dotnet build Apps/UI/WindowsForms/VpwExplorer/VpwExplorer.csproj -c Debug -p:GenerateResourceUsePreserializedResources=true
 
-    - name: Build Uno Windows (Debug, win-x86)
-      run: dotnet build Apps/UI/UnoUI/PcmHacking.UnoUI/PcmHacking.UnoUI.csproj -c Debug -f net10.0-windows10.0.26100.0 -r win-x86
+    - name: Build Uno Windows (Debug)
+      run: dotnet build Apps/UI/UnoUI/PcmHacking.UnoUI/PcmHacking.UnoUI.csproj -c Debug -f net10.0-windows10.0.26100.0
 
     - name: Build Uno Android (Debug)
       run: dotnet build Apps/UI/UnoUI/PcmHacking.UnoUI/PcmHacking.UnoUI.csproj -c Debug -f net10.0-android
@@ -199,14 +202,17 @@ jobs:
     - name: Stage Uno Windows artifact payload
       shell: pwsh
       run: |
-        $unoWindowsOutput = "Apps/UI/UnoUI/PcmHacking.UnoUI/bin/x86/Debug/net10.0-windows10.0.26100.0/win-x86"
-        if (!(Test-Path $unoWindowsOutput)) {
-          throw "Uno Windows output folder not found: $unoWindowsOutput"
+        $unoWindowsOutput = Get-ChildItem -Path "Apps/UI/UnoUI/PcmHacking.UnoUI/bin" -Recurse -Directory -Filter "net10.0-windows*" -ErrorAction SilentlyContinue `
+          | Sort-Object FullName `
+          | Select-Object -First 1
+
+        if (!$unoWindowsOutput) {
+          throw "Uno Windows output folder not found under Apps/UI/UnoUI/PcmHacking.UnoUI/bin"
         }
 
         New-Item -ItemType Directory -Force -Path TemporaryArtifactStorage/UnoWindows | Out-Null
         Copy-Item -Path "TemporaryArtifactStorage/Kernels/*.bin" -Destination "TemporaryArtifactStorage/UnoWindows" -Force
-        Copy-Item -Path "$unoWindowsOutput/*" -Destination "TemporaryArtifactStorage/UnoWindows" -Recurse -Force
+        Copy-Item -Path "$($unoWindowsOutput.FullName)/*" -Destination "TemporaryArtifactStorage/UnoWindows" -Recurse -Force
         Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/*.LogProfile" -Destination "TemporaryArtifactStorage/UnoWindows" -Force
         Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/Parameters.*.xml" -Destination "TemporaryArtifactStorage/UnoWindows" -Force
 

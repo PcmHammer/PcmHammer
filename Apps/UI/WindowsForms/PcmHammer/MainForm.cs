@@ -657,6 +657,8 @@ namespace PcmHacking
             this.userDefinedKeyToolStripMenuItem.Enabled = false;
 
             this.readPropertiesButton.Enabled = false;
+            this.readPcmButton.Enabled = false;
+            this.verifyPcmButton.Enabled = false;
 
             this.testWriteButton.Enabled = false;
             this.writeCalibrationButton.Enabled = false;
@@ -688,6 +690,8 @@ namespace PcmHacking
                 this.userDefinedKeyToolStripMenuItem.Enabled = true;
 
                 this.readPropertiesButton.Enabled = true;
+                this.readPcmButton.Enabled = true;
+                this.verifyPcmButton.Enabled = true;
 
                 this.testWriteButton.Enabled = true;
                 this.writeCalibrationButton.Enabled = true;
