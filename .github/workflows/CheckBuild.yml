@@ -202,21 +202,21 @@ jobs:
     - name: Stage Uno Windows artifact payload
       shell: pwsh
       run: |
-        $unoWindowsOutput = Get-ChildItem -Path "Apps/UI/UnoUI/PcmHacking.UnoUI/bin" -Recurse -Directory -Filter "net10.0-windows*" -ErrorAction SilentlyContinue `
+        $unoWindowsOutput = Get-ChildItem -Path "Apps/UI/UnoUI/PcmHacking.UnoUI/bin" -Recurse -File -ErrorAction SilentlyContinue `
           | Where-Object {
-              ((Get-ChildItem -Path $_.FullName -File -Filter "pcm*.exe" -ErrorAction SilentlyContinue | Measure-Object).Count -gt 0) -or
-              ((Get-ChildItem -Path $_.FullName -File -Filter "pcm*.dll" -ErrorAction SilentlyContinue | Measure-Object).Count -gt 0)
+              ($_.Name -like "pcm*.exe" -or $_.Name -like "pcm*.dll") -and
+              $_.FullName -like "*net10.0-windows*"
             } `
           | Sort-Object FullName `
           | Select-Object -First 1
 
         if (!$unoWindowsOutput) {
-          throw "Uno Windows output folder containing pcm*.exe or pcm*.dll not found under Apps/UI/UnoUI/PcmHacking.UnoUI/bin"
+          throw "Uno Windows output file (pcm*.exe or pcm*.dll) not found under Apps/UI/UnoUI/PcmHacking.UnoUI/bin"
         }
 
         New-Item -ItemType Directory -Force -Path TemporaryArtifactStorage/UnoWindows | Out-Null
         Copy-Item -Path "TemporaryArtifactStorage/Kernels/*.bin" -Destination "TemporaryArtifactStorage/UnoWindows" -Force
-        Copy-Item -Path "$($unoWindowsOutput.FullName)/*" -Destination "TemporaryArtifactStorage/UnoWindows" -Recurse -Force
+        Copy-Item -Path "$($unoWindowsOutput.Directory.FullName)/*" -Destination "TemporaryArtifactStorage/UnoWindows" -Recurse -Force
         Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/*.LogProfile" -Destination "TemporaryArtifactStorage/UnoWindows" -Force
         Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/Parameters.*.xml" -Destination "TemporaryArtifactStorage/UnoWindows" -Force
 
