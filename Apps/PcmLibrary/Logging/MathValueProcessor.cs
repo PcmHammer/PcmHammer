@@ -3,11 +3,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-// This was needed for a while and I still can't figure out why.
-// None of the code in this file uses it directly, and I don't
-// even see how it could get referenced indirectly.
-//using static System.Resources.ResXFileRef;
-
 namespace PcmHacking
 {
     /// <summary>

@@ -308,7 +308,6 @@ public partial record DataLoggingParametersModel
     private async Task OpenProfile()
     {
         Logger? logger = null;
-        bool restart = false;
         try
         {
             await this.RecordingButtonText.SetAsync(DataLoggingParametersModel.StartRecordingButtonText);

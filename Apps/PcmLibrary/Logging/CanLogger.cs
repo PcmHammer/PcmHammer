@@ -91,7 +91,7 @@ namespace PcmHacking
 
                 // Discover what messages are available on the bus.
                 //
-                // The idea here to automatically add columns to the log if the devices
+                // The idea here is to automatically add columns to the log if the devices
                 // are present, and don't add them if the devices are not present. So,
                 // we can add every known device to Parameters.CAN.xml and user will just
                 // automatically get data from whatever devices are in their vehicles.
@@ -194,20 +194,6 @@ namespace PcmHacking
                             }
 
                             list.Add(pv);
-                            parameters = new Dictionary<string, List<ParameterAndValue>>();
-                            this.messages[message.MessageId] = parameters;
-                        }
-
-                        foreach (ParameterAndValue pv in results)
-                        {
-                            List<ParameterAndValue> list;
-                            if (!parameters.TryGetValue(pv.Parameter.Id, out list))
-                            {
-                                list = new List<ParameterAndValue>();
-                                parameters[pv.Parameter.Id] = list;
-                            }
-
-                            list.Add(pv);
                         }
                     }
                 }
@@ -249,7 +235,6 @@ namespace PcmHacking
                 else
                 {
                     valueAsString = "Empty";
-                    valueAsString = "Empty";
                 }
 
                 ParameterAndValue result = new ParameterAndValue(placeholderParameter, "raw", valueAsString, valueAsNumber);
@@ -265,8 +250,7 @@ namespace PcmHacking
                     switch (parameter.ByteCount)
                     {
                         case 0:
-                            valueAsString = "Event";
-                            valueAsNumber = 0;
+
                             valueAsString = "Event";
                             valueAsNumber = 0;
                             break;
@@ -301,7 +285,6 @@ namespace PcmHacking
                             else
                             {
                                 valueAsNumber = 0;
-                                valueAsNumber = 0;
                             }
                             break;
 
@@ -325,7 +308,6 @@ namespace PcmHacking
                             }
                             else
                             {
-                                valueAsNumber = 0;
                                 valueAsNumber = 0;
                             }
                             break;
@@ -353,18 +335,12 @@ namespace PcmHacking
                             else
                             {
                                 valueAsNumber = 0;
-                                valueAsNumber = 0;
                             }
                             break;
                     }
 
                     Conversion conversion = parameter.SelectedConversion ?? parameter.Conversions.First();
                     ValueConverter.Convert(valueAsNumber, parameter.Name, conversion, out valueAsNumber, out valueAsString);
-
-                    if (message.MessageId == 0x2050 && valueAsNumber > 0)
-                    {
-                        //Debugger.Break();
-                    }
 
                     ParameterAndValue result = new ParameterAndValue(parameter, conversion.Units, valueAsString, valueAsNumber);
                     yield return result;
@@ -400,8 +376,6 @@ namespace PcmHacking
                     ParameterAndValue parameterAndValue;
                     if (this.TryGetParameter(messageId, parameterId, out parameterAndValue))
                     {
-                        parameterCacheForThisMessage[parameterId] = parameterAndValue;
-                        yield return parameterAndValue;
                         parameterCacheForThisMessage[parameterId] = parameterAndValue;
                         yield return parameterAndValue;
                     }
