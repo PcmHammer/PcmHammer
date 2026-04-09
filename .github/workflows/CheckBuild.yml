@@ -174,9 +174,27 @@ jobs:
         $winFormsVersion = ([regex]::Match($assemblyInfo, 'AssemblyFileVersion\\(\"([^\"]+)\"\\)')).Groups[1].Value
         if ([string]::IsNullOrWhiteSpace($winFormsVersion)) { $winFormsVersion = "unknown" }
 
+        $timestampUtc = [DateTime]::UtcNow.ToString("yyyyMMdd_HHmmss")
+        $isReleaseTag = "${{ startsWith(github.ref, 'refs/tags/') }}" -eq "true"
+        $unoLooksUnversioned = ($unoDisplay -eq "1.0" -and $unoVersion -eq "1")
+
+        if ($isReleaseTag -and $winFormsVersion -ne "unknown") {
+          $winFormsArtifactSuffix = "v$winFormsVersion"
+        } else {
+          $winFormsArtifactSuffix = "utc$timestampUtc"
+        }
+
+        if ($isReleaseTag -and -not $unoLooksUnversioned -and -not [string]::IsNullOrWhiteSpace($unoDisplay) -and -not [string]::IsNullOrWhiteSpace($unoVersion)) {
+          $unoArtifactSuffix = "v$unoDisplay.$unoVersion"
+        } else {
+          $unoArtifactSuffix = "utc$timestampUtc"
+        }
+
         "UNO_DISPLAY_VERSION=$unoDisplay" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         "UNO_APP_VERSION=$unoVersion" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         "WINFORMS_VERSION=$winFormsVersion" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        "WINFORMS_ARTIFACT_SUFFIX=$winFormsArtifactSuffix" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        "UNO_ARTIFACT_SUFFIX=$unoArtifactSuffix" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
     - name: Stage WinForms artifact payload
       shell: pwsh
@@ -241,17 +259,17 @@ jobs:
     - name: Upload WinForms artifact
       uses: actions/upload-artifact@v7
       with:
-        name: PCMHammer_WinForms_v${{ env.WINFORMS_VERSION }}_${{ github.sha }}
+        name: PCMHammer_WinForms_${{ env.WINFORMS_ARTIFACT_SUFFIX }}_${{ github.sha }}
         path: TemporaryArtifactStorage/WinForms
 
     - name: Upload Uno Windows artifact
       uses: actions/upload-artifact@v7
       with:
-        name: PCMHammer_UnoWindows_v${{ env.UNO_DISPLAY_VERSION }}.${{ env.UNO_APP_VERSION }}_${{ github.sha }}
+        name: PCMHammer_UnoWindows_${{ env.UNO_ARTIFACT_SUFFIX }}_${{ github.sha }}
         path: TemporaryArtifactStorage/UnoWindows
 
     - name: Upload Uno Android artifact
       uses: actions/upload-artifact@v7
       with:
-        name: PCMHammer_UnoAndroid_v${{ env.UNO_DISPLAY_VERSION }}.${{ env.UNO_APP_VERSION }}_${{ github.sha }}
+        name: PCMHammer_UnoAndroid_${{ env.UNO_ARTIFACT_SUFFIX }}_${{ github.sha }}
         path: TemporaryArtifactStorage/UnoAndroid
