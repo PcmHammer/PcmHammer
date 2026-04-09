@@ -1,4 +1,5 @@
 # Someday perhaps Uno will happily build to all platforms under one csproj
+# Note from Antus: buildall.cmd in the kernels sub dir has been updated to detect and copy to all target paths.
 @echo off
 set SOURCE=..\..\Kernels
 set ARCH32=x86\Debug
