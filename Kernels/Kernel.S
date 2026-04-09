@@ -1,9 +1,10 @@
 | GM '0411 Kernel for PCMHammer
 | 2018-2023 Antus / PCMHacking.net
-| 2023-03-25 @21:00 Gampy <@pcmhacking.net>
-| 2024-06-11 @21:00 Antus / PCMHacking.net Backport Gampy's akernel changes (shared without source), cleanup build system
-| 2024-07-16 @19:00 Antus / PCMHacking.net Add P04_Early, BlackBox (98-02 4 connector)
-| 2025-11-08 @19:00 Antus / PCMHacking.net Add P05 (VPW)
+| 2023-03-25 Gampy <@pcmhacking.net>
+| 2024-06-11 Antus / PCMHacking.net Backport Gampy's akernel changes (shared without source), cleanup build system
+| 2024-07-16 Antus / PCMHacking.net Add P04_Early, BlackBox (98-02 4 connector)
+| 2025-11-08 Antus / PCMHacking.net Add P05 (VPW)
+| 2026-04-09 Antus / PCMHacking.net Add P11
 | ===========================================================================
 |
 | C directives will only work if the source filename is .S, yup, capital S.
@@ -19,32 +20,31 @@
 | Flash elements
 #if defined P11
   .equ SIM_BASE,             0xFA00
-  .equ SIM_CS_BASE,          0xFA30
-  .equ SIM_FA18_CTRL,        (SIM_BASE + 0x18)    | 0xFA18
-  .equ SIM_CSBAR8,           (SIM_CS_BASE + 0x3C) | 0xFA6C
-  .equ SIM_CSOR8,            (SIM_CS_BASE + 0x3E) | 0xFA6E
-  .equ SIM_CSBAR0,           (SIM_CS_BASE + 0x4C) | 0xFA7C
-  .equ SIM_CSOR0,            (SIM_CS_BASE + 0x4E) | 0xFA7E
+  .equ SIM_18,               (SIM_BASE + 0x18) | Lock functions
+  .equ SIM_CSBAR8,           (SIM_BASE + 0x6C) | 0xFA6C
+  .equ SIM_CSOR8,            (SIM_BASE + 0x6E) | 0xFA6E
+  .equ SIM_CSBAR0,           (SIM_BASE + 0x7C) | 0xFA7C
+  .equ SIM_CSOR0,            (SIM_BASE + 0x7E) | 0xFA7E
 #elif defined P05
   .equ SIM_BASE,             0xFA00
   .equ SIM_20,               (SIM_BASE + 0x20) | Lock functions
-  .equ SIM_CSBARBT,          (SIM_BASE + 0x48) | (SIM_BASE + 0x48) (FA48)
-  .equ SIM_CSORBT,           (SIM_BASE + 0x4A) | (SIM_BASE + 0x4A) (FA4A)
-  .equ SIM_CSBAR0,           (SIM_BASE + 0x4C) | (SIM_BASE + 0x4C) (FA4C)
-  .equ SIM_CSOR0,            (SIM_BASE + 0x4E) | (SIM_BASE + 0x4E) (FA4E)
+  .equ SIM_CSBARBT,          (SIM_BASE + 0x48) | 0xFA48
+  .equ SIM_CSORBT,           (SIM_BASE + 0x4A) | 0xFA4A
+  .equ SIM_CSBAR0,           (SIM_BASE + 0x4C) | 0xFA4C
+  .equ SIM_CSOR0,            (SIM_BASE + 0x4E) | 0xFA4E
 #elif defined P12
   .equ SIM_BASE,             0xFA30
   .equ SIM_20,               (SIM_BASE + 0x20) | Lock functions
-  .equ SIM_CSBARBT,          (SIM_BASE + 0x48) | (SIM_BASE + 0x48) (FA78)
-  .equ SIM_CSORBT,           (SIM_BASE + 0x4A) | (SIM_BASE + 0x4A) (FA7A)
-  .equ SIM_CSBAR0,           (SIM_BASE + 0x4C) | (SIM_BASE + 0x4C) (FA7C)
-  .equ SIM_CSOR0,            (SIM_BASE + 0x4E) | (SIM_BASE + 0x4E) (FA7E)
+  .equ SIM_CSBARBT,          (SIM_BASE + 0x48) | 0xFA78
+  .equ SIM_CSORBT,           (SIM_BASE + 0x4A) | 0xFA7A
+  .equ SIM_CSBAR0,           (SIM_BASE + 0x4C) | 0xFA7C
+  .equ SIM_CSOR0,            (SIM_BASE + 0x4E) | 0xFA7E
 #else
   .equ SIM_BASE,             0xFA00
-  .equ SIM_CSBARBT,          (SIM_BASE + 0x48) | (SIM_BASE + 0x48) (FA48)
-  .equ SIM_CSORBT,           (SIM_BASE + 0x4A) | (SIM_BASE + 0x4A) (FA4A)
-  .equ SIM_CSBAR0,           (SIM_BASE + 0x4C) | (SIM_BASE + 0x4C) (FA4C)
-  .equ SIM_CSOR0,            (SIM_BASE + 0x4E) | (SIM_BASE + 0x4E) (FA4E)
+  .equ SIM_CSBARBT,          (SIM_BASE + 0x48) | 0xFA48
+  .equ SIM_CSORBT,           (SIM_BASE + 0x4A) | 0xFA4A
+  .equ SIM_CSBAR0,           (SIM_BASE + 0x4C) | 0xFA4C
+  .equ SIM_CSOR0,            (SIM_BASE + 0x4E) | 0xFA4E
 #endif
 
 #if defined P04_Early
@@ -126,7 +126,7 @@ start:
     move.b  #0x00, (J1850_TX_FIFO).l   | Initiate transfer
 
 #if defined P11
-    bset    #4, (SIM_FA18_CTRL).w      | 0xFA18
+    bset    #4, (SIM_18).w             | 0xFA18
 #endif
 
 Wait01:
@@ -373,7 +373,7 @@ ProcessCRCPolynomial:
 |
 ProcessFlashID:
 #if defined P11
-    bset    #6, (SIM_FA18_CTRL).w     | 0xFA18
+    bset    #6, (SIM_18).w     | 0xFA18
     move.w  #0xF322, (SIM_CSOR0).w    | 0xFA7E
     move.w  #0x0004, (SIM_CSBAR0).w   | 0xFA7C
     move.w  #0xFC01, (SIM_CSBAR8).w   | 0xFA6C
@@ -549,7 +549,7 @@ ProcessWriteFlashFinal:
 |
 AMDFlashUnlock:
 #if defined P11
-    bset    #6, (SIM_FA18_CTRL).w     | 0xFA18
+    bset    #6, (SIM_18).w     | 0xFA18
     move.w  #0xF322, (SIM_CSOR0).w    | 0xFA7E
     move.w  #0xFC01, (SIM_CSBAR8).w   | 0xFA6C
     andi.w  #0xFFF8, (SIM_CSBAR0).w   | 0xFA7C
@@ -598,7 +598,7 @@ AMDFlashUnlockDone:
 AMDFlashLock:
 #if defined P11
     move.w  #0xA332, (SIM_CSOR0).w    | 0xFA7E
-    bclr    #6, (SIM_FA18_CTRL).w     | 0xFA18
+    bclr    #6, (SIM_18).w     | 0xFA18
 #elif defined P05 || defined P12
     andi.w  #0xEFFF, (SIM_CSOR0).w     | SIM_CSOR0 &= 0xEFFF;
     andi.w  #0xFEFF, (SIM_20).w        | SIM_20 &= 0xFEFF;
@@ -770,7 +770,7 @@ AMDWriteSectorFinal:
 |
 IntelFlashUnlock:
 #if defined P11
-    bset    #6, (SIM_FA18_CTRL).w     | 0xFA18
+    bset    #6, (SIM_18).w     | 0xFA18
     move.w  #0xF322, (SIM_CSOR0).w    | 0xFA7E
     move.w  #0xFC01, (SIM_CSBAR8).w   | 0xFA6C
     andi.w  #0xFFF8, (SIM_CSBAR0).w   | 0xFA7C
@@ -831,7 +831,7 @@ IntelFlashUnlockWait:                  | Allow Vpp ripple to settle
 IntelFlashLock:
 #if defined P11
     move.w  #0xA332, (SIM_CSOR0).w    | 0xFA7E
-    bclr    #6, (SIM_FA18_CTRL).w     | 0xFA18
+    bclr    #6, (SIM_18).w     | 0xFA18
 #elif defined P05 || defined P12
     andi.w  #0xEFFF, (SIM_CSOR0).w     | SIM_CSOR0 &= 0xEFFF;
     andi.w  #0xFEFF, (SIM_20).w        | SIM_20 &= 0xFEFF;
