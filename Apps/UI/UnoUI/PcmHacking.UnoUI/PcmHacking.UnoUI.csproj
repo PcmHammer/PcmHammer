@@ -120,6 +120,7 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="System.IO.Ports" />
+    <PackageReference Include="Tmds.DBus" />
     <PackageReference Include="Tmds.DBus.Protocol" />
   </ItemGroup>
 
@@ -130,7 +131,7 @@
   </ItemGroup>
 
   <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
-    <AndroidAsset Include="Platforms\Android\Assets\Kernels\**\*.bin" />
+    <AndroidAsset Include="Assets\BuildFiles\*.bin" />
   </ItemGroup>
 
   <ItemGroup>
