@@ -19,19 +19,6 @@ public class MainActivity : Microsoft.UI.Xaml.ApplicationActivity
     protected async override void OnCreate(Bundle bundle)
     {
         base.OnCreate(bundle);
-        await Windows.Extensions.PermissionsHelper.TryGetPermission(CancellationToken.None, Manifest.Permission.Bluetooth);
-        await Windows.Extensions.PermissionsHelper.TryGetPermission(CancellationToken.None, Manifest.Permission.BluetoothAdvertise);
-        await Windows.Extensions.PermissionsHelper.TryGetPermission(CancellationToken.None, Manifest.Permission.BluetoothScan);
-        await Windows.Extensions.PermissionsHelper.TryGetPermission(CancellationToken.None, Manifest.Permission.BluetoothConnect);
-        await Windows.Extensions.PermissionsHelper.TryGetPermission(CancellationToken.None, Manifest.Permission.AccessBackgroundLocation);
-        await Windows.Extensions.PermissionsHelper.TryGetPermission(CancellationToken.None, Manifest.Permission.LocationHardware);
-        await Windows.Extensions.PermissionsHelper.TryGetPermission(CancellationToken.None, Manifest.Permission.AccessCoarseLocation);
-        await Windows.Extensions.PermissionsHelper.TryGetPermission(CancellationToken.None, Manifest.Permission.AccessFineLocation);
-        await Windows.Extensions.PermissionsHelper.TryGetPermission(CancellationToken.None, Manifest.Permission.Internet);
-        await Windows.Extensions.PermissionsHelper.TryGetPermission(CancellationToken.None, Manifest.Permission.ManageExternalStorage);
-        await Windows.Extensions.PermissionsHelper.TryGetPermission(CancellationToken.None, Manifest.Permission.ReadExternalStorage);
-        await Windows.Extensions.PermissionsHelper.TryGetPermission(CancellationToken.None, Manifest.Permission.WriteExternalStorage);
-        //RequestFilePermisions();
     }
 
     public static void RequestFilePermisions()
@@ -46,7 +33,7 @@ public class MainActivity : Microsoft.UI.Xaml.ApplicationActivity
         {
             Intent intent = new Intent();
             intent.SetAction(Settings.ActionManageAppAllFilesAccessPermission);
-            Current.StartActivity(intent);
+            Current?.StartActivity(intent);
         }
     }
 }

@@ -88,6 +88,9 @@ public partial record ReadModel : IAsyncLogger
     [Command]
     public async ValueTask Start(CancellationToken cancellationToken)
     {
+#if ANDROID
+        await Platforms.Android.PermissionMethods.ExtractKernelsToFileAndroid(); // Approach with a fire-and-forget tactic - Should complete well before an action will run.
+#endif
         await this.EnableControls(true);
 
         string? path = string.Empty;

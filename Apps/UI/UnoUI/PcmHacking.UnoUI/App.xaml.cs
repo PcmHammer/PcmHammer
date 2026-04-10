@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
 using Uno.Resizetizer;
+using Windows.System.Display;
 
 namespace PcmHacking.UnoUI;
 public partial class App : Application
@@ -153,6 +154,9 @@ public partial class App : Application
 
     protected async override void OnLaunched(LaunchActivatedEventArgs args)
     {
+#if ANDROID
+        await Platforms.Android.PermissionMethods.RequestAndroidPermissions();
+#endif
         var builder = this.CreateBuilder(args)
             // Add navigation support for toolkit controls such as TabBar and NavigationView
             .UseToolkitNavigation()

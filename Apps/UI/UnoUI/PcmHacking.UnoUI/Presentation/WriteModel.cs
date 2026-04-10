@@ -170,6 +170,9 @@ public partial record WriteModel : IAsyncLogger
     [Command]
     public async ValueTask Start(CancellationToken cancellationToken)
     {
+#if ANDROID
+        await Platforms.Android.PermissionMethods.ExtractKernelsToFileAndroid(); // Approach with a fire-and-forget tactic - Should complete well before an action will run.
+#endif
         await this.EnableControls(true);
         string? path = string.Empty;
 #if !ANDROID // Force Android devices to use the file picker to load bytes from file. StorageFile.Path doesn't seem to play freindly as means to open the file again.
