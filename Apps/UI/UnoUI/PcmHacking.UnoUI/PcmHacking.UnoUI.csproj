@@ -50,7 +50,7 @@
     <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.19041.1</SupportedOSPlatformVersion>
     <TargetPlatformMinVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.19041.1</TargetPlatformMinVersion>
     <RuntimeIdentifiers Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">win-x86</RuntimeIdentifiers>
-    <Platforms>AnyCPU;x86</Platforms>
+    <Platforms>x64;x86</Platforms>
   </PropertyGroup>
   
   <ItemGroup>
@@ -64,12 +64,57 @@
 
   <PropertyGroup>
     <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('windows'))">$(TargetFrameworks);net10.0-windows10.0.26100.0</TargetFrameworks>
-    <Platform Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">x86</Platform>
-    <Platform Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">x64</Platform>
+    <Platforms Condition="$([MSBuild]::IsOSPlatform('windows'))">x86</Platforms>
     <WindowsPackageType>None</WindowsPackageType>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|net10.0-desktop|AnyCPU'">
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|net10.0-desktop|x64'">
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|net10.0-android|AnyCPU'">
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|net10.0-android|x64'">
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|net10.0|AnyCPU'">
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|net10.0|x64'">
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|net10.0-desktop|AnyCPU'">
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|net10.0-desktop|x64'">
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|net10.0-android|AnyCPU'">
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|net10.0-android|x64'">
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|net10.0|AnyCPU'">
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|net10.0|x64'">
+  </PropertyGroup>
+  
+  <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|net10.0-desktop|x86'">
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|net10.0-android|x86'">
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|net10.0|x86'">
+  </PropertyGroup>
+  
   <ItemGroup>
+    <PackageReference Include="InTheHand.Net.Bluetooth" />
     <PackageReference Include="Microsoft.Windows.CsWin32">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -79,6 +124,7 @@
   </ItemGroup>
 
   <ItemGroup>  
+    <ProjectReference Include="..\..\..\BluetoothLib\BluetoothLib.csproj" />  
     <ProjectReference Include="..\..\..\PcmLibraryWindowsApi\PcmLibraryWindowsApi.csproj" />
     <ProjectReference Include="..\..\..\PcmLibrary\PcmLibrary.csproj" />
   </ItemGroup>
@@ -225,6 +271,51 @@
     <Page Update="Presentation\MainPage.xaml">
       <Generator>MSBuild:Compile</Generator>
     </Page>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Update="Assets\BuildFiles\Kernel-P01.bin">
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Update="Assets\BuildFiles\Kernel-P04.bin">
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Update="Assets\BuildFiles\Kernel-P04_Early.bin">
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Update="Assets\BuildFiles\Kernel-P08.bin">
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Update="Assets\BuildFiles\Kernel-P10.bin">
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Update="Assets\BuildFiles\Kernel-P11.bin">
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Update="Assets\BuildFiles\Loader-P04.bin">
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Update="Assets\BuildFiles\Kernel-E54.bin">
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Update="Assets\BuildFiles\Kernel-BlackBox.bin">
+    </Content>
   </ItemGroup>
 
 </Project>
