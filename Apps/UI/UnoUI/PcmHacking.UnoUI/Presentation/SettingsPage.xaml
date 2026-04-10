@@ -24,11 +24,7 @@
         <StackPanel Grid.Row="0" Grid.Column="0" Margin="10">
             <TextBlock TextAlignment="Center" VerticalAlignment="Bottom" TextWrapping="WrapWholeWords" 
                  Text="Do you have a serial, or J2534 interface?"/>
-            <ComboBox HorizontalAlignment="Center" HorizontalContentAlignment="Center" Margin="0,10,0,0" Width="auto" SelectedValue="{Binding SelectedDeviceType, Mode=TwoWay}">
-                <x:String>Serial</x:String>
-                <x:String>Bluetooth</x:String>
-                <x:String>J2534</x:String>
-            </ComboBox>
+          <ComboBox HorizontalAlignment="Center" HorizontalContentAlignment="Center" Margin="0,10,0,0" Width="auto" SelectedValue="{Binding SelectedDeviceType, Mode=TwoWay}" ItemsSource="{Binding DeviceCategories}" />
         </StackPanel>
         
         <TextBlock Grid.Row="1" Grid.Column="0" 

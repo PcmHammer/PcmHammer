@@ -60,6 +60,7 @@ public partial record SettingsModel
         this.dispatcherQueue = dispatcherQueue;
     }
 
+    public IListFeed<string> DeviceCategories => ListFeed<string>.Async(ct => this.GetDeviceCategories(ct)).Selection(SelectedDeviceType);
     public IListFeed<string> BTDevices => ListFeed<string>.Async(ct => this.GetBluetoothDevices(ct)).Selection(SelectedBluetoothDevice);
     public IListFeed<string> JDevices => ListFeed<string>.Async(ct => this.GetJDevices(ct)).Selection(SelectedJDevice);
     public IListFeed<SerialPortListing> Obd2Ports => ListFeed.Async(ct => this.GetPortNames(ct)).Selection(SelectedObd2Port);
@@ -111,6 +112,18 @@ public partial record SettingsModel
 #endif
             return false;
         }
+    }
+
+    private ValueTask<IImmutableList<string>> GetDeviceCategories(CancellationToken ct)
+    {
+        List<string> deviceCategories = [];
+        deviceCategories.Add(DeviceConfiguration.Constants.DeviceCategorySerial);
+#if WINDOWS
+        deviceCategories.Add(DeviceConfiguration.Constants.DeviceCategoryJ2534);
+#endif
+        deviceCategories.Add(DeviceConfiguration.Constants.DeviceCategoryBT);
+        IImmutableList<string> res = ImmutableList.CreateRange(deviceCategories);
+        return ValueTask.FromResult(res);
     }
 
     private ValueTask<IImmutableList<SerialPortListing>> GetPortNames(CancellationToken ct)
