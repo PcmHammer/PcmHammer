@@ -83,6 +83,10 @@
     <ProjectReference Include="..\..\..\PcmLibrary\PcmLibrary.csproj" />
   </ItemGroup>
 
+  <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
+    <AndroidAsset Include="Platforms\Android\Assets\Kernels\**\*.bin" />
+  </ItemGroup>
+
   <ItemGroup>
     <Compile Update="Presentation\DataLoggingParametersPage.xaml.cs">
       <DependentUpon>DataLoggingParametersPage.xaml</DependentUpon>
