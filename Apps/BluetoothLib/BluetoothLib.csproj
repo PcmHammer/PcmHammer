@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <PackageReference Include="InTheHand.Net.Bluetooth" />
+    <PackageReference Include="Tmds.DBus" />
   </ItemGroup>
 
   <ItemGroup>

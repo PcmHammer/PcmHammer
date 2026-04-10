@@ -24,6 +24,7 @@
     <PackageReference Include="Newtonsoft.Json" />
     <PackageReference Include="System.Collections.Immutable" />
     <PackageReference Include="System.IO.Ports" />
+    <PackageReference Include="System.Text.RegularExpressions" />
     <PackageReference Include="System.Xml.XmlSerializer" />
   </ItemGroup>
 
