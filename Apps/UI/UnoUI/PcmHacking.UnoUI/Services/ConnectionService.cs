@@ -286,9 +286,9 @@ public class ConnectionService : IConnectionService
         }
 
         Device? newDevice = null;
+        string portDesc = settings.DeviceCategory == DeviceConfiguration.Constants.DeviceCategorySerial ? settings.DeviceNameOrPort : settings.DeviceCategory;
         if (this.device == null || settings != this.newSettings)
         {
-            string portDesc = settings.DeviceCategory == DeviceConfiguration.Constants.DeviceCategorySerial ? settings.DeviceNameOrPort : settings.DeviceCategory;
             await this.DeviceName.SetAsync($"Detecting({portDesc})");
             await this.DeviceState.SetAsync("Connecting...");
 
@@ -301,10 +301,6 @@ public class ConnectionService : IConnectionService
                 else
                 {
                     newDevice = DeviceFactory.CreateDevice(this.logger, settings.DeviceCategory, settings.DeviceNameOrPort);
-                }
-                if (newDevice != null)
-                {
-                    await this.DeviceName.SetAsync($"{newDevice.GetDeviceType()}({portDesc})");
                 }
             }
             catch (TimeoutException)
@@ -324,7 +320,7 @@ public class ConnectionService : IConnectionService
         {
             return (null, null);
         }
-
+        await this.DeviceName.SetAsync($"{newDevice.GetDeviceType()}({portDesc})");
         ToolPresentNotifier notifier = new ToolPresentNotifier(this.device, this.protocol, this.logger);
         string basePath = string.Empty; // We will need to pass along a path to target kernel; Android won't path to a proper directory with GetExecutingAssembly().Location.
 #if WINDOWS
