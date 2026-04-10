@@ -23,6 +23,8 @@ namespace PcmHacking
         /// </summary>
         Task Send(byte[] buffer);
 
+        Task ChangeBaudRate(int baudRate);
+
         /// <summary>
         /// Receive a buffer of bytes.
         /// </summary>

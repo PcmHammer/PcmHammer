@@ -114,6 +114,13 @@ namespace PcmHacking
             }
         }
 
+        public Task ChangeBaudRate(int baudRate)
+        {
+            this.port.BaudRate = baudRate;
+            this.port.DiscardInBuffer();
+            return Task.CompletedTask;
+        }
+
         /// <summary>
         /// Close the serial port.
         /// </summary>

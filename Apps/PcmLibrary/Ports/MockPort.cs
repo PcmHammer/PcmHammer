@@ -102,5 +102,10 @@ namespace PcmHacking
             // return Task.FromResult(0);
             throw new NotImplementedException();
         }
+
+        public Task ChangeBaudRate(int baudRate)
+        {
+            return Task.CompletedTask;
+        }
     }
 }
