@@ -198,8 +198,14 @@ jobs:
     - name: Build Uno Windows (Debug)
       run: dotnet build Apps/UI/UnoUI/PcmHacking.UnoUI/PcmHacking.UnoUI.csproj -c Debug -f net10.0-windows10.0.26100.0
 
-    - name: Build Uno Android (Debug)
-      run: dotnet build Apps/UI/UnoUI/PcmHacking.UnoUI/PcmHacking.UnoUI.csproj -c Debug -f net10.0-android
+    - name: Publish Uno Android (Release APK)
+      run: >
+        dotnet publish Apps/UI/UnoUI/PcmHacking.UnoUI/PcmHacking.UnoUI.csproj
+        -c Release
+        -f net10.0-android
+        -p:AndroidPackageFormat=apk
+        -p:AndroidFastDeploymentType=None
+        -p:EmbedAssembliesIntoApk=true
 
     - name: Read app versions
       shell: pwsh
@@ -330,6 +336,13 @@ jobs:
             }
             if (!$kernelEntries -or $kernelEntries.Count -eq 0) {
               throw "APK '$($apk.Name)' does not contain kernel assets."
+            }
+
+            $appAssemblyEntries = $zip.Entries | Where-Object {
+              $_.FullName -match "(?i)(PcmHacking|PcmLibrary).+\\.dll$"
+            }
+            if (!$appAssemblyEntries -or $appAssemblyEntries.Count -eq 0) {
+              throw "APK '$($apk.Name)' does not contain PcmHacking/PcmLibrary managed assemblies."
             }
           }
           finally {
