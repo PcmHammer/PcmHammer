@@ -178,12 +178,12 @@ jobs:
 
     - name: Build WinForms applications (Debug)
       run: |
-        dotnet build Apps/PcmLibrary/PcmLibrary.csproj -c Debug -p:GenerateResourceUsePreserializedResources=true
-        dotnet build Apps/PcmLibraryWindowsApi/PcmLibraryWindowsApi.csproj -c Debug -p:GenerateResourceUsePreserializedResources=true
-        dotnet build Apps/UI/WindowsForms/PcmLibraryWindowsForms/PcmLibraryWindowsForms.csproj -c Debug -p:GenerateResourceUsePreserializedResources=true
-        dotnet build Apps/UI/WindowsForms/PcmHammer/PcmHammer.csproj -c Debug -p:GenerateResourceUsePreserializedResources=true
-        dotnet build Apps/UI/WindowsForms/PcmLogger/PcmLogger.csproj -c Debug -p:GenerateResourceUsePreserializedResources=true
-        dotnet build Apps/UI/WindowsForms/VpwExplorer/VpwExplorer.csproj -c Debug -p:GenerateResourceUsePreserializedResources=true
+        dotnet build Apps/PcmLibrary/PcmLibrary.csproj -c Debug
+        dotnet build Apps/PcmLibraryWindowsApi/PcmLibraryWindowsApi.csproj -c Debug
+        dotnet build Apps/UI/WindowsForms/PcmLibraryWindowsForms/PcmLibraryWindowsForms.csproj -c Debug
+        dotnet build Apps/UI/WindowsForms/PcmHammer/PcmHammer.csproj -c Debug
+        dotnet build Apps/UI/WindowsForms/PcmLogger/PcmLogger.csproj -c Debug
+        dotnet build Apps/UI/WindowsForms/VpwExplorer/VpwExplorer.csproj -c Debug
 
     - name: Build Uno Windows (Debug)
       run: dotnet build Apps/UI/UnoUI/PcmHacking.UnoUI/PcmHacking.UnoUI.csproj -c Debug -f net10.0-windows10.0.26100.0
