@@ -243,6 +243,18 @@ namespace PcmHacking
             return await this.device.ReceiveMessage();
         }
 
+
+        public async Task<Response<bool>> CheckForRecoveryMode(CancellationToken cancellationToken)
+        {
+            bool result = await this.device.IsCommandBroadcasting(0xA2);
+            if (result)
+            {
+                return Response.Create(ResponseStatus.Success, result);
+            }
+            return Response.Create(ResponseStatus.Success, false);
+        }
+
+
         /// <summary>
         /// Note that this has only been confirmed to work with ObdLink ScanTool devices.
         /// AllPro doesn't get the reply for some reason.
