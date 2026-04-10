@@ -95,8 +95,8 @@ public class ConnectionLease : IDisposable
 
 public interface IConnectionService
 {
-    IState<string> Port { get; }
-    IState<string> Device { get; }
+    IState<string> DeviceName { get; }
+    IState<string> DeviceState { get; }
     IState<ConnectionStates> ConnectionState { get; }
     IState<string> Activity { get; }
     IState<string> ConnectionError { get; }
@@ -136,8 +136,8 @@ public class ConnectionService : IConnectionService
     private const string _recoveryString = "** RECOVERY **";
     private const string _kernelString = "** KERNEL **";
 
-    public IState<string> Port => State.Value(this, () => string.Empty);
-    public IState<string> Device => State.Value(this, () => string.Empty);
+    public IState<string> DeviceName => State.Value(this, () => string.Empty);
+    public IState<string> DeviceState => State.Value(this, () => string.Empty);
     public IState<ConnectionStates> ConnectionState => State.Value(this, () => ConnectionStates.NotConfigured);
     public IState<string> Activity => State.Value(this, () => string.Empty);
     public IState<string> ConnectionError => State.Value(this, () => string.Empty);
@@ -178,10 +178,13 @@ public class ConnectionService : IConnectionService
             await Task.Delay(100);
 
             (Device? newDevice, Vehicle? newVehicle) = await TryReconnect(settings);
+
             if (newDevice == null || newVehicle == null)
             {
+                await DeviceState.SetAsync("Faulted");
                 return false;
             }
+            await DeviceState.SetAsync("Connected");
 
             if (await this.TryPollOnce(newVehicle))
             {
@@ -207,6 +210,7 @@ public class ConnectionService : IConnectionService
         catch (Exception exception)
         {
             this.newSettings = settings;
+            await DeviceState.SetAsync("Faulted");
             this.logger.AddDebugMessage("Exception while connecting to vehicle.");
             this.logger.AddDebugMessage(exception.ToString());
             return false;

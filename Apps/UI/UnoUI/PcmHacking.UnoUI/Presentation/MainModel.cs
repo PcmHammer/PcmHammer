@@ -24,8 +24,8 @@ public partial record MainModel
         vehicleService.ConnectionState.ForEach((state, ct) => this.ConnectionStateChanged(ct));
 
         // This updates the UI with the latest configuration when the connection service attempts to connect.
-        this.connectionService.Port.ForEach((port, ct) => this.SerialPortName.SetAsync(port, ct));
-        this.connectionService.Device.ForEach((device, ct) => this.DeviceName.SetAsync(device, ct));
+        this.connectionService.DeviceName.ForEach((port, ct) => this.DeviceName.SetAsync(port, ct));
+        this.connectionService.DeviceState.ForEach((device, ct) => this.DeviceStatus.SetAsync(device, ct));
 
         // Connection is an async operation, but constructors can't be async, so we fire and forget.
         // This is a bit of a hack, but I don't see any real issues from it, and we want to update
@@ -68,9 +68,9 @@ public partial record MainModel
         await this.UpdateBackButtonState(CancellationToken.None);
     }
 
-    public IState<string> SerialPortName => State<string>.Value(this, () => string.Empty);
-
     public IState<string> DeviceName => State<string>.Value(this, () => string.Empty);
+
+    public IState<string> DeviceStatus => State<string>.Value(this, () => string.Empty);
 
     public IState<string> ConnectionState => State<string>.Value(this, () => string.Empty);
 
