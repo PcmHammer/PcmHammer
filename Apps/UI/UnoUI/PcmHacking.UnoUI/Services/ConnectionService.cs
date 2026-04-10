@@ -133,6 +133,7 @@ public class ConnectionService : IConnectionService
     private CurrentSettings? newSettings;
     private CurrentSettings? lastSettings;
     private int retryPeriod = SlowRetryPeriod;
+    private DateTime _leftActiveState = DateTime.MinValue;
     private const string _recoveryString = "** RECOVERY **";
     private const string _kernelString = "** KERNEL **";
 
@@ -153,6 +154,20 @@ public class ConnectionService : IConnectionService
         this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
         this.logBuffer = logBuffer ?? throw new ArgumentNullException(nameof(logBuffer));
         this.protocol = new PcmHacking.Protocol();
+    }
+
+    public int ResetTimeRemaining
+    {
+        get
+        {
+            if (_leftActiveState != DateTime.MinValue && DateTime.Now < _leftActiveState + TimeSpan.FromSeconds(10))
+            {
+                DateTime exitTime = _leftActiveState + TimeSpan.FromSeconds(10);
+                return (exitTime - DateTime.Now).Seconds;
+            }
+            _leftActiveState = DateTime.MinValue;
+            return -1;
+        }
     }
 
     /// <summary>
@@ -356,6 +371,11 @@ public class ConnectionService : IConnectionService
                 break;
         }
 
+        if (activity.StartsWith("Resetting"))
+        {
+            nextState = ConnectionStates.Polling;
+        }
+
         // This will wait for any in-progress operations to complete, then acquire the semaphore.
         await this.stateChangeSemaphore.WaitAsync();
 
@@ -444,6 +464,7 @@ public class ConnectionService : IConnectionService
                 if (!this.TryTransition(allowed, ConnectionStates.Polling))
                 {
                     this.logger.AddDebugMessage($"Skipping poll, internalState is {this.internalState}");
+                    if(ResetTimeRemaining == -1)
                     throw new ConnectionUnavailableException("Unable to poll. " + errorMessage);
                 }
                 break;
@@ -489,6 +510,7 @@ public class ConnectionService : IConnectionService
             //
             // Also, for reasons unknown, the underlying serial port can't always be re-opened, especially with the ObdX driver.
             // Need to figure that out before we can re-create the Vehicle instance here.
+
             if (isConnected)
             {
                 ConnectionStates allowed =
@@ -644,6 +666,10 @@ public class ConnectionService : IConnectionService
         {
             try
             {
+                if(ResetTimeRemaining != -1)
+                {
+                    return true;
+                }
                 success = await TimeoutUtilities.TaskWithTimeoutAndException(
                     this.TryRequestVehicleInfo(vehicle, source.Token),
                     TimeSpan.FromSeconds(1));
@@ -770,7 +796,18 @@ public class ConnectionService : IConnectionService
     private bool TryTransition(ConnectionStates expected, ConnectionStates newState)
     {
         this.logger.AddDebugMessage($"Transition requested from: {this.internalState}, to: {newState}");
-        if (((this.internalState & expected) > 0) || this.internalState == newState)
+        if (ResetTimeRemaining != -1 && newState > ConnectionStates.Connected)
+        {
+            this.logger.AddDebugMessage($"Transition denied due to ECM/PCM reset, staying in: {this.internalState}");
+            return false;
+        }
+        if (this.internalState == ConnectionStates.Active && newState == ConnectionStates.Connected)
+        {
+            this.vehicle?.ExitKernel().Wait();
+            this.vehicle?.ClearTroubleCodes().Wait();
+            _leftActiveState = DateTime.Now;
+        }
+        if (((this.internalState & expected) > 0) || this.internalState == newState && ResetTimeRemaining == -1)
         {
             this.ForceTransition(newState);
             return true;

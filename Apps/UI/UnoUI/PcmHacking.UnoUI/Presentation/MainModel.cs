@@ -118,6 +118,11 @@ public partial record MainModel
                 await this.ConnectionState.SetAsync("Connecting");
                 break;
             case ConnectionStates.Connected:
+                if(this.connectionService.ResetTimeRemaining != -1)
+                {
+                    await this.ConnectionState.SetAsync($"Resetting {this.connectionService.ResetTimeRemaining}...");
+                    break;
+                }
                 await this.ConnectionState.SetAsync("Connected");
                 break;
             case ConnectionStates.Active:
