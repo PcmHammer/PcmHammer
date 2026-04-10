@@ -1,22 +1,43 @@
+using InTheHand.Net.Sockets;
+using Microsoft.UI.Dispatching;
+using PcmHacking.UnoUI.Services;
+using PcmHacking.UnoUI.Utilities;
+using SkiaSharp;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
-using PcmHacking.UnoUI.Services;
 using Uno.Extensions.Reactive;
 using Windows.Networking;
 using Windows.Storage.Pickers;
-//using Windows.System;
-using Microsoft.UI.Dispatching;
-using PcmHacking.UnoUI.Utilities;
 
 namespace PcmHacking.UnoUI.Presentation;
 
 public record CurrentSettings(
     string DeviceCategory, 
-    string Obd2SerialPortName, 
-    string Obd2SerialDeviceName, 
-    string J2534DeviceName, 
+    string DeviceNameOrPort, 
     bool CanEnabled, 
     string CanPort);
+
+public class SerialPortListing
+{
+    public string? DisplayName { get; set; }
+    public string? PortName { get; set; }
+
+    public override bool Equals(object? obj)
+    {
+        return obj is SerialPortListing listing &&
+               PortName == listing.PortName;
+    }
+
+    public override int GetHashCode()
+    {
+        return HashCode.Combine(PortName);
+    }
+
+    public override string ToString()
+    {
+        return DisplayName ?? string.Empty;
+    }
+}
 
 public partial record SettingsModel
 {
@@ -39,15 +60,21 @@ public partial record SettingsModel
         this.dispatcherQueue = dispatcherQueue;
     }
 
-    public IListFeed<string> SerialDeviceTypes => ListFeed<string>.Async(ct => this.GetObd2SerialDeviceTypes(ct)).Selection(SelectedObd2SerialDeviceType);
-    public IListFeed<string> Obd2Ports => ListFeed.Async<string>(ct => this.GetPortNames(ct)).Selection(SelectedObd2Port);
-    public IListFeed<string> CanPorts => ListFeed.Async<string>(ct => this.GetPortNames(ct)).Selection(SelectedCanPort);
+    public IListFeed<string> BTDevices => ListFeed<string>.Async(ct => this.GetBluetoothDevices(ct)).Selection(SelectedBluetoothDevice);
+    public IListFeed<string> JDevices => ListFeed<string>.Async(ct => this.GetJDevices(ct)).Selection(SelectedJDevice);
+    public IListFeed<SerialPortListing> Obd2Ports => ListFeed.Async(ct => this.GetPortNames(ct)).Selection(SelectedObd2Port);
+    public IListFeed<SerialPortListing> CanPorts => ListFeed.Async(ct => this.GetPortNames(ct)).Selection(SelectedCanPort);
+    
+    public IState<string> SelectedDeviceType => State<string>
+        .Async(this, ct => ValueTask.FromResult(settingsService.GetObd2DeviceCategory()))
+        .ForEach(DeviceCategoryChanged);
 
     public IState<bool> UseSerialDevice => State<bool>
-        .Async(this, ct => this.AreEqual("Serial", settingsService.GetObd2DeviceCategory()))
-        .ForEach(this.ConnectionSettingsChanged);
+        .Async(this, ct => this.AreEqual(DeviceConfiguration.Constants.DeviceCategorySerial, settingsService.GetObd2DeviceCategory()));
     public IState<bool> UseJ2534Device => State<bool>
-        .Async(this, ct => this.AreEqual("J2534", settingsService.GetObd2DeviceCategory()));
+        .Async(this, ct => this.AreEqual(DeviceConfiguration.Constants.DeviceCategoryJ2534, settingsService.GetObd2DeviceCategory()));
+    public IState<bool> UseBTDevice => State<bool>
+        .Async(this, ct => this.AreEqual(DeviceConfiguration.Constants.DeviceCategoryBT, settingsService.GetObd2DeviceCategory()));
 
     public IState<bool> UseCanDevice => State<bool>
         .Async(this, ct => ValueTask.FromResult(settingsService.IsCanEnabled()))
@@ -55,14 +82,17 @@ public partial record SettingsModel
     public IState<bool> DontUseCanDevice => State<bool>
         .Async(this, ct => ValueTask.FromResult(!settingsService.IsCanEnabled()));
 
-    public IState<string> SelectedObd2Port => State<string>
+    public IState<SerialPortListing> SelectedObd2Port => State<SerialPortListing>
         .Async(this, ct => ValueTask.FromResult(settingsService.GetObd2SerialPortName()))
         .ForEach(this.ConnectionSettingsChanged);
-    public IState<string> SelectedCanPort => State<string>
+    public IState<SerialPortListing> SelectedCanPort => State<SerialPortListing>
         .Async(this, ct => ValueTask.FromResult(settingsService.GetCanSerialPortName()))
         .ForEach(this.ConnectionSettingsChanged);
-    public IState<string> SelectedObd2SerialDeviceType => State<string>
-        .Async(this, ct => ValueTask.FromResult(settingsService.GetObd2SerialDeviceName()))
+    public IState<string> SelectedJDevice => State<string>
+        .Async(this, ct => ValueTask.FromResult(settingsService.GetJ2534DeviceName()))
+        .ForEach(this.ConnectionSettingsChanged);
+    public IState<string> SelectedBluetoothDevice => State<string>
+        .Async(this, ct => ValueTask.FromResult(settingsService.GetBluetoothDeviceName()))
         .ForEach(this.ConnectionSettingsChanged);
 
     public IState<string> DataLogFolder => State<string>
@@ -72,34 +102,51 @@ public partial record SettingsModel
         .Async(this, ct => ValueTask.FromResult(settingsService.Is4xReadWriteEnabled()))
         .ForEach(this.Enable4xReadWriteChanged);
 
-    private ValueTask<IImmutableList<string>> GetPortNames(CancellationToken ct)
+    public bool IsWindowsPlatform 
     {
-#if ANDROID || IOS || MACOS
-        IImmutableList<string> result = ImmutableList.CreateRange(new string[0]);
-        return ValueTask.FromResult(result);
-#else
-        // WORKS_BUT_NO_DRIVER_NAMES
-        // TODO: Use Windows Management API to get the device driver names.
-        string[] portNames = System.IO.Ports.SerialPort.GetPortNames();
-        IList<string> portList = new List<string>(portNames);
-        portList.Add(MockPort.PortName);
-        IImmutableList<string> result = ImmutableList.CreateRange(portList);
-        return ValueTask.FromResult(result);
+        get
+        {
+#if WINDOWS
+            return true;
 #endif
-        /*
-        #if DOES_NOT_WORK
-                IEnumerable<SerialPortInfo> ports = PortDiscovery.GetPorts(this.progressLogger);
-                IImmutableList<string> result = ImmutableList.CreateRange(ports.Select(port => $"${port.PortName} - ${port.DeviceID}"));
-                return ValueTask.FromResult(result);
-        #endif
-        */
+            return false;
+        }
     }
 
-    private ValueTask<IImmutableList<string>> GetObd2SerialDeviceTypes(CancellationToken ct)
+    private ValueTask<IImmutableList<SerialPortListing>> GetPortNames(CancellationToken ct)
     {
-        string[] deviceTypes = new string[] { MockDevice.DeviceType, OBDXProDevice.DeviceType, ElmDevice.DeviceType, AvtDevice.DeviceType };
-        IImmutableList<string> result = ImmutableList.CreateRange(deviceTypes);
+        IList<SerialPortListing> portList = new List<SerialPortListing>();
+#if WINDOWS
+        IEnumerable<SerialPortInfo> portNames = PortDiscovery.GetPorts(progressLogger);
+        portList = [.. portNames.Where(p => !p.Name.Contains("Standard Serial over Bluetooth link")).Select(x => { return new SerialPortListing { DisplayName = x.ToString(), PortName = x.PortName }; })];
+        portList.Add(new SerialPortListing { DisplayName = MockPort.PortName, PortName = MockPort.PortName });
+#endif
+        // I got an error that this wasn't returning anything, and it would seem that all below is necassary to satisfy. 
+        IImmutableList<SerialPortListing> result = ImmutableList.CreateRange(portList);
         return ValueTask.FromResult(result);
+    }
+
+    private ValueTask<IImmutableList<string>> GetBluetoothDevices(CancellationToken ct)
+    {
+        List<string> btDevices = [];
+        List<BluetoothDeviceInfo> list = SerialBluetoothDiscovery.GatherPairedDevices().ToList();
+        btDevices = [.. list.Select(x => x.DeviceName)];
+        IImmutableList<string> res = ImmutableList.CreateRange(btDevices);
+        return ValueTask.FromResult(res);
+    }
+
+    private ValueTask<IImmutableList<string>> GetJDevices(CancellationToken ct)
+    {
+        List<string> jDevices = [];
+#if WINDOWS
+        foreach (J2534DotNet.J2534Device device in J2534DeviceFinder.FindInstalledJ2534DLLs(this.progressLogger))
+        {
+            jDevices.Add(device.Name);
+        }
+#endif
+        IImmutableList<string> res = ImmutableList.CreateRange(jDevices);
+        return ValueTask.FromResult(res);
+
     }
 
     private ValueTask<bool> AreEqual(string value1, string value2)
@@ -107,15 +154,28 @@ public partial record SettingsModel
         return ValueTask.FromResult(value1 == value2);
     }
 
+    private async ValueTask DeviceCategoryChanged<T>(T newValue, CancellationToken ct)
+    {
+        await UseSerialDevice.SetAsync(newValue as string == DeviceConfiguration.Constants.DeviceCategorySerial);
+        await UseJ2534Device.SetAsync(newValue as string == DeviceConfiguration.Constants.DeviceCategoryJ2534);
+        await UseBTDevice.SetAsync(newValue as string == DeviceConfiguration.Constants.DeviceCategoryBT);
+        await ConnectionSettingsChanged(newValue, ct);
+    }
+
     private async ValueTask ConnectionSettingsChanged<T>(T newValue, CancellationToken ct)
     {
+        string deviceCategory = await SelectedDeviceType.Value();
+        string portName =
+            deviceCategory == DeviceConfiguration.Constants.DeviceCategorySerial ? (await SelectedObd2Port.Value()).PortName :
+            deviceCategory == DeviceConfiguration.Constants.DeviceCategoryJ2534 ? await SelectedJDevice.Value() :
+            deviceCategory == DeviceConfiguration.Constants.DeviceCategoryBT ? await SelectedBluetoothDevice.Value() : "";
+
+
         CurrentSettings currentSettings = new CurrentSettings(
-            await this.UseSerialDevice.Value() ? "Serial" : "J2534",
-            await this.SelectedObd2Port.Value() ?? "",
-            await this.SelectedObd2SerialDeviceType.Value() ?? "",
-            "", // TODO: J2534 device name
+            deviceCategory,
+            portName,
             await this.UseCanDevice.Value(),
-            await this.SelectedCanPort.Value() ?? "");
+            (await this.SelectedCanPort.Value()).PortName ?? "");
 
         if (await this.connectionService.TryConnect(currentSettings))
         {
