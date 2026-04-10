@@ -280,9 +280,9 @@ public class ConnectionService : IConnectionService
             }
             catch
             {
-            this.device.Dispose();
-            this.device = null;
-        }
+                this.device.Dispose();
+                this.device = null;
+            }
         }
 
         Device? newDevice = null;
@@ -297,7 +297,7 @@ public class ConnectionService : IConnectionService
                 if (settings.DeviceCategory == DeviceConfiguration.Constants.DeviceCategoryBT) // Bluetooth on multi-platform requires the use of a separtate library written in .NET core, so we have to special case it here.
                 {
                     newDevice = await BluetoothDeviceFactory.CreateBluetoothDevice(settings.DeviceNameOrPort, this.logger);
-            }
+                }
                 else
                 {
                     newDevice = DeviceFactory.CreateDevice(this.logger, settings.DeviceCategory, settings.DeviceNameOrPort);
@@ -311,10 +311,10 @@ public class ConnectionService : IConnectionService
             {
                 return (null, null);
             }
-        if (newDevice == null)
-        {
-            return (null, null);
-        }
+            if (newDevice == null)
+            {
+                return (null, null);
+            }
 
             if(await newDevice.Initialize())
                 this.device = newDevice;
@@ -407,7 +407,7 @@ public class ConnectionService : IConnectionService
                 throw new ConnectionUnavailableException("Not connected.");
             }
 
-            
+
             await this.BeginActivityInternal(activity, nextState);
         }
         catch (Exception)
@@ -466,7 +466,7 @@ public class ConnectionService : IConnectionService
                 {
                     this.logger.AddDebugMessage($"Skipping poll, internalState is {this.internalState}");
                     if(ResetTimeRemaining == -1)
-                    throw new ConnectionUnavailableException("Unable to poll. " + errorMessage);
+                        throw new ConnectionUnavailableException("Unable to poll. " + errorMessage);
                 }
                 break;
 
@@ -638,7 +638,7 @@ public class ConnectionService : IConnectionService
 
                     // This will cause EndActivity to transition to NotConnected.
                     if(ResetTimeRemaining != -1)
-                    lease.ConnectionLost = true;
+                        lease.ConnectionLost = true;
                 }
             }
         }
@@ -682,7 +682,7 @@ public class ConnectionService : IConnectionService
                 }
                 success = await TimeoutUtilities.TaskWithTimeoutAndException(
                     this.TryRequestVehicleInfo(vehicle, source.Token),
-                    TimeSpan.FromSeconds(1));
+                    TimeSpan.FromSeconds(3));
             }
             catch (TimeoutException)
             {
@@ -805,7 +805,7 @@ public class ConnectionService : IConnectionService
     /// </remarks>
     private bool TryTransition(ConnectionStates expected, ConnectionStates newState)
     {
-        this.logger.AddDebugMessage($"Transition requested from: {this.internalState}, to: {newState}");
+        this.logger.AddDebugMessage($"Transition requested from: {this.internalState}, to: {newState}"); 
         if (ResetTimeRemaining != -1 && newState > ConnectionStates.Connected)
         {
             this.logger.AddDebugMessage($"Transition denied due to ECM/PCM reset, staying in: {this.internalState}");
@@ -822,7 +822,6 @@ public class ConnectionService : IConnectionService
             this.ForceTransition(newState);
             return true;
         }
-
         this.logger.AddDebugMessage($"Transition denied, staying in: {this.internalState}");
         return false;
     }
