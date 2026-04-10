@@ -183,9 +183,6 @@ public class ConnectionService : IConnectionService
             // to acquire the semaphore explicitly first.
             await this.stateChangeSemaphore.WaitAsync();
 
-            await this.Port.SetAsync(settings.Obd2SerialPortName);
-            await this.Device.SetAsync(settings.Obd2SerialDeviceName);
-
             await this.BeginActivityInternal(TestingActivity, ConnectionStates.Connecting);
 
             // Clear the settings shown in the UI, and allow time for the UI to update.
@@ -606,7 +603,7 @@ public class ConnectionService : IConnectionService
             {
                 if (await this.TryConnect(this.lastSettings))
                 {
-                    this.logger.AddUserMessage("Re-onnected with current settings.");
+                    this.logger.AddUserMessage("Re-connected with current settings.");
                 }
                 else
                 {
