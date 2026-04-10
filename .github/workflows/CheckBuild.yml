@@ -339,7 +339,7 @@ jobs:
             }
 
             $appAssemblyEntries = $zip.Entries | Where-Object {
-              $_.FullName -match "(?i)(PcmHacking|PcmLibrary).+\\.dll$"
+              $_.FullName -match "(?i)(PcmHacking|PcmLibrary).*(\\.dll(\\.so)?$)"
             }
             if (!$appAssemblyEntries -or $appAssemblyEntries.Count -eq 0) {
               throw "APK '$($apk.Name)' does not contain PcmHacking/PcmLibrary managed assemblies."
