@@ -126,5 +126,12 @@ namespace PcmHacking
                 this.port.DiscardBuffers();
             }
         }
+
+
+        public override string GetDeviceType()
+        {
+            return "Mock device";
+        }
+
     }
 }

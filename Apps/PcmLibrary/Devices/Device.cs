@@ -226,6 +226,9 @@ namespace PcmHacking
         public abstract Task<TimeoutScenario> SetTimeout(TimeoutScenario scenario);
 
         /// <summary>
+
+        public abstract string GetDeviceType();
+
         /// Send a message.
         /// </summary>
         public abstract Task<bool> SendMessage(Message message);

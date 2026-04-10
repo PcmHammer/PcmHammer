@@ -78,6 +78,11 @@ namespace PcmHacking
             return "J2534 Device";
         }
 
+        public override string GetDeviceType()
+        {
+            return PortName;
+        }
+
         // This needs to return Task<bool> for consistency with the Device base class.
         // However it doesn't do anything asynchronous, so to make the code more readable
         // it just wraps a private method that does the real work and returns a bool.
