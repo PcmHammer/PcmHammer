@@ -35,11 +35,10 @@ namespace PcmHacking
 
         /// <summary>
         /// Contains cross-platform code to handle user interactions to write the PCM's flash memory.
+        /// Overloaded method that the utilizes Write(byte[]).
+        /// Accepts a string path for OSes that can directly access file structure.
         /// </summary>
-        /// <remarks>
-        /// The return value should be used to suppress future warnings about using an unproven connection.
-        /// </remarks>
-        /// <returns>True if the write was successful, fales if failed or aborted.</returns>
+        /// <returns>True if file opens and write succeeds. False if either condition fails.</returns>
         public async Task<bool> Write(string path)
         {
             byte[] image;
@@ -54,7 +53,19 @@ namespace PcmHacking
                     return false;
                 }
             }
+            return await Write(image);
+        }
 
+        /// <summary>
+        /// Contains cross-platform code to handle user interactions to write the PCM's flash memory.
+        /// Accepts a byte array directly for OSes that don't support direct file handling.
+        /// </summary>
+        /// <remarks>
+        /// The return value should be used to suppress future warnings about using an unproven connection.
+        /// </remarks>
+        /// <returns>True if the write was successful, fales if failed or aborted.</returns>
+        public async Task<bool> Write(byte[] image)
+        {
             // Sanity checks. 
             FileValidator validator = new FileValidator(image, this.logger);
             if (!validator.IsValid())
@@ -264,7 +275,6 @@ namespace PcmHacking
                 validator,
                 needToCheckOperatingSystem,
                 this.cancellationToken);
-
             this.logger.AddUserMessage("Elapsed time " + DateTime.Now.Subtract(start));
             return true;
         }
