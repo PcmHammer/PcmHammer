@@ -3,6 +3,9 @@ namespace PcmHacking.UnoUI.Presentation;
 
 public sealed partial class MainPage : Page
 {
+
+    private Windows.System.Display.DisplayRequest _displayRequest;
+
     public MainPage()
     {
         this.InitializeComponent();
@@ -21,6 +24,15 @@ public sealed partial class MainPage : Page
                 Droid.MainActivity.RequestFilePermisions();
             }
         }
+        _displayRequest = new Windows.System.Display.DisplayRequest();
+        _displayRequest.RequestActive();
+#endif
+    }
+
+    private void Page_Unloaded(object sender, RoutedEventArgs e)
+    {
+#if ANDROID
+            _displayRequest.RequestRelease();
 #endif
     }
 
