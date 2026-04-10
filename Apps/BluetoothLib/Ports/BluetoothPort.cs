@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Diagnostics;
@@ -21,12 +22,11 @@ namespace PcmHacking
         private BluetoothClient _connectedDevice;
         private BluetoothDeviceInfo _deviceInfo;
         private NetworkStream _deviceStream;
-        private MemoryStream _incomingMemoryBuffer;
+        private ConcurrentQueue<byte> _incomingQueue;
         private CancellationTokenSource _cancellationTokenSource;
         private Task _ReceiverTask;
-        private int _readTimeout = 1000;
-        private bool _localDebug = false;
-        private bool _receiveBlocked = false;
+        private int _readTimeout = 3000;
+        private bool _localDebug = true;
 
         public BluetoothPort(BluetoothDeviceInfo bluetoothDeviceInfo)
         {
@@ -36,34 +36,44 @@ namespace PcmHacking
 
         public async Task DiscardBuffers()
         {
-            _incomingMemoryBuffer = new();
-            if(_localDebug) Debug.WriteLine($"Flushed BT Buffers={_incomingMemoryBuffer.Length - _incomingMemoryBuffer.Position};Len={_incomingMemoryBuffer.Length};Pos={_incomingMemoryBuffer.Position}");
+            _incomingQueue = new ConcurrentQueue<byte>();
+            if(_localDebug) Debug.WriteLine($"Flushed BT Buffers={_incomingQueue.Count}");
         }
 
         public void Dispose()
         {
             _cancellationTokenSource?.Cancel();
+            _connectedDevice?.Close();
             _connectedDevice?.Dispose();
-            _incomingMemoryBuffer.Dispose();
         }
 
         public async Task<int> GetReceiveQueueSize()
         {
-            return (int)(_incomingMemoryBuffer.Length - _incomingMemoryBuffer.Position);
+            return _incomingQueue.Count;
         }
 
         public async Task OpenAsync(PortConfiguration configuration)
         {
+            if(_connectedDevice != null) return;
             _connectedDevice = new BluetoothClient();
-            await _connectedDevice.ConnectAsync(_deviceInfo.DeviceAddress, BluetoothService.SerialPort);
-            if (_connectedDevice != null)
+            try
             {
-                _deviceStream = _connectedDevice.GetStream();
-                _incomingMemoryBuffer = new();
-                Thread.Sleep(1000);
-                _ReceiverTask = new Task(ReceiverTask, _cancellationTokenSource.Token);
-                _ReceiverTask.Start();
-                return;
+                if (!_connectedDevice.Connected)
+                {
+                    Debug.WriteLine($"Attempting to connect to Bluetooth device {_deviceInfo.DeviceName} at address {_deviceInfo.DeviceAddress}...");
+                    await _connectedDevice.ConnectAsync(_deviceInfo.DeviceAddress, BluetoothService.SerialPort);
+                }
+                if (_connectedDevice != null && _connectedDevice.Connected)
+                {
+                    _deviceStream = _connectedDevice.GetStream();
+                    _incomingQueue = new ConcurrentQueue<byte>();
+                    _ReceiverTask = new Task(ReceiverTask, _cancellationTokenSource.Token);
+                    _ReceiverTask.Start();
+                    return;
+                }
+            }
+            catch (Exception ex) {
+                Debug.WriteLine($"Error connecting to Bluetooth device {_deviceInfo.DeviceName}: {ex.Message}");
             }
             throw new IOException($"Connection attempt to Bluetooth device {_deviceInfo.DeviceName} failed!");
         }
@@ -71,7 +81,7 @@ namespace PcmHacking
         public async Task<int> Receive(byte[] buffer, int offset, int count)
         {
             DateTime startTime = DateTime.Now;
-            while (await GetReceiveQueueSize() < count || _receiveBlocked)
+            while (await GetReceiveQueueSize() == 0)
             {
                 await Task.Delay(10);
                 if ((DateTime.Now - startTime).TotalMilliseconds > _readTimeout)
@@ -79,25 +89,25 @@ namespace PcmHacking
                     throw new TimeoutException();
                 }
             }
-            if (offset == 0 && count == 1)
+            int bytesServed = 0;
+            while (bytesServed < count && _incomingQueue.Count > 0)
             {
-                int incomingByte = _incomingMemoryBuffer.ReadByte();
-                if (incomingByte == -1)
+                byte dequeuedByte;
+                if(_incomingQueue.TryDequeue(out dequeuedByte))
                 {
-                    return 0;
+                    buffer[offset + bytesServed] = dequeuedByte;
+                    bytesServed++;
                 }
-                buffer[0] = (byte)incomingByte;
-                return 1;
             }
-            int bytesRead = await _incomingMemoryBuffer?.ReadAsync(buffer, offset, count);
             if (_localDebug) Debug.WriteLine($"Read: New bytes={buffer.ToHex(count)};Len={count}@Offset={offset}");
-            return bytesRead;
+            return bytesServed;
         }
 
         public async Task Send(byte[] buffer)
         {
             if (_localDebug) Debug.WriteLine($"Sending bytes={buffer.ToHex()}");
-            await _deviceStream?.WriteAsync(buffer, 0, buffer.Length);
+            await _deviceStream.WriteAsync(buffer);
+            await _deviceStream.FlushAsync();
         }
 
         public void SetTimeout(int milliseconds)
@@ -111,43 +121,32 @@ namespace PcmHacking
         {
             // This string is the display for UI, as well as the "(BT)" used
             // as the trigger for creating a BluetoothPort.
-            return $"{_deviceInfo.DeviceName}(BT)";
+            return $"{_deviceInfo.DeviceName}";
         }
 
         private async void ReceiverTask()
         {
             while (!_cancellationTokenSource.IsCancellationRequested && _deviceStream != null)
             {
-                if (_deviceStream.DataAvailable && _deviceStream.CanRead)
+                if (_deviceStream.CanRead)
                 {
+                    byte[] incomingData = new byte[10000];
+                    int bytesRead = 0;
                     try
                     {
-                        _receiveBlocked = true;
-                        byte[] incomingData = new byte[10000];
-                        int prevBuffLen = (int)_incomingMemoryBuffer.Length;
-                        long prevBuffPos = _incomingMemoryBuffer.Position;
-                        int TotalbytesRead = 0;
-                        _incomingMemoryBuffer.Position = prevBuffLen; // Set position to end
-                        while (_deviceStream.DataAvailable)
-                        {
-                            int bytesRead = await _deviceStream.ReadAsync(incomingData, 0, incomingData.Length); // Read all available bytes
-                            await _incomingMemoryBuffer.WriteAsync(incomingData, 0, bytesRead); // Push read bytes to end of buffer.
-                            TotalbytesRead += bytesRead;
-                            //await Task.Delay(_partialPacketDelay);
-                        }
-                        _incomingMemoryBuffer.Position = prevBuffPos; // Reset position to last used.
-                        if (_localDebug) Debug.WriteLine($"Incoming bytes: {incomingData.ToHex(TotalbytesRead)} ReadLen={TotalbytesRead};BufLen={_incomingMemoryBuffer.Length};Pos={_incomingMemoryBuffer.Position}");
+                        bytesRead = await _deviceStream.ReadAsync(incomingData); // Read all available bytes.
                     }
-                    catch
+                    catch (Exception ex)
                     {
-                        return;
+                        if (_localDebug) Debug.WriteLine($"Error reading from Bluetooth device {_deviceInfo.DeviceName}: {ex.Message}");
                     }
-                    finally
+                    for (int i = 0; i < bytesRead; i++)
                     {
-                        _receiveBlocked = false;
+                        _incomingQueue.Enqueue(incomingData[i]);
                     }
+                    if (_localDebug) Debug.WriteLine($"Incoming bytes: {incomingData.ToHex(bytesRead)} ReadLen={bytesRead};BufLen={_incomingQueue.Count}");
                 }
-                Thread.Sleep(10);
+                Thread.Sleep(1);
             }
         }
 
