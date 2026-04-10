@@ -90,22 +90,6 @@ public partial record ReadModel : IAsyncLogger
     {
         await this.EnableControls(true);
 
-        // TODO: This definatatly has a better location.
-#if ANDROID
-        string[] KernelNames = ["Kernel-P01.bin"];
-        foreach(string kernel in KernelNames)
-        {
-            string directory = "/storage/emulated/0/PCMHammer/Bins";
-            string filePath = $"{directory}/{kernel}";
-            if (!File.Exists(filePath))
-            {
-                var file = await Windows.Storage.StorageFile.GetFileFromApplicationUriAsync(new Uri($"ms-appx:///Assets/BuildFiles/{kernel}"));
-                var content = await file.OpenReadAsync();
-                Directory.CreateDirectory(directory);
-                File.WriteAllBytes(filePath, content.AsStream().ToMemoryStream().ToArray());
-            }
-        }
-#endif
         string? path = string.Empty;
 #if !ANDROID
         path = await this.Path.Value();
