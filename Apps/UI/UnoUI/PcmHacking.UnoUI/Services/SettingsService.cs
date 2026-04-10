@@ -17,10 +17,11 @@ public interface ISettingsService
 {
     string GetObd2DeviceCategory();
     string GetJ2534DeviceName();
-    string GetObd2SerialPortName();
+    string GetBluetoothDeviceName();
+    SerialPortListing GetObd2SerialPortName();
     string GetObd2SerialDeviceName();
     bool IsCanEnabled();
-    string GetCanSerialPortName();
+    SerialPortListing GetCanSerialPortName();
 
     CurrentSettings LoadConnectionSettings();
     void SaveConnectionSettings(CurrentSettings settings);
@@ -65,6 +66,7 @@ public class SettingsService : ISettingsService
     private const string J2534DeviceNameKey = "J2534DeviceName";
     private const string Obd2SerialPortNameKey = "Obd2SerialPortName";
     private const string Obd2SerialDeviceNameKey = "Obd2SerialDeviceName";
+    private const string BluetoothDeviceNameKey = "BluetoothDeviceName";
     private const string CanEnabledKey = "CanEnabled";
     private const string CanSerialPortNameKey = "CanSerialPortName";
     private const string LogMruProfilesKey = "LogMruProfiles";
@@ -133,14 +135,23 @@ public class SettingsService : ISettingsService
         return _settingsListInterface[Obd2DeviceCategoryKey] as string ?? string.Empty;
     }
 
-    public string GetObd2SerialPortName()
+    public SerialPortListing GetObd2SerialPortName()
     {
-        return _settingsListInterface[Obd2SerialPortNameKey] as string ?? string.Empty;
+        string? result = _settingsListInterface[Obd2SerialPortNameKey] as string ?? string.Empty;
+        return new SerialPortListing
+        {
+            PortName = result
+        };
     }
 
     public string GetObd2SerialDeviceName()
     {
         return _settingsListInterface[Obd2SerialDeviceNameKey] as string ?? string.Empty;
+    }
+
+    public string GetBluetoothDeviceName()
+    {
+        return _settingsListInterface[BluetoothDeviceNameKey] as string ?? string.Empty;
     }
 
     public string GetJ2534DeviceName()
@@ -153,28 +164,49 @@ public class SettingsService : ISettingsService
         return _settingsListInterface[CanEnabledKey] as string == "true";
     }
 
-    public string GetCanSerialPortName()
+    public SerialPortListing GetCanSerialPortName()
     {
-        return _settingsListInterface[CanSerialPortNameKey] as string ?? string.Empty;
+        string? result = _settingsListInterface[CanSerialPortNameKey] as string ?? string.Empty;
+
+        return new SerialPortListing
+        {
+            PortName = result
+        };
     }
 
     public CurrentSettings LoadConnectionSettings()
     {
+        string deviceCategory = _settingsListInterface[Obd2DeviceCategoryKey] as string ?? string.Empty;
+        string nameOrPort = string.Empty;
+        if (!string.IsNullOrEmpty(deviceCategory))
+        {
+            nameOrPort =
+                deviceCategory == DeviceConfiguration.Constants.DeviceCategorySerial ? _settingsListInterface[Obd2SerialPortNameKey] as string ?? string.Empty :
+                deviceCategory == DeviceConfiguration.Constants.DeviceCategoryJ2534 ? _settingsListInterface[J2534DeviceNameKey] as string ?? string.Empty :
+                deviceCategory == DeviceConfiguration.Constants.DeviceCategoryBT ? _settingsListInterface[BluetoothDeviceNameKey] as string ?? string.Empty : "";
+        }
         return new CurrentSettings(
-            _settingsListInterface[Obd2DeviceCategoryKey] as string ?? string.Empty,
-            _settingsListInterface[Obd2SerialPortNameKey] as string ?? string.Empty,
-            _settingsListInterface[Obd2SerialDeviceNameKey] as string ?? string.Empty,
-            _settingsListInterface[J2534DeviceNameKey] as string ?? string.Empty,
+            deviceCategory,
+            nameOrPort,
             _settingsListInterface[CanEnabledKey] as string == "true",
             _settingsListInterface[CanSerialPortNameKey] as string ?? string.Empty);
     }
 
     public void SaveConnectionSettings(CurrentSettings settings)
     {
-        _settingsListInterface[J2534DeviceNameKey] = settings.J2534DeviceName;
         _settingsListInterface[Obd2DeviceCategoryKey] = settings.DeviceCategory;
-        _settingsListInterface[Obd2SerialPortNameKey] = settings.Obd2SerialPortName;
-        _settingsListInterface[Obd2SerialDeviceNameKey] = settings.Obd2SerialDeviceName;
+        switch (settings.DeviceCategory)
+        {
+            case DeviceConfiguration.Constants.DeviceCategorySerial:
+                _settingsListInterface[Obd2SerialPortNameKey] = settings.DeviceNameOrPort;
+                break;
+            case DeviceConfiguration.Constants.DeviceCategoryJ2534:
+                _settingsListInterface[J2534DeviceNameKey] = settings.DeviceNameOrPort;
+                break;
+            case DeviceConfiguration.Constants.DeviceCategoryBT:
+                _settingsListInterface[BluetoothDeviceNameKey] = settings.DeviceNameOrPort;
+                break;
+        }
         _settingsListInterface[CanEnabledKey] = settings.CanEnabled ? "true" : "false";
         _settingsListInterface[CanSerialPortNameKey] = settings.CanPort;
     }
