@@ -231,17 +231,39 @@ jobs:
     - name: Stage WinForms artifact payload
       shell: pwsh
       run: |
+        function Get-AppOutputDir {
+          param(
+            [Parameter(Mandatory = $true)][string]$SearchRoot,
+            [Parameter(Mandatory = $true)][string]$ExeName
+          )
+
+          $exe = Get-ChildItem -Path $SearchRoot -Recurse -File -Filter $ExeName -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -First 1
+
+          if (!$exe) {
+            throw "Unable to find $ExeName under $SearchRoot"
+          }
+
+          Write-Host "Detected $ExeName at $($exe.FullName)"
+          return $exe.Directory.FullName
+        }
+
+        $pcmHammerOutput = Get-AppOutputDir -SearchRoot "Apps/UI/WindowsForms/PcmHammer/bin" -ExeName "PcmHammer.exe"
+        $pcmLoggerOutput = Get-AppOutputDir -SearchRoot "Apps/UI/WindowsForms/PcmLogger/bin" -ExeName "PcmLogger.exe"
+        $vpwExplorerOutput = Get-AppOutputDir -SearchRoot "Apps/UI/WindowsForms/VpwExplorer/bin" -ExeName "VpwExplorer.exe"
+
         New-Item -ItemType Directory -Force -Path TemporaryArtifactStorage/WinForms/PcmHammer | Out-Null
         New-Item -ItemType Directory -Force -Path TemporaryArtifactStorage/WinForms/PcmLogger | Out-Null
         New-Item -ItemType Directory -Force -Path TemporaryArtifactStorage/WinForms/VpwExplorer | Out-Null
 
         Copy-Item -Path "TemporaryArtifactStorage/Kernels/*.bin" -Destination "TemporaryArtifactStorage/WinForms/PcmHammer" -Force
 
-        Copy-Item -Path "Apps/UI/WindowsForms/PcmHammer/bin/Debug/*" -Destination "TemporaryArtifactStorage/WinForms/PcmHammer" -Recurse -Force
-        Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/bin/Debug/*" -Destination "TemporaryArtifactStorage/WinForms/PcmLogger" -Recurse -Force
+        Copy-Item -Path "$pcmHammerOutput/*" -Destination "TemporaryArtifactStorage/WinForms/PcmHammer" -Recurse -Force
+        Copy-Item -Path "$pcmLoggerOutput/*" -Destination "TemporaryArtifactStorage/WinForms/PcmLogger" -Recurse -Force
         Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/*.LogProfile" -Destination "TemporaryArtifactStorage/WinForms/PcmLogger" -Force
         Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/Parameters.*.xml" -Destination "TemporaryArtifactStorage/WinForms/PcmLogger" -Force
-        Copy-Item -Path "Apps/UI/WindowsForms/VpwExplorer/bin/Debug/*" -Destination "TemporaryArtifactStorage/WinForms/VpwExplorer" -Recurse -Force
+        Copy-Item -Path "$vpwExplorerOutput/*" -Destination "TemporaryArtifactStorage/WinForms/VpwExplorer" -Recurse -Force
 
     - name: Stage Uno Windows artifact payload
       shell: pwsh
