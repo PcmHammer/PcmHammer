@@ -79,7 +79,7 @@
   </ItemGroup>
 
   <ItemGroup>  
-    <ProjectReference Include="..\..\..\PcmLibraryWindowsApi\PcmLibraryWindowsApi.csproj" />
+    <ProjectReference Include="..\..\..\PcmLibraryWindowsApi\PcmLibraryWindowsApi.csproj" Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) != 'android'" />
     <ProjectReference Include="..\..\..\PcmLibrary\PcmLibrary.csproj" />
   </ItemGroup>
 
