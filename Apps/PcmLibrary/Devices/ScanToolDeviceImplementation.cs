@@ -360,6 +360,21 @@ namespace PcmHacking
             }
         }
 
+        public override async Task<bool> IsCommandBroadcasting(byte command)
+        {
+            await this.SendNoReply("STM");
+            await Task.Delay(400);
+            await this.SendNoReply("\r");
+            string monitorResponse = await this.ReadELMLine();
+            string testString = $"{Priority.Physical0:X2}{DeviceId.Tool:X2}{DeviceId.Pcm:X2}{command:X2}";
+            this.Logger.AddDebugMessage("Response to STM: " + monitorResponse);
+            if (monitorResponse.Contains(testString))
+            {
+                return true;
+            }
+            return false;
+        }
+
         /// <summary>
         /// This doesn't actually work yet, but I like the idea...
         /// </summary>

@@ -273,7 +273,7 @@ namespace PcmHacking
         /// Check for a running kernel.
         /// </summary>
         /// <returns></returns>
-        public async Task<UInt32> GetKernelVersion()
+        public async Task<UInt32> GetKernelVersion(int maxRetries = 5)
         {
             return await this.GetKernelVersion(CancellationToken.None);
         }
@@ -281,7 +281,7 @@ namespace PcmHacking
         public async Task<UInt32> GetKernelVersion(CancellationToken cancellationToken)
         {
             Message query = this.protocol.CreateKernelVersionQuery();
-            for (int retryCount = 0; retryCount < 5; retryCount++)
+            for (int retryCount = 0; retryCount < maxRetries; retryCount++)
             {
                 if (cancellationToken.IsCancellationRequested)
                 {

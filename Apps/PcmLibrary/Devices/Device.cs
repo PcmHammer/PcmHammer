@@ -226,6 +226,11 @@ namespace PcmHacking
         public abstract Task<TimeoutScenario> SetTimeout(TimeoutScenario scenario);
 
         /// <summary>
+        /// This reusable method is primarily used for searching for recovery prompts from the PCM.
+        /// </summary>
+        /// <param name="command"></param>
+        /// <returns></returns>
+        public abstract Task<bool> IsCommandBroadcasting(byte command);
 
         public abstract string GetDeviceType();
 

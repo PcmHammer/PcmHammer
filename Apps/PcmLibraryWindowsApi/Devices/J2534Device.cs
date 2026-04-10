@@ -530,6 +530,36 @@ namespace PcmHacking
             J2534Port.Functions.ClearTxBuffer((int)DeviceID);
         }
 
+        public override async Task<bool> IsCommandBroadcasting(byte command)
+        {
+            int readTimeoutBackup = this.ReadTimeout;
+            this.ReadTimeout = 200; // Shorten timeout for this check since we expect a response immediately if the command is broadcasting
+            byte[] expectedMsg = [Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, command, 0x00];
+            try
+            {
+                Message incoming = await ReceiveMessage();
+                if (incoming != null)
+                {
+                    byte[] recv = incoming.GetBytes();
+                    if (recv.Length >= 5)
+                    {
+                        expectedMsg[4] = recv[4];
+                    }
+                    if (Utility.CompareArrays(recv, expectedMsg))
+                        return true;
+                }
+                return false;
+            }
+            catch
+            {
+                return false;
+
+            }
+            finally
+            {
+                this.ReadTimeout = readTimeoutBackup; // Restore original timeout
+            }
+        }
 
         public override Task<bool> CheckDeviceConnection()
         {

@@ -102,6 +102,7 @@ public interface IConnectionService
     IState<string> ConnectionError { get; }
     IState<string> OperatingSystemId { get; }
     IState<string> Voltage { get; }
+    int ResetTimeRemaining { get; }
 
     Task<bool> TryConnect(CurrentSettings settings);
     Task<ConnectionLease> BeginActivity(string activity, bool canInterrupt = false);
@@ -132,6 +133,8 @@ public class ConnectionService : IConnectionService
     private CurrentSettings? newSettings;
     private CurrentSettings? lastSettings;
     private int retryPeriod = SlowRetryPeriod;
+    private const string _recoveryString = "** RECOVERY **";
+    private const string _kernelString = "** KERNEL **";
 
     public IState<string> Port => State.Value(this, () => string.Empty);
     public IState<string> Device => State.Value(this, () => string.Empty);
@@ -635,7 +638,27 @@ public class ConnectionService : IConnectionService
 
         try
         {
-            await this.OperatingSystemId.SetAsync(String.Empty);
+            if(await this.OperatingSystemId.Value() == _recoveryString || await this.OperatingSystemId.Value() == _kernelString)
+            {
+                await this.OperatingSystemId.SetAsync(string.Empty);
+            }
+            this.logger.AddUserMessage("Checking for a recovery message...");
+            Response<bool> recoveryResponse = await vehicle.CheckForRecoveryMode(cancellationToken);
+            if (recoveryResponse.Status == ResponseStatus.Success && recoveryResponse.Value == true)
+            {
+                this.logger.AddUserMessage("PCM/ECM recovery mode detected!");
+                await this.OperatingSystemId.SetAsync(_recoveryString);
+                return true;
+            }
+            this.logger.AddUserMessage("No recovery message detected. Checking for live kernel...");
+            uint ver = await vehicle.GetKernelVersion(maxRetries: 1);
+            if (ver != 0)
+            {
+                this.logger.AddUserMessage($"Detected kernel version: {ver}");
+                await this.OperatingSystemId.SetAsync(_kernelString);
+                return true;
+            }
+            await this.OperatingSystemId.SetAsync(string.Empty);
             Response<uint> osidResponse = await vehicle.QueryOperatingSystemId(cancellationToken);
             if (osidResponse.Status == ResponseStatus.Success)
             {

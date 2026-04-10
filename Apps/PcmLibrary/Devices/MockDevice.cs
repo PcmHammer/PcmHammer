@@ -127,6 +127,10 @@ namespace PcmHacking
             }
         }
 
+        public override Task<bool> IsCommandBroadcasting(byte command)
+        {
+            throw new NotImplementedException();
+        }
 
         public override string GetDeviceType()
         {

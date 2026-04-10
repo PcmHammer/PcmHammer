@@ -433,6 +433,24 @@ namespace PcmHacking
             System.Threading.Thread.Sleep(50);
         }
 
+        // This needs testing, but in theory should work.
+        public override async Task<bool> IsCommandBroadcasting(byte command)
+        {
+            this.ClearMessageQueue();
+            byte[] expectedMsg = [Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, command, 0x00];
+            Message incoming = await ReceiveMessage();
+            if (incoming != null)
+            {
+                byte[] recv = incoming.GetBytes();
+                if (recv.Length >= 5)
+                {
+                    expectedMsg[4] = recv[4];
+                }
+                if (Utility.CompareArrays(recv, expectedMsg))
+                    return true;
+            }
+            return false;
+        }
 
         // There might be a better way to achieve this with AVT.
         public async override Task<bool> CheckDeviceConnection()
