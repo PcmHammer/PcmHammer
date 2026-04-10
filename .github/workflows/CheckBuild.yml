@@ -198,8 +198,14 @@ jobs:
     - name: Build Uno Windows (Debug)
       run: dotnet build Apps/UI/UnoUI/PcmHacking.UnoUI/PcmHacking.UnoUI.csproj -c Debug -f net10.0-windows10.0.26100.0
 
-    - name: Build Uno Android (Debug)
-      run: dotnet build Apps/UI/UnoUI/PcmHacking.UnoUI/PcmHacking.UnoUI.csproj -c Debug -f net10.0-android
+    - name: Publish Uno Android (Release APK)
+      run: >
+        dotnet publish Apps/UI/UnoUI/PcmHacking.UnoUI/PcmHacking.UnoUI.csproj
+        -c Release
+        -f net10.0-android
+        -p:AndroidPackageFormat=apk
+        -p:AndroidFastDeploymentType=None
+        -p:EmbedAssembliesIntoApk=true
 
     - name: Read app versions
       shell: pwsh
@@ -330,6 +336,26 @@ jobs:
             }
             if (!$kernelEntries -or $kernelEntries.Count -eq 0) {
               throw "APK '$($apk.Name)' does not contain kernel assets."
+            }
+
+            # Android packaging can vary across SDK/toolchain versions:
+            # - classic managed assemblies (*.dll)
+            # - AOT outputs (libaot-*.dll.so)
+            # - native-style outputs (lib*.so) for app-specific assemblies
+            # - assembly store payloads (assemblies/*.blob or assemblies/*.dll)
+            $appAssemblyEntries = $zip.Entries | Where-Object {
+              $_.FullName -match '(?i)(PcmHacking|PcmLibrary|net[._]PcmHacking[._]Uno).*(\.dll(\.so)?$|\.so$)' -or
+              $_.FullName -match '(?i)^assemblies/.*\.(blob|dll|manifest)$'
+            }
+            if (!$appAssemblyEntries -or $appAssemblyEntries.Count -eq 0) {
+              $diagnosticEntries = $zip.Entries |
+                Where-Object { $_.FullName -match "(?i)(\\.dll|\\.so|\\.blob|assemblies/)" } |
+                Select-Object -ExpandProperty FullName -First 60
+              if ($diagnosticEntries) {
+                Write-Host "APK payload diagnostics for '$($apk.Name)':"
+                $diagnosticEntries | ForEach-Object { Write-Host "  $_" }
+              }
+              throw "APK '$($apk.Name)' does not contain expected app payload entries."
             }
           }
           finally {

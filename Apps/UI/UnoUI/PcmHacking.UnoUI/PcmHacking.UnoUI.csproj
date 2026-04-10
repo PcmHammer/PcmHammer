@@ -125,8 +125,8 @@
   </ItemGroup>
 
   <ItemGroup>  
+    <ProjectReference Include="..\..\..\PcmLibraryWindowsApi\PcmLibraryWindowsApi.csproj" Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) != 'android'" />
     <ProjectReference Include="..\..\..\BluetoothLib\BluetoothLib.csproj" />  
-    <ProjectReference Include="..\..\..\PcmLibraryWindowsApi\PcmLibraryWindowsApi.csproj" />
     <ProjectReference Include="..\..\..\PcmLibrary\PcmLibrary.csproj" />
   </ItemGroup>
 
@@ -272,51 +272,6 @@
     <Page Update="Presentation\MainPage.xaml">
       <Generator>MSBuild:Compile</Generator>
     </Page>
-  </ItemGroup>
-
-  <ItemGroup>
-    <Content Update="Assets\BuildFiles\Kernel-P01.bin">
-    </Content>
-  </ItemGroup>
-
-  <ItemGroup>
-    <Content Update="Assets\BuildFiles\Kernel-P04.bin">
-    </Content>
-  </ItemGroup>
-
-  <ItemGroup>
-    <Content Update="Assets\BuildFiles\Kernel-P04_Early.bin">
-    </Content>
-  </ItemGroup>
-
-  <ItemGroup>
-    <Content Update="Assets\BuildFiles\Kernel-P08.bin">
-    </Content>
-  </ItemGroup>
-
-  <ItemGroup>
-    <Content Update="Assets\BuildFiles\Kernel-P10.bin">
-    </Content>
-  </ItemGroup>
-
-  <ItemGroup>
-    <Content Update="Assets\BuildFiles\Kernel-P11.bin">
-    </Content>
-  </ItemGroup>
-
-  <ItemGroup>
-    <Content Update="Assets\BuildFiles\Loader-P04.bin">
-    </Content>
-  </ItemGroup>
-
-  <ItemGroup>
-    <Content Update="Assets\BuildFiles\Kernel-E54.bin">
-    </Content>
-  </ItemGroup>
-
-  <ItemGroup>
-    <Content Update="Assets\BuildFiles\Kernel-BlackBox.bin">
-    </Content>
   </ItemGroup>
 
 </Project>
