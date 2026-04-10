@@ -90,8 +90,8 @@ namespace PcmHacking
         {
             try
             {
-            return await Task.FromResult(this.InitializeInternal());
-        }
+                return await Task.FromResult(this.InitializeInternal());
+            }
             catch (NullReferenceException)
             {
                 return false;
@@ -119,7 +119,7 @@ namespace PcmHacking
                 // Disconnect protocol before disconnecting tool.
                 try
                 {
-                m = DisconnectFromProtocol();
+                    m = DisconnectFromProtocol();
                 }
                 catch
                 {
@@ -171,9 +171,9 @@ namespace PcmHacking
             }
 
             this.Logger.AddUserMessage("Connected to the device.");
-            
+
             // Optional.. read API,firmware version ect here
-            
+
             // Read voltage
             volts = ReadVoltage();
             if (volts.Status != ResponseStatus.Success)
@@ -201,7 +201,7 @@ namespace PcmHacking
                 this.Logger.AddUserMessage("Failed to set filter, J2534 error code: 0x" + m.Value.ToString("X2"));
                 return false;
             }
-
+           
             this.Logger.AddDebugMessage("Device initialization complete.");
 
             return true;
@@ -305,7 +305,7 @@ namespace PcmHacking
             }
             return Response.Create(ResponseStatus.Success, OBDError);
         }
-        
+
         /// <summary>
         /// Send a message, wait for a response, return the response.
         /// </summary>
@@ -313,7 +313,7 @@ namespace PcmHacking
         {
             //this.Logger.AddDebugMessage("Send request called");
             this.Logger.AddDebugMessage("TX: " + message.GetBytes().ToHex());
-            Response<J2534Err> MyError = SendNetworkMessage(message,TxFlag.NONE);
+            Response<J2534Err> MyError = SendNetworkMessage(message, TxFlag.NONE);
             if (MyError.Status != ResponseStatus.Success)
             {
                 return Task.FromResult(false);
@@ -321,7 +321,7 @@ namespace PcmHacking
 
             return Task.FromResult(true);
         }
-        
+
         /// <summary>
         /// Load in dll
         /// </summary>
@@ -391,13 +391,12 @@ namespace PcmHacking
                 CloseLibrary();
                 return Response.Create(ResponseStatus.Success, OBDError);
             }
-                if (OBDError != J2534Err.STATUS_NOERROR)
-                {
-                    // Big problems, do something here
-                }
-                IsJ2534Open = false;
-                CloseLibrary();
-                }
+            if (OBDError != J2534Err.STATUS_NOERROR)
+            {
+                // Big problems, do something here
+            }
+            IsJ2534Open = false;
+            CloseLibrary();
             return Response.Create(ResponseStatus.Success, OBDError);
         }
 
@@ -406,7 +405,7 @@ namespace PcmHacking
         /// </summary>
         public bool IsLoaded
         {
-            get 
+            get
             {
                 try
                 {
@@ -435,7 +434,7 @@ namespace PcmHacking
         /// </summary>
         private Response<J2534Err> ConnectToProtocol(ProtocolID ReqProtocol, BaudRate Speed, ConnectFlag ConnectFlags)
         {
-            OBDError = J2534Port.Functions.Connect(DeviceID, ReqProtocol,  ConnectFlags,  Speed, ref ChannelID);
+            OBDError = J2534Port.Functions.Connect(DeviceID, ReqProtocol, ConnectFlags, Speed, ref ChannelID);
             if (OBDError != J2534Err.STATUS_NOERROR)
             {
                 return Response.Create(ResponseStatus.Error, OBDError);
@@ -481,12 +480,12 @@ namespace PcmHacking
         /// <summary>
         /// Set filter
         /// </summary>
-        private Response<J2534Err> SetFilter(UInt32 Mask,UInt32 Pattern,UInt32 FlowControl,TxFlag txflag,FilterType Filtertype)
+        private Response<J2534Err> SetFilter(UInt32 Mask, UInt32 Pattern, UInt32 FlowControl, TxFlag txflag, FilterType Filtertype)
         {
             PassThruMsg maskMsg = new PassThruMsg(Protocol, txflag, new Byte[] { (byte)(0xFF & (Mask >> 16)), (byte)(0xFF & (Mask >> 8)), (byte)(0xFF & Mask) });
             PassThruMsg patternMsg = new PassThruMsg(Protocol, txflag, new Byte[] { (byte)(0xFF & (Pattern >> 16)), (byte)(0xFF & (Pattern >> 8)), (byte)(0xFF & Pattern) });
             int tempfilter = 0;
-            OBDError = J2534Port.Functions.StartMsgFilter(ChannelID, Filtertype, ref maskMsg,ref patternMsg, ref tempfilter);
+            OBDError = J2534Port.Functions.StartMsgFilter(ChannelID, Filtertype, ref maskMsg, ref patternMsg, ref tempfilter);
 
             if (OBDError != J2534Err.STATUS_NOERROR)
             {
