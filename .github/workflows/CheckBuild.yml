@@ -177,13 +177,23 @@ jobs:
         .\NDP462-DevPack-KB3151934-ENU.exe /passive /norestart
 
     - name: Build WinForms applications (Debug)
+      shell: pwsh
       run: |
-        dotnet build Apps/PcmLibrary/PcmLibrary.csproj -c Debug
-        dotnet build Apps/PcmLibraryWindowsApi/PcmLibraryWindowsApi.csproj -c Debug
-        dotnet build Apps/UI/WindowsForms/PcmLibraryWindowsForms/PcmLibraryWindowsForms.csproj -c Debug
-        dotnet build Apps/UI/WindowsForms/PcmHammer/PcmHammer.csproj -c Debug
-        dotnet build Apps/UI/WindowsForms/PcmLogger/PcmLogger.csproj -c Debug
-        dotnet build Apps/UI/WindowsForms/VpwExplorer/VpwExplorer.csproj -c Debug
+        function Invoke-Build {
+          param([Parameter(Mandatory = $true)][string]$Project)
+          Write-Host "Building $Project"
+          dotnet build $Project -c Debug -p:GenerateResourceUsePreserializedResources=true
+          if ($LASTEXITCODE -ne 0) {
+            throw "Build failed for $Project (exit code $LASTEXITCODE)"
+          }
+        }
+
+        Invoke-Build "Apps/PcmLibrary/PcmLibrary.csproj"
+        Invoke-Build "Apps/PcmLibraryWindowsApi/PcmLibraryWindowsApi.csproj"
+        Invoke-Build "Apps/UI/WindowsForms/PcmLibraryWindowsForms/PcmLibraryWindowsForms.csproj"
+        Invoke-Build "Apps/UI/WindowsForms/PcmHammer/PcmHammer.csproj"
+        Invoke-Build "Apps/UI/WindowsForms/PcmLogger/PcmLogger.csproj"
+        Invoke-Build "Apps/UI/WindowsForms/VpwExplorer/VpwExplorer.csproj"
 
     - name: Build Uno Windows (Debug)
       run: dotnet build Apps/UI/UnoUI/PcmHacking.UnoUI/PcmHacking.UnoUI.csproj -c Debug -f net10.0-windows10.0.26100.0
