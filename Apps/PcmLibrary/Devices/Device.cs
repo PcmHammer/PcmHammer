@@ -229,6 +229,13 @@ namespace PcmHacking
 
         public abstract string GetDeviceType();
 
+        /// <summary>
+        /// Use this as a check to see if the device is connected okay.
+        /// </summary>
+        /// <returns></returns>
+        public abstract Task<bool> CheckDeviceConnection();
+
+        /// <summary>
         /// Send a message.
         /// </summary>
         public abstract Task<bool> SendMessage(Message message);

@@ -529,5 +529,23 @@ namespace PcmHacking
             J2534Port.Functions.ClearRxBuffer((int)DeviceID);
             J2534Port.Functions.ClearTxBuffer((int)DeviceID);
         }
+
+
+        public override Task<bool> CheckDeviceConnection()
+        {
+            try
+            {
+                if (Initialize().Result)
+                {
+                    return Task.FromResult(true);
+                }
+            }
+            catch
+            {
+                return Task.FromResult(false);
+            }
+
+            return Task.FromResult(false);
+        }
     }
 }

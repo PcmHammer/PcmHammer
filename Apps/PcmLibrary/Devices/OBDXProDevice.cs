@@ -1069,5 +1069,23 @@ namespace PcmHacking
 
             return result;
         }
+
+        public async override Task<bool> CheckDeviceConnection() // This should only be called on a device already in DVI mode.
+        {
+            byte[] sendBytes = OBDXProDevice.DVI_BOARD_NAME.GetBytes();
+            sendBytes[sendBytes.Length - 1] = CalcChecksum(sendBytes);
+            await this.Port.Send(sendBytes);
+            Response<Message> response = await ReadDVIPacket(200);
+            if(response.Status == ResponseStatus.Success)
+            {
+                byte[] val = response.Value.GetBytes();
+                string nameTest = System.Text.Encoding.ASCII.GetString(val, 3, val[1] - 1);
+                if(nameTest == ToolConnected)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
     }
 }

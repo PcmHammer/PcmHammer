@@ -216,5 +216,16 @@ namespace PcmHacking
         {
             this.Port.DiscardBuffers();
         }
+
+
+        public override async Task<bool> CheckDeviceConnection()
+        {
+            string elmID = await this.implementation.SendRequest("AT I");                // Identify (ELM)
+            if (elmID != "?" || !string.IsNullOrEmpty(elmID))
+            {
+                return true;
+            }
+            return false;
+        }
     }
 }
