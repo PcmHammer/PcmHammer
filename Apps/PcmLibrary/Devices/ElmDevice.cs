@@ -131,6 +131,10 @@ namespace PcmHacking
         /// </summary>
         public override async Task<TimeoutScenario> SetTimeout(TimeoutScenario scenario)
         {
+            if(this.implementation == null)
+            {
+                return TimeoutScenario.Undefined;
+            }
             if (this.currentTimeoutScenario == scenario)
             {
                 return this.currentTimeoutScenario;

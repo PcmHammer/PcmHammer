@@ -117,7 +117,16 @@ namespace PcmHacking
             if (IsLoaded == true)
             {
                 // Disconnect protocol before disconnecting tool.
+                try
+                {
                 m = DisconnectFromProtocol();
+                }
+                catch
+                {
+                    CloseLibrary();
+                    IsJ2534Open = false;
+                    return false;
+                }
                 if (m.Status != ResponseStatus.Success)
                 {
                     this.Logger.AddUserMessage("Error disconnecting from protocol.");
@@ -372,9 +381,16 @@ namespace PcmHacking
         /// </summary>
         private Response<J2534Err> DisconnectTool()
         {
-            if (IsJ2534Open == true)
+            try
             {
                 OBDError = J2534Port.Functions.Close((int)DeviceID);
+            }
+            catch
+            {
+                IsJ2534Open = false;
+                CloseLibrary();
+                return Response.Create(ResponseStatus.Success, OBDError);
+            }
                 if (OBDError != J2534Err.STATUS_NOERROR)
                 {
                     // Big problems, do something here

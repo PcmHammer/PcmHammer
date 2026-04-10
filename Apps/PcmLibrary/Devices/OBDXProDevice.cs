@@ -637,7 +637,7 @@ namespace PcmHacking
             Msg[Msg.Length - 1] = CalcChecksum(Msg);
             await this.Port.Send(Msg);
             System.Threading.Thread.Sleep(200);
-           // await Task.Delay(200);
+            // await Task.Delay(200);
             await this.Port.DiscardBuffers();
 
             //Send ELM reset
@@ -964,7 +964,12 @@ namespace PcmHacking
 
         public override void ClearMessageBuffer()
         {
-            this.Port.DiscardBuffers();
+            try
+            {
+                this.Port.DiscardBuffers();
+            } catch {
+                this.Dispose();
+            }
         }
 
         /// <summary>

@@ -76,8 +76,14 @@ namespace J2534DotNet
             {
                 throw new NullReferenceException("J2534 wrapper object is null.");
             }
-
-            return (J2534Err)m_wrapper.Close(deviceId);
+            try { 
+                return (J2534Err)m_wrapper.Close(deviceId);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error closing device: {ex.Message}");
+                return J2534Err.ERR_FAILED; // Return a generic error code
+            }
         }
 
         public J2534Err Connect(int deviceId, ProtocolID protocolId, ConnectFlag flags, BaudRate baudRate, ref int channelId)

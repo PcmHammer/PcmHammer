@@ -237,40 +237,85 @@ public class ConnectionService : IConnectionService
 
     private async Task<(Device? newDevice, Vehicle? newVehicle)> TryReconnect(CurrentSettings settings)
     {
+        if (App.ApplicationShutdownSource.IsCancellationRequested && this.vehicle != null)
+        {
+            this.vehicle.ShutdownSignalSource.Cancel();
+            this.vehicle?.Dispose();
+            return (null, null);
+        }
         if (this.vehicle != null)
         {
             this.vehicle.Dispose();
             this.vehicle = null;
         }
-
-        // This ends up being a no-op because vehicle.Dispose() also disposes the underlying connection.
-        // Not sure if that's a good thing or a bad thing, but it's probably fine.
         if (this.device != null)
         {
+            try
+            {
+                if (!await this.device.CheckDeviceConnection())
+                {
+                    this.device.Dispose();
+                    this.device = null;
+                }
+            }
+            catch
+            {
             this.device.Dispose();
             this.device = null;
         }
+        }
 
-        // Allow time for port to reset.
-        await Task.Delay(100);
+        Device? newDevice = null;
+        if (this.device == null || settings != this.newSettings)
+        {
+            string portDesc = settings.DeviceCategory == DeviceConfiguration.Constants.DeviceCategorySerial ? settings.DeviceNameOrPort : settings.DeviceCategory;
+            await this.DeviceName.SetAsync($"Detecting({portDesc})");
+            await this.DeviceState.SetAsync("Connecting...");
 
-        Device newDevice = DeviceFactory.CreateDevice(
-            this.logger,
-            settings.DeviceCategory,
-            settings.Obd2SerialPortName,
-            settings.Obd2SerialDeviceName,
-            settings.J2534DeviceName);
+            try
+            {
+                if (settings.DeviceCategory == DeviceConfiguration.Constants.DeviceCategoryBT) // Bluetooth on multi-platform requires the use of a separtate library written in .NET core, so we have to special case it here.
+                {
+                    newDevice = await BluetoothDeviceFactory.CreateBluetoothDevice(settings.DeviceNameOrPort, this.logger);
+            }
+                else
+                {
+                    newDevice = DeviceFactory.CreateDevice(this.logger, settings.DeviceCategory, settings.DeviceNameOrPort);
+                }
+                if (newDevice != null)
+                {
+                    await this.DeviceName.SetAsync($"{newDevice.GetDeviceType()}({portDesc})");
+                }
+            }
+            catch (TimeoutException)
+            {
+                return (null, null);
+            }
         if (newDevice == null)
         {
             return (null, null);
         }
 
-        await newDevice.Initialize();
+            if(await newDevice.Initialize())
+                this.device = newDevice;
+        }
 
-        ToolPresentNotifier notifier = new ToolPresentNotifier(newDevice, this.protocol, this.logger);
-        Vehicle newVehicle = new Vehicle(newDevice, this.protocol, this.logger, notifier);
+        if(this.device == null)
+        {
+            return (null, null);
+        }
+
+        ToolPresentNotifier notifier = new ToolPresentNotifier(this.device, this.protocol, this.logger);
+        string basePath = string.Empty; // We will need to pass along a path to target kernel; Android won't path to a proper directory with GetExecutingAssembly().Location.
+#if WINDOWS
+            string exePath = System.Reflection.Assembly.GetExecutingAssembly().Location;
+            basePath = Path.GetDirectoryName(exePath);
+#elif ANDROID
+            basePath = "/storage/emulated/0/PCMHammer/Bins";
+#endif
+        Vehicle newVehicle = new Vehicle(this.device, this.protocol, this.logger, notifier, basePath); // Kernel will use old logic on presence of empty string.
         await this.ConnectionState.SetAsync(ConnectionStates.Connecting);
-        return (newDevice, newVehicle);
+        return (this.device, newVehicle);
     }
 
     // 
@@ -392,7 +437,6 @@ public class ConnectionService : IConnectionService
                     ConnectionStates.Connected |
                     ConnectionStates.Connecting |
                     ConnectionStates.NotConfigured;
-
                 if (!this.TryTransition(allowed, ConnectionStates.Polling))
                 {
                     this.logger.AddDebugMessage($"Skipping poll, internalState is {this.internalState}");
@@ -612,6 +656,11 @@ public class ConnectionService : IConnectionService
                 this.logBuffer.Enabled = true;
                 this.logger.AddUserMessage("Error while testing vehicle connection.");
                 this.logger.AddDebugMessage(exception.ToString());
+                if(this.vehicle != null)
+                {
+                    this.vehicle?.Dispose();
+                    this.vehicle = null;
+                }
             }
         }
 
@@ -685,6 +734,15 @@ public class ConnectionService : IConnectionService
         catch (Exception exception)
         {
             this.logger.AddUserMessage("Communications exception: " + exception.Message);
+            if(exception is InvalidOperationException)
+            {
+                try
+                {
+                    this.device?.Dispose();
+                }
+                catch { }
+                this.device = null;
+            }
             return false;
         }
 
