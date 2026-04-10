@@ -49,6 +49,8 @@ namespace PcmHacking
         /// </summary>
         private ILogger logger;
 
+        private readonly string _basePath;
+
         /// <summary>
         /// Use this to periodically send tool-present messages during long operations, to 
         /// discourage devices on the VPW bus from sending messages that could interfere
@@ -121,7 +123,8 @@ namespace PcmHacking
             Device device,
             Protocol protocol,
             ILogger logger,
-            ToolPresentNotifier notifier)
+            ToolPresentNotifier notifier,
+            string basePath)
         {
             this.device = device;
             this.protocol = protocol;

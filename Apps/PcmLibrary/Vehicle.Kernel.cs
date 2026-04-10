@@ -84,10 +84,17 @@ namespace PcmHacking
             {
                 return Response.Create(ResponseStatus.Error, file);
             }
-
-            string exePath = System.Reflection.Assembly.GetExecutingAssembly().Location;
-            string exeDirectory = Path.GetDirectoryName(exePath);
-            path = Path.Combine(exeDirectory, path);
+            string finalDir = string.Empty;
+            if(_basePath == string.Empty)
+            {
+                string exePath = System.Reflection.Assembly.GetExecutingAssembly().Location;
+                finalDir = Path.GetDirectoryName(exePath);
+            }
+            else
+            {
+                finalDir = _basePath;
+            }
+            path = Path.Combine(_basePath, path);
 
             try
             {
