@@ -212,6 +212,10 @@ public class ConnectionService : IConnectionService
             {
                 this.logger.AddUserMessage("Connection test failed.");
                 this.newSettings = settings;
+                if(this.lastSettings == null)
+                {
+                    this.lastSettings = newSettings; // This avoids inactivity if device/PCM fails first try, unless this was intended.
+                }
                 newVehicle.Dispose();
                 newVehicle = null;
                 newDevice.Dispose();
