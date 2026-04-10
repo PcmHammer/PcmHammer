@@ -181,9 +181,9 @@ public class SettingsService : ISettingsService
         if (!string.IsNullOrEmpty(deviceCategory))
         {
             nameOrPort =
-                deviceCategory == DeviceConfiguration.Constants.DeviceCategorySerial ? _settingsListInterface[Obd2SerialPortNameKey] as string ?? string.Empty :
-                deviceCategory == DeviceConfiguration.Constants.DeviceCategoryJ2534 ? _settingsListInterface[J2534DeviceNameKey] as string ?? string.Empty :
-                deviceCategory == DeviceConfiguration.Constants.DeviceCategoryBT ? _settingsListInterface[BluetoothDeviceNameKey] as string ?? string.Empty : "";
+                deviceCategory == DeviceConstants.DeviceCategorySerial ? _settingsListInterface[Obd2SerialPortNameKey] as string ?? string.Empty :
+                deviceCategory == DeviceConstants.DeviceCategoryJ2534 ? _settingsListInterface[J2534DeviceNameKey] as string ?? string.Empty :
+                deviceCategory == DeviceConstants.DeviceCategoryBT ? _settingsListInterface[BluetoothDeviceNameKey] as string ?? string.Empty : "";
         }
         return new CurrentSettings(
             deviceCategory,
@@ -197,13 +197,13 @@ public class SettingsService : ISettingsService
         _settingsListInterface[Obd2DeviceCategoryKey] = settings.DeviceCategory;
         switch (settings.DeviceCategory)
         {
-            case DeviceConfiguration.Constants.DeviceCategorySerial:
+            case DeviceConstants.DeviceCategorySerial:
                 _settingsListInterface[Obd2SerialPortNameKey] = settings.DeviceNameOrPort;
                 break;
-            case DeviceConfiguration.Constants.DeviceCategoryJ2534:
+            case DeviceConstants.DeviceCategoryJ2534:
                 _settingsListInterface[J2534DeviceNameKey] = settings.DeviceNameOrPort;
                 break;
-            case DeviceConfiguration.Constants.DeviceCategoryBT:
+            case DeviceConstants.DeviceCategoryBT:
                 _settingsListInterface[BluetoothDeviceNameKey] = settings.DeviceNameOrPort;
                 break;
         }

@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using PcmHacking.UnoUI.Utilities;
 
 namespace PcmHacking.UnoUI.Services;
@@ -286,7 +285,7 @@ public class ConnectionService : IConnectionService
         }
 
         Device? newDevice = null;
-        string portDesc = settings.DeviceCategory == DeviceConfiguration.Constants.DeviceCategorySerial ? settings.DeviceNameOrPort : settings.DeviceCategory;
+        string portDesc = settings.DeviceCategory == DeviceConstants.DeviceCategorySerial ? settings.DeviceNameOrPort : settings.DeviceCategory;
         if (this.device == null || settings != this.newSettings)
         {
             await this.DeviceName.SetAsync($"Detecting({portDesc})");
@@ -294,7 +293,7 @@ public class ConnectionService : IConnectionService
 
             try
             {
-                if (settings.DeviceCategory == DeviceConfiguration.Constants.DeviceCategoryBT) // Bluetooth on multi-platform requires the use of a separtate library written in .NET core, so we have to special case it here.
+                if (settings.DeviceCategory == DeviceConstants.DeviceCategoryBT) // Bluetooth on multi-platform requires the use of a separtate library written in .NET core, so we have to special case it here.
                 {
                     newDevice = await BluetoothDeviceFactory.CreateBluetoothDevice(settings.DeviceNameOrPort, this.logger);
                 }

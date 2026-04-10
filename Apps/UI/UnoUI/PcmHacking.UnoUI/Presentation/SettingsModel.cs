@@ -71,11 +71,11 @@ public partial record SettingsModel
         .ForEach(DeviceCategoryChanged);
 
     public IState<bool> UseSerialDevice => State<bool>
-        .Async(this, ct => this.AreEqual(DeviceConfiguration.Constants.DeviceCategorySerial, settingsService.GetObd2DeviceCategory()));
+        .Async(this, ct => this.AreEqual(DeviceConstants.DeviceCategorySerial, settingsService.GetObd2DeviceCategory()));
     public IState<bool> UseJ2534Device => State<bool>
-        .Async(this, ct => this.AreEqual(DeviceConfiguration.Constants.DeviceCategoryJ2534, settingsService.GetObd2DeviceCategory()));
+        .Async(this, ct => this.AreEqual(DeviceConstants.DeviceCategoryJ2534, settingsService.GetObd2DeviceCategory()));
     public IState<bool> UseBTDevice => State<bool>
-        .Async(this, ct => this.AreEqual(DeviceConfiguration.Constants.DeviceCategoryBT, settingsService.GetObd2DeviceCategory()));
+        .Async(this, ct => this.AreEqual(DeviceConstants.DeviceCategoryBT, settingsService.GetObd2DeviceCategory()));
 
     public IState<bool> UseCanDevice => State<bool>
         .Async(this, ct => ValueTask.FromResult(settingsService.IsCanEnabled()))
@@ -117,11 +117,11 @@ public partial record SettingsModel
     private ValueTask<IImmutableList<string>> GetDeviceCategories(CancellationToken ct)
     {
         List<string> deviceCategories = [];
-        deviceCategories.Add(DeviceConfiguration.Constants.DeviceCategorySerial);
+        deviceCategories.Add(DeviceConstants.DeviceCategorySerial);
 #if WINDOWS
-        deviceCategories.Add(DeviceConfiguration.Constants.DeviceCategoryJ2534);
+        deviceCategories.Add(DeviceConstants.DeviceCategoryJ2534);
 #endif
-        deviceCategories.Add(DeviceConfiguration.Constants.DeviceCategoryBT);
+        deviceCategories.Add(DeviceConstants.DeviceCategoryBT);
         IImmutableList<string> res = ImmutableList.CreateRange(deviceCategories);
         return ValueTask.FromResult(res);
     }
@@ -169,9 +169,9 @@ public partial record SettingsModel
 
     private async ValueTask DeviceCategoryChanged<T>(T newValue, CancellationToken ct)
     {
-        await UseSerialDevice.SetAsync(newValue as string == DeviceConfiguration.Constants.DeviceCategorySerial);
-        await UseJ2534Device.SetAsync(newValue as string == DeviceConfiguration.Constants.DeviceCategoryJ2534);
-        await UseBTDevice.SetAsync(newValue as string == DeviceConfiguration.Constants.DeviceCategoryBT);
+        await UseSerialDevice.SetAsync(newValue as string == DeviceConstants.DeviceCategorySerial);
+        await UseJ2534Device.SetAsync(newValue as string == DeviceConstants.DeviceCategoryJ2534);
+        await UseBTDevice.SetAsync(newValue as string == DeviceConstants.DeviceCategoryBT);
         await ConnectionSettingsChanged(newValue, ct);
     }
 
@@ -179,9 +179,9 @@ public partial record SettingsModel
     {
         string deviceCategory = await SelectedDeviceType.Value();
         string portName =
-            deviceCategory == DeviceConfiguration.Constants.DeviceCategorySerial ? (await SelectedObd2Port.Value()).PortName :
-            deviceCategory == DeviceConfiguration.Constants.DeviceCategoryJ2534 ? await SelectedJDevice.Value() :
-            deviceCategory == DeviceConfiguration.Constants.DeviceCategoryBT ? await SelectedBluetoothDevice.Value() : "";
+            deviceCategory == DeviceConstants.DeviceCategorySerial ? (await SelectedObd2Port.Value()).PortName :
+            deviceCategory == DeviceConstants.DeviceCategoryJ2534 ? await SelectedJDevice.Value() :
+            deviceCategory == DeviceConstants.DeviceCategoryBT ? await SelectedBluetoothDevice.Value() : "";
 
 
         CurrentSettings currentSettings = new CurrentSettings(
