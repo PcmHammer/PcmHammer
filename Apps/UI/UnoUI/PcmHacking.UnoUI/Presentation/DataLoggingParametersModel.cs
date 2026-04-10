@@ -161,7 +161,7 @@ public partial record DataLoggingParametersModel
         this.logBuffer = logBuffer;
         this.dispatcherQueue = dispatcherQueue;
         this.loggingContext = loggingContext;
-        this.canPortName = settingsService.GetCanSerialPortName();
+        this.canPortName = settingsService.GetCanSerialPortName().PortName;
 
         // Buffer for 2 seconds of pre-trigger data
         preTriggerBuffer = new PcmHacking.CircularBuffer<IEnumerable<string>>(PreTriggerBufferSeconds * EstimatedSamplingRate);
