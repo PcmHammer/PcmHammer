@@ -34,6 +34,8 @@ namespace PcmHacking
         /// </remarks>
         public const int MaxReceiveAttempts = 5;
 
+        public CancellationTokenSource ShutdownSignalSource = new CancellationTokenSource(); // Use this as a trigger to say we are ready to dispose the underlying device.
+
         /// <summary>
         /// The device we'll use to talk to the PCM.
         /// </summary>
@@ -152,9 +154,9 @@ namespace PcmHacking
         /// <summary>
         /// Part of the Dispose pattern.
         /// </summary>
-        protected void Dispose(bool isDisposing)
+        protected async Task Dispose(bool isDisposing)
         {
-            if (this.device != null)
+            if (ShutdownSignalSource.IsCancellationRequested) // Prevent the disposal of the Vehicle class from disposing the device. This can then be held by ConnectionService to be passed back in.
             {
                 this.device.Dispose();
                 this.device = null;
