@@ -415,7 +415,7 @@ public class ConnectionService : IConnectionService
             // acquired) the 'using' pattern won't call the Dispose method,
             // so the semaphore has to be released explicitly.
             this.stateChangeSemaphore.Release();
-            throw;
+            return null;
         }
 
         return new ConnectionLease(this, this.vehicle, activity);
@@ -569,6 +569,10 @@ public class ConnectionService : IConnectionService
             return;
         }
 
+        if (this.device == null && this.internalState == ConnectionStates.Connected)
+        {
+            ForceTransition(ConnectionStates.NotConnected);
+        }
         bool disconnected = false;
         Vehicle? acquiredVehicle = null;
         try
@@ -610,9 +614,13 @@ public class ConnectionService : IConnectionService
                     return;
                 }
             }
-
             using (ConnectionLease lease = await this.BeginActivity(PollingActivity, true))
             {
+                if(lease == null)
+                {
+                    ForceTransition(ConnectionStates.NotConnected);
+                    return;
+                }
                 acquiredVehicle = lease.Vehicle;
                 if (acquiredVehicle == null)
                 {
@@ -628,6 +636,7 @@ public class ConnectionService : IConnectionService
                     disconnected = true;
 
                     // This will cause EndActivity to transition to NotConnected.
+                    if(ResetTimeRemaining != -1)
                     lease.ConnectionLost = true;
                 }
             }
