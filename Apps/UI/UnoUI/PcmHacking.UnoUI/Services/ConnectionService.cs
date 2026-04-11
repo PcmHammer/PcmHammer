@@ -780,7 +780,7 @@ public class ConnectionService : IConnectionService
         catch (Exception exception)
         {
             this.logger.AddUserMessage("Communications exception: " + exception.Message);
-            if(exception is InvalidOperationException)
+            if(exception is InvalidOperationException || exception is IOException) 
             {
                 try
                 {

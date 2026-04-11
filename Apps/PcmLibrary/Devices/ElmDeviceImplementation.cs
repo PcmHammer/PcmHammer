@@ -170,7 +170,9 @@ namespace PcmHacking
             {
                 await this.Port.Send(Encoding.ASCII.GetBytes(message + " \r"));
             }
-            catch { }
+            catch {
+                throw new IOException("Failed to send message: " + message);
+            }
         }
 
         /// <summary>
