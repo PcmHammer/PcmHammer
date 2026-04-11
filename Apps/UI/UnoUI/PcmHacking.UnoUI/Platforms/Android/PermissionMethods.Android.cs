@@ -46,7 +46,7 @@ namespace PcmHacking.UnoUI.Platforms.Android
                 string filePath = $"{directory}/{kernel}";
                 if (!File.Exists(filePath))
                 {
-                    var file = await Windows.Storage.StorageFile.GetFileFromApplicationUriAsync(new Uri($"ms-appx:///Assets/BuildFiles/{kernel}"));
+                    var file = await Windows.Storage.StorageFile.GetFileFromApplicationUriAsync(new Uri($"ms-appx:///Assets/Kernels/{kernel}"));
                     var content = await file.OpenReadAsync();
                     Directory.CreateDirectory(directory);
                     File.WriteAllBytes(filePath, content.AsStream().ToMemoryStream().ToArray());
