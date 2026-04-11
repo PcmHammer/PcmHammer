@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -150,6 +150,16 @@ namespace PcmHacking
         public int KernelMaxBlockSize { get; private set; }
 
         /// <summary>
+        /// If false, writes must be blocked when a boot-sector write is required.
+        /// </summary>
+        public bool IsSupportedWriteBootSector { get; private set; }
+
+        /// <summary>
+        /// Indicates that support for this PCM type is still in development.
+        /// </summary>
+        public bool IsUnderDevelopment { get; private set; }
+
+        /// <summary>
         /// Populate this object based on the given PcmType.
         /// </summary>
         public bool PCMInfo(PcmType pcmType)
@@ -159,6 +169,7 @@ namespace PcmHacking
             this.IsSupportedWrite = false;
             this.IsSupportedWriteSlaveCPU = false;
             this.IsSupportedWriteBySegment = false;
+            this.IsSupportedWriteBootSector = true;
             this.Description = "Not Set";
             this.LoaderRequired = false;
             this.HardwareType = PcmType.Undefined;
@@ -175,6 +186,8 @@ namespace PcmHacking
             this.FlashIDSupport = false;
             this.KernelVersionSupport = false;
             this.KernelMaxBlockSize = 4096;
+            this.IsUnderDevelopment = false;
+
 
             switch (pcmType)
             {
@@ -260,11 +273,12 @@ namespace PcmHacking
                     this.Description = "P05 (VPW)";
                     this.HardwareType = PcmType.P05;
                     this.HardwareSlaveCPU = false;
-                    this.IsSupported = false;
+                    this.IsSupported = true;
                     this.IsSupportedRead = true;
                     this.IsSupportedWrite = true;
                     this.IsSupportedWriteSlaveCPU = false;
                     this.IsSupportedWriteBySegment = false;
+                    this.IsSupportedWriteBootSector = false;
                     this.LoaderRequired = false;
                     this.KernelFileName = "Kernel-P05.bin";
                     this.KernelBaseAddress = 0xFFC100;
@@ -329,18 +343,20 @@ namespace PcmHacking
                 case PcmType.P11:
                     this.Description = "P11";
                     this.HardwareType = PcmType.P11;
+                    this.IsUnderDevelopment = true;
                     this.HardwareSlaveCPU = false;
-                    this.IsSupported = false;
+                    this.IsSupported = true;
                     this.IsSupportedRead = true;
-                    this.IsSupportedWrite = false;
+                    this.IsSupportedWrite = true;
                     this.IsSupportedWriteSlaveCPU = false;
-                    this.IsSupportedWriteBySegment = false;
+                    this.IsSupportedWriteBySegment = true;
+                    this.IsSupportedWriteBootSector = true;
                     this.LoaderRequired = false;
                     this.KernelFileName = "Kernel-P11.bin";
-                    this.KernelBaseAddress = 0xFFC100;
+                    this.KernelBaseAddress = 0xFFC000;
                     this.ImageBaseAddress = 0x0;
-                    this.ImageSize = 1024 * 1024;
-                    this.KeyAlgorithm = 0x35;
+                    this.ImageSize = 512 * 1024;
+                    this.KeyAlgorithm = 0x0D;
                     this.ChecksumSupport = true;
                     this.FlashCRCSupport = true;
                     this.FlashIDSupport = true;
@@ -357,6 +373,7 @@ namespace PcmHacking
                     this.IsSupportedWrite = false;
                     this.IsSupportedWriteSlaveCPU = false;
                     this.IsSupportedWriteBySegment = true;
+                    this.IsSupportedWriteBootSector = false;
                     this.LoaderRequired = false;
                     this.KernelFileName = "Kernel-P12.bin";
                     this.KernelBaseAddress = 0xFF2000; // or FF0000? https://pcmhacking.net/forums/viewtopic.php?f=42&t=7742&start=450#p115622
@@ -432,6 +449,15 @@ namespace PcmHacking
                 default: return false;
             }
             return true;
+        }
+
+        /// <summary>
+        /// Populate this object based on the given PCM type.
+        /// </summary>
+        public OSIDInfo(PcmType pcmType)
+        {
+            this.OSID = 0;
+            this.PCMInfo(pcmType);
         }
 
         /// <summary>
@@ -2899,6 +2925,7 @@ namespace PcmHacking
                     break;
                 */
                 case 12597270: // tested on bench as dual protocol can + vpw on 12591279
+                case 12599697: // unknown service number, P05b can+vpw type with AMD
                 case 12608100:
                 case 12612950:
                 case 12619714:
@@ -3019,7 +3046,7 @@ namespace PcmHacking
                     this.ServiceNumber = 9356249;
                     break;
 
-                // P08s of unknown service number
+                // P08s of unknown service number (includes some P11) :(
                 case 9351290:
                 case 9351297:
                 case 9351321:
@@ -3076,7 +3103,6 @@ namespace PcmHacking
                 case 12216568:
                 case 12217195:
                 case 12218876:
-                case 12218878:
                 case 12221098:
                 case 12222110:
                 case 12222131:
@@ -3123,9 +3149,15 @@ namespace PcmHacking
                     this.ServiceNumber = 12574976;
                     break;
 
+                case 12218878: // Antus' P11
                 case 12593523: // https://pcmhacking.net/forums/viewtopic.php?p=120275#p120275
                     PCMInfo(PcmType.P11);
-                    this.Description = "P11 Service No ?";
+                    this.Description = "P11 Service No 12210553";
+                    this.ServiceNumber = 0;
+                    break;
+                case 12586586: // Service number 12576162
+                    PCMInfo(PcmType.P11);
+                    this.Description = "P11 Service No 12576162";
                     this.ServiceNumber = 0;
                     break;
 

@@ -375,6 +375,18 @@ namespace PcmHacking
                 }
 
                 this.logger.AddUserMessage(errorMessage);
+
+                byte[] unlockBytes = unlockResponse.GetBytes();
+                bool TerminalFailure =
+                    unlockBytes.Length >= 6 &&
+                    unlockBytes[3] == (Mode.Seed + Mode.Response) &&
+                    unlockBytes[4] == Submode.SendKey &&
+                    unlockBytes[5] == 0x35 || unlockBytes[5] == 0x36;
+
+                if (TerminalFailure)
+                {
+                    return false;
+                }
             }
 
             this.logger.AddUserMessage("Unable to process unlock response.");

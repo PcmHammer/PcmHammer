@@ -31,9 +31,6 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="PcmLibrary">
-      <HintPath>..\PcmLibrary\bin\Debug\netstandard2.0\PcmLibrary.dll</HintPath>
-    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Management" />
@@ -66,6 +63,7 @@
     </None>
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\PcmLibrary\PcmLibrary.csproj" />
     <ProjectReference Include="..\J2534DotNet\J2534DotNet\J2534DotNet.csproj">
       <Project>{d99e0de7-2f06-41e3-b33e-687e1b425a7f}</Project>
       <Name>J2534DotNet</Name>

@@ -12,6 +12,7 @@
     <h1>PCM Hammer Development Release</h1>
 
     <ol>
+        <li><a target="_self" href="#recommended">Recommended Interface</a>
         <li><a target="_self" href="#readfirst">Read This First</a>
         <li><a target="_self" href="#devices">Supported Devices</a>
         <li><a target="_self" href="#basics">Basic Operations</a>
@@ -22,8 +23,17 @@
     </ol>
 
     <hr />
+
+    <p id="recommended"><h3>Recommended Device</h3>
+
+    <p>The recommended interface is one of the OBD XPro series. Usually the GT or the VX. Buying through this link helps support PCMHammer development and PCMHacking forums:
+
+    <p>
+        <b><a href="http://obdxpro.com/?ref=pcmhacking">OBDX Pro Store</a>
+
+
     <P id="readfirst"><h3>Read This First</h3>
-    <P>This software is very new, and was written by a few people in their free time. While it has worked well for us, we can't promise that it has the reliability and trustworthiness that you would expect from a commercial product. If you require foolproof commercial-quality tools, this software is not for you.
+    <P>This software was written by a few people in their free time. While it has worked well for us, we can't promise that it has the reliability and trustworthiness that you would expect from a commercial product. If you require foolproof commercial-quality tools, this software is not for you.
 
     <p>For several seconds after you turn the key, the PCM will be busy booting. Most operations will fail during that period. This is why the app asks you to wait before proceeding with complex operations. If you skip that waiting period, you won't do any lasting damage, but whatever you're trying to do might not work, and you might need to pull the PCM's fuse for a few seconds to reset it.
 
@@ -32,46 +42,44 @@
     <p>
         If you have a drive-by-wire throttle, you might find that the Check Engine light turns on after reading or writing, and a code reader will report P1518, indicating a communication error with the Throttle Actuator Control module. This can be ignored, and it will go away after you start the engine a few times. We're looking for a way to prevent this.
 
-
         <hr />
     <p id="devices"><h3>Supported Devices</h3>
 
     <p>This app currently supports the following types of devices:
 
     <p>
-        <b><a href="http://obdxpro.com/?ref=pcmhacking">OBDX Pro</a></b> - This is the best bang-for-the-buck. It supports 4x bus speeds and large data packets, while costing
-        well under $100. This is the recommended interface. Full disclosure: The guys behind this company have also helped with PCM Hammer development and testing. Buying through this link supports development hardware costs as well as future development.
+        <b><a href="http://obdxpro.com/?ref=pcmhacking">OBDX Pro</a></b> - This is the best bang-for-the-buck. It supports 4x bus speeds and large data packets.
+        This is the recommended interface. Full disclosure: The guys behind this company have also helped with PCM Hammer development and testing. Buying through this link also helps with our hardware costs and future development.
 
     <p>
-        <b><a href="https://www.scantool.net/obdlink-sx/">ObdLink Scantool SX</a></b> - This is inexpensive and more capable than ELM knock-off devices,
-        however it does not support 4x (high speed) mode, and it only supports relatively short messages, so a full read from a 512kb PCM takes a little over 20 minutes. Not recommended.
+        <b><a href="https://www.scantool.net/obdlink-sx/">ObdLink Scantool SX</a></b> - This is inexpensive and basic interface. It is superior to ELM knock-off devices,
+        but it does not support 4x (high speed) mode, and it only supports relatively short messages. It works but it is very slow. A full read from a 512kb PCM takes a little over 20 minutes. Not recommended. No bluetooth.
 
-    <p><b><a href="https://www.scantool.net/obdlink-mxp/">ObdLink Scantool MX/MX+</a></b> - Similar to the SX, but Bluetooth wireless. The connection to windows via Bluetooth can be troublesome,
-	    but when correctly configured it does work. Not recommended.
+    <p><b><a href="https://www.scantool.net/obdlink-mxp/">ObdLink Scantool MX/MX+</a></b> - Similar to the SX, but with Bluetooth wireless. The connection to windows via Bluetooth can be troublesome, but when correctly configured it does work. Not recommended.
 
     <p>
         <b><a href="https://www.scantool.net/obdlink-lx/">ObdLink Scantool LX</a></b> - It's like an SX or MX+, but wireless. Not Recommended.
     <p>
-        <b><a href="http://www.avt-hq.com/852_hw.htm">AVT 852</a></b> - This is the most expensive option, and the company doesn't cater to individual purchasers,
-        but this was one of the first interfaces to properly support J1850 VPW high-speed mode. No longer in production but solid if you have one in the toolkit.
+        <b><a href="http://www.avt-hq.com/852_hw.htm">AVT 852</a></b> - This is and expensive option. The original company has closed down but the device is being manufacturerd again by Mobilechanix who have a web site and ebay store.
+        This was one of the first interfaces to properly support J1850 VPW high-speed mode. 
     <p>
-        <b>Any J2534-compatible interface that supports J1850 VPW</b> - At least in theory, these should all work. There are quite a few of those on the market,
+        <b>Any J2534-compatible interface that supports J1850 VPW and large packets</b> - At least in theory, these should all work. There are quite a few of those on the market,
         and we cannot test them all, but if you have one, give it a try. As time goes by we'll list the ones that are proven to work. The genuine GM MDI is one
-        device which is known to work well. Over time we hope to confirm that other, less expensive devices will also work. Usually the sub $50 J2534 tools do not work.
-		GM/Bosch MDI and MDI2 work well and are recommended.
+        device which is known to work well. Cheaper J2534 devices are generally really basic and either skip VPW protocol or cannot support large packets.
+        Over time we hope to confirm that other, less expensive devices will also work. Usually the sub $50 J2534 tools do not work.
 
     <P>Note that the Tactrix OpenPort 2.0 does not support J1850 VPW despite some advertising saying that it does. VPW is required and it is not capable / supported.
 
     <p>
         <b><a href="http://www.obddiag.net/products.html">ObdDiag AllPro</a></b> - Only the USB and dev-board versions are supported (not bluetooth).
-        The AllPro devices were quite inexpensive, and ObdDiag was originally enthusiastic about this project, incorporating changes and responding to feedback.
-        However the man behind the company has moved on to other things, and these devices are no longer available.
-        Also, note that AllPro devices purchased before early June 2018 will need a firmware update to version 1.21 or later.
+        The AllPro devices were quite inexpensive, and ObdDiag was an early partner in this project, incorporating changes and responding to feedback.
+        However the man behind the company has moved on to other things, so these devices are no longer available. If you happen to have one it can be used,
+        but they are not at all common. Also note that AllPro devices purchased before early June 2018 will need a firmware update to version 1.21 or later.
 		Not recommended.
     <p>
-        Other devices based on the Scantool OBD2 chip may or may not work, depending on their message size limits. Not recommended.
+        Other devices based on the Scantool STN OBD2 chip may or may not work, depending on their message size limits with the same caviets as scantool products.
     <p>
-        Note that most ELM-based devices are <i>not</i> supported, because they do not work. Reading and clearing OBD2 trouble codes is one thing; rewriting firmware is quite another.
+        Note that most ELM-based devices are <i>not</i> supported because they do not large packets and do not work. Reading and clearing OBD2 trouble codes is one thing; rewriting firmware is quite another.
 
         <hr />
     <p id="basics"><h3>Basic Operations</h3>

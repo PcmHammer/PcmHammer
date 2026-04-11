@@ -173,6 +173,21 @@ namespace PcmHacking
                 return false;
             }
 
+            if (pcmInfo.IsUnderDevelopment)
+            {
+                string msg = $"WARNING: {pcmInfo.HardwareType.ToString()} Support is still in development.\r\nThere is additional brick risk in this operation\r\nDo you want to continue?";
+                this.logger.AddUserMessage(msg);
+                if (await this.promptForYesNo(msg, "Brick Risk"))
+                {
+                    this.logger.AddUserMessage("User chose to proceed.");
+                }
+                else
+                {
+                    this.logger.AddUserMessage("User chose not to proceed.");
+                    return false;
+                }
+            }
+
             // If the factory binary is not paritioned we cant write by segment, block the non-full write types
             if (!pcmInfo.IsSupportedWriteBySegment && (writeType == WriteType.Calibration || writeType == WriteType.OsPlusCalibrationPlusBoot || writeType == WriteType.Parameters))
             {

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -249,14 +249,16 @@ namespace PcmHacking
             logger.AddUserMessage("Flash chip: " + flashChip.ToString());
 
             // This is the only thing preventing a P01 os write to a P59 or vice-versa because of the shared P01_P59 type
-            // But a P10 has a 1Mb chip that is only 512Kb used, so that can be allowed.
-            if (pcmInfo.HardwareType == PcmType.P10 && image.Length == 512 * 1024 && flashChip.Size == 1024 * 1024)
+            // But a P10/P11 can have a 1Mb chip while using 512KiB images, so that can be allowed.
+            if ((pcmInfo.HardwareType == PcmType.P10 || pcmInfo.HardwareType == PcmType.P11) &&
+                image.Length == 512 * 1024 &&
+                flashChip.Size == 1024 * 1024)
             {
-                this.logger.AddUserMessage(string.Format("File size {0:n0} for flash chip size {1:n0}. Allowable for P10.", image.Length, flashChip.Size));
+                this.logger.AddUserMessage(string.Format("File size {0:n0} for flash chip size {1:n0}. Allowable for {2}.", image.Length, flashChip.Size, pcmInfo.HardwareType));
             }
-            else if (flashChip.Size != image.Length)
+            else if (image.Length != flashChip.Size)
             {
-                this.logger.AddUserMessage(string.Format("File size {0:n0} does not match PCM size {1:n0}. This image is not compatible with this PCM.", image.Length, pcmInfo.ImageSize));
+                this.logger.AddUserMessage(string.Format("File size {0:n0} does not match flash chip size {1:n0}. This image is not compatible with this PCM.", image.Length, flashChip.Size));
                 await this.vehicle.Cleanup();
                 return false;
             }
@@ -316,6 +318,16 @@ namespace PcmHacking
                     this.logger.AddUserMessage("Note that mismatched Parameter blocks are to be expected.");
                     this.logger.AddUserMessage("Parameter data can change every time the PCM is used.");
                     return true;
+                }
+
+                // Preflight policy gate: block before any erase/write if this PCM
+                // does not allow boot-sector writes and boot would be written.
+                if (!this.IsWritePlanAllowedByPcmInfo(flashChip, relevantBlocks))
+                {
+                    this.logger.AddUserMessage("Boot sector write is required for this operation.");
+                    this.logger.AddUserMessage($"Abort: The {this.pcmInfo.HardwareType} boot sector is write protected. This PCM is not compatible with this file.");
+                    await this.vehicle.Cleanup();
+                    return false;
                 }
 
                 // Erase and rewrite the required memory ranges.
@@ -463,6 +475,41 @@ namespace PcmHacking
             if ((range.Type & relevantBlocks) == 0)
             {
                 return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Check write plan against PCM policy before any erase/write occurs.
+        /// </summary>
+        private bool IsWritePlanAllowedByPcmInfo(FlashChip flashChip, BlockType relevantBlocks)
+        {
+            // Compare and test-write are non-destructive.
+            if (this.writeType == WriteType.Compare || this.writeType == WriteType.TestWrite)
+            {
+                return true;
+            }
+
+            // Allow attempts to write boot sector on PCMs that do not support it
+            if (this.pcmInfo.IsSupportedWriteBootSector)
+            {
+                return true;
+            }
+
+            foreach (MemoryRange range in flashChip.MemoryRanges)
+            {
+                // ShouldProcess means this range is relevant AND differs (for real writes).
+                if (!this.ShouldProcess(range, relevantBlocks))
+                {
+                    continue;
+                }
+
+                // Block attempts to write boot sector on PCMs that do not support it
+                if ((range.Type & BlockType.Boot) != 0)
+                {
+                    return false;
+                }
             }
 
             return true;
