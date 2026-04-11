@@ -17,23 +17,17 @@ using PcmHacking;
 
 namespace PcmHacking
 {
-    public class BluetoothPort : IPort
+    public class BluetoothPort(BluetoothDeviceInfo bluetoothDeviceInfo) : IPort
     {
-        private BluetoothClient _connectedDevice;
-        private BluetoothDeviceInfo _deviceInfo;
-        private NetworkStream _deviceStream;
-        private ConcurrentQueue<byte> _incomingQueue;
-        private CancellationTokenSource _cancellationTokenSource;
-        private Task _ReceiverTask;
+        private BluetoothClient? _connectedDevice = null;
+        private BluetoothDeviceInfo _deviceInfo = bluetoothDeviceInfo;
+        private NetworkStream? _deviceStream = null;
+        private ConcurrentQueue<byte> _incomingQueue = new();
+        private CancellationTokenSource _cancellationTokenSource = new();
+        private Task? _ReceiverTask = null;
         private int _packetTimeout = 3000;
         private int _connectionFailTimeout = 2000;
-        private bool _localDebug = true;
-
-        public BluetoothPort(BluetoothDeviceInfo bluetoothDeviceInfo)
-        {
-            _deviceInfo = bluetoothDeviceInfo;
-            _cancellationTokenSource = new();
-        }
+        private bool _localDebug = false;
 
         public async Task DiscardBuffers()
         {
@@ -108,7 +102,10 @@ namespace PcmHacking
         public async Task Send(byte[] buffer)
         {
             if (_localDebug) Debug.WriteLine($"Sending bytes={buffer.ToHex()}");
-            await _deviceStream.WriteAsync(buffer).AwaitWithTimeout(TimeSpan.FromMilliseconds(_packetTimeout));
+            if(_deviceStream == null) {
+                throw new IOException("Bluetooth device stream is null.");
+            }
+            await _deviceStream.WriteAsync(buffer);
             await _deviceStream.FlushAsync().AwaitWithTimeout(TimeSpan.FromMilliseconds(_packetTimeout));
         }
 
