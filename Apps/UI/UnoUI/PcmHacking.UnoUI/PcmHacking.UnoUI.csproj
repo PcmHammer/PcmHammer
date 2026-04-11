@@ -108,9 +108,14 @@
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|net10.0-android|x86'">
+    <AndroidPackageFormat>apk</AndroidPackageFormat>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|net10.0|x86'">
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|net10.0-android|x86'">
+    <EmbedAssembliesIntoApk>True</EmbedAssembliesIntoApk>
   </PropertyGroup>
   
   <ItemGroup>
@@ -131,7 +136,7 @@
   </ItemGroup>
 
   <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
-    <AndroidAsset Include="Assets\BuildFiles\*.bin" />
+    <AndroidAsset Include="Assets\Kernels\*.bin" />
   </ItemGroup>
 
   <ItemGroup>
