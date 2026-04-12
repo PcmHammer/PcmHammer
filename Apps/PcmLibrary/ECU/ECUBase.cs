@@ -179,7 +179,7 @@ namespace PcmHacking.ECU {
         public void SetCurrentOSID(uint osid) {
             CurrentOSID = KnownOperatingSystems.FirstOrDefault(x => x.OSID == osid);
             if (CurrentOSID == null) {
-                CurrentOSID = new OSInfo(osid, "Unknown OS", KeyAlgorithm);
+                CurrentOSID = new OSInfo(osid, 0, "Unknown OS", KeyAlgorithm);
             }
         }
     }
