@@ -139,7 +139,7 @@ namespace PcmHacking
 
         public async override Task<bool> CheckDeviceConnection()
         {
-            return true:
+            return true;
         }
     }
 }
