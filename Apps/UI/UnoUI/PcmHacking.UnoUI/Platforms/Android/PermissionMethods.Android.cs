@@ -9,6 +9,7 @@ namespace PcmHacking.UnoUI.Platforms.Android
     {
         public static async Task RequestAndroidPermissions()
         {
+            await Windows.Extensions.PermissionsHelper.TryGetPermission(CancellationToken.None, Manifest.Permission.PostNotifications);
             await Windows.Extensions.PermissionsHelper.TryGetPermission(CancellationToken.None, Manifest.Permission.Bluetooth);
             await Windows.Extensions.PermissionsHelper.TryGetPermission(CancellationToken.None, Manifest.Permission.BluetoothAdvertise);
             await Windows.Extensions.PermissionsHelper.TryGetPermission(CancellationToken.None, Manifest.Permission.BluetoothScan);
@@ -21,6 +22,8 @@ namespace PcmHacking.UnoUI.Platforms.Android
             await Windows.Extensions.PermissionsHelper.TryGetPermission(CancellationToken.None, Manifest.Permission.AccessBackgroundLocation);
             await Windows.Extensions.PermissionsHelper.TryGetPermission(CancellationToken.None, Manifest.Permission.AccessFineLocation);
             await Windows.Extensions.PermissionsHelper.TryGetPermission(CancellationToken.None, Manifest.Permission.LocationHardware);
+            await Windows.Extensions.PermissionsHelper.TryGetPermission(CancellationToken.None, Manifest.Permission.ForegroundService);
+            await Windows.Extensions.PermissionsHelper.TryGetPermission(CancellationToken.None, Manifest.Permission.ForegroundServiceDataSync);
             if (global::Android.OS.Build.VERSION.SdkInt >= global::Android.OS.BuildVersionCodes.R)
             {
                 bool result = global::Android.OS.Environment.IsExternalStorageManager;
