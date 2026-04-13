@@ -160,7 +160,9 @@ public partial record ReadModel : IAsyncLogger
                     await performRead(path, lease, readManager);
                 }
 #elif ANDROID
-                await performRead(path, lease, readManager);
+                Progress<ProgressUpdate> progress = new Progress<ProgressUpdate>((progress) => {
+                    _ = UpdateProgress(progress);
+                });
 #endif
             }
         }
@@ -210,6 +212,27 @@ public partial record ReadModel : IAsyncLogger
         {
             await this.StartEnabled.SetAsync(true);
         }
+    }
+
+    private async Task UpdateProgress(ProgressUpdate progress)
+    {
+#if ANDROID
+        if (Platforms.Android.DataService.IsServiceRunning())
+        {
+            int fixedPercentage = (int)(progress.Percentage * 100);
+            Platforms.Android.DataService.UpdateProgress(fixedPercentage, $"Reading {progress.PayloadLength} bytes from 0x{progress.Address:X6}");
+        }
+
+#endif
+        await Invoke(async () =>
+        {
+            await this.StatusUpdateActivity($"Reading {progress.PayloadLength} bytes from 0x{progress.Address:X6}");
+            await this.StatusUpdateTimeRemaining($"T-{progress.TimeRemaining}");
+            await this.StatusUpdatePercentDone($"{(progress.Percentage * 100.0):0.00}%");
+            await this.StatusUpdateRetryCount(progress.RetryCount.ToString());
+            await this.StatusUpdateProgressBar(progress.Percentage, true);
+            await this.StatusUpdateKbps($"{progress.Rate} Kbps");
+        });
     }
 
     private async Task Invoke(Action action)

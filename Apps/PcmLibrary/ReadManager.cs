@@ -91,7 +91,7 @@ namespace PcmHacking
         /// The return value should be used to suppress future warnings about using an unproven connection.
         /// </remarks>
         /// <returns>True if the read was successful, fales if failed or aborted.</returns>
-        public async Task<Stream?> Read()
+        public async Task<Stream?> Read(IProgress<ProgressUpdate>? progress = null)
         {
             this.logger.AddUserMessage("Querying operating system of current PCM.");
             Response<uint> osidResponse = await this.vehicle.QueryOperatingSystemId(this.cancellationToken);
@@ -184,7 +184,7 @@ namespace PcmHacking
                 pcmInfo,
                 this.logger);
 
-            Response<Stream> readResponse = await reader.ReadContents(this.cancellationToken);
+            Response<Stream> readResponse = await reader.ReadContents(this.cancellationToken, progress);
 
             this.logger.AddUserMessage("Elapsed time " + DateTime.Now.Subtract(start));
             if (readResponse.Status != ResponseStatus.Success)
