@@ -131,9 +131,9 @@ public partial record SettingsModel
         IList<SerialPortListing> portList = new List<SerialPortListing>();
 #if WINDOWS
         IEnumerable<SerialPortInfo> portNames = PortDiscovery.GetPorts(progressLogger);
-        portList = [.. portNames.Where(p => !p.Name.Contains("Standard Serial over Bluetooth link")).Select(x => { return new SerialPortListing { DisplayName = x.ToString(), PortName = x.PortName }; })];
-        portList.Add(new SerialPortListing { DisplayName = MockPort.PortName, PortName = MockPort.PortName });
+        portList = [.. portNames.Where(p => !p.Name.Contains("Standard Serial over Bluetooth link")).Select(x => { return new SerialPortListing { DisplayName = x.ToString(), PortName = x.PortName }; })];
 #endif
+        portList.Add(new SerialPortListing { DisplayName = MockPort.PortName, PortName = MockPort.PortName });
         // I got an error that this wasn't returning anything, and it would seem that all below is necassary to satisfy. 
         IImmutableList<SerialPortListing> result = ImmutableList.CreateRange(portList);
         return ValueTask.FromResult(result);
