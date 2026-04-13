@@ -127,9 +127,9 @@ namespace PcmHacking
             }
         }
 
-        public override Task<bool> IsCommandBroadcasting(byte command)
+        public async override Task<bool> IsCommandBroadcasting(byte command)
         {
-            throw new NotImplementedException();
+            return false;
         }
 
         public override string GetDeviceType()
@@ -137,9 +137,9 @@ namespace PcmHacking
             return "Mock device";
         }
 
-        public override Task<bool> CheckDeviceConnection()
+        public async override Task<bool> CheckDeviceConnection()
         {
-            throw new NotImplementedException();
+            return true:
         }
     }
 }
