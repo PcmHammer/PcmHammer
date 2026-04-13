@@ -32,6 +32,7 @@
                 Style="{StaticResource NavigationBackButtonNormalStyle}"
                 IsEnabled="{Binding BackButtonEnabled}"
                 Command="{Binding GoBack}"
+                Visibility="{Binding IsBackButtonVisible}"
                 ToolTipService.ToolTip="Back" />
 
         <TextBlock Grid.Row="0" Grid.Column="2" Grid.ColumnSpan="3" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Left" Text="{Binding DeviceName}" />

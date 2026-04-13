@@ -6,6 +6,8 @@ namespace PcmHacking.UnoUI.Presentation;
 
 public partial record MainModel
 {
+    public static bool CanGoBack { get; private set; }
+    public bool IsBackButtonVisible = true;
     private INavigator navigator;
     private ISettingsService settingsService;
     private IConnectionService connectionService;
@@ -31,6 +33,9 @@ public partial record MainModel
         // This is a bit of a hack, but I don't see any real issues from it, and we want to update
         // the displayed settings and test the connection as soon as the page is loaded.
         this.connectionService.TryConnect(this.settingsService.LoadConnectionSettings());
+#if ANDROID
+        IsBackButtonVisible = false;
+#endif
     }
 
     public string? Title { get; }
@@ -92,12 +97,12 @@ public partial record MainModel
         bool connectionNotActive = currentState != ConnectionStates.Active;
         bool justPolling = currentActivity == ConnectionService.PollingActivity;
         bool canGoBack = await this.navigator.CanGoBack();
-        bool backButtonEnabled = canGoBack && (connectionNotActive || justPolling);
+        CanGoBack = canGoBack && (connectionNotActive || justPolling);
 
         // Enable/disable the back button depending on whether the connection state is Active.
-        if (await this.BackButtonEnabled.Value() != backButtonEnabled)
+        if (await this.BackButtonEnabled.Value() != CanGoBack)
         {
-            await this.BackButtonEnabled.SetAsync(backButtonEnabled);
+            await this.BackButtonEnabled.SetAsync(CanGoBack);
         }
     }
 
