@@ -47,6 +47,7 @@ namespace PcmHacking.UnoUI.Platforms.Android
             {
                 string directory = "/storage/emulated/0/PCMHammer/Bins";
                 string filePath = $"{directory}/{kernel}";
+                Directory.CreateDirectory(directory);
                 if (!File.Exists(filePath))
                 {
                     var file = await Windows.Storage.StorageFile.GetFileFromApplicationUriAsync(new Uri($"ms-appx:///Assets/Kernels/{kernel}"));
