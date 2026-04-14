@@ -1,0 +1,230 @@
+﻿<Project Sdk="Uno.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net10.0-desktop;net10.0-android;net10.0;</TargetFrameworks>
+
+    <OutputType>Exe</OutputType>
+    <UnoSingleProject>true</UnoSingleProject>
+
+    <!-- Display name -->
+    <ApplicationTitle>PcmHacking.Uno</ApplicationTitle>
+    <!-- App Identifier -->
+    <ApplicationId>net.PcmHacking.Uno</ApplicationId>
+    <!-- Versions -->
+    <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+    <ApplicationVersion>1</ApplicationVersion>
+    <!-- Package Publisher -->
+    <ApplicationPublisher>PcmHacking.net</ApplicationPublisher>
+    <!-- Package Description -->
+    <Description>PcmHacking.Uno powered by Uno Platform.</Description>
+    <!--
+      If you encounter this error message:
+
+        error NETSDK1148: A referenced assembly was compiled using a newer version of Microsoft.Windows.SDK.NET.dll.
+        Please update to a newer .NET SDK in order to reference this assembly.
+
+      This means that the two packages below must be aligned with the "build" version number of
+      the "Microsoft.Windows.SDK.BuildTools" package above, and the "revision" version number
+      must be the highest found in https://www.nuget.org/packages/Microsoft.Windows.SDK.NET.Ref.
+    -->
+    <!-- <WindowsSdkPackageVersion>10.0.22621.28</WindowsSdkPackageVersion> -->
+
+    <!--
+      UnoFeatures let's you quickly add and manage implicit package references based on the features you want to use.
+      https://aka.platform.uno/singleproject-features
+    -->
+    <UnoFeatures>
+      Lottie;
+      Hosting;
+      Toolkit;
+      Logging;
+      MVUX;
+      Configuration;
+      Localization;
+      Navigation;
+      ThemeService;
+      Storage;
+    </UnoFeatures>
+    <PackageCertificateThumbprint>E9055ABE166B5A0901A78706D44BBCA8573A5143</PackageCertificateThumbprint>
+    <AppxPackageSigningEnabled>True</AppxPackageSigningEnabled>
+    <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">34.0</SupportedOSPlatformVersion>
+    <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.19041.1</SupportedOSPlatformVersion>
+    <TargetPlatformMinVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.19041.1</TargetPlatformMinVersion>
+    <RuntimeIdentifiers Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">win-x86</RuntimeIdentifiers>
+    <Platforms>AnyCPU;x86</Platforms>
+  </PropertyGroup>
+  
+  <ItemGroup>
+    <ProjectCapability Include="Maui" />
+  </ItemGroup>  
+
+  <PropertyGroup Condition="'$(Configuration)'=='Debug' or '$(IsUiAutomationMappingEnabled)'=='True'">
+    <IsUiAutomationMappingEnabled>True</IsUiAutomationMappingEnabled>
+    <DefineConstants>$(DefineConstants);USE_UITESTS</DefineConstants>
+  </PropertyGroup>  
+
+  <PropertyGroup>
+    <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('windows'))">$(TargetFrameworks);net10.0-windows10.0.26100.0</TargetFrameworks>
+    <Platform Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">x86</Platform>
+    <Platform Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">x64</Platform>
+    <WindowsPackageType>None</WindowsPackageType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Windows.CsWin32">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="System.IO.Ports" />
+    <PackageReference Include="Tmds.DBus.Protocol" />
+  </ItemGroup>
+
+  <ItemGroup>  
+    <ProjectReference Include="..\..\..\PcmLibraryWindowsApi\PcmLibraryWindowsApi.csproj" Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) != 'android'" />
+    <ProjectReference Include="..\..\..\PcmLibrary\PcmLibrary.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
+    <AndroidAsset Include="Platforms\Android\Assets\Kernels\**\*.bin" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Update="Presentation\DataLoggingParametersPage.xaml.cs">
+      <DependentUpon>DataLoggingParametersPage.xaml</DependentUpon>
+    </Compile>
+    <Compile Update="Presentation\DataLoggingEditPage.xaml.cs">
+      <DependentUpon>DataLoggingEditPage.xaml</DependentUpon>
+    </Compile>
+    <Compile Update="Presentation\MainPage.xaml.cs">
+      <DependentUpon>MainPage.xaml</DependentUpon>
+    </Compile>
+    <Compile Update="Presentation\VinChangePage.xaml.cs">
+      <DependentUpon>VinChangePage.xaml</DependentUpon>
+    </Compile>
+    <Compile Update="Presentation\DelayPage.xaml.cs">
+      <DependentUpon>DelayPage.xaml</DependentUpon>
+    </Compile>
+    <Compile Update="Presentation\VinChange.xaml.cs">
+      <DependentUpon>VinChange.xaml</DependentUpon>
+    </Compile>
+    <Compile Update="Presentation\OtherFunctionsPage.xaml.cs">
+      <DependentUpon>OtherFunctionsPage.xaml</DependentUpon>
+    </Compile>
+    <Compile Update="Presentation\MenuPage.xaml.cs">
+      <DependentUpon>MenuPage.xaml</DependentUpon>
+    </Compile>
+    <Compile Update="Presentation\HelpPage.xaml.cs">
+      <DependentUpon>HelpPage.xaml</DependentUpon>
+    </Compile>
+    <Compile Update="Presentation\CrankRelearnPage.xaml.cs">
+      <DependentUpon>CrankRelearnPage.xaml</DependentUpon>
+    </Compile>
+    <Compile Update="Presentation\DataLoggingPage.xaml.cs">
+      <DependentUpon>DataLoggingPage.xaml</DependentUpon>
+    </Compile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Page Update="Presentation\CommonTopBar.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Page Update="Presentation\ReadPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Page Update="Presentation\SettingsPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Page Update="Presentation\WritePage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Page Update="Presentation\MenuPage.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Page Update="Presentation\HelpPage.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Page Update="Presentation\CrankRelearnPage.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Page Update="Presentation\OtherFunctionsPage.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Page Update="Presentation\VinChange.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Page Update="Presentation\DataLoggingParametersPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Exec Command="copy $(ProjectDir)\..\..\WindowsForms\PcmLogger\*.xml $(OutDir)&#xD;&#xA;" />
+  </Target>
+
+  <ItemGroup>
+    <Page Update="Presentation\LogPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Page Update="Presentation\DelayPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Page Update="Presentation\VinChangePage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Page Update="Presentation\DataLoggingEditPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Page Update="Presentation\DataLoggingDeleteConfirmationDialog.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Page Update="Presentation\MainPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+
+</Project>

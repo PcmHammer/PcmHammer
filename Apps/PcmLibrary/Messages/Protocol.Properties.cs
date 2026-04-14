@@ -25,6 +25,15 @@ namespace PcmHacking
         }
 
         /// <summary>
+        /// Create a request to read the PCM's operating system ID via EngineCalID 3C 0B service.
+        /// Used as a fallback for PCMs that return 0xFFFFFFFF to block 0x0A.
+        /// </summary>
+        public Message CreateEngineCalIDReadRequest()
+        {
+            return CreateReadRequest(BlockId.EngineCalID);
+        }
+
+        /// <summary>
         /// Create a request to read the PCM's Calibration ID.
         /// </summary>
         /// <returns></returns>
@@ -49,22 +58,29 @@ namespace PcmHacking
         {
             byte[] bytes = message.GetBytes();
             int result = 0;
-            ResponseStatus status;
 
             byte[] expected = new byte[] { Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, responseMode };
-            if (!TryVerifyInitialBytes(bytes, expected, out status))
+            if (!TryVerifyInitialBytes(bytes, expected, out ResponseStatus status))
             {
                 return Response.Create(ResponseStatus.Error, (UInt32)result);
             }
-            if (bytes.Length < 9)
+            if (bytes.Length < 8)
             {
                 return Response.Create(ResponseStatus.Truncated, (UInt32)result);
             }
-
-            result = bytes[5] << 24;
-            result += bytes[6] << 16;
-            result += bytes[7] << 8;
-            result += bytes[8];
+            if (bytes.Length == 8) // 3 byte value
+            {
+                result += bytes[5] << 16;
+                result += bytes[6] << 8;
+                result += bytes[7];
+            }
+            else // 4 byte value
+            {
+                result = bytes[5] << 24;
+                result += bytes[6] << 16;
+                result += bytes[7] << 8;
+                result += bytes[8];
+            }
 
             return Response.Create(ResponseStatus.Success, (UInt32)result);
         }
@@ -109,10 +125,9 @@ namespace PcmHacking
         public Response<string> ParseVinResponses(byte[] response1, byte[] response2, byte[] response3)
         {
             string result = "Unknown";
-            ResponseStatus status;
 
             byte[] expected = new byte[] { Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, Mode.ReadBlock + Mode.Response, BlockId.Vin1 };
-            if (!TryVerifyInitialBytes(response1, expected, out status))
+            if (!TryVerifyInitialBytes(response1, expected, out ResponseStatus status))
             {
                 return Response.Create(status, result);
             }
@@ -130,9 +145,9 @@ namespace PcmHacking
             }
 
             byte[] vinBytes = new byte[17];
-            Buffer.BlockCopy(response1, 6, vinBytes, 0, 5);
-            Buffer.BlockCopy(response2, 5, vinBytes, 5, 6);
-            Buffer.BlockCopy(response3, 5, vinBytes, 11, 6);
+            Buffer.BlockCopy(response1, 6, vinBytes, 0, Math.Min(5, response1.Length));
+            Buffer.BlockCopy(response2, 5, vinBytes, 5, Math.Min(6, response2.Length));
+            Buffer.BlockCopy(response3, 5, vinBytes, 11, Math.Min(6, response3.Length));
             string vin = System.Text.Encoding.ASCII.GetString(vinBytes);
             return Response.Create(ResponseStatus.Success, vin);
         }
@@ -171,10 +186,9 @@ namespace PcmHacking
         public Response<string> ParseSerialResponses(Message response1, Message response2, Message response3)
         {
             string result = "Unknown";
-            ResponseStatus status;
 
             byte[] expected = new byte[] { Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, Mode.ReadBlock + Mode.Response, BlockId.Serial1 };
-            if (!TryVerifyInitialBytes(response1, expected, out status))
+            if (!TryVerifyInitialBytes(response1, expected, out ResponseStatus status))
             {
                 return Response.Create(status, result);
             }
@@ -191,10 +205,12 @@ namespace PcmHacking
                 return Response.Create(status, result);
             }
 
-            byte[] serialBytes = new byte[12];
-            Buffer.BlockCopy(response1.GetBytes(), 5, serialBytes, 0, 4);
-            Buffer.BlockCopy(response2.GetBytes(), 5, serialBytes, 4, 4);
-            Buffer.BlockCopy(response3.GetBytes(), 5, serialBytes, 8, 4);
+            // P05 returns 4 data bytes for response1, 1 data byte for response2 and 5 data bytes for response 3.
+            // This code is tuned to use min of data payload size to avoid read overflows, and max of 5 bytes to prevent target buffer overflow (15 bytes).
+            byte[] serialBytes = new byte[15];
+            Buffer.BlockCopy(response1.GetBytes(), 5, serialBytes, 0, Math.Min(response1.GetBytes().Length - 5, 5));
+            Buffer.BlockCopy(response2.GetBytes(), 5, serialBytes, 4, Math.Min(response2.GetBytes().Length - 5, 5));
+            Buffer.BlockCopy(response3.GetBytes(), 5, serialBytes, 8, Math.Min(response3.GetBytes().Length - 5, 5));
 
             byte[] printableBytes = Utility.GetPrintable(serialBytes);
             string serial = System.Text.Encoding.ASCII.GetString(printableBytes);
@@ -217,11 +233,10 @@ namespace PcmHacking
         public Response<string> ParseBCCresponse(Message responseMessage)
         {
             string result = "Unknown";
-            ResponseStatus status;
             byte[] response = responseMessage.GetBytes();
 
             byte[] expected = new byte[] { Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, Mode.ReadBlock + Mode.Response, BlockId.BCC };
-            if (!TryVerifyInitialBytes(response, expected, out status))
+            if (!TryVerifyInitialBytes(response, expected, out ResponseStatus status))
             {
                 return Response.Create(status, result);
             }
@@ -250,11 +265,10 @@ namespace PcmHacking
         public Response<string> ParseMECresponse(Message responseMessage)
         {
             string result = "Unknown";
-            ResponseStatus status;
             byte[] response = responseMessage.GetBytes();
 
             byte[] expected = new byte[] { Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, Mode.ReadBlock + Mode.Response, BlockId.MEC };
-            if (!TryVerifyInitialBytes(response, expected, out status))
+            if (!TryVerifyInitialBytes(response, expected, out ResponseStatus status))
             {
                 return Response.Create(status, result);
             }

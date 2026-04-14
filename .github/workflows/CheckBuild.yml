@@ -1,13 +1,22 @@
 #
 # Original works by ddub07 <github.com>
-# 03/01/2023 - GampyG28 <github.com> major overhaul, renamed and updated.
-# 04/16/2023 - GampyG28 <github.com> Added Assembly Kernels and Loaders
-# 07/16/2023 - GampyG28 <github.com> Removed C Kernel builds
-# 09/05/2024 - Antus <pcmhacking.net> Update actions
+# 2023-01-03 - GampyG28 <github.com> major overhaul, renamed and updated.
+# 2023-04-16 - GampyG28 <github.com> Added Assembly Kernels and Loaders
+# 2023-07-16 - GampyG28 <github.com> Removed C Kernel builds
+# 2024-09-05 - Antus <pcmhacking.net> Update actions
+# 2025-11-09 - Antus <pcmhacking.net> Add P05
+# 2025-11-16 - Antus <pcmhacking.net> Add P11
+# 2026-04-07 - Antus <pcmhacking.net> Update dependencies
+# 2026-04-10 - Antus <pcmhacking.net> Update for WinForms + Uno Windows + Uno Android
 #
+
 name: CheckBuild
 
 on: [ pull_request, push ]
+
+permissions:
+  contents: read
+  actions: write
 
 jobs:
 
@@ -16,7 +25,7 @@ jobs:
 
     steps:
     - name: Checkout Code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
 
     - name: Update Package Repository
       run: sudo apt-get update
@@ -27,6 +36,25 @@ jobs:
     - name: Create temporary artifact storage
       run: mkdir TemporaryArtifactStorage
 
+    - name: Build C Kernels
+      run: |
+        cd Kernels
+        #
+        # The following loop is the one location that needs to be updated when adding a new C kernel.
+        #
+        for p in "P12 FF2000"; do
+          pcm=${p%% *}
+          address=${p##* }
+
+          echo Building Kernel ":    ${pcm}"
+          make -f makefile PREFIX=/usr/bin/m68k-linux-gnu- pcm=${pcm} address=${address}
+          echo "    Copy-Item Kernel-${pcm}.bin to TemporaryArtifactStorage"
+          cp Kernel-${pcm}.bin ../TemporaryArtifactStorage/
+          echo "    Cleanup after Kernel-${pcm}"
+          echo
+          make clean
+        done
+
     - name: Build Assembly Kernels and Loaders
       run: |
         cd Kernels
@@ -36,7 +64,7 @@ jobs:
         # 2: Kernel Base Address
         # 3: Loader Base Address or NOLOADER if a loader is not used.
         #
-        for p in "P01 FF8000 NOLOADER" "P04 FF8000 FF9890" "P04_Early FF8000 NOLOADER" "P08 FFAC00 NOLOADER" "P10 FFB800 NOLOADER" "P12 FF2000 NOLOADER" "E54 FF9100 NOLOADER" "BlackBox FFC300 NOLOADER"; do
+        for p in "P01 FF8000 NOLOADER" "P04 FF8000 FF9890" "P04_Early FF8000 NOLOADER" "P05 FFC100 NOLOADER" "P08 FFAC00 NOLOADER" "P10 FFB800 NOLOADER" "P11 FFC000 NOLOADER" "E54 FF9100 NOLOADER" "BlackBox FFC300 NOLOADER"; do
           pcm="${p%% *}";
           p="${p#* }"
           address="${p%% *}"
@@ -64,70 +92,293 @@ jobs:
           fi
         done
 
-    - name: Upload artifacts
-      uses: actions/upload-artifact@v4
+    - name: Upload kernels artifact
+      uses: actions/upload-artifact@v7
       with:
-        name: Kernels_${{github.sha}}
+        name: Temp_Kernels_${{github.sha}}
         path: TemporaryArtifactStorage
 
-  PCMHammer:
+  Applications:
     needs: Kernels
-
-    runs-on: windows-2019
+    runs-on: windows-2025
 
     steps:
     - name: Checkout Code
-      uses: actions/checkout@v4.1.7
+      uses: actions/checkout@v6
 
-    - name: Setup MSBuild Path
-      uses: microsoft/setup-msbuild@v2.0.0
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v5
+      with:
+        dotnet-version: |
+          10.0.x
+
+    - name: Setup Java (Android toolchain)
+      uses: actions/setup-java@v5
+      with:
+        distribution: temurin
+        java-version: '17'
 
     - name: Setup NuGet
-      uses: NuGet/setup-nuget@v2.0.0
+      uses: NuGet/setup-nuget@v3
 
-    - name: Restore NuGet Packages
+    - name: Download kernels artifact
+      uses: actions/download-artifact@v8
+      with:
+        name: Temp_Kernels_${{github.sha}}
+        path: TemporaryArtifactStorage/Kernels
+
+    - name: Remove temporary kernels artifact
+      if: always()
+      uses: actions/github-script@v8
+      with:
+        script: |
+          const owner = context.repo.owner;
+          const repo = context.repo.repo;
+          const run_id = context.runId;
+          const targetName = `Temp_Kernels_${context.sha}`;
+          const artifacts = await github.paginate(
+            github.rest.actions.listWorkflowRunArtifacts,
+            { owner, repo, run_id, per_page: 100 }
+          );
+          const matches = artifacts.filter(a => a.name === targetName);
+          for (const artifact of matches) {
+            core.info(`Deleting temporary artifact ${artifact.name} (${artifact.id})`);
+            await github.rest.actions.deleteArtifact({ owner, repo, artifact_id: artifact.id });
+          }
+
+    - name: Inject kernels into Uno assets
+      shell: pwsh
+      run: |
+        $unoSharedAssetKernelPath = "Apps/UI/UnoUI/PcmHacking.UnoUI/Assets/Kernels"
+        $unoAndroidAssetKernelPath = "Apps/UI/UnoUI/PcmHacking.UnoUI/Platforms/Android/Assets/Kernels"
+        New-Item -ItemType Directory -Force -Path $unoSharedAssetKernelPath | Out-Null
+        New-Item -ItemType Directory -Force -Path $unoAndroidAssetKernelPath | Out-Null
+        Copy-Item -Path "TemporaryArtifactStorage/Kernels/*.bin" -Destination $unoSharedAssetKernelPath -Force
+        Copy-Item -Path "TemporaryArtifactStorage/Kernels/*.bin" -Destination $unoAndroidAssetKernelPath -Force
+
+    - name: Install Uno-Check
+      run: dotnet tool install --global Uno.Check --version 1.34.1.0
+
+    - name: Run Uno-Check to install dependencies
+      run: uno-check -v --ci --non-interactive --fix --skip vswin --skip androidemulator
+
+    - name: Restore Uno workloads
+      run: dotnet workload restore Apps/PcmApps.sln
+
+    - name: Restore NuGet packages
       run: nuget restore Apps/PcmApps.sln
 
-    - name: Download Kernels artifact
-      uses: actions/download-artifact@v4.1.8
-      with:
-        name: Kernels_${{github.sha}}
-        path: TemporaryArtifactStorage
+    - name: Restore solution dependencies (dotnet restore)
+      run: dotnet restore Apps/PcmApps.sln
 
-    - name: Remove Stale Kernels artifact
-      uses: geekyeggo/delete-artifact@v5.1.0
-      with:
-        name: Kernels_${{github.sha}}
-
-    - name: Build Applications
-      run: msbuild Apps/PcmApps.sln
-
-    - name: Add PCM Hammer to temporary artifact storage
+    - name: Ensure .NET Framework 4.6.2 Developer Pack
       run: |
-        Copy-Item -Path "Apps/PcmHammer/bin/Debug/PcmHammer.*" -Destination TemporaryArtifactStorage
-        Copy-Item -Path "Apps/PcmHammer/bin/Debug/*.dll" -Destination TemporaryArtifactStorage
-        Copy-Item -Path "Apps/PcmHammer/bin/Debug/*.pdb" -Destination TemporaryArtifactStorage
+        Invoke-WebRequest https://go.microsoft.com/fwlink/?linkid=2099466 -OutFile .\NDP462-DevPack-KB3151934-ENU.exe
+        .\NDP462-DevPack-KB3151934-ENU.exe /passive /norestart
 
-    - name: Add PCM Logger to temporary artifact storage
+    - name: Build WinForms applications (Debug)
+      shell: pwsh
       run: |
-        Copy-Item -Path "Apps/PcmLogger/bin/Debug/PcmLogger.*" -Destination TemporaryArtifactStorage
-        Copy-Item -Path "Apps/PcmLogger/bin/Debug/*.dll" -Destination TemporaryArtifactStorage
-        Copy-Item -Path "Apps/PcmLogger/bin/Debug/*.pdb" -Destination TemporaryArtifactStorage
-        Copy-Item -Path "Apps/PcmLogger/*.LogProfile" -Destination TemporaryArtifactStorage
-        Copy-Item -Path "Apps/PcmLogger/Parameters.*.xml" -Destination TemporaryArtifactStorage
+        function Invoke-Build {
+          param([Parameter(Mandatory = $true)][string]$Project)
+          Write-Host "Building $Project"
+          dotnet build $Project -c Debug -p:GenerateResourceUsePreserializedResources=true
+          if ($LASTEXITCODE -ne 0) {
+            throw "Build failed for $Project (exit code $LASTEXITCODE)"
+          }
+        }
 
-    - name: Add VPW Explorer to temporary artifact storage
+        Invoke-Build "Apps/PcmLibrary/PcmLibrary.csproj"
+        Invoke-Build "Apps/PcmLibraryWindowsApi/PcmLibraryWindowsApi.csproj"
+        Invoke-Build "Apps/UI/WindowsForms/PcmLibraryWindowsForms/PcmLibraryWindowsForms.csproj"
+        Invoke-Build "Apps/UI/WindowsForms/PcmHammer/PcmHammer.csproj"
+        Invoke-Build "Apps/UI/WindowsForms/PcmLogger/PcmLogger.csproj"
+        Invoke-Build "Apps/UI/WindowsForms/VpwExplorer/VpwExplorer.csproj"
+
+    - name: Build Uno Windows (Debug)
+      run: dotnet build Apps/UI/UnoUI/PcmHacking.UnoUI/PcmHacking.UnoUI.csproj -c Debug -f net10.0-windows10.0.26100.0
+
+    - name: Publish Uno Android (Release APK)
+      run: >
+        dotnet publish Apps/UI/UnoUI/PcmHacking.UnoUI/PcmHacking.UnoUI.csproj
+        -c Release
+        -f net10.0-android
+        -p:AndroidPackageFormat=apk
+        -p:AndroidFastDeploymentType=None
+        -p:EmbedAssembliesIntoApk=true
+
+    - name: Read app versions
+      shell: pwsh
       run: |
-        Copy-Item -Path "Apps/VpwExplorer/bin/Debug/VpwExplorer.*" -Destination TemporaryArtifactStorage
-        Copy-Item -Path "Apps/VpwExplorer/bin/Debug/*.dll" -Destination TemporaryArtifactStorage
-        Copy-Item -Path "Apps/VpwExplorer/bin/Debug/*.pdb" -Destination TemporaryArtifactStorage
+        [xml]$uno = Get-Content "Apps/UI/UnoUI/PcmHacking.UnoUI/PcmHacking.UnoUI.csproj"
+        $unoDisplay = ($uno.Project.PropertyGroup | Where-Object { $_.ApplicationDisplayVersion } | Select-Object -First 1).ApplicationDisplayVersion
+        $unoVersion = ($uno.Project.PropertyGroup | Where-Object { $_.ApplicationVersion } | Select-Object -First 1).ApplicationVersion
 
-    - name: Is it all there ??
-      run: ls -l TemporaryArtifactStorage/
+        $assemblyInfo = Get-Content "Apps/UI/WindowsForms/PcmHammer/Properties/AssemblyInfo.cs" -Raw
+        $winFormsVersion = ([regex]::Match($assemblyInfo, 'AssemblyFileVersion\\(\"([^\"]+)\"\\)')).Groups[1].Value
+        if ([string]::IsNullOrWhiteSpace($winFormsVersion)) { $winFormsVersion = "unknown" }
 
-    - name: Upload artifacts
-      uses: actions/upload-artifact@v4.4.0
+        $timestampUtc = [DateTime]::UtcNow.ToString("yyyyMMdd_HHmmss")
+        $isReleaseTag = "${{ startsWith(github.ref, 'refs/tags/') }}" -eq "true"
+        $unoLooksUnversioned = ($unoDisplay -eq "1.0" -and $unoVersion -eq "1")
+        $branchNameRaw = if ([string]::IsNullOrWhiteSpace($env:GITHUB_HEAD_REF)) { $env:GITHUB_REF_NAME } else { $env:GITHUB_HEAD_REF }
+        $branchNameSafe = $branchNameRaw -replace '[\\/]', '-'
+        $branchNameSafe = $branchNameSafe -replace '[^A-Za-z0-9._-]', '-'
+        if ([string]::IsNullOrWhiteSpace($branchNameSafe)) { $branchNameSafe = "unknown-branch" }
+
+        if ($isReleaseTag -and $winFormsVersion -ne "unknown") {
+          $winFormsArtifactSuffix = "v$winFormsVersion"
+        } else {
+          $winFormsArtifactSuffix = "utc$timestampUtc" + "_" + $branchNameSafe + "_development_test_version"
+        }
+
+        if ($isReleaseTag -and -not $unoLooksUnversioned -and -not [string]::IsNullOrWhiteSpace($unoDisplay) -and -not [string]::IsNullOrWhiteSpace($unoVersion)) {
+          $unoArtifactSuffix = "v$unoDisplay.$unoVersion"
+        } else {
+          $unoArtifactSuffix = "utc$timestampUtc" + "_" + $branchNameSafe + "_development_test_version"
+        }
+
+        "UNO_DISPLAY_VERSION=$unoDisplay" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        "UNO_APP_VERSION=$unoVersion" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        "WINFORMS_VERSION=$winFormsVersion" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        "WINFORMS_ARTIFACT_SUFFIX=$winFormsArtifactSuffix" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        "UNO_ARTIFACT_SUFFIX=$unoArtifactSuffix" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+    - name: Stage WinForms artifact payload
+      shell: pwsh
+      run: |
+        function Get-AppOutputDir {
+          param(
+            [Parameter(Mandatory = $true)][string]$SearchRoot,
+            [Parameter(Mandatory = $true)][string]$ExeName
+          )
+
+          $exe = Get-ChildItem -Path $SearchRoot -Recurse -File -Filter $ExeName -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -First 1
+
+          if (!$exe) {
+            throw "Unable to find $ExeName under $SearchRoot"
+          }
+
+          Write-Host "Detected $ExeName at $($exe.FullName)"
+          return $exe.Directory.FullName
+        }
+
+        $pcmHammerOutput = Get-AppOutputDir -SearchRoot "Apps/UI/WindowsForms/PcmHammer/bin" -ExeName "PcmHammer.exe"
+        $pcmLoggerOutput = Get-AppOutputDir -SearchRoot "Apps/UI/WindowsForms/PcmLogger/bin" -ExeName "PcmLogger.exe"
+        $vpwExplorerOutput = Get-AppOutputDir -SearchRoot "Apps/UI/WindowsForms/VpwExplorer/bin" -ExeName "VpwExplorer.exe"
+
+        New-Item -ItemType Directory -Force -Path TemporaryArtifactStorage/WinForms/PcmHammer | Out-Null
+        New-Item -ItemType Directory -Force -Path TemporaryArtifactStorage/WinForms/PcmLogger | Out-Null
+        New-Item -ItemType Directory -Force -Path TemporaryArtifactStorage/WinForms/VpwExplorer | Out-Null
+
+        Copy-Item -Path "TemporaryArtifactStorage/Kernels/*.bin" -Destination "TemporaryArtifactStorage/WinForms/PcmHammer" -Force
+
+        Copy-Item -Path "$pcmHammerOutput/*" -Destination "TemporaryArtifactStorage/WinForms/PcmHammer" -Recurse -Force
+        Copy-Item -Path "$pcmLoggerOutput/*" -Destination "TemporaryArtifactStorage/WinForms/PcmLogger" -Recurse -Force
+        Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/*.LogProfile" -Destination "TemporaryArtifactStorage/WinForms/PcmLogger" -Force
+        Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/Parameters.*.xml" -Destination "TemporaryArtifactStorage/WinForms/PcmLogger" -Force
+        Copy-Item -Path "$vpwExplorerOutput/*" -Destination "TemporaryArtifactStorage/WinForms/VpwExplorer" -Recurse -Force
+
+    - name: Stage Uno Windows artifact payload
+      shell: pwsh
+      run: |
+        $unoWindowsOutput = Get-ChildItem -Path "Apps/UI/UnoUI/PcmHacking.UnoUI/bin" -Recurse -File -ErrorAction SilentlyContinue `
+          | Where-Object {
+              ($_.Name -like "pcm*.exe" -or $_.Name -like "pcm*.dll") -and
+              $_.FullName -like "*net10.0-windows*"
+            } `
+          | Sort-Object FullName `
+          | Select-Object -First 1
+
+        if (!$unoWindowsOutput) {
+          throw "Uno Windows output file (pcm*.exe or pcm*.dll) not found under Apps/UI/UnoUI/PcmHacking.UnoUI/bin"
+        }
+
+        New-Item -ItemType Directory -Force -Path TemporaryArtifactStorage/UnoWindows | Out-Null
+        Copy-Item -Path "TemporaryArtifactStorage/Kernels/*.bin" -Destination "TemporaryArtifactStorage/UnoWindows" -Force
+        Copy-Item -Path "$($unoWindowsOutput.Directory.FullName)/*" -Destination "TemporaryArtifactStorage/UnoWindows" -Recurse -Force
+        Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/*.LogProfile" -Destination "TemporaryArtifactStorage/UnoWindows" -Force
+        Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/Parameters.*.xml" -Destination "TemporaryArtifactStorage/UnoWindows" -Force
+
+    - name: Stage Uno Android artifact payload
+      shell: pwsh
+      run: |
+        $androidBinRoot = (Resolve-Path "Apps/UI/UnoUI/PcmHacking.UnoUI/bin").Path
+        $androidApks = Get-ChildItem -Path $androidBinRoot -Recurse -File -Filter "*.apk" -ErrorAction SilentlyContinue `
+          | Where-Object { $_.FullName -like "*net10.0-android*" }
+
+        if (!$androidApks -or $androidApks.Count -eq 0) {
+          throw "Uno Android APK files not found under Apps/UI/UnoUI/PcmHacking.UnoUI/bin"
+        }
+
+        New-Item -ItemType Directory -Force -Path TemporaryArtifactStorage/UnoAndroid | Out-Null
+
+        # Prefer a signed/unsigned pair when available; otherwise include all APKs found.
+        $signedApk = $androidApks | Where-Object { $_.Name -match "(?i)signed" } | Select-Object -First 1
+        $unsignedApk = $androidApks | Where-Object { $_.Name -match "(?i)unsigned" } | Select-Object -First 1
+
+        $apkSelection = @()
+        if ($signedApk) { $apkSelection += $signedApk }
+        if ($unsignedApk) { $apkSelection += $unsignedApk }
+        if ($apkSelection.Count -eq 0) { $apkSelection = $androidApks }
+
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        foreach ($apk in ($apkSelection | Sort-Object FullName -Unique)) {
+          $zip = [System.IO.Compression.ZipFile]::OpenRead($apk.FullName)
+          try {
+            $kernelEntries = $zip.Entries | Where-Object {
+              $_.FullName -like "assets/Kernel-*.bin" -or
+              $_.FullName -like "assets/Loader-*.bin" -or
+              $_.FullName -like "assets/Kernels/Kernel-*.bin" -or
+              $_.FullName -like "assets/Kernels/Loader-*.bin"
+            }
+            if (!$kernelEntries -or $kernelEntries.Count -eq 0) {
+              throw "APK '$($apk.Name)' does not contain kernel assets."
+            }
+
+            # Android packaging can vary across SDK/toolchain versions:
+            # - classic managed assemblies (*.dll)
+            # - AOT outputs (libaot-*.dll.so)
+            # - native-style outputs (lib*.so) for app-specific assemblies
+            # - assembly store payloads (assemblies/*.blob or assemblies/*.dll)
+            $appAssemblyEntries = $zip.Entries | Where-Object {
+              $_.FullName -match '(?i)(PcmHacking|PcmLibrary|net[._]PcmHacking[._]Uno).*(\.dll(\.so)?$|\.so$)' -or
+              $_.FullName -match '(?i)^assemblies/.*\.(blob|dll|manifest)$'
+            }
+            if (!$appAssemblyEntries -or $appAssemblyEntries.Count -eq 0) {
+              $diagnosticEntries = $zip.Entries |
+                Where-Object { $_.FullName -match "(?i)(\\.dll|\\.so|\\.blob|assemblies/)" } |
+                Select-Object -ExpandProperty FullName -First 60
+              if ($diagnosticEntries) {
+                Write-Host "APK payload diagnostics for '$($apk.Name)':"
+                $diagnosticEntries | ForEach-Object { Write-Host "  $_" }
+              }
+              throw "APK '$($apk.Name)' does not contain expected app payload entries."
+            }
+          }
+          finally {
+            $zip.Dispose()
+          }
+
+          Copy-Item -Path $apk.FullName -Destination "TemporaryArtifactStorage/UnoAndroid" -Force
+        }
+
+    - name: Upload WinForms artifact
+      uses: actions/upload-artifact@v7
       with:
-        name: PCMHacks_${{github.sha}}
-        path: TemporaryArtifactStorage
+        name: PCMHammer_WinForms_${{ env.WINFORMS_ARTIFACT_SUFFIX }}_${{ github.sha }}
+        path: TemporaryArtifactStorage/WinForms
 
+    - name: Upload Uno Windows artifact
+      uses: actions/upload-artifact@v7
+      with:
+        name: PCMHammer_UnoWindows_${{ env.UNO_ARTIFACT_SUFFIX }}_${{ github.sha }}
+        path: TemporaryArtifactStorage/UnoWindows
+
+    - name: Upload Uno Android artifact
+      uses: actions/upload-artifact@v7
+      with:
+        name: PCMHammer_UnoAndroid_${{ env.UNO_ARTIFACT_SUFFIX }}_${{ github.sha }}
+        path: TemporaryArtifactStorage/UnoAndroid

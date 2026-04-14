@@ -4,7 +4,9 @@ Supported PCMs.
 P01
 P04
 P04_Early
+P05 (VPW Variant)
 P10
+P11
 P12 (1m and 2m)
 P59
 E54
@@ -30,7 +32,9 @@ Load addresses
     -aFF8000 -pP01 (Includes P59)
     -aFF8000 -lFF9890 -pP04
     -aFF8000 -lFF9890 -pP04_Early
+    -aFFC100 -pP05
     -aFFB800 -pP10
+    -aFFC100 -pP11
     -aFF2000 -pP12
     -aFF9100 -pE54
     -aFFC300 -pBlackBox

@@ -1,0 +1,180 @@
+﻿<Page x:Class="PcmHacking.UnoUI.Presentation.OtherFunctionsPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:local="using:PcmHacking.UnoUI.Presentation"
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+      xmlns:uen="using:Uno.Extensions.Navigation.UI"
+      xmlns:utu="using:Uno.Toolkit.UI"
+      Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
+      >
+
+    <Grid BorderThickness="5" utu:SafeArea.Insets="VisibleBounds" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="1*" />
+            <RowDefinition Height="1*" />
+            <RowDefinition Height="1*" />
+            <RowDefinition Height="1*" />
+            <RowDefinition Height="1*" />
+            <RowDefinition Height="1*" />
+            <RowDefinition Height="1*" />
+            <RowDefinition Height="5*" />
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="1*" />
+            <ColumnDefinition Width="1*" />
+        </Grid.ColumnDefinitions>
+
+        <TextBlock
+        Text="Description"
+        Grid.Row="0"
+        Grid.Column="0"
+        HorizontalAlignment="Left"
+        VerticalAlignment="Center" />
+        <TextBlock
+        Text="{Binding Description}"
+        Grid.Row="0"
+        Grid.Column="1"
+        HorizontalAlignment="Left"
+        VerticalAlignment="Center" />
+
+        <TextBlock
+        Text="Vehicle Identification Number"
+        Grid.Row="1"
+        Grid.Column="0"
+        HorizontalAlignment="Left"
+        VerticalAlignment="Center" />
+        <TextBlock
+        Text="{Binding Vin}"
+        Grid.Row="1"
+        Grid.Column="1"
+        HorizontalAlignment="Left"
+        VerticalAlignment="Center" />
+
+        <TextBlock
+        Text="Calibration ID"
+        Grid.Row="2"
+        Grid.Column="0"
+        HorizontalAlignment="Left"
+        VerticalAlignment="Center" />
+        <TextBlock
+        Text="{Binding CalibrationId}"
+        Grid.Row="2"
+        Grid.Column="1"
+        HorizontalAlignment="Left"
+        VerticalAlignment="Center" />
+
+        <TextBlock
+        Text="Hardware ID"
+        Grid.Row="3"
+        Grid.Column="0"
+        HorizontalAlignment="Left"
+        VerticalAlignment="Center" />
+        <TextBlock
+        Text="{Binding HardwareId}"
+        Grid.Row="3"
+        Grid.Column="1"
+        HorizontalAlignment="Left"
+        VerticalAlignment="Center" />
+
+        <TextBlock
+        Text="Serial Number"
+        Grid.Row="4"
+        Grid.Column="0"
+        HorizontalAlignment="Left"
+        VerticalAlignment="Center" />
+        <TextBlock
+        Text="{Binding SerialNumber}"
+        Grid.Row="4"
+        Grid.Column="1"
+        HorizontalAlignment="Left"
+        VerticalAlignment="Center" />
+
+        <TextBlock
+        Text="Broadcast Code"
+        Grid.Row="5"
+        Grid.Column="0"
+        HorizontalAlignment="Left"
+        VerticalAlignment="Center" />
+        <TextBlock
+        Text="{Binding BroadcastCode}"
+        Grid.Row="5"
+        Grid.Column="1"
+        HorizontalAlignment="Left"
+        VerticalAlignment="Center" />
+
+        <TextBlock
+        Text="Manufacturer Enable Count"
+        Grid.Row="6"
+        Grid.Column="0"
+        HorizontalAlignment="Left"
+        VerticalAlignment="Center" />
+        <TextBlock
+        Text="{Binding Mec}"
+        Grid.Row="6"
+        Grid.Column="1"
+        HorizontalAlignment="Left"
+        VerticalAlignment="Center" />
+
+        <Grid Grid.Row="7" Grid.Column="0" Grid.ColumnSpan="2">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="1*" />
+                <RowDefinition Height="1*" />
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="1*" />
+                <ColumnDefinition Width="1*" />
+                <ColumnDefinition Width="1*" />
+            </Grid.ColumnDefinitions>
+
+            <Button Grid.Row="0" Grid.Column="0" Command="{Binding GoToRead}"
+          Margin="10"
+          Padding="10"
+          HorizontalAlignment="Stretch"
+          VerticalAlignment="Stretch">
+                <TextBlock Text="Read PCM" />
+            </Button>
+
+            <Button Grid.Row="1" Grid.Column="0" Command="{Binding GoToVerify}"
+Margin="10"
+Padding="10"
+HorizontalAlignment="Stretch"
+VerticalAlignment="Stretch">
+                <TextBlock Text="Verify PCM" />
+            </Button>
+            
+            <Button Grid.Row="0" Grid.Column="1" Command="{Binding GoToChangeVin}"
+          Margin="10"
+          Padding="10"
+          HorizontalAlignment="Stretch"
+          VerticalAlignment="Stretch">
+                <TextBlock Text="Change VIN" />
+            </Button>
+
+            <Button Grid.Row="1" Grid.Column="1" Command="{Binding GoToCrankRelearn}"
+          Margin="10"
+          Padding="10"
+          HorizontalAlignment="Stretch"
+          VerticalAlignment="Stretch">
+                <TextBlock Text="Crank Relearn" />
+            </Button>
+
+            <Button Grid.Row="0" Grid.Column="2" Command="{Binding GoToDumpRam}"
+          Margin="10"
+          Padding="10"
+          HorizontalAlignment="Stretch"
+          VerticalAlignment="Stretch">
+                <TextBlock Text="Dump RAM" />
+            </Button>
+
+
+            <Button Grid.Row="1" Grid.Column="2" Command="{Binding ResetCodes}"
+          Margin="10"
+          Padding="10"
+          HorizontalAlignment="Stretch"
+          VerticalAlignment="Stretch">
+                <TextBlock Text="{Binding ResetCodesButtonText}" />
+            </Button>
+        </Grid>
+    </Grid>
+</Page>

@@ -116,6 +116,19 @@ namespace PcmHacking
         }
 
         /// <summary>
+        /// Indicates if a range is empty (all bytes FF)
+        /// </summary>
+        public static bool IsBlank(byte[] data, int start, int length)
+        {
+            for (int i = start; i < start + length; i++)
+            {
+                if (data[i] != 0xFF)
+                    return false;
+            }
+            return true;
+        }
+
+        /// <summary>
         /// This removes non-ascii from a byte array
         /// </summary>
         public static byte[] GetPrintable(byte[] input)

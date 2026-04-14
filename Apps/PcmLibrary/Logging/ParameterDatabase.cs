@@ -40,6 +40,14 @@ namespace PcmHacking
         }
 
         /// <summary>
+        /// For test use only.
+        /// </summary>
+        public ParameterDatabase(Dictionary<UInt32, IEnumerable<CanParameter>> canParameters)
+        {
+            this.canParameters = canParameters;
+        }
+
+        /// <summary>
         /// Gets a parameter using the specified generic type, with the specified id.
         /// </summary>
         /// <typeparam name="T">The type of parameter, must be subclass of Parameter</typeparam>
@@ -244,10 +252,21 @@ namespace PcmHacking
                     uint firstByte = uint.Parse(parameterElement.Attribute("firstByte").Value);
                     uint byteCount = uint.Parse(parameterElement.Attribute("byteCount").Value);
                     bool highByteFirst = bool.Parse(parameterElement.Attribute("highByteFirst").Value);
+                    string aggregationString = parameterElement.Attribute("aggregation").Value;
+                    Aggregation aggregation = (Aggregation)Enum.Parse(typeof(Aggregation), aggregationString);
 
                     List<Conversion> conversions = GetConversions(parameterElement);
 
-                    CanParameter parameter = new CanParameter(messageId, firstByte, byteCount, highByteFirst, id, name, description, conversions);
+                    CanParameter parameter = new CanParameter(
+                        messageId, 
+                        firstByte, 
+                        byteCount, 
+                        highByteFirst, 
+                        id, 
+                        name, 
+                        description, 
+                        conversions, 
+                        aggregation);
 
                     parameters.Add(parameter);
                 }

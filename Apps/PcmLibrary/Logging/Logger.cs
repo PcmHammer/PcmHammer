@@ -1,12 +1,21 @@
-﻿//#define FAST_LOGGING
-
-using System;
+﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Threading.Tasks;
 
+// I'm a little surprised that this workaround is still needed.
+// https://stackoverflow.com/questions/62648189/testing-c-sharp-9-0-in-vs2019-cs0518-isexternalinit-is-not-defined-or-imported
+namespace System.Runtime.CompilerServices
+{
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    internal class IsExternalInit { }
+}
+
 namespace PcmHacking
-{    
+{
+    public record LogRowElement(string ParameterId, string ParameterName, string Units, string ValueAsString, double ValueAsNumber);
+
     /// <summary>
     /// Thrown when the PCM does not support a requested parameter.
     /// </summary>
@@ -174,7 +183,7 @@ namespace PcmHacking
                     dpidConfiguration.ParameterGroups.Add(group);
                     groupId--;
 
-                    if (groupId < 0xFB)
+                    if (groupId < 0xF9)
                     {
                         throw new ParameterNotSupportedException(
                             $"The PCM cannot send this much data.{System.Environment.NewLine}Please un-select some parameters.");
@@ -265,17 +274,25 @@ namespace PcmHacking
         /// </summary>
         public async Task<bool> StartLogging()
         {
-            this.dpids = await this.vehicle.ConfigureDpids(this.dpidConfiguration, this.osid);
-
-            if (this.dpids == null)
+            try
             {
-                return false;
+                this.dpids = await this.vehicle.ConfigureDpids(this.dpidConfiguration, this.osid);
+
+                if (this.dpids == null)
+                {
+                    return false;
+                }
+
+                // This part differs for the fast and slow loggers.
+                await this.StartLoggingInternal();
+                return true;
             }
-
-            // This part differs for the fast and slow loggers.
-            await this.StartLoggingInternal();
-
-            return true;
+            catch (Exception exception)
+            {
+                this.uiLogger.AddUserMessage("Unable to start logging: " + exception.Message);
+                this.uiLogger.AddDebugMessage(exception.ToString());
+                return false;
+            }            
         }
 
         protected abstract Task<bool> StartLoggingInternal();
@@ -296,7 +313,7 @@ namespace PcmHacking
                 PcmParameterValues dpidValues = row.Evaluate();
 
                 IEnumerable<string> mathValues = this.mathValueProcessor.GetMathValues(dpidValues);
-                IEnumerable<string> canValues = this.canLogger.GetParameterValues().Select(x => x.Value);
+                IEnumerable<string> canValues = this.canLogger.GetParameterValues().Select(x => x.ValueAsString);
 
                 return dpidValues
                         .Select(x => x.Value.ValueAsString)
@@ -307,6 +324,38 @@ namespace PcmHacking
             else
             {
                 return null;
+            }
+        }
+
+        public async Task<IEnumerable<LogRowElement>> GetNextRowV2()
+        {
+            LogRowParser row = new LogRowParser(this.dpidConfiguration);
+
+            // This part differs for the fast and slow loggers.
+            await this.GetNextRowInternal(row);
+
+            if (row.IsComplete)
+            {
+                PcmParameterValues dpidValues = row.Evaluate();
+                IEnumerable<LogRowElement> pcmValues = dpidValues.Select(
+                    x => new LogRowElement(
+                        x.Key.Parameter.Id,
+                        x.Key.Parameter.Name,
+                        x.Key.Conversion.Units,
+                        x.Value.ValueAsString,
+                        x.Value.ValueAsDouble));
+
+                IEnumerable<LogRowElement> mathValues = this.mathValueProcessor.GetMathValuesV2(dpidValues);
+                IEnumerable<LogRowElement> canValues = this.canLogger.GetParameterValuesV2();
+
+                return pcmValues
+                    .Concat(mathValues)
+                    .Concat(canValues)
+                    .ToArray();
+            }
+            else
+            {
+                return new LogRowElement[0];
             }
         }
 

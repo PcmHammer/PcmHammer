@@ -2,7 +2,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 
 namespace PcmHacking
 {
@@ -75,16 +74,64 @@ namespace PcmHacking
                     Interpreter finalConverter = new Interpreter();
                     finalConverter.SetVariable("x", xParameterValue);
                     finalConverter.SetVariable("y", yParameterValue);
-                    double converted = finalConverter.Eval<double>(value.MathColumn.Conversion.Expression);
-                    if (double.IsNaN(converted))
+                    double valueAsNumber = finalConverter.Eval<double>(value.MathColumn.Conversion.Expression);
+                    if (double.IsNaN(valueAsNumber))
                     {
-                        converted = 0;
+                        valueAsNumber = 0;
                     }
-                    result.Add(converted.ToString(value.MathColumn.Conversion.Format));
+
+                    result.Add(valueAsNumber.ToString(value.MathColumn.Conversion.Format));
                 }
                 catch (Exception exception)
                 {
                     result.Add("Error: " + exception.Message);
+                }
+            }
+
+            return result;
+        }
+
+        public IEnumerable<LogRowElement> GetMathValuesV2(PcmParameterValues dpidValues)
+        {
+            List<LogRowElement> result = new List<LogRowElement>();
+            foreach (MathColumnAndDependencies value in this.mathColumns)
+            {
+                try
+                {
+                    double xParameterValue = dpidValues[value.XColumn].ValueAsDouble;
+                    double yParameterValue = dpidValues[value.YColumn].ValueAsDouble;
+
+                    Interpreter finalConverter = new Interpreter();
+                    finalConverter.SetVariable("x", xParameterValue);
+                    finalConverter.SetVariable("y", yParameterValue);
+                    double valueAsNumber = finalConverter.Eval<double>(value.MathColumn.Conversion.Expression);
+                    if (double.IsNaN(valueAsNumber))
+                    {
+                        valueAsNumber = 0;
+                    }
+                    var asString = valueAsNumber.ToString(value.MathColumn.Conversion.Format);
+
+                    var item = new LogRowElement(
+                        value.MathColumn.Parameter.Id,
+                        value.MathColumn.Parameter.Name,
+                        value.MathColumn.Conversion.Units,
+                        asString,
+                        valueAsNumber);
+
+                    result.Add(item);
+                        
+                }
+                catch (Exception exception)
+                {
+                    string valueAsString = "Error: " + exception.Message;
+                    var item = new LogRowElement(
+                        value.MathColumn.Parameter.Id,
+                        value.MathColumn.Parameter.Name,
+                        value.MathColumn.Conversion.Units,
+                        valueAsString,
+                        0);
+
+                    result.Add(item);
                 }
             }
 
