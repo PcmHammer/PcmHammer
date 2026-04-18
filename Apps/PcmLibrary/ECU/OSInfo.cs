@@ -4,15 +4,15 @@ using System.Text;
 
 namespace PcmHacking.ECU {
     public class OSInfo {
+        public string Manufacturer { get; private set; }
         public uint OSID { get; private set; }
         public int ServiceNumber { get; private set; }
         public int KeyAlgorithm { get; private set; }
-        public string Description { get; private set; }
 
-        public OSInfo(uint osid, int serviceNumber = 0, string description = "Unknown ECU", int keyAlgo = 0) {
+        public OSInfo(string manufacturer, uint osid, int serviceNumber = 0, int keyAlgo = 0) {
+            Manufacturer = manufacturer;
             OSID = osid;
             ServiceNumber = serviceNumber;
-            Description = description;
             KeyAlgorithm = keyAlgo;
         }
     }

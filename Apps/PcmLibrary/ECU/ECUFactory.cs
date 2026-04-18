@@ -14,8 +14,11 @@ namespace PcmHacking.ECU {
             ECUBase controller = StoredECUs.FirstOrDefault(x => x.ECUSupportsOSID(osid));
             if (controller != null) {
                 controller.SetCurrentOSID(osid);
+                return controller;
             }
-            return StoredECUs.FirstOrDefault(x => x.ECUSupportsOSID(osid));
+            controller = new UnsupportedECU();
+            controller.SetCurrentOSID(osid);
+            return controller;
         }
     }
 }
