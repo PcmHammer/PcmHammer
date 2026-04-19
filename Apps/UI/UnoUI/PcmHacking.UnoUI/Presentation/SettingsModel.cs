@@ -60,8 +60,9 @@ public partial record SettingsModel
         this.dispatcherQueue = dispatcherQueue;
     }
 
+    private CancellationTokenSource? deviceConnectionCancelSource = new();
     public IListFeed<string> DeviceCategories => ListFeed<string>.Async(ct => this.GetDeviceCategories(ct)).Selection(SelectedDeviceType);
-    public IListFeed<string> BTDevices => ListFeed<string>.Async(ct => this.GetBluetoothDevices(ct)).Selection(SelectedBluetoothDevice);
+    public IListFeed<SerialPortListing> BTDevices => ListFeed<SerialPortListing>.Async(ct => this.GetBluetoothDevices(ct)).Selection(SelectedBluetoothDevice);
     public IListFeed<string> JDevices => ListFeed<string>.Async(ct => this.GetJDevices(ct)).Selection(SelectedJDevice);
     public IListFeed<SerialPortListing> Obd2Ports => ListFeed.Async(ct => this.GetPortNames(ct)).Selection(SelectedObd2Port);
     public IListFeed<SerialPortListing> CanPorts => ListFeed.Async(ct => this.GetPortNames(ct)).Selection(SelectedCanPort);
@@ -92,8 +93,8 @@ public partial record SettingsModel
     public IState<string> SelectedJDevice => State<string>
         .Async(this, ct => ValueTask.FromResult(settingsService.GetJ2534DeviceName()))
         .ForEach(this.ConnectionSettingsChanged);
-    public IState<string> SelectedBluetoothDevice => State<string>
-        .Async(this, ct => ValueTask.FromResult(settingsService.GetBluetoothDeviceName()))
+    public IState<SerialPortListing> SelectedBluetoothDevice => State<SerialPortListing>
+        .Async(this, ct => ValueTask.FromResult(settingsService.GetBluetoothDeviceAddress()))
         .ForEach(this.ConnectionSettingsChanged);
 
     public IState<string> DataLogFolder => State<string>
@@ -139,12 +140,12 @@ public partial record SettingsModel
         return ValueTask.FromResult(result);
     }
 
-    private ValueTask<IImmutableList<string>> GetBluetoothDevices(CancellationToken ct)
+    private ValueTask<IImmutableList<SerialPortListing>> GetBluetoothDevices(CancellationToken ct)
     {
-        List<string> btDevices = [];
+        List<SerialPortListing> btDevices = [];
         List<BluetoothDeviceInfo> list = SerialBluetoothDiscovery.GatherPairedDevices().ToList();
-        btDevices = [.. list.Select(x => x.DeviceName)];
-        IImmutableList<string> res = ImmutableList.CreateRange(btDevices);
+        btDevices = [.. list.Select(x => { return new SerialPortListing { DisplayName = x.DeviceName, PortName = x.DeviceAddress.ToString() }; })];
+        IImmutableList<SerialPortListing> res = ImmutableList.CreateRange(btDevices);
         return ValueTask.FromResult(res);
     }
 
@@ -177,23 +178,29 @@ public partial record SettingsModel
 
     private async ValueTask ConnectionSettingsChanged<T>(T newValue, CancellationToken ct)
     {
-        string deviceCategory = await SelectedDeviceType.Value();
-        string portName =
-            deviceCategory == DeviceConstants.DeviceCategorySerial ? (await SelectedObd2Port.Value()).PortName :
-            deviceCategory == DeviceConstants.DeviceCategoryJ2534 ? await SelectedJDevice.Value() :
-            deviceCategory == DeviceConstants.DeviceCategoryBT ? await SelectedBluetoothDevice.Value() : "";
+        if (deviceConnectionCancelSource != null)
+        {
+            deviceConnectionCancelSource.Cancel();
+            deviceConnectionCancelSource.Dispose();
+            await Task.Delay(500, ct);
+            deviceConnectionCancelSource = null;
+        }
+        string deviceCategory = await SelectedDeviceType.Value() ?? string.Empty;
+        string? portName =
+            deviceCategory == DeviceConstants.DeviceCategorySerial ? (await SelectedObd2Port.Value(ct) ?? new()).PortName :
+            deviceCategory == DeviceConstants.DeviceCategoryJ2534 ? await SelectedJDevice.Value(ct) :
+            deviceCategory == DeviceConstants.DeviceCategoryBT ? (await SelectedBluetoothDevice.Value(ct) ?? new()).PortName : "";
 
 
         CurrentSettings currentSettings = new CurrentSettings(
             deviceCategory,
             portName,
             await this.UseCanDevice.Value(),
-            (await this.SelectedCanPort.Value()).PortName ?? "");
+            (await this.SelectedCanPort.Value() ?? new()).PortName ?? "");
 
-        if (await this.connectionService.TryConnect(currentSettings))
-        {
-            this.settingsService.SaveConnectionSettings(currentSettings);
-        }
+        this.settingsService.SaveConnectionSettings(currentSettings);
+        deviceConnectionCancelSource ??= new CancellationTokenSource();
+        _ = Task.Run(() => this.connectionService.TryConnect(currentSettings), deviceConnectionCancelSource.Token);
     }
 
     private ValueTask Enable4xReadWriteChanged(bool newValue, CancellationToken ct)
