@@ -25,19 +25,38 @@ namespace PcmHacking.UnoUI.Presentation
     /// This is mostly duplicated in ReadPage.xaml.cs, but Uno didn't like it when I used a shared base class for both pages.
     /// TODO: try creating a single ReadWritePage/ReadWriteModel to eliminate the duplicated code.
     /// </remarks>
-    public sealed partial class WritePage : Page
+    public sealed partial class ControllerActionSetupPage : Page
     {
-        private WriteModel? model;
+        private ControllerActionSetupModel? model;
+        private bool _shouldGoBackAgain = false;
 
-        public WritePage()
+        public ControllerActionSetupPage()
         {
             this.InitializeComponent();
             this.DataContextChanged += this.OnDataContextChanged;
+            this.Loaded += ControllerActionSetupPage_Loaded;
+        }
+
+        private void ControllerActionSetupPage_Loaded(object sender, RoutedEventArgs e)
+        {
+            if (_shouldGoBackAgain)
+            {
+                this.Frame.GoBack();
+            }
+        }
+
+        protected async override void OnNavigatedTo(NavigationEventArgs e)
+        {
+            base.OnNavigatedTo(e);
+            if(e.NavigationMode == NavigationMode.Back)
+            {
+                _shouldGoBackAgain = true;
+            }
         }
 
         private void OnDataContextChanged(FrameworkElement sender, DataContextChangedEventArgs args)
         {
-            var newModel = (this.DataContext as WriteViewModel)?.Model as WriteModel;
+            var newModel = (this.DataContext as ControllerActionSetupViewModel)?.Model as ControllerActionSetupModel;
             if (newModel == null)
             {
                 return;
@@ -52,29 +71,6 @@ namespace PcmHacking.UnoUI.Presentation
 
             bool darkMode = this.XamlRoot == null ? false : SystemThemeHelper.IsRootInDarkMode(this.XamlRoot);
             ColorUtilities.Initialize(darkMode);
-            this.ProgressBar.Background = ColorUtilities.Instance.AccentBackgroundBrush;
-
-            this.model.UserLog.ForEach(async (value, cancellationToken) => await this.OnUserLogChanged(value ?? string.Empty, cancellationToken));
-        }
-
-        private Task OnUserLogChanged(string value, CancellationToken cancellationToken)
-        {
-            this.DispatcherQueue.TryEnqueue(() =>
-            {
-                this.UserLogScrollViewer.ScrollToVerticalOffset(this.UserLogScrollViewer.ScrollableHeight);
-            });
-
-            return Task.CompletedTask;
-        }
-
-        public async void CustomKey_TextChanged(object sender, TextChangedEventArgs e)
-        {
-            string newKey = this.CustomKey.Text ?? string.Empty;
-            var model = (this.DataContext as WriteViewModel)?.Model;
-            if (model != null)
-            {
-                await model.CustomKeyChanged(newKey);
-            }
         }
     }
 }

@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using PcmHacking.ECU;
 using PcmHacking.UnoUI.Services;
 using PcmHacking.UnoUI.Utilities;
 using System;
@@ -12,10 +13,9 @@ namespace PcmHacking.UnoUI.Presentation;
 
 public record WriteTypeEntity(WriteType Type) : Entity("WriteType");
 
-public partial record WriteModel : IAsyncLogger
+public partial record ControllerActionSetupModel : IAsyncLogger
 {
-    private readonly WriteType writeType;
-    public static WriteType WriteType;
+    public static ControllerActions SelectedAction = ControllerActions.Write;
 
     private readonly INavigator navigator;
     private readonly IConnectionService connectionService;
@@ -23,12 +23,17 @@ public partial record WriteModel : IAsyncLogger
     private readonly LoggerAdapter loggerAdapter;
     private readonly IPlatformService platformService;
     private readonly IDispatcher dispatcher;
-    private byte[] _fileBuffer;
 
     private CancellationTokenSource? tokenSource;
     const string defaultPath = "No file selected.";
 
     public string Title { get { return "Write PCM"; } }
+
+    public IListFeed<string> HardwareTypes => ListFeed<string>.Async(ct => this.GetHardwareTypes(ct)).Selection(SelectedHardwareType);
+    public IState<string> SelectedHardwareType => State<string>.Value(this, () => this.GetCurrentHardwareType().Result);
+
+    public IListFeed<string> WriteTypes => ListFeed<string>.Async(ct => this.GetWriteTypes(ct)).Selection(SelectedWriteType);
+    public IState<string> SelectedWriteType => State<string>.Value(this, () => { return Enum.GetName(WriteType.Test) ?? "Test"; });
 
     public IState<bool> StartEnabled => State<bool>.Value(this, () => true);
     public IState<bool> CancelEnabled => State<bool>.Value(this, () => false);
@@ -43,17 +48,18 @@ public partial record WriteModel : IAsyncLogger
     public IState<string> Kbps => State<string>.Value(this, () => String.Empty);
     public IState<double> Progress => State<double>.Value(this, () => 0.0);
     public IState<string> StartButtonText => State<string>.Value(this, () => this.GetStartButtonText());
-    public IState<string> CalibrationOnlyCheckboxText => State<string>.Value(this, () => this.GetCalibrationOnlyCheckboxText());
-    public IState<bool> PreferCalibrationWrite => State<bool>.Value(this, () => false)
-        .ForEach((value, ct) => this.PreferCalibrationWriteChanged(value, ct));
 
     public IState<bool> UseCustomKey => State<bool>.Value(this, () => false).ForEach((value, ct) => UseCustomKeyChanged(value, ct));
     public IState<bool> UseCustomKeyEnabled => State<bool>.Value(this, () => true);
     public IState<string> CustomKey => State<string>.Value(this, () => "");
     public IState<bool> CustomKeyEnabled => State<bool>.Value(this, () => true);
+    public IState<bool> UseHighSpeed => State<bool>.Value(this, () => this.settingsService.Is4xReadWriteEnabled());
+    public IState<bool> IsHardwareSelectable => State<bool>.Value(this, () => false);
+    public IState<bool> ShowDebug => State<bool>.Value(this, () => this.settingsService.IsDebugMode()); // TODO: make this a user setting that can be toggled on the UI, and persisted like the custom key settings.
     private List<string> _localUserMessages;
+    private ECUActionArguments _actionArguments = new();
 
-    public WriteModel(
+    public ControllerActionSetupModel(
         INavigator navigator,
         IConnectionService connectionService,
         ISettingsService settingsService,
@@ -68,35 +74,43 @@ public partial record WriteModel : IAsyncLogger
         this.platformService = platformService ?? throw new ArgumentNullException(nameof(platformService));
         this.dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
 
-        this.writeType = WriteModel.WriteType; // hacky workaround
-
         // Fire-and-forget initialization
-        var _1 = this.Path.SetAsync(this.settingsService.GetLastWrittenFile());
-        var _2 = this.PreferCalibrationWrite.SetAsync(this.settingsService.IsCalibrationWritePreferred());
-        var _3 = this.UseCustomKey.SetAsync(this.settingsService.GetUseCustomKey());
-        var _4 = this.CustomKey.SetAsync(this.settingsService.GetCustomKey());
-        var _5 = this.EnableControls(false);
-        _localUserMessages = [];
+        _ = this.Path.SetAsync(this.settingsService.GetLastWrittenFile());
+        _ = this.UseCustomKey.SetAsync(this.settingsService.GetUseCustomKey());
+        _ = this.CustomKey.SetAsync(this.settingsService.GetCustomKey());
+        _ = this.EnableControls(false);
     }
+
+    public bool IsWriteMode => SelectedAction == ControllerActions.Write;
 
     private string GetStartButtonText()
     {
-        switch (this.writeType)
+        switch (SelectedAction)
         {
-            case WriteType.TestWrite:
-                return "Start Test";
-            case WriteType.Compare:
-                return "Start Comparison";
-            default:
-                return "Start Writing";
+            case ControllerActions.Undefined:
+                throw new InvalidOperationException("SelectedAction was not defined!");
+            case ControllerActions.Read:
+                return "Start reading";
+            case ControllerActions.Write:
+                switch (_actionArguments.WriteType)
+                {
+                    case WriteType.Test:
+                        return "Start Test";
+                    case WriteType.Compare:
+                        return "Start Comparison";
+                    default:
+                        return "Start Writing";
+                }
+                default:
+                throw new InvalidOperationException("Invalid index of ControllerActions!");
         }
     }
 
     private string GetCalibrationOnlyCheckboxText()
     {
-        switch (this.writeType)
+        switch (_actionArguments.WriteType)
         {
-            case WriteType.TestWrite:
+            case WriteType.Test:
                 return "Test Calibration Only (if possible)";
             case WriteType.Compare:
                 return "Compare Calibration Only (if possible)";
@@ -107,28 +121,40 @@ public partial record WriteModel : IAsyncLogger
 
     private string GetActivityText()
     {
-        switch (this.writeType)
+        switch (SelectedAction)
         {
-            case WriteType.TestWrite:
-                return "Testing";
-            case WriteType.Compare:
-                return "Verifying";
+            case ControllerActions.Undefined:
+                throw new InvalidOperationException("SelectedAction was not defined!");
+            case ControllerActions.Read:
+                return "Reading";
+            case ControllerActions.Write:
+                switch (_actionArguments.WriteType)
+                {
+                    case WriteType.Test:
+                        return "Testing";
+                    case WriteType.Compare:
+                        return "Verifying";
+                    default:
+                        return "Writing";
+                }
             default:
-                return "Writing";
+                throw new InvalidOperationException("Invalid index of ControllerActions!");
         }
     }
 
-    private async Task<WriteType> GetActualWriteType()
+    private async Task<string> GetCurrentHardwareType()
     {
-        switch (this.writeType)
+        ECUBase ecu = this.connectionService.GetConnectedECU();
+        if(ecu != null)
         {
-            case WriteType.TestWrite:
-                return this.writeType;
-            case WriteType.Compare:
-                return this.writeType;
-            default:
-                return await this.PreferCalibrationWrite.Value() ? WriteType.Calibration : WriteType.Full;
+            if (ecu.HardwareType != PcmType.Undefined)
+            {
+                await IsHardwareSelectable.SetAsync(false);
+                return Enum.GetName(ecu.HardwareType) ?? string.Empty;
+            }
         }
+        await IsHardwareSelectable.SetAsync(true);
+        return Enum.GetName(PcmType.Undefined) ?? string.Empty;
     }
 
     private ValueTask PreferCalibrationWriteChanged(bool preferCalibrationWrite, CancellationToken cancellationToken)
@@ -149,15 +175,29 @@ public partial record WriteModel : IAsyncLogger
         this.settingsService.SetCustomKey(value);
     }
 
+    private ValueTask<IImmutableList<string>> GetHardwareTypes(CancellationToken ct)
+    {
+        List<string> hardwareTypes = [.. Enum.GetNames<PcmType>()];
+        IImmutableList<string> res = ImmutableList.CreateRange(hardwareTypes);
+        return ValueTask.FromResult(res);
+
+    }
+
+    private ValueTask<IImmutableList<string>> GetWriteTypes(CancellationToken ct)
+    {
+        List<string> writeTypes = [.. Enum.GetNames<WriteType>()];
+        IImmutableList<string> res = ImmutableList.CreateRange(writeTypes);
+        return ValueTask.FromResult(res);
+
+    }
+
     private async Task EnableControls(bool busy)
     {
         await this.StartEnabled.SetAsync(!busy);
         await this.UseCustomKeyEnabled.SetAsync(!busy);
         await this.CustomKeyEnabled.SetAsync(!busy);
 
-        await this.CancelEnabled.SetAsync(busy);        
-
-        if ((this.writeType == WriteType.TestWrite) || (this.writeType == WriteType.Compare))
+        if ((_actionArguments.WriteType == WriteType.Test) || (_actionArguments.WriteType == WriteType.Compare))
         {
             await PreferCalibrationWriteEnabled.SetAsync(false);
         }
@@ -171,86 +211,51 @@ public partial record WriteModel : IAsyncLogger
     public async ValueTask Start(CancellationToken cancellationToken)
     {
 #if ANDROID
-        await Platforms.Android.PermissionMethods.ExtractKernelsToFileAndroid(); // Approach with a fire-and-forget tactic - Should complete well before an action will run.
+        await Platforms.Android.PermissionMethods.ExtractKernelsToFileAndroid();
 #endif
         await this.EnableControls(true);
         string? path = string.Empty;
-#if !ANDROID // Force Android devices to use the file picker to load bytes from file. StorageFile.Path doesn't seem to play freindly as means to open the file again.
-        path = await this.Path.Value();
-#endif
-        if (string.IsNullOrWhiteSpace(path) || string.Compare(path, defaultPath, StringComparison.OrdinalIgnoreCase) == 0)
+
+        if (_actionArguments.StorageFileObject == null)
         {
-            path = await this.PromptForFileOpenPath();
-            if (string.IsNullOrWhiteSpace(path) || string.Compare(path, defaultPath, StringComparison.OrdinalIgnoreCase) == 0)
+            await this.ChooseFile();
+            if (_actionArguments.StorageFileObject == null)
             {
                 await this.AddUserMessage("No file selected.");
                 await this.StartEnabled.SetAsync(true);
-                await this.CancelEnabled.SetAsync(false);
                 return;
             }
             await this.Path.SetAsync(path);
         }
 
+        string customKeyString = await this.CustomKey.Value() ?? String.Empty;
+        uint customKey = 0;
+            if (UInt32.TryParse(customKeyString,
+                System.Globalization.NumberStyles.HexNumber,
+                CultureInfo.InvariantCulture,
+                out customKey))
+            {}
+        if(!await this.UseCustomKey.Value())
+        {
+            customKey = 0;
+        }
+        ControllerActionModel.ECUActionArguments = new ECUActionArguments()
+        {
+            SelectedAction = ControllerActionSetupModel.SelectedAction,
+            HardwareType = Enum.Parse<PcmType>(await SelectedHardwareType.Value() ?? "Undefined"),
+            WriteType = (WriteType)Enum.Parse(typeof(WriteType), await SelectedWriteType.Value()),
+            UseHighSpeed = await this.UseHighSpeed.Value(), // We can safely use this like an override, since it was set to device prefrences on page load. User selection beyond that will reflect here.
+            ShowDebug = await this.ShowDebug.Value(),
+            CustomKey = customKey,
+            ContentStream = _actionArguments.ContentStream,
+            StorageFileObject = _actionArguments.StorageFileObject
+        };
+
         this.tokenSource = new CancellationTokenSource();
         CancellationToken writeCancellationToken = this.tokenSource.Token;
         try
         {
-            string activity = this.GetActivityText();
-            using (ConnectionLease lease = await this.connectionService.BeginActivity(activity, false))
-            using (new LogInterceptor(this.loggerAdapter, this))
-            {
-                // This results in an error about using the DependencyProperty system on a
-                // non-UI thread, which seems like a bug because this code runs on a UI thread.
-                // TODO: create a minimal repro, open an issue in the Uno Platform repo.
-                //
-                // var dialog = new DelayPage();
-                // var result = await this.delayDialog.ShowAsync();
-                //
-                // GetDataAsync doesn't work with ContentDialog. If the user clicks a button, the returned object is null.
-                // We do get a valid object if the timer expires, but that's only one of the 3 ways to end the dialog...
-                await this.navigator.GetDataAsync<DelayModel, DelayResult>(this, cancellation: cancellationToken);
-
-                // Hacky workaround:
-                if (DelayModel.Result?.Proceed == false)
-                {
-                    await this.AddUserMessage("Write aborted.");
-                    return;
-                }
-
-                lease.Vehicle.Enable4xReadWrite = this.settingsService.Is4xReadWriteEnabled();
-                WriteType actualWriteType = await this.GetActualWriteType();
-
-                string customKeyString = await this.CustomKey.Value() ?? String.Empty;
-                uint customKey;
-                if (UInt32.TryParse(customKeyString,
-                    System.Globalization.NumberStyles.HexNumber,
-                    CultureInfo.InvariantCulture,
-                    out customKey) && await this.UseCustomKey.Value())
-                {
-                    lease.Vehicle.UserDefinedKey = (int)customKey;
-                }
-                else
-                {
-                    lease.Vehicle.UserDefinedKey = -1;
-                }
-
-                WriteManager writeManager = new(
-                    this.loggerAdapter,
-                    lease.Vehicle,
-                    actualWriteType,
-                    this.Alert,
-                    this.PromptForYesNo,
-                    writeCancellationToken);
-
-#if WINDOWS
-                using (new AwayMode())
-                {
-                    await PerformWrite(path, writeManager);
-                }
-#elif ANDROID
-                await PerformWrite(path, writeManager);
-#endif
-            }
+            await this.navigator.NavigateViewModelAsync<ControllerActionModel>(this, cancellation: writeCancellationToken);
         }
         catch (Exception exception)
         {
@@ -267,17 +272,13 @@ public partial record WriteModel : IAsyncLogger
         }
     }
 
-    private async Task PerformWrite(string path, WriteManager writeManager)
+    private async Task PerformWrite(WriteManager writeManager)
     {
-#if ANDROID
-        await writeManager.Write(_fileBuffer);
-#else
-        if (writeManager.Write(path).Result)
-        {
-            this.AddUserMessage("Write succeeded!");
-            this.tokenSource = null;
-            await this.EnableControls(false);
-        }
+        await writeManager.Begin(_actionArguments.ContentStream);
+#if !ANDROID
+        await this.AddUserMessage("Write succeeded!");
+        this.tokenSource = null;
+        await this.EnableControls(false);
 #endif
     }
 
@@ -287,45 +288,24 @@ public partial record WriteModel : IAsyncLogger
         try
         {
             await this.StartEnabled.SetAsync(false);
-            string path = await this.PromptForFileOpenPath() ?? String.Empty;
-            this.settingsService.SetLastWrittenFile(path);
-            await this.Path.SetAsync(path);
+            switch (SelectedAction)
+            {
+                case ControllerActions.Read:
+                    _actionArguments.StorageFileObject = await this.platformService.PromptForFileSavePath();
+                    break;
+                case ControllerActions.Write:
+                    _actionArguments.StorageFileObject = await this.platformService.PromptForFileOpenPath();
+                    break;
+            }
+            if (_actionArguments.StorageFileObject != null)
+            {
+                await this.Path.SetAsync(((StorageFile)_actionArguments.StorageFileObject).Name);
+            }
         }
         finally
         { 
             await this.StartEnabled.SetAsync(true);
         }
-    }
-
-    [Command]
-    public async ValueTask Cancel(CancellationToken ct)
-    {
-        await this.AddUserMessage("Cancelling.");
-        this.tokenSource?.Cancel();
-        this.tokenSource = null;
-    }
-
-    private async Task<string?> PromptForFileOpenPath()
-    {
-        // Use the standard open-file dialog to get the file path
-        // TODO: find/create a touch-friendly file picker
-        FileOpenPicker openPicker = new FileOpenPicker();
-        this.platformService.PrepareChildWindow(openPicker);
-        openPicker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
-        openPicker.FileTypeFilter.Add(".bin");
-        StorageFile file = await openPicker.PickSingleFileAsync();
-        if (file == null)
-        {
-            return null;
-        }
-#if ANDROID
-        var openedFile = await file.OpenReadAsync();
-        _fileBuffer = openedFile.AsStream().ToMemoryStream().ToArray();
-        openedFile.Dispose();
-        return file.Name;
-#endif
-        _fileBuffer = null;
-        return file.Path;
     }
 
     private Task Alert(string message, string title)
