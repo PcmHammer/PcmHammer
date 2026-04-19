@@ -132,7 +132,6 @@ public class ConnectionService : IConnectionService
     private ConnectionStates internalState = ConnectionStates.NotConfigured;
     private SemaphoreSlim stateChangeSemaphore = new SemaphoreSlim(1, 1);
     private CurrentSettings? newSettings;
-    private CurrentSettings? lastSettings;
     private int retryPeriod = SlowRetryPeriod;
     private DateTime _leftActiveState = DateTime.MinValue;
     private const string _recoveryString = "** RECOVERY **";
@@ -196,8 +195,12 @@ public class ConnectionService : IConnectionService
             await this.BeginActivityInternal(TestingActivity, ConnectionStates.Connecting);
 
             // Clear the settings shown in the UI, and allow time for the UI to update.
-            await this.ResetVehicleInfo();
+            await this.ResetVehicleInfo(null);
             await Task.Delay(100);
+            if (string.IsNullOrEmpty(settings.DeviceCategory) || string.IsNullOrEmpty(settings.DeviceNameOrPort))
+            {
+                return false;
+            }
 
             (Device? newDevice, Vehicle? newVehicle) = await TryReconnect(settings);
 
@@ -211,8 +214,6 @@ public class ConnectionService : IConnectionService
             if (await this.TryPollOnce(newVehicle))
             {
                 this.logger.AddUserMessage("Connection test succeeded.");
-                this.newSettings = settings;
-                this.lastSettings = settings;
                 this.settingsService.SaveConnectionSettings(settings);
                 isConnected = true;
                 this.device = newDevice;
@@ -221,11 +222,6 @@ public class ConnectionService : IConnectionService
             else
             {
                 this.logger.AddUserMessage("Connection test failed.");
-                this.newSettings = settings;
-                if(this.lastSettings == null)
-                {
-                    this.lastSettings = newSettings; // This avoids inactivity if device/PCM fails first try, unless this was intended.
-                }
                 newVehicle.Dispose();
                 newVehicle = null;
                 newDevice.Dispose();
@@ -259,7 +255,7 @@ public class ConnectionService : IConnectionService
     /// </remarks>
     public async Task<Vehicle?> Reconnect()
     {
-        (Device? newDevice, Vehicle? newVehicle) = await TryReconnect(this.lastSettings);
+        (Device? newDevice, Vehicle? newVehicle) = await TryReconnect(this.newSettings);
         this.device = newDevice;
         this.vehicle = newVehicle;
         return this.vehicle;
@@ -271,6 +267,7 @@ public class ConnectionService : IConnectionService
         {
             this.vehicle.ShutdownSignalSource.Cancel();
             this.vehicle?.Dispose();
+            this.device?.Dispose();
             return (null, null);
         }
         if (this.vehicle != null)
@@ -282,7 +279,7 @@ public class ConnectionService : IConnectionService
         {
             try
             {
-                if (!await this.device.CheckDeviceConnection())
+                if (this.newSettings != settings || !await this.device.CheckDeviceConnection())
                 {
                     this.device.Dispose();
                     this.device = null;
@@ -303,6 +300,7 @@ public class ConnectionService : IConnectionService
         }
         if (this.device == null || settings != this.newSettings)
         {
+            this.newSettings = settings;
             if (string.IsNullOrEmpty(portDesc))
             {
                 await this.DeviceName.SetAsync("Select a device.");
@@ -603,26 +601,11 @@ public class ConnectionService : IConnectionService
             // This log line made more sense before logging was disabled in this scenario...
             this.logger.AddDebugMessage($"ConnectionService timer callback. Internal state: {this.internalState}.");
 
-            // Re-create the connection if the settings have changed.
-            if (this.newSettings != null && this.newSettings != this.lastSettings)
-            {
-                // This will call TryPollOnce, and will return true if that succeeds.
-                // It will also update this.lastSettings when it succeeds.
-                if (await this.TryConnect(this.newSettings))
-                {
-                    this.logger.AddUserMessage("Connected with new settings.");
-                }
-                else
-                {
-                    this.logger.AddUserMessage("Unable to connect with new settings.");
-                    return;
-                }
-            }
 
             // Re-create the connection if the connection was lost.
-            if (this.internalState == ConnectionStates.NotConnected && this.lastSettings != null)
+            if (this.internalState == ConnectionStates.NotConnected && this.newSettings != null)
             {
-                if (await this.TryConnect(this.lastSettings))
+                if (await this.TryConnect(this.newSettings))
                 {
                     this.logger.AddUserMessage("Re-connected with current settings.");
                 }
