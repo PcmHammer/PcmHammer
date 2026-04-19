@@ -213,8 +213,8 @@ public partial record ControllerActionModel : IAsyncLogger
                 case ControllerActions.Read:
                     if (_selectedFile != null && await manager.BeginAction() && manager.ActionArgs.ContentStream != null)
                     {
-                        Stream writeStream = await _selectedFile.OpenStreamForWriteAsync();
-                        manager.ActionArgs.ContentStream.Position = 0;
+                        BufferedStream writeStream = (BufferedStream)await _selectedFile.OpenStreamForWriteAsync();
+                        writeStream.SetLength(manager.ActionArgs.ContentStream.Length);
                         await manager.ActionArgs.ContentStream.CopyToAsync(writeStream);
                         await writeStream.FlushAsync();
                         await writeStream.DisposeAsync();
