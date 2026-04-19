@@ -12,7 +12,6 @@ namespace PcmHacking.UnoUI.Presentation;
 public partial record ControllerActionModel : IAsyncLogger
 {
     public static ECUActionArguments? ECUActionArguments = null;
-    public static bool ShouldNavigateToFunctions = false;
 
     private readonly INavigator navigator;
     private readonly IConnectionService connectionService;
@@ -106,7 +105,6 @@ public partial record ControllerActionModel : IAsyncLogger
     public async ValueTask Start()
     {
         _isActive = true;
-        ShouldNavigateToFunctions = true;
         await this.AddUserMessage($"Beginning selected {this.actionText} operation.");
 #if ANDROID
         await Platforms.Android.PermissionMethods.ExtractKernelsToFileAndroid();
@@ -197,20 +195,16 @@ public partial record ControllerActionModel : IAsyncLogger
         bool success = false;
         try
         {
-            if(ECUActionArguments == null)
-            {
-                throw new ArgumentNullException(nameof(ECUActionArguments));
-            }
-            _selectedFile = ECUActionArguments.StorageFileObject as StorageFile;
-            if (_selectedFile == null)
-            {
-                throw new NullReferenceException(nameof(_selectedFile));
-            }
             if(manager == null)
             {
                 throw new ArgumentNullException(nameof(manager));
             }
-            if(manager.ActionArgs.SelectedAction == ControllerActions.Undefined)
+            _selectedFile = manager.ActionArgs.StorageFileObject as StorageFile;
+            if (_selectedFile == null)
+            {
+                throw new NullReferenceException(nameof(_selectedFile));
+            }
+            if (manager.ActionArgs.SelectedAction == ControllerActions.Undefined)
             {
                 throw new InvalidOperationException("ControllerManager was not properly initialized with a valid action.");
             }
