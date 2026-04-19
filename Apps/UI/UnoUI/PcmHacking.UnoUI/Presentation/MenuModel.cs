@@ -32,34 +32,16 @@ public partial record MenuModel
         await this.navigator.NavigateViewModelAsync<SettingsModel>(this);
     }
 
-    public async Task GoToWrite()
+    public async Task GoToExit()
     {
-        // Can't get this to work the right way.
-        // Not sure if I'm doing it wrong or if this is another bug in Uno.
-        //WriteTypeEntity writeTypeEntity = new(WriteType.Full);
-        //await this.navigator.NavigateDataAsync(this, data: writeTypeEntity);
-        WriteModel.WriteType = WriteType.Full;
-        await this.navigator.NavigateViewModelAsync<WriteModel>(this);
+        App.ApplicationShutdownSource.Cancel();
+        await Task.Delay(1000);
+        Environment.Exit(0);
     }
 
-    public async Task GoToTestWrite()
+    public async Task GoToControllerFunctions()
     {
-        // Can't get this to work the right way.
-        // Not sure if I'm doing it wrong or if this is a bug in Uno.
-        // 
-        // Note that this requires a corresponding change in RegisterRoutes in App.xaml.cs.
-        //
-        // WriteTypeEntity writeTypeEntity = new(WriteType.TestWrite);
-        // await this.navigator.NavigateDataAsync(this, data: writeTypeEntity);
-        //
-        // Until I can figure out why the above isn't working, here's a hacky workaround:
-        WriteModel.WriteType = WriteType.TestWrite;
-        await this.navigator.NavigateViewModelAsync<WriteModel>(this);
-    }
-
-    public async Task GoToOtherFunctions()
-    {
-        await this.navigator.NavigateViewModelAsync<OtherFunctionsModel>(this);
+        await this.navigator.NavigateViewModelAsync<ControllerFunctionsModel>(this);
     }
 
     public async Task GoToHelp()

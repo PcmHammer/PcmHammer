@@ -18,58 +18,18 @@
         <ColumnDefinition/>
       </Grid.ColumnDefinitions>
 
-      <Button Grid.Row="0" Grid.Column="0" 
-              Name="SettingsButton"
-              Content="Settings"
+
+      <Button Grid.Row="0" Grid.Column="0"
+              Name="ControllerFunctionsButton"
+              Content="Read/Write Functions"
               Margin="10"
               Padding="10"
               HorizontalAlignment="Stretch"
               VerticalAlignment="Stretch"              
-              AutomationProperties.AutomationId="SettingsPageButton"
-              Command="{Binding GoToSettings}" />
+              AutomationProperties.AutomationId="ControllerFunctionsButton"
+              Command="{Binding GoToControllerFunctions}" />
 
-      <Button Grid.Row="0" Grid.Column="1" 
-              Name="WritePcmButton"
-              Content="Write PCM"
-              Margin="10"
-              Padding="10"
-              HorizontalAlignment="Stretch"
-              VerticalAlignment="Stretch"              
-              AutomationProperties.AutomationId="WritePcmButton"
-              Command="{Binding GoToWrite}" />
-
-      <Button Grid.Row="1" Grid.Column="0"
-              Name="OtherFunctionsButton"
-              Content="Other Functions"
-              Margin="10"
-              Padding="10"
-              HorizontalAlignment="Stretch"
-              VerticalAlignment="Stretch"              
-              AutomationProperties.AutomationId="OtherFunctionsButton"
-              Command="{Binding GoToOtherFunctions}" />
-
-      <Button Grid.Row="1" Grid.Column="1"
-              Name="TestWriteButton"
-              Content="Test Write"
-              Margin="10"
-              Padding="10"
-              HorizontalAlignment="Stretch"
-              VerticalAlignment="Stretch"                            
-              AutomationProperties.AutomationId="ReadPcmButton"
-              Command="{Binding GoToTestWrite}" />
-
-      <Button Grid.Row="2" Grid.Column="0"
-              Content="{Binding HelpButtonText}"
-              Margin="10"
-              Padding="10"
-              HorizontalAlignment="Stretch"
-              VerticalAlignment="Stretch"           
-              Name="HelpButton"
-              AutomationProperties.AutomationId="HelpButton"
-              Command="{Binding GoToHelp}">
-      </Button>
-
-      <Button Grid.Row="2" Grid.Column="1"
+            <Button Grid.Row="0" Grid.Column="1"
               Name="DataLoggingButton"
               Content="Data Logging"
               Margin="10"
@@ -79,6 +39,36 @@
               AutomationProperties.AutomationId="DataLoggingButton"
               Command="{Binding GoToDataLogging}" />
 
-    </Grid>
+            <Button Grid.Row="1" Grid.Column="0"
+              Content="{Binding HelpButtonText}"
+              Margin="10"
+              Padding="10"
+              HorizontalAlignment="Stretch"
+              VerticalAlignment="Stretch"           
+              Name="HelpButton"
+              AutomationProperties.AutomationId="HelpButton"
+              Command="{Binding GoToHelp}" />
+
+      <Button Grid.Row="1" Grid.Column="1" 
+              Name="SettingsButton"
+              Content="Settings"
+              Margin="10"
+              Padding="10"
+              HorizontalAlignment="Stretch"
+              VerticalAlignment="Stretch"              
+              AutomationProperties.AutomationId="SettingsPageButton"
+              Command="{Binding GoToSettings}" />
+
+      <Button Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
+              Name="ExitButton"
+              Content="Exit App"
+              Margin="10,60,10,10"
+              Padding="10"
+              HorizontalAlignment="Stretch"
+              VerticalAlignment="Stretch"                            
+              AutomationProperties.AutomationId="ExitButton"
+              Command="{Binding GoToExit}" />
+
+        </Grid>
   </ScrollViewer>
 </Page>

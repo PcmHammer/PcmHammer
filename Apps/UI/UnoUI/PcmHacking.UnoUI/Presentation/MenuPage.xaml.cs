@@ -32,10 +32,9 @@ public sealed partial class MenuPage : Page
     {
         HelpButton.IsEnabled = buttonsEnabled;
         SettingsButton.IsEnabled = buttonsEnabled;
-        WritePcmButton.IsEnabled = buttonsEnabled;
-        OtherFunctionsButton.IsEnabled = buttonsEnabled;
-        TestWriteButton.IsEnabled = buttonsEnabled;
+        ControllerFunctionsButton.IsEnabled = buttonsEnabled;
         DataLoggingButton.IsEnabled = buttonsEnabled;
+        ExitButton.IsEnabled = buttonsEnabled;
     }
 }
 
