@@ -1,3 +1,4 @@
+using PcmHacking.ECU;
 using PcmHacking.UnoUI.Utilities;
 
 namespace PcmHacking.UnoUI.Services;
@@ -105,6 +106,7 @@ public interface IConnectionService
 
     Task<bool> TryConnect(CurrentSettings settings);
     Task<ConnectionLease> BeginActivity(string activity, bool canInterrupt = false);
+    ECUBase GetConnectedECU();
 }
 
 public class ConnectionService : IConnectionService
@@ -167,6 +169,15 @@ public class ConnectionService : IConnectionService
             _leftActiveState = DateTime.MinValue;
             return -1;
         }
+    }
+
+    public ECUBase? GetConnectedECU()
+    {
+        if(this.internalState >= ConnectionStates.Connected || vehicle?.ConnectedECU != null)
+        {
+            return vehicle?.ConnectedECU;
+        }
+        return null;
     }
 
     /// <summary>
@@ -677,7 +688,7 @@ public class ConnectionService : IConnectionService
     private async Task<bool> TryPollOnce(Vehicle vehicle)
     {
         bool success = false;
-
+        vehicle.ECUState = ECUStates.Invalid;
         using (var source = new CancellationTokenSource())
         {
             try
@@ -743,6 +754,7 @@ public class ConnectionService : IConnectionService
             {
                 this.logger.AddUserMessage("PCM/ECM recovery mode detected!");
                 await this.OperatingSystemId.SetAsync(_recoveryString);
+                vehicle.ECUState = ECUStates.Recovery;
                 return true;
             }
             this.logger.AddUserMessage("No recovery message detected. Checking for live kernel...");
@@ -751,6 +763,7 @@ public class ConnectionService : IConnectionService
             {
                 this.logger.AddUserMessage($"Detected kernel version: {ver}");
                 await this.OperatingSystemId.SetAsync(_kernelString);
+                vehicle.ECUState = ECUStates.Kernel;
                 return true;
             }
             await this.OperatingSystemId.SetAsync(string.Empty);
@@ -758,10 +771,11 @@ public class ConnectionService : IConnectionService
             if (osidResponse.Status == ResponseStatus.Success)
             {
                 await this.OperatingSystemId.SetAsync(osidResponse.Value.ToString());
+                vehicle.ConnectedECU = ECUFactory.GetControllerByOSID(osidResponse.Value);
             }
             else
             {
-                await this.ResetVehicleInfo();
+                await this.ResetVehicleInfo(vehicle);
                 return false;
             }
 
@@ -773,7 +787,7 @@ public class ConnectionService : IConnectionService
             }
             else
             {
-                await this.ResetVehicleInfo();
+                await this.ResetVehicleInfo(vehicle);
                 return false;
             }
         }
@@ -791,15 +805,20 @@ public class ConnectionService : IConnectionService
             }
             return false;
         }
-
+        vehicle.ECUState = ECUStates.Programmed;
         return true;
     }
 
-    private async Task ResetVehicleInfo()
+    private async Task ResetVehicleInfo(Vehicle? vehicle)
     {
         await this.ConnectionState.SetAsync(ConnectionStates.NotConnected);
         await this.OperatingSystemId.SetAsync(String.Empty);
         await this.Voltage.SetAsync(String.Empty);
+        if (vehicle != null)
+        {
+            vehicle.ECUState = ECUStates.Invalid;
+            vehicle.ConnectedECU = null;
+        }
     }
 
     /// <summary>
