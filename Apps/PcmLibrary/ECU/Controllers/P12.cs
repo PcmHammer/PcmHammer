@@ -3,12 +3,16 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace PcmHacking.ECU.Controllers {
-    public class P12 : ECUBase {
-        public P12() {
+namespace PcmHacking.ECU.Controllers
+{
+    public class P12 : ECUBase
+    {
+        public P12()
+        {
             Manufacturer = "GM";
             this.Description = "Atlas I4/I5/I6";
             this.HardwareType = PcmType.P12;
+            BaseHardwareType = HardwareType;
             this.HardwareSlaveCPU = true;
             this.IsSupported = true;
             this.IsSupportedRead = true;
@@ -17,9 +21,7 @@ namespace PcmHacking.ECU.Controllers {
             this.IsSupportedWriteBySegment = true;
             this.IsSupportedWriteBootSector = false;
             this.LoaderRequired = false;
-            this.KernelFileName = "Kernel-P12.bin";
             this.KernelBaseAddress = 0xFF2000; // or FF0000? https://pcmhacking.net/forums/viewtopic.php?f=42&t=7742&start=450#p115622
-            this.LoaderFileName = string.Empty;
             this.LoaderBaseAddress = 0x0;
             this.ImageBaseAddress = 0x0;
             this.ImageSize = 1024 * 1024;
@@ -64,7 +66,6 @@ namespace PcmHacking.ECU.Controllers {
                 { new OSInfo("GM", 12627883, 12597521, 91) },
                 { new OSInfo("GM", 12627885, 12597521, 91) },
             };
-
         }
     }
 }

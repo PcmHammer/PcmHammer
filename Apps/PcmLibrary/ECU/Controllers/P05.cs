@@ -3,12 +3,16 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace PcmHacking.ECU.Controllers {
-    public class P05 : ECUBase {
-        public P05() {
+namespace PcmHacking.ECU.Controllers
+{
+    public class P05 : ECUBase
+    {
+        public P05()
+        {
             Manufacturer = "GM";
             this.Description = "P05 (VPW)";
             this.HardwareType = PcmType.P05;
+            BaseHardwareType = HardwareType;
             this.HardwareSlaveCPU = false;
             this.IsSupported = true;
             this.IsSupportedRead = true;
@@ -17,7 +21,6 @@ namespace PcmHacking.ECU.Controllers {
             this.IsSupportedWriteBySegment = false;
             this.IsSupportedWriteBootSector = false;
             this.LoaderRequired = false;
-            this.KernelFileName = "Kernel-P05.bin";
             this.KernelBaseAddress = 0xFFC100;
             this.ImageBaseAddress = 0x0;
             this.ImageSize = 1024 * 1024;
@@ -43,7 +46,6 @@ namespace PcmHacking.ECU.Controllers {
 
                 { new OSInfo("GM", 12603217, 12604963, 0x35) },
             };
-
         }
     }
 }

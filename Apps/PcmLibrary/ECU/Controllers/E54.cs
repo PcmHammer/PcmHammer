@@ -4,11 +4,13 @@ using System.Linq;
 using System.Text;
 
 namespace PcmHacking.ECU.Controllers {
-    public class E54 : ECUBase {
+    public class E54 : ECUBase
+    {
         public E54() {
             Manufacturer = "GM";
             this.Description = "LB7 Duramax";
             this.HardwareType = PcmType.E54;
+            BaseHardwareType = HardwareType;
             this.HardwareSlaveCPU = false;
             this.IsSupported = true;
             this.IsSupportedRead = true;
@@ -17,9 +19,7 @@ namespace PcmHacking.ECU.Controllers {
             this.IsSupportedWriteBySegment = true;
             this.Description = "E54";
             this.LoaderRequired = false;
-            this.KernelFileName = "Kernel-E54.bin";
             this.KernelBaseAddress = 0xFF9100;
-            this.LoaderFileName = string.Empty;
             this.LoaderBaseAddress = 0x0;
             this.ImageBaseAddress = 0x0;
             this.ImageSize = 512 * 1024;
@@ -55,7 +55,6 @@ namespace PcmHacking.ECU.Controllers {
                 { new OSInfo("GM", 15186006, 12210729, 54) },
                 { new OSInfo("GM", 15189044, 12210729, 54) },
             };
-
         }
     }
 }

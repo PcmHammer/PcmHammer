@@ -4,11 +4,13 @@ using System.Linq;
 using System.Text;
 
 namespace PcmHacking.ECU.Controllers {
-    public class BlackBox : ECUBase {
+    public class BlackBox : ECUBase
+    {
         public BlackBox() {
             Manufacturer = "GM";
             this.Description = "GenII Vortec";
             this.HardwareType = PcmType.BlackBox;
+            BaseHardwareType = HardwareType;
             this.HardwareSlaveCPU = false;
             this.IsSupported = true;
             this.IsSupportedRead = true;
@@ -16,9 +18,7 @@ namespace PcmHacking.ECU.Controllers {
             this.IsSupportedWriteSlaveCPU = false;
             this.IsSupportedWriteBySegment = false;
             this.LoaderRequired = false;
-            this.KernelFileName = "Kernel-BlackBox.bin";
             this.KernelBaseAddress = 0xFFC300;
-            this.LoaderFileName = string.Empty;
             this.LoaderBaseAddress = 0x0;
             this.ImageBaseAddress = 0x0;
             this.ImageSize = 512 * 1024;

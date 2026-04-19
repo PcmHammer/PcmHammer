@@ -3,11 +3,17 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace PcmHacking.ECU.Controllers {
-    public class P04_Early_512k : P04_Early {
-        public P04_Early_512k() {
-            Manufacturer = "GM";
+namespace PcmHacking.ECU.Controllers
+{
+    public class P04_Early_512k : P04_Early
+    {
+        public P04_Early_512k()
+        {
+            this.Description = "P04(Early 512K)";
+            this.HardwareType = PcmType.P04_Early_512k;
+            this.BaseHardwareType = PcmType.P04_Early;
             this.ImageSize = 512 * 1024;
+
             KnownOperatingSystems = new List<OSInfo>() {
                 { new OSInfo("GM", 16257963, 16217058, 6) },
                 { new OSInfo("GM", 16257965, 16217058, 6) },

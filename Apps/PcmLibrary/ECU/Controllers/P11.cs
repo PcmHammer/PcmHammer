@@ -4,11 +4,13 @@ using System.Linq;
 using System.Text;
 
 namespace PcmHacking.ECU.Controllers {
-    public class P11 : ECUBase {
+    public class P11 : ECUBase
+    {
         public P11() {
             Manufacturer = "GM";
             this.Description = "P11";
             this.HardwareType = PcmType.P11;
+            BaseHardwareType = HardwareType;
             this.IsUnderDevelopment = true;
             this.HardwareSlaveCPU = false;
             this.IsSupported = true;
@@ -18,7 +20,6 @@ namespace PcmHacking.ECU.Controllers {
             this.IsSupportedWriteBySegment = true;
             this.IsSupportedWriteBootSector = true;
             this.LoaderRequired = false;
-            this.KernelFileName = "Kernel-P11.bin";
             this.KernelBaseAddress = 0xFFC000;
             this.ImageBaseAddress = 0x0;
             this.ImageSize = 512 * 1024;

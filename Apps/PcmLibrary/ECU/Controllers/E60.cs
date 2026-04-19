@@ -4,11 +4,13 @@ using System.Linq;
 using System.Text;
 
 namespace PcmHacking.ECU.Controllers {
-    public class E60 : ECUBase {
+    public class E60 : ECUBase
+    {
         public E60() {
             Manufacturer = "GM";
             this.Description = "LLY Duramax";
             this.HardwareType = PcmType.E60;
+            BaseHardwareType = HardwareType;
             this.KeyAlgorithm = 2;
             this.ImageBaseAddress = 0x0;
             this.ImageSize = 1024 * 1024;

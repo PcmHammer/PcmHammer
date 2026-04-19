@@ -9,6 +9,7 @@ namespace PcmHacking.ECU.Controllers {
             Manufacturer = "GM";
             Description = "P01";
             HardwareType = PcmType.P01;
+            BaseHardwareType = HardwareType;
             HardwareSlaveCPU = false;
             IsSupported = true;
             IsSupportedRead = true;
@@ -16,9 +17,7 @@ namespace PcmHacking.ECU.Controllers {
             IsSupportedWriteSlaveCPU = true;
             IsSupportedWriteBySegment = true;
             LoaderRequired = false;
-            KernelFileName = "Kernel-P01.bin";
             KernelBaseAddress = 0xFF8000;
-            LoaderFileName = string.Empty;
             LoaderBaseAddress = 0x0;
             ImageBaseAddress = 0x0;
             ImageSize = 512 * 1024;

@@ -3,12 +3,16 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace PcmHacking.ECU.Controllers {
-    public class P10 : ECUBase {
-        public P10() {
+namespace PcmHacking.ECU.Controllers
+{
+    public class P10 : ECUBase
+    {
+        public P10()
+        {
             Manufacturer = "GM";
             this.Description = "P10 1Mb";
             this.HardwareType = PcmType.P10;
+            BaseHardwareType = HardwareType;
             this.HardwareSlaveCPU = true;
             this.IsSupported = true;
             this.IsSupportedRead = true;
@@ -16,9 +20,7 @@ namespace PcmHacking.ECU.Controllers {
             this.IsSupportedWriteSlaveCPU = false;
             this.IsSupportedWriteBySegment = true;
             this.LoaderRequired = false;
-            this.KernelFileName = "Kernel-P10.bin";
             this.KernelBaseAddress = 0xFFB800;
-            this.LoaderFileName = string.Empty;
             this.LoaderBaseAddress = 0x0;
             this.ImageBaseAddress = 0x0;
             this.ImageSize = 512 * 1024;
@@ -47,7 +49,6 @@ namespace PcmHacking.ECU.Controllers {
                 { new OSInfo("GM", 12597031, 12574976, 66) },
                 { new OSInfo("GM", 12623317, 12574976, 66) }
             };
-
         }
     }
 }

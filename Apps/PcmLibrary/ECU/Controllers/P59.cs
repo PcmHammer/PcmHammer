@@ -4,30 +4,14 @@ using System.Linq;
 using System.Text;
 
 namespace PcmHacking.ECU.Controllers {
-    public class P59 : ECUBase {
+    public class P59 : P01
+    {
         public P59() {
-            Manufacturer = "GM";
             Description = "P59";
+            BaseHardwareType = PcmType.P01;
             HardwareType = PcmType.P59;
-            HardwareSlaveCPU = false;
-            IsSupported = true;
-            IsSupportedRead = true;
-            IsSupportedWrite = true;
-            IsSupportedWriteSlaveCPU = true;
-            IsSupportedWriteBySegment = true;
-            LoaderRequired = false;
-            KernelFileName = "Kernel-P01.bin";
-            KernelBaseAddress = 0xFF8000;
-            LoaderFileName = string.Empty;
-            LoaderBaseAddress = 0x0;
-            ImageBaseAddress = 0x0;
             ImageSize = 1024 * 1024;
-            KeyAlgorithm = 40;
-            ChecksumSupport = true;
-            FlashCRCSupport = true;
-            FlashIDSupport = true;
-            KernelVersionSupport = true;
-            KernelMaxBlockSize = 4096;
+
             KnownOperatingSystems = new List<OSInfo>() {
                 { new OSInfo("GM", 12590777, 12583560, 40) },
 

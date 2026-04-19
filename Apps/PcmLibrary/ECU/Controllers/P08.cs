@@ -4,11 +4,13 @@ using System.Linq;
 using System.Text;
 
 namespace PcmHacking.ECU.Controllers {
-    public class P08 : ECUBase {
+    public class P08 : ECUBase
+    {
         public P08() {
             Manufacturer = "GM";
             this.Description = "I4";
             this.HardwareType = PcmType.P08;
+            BaseHardwareType = HardwareType;
             this.HardwareSlaveCPU = false;
             this.IsSupported = true;
             this.IsSupportedRead = true;
@@ -16,9 +18,7 @@ namespace PcmHacking.ECU.Controllers {
             this.IsSupportedWriteSlaveCPU = true;
             this.IsSupportedWriteBySegment = false;
             this.LoaderRequired = false;
-            this.KernelFileName = "Kernel-P08.bin";
             this.KernelBaseAddress = 0xFFAC00;
-            this.LoaderFileName = string.Empty;
             this.LoaderBaseAddress = 0x0;
             this.ImageBaseAddress = 0x0;
             this.ImageSize = 512 * 1024;
@@ -246,7 +246,6 @@ namespace PcmHacking.ECU.Controllers {
                 { new OSInfo("GM", 16267114, 16228016, 13) },
                 { new OSInfo("GM", 16267097, 16228016, 13) }
             };
-
         }
     }
 }

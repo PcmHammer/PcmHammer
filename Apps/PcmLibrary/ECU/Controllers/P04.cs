@@ -4,11 +4,13 @@ using System.Linq;
 using System.Text;
 
 namespace PcmHacking.ECU.Controllers {
-    public class P04 : ECUBase {
+    public class P04 : ECUBase
+    {
         public P04() {
             Manufacturer = "GM";
             this.Description = "1998+ V6";
             this.HardwareType = PcmType.P04;
+            BaseHardwareType = HardwareType;
             this.HardwareSlaveCPU = false;
             this.IsSupported = true;
             this.IsSupportedRead = true;
@@ -16,9 +18,7 @@ namespace PcmHacking.ECU.Controllers {
             this.IsSupportedWriteSlaveCPU = true;
             this.IsSupportedWriteBySegment = false;
             this.LoaderRequired = true;
-            this.KernelFileName = "Kernel-P04.bin";
             this.KernelBaseAddress = 0xFF8000;
-            this.LoaderFileName = "Loader-P04.bin";
             this.LoaderBaseAddress = 0xFF9890;
             this.ImageBaseAddress = 0x0;
             this.ImageSize = 512 * 1024;

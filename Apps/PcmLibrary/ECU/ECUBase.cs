@@ -1,4 +1,5 @@
-﻿using System;
+﻿using PcmHacking.ECU.Controllers;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -7,15 +8,18 @@ namespace PcmHacking.ECU {
     public enum PcmType
     {
         Undefined = 0, // required for failed osid test on binary file
+        Unsupported, // required for failed osid test on binary file
         P01,
         P59,
         P04_Early,
+        P04_Early_512k,
         P04,
         P05,
         P08,
         P10,
         P11,
         P12,
+        P12_2M,
         E54, //E54 (01-04 LB7 Duramax) 
         E60, //E60 (04-05 LLY Duramax)
         BlackBox
@@ -25,6 +29,8 @@ namespace PcmHacking.ECU {
         public List<OSInfo> KnownOperatingSystems { get; set; }
 
         public OSInfo CurrentOS { get; private set; }
+
+        public bool HardwareTypeOverridden { get; set; }
 
         /// <summary>
         /// Define a manufacturer name for this PCM. Used mostly for display purposes.
@@ -78,7 +84,15 @@ namespace PcmHacking.ECU {
         /// <summary>
         /// What service number is it (0/false for unknown)
         /// </summary>
-        public uint ServiceNumber { get; private set; }
+        /// 
+
+        public uint ServiceNumber
+        {
+            get
+            {
+                return (uint)CurrentOS.ServiceNumber;
+            }
+        }
 
         /// <summary>
         /// Does it have a slave CPU?
@@ -88,7 +102,13 @@ namespace PcmHacking.ECU {
         /// <summary>
         /// Name of the kernel file to use.
         /// </summary>
-        public string KernelFileName { get; set; } // Given the naming scheme, this entry shouldn't be needed. Refactor these calls to do something like $"{FileType}-{HardwareType}.bin";
+        public string KernelFileName
+        {
+            get
+            {
+                return $"Kernel-{BaseHardwareType}.bin";
+            }
+        }
 
         /// <summary>
         /// Base address to begin writing the kernel to.
@@ -98,7 +118,13 @@ namespace PcmHacking.ECU {
         /// <summary>
         /// Name of the kernel loader file to use.
         /// </summary>
-        public string LoaderFileName { get; set; } // Given the naming scheme, this entry shouldn't be needed. Refactor these calls to do something like $"{FileType}-{HardwareType}.bin";
+        public string LoaderFileName
+        {
+            get
+            {
+                return $"Loader-{BaseHardwareType}.bin";
+            }
+        }
 
         /// <summary>
         /// Base address to begin writing the kernel loader to.
@@ -118,7 +144,19 @@ namespace PcmHacking.ECU {
         /// <summary>
         /// Which key algorithm to use to unlock the PCM.
         /// </summary>
-        public int KeyAlgorithm { get; set; }
+
+        private int _keyAlgorithm = 0;
+ 
+        public int KeyAlgorithm { 
+            get
+            {
+                return CurrentOS?.KeyAlgorithm ?? _keyAlgorithm;
+            }
+            set
+            {
+                _keyAlgorithm = value;
+            }
+        }
 
         /// <summary>
         /// Supports file validation checksums?
@@ -155,6 +193,8 @@ namespace PcmHacking.ECU {
         /// </summary>
         public bool IsUnderDevelopment { get; set; }
 
+        public PcmType BaseHardwareType { get; set; }
+
         public bool IsCustomOS
         {
             get
@@ -184,11 +224,8 @@ namespace PcmHacking.ECU {
             Description = "Not Set";
             LoaderRequired = false;
             HardwareType = PcmType.Undefined;
-            ServiceNumber = 0;
             HardwareSlaveCPU = false;
-            KernelFileName = string.Empty;
             KernelBaseAddress = 0x0;
-            LoaderFileName = string.Empty;
             LoaderBaseAddress = 0x0;
             ImageBaseAddress = 0x0;
             KeyAlgorithm = 0;
@@ -202,7 +239,18 @@ namespace PcmHacking.ECU {
 
         public bool ECUSupportsOSID(uint osid)
         {
+
+            // special cases for COS
             string osidString = osid.ToString();
+
+            // Some COS formats appear to follow the following convention. Note counting from 0, not 1.
+            // 0 = 1
+            // 1 = 2
+            // 2 = COS type. Have observed 5 = 2 Bar RTT, 6 = 3 Bar Non-RTT, 7 = 1 Bar RTT, 8 = MAF RTT
+            // 3 = Version number. 1 Appears to have custom keys, 2 and 3 do not.
+            // 4 = 0
+            // 5 = 0 for P01, 5 for P59
+            // 6 = OS variant
             if (osidString.Length == 7 && osidString.Substring(0, 2) == "12" && osidString[4] == '0' && (osidString[3] == '2' || osidString[3] == '3')) // Version 2 & 3 handled here.
             {
                 switch (osidString[5])
@@ -227,10 +275,9 @@ namespace PcmHacking.ECU {
 
         public void SetCurrentOSID(uint osid) {
             CurrentOS = KnownOperatingSystems.FirstOrDefault(x => x.OSID == osid);
-            KeyAlgorithm = CurrentOS.KeyAlgorithm;
-            ServiceNumber = (uint)CurrentOS.ServiceNumber;
-            if (CurrentOS == null) {
-                CurrentOS = new OSInfo("MFG", osid, 0, KeyAlgorithm);
+            if (CurrentOS == null)
+            {
+                CurrentOS = new OSInfo("Unsupported ECU", osid, -1, KeyAlgorithm);
             }
         }
 
