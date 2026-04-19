@@ -259,13 +259,13 @@ public partial class App : Application
 
             // Features on the main menu ("Test Write" is implemented with WritePage)
             new ViewMap<SettingsPage, SettingsModel>(),
-            new ViewMap<WritePage, WriteModel>(),
-            new ViewMap<OtherFunctionsPage, OtherFunctionsModel>(),
+            new ViewMap<ControllerActionSetupPage, ControllerActionSetupModel>(),
+            new ViewMap<ControllerFunctionsPage, ControllerFunctionsModel>(),
             new ViewMap<HelpPage, HelpModel>(),
             new ViewMap<DataLoggingPage, DataLoggingModel>(),
 
             // "Other functions" pages
-            new ViewMap<ReadPage, ReadModel>(),
+            new ViewMap<ControllerActionPage, ControllerActionModel>(),
             new ViewMap<DumpRamPage, DumpRamModel>(),
             new ViewMap<VinChangePage, VinChangeModel>(),
             new ViewMap<CrankRelearnPage, CrankRelearnModel>(),
