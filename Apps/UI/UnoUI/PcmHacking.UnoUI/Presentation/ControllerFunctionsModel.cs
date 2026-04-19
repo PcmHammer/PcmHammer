@@ -1,4 +1,5 @@
 using Microsoft.UI.Dispatching;
+using PcmHacking.ECU;
 using PcmHacking.UnoUI.Services;
 using PcmHacking.UnoUI.Utilities;
 using System;
@@ -19,7 +20,7 @@ namespace PcmHacking.UnoUI.Presentation;
 /// - add a "verify PCM" button
 /// - add a link to an XDF repository?
 /// </remarks>
-public partial record OtherFunctionsModel
+public partial record ControllerFunctionsModel
 {
     private const string defaultClearCodesButtonText = "Clear Trouble Codes";
     private const string defaultValue = "---";
@@ -38,7 +39,7 @@ public partial record OtherFunctionsModel
     public IState<string> BroadcastCode => State<string>.Value(this, () => defaultValue);
     public IState<string> Mec => State<string>.Value(this, () => defaultValue);
 
-    public OtherFunctionsModel(
+    public ControllerFunctionsModel(
         INavigator navigator, 
         IConnectionService vehicleService,
         LoggerAdapter logger,
@@ -97,7 +98,7 @@ public partial record OtherFunctionsModel
                 uint osId = (uint)0;
                 if (uint.TryParse(osIdString ?? "", out osId))
                 {
-                    OSIDInfo pcmInfo = new OSIDInfo(osId);
+                    ECUBase pcmInfo = ECUFactory.GetControllerByOSID(osId);
                     await this.Description.SetAsync(pcmInfo.Description);
                     await Task.Delay(delay);
 
@@ -250,20 +251,19 @@ public partial record OtherFunctionsModel
 
     public async Task GoToRead()
     {
-        await this.navigator.NavigateViewModelAsync<ReadModel>(this);
+        ControllerActionSetupModel.SelectedAction = ControllerActions.Read;
+        await this.navigator.NavigateViewModelAsync<ControllerActionSetupModel>(this);
+    }
+
+    public async Task GoToWrite()
+    {
+        ControllerActionSetupModel.SelectedAction = ControllerActions.Write;
+        await this.navigator.NavigateViewModelAsync<ControllerActionSetupModel>(this);
     }
 
     public async Task GoToDumpRam()
     {
         await this.navigator.NavigateViewModelAsync<DumpRamModel>(this);
-    }
-
-    public async Task GoToVerify()
-    {
-        // See comments in MenuModel.GoToWrite()
-        WriteModel.WriteType = WriteType.Compare;
-        await this.navigator.NavigateViewModelAsync<WriteModel>(this);
-
     }
 
     public async Task GoToChangeVin()
