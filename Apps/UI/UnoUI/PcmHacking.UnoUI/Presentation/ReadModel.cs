@@ -1,5 +1,3 @@
-using Microsoft.Extensions.Logging;
-using Microsoft.UI.Dispatching;
 using PcmHacking.UnoUI.Services;
 using PcmHacking.UnoUI.Utilities;
 using System.Globalization;
@@ -117,7 +115,7 @@ public partial record ReadModel : IAsyncLogger
         CancellationToken readCancellationToken = this.tokenSource.Token;
         try
         {
-            using (ConnectionLease lease = await this.connectionService.BeginActivity("Reading PCM", false))
+            ConnectionLease lease = await this.connectionService.BeginActivity("Reading PCM", false);
             using (new LogInterceptor(this.loggerAdapter, this))
             {
                 // I suspect a bug in the Uno Platform's ContentDialog implementation, hence the static object in the 'if' statement.
@@ -158,9 +156,36 @@ public partial record ReadModel : IAsyncLogger
                 using (new AwayMode())
                 {
                     await performRead(path, lease, readManager);
+                    lease.Dispose();
                 }
 #elif ANDROID
-                await performRead(path, lease, readManager);
+                Progress<ProgressUpdate> progress = new Progress<ProgressUpdate>((progress) => {
+                    _ = UpdateProgress(progress);
+                });
+
+                Platforms.Android.DataService.StartService("Read PCM", performRead(path, lease, readManager, progress),
+                    async () =>
+                    {
+                        if (readCancellationToken.IsCancellationRequested)
+                        {
+                            await this.AddUserMessage("Read was canceled.");
+                        }
+                        else
+                        {
+                            await this.AddUserMessage("Read completed successfully.");
+                        }
+                        this.tokenSource = null;
+                        await this.EnableControls(false);
+                        lease.Dispose();
+                    },
+                    async () =>
+                    {
+                        await this.AddUserMessage("Read failed: ");
+                        this.tokenSource = null;
+                        await this.EnableControls(false);
+                        lease.Dispose();
+                    });
+                return;
 #endif
             }
         }
@@ -168,19 +193,30 @@ public partial record ReadModel : IAsyncLogger
         {
             await this.AddUserMessage("Read failed: ");
             await this.AddUserMessage(exception.Message);
-            await Task.Delay(1000);
             await this.AddDebugMessage(exception.ToString());
         }
         finally
         {
+#if !ANDROID
             this.tokenSource = null;
             await this.EnableControls(false);
+#endif
         }
     }
 
-    private async Task performRead(string path, ConnectionLease lease, ReadManager readManager)
+    private async Task performRead(string path, ConnectionLease lease, ReadManager readManager, IProgress<ProgressUpdate> progress = null)
     {
-        Stream? readContents = await readManager.Read();
+        Stream? readContents = null;
+        try
+        {
+            readContents = await readManager.Read(progress);
+        }
+        catch (Exception exception)
+        {
+            await this.AddUserMessage(exception.Message);
+            await this.AddDebugMessage(exception.ToString());
+            throw;
+        }
         if (_selectedFile != null && readContents != null)
         {
             Stream writeStream = await _selectedFile.OpenStreamForWriteAsync();
@@ -210,6 +246,27 @@ public partial record ReadModel : IAsyncLogger
         {
             await this.StartEnabled.SetAsync(true);
         }
+    }
+
+    private async Task UpdateProgress(ProgressUpdate progress)
+    {
+#if ANDROID
+        if (Platforms.Android.DataService.IsServiceRunning())
+        {
+            int fixedPercentage = (int)(progress.Percentage * 100);
+            Platforms.Android.DataService.UpdateProgress(fixedPercentage, $"Reading {progress.PayloadLength} bytes from 0x{progress.Address:X6}");
+        }
+
+#endif
+        await Invoke(async () =>
+        {
+            await this.StatusUpdateActivity($"Reading {progress.PayloadLength} bytes from 0x{progress.Address:X6}");
+            await this.StatusUpdateTimeRemaining($"T-{progress.TimeRemaining}");
+            await this.StatusUpdatePercentDone($"{(progress.Percentage * 100.0):0.00}%");
+            await this.StatusUpdateRetryCount(progress.RetryCount.ToString());
+            await this.StatusUpdateProgressBar(progress.Percentage, true);
+            await this.StatusUpdateKbps($"{progress.Rate} Kbps");
+        });
     }
 
     private async Task Invoke(Action action)

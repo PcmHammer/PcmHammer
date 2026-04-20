@@ -10,9 +10,9 @@
       >
     <Grid utu:SafeArea.Insets="VisibleBounds">
         <Grid.RowDefinitions>
-            <RowDefinition Height="30" x:Name="Status1"/>
-            <RowDefinition Height="30" x:Name="Status2"/>
-            <RowDefinition x:Name="PageRow"/>
+            <RowDefinition Height="1*" x:Name="Status1"/>
+            <RowDefinition Height="1*" x:Name="Status2"/>
+            <RowDefinition Height="26*" x:Name="PageRow"/>
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="1*" />
@@ -21,30 +21,33 @@
             <ColumnDefinition Width="3*" />
             <ColumnDefinition Width="3*" />
             <ColumnDefinition Width="3*" />
+            <ColumnDefinition Width="3*" />
+            <ColumnDefinition Width="3*" />
+            <ColumnDefinition Width="3*" />
         </Grid.ColumnDefinitions>
 
-        <Button Grid.Row="0" Grid.Column="0" Grid.RowSpan="2" x:Name="BackButton" Margin="0"
+        <Button Grid.Row="0" Grid.Column="0" Grid.RowSpan="2" Grid.ColumnSpan="2" x:Name="BackButton" Margin="0"
                 VerticalAlignment="Center"
+                HorizontalAlignment="Left"
                 Style="{StaticResource NavigationBackButtonNormalStyle}"
                 IsEnabled="{Binding BackButtonEnabled}"
                 Command="{Binding GoBack}"
+                Visibility="{Binding IsBackButtonVisible}"
                 ToolTipService.ToolTip="Back" />
 
-        <TextBlock Grid.Row="0" Grid.Column="1" TextAlignment="Center" VerticalAlignment="Bottom" Text="Device" />
-        <TextBlock Grid.Row="1" Grid.Column="1" TextAlignment="Center" VerticalAlignment="Top" Text="{Binding DeviceName}" />
+        <TextBlock Grid.Row="0" Grid.Column="2" Grid.ColumnSpan="3" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Left" Text="{Binding DeviceName}" />
 
-        <TextBlock Grid.Row="0" Grid.Column="2" TextAlignment="Center" VerticalAlignment="Bottom" Text="Device status" />
-        <TextBlock Grid.Row="1" Grid.Column="2" TextAlignment="Center" VerticalAlignment="Top" Text="{Binding DeviceStatus}" />
+        <TextBlock Grid.Row="1" Grid.Column="2" Grid.ColumnSpan="3" TextAlignment="Center" HorizontalAlignment="Left" VerticalAlignment="Center" Text="{Binding DeviceStatus}" />
 
-        <TextBlock Grid.Row="0" Grid.Column="3" TextAlignment="Center" VerticalAlignment="Center" Text="{Binding ConnectionState}" Grid.RowSpan="2" />
+        <TextBlock Grid.Row="0" Grid.Column="4" Grid.ColumnSpan="2" TextAlignment="Center" VerticalAlignment="Center" Text="{Binding ConnectionState}" Grid.RowSpan="2" />
 
-        <TextBlock Grid.Row="0" Grid.Column="4" TextAlignment="Center" VerticalAlignment="Bottom" Text="OSID" />
-        <TextBlock Grid.Row="1" Grid.Column="4" TextAlignment="Center" VerticalAlignment="Top" Text="{Binding OperatingSystemId}" />
+        <TextBlock Grid.Row="0" Grid.Column="6" TextAlignment="Right" VerticalAlignment="Center" HorizontalAlignment="Right" Text="OSID:" Margin="4,0"/>
+        <TextBlock Grid.Row="0" Grid.Column="7" Grid.ColumnSpan="2" TextAlignment="Left" VerticalAlignment="Center" HorizontalAlignment="Left" Text="{Binding OperatingSystemId}" />
 
-        <TextBlock Grid.Row="0" Grid.Column="5" TextAlignment="Center" VerticalAlignment="Bottom" Text="Voltage" />
-        <TextBlock Grid.Row="1" Grid.Column="5" TextAlignment="Center" VerticalAlignment="Top" Text="{Binding Voltage}" />
+        <TextBlock Grid.Row="1" Grid.Column="6" TextAlignment="Left" VerticalAlignment="Center" HorizontalAlignment="Right" Text="Volts:" Margin="4,0" />
+        <TextBlock Grid.Row="1" Grid.Column="7" TextAlignment="Left" VerticalAlignment="Center" HorizontalAlignment="Left" Text="{Binding Voltage}" />
 
-        <Frame Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="6"
+        <Frame Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="9"
                x:Name="ContentFrame" uen:Region.Attached="True"
                Navigated="{x:Bind FrameNavigated}"/>
     </Grid>

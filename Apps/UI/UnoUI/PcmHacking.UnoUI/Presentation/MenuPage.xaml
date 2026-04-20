@@ -19,6 +19,7 @@
       </Grid.ColumnDefinitions>
 
       <Button Grid.Row="0" Grid.Column="0" 
+              Name="SettingsButton"
               Content="Settings"
               Margin="10"
               Padding="10"
@@ -28,6 +29,7 @@
               Command="{Binding GoToSettings}" />
 
       <Button Grid.Row="0" Grid.Column="1" 
+              Name="WritePcmButton"
               Content="Write PCM"
               Margin="10"
               Padding="10"
@@ -37,6 +39,7 @@
               Command="{Binding GoToWrite}" />
 
       <Button Grid.Row="1" Grid.Column="0"
+              Name="OtherFunctionsButton"
               Content="Other Functions"
               Margin="10"
               Padding="10"
@@ -46,6 +49,7 @@
               Command="{Binding GoToOtherFunctions}" />
 
       <Button Grid.Row="1" Grid.Column="1"
+              Name="TestWriteButton"
               Content="Test Write"
               Margin="10"
               Padding="10"
@@ -66,6 +70,7 @@
       </Button>
 
       <Button Grid.Row="2" Grid.Column="1"
+              Name="DataLoggingButton"
               Content="Data Logging"
               Margin="10"
               Padding="10"

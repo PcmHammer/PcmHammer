@@ -17,22 +17,17 @@ using PcmHacking;
 
 namespace PcmHacking
 {
-    public class BluetoothPort : IPort
+    public class BluetoothPort(BluetoothDeviceInfo bluetoothDeviceInfo) : IPort
     {
-        private BluetoothClient _connectedDevice;
-        private BluetoothDeviceInfo _deviceInfo;
-        private NetworkStream _deviceStream;
-        private ConcurrentQueue<byte> _incomingQueue;
-        private CancellationTokenSource _cancellationTokenSource;
-        private Task _ReceiverTask;
-        private int _readTimeout = 3000;
-        private bool _localDebug = true;
-
-        public BluetoothPort(BluetoothDeviceInfo bluetoothDeviceInfo)
-        {
-            _deviceInfo = bluetoothDeviceInfo;
-            _cancellationTokenSource = new();
-        }
+        private BluetoothClient? _connectedDevice = null;
+        private BluetoothDeviceInfo _deviceInfo = bluetoothDeviceInfo;
+        private NetworkStream? _deviceStream = null;
+        private ConcurrentQueue<byte> _incomingQueue = new();
+        private CancellationTokenSource _cancellationTokenSource = new();
+        private Task? _ReceiverTask = null;
+        private int _packetTimeout = 3000;
+        private int _connectionFailTimeout = 2000;
+        private bool _localDebug = false;
 
         public async Task DiscardBuffers()
         {
@@ -61,7 +56,7 @@ namespace PcmHacking
                 if (!_connectedDevice.Connected)
                 {
                     Debug.WriteLine($"Attempting to connect to Bluetooth device {_deviceInfo.DeviceName} at address {_deviceInfo.DeviceAddress}...");
-                    await _connectedDevice.ConnectAsync(_deviceInfo.DeviceAddress, BluetoothService.SerialPort);
+                    await _connectedDevice.ConnectAsync(_deviceInfo.DeviceAddress, BluetoothService.SerialPort).AwaitWithTimeout(TimeSpan.FromMilliseconds(_connectionFailTimeout));
                 }
                 if (_connectedDevice != null && _connectedDevice.Connected)
                 {
@@ -71,6 +66,7 @@ namespace PcmHacking
                     _ReceiverTask.Start();
                     return;
                 }
+                _connectedDevice?.Dispose();
             }
             catch (Exception ex) {
                 Debug.WriteLine($"Error connecting to Bluetooth device {_deviceInfo.DeviceName}: {ex.Message}");
@@ -84,7 +80,7 @@ namespace PcmHacking
             while (await GetReceiveQueueSize() == 0)
             {
                 await Task.Delay(10);
-                if ((DateTime.Now - startTime).TotalMilliseconds > _readTimeout)
+                if ((DateTime.Now - startTime).TotalMilliseconds > _packetTimeout)
                 {
                     throw new TimeoutException();
                 }
@@ -106,15 +102,18 @@ namespace PcmHacking
         public async Task Send(byte[] buffer)
         {
             if (_localDebug) Debug.WriteLine($"Sending bytes={buffer.ToHex()}");
+            if(_deviceStream == null) {
+                throw new IOException("Bluetooth device stream is null.");
+            }
             await _deviceStream.WriteAsync(buffer);
-            await _deviceStream.FlushAsync();
+            await _deviceStream.FlushAsync().AwaitWithTimeout(TimeSpan.FromMilliseconds(_packetTimeout));
         }
 
         public void SetTimeout(int milliseconds)
         {
             // NetorkStream nor MemoryStream natively support timeouts.
             // I neeeded to emulate a read timeout seen above.
-            _readTimeout = milliseconds + 1000;
+            _packetTimeout = milliseconds + 1000;
         }
 
         public override string ToString()
@@ -139,6 +138,7 @@ namespace PcmHacking
                     catch (Exception ex)
                     {
                         if (_localDebug) Debug.WriteLine($"Error reading from Bluetooth device {_deviceInfo.DeviceName}: {ex.Message}");
+                        _cancellationTokenSource.Cancel();
                     }
                     for (int i = 0; i < bytesRead; i++)
                     {
