@@ -1,8 +1,10 @@
+using PcmHacking.ECU;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Net.NetworkInformation;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
@@ -10,6 +12,15 @@ using System.Threading.Tasks;
 
 namespace PcmHacking
 {
+
+    public enum ECUStates
+    {
+        Invalid,
+        Programmed,
+        Kernel,
+        Recovery
+    }
+
     /// <summary>
     /// From the application's perspective, this class is the API to the vehicle.
     /// </summary>
@@ -59,6 +70,35 @@ namespace PcmHacking
         /// with whatever the application is doing.
         /// </summary>
         private ToolPresentNotifier notifier;
+
+        private ECUStates eCUState;
+
+        private ECUBase detectedECU;
+
+
+        public ECUStates ECUState
+        {
+            get
+            {
+                return eCUState;
+            }
+            set
+            {
+                eCUState = value;
+            }
+        }
+
+        public ECUBase? ConnectedECU
+        {
+            get
+            {
+                return detectedECU;
+            }
+            set
+            {
+                detectedECU = value;
+            }
+        }
 
         /// <summary>
         /// Gets a string that describes the device this instance is using.
