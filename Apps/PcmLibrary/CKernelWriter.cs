@@ -1,3 +1,4 @@
+using PcmHacking.ECU;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -118,7 +119,6 @@ namespace PcmHacking
 
                     logger.AddUserMessage("Kernel uploaded to PCM successfully.");
                 }
-
                 // Confirm operating system match
                 await this.vehicle.SendToolPresentNotification();
                 await this.vehicle.SetDeviceTimeout(TimeoutScenario.ReadProperty);
@@ -130,10 +130,13 @@ namespace PcmHacking
                     return false;
                 }
 
-                Utility.ReportOperatingSystems(validator.GetOsidFromImage(), osidResponse.Value, this.writeType, this.logger, out bool shouldHalt);
-                if (needToCheckOperatingSystem && shouldHalt)
+                if (!this.pcmInfo.HardwareTypeOverridden)
                 {
-                    return false;
+                    Utility.ReportOperatingSystems(validator.GetOsidFromImage(), osidResponse.Value, this.writeType, this.logger, out bool shouldHalt);
+                    if (needToCheckOperatingSystem && shouldHalt && !(this.vehicle?.ConnectedECU?.HardwareTypeOverridden ?? false))
+                    {
+                        return false;
+                    }
                 }
 
                 success = await this.Write(cancellationToken, image);
@@ -157,7 +160,7 @@ namespace PcmHacking
                     {
                         case WriteType.None:
                         case WriteType.Compare:
-                        case WriteType.TestWrite:
+                        case WriteType.Test:
                             await this.vehicle.Cleanup();
                             this.logger.AddUserMessage("Something has gone wrong. Please report this error.");
                             this.logger.AddUserMessage("Errors during comparisons or test writes indicate a");
