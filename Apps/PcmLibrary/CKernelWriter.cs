@@ -200,7 +200,7 @@ namespace PcmHacking
                     relevantBlocks = BlockType.All;
                     break;
 
-                case WriteType.TestWrite:
+                case WriteType.Test:
                     relevantBlocks = BlockType.Calibration;
                     break;
 
@@ -275,7 +275,7 @@ namespace PcmHacking
                     allRangesMatch = true;
 
                     // Don't stop here if the user just wants to test their cable.
-                    if (this.writeType == WriteType.TestWrite)
+                    if (this.writeType == WriteType.Test)
                     {
                         if (attempt == 1)
                         {
@@ -294,7 +294,7 @@ namespace PcmHacking
                 }
 
                 // For test writes, report results after the first iteration, then we're done.
-                if ((this.writeType == WriteType.TestWrite) && (attempt > 1))
+                if ((this.writeType == WriteType.Test) && (attempt > 1))
                 {
                     logger.AddUserMessage("Test write complete.");
                     Utility.ReportRetryCount("Write", messageRetryCount, pcmInfo.ImageSize, this.logger);
@@ -337,7 +337,7 @@ namespace PcmHacking
                             range.Address,
                             range.Address + (range.Size - 1)));
 
-                    if (this.writeType == WriteType.TestWrite)
+                    if (this.writeType == WriteType.Test)
                     {
                         this.logger.AddUserMessage("Pretending to erase.");
                     }
@@ -349,7 +349,7 @@ namespace PcmHacking
                         }
                     }
 
-                    if (this.writeType == WriteType.TestWrite)
+                    if (this.writeType == WriteType.Test)
                     {
                         this.logger.AddUserMessage("Pretending to write...");
                     }
@@ -361,7 +361,7 @@ namespace PcmHacking
                     Response<bool> writeResponse = await WriteMemoryRange(
                         range,
                         image,
-                        this.writeType == WriteType.TestWrite,
+                        this.writeType == WriteType.Test,
                         startTime,
                         totalSize,
                         bytesRemaining,
@@ -384,7 +384,7 @@ namespace PcmHacking
 
             if (allRangesMatch)
             {
-                if (this.writeType != WriteType.Compare && this.writeType != WriteType.TestWrite)
+                if (this.writeType != WriteType.Compare && this.writeType != WriteType.Test)
                 {
                     this.logger.AddUserMessage("Flash successful!");
                 }
@@ -447,7 +447,7 @@ namespace PcmHacking
 
         private bool ShouldProcess(MemoryRange range, BlockType relevantBlocks)
         {
-            if ((range.ActualCrc == range.DesiredCrc) && (this.writeType != WriteType.TestWrite))
+            if ((range.ActualCrc == range.DesiredCrc) && (this.writeType != WriteType.Test))
             {
                 return false;
             }
@@ -475,7 +475,7 @@ namespace PcmHacking
         private bool IsWritePlanAllowedByPcmInfo(FlashChip flashChip, BlockType relevantBlocks)
         {
             // Compare and test-write are non-destructive.
-            if (this.writeType == WriteType.Compare || this.writeType == WriteType.TestWrite)
+            if (this.writeType == WriteType.Compare || this.writeType == WriteType.Test)
             {
                 return true;
             }
