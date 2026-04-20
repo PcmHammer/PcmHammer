@@ -287,11 +287,6 @@ namespace PcmHacking
 
         public async Task<UInt32> GetKernelVersion(CancellationToken cancellationToken, int maxRetries = 5)
         {
-            return await this.GetKernelVersion(CancellationToken.None);
-        }
-
-        public async Task<UInt32> GetKernelVersion(CancellationToken cancellationToken)
-        {
             Message query = this.protocol.CreateKernelVersionQuery();
             for (int retryCount = 0; retryCount < maxRetries; retryCount++)
             {
