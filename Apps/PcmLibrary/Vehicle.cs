@@ -33,6 +33,8 @@ namespace PcmHacking
         /// in most cases when only need about 5.
         /// </remarks>
         public const int MaxReceiveAttempts = 5;
+        
+        public CancellationTokenSource ShutdownSignalSource = new CancellationTokenSource(); // Use this as a trigger to say we are ready to dispose the underlying device.
 
         /// <summary>
         /// The device we'll use to talk to the PCM.
@@ -48,6 +50,8 @@ namespace PcmHacking
         /// This is how we send user-friendly status messages and developer-oriented debug messages to the UI.
         /// </summary>
         private ILogger logger;
+
+        private readonly string _basePath;
 
         /// <summary>
         /// Use this to periodically send tool-present messages during long operations, to 
@@ -121,12 +125,14 @@ namespace PcmHacking
             Device device,
             Protocol protocol,
             ILogger logger,
-            ToolPresentNotifier notifier)
+            ToolPresentNotifier notifier,
+            string basePath)
         {
             this.device = device;
             this.protocol = protocol;
             this.logger = logger;
             this.notifier = notifier;
+            _basePath = basePath;
         }
 
         /// <summary>
@@ -149,10 +155,10 @@ namespace PcmHacking
         /// <summary>
         /// Part of the Dispose pattern.
         /// </summary>
-        protected void Dispose(bool isDisposing)
+        protected async Task Dispose(bool isDisposing)
         {
-            if (this.device != null)
-            {
+            if (ShutdownSignalSource.IsCancellationRequested) // Prevent the disposal of the Vehicle class from disposing the device. This can then be held by ConnectionService to be passed back in.
+            { 
                 this.device.Dispose();
                 this.device = null;
             }
@@ -237,6 +243,18 @@ namespace PcmHacking
         {
             return await this.device.ReceiveMessage();
         }
+
+
+        public async Task<Response<bool>> CheckForRecoveryMode(CancellationToken cancellationToken)
+        {
+            bool result = await this.device.IsCommandBroadcasting(0xA2);
+            if (result)
+            {
+                return Response.Create(ResponseStatus.Success, result);
+            }
+            return Response.Create(ResponseStatus.Success, false);
+        }
+
 
         /// <summary>
         /// Note that this has only been confirmed to work with ObdLink ScanTool devices.
@@ -517,7 +535,7 @@ namespace PcmHacking
 
             return Response.Create<byte[]>(lastStatus, new byte[0]);
         }
-
+       
         public async Task<Response<int>> BeginCrankRelearn()
         {
             Message request = this.protocol.CreateCrankRelearnRequest();

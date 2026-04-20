@@ -218,5 +218,10 @@ namespace PcmHacking
                 responseBytes.AddRange(buffer);
             }
         }
+
+        public Task ChangeBaudRate(int baudRate)
+        {
+            return Task.CompletedTask;
+        }
     }
 }

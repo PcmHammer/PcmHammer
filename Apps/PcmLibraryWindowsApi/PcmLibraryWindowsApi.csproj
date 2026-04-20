@@ -42,6 +42,10 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="InTheHand.Net.Bluetooth" />
+    <PackageReference Include="System.Management" />
+  </ItemGroup>
+  <ItemGroup>
     <Compile Include="DeviceConfiguration.cs" />
     <Compile Include="Devices\DeviceFactory.cs" />
     <Compile Include="Devices\J2534Device.cs" />

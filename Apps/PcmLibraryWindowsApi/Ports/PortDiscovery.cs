@@ -71,7 +71,7 @@ namespace PcmHacking
         string SystemName;
         */
 
-        private string Name;
+        public string Name { get; private set; }
 
         public string PortName { get; private set; }
         public string DeviceID { get; private set; }

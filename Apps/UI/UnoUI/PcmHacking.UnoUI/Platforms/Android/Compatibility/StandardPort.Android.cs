@@ -90,6 +90,13 @@ public class StandardPort : IPort
         }
     }
 
+    public Task ChangeBaudRate(int baudRate)
+    {
+        this.port.BaudRate = baudRate;
+        this.port.DiscardInBuffer();
+        return Task.CompletedTask;
+    }
+
     public void Dispose()
     {
         this.port?.Dispose();

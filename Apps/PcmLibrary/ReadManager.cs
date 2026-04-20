@@ -42,6 +42,48 @@ namespace PcmHacking
             this.cancellationToken = cancellationToken;
         }
 
+        public async Task<bool> Read(string path)
+        {
+            Stream? readContents = await Read();
+            if (readContents == null)
+            {
+                return false;
+            }
+            // Save the contents to the path that the user provided.
+            while (true)
+            {
+                try
+                {
+                    this.logger.AddUserMessage("Saving contents to " + path);
+
+                    readContents.Position = 0;
+
+                    using (Stream output = File.Open(path, FileMode.Create))
+                    {
+                        await readContents.CopyToAsync(output);
+                    }
+
+                    return true;
+                }
+                catch (IOException exception)
+                {
+                    this.logger.AddUserMessage("Unable to save file: " + exception.Message);
+                    this.logger.AddDebugMessage(exception.ToString());
+
+                    await this.invoke(async () => path = await this.promptForFilePath());
+                    if (path == null)
+                    {
+                        this.logger.AddUserMessage("Save canceled.");
+
+                        // Returning true to indicate that the read worked. It doesn't
+                        // really matter that the user chose not to keep the file.
+                        return true;
+                    }
+                }
+            }
+
+        }
+
         /// <summary>
         /// Contains cross-platform code to handle user interactions to read the PCM's flash memory.
         /// </summary>
@@ -49,7 +91,7 @@ namespace PcmHacking
         /// The return value should be used to suppress future warnings about using an unproven connection.
         /// </remarks>
         /// <returns>True if the read was successful, fales if failed or aborted.</returns>
-        public async Task<bool> Read(string path)
+        public async Task<Stream?> Read()
         {
             this.logger.AddUserMessage("Querying operating system of current PCM.");
             Response<uint> osidResponse = await this.vehicle.QueryOperatingSystemId(this.cancellationToken);
@@ -94,7 +136,7 @@ namespace PcmHacking
                 string msg = $"Abort: The connected {pcmInfo.HardwareType.ToString()} PCM is not supported.";
                 this.logger.AddUserMessage(msg);
                 await this.invoke(async () => await this.alert(msg, "Abort"));
-                return false;
+                return null;
             }
 
             if (!pcmInfo.IsSupportedRead)
@@ -102,7 +144,7 @@ namespace PcmHacking
                 string msg = $"Abort: The connected {pcmInfo.HardwareType.ToString()} PCM is not supported for read operations.";
                 this.logger.AddUserMessage(msg);
                 await this.invoke(async () => await this.alert(msg, "Abort"));
-                return false;
+                return null;
             }
 
             if (pcmInfo.HardwareType == PcmType.P05)
@@ -114,7 +156,7 @@ namespace PcmHacking
                 if (!shouldContinue)
                 {
                     this.logger.AddUserMessage("User chose not to proceed.");
-                    return false;
+                    return null;
                 }
             }
 
@@ -124,14 +166,14 @@ namespace PcmHacking
             if (!unlocked)
             {
                 this.logger.AddUserMessage("Unlock was not successful.");
-                return false;
+                return null;
             }
 
             this.logger.AddUserMessage("Unlock succeeded.");
 
             if (cancellationToken.IsCancellationRequested)
             {
-                return false;
+                return null;
             }
 
             // Do the actual reading.
@@ -148,41 +190,9 @@ namespace PcmHacking
             if (readResponse.Status != ResponseStatus.Success)
             {
                 this.logger.AddUserMessage("Read failed, " + readResponse.Status.ToString());
-                return false;
+                return null;
             }
-
-            // Save the contents to the path that the user provided.
-            while(true)
-            {
-                try
-                {
-                    this.logger.AddUserMessage("Saving contents to " + path);
-
-                    readResponse.Value.Position = 0;
-
-                    using (Stream output = File.Open(path, FileMode.Create))
-                    {
-                        await readResponse.Value.CopyToAsync(output);
-                    }
-
-                    return true;
-                }
-                catch (IOException exception)
-                {
-                    this.logger.AddUserMessage("Unable to save file: " + exception.Message);
-                    this.logger.AddDebugMessage(exception.ToString());
-
-                    await this.invoke(async () => path = await this.promptForFilePath());
-                    if (path == null)
-                    {
-                        this.logger.AddUserMessage("Save canceled.");
-
-                        // Returning true to indicate that the read worked. It doesn't
-                        // really matter that the user chose not to keep the file.
-                        return true;
-                    }
-                }
-            }
+            return readResponse.Value;
         }
     }
 }

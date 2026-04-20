@@ -6,6 +6,7 @@
       xmlns:utu="using:Uno.Toolkit.UI"
       NavigationCacheMode="Required"
       Loaded="Page_Loaded"
+      Unloaded="Page_Unloaded"
       >
     <Grid utu:SafeArea.Insets="VisibleBounds">
         <Grid.RowDefinitions>
@@ -29,11 +30,11 @@
                 Command="{Binding GoBack}"
                 ToolTipService.ToolTip="Back" />
 
-        <TextBlock Grid.Row="0" Grid.Column="1" TextAlignment="Center" VerticalAlignment="Bottom" Text="Serial Port" />
-        <TextBlock Grid.Row="1" Grid.Column="1" TextAlignment="Center" VerticalAlignment="Top" Text="{Binding SerialPortName}" />
+        <TextBlock Grid.Row="0" Grid.Column="1" TextAlignment="Center" VerticalAlignment="Bottom" Text="Device" />
+        <TextBlock Grid.Row="1" Grid.Column="1" TextAlignment="Center" VerticalAlignment="Top" Text="{Binding DeviceName}" />
 
-        <TextBlock Grid.Row="0" Grid.Column="2" TextAlignment="Center" VerticalAlignment="Bottom" Text="Device" />
-        <TextBlock Grid.Row="1" Grid.Column="2" TextAlignment="Center" VerticalAlignment="Top" Text="{Binding DeviceName}" />
+        <TextBlock Grid.Row="0" Grid.Column="2" TextAlignment="Center" VerticalAlignment="Bottom" Text="Device status" />
+        <TextBlock Grid.Row="1" Grid.Column="2" TextAlignment="Center" VerticalAlignment="Top" Text="{Binding DeviceStatus}" />
 
         <TextBlock Grid.Row="0" Grid.Column="3" TextAlignment="Center" VerticalAlignment="Center" Text="{Binding ConnectionState}" Grid.RowSpan="2" />
 

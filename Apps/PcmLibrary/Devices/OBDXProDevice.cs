@@ -454,6 +454,25 @@ namespace PcmHacking
 
         }
 
+        public override async Task<bool> IsCommandBroadcasting(byte command)
+        {
+            this.ClearMessageQueue();
+            byte[] expectedMsg = [Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, command, 0x00];
+            await this.ReadDVIPacket(200);
+            Message incoming = await ReceiveMessage();
+            if (incoming != null)
+            {
+                byte[] recv = incoming.GetBytes();
+                if(recv.Length >= 5)
+                {
+                    expectedMsg[4] = recv[4];
+                }
+                if (Utility.CompareArrays(recv, expectedMsg))
+                    return true;
+            }
+            return false;
+        }
+
         /// <summary>
         /// Calc checksum for byte array for all messages to/from device
         /// </summary>
@@ -618,7 +637,7 @@ namespace PcmHacking
             Msg[Msg.Length - 1] = CalcChecksum(Msg);
             await this.Port.Send(Msg);
             System.Threading.Thread.Sleep(200);
-           // await Task.Delay(200);
+            // await Task.Delay(200);
             await this.Port.DiscardBuffers();
 
             //Send ELM reset
@@ -945,7 +964,12 @@ namespace PcmHacking
 
         public override void ClearMessageBuffer()
         {
-            this.Port.DiscardBuffers();
+            try
+            {
+                this.Port.DiscardBuffers();
+            } catch {
+                this.Dispose();
+            }
         }
 
         /// <summary>
@@ -1068,6 +1092,24 @@ namespace PcmHacking
             }
 
             return result;
+        }
+
+        public async override Task<bool> CheckDeviceConnection() // This should only be called on a device already in DVI mode.
+        {
+            byte[] sendBytes = OBDXProDevice.DVI_BOARD_NAME.GetBytes();
+            sendBytes[sendBytes.Length - 1] = CalcChecksum(sendBytes);
+            await this.Port.Send(sendBytes);
+            Response<Message> response = await ReadDVIPacket(200);
+            if(response.Status == ResponseStatus.Success)
+            {
+                byte[] val = response.Value.GetBytes();
+                string nameTest = System.Text.Encoding.ASCII.GetString(val, 3, val[1] - 1);
+                if(nameTest == ToolConnected)
+                {
+                    return true;
+                }
+            }
+            return false;
         }
     }
 }

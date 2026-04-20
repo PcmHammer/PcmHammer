@@ -14,6 +14,7 @@ namespace PcmHacking
         {
             public const string DeviceCategorySerial = "Serial";
             public const string DeviceCategoryJ2534 = "J2534";
+            public const string DeviceCategoryBT = "Bluetooth";
         }
     }
 }

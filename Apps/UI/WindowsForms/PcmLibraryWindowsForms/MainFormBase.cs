@@ -114,7 +114,6 @@ namespace PcmHacking
                 this.vehicle.Dispose();
                 this.vehicle = null;
             }
-
             Device device = DeviceFactory.CreateDeviceFromConfigurationSettings(this);
             if (device == null)
             {
@@ -138,7 +137,8 @@ namespace PcmHacking
                 device,
                 protocol,
                 this,
-                new ToolPresentNotifier(device, protocol, this));
+                new ToolPresentNotifier(device, protocol, this),
+                string.Empty); //Logic will treat an empty string as a trigger method to fetch path.
 
             if (!await this.InitializeCurrentDevice())
             {

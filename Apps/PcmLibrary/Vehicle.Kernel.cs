@@ -84,10 +84,17 @@ namespace PcmHacking
             {
                 return Response.Create(ResponseStatus.Error, file);
             }
-
-            string exePath = System.Reflection.Assembly.GetExecutingAssembly().Location;
-            string exeDirectory = Path.GetDirectoryName(exePath);
-            path = Path.Combine(exeDirectory, path);
+            string finalDir = string.Empty;
+            if(_basePath == string.Empty)
+            {
+                string exePath = System.Reflection.Assembly.GetExecutingAssembly().Location;
+                finalDir = Path.GetDirectoryName(exePath);
+            }
+            else
+            {
+                finalDir = _basePath;
+            }
+            path = Path.Combine(_basePath, path);
 
             try
             {
@@ -273,7 +280,12 @@ namespace PcmHacking
         /// Check for a running kernel.
         /// </summary>
         /// <returns></returns>
-        public async Task<UInt32> GetKernelVersion()
+        public async Task<UInt32> GetKernelVersion(int maxRetries = 5)
+        {
+            return await this.GetKernelVersion(CancellationToken.None);
+        }
+
+        public async Task<UInt32> GetKernelVersion(CancellationToken cancellationToken, int maxRetries = 5)
         {
             return await this.GetKernelVersion(CancellationToken.None);
         }
@@ -281,7 +293,7 @@ namespace PcmHacking
         public async Task<UInt32> GetKernelVersion(CancellationToken cancellationToken)
         {
             Message query = this.protocol.CreateKernelVersionQuery();
-            for (int retryCount = 0; retryCount < 5; retryCount++)
+            for (int retryCount = 0; retryCount < maxRetries; retryCount++)
             {
                 if (cancellationToken.IsCancellationRequested)
                 {

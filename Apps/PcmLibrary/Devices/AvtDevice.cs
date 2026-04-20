@@ -61,6 +61,58 @@ namespace PcmHacking
             await this.Port.OpenAsync(configuration);
             await this.Port.DiscardBuffers();
 
+            m = await ResetDevice();
+            if (m.Status == ResponseStatus.Error)
+            {
+                return false;
+            }
+
+            this.Logger.AddDebugMessage("Looking for Firmware message");
+            if (this.Model == 838)
+            {
+                await this.Port.Send(AvtDevice.AVT_REQUEST_FIRMWARE.GetBytes()); // we need to request this on 838 but the 852 sends it without being asked. 842 needs testing.
+            }
+
+            m = await this.FindResponse(AVT_FIRMWARE);
+            if (m.Status == ResponseStatus.Success)
+            {
+                byte firmware = m.Value.GetBytes()[1];
+                int major = firmware >> 4;
+                int minor = firmware & 0x0F;
+                this.Logger.AddUserMessage("AVT Firmware " + major + "." + minor);
+            }
+            else
+            {
+                this.Logger.AddUserMessage("Firmware not found or failed reset");
+                this.Logger.AddDebugMessage("Expected " + AVT_FIRMWARE.GetBytes());
+                return false;
+            }
+
+            // 838 defaults to vpw mode, so dont set it on that device.
+            if (this.Model != 838)
+            {
+                await this.Port.Send(AvtDevice.AVT_ENTER_VPW_MODE.GetBytes());
+                m = await FindResponse(AVT_VPW);
+                if (m.Status == ResponseStatus.Success)
+                {
+                    this.Logger.AddDebugMessage("Set VPW Mode");
+                }
+                else
+                {
+                    this.Logger.AddUserMessage("Unable to set AVT device to VPW mode");
+                    this.Logger.AddDebugMessage("Expected " + AvtDevice.AVT_VPW.ToString());
+                    return false;
+                }
+            }
+
+            await AVTSetup();
+
+            return true;
+        }
+
+        public async Task<Response<Message>> ResetDevice()
+        {
+            Response<Message> m;
             this.Logger.AddDebugMessage("Sending 'reset' message.");
             await this.Port.Send(AvtDevice.AVT_RESET.GetBytes());
             m = await ReadAVTPacket();
@@ -84,55 +136,16 @@ namespace PcmHacking
                         break;
                     default:
                         this.Logger.AddUserMessage("Unknown and unsupported AVT device detected. Please add support and submit a patch!");
-                        return false;
+                        return Response.Create(ResponseStatus.Error, (Message)null);
                 }
             }
             else
             {
                 this.Logger.AddUserMessage("AVT device not found or failed reset");
-                return false;
+                return Response.Create(ResponseStatus.Error, (Message)null);
             }
 
-            this.Logger.AddDebugMessage("Looking for Firmware message");
-            if (this.Model == 838)
-            {
-                await this.Port.Send(AvtDevice.AVT_REQUEST_FIRMWARE.GetBytes()); // we need to request this on 838 but the 852 sends it without being asked. 842 needs testing.
-            }
-
-            m = await this.FindResponse(AVT_FIRMWARE);
-            if ( m.Status == ResponseStatus.Success )
-            {
-                byte firmware = m.Value.GetBytes()[1];
-                int major = firmware >> 4;
-                int minor = firmware & 0x0F;
-                this.Logger.AddUserMessage("AVT Firmware " + major + "." + minor);
-            }
-            else
-            {
-                this.Logger.AddUserMessage("Firmware not found or failed reset");
-                this.Logger.AddDebugMessage("Expected " + AVT_FIRMWARE.GetBytes());
-                return false;
-            }
-
-            // 838 defaults to vpw mode, so dont set it on that device.
-            if (this.Model != 838) {
-                await this.Port.Send(AvtDevice.AVT_ENTER_VPW_MODE.GetBytes());
-                m = await FindResponse(AVT_VPW);
-                if (m.Status == ResponseStatus.Success)
-                {
-                    this.Logger.AddDebugMessage("Set VPW Mode");
-                }
-                else
-                {
-                    this.Logger.AddUserMessage("Unable to set AVT device to VPW mode");
-                    this.Logger.AddDebugMessage("Expected " + AvtDevice.AVT_VPW.ToString());
-                    return false;
-                }
-            }
-
-            await AVTSetup();
-
-            return true;
+            return Response.Create(ResponseStatus.Success, m.Value);
         }
 
         /// <summary>
@@ -418,6 +431,36 @@ namespace PcmHacking
         {
             this.Port.DiscardBuffers();
             System.Threading.Thread.Sleep(50);
+        }
+
+        // This needs testing, but in theory should work.
+        public override async Task<bool> IsCommandBroadcasting(byte command)
+        {
+            this.ClearMessageQueue();
+            byte[] expectedMsg = [Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, command, 0x00];
+            Message incoming = await ReceiveMessage();
+            if (incoming != null)
+            {
+                byte[] recv = incoming.GetBytes();
+                if (recv.Length >= 5)
+                {
+                    expectedMsg[4] = recv[4];
+                }
+                if (Utility.CompareArrays(recv, expectedMsg))
+                    return true;
+            }
+            return false;
+        }
+
+        // There might be a better way to achieve this with AVT.
+        public async override Task<bool> CheckDeviceConnection()
+        {
+            Response<Message> m = await ResetDevice();
+            if (m.Status == ResponseStatus.Error)
+            {
+                return false;
+            }
+            return true;
         }
     }    
 }
