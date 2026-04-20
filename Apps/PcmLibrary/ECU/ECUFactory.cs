@@ -35,7 +35,7 @@ namespace PcmHacking.ECU
                 controller.SetCurrentOSID(osid);
                 return controller;
             }
-            controller = new UnsupportedECU();
+            controller = new UndefinedECU();
             controller.SetCurrentOSID(osid);
             return controller;
         }

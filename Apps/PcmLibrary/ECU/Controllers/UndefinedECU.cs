@@ -4,11 +4,11 @@ using System.Linq;
 using System.Text;
 
 namespace PcmHacking.ECU.Controllers {
-    public class UnsupportedECU : ECUBase {
-        public UnsupportedECU() {
+    public class UndefinedECU : ECUBase {
+        public UndefinedECU() {
             Manufacturer = "---";
-            this.Description = "Unsupported ECU";
-            this.HardwareType = PcmType.Unsupported;
+            this.Description = "Undefined ECU";
+            this.HardwareType = PcmType.Undefined;
             KnownOperatingSystems = new List<OSInfo>() {
                 { new OSInfo("GM", 9350054, -1, 0) },
                 { new OSInfo("GM", 9350490, -1, 0) },
