@@ -1,4 +1,5 @@
-﻿using System;
+﻿using PcmHacking.ECU;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -16,6 +17,7 @@ namespace PcmHacking
         private readonly Protocol protocol;
         private readonly ECUBase pcmInfo;
         private readonly ILogger logger;
+        private readonly IProgress<ProgressUpdate> progress;
 
         public CKernelVerifier(
             byte[] image, 
@@ -23,7 +25,8 @@ namespace PcmHacking
             Vehicle vehicle, 
             Protocol protocol, 
             ECUBase pcmInfo,
-            ILogger logger)
+            ILogger logger,
+            IProgress<ProgressUpdate> progress)
         {
             this.image = image;
             this.ranges = ranges;
@@ -31,6 +34,7 @@ namespace PcmHacking
             this.protocol = protocol;
             this.pcmInfo = pcmInfo;
             this.logger = logger;
+            this.progress = progress;
         }
 
         /// <summary>
@@ -92,7 +96,8 @@ namespace PcmHacking
 
                 await this.vehicle.SendToolPresentNotification();
                 this.vehicle.ClearDeviceMessageQueue();
-                logger.StatusUpdateActivity($"Processing CRC for range {range.Address:X6}-{range.Address + (range.Size - 1):X6}");
+                progress.Report(new ProgressUpdate { Activity = $"Processing CRC: range {range.Address:X6}-{range.Address + (range.Size - 1):X6}" });
+                //logger.StatusUpdateActivity($"Processing CRC: range {range.Address:X6}-{range.Address + (range.Size - 1):X6}");
 
                 // For C Kernels each poll of the pcm causes it to CRC 16kb of segment data.
                 // When the segment sum is available it is returned.
@@ -104,8 +109,8 @@ namespace PcmHacking
                 Message query = this.protocol.CreateCrcQuery(range.Address, range.Size);
                 for (int segment = 0; segment < maxAttempts; segment++)
                 {
-                    logger.StatusUpdateActivity($"Processing CRC for range {range.Address:X6}-{range.Address + (range.Size - 1):X6}");
-                    logger.StatusUpdateProgressBar((double)segment / maxAttempts, true);
+                    progress.Report(new ProgressUpdate { Activity = $"Processing CRC: range {range.Address:X6}-{range.Address + (range.Size - 1):X6}", Percentage = (double)segment / maxAttempts, ProgressBarVisible = true });
+                    //logger.StatusUpdateProgressBar((double)segment / maxAttempts, true);
 
                     if (cancellationToken.IsCancellationRequested)
                     {
@@ -149,7 +154,8 @@ namespace PcmHacking
                     crc = crcResponse.Value;
                     break;
                 }
-                logger.StatusUpdateProgressBar(0, false);
+                progress.Report(new ProgressUpdate { Activity = $"Finished CRC calulations.", Percentage = 0, ProgressBarVisible = true });
+                //logger.StatusUpdateProgressBar(0, false);
 
                 if (!success)
                 {

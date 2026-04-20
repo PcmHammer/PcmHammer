@@ -29,14 +29,16 @@ namespace PcmHacking
         private readonly Protocol protocol;
         private readonly WriteType writeType;
         private readonly ILogger logger;
+        private readonly IProgress<ProgressUpdate> progress;
 
-        public CKernelWriter(Vehicle vehicle, OSIDInfo pcmInfo, Protocol protocol, WriteType writeType, ILogger logger)
+        public CKernelWriter(Vehicle vehicle, ECUBase pcmInfo, Protocol protocol, WriteType writeType, ILogger logger, IProgress<ProgressUpdate> progress)
         {
             this.vehicle = vehicle;
             this.pcmInfo = pcmInfo;
             this.protocol = protocol;
             this.writeType = writeType;
             this.logger = logger;
+            this.progress = progress;
         }
 
         /// <summary>
@@ -269,7 +271,8 @@ namespace PcmHacking
                 this.vehicle,
                 this.protocol,
                 this.pcmInfo,
-                this.logger);
+                this.logger,
+                progress);
 
             bool allRangesMatch = false;
             int messageRetryCount = 0;
