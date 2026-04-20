@@ -1,3 +1,4 @@
+using PcmHacking.ECU;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -10,41 +11,36 @@ namespace PcmHacking
     /// <summary>
     /// Contains flash-reading code shared by the WinForms and Uno user interfaces.
     /// </summary>
-    public class ReadManager
+    public class ReadManager : IControllerManager
     {
-        private ILogger logger;
-        private Vehicle vehicle;
-        private Func<Action, Task> invoke;
-        private Func<Task<string>> promptForFilePath;
-        private Func<Task<UInt32>> promptForOperatingSystemId;
-        private Func<string, string, Task> alert;
-        private Func<string, string, Task<bool>> promptForYesNo;
-        private CancellationToken cancellationToken;
+        private ILogger _logger;
+        private Vehicle _vehicle;
+        private ControllerPageObjects _pageObjects;
+        private ECUActionArguments _actionArguments;
+        private CancellationToken _cancellationToken;
+        private IProgress<ProgressUpdate>? _progress;
 
         public ReadManager(
-            ILogger logger, 
+            ILogger logger,
             Vehicle vehicle,
-            Func<Action, Task> invoke, 
-            Func<Task<string>> promptForFilePath,
-            Func<Task<UInt32>> promptForOperatingSystemId,
-            Func<string, string, Task> alert,
-            Func<string, string, Task<bool>> promptForYesNo,
-            CancellationToken cancellationToken
+            ECUActionArguments actionArguments,
+            ControllerPageObjects pageObjects,
+            CancellationToken cancellationToken,
+            IProgress<ProgressUpdate>? progress
             )
         {
-            this.logger = logger;
-            this.vehicle = vehicle;
-            this.invoke = invoke;
-            this.promptForFilePath = promptForFilePath;
-            this.promptForOperatingSystemId = promptForOperatingSystemId;
-            this.alert = alert;
-            this.promptForYesNo = promptForYesNo;
-            this.cancellationToken = cancellationToken;
+            _logger = logger;
+            _vehicle = vehicle;
+            _actionArguments = actionArguments;
+            _pageObjects = pageObjects;
+            _cancellationToken = cancellationToken;
+            _progress = progress;
         }
 
-        public async Task<bool> Read(string path)
+        public async Task<bool> Begin(string path)
         {
-            Stream? readContents = await Read();
+            MemoryStream? readContents = null;
+            await Begin(readContents);
             if (readContents == null)
             {
                 return false;
@@ -54,7 +50,7 @@ namespace PcmHacking
             {
                 try
                 {
-                    this.logger.AddUserMessage("Saving contents to " + path);
+                    _logger.AddUserMessage("Saving contents to " + path);
 
                     readContents.Position = 0;
 
@@ -67,13 +63,13 @@ namespace PcmHacking
                 }
                 catch (IOException exception)
                 {
-                    this.logger.AddUserMessage("Unable to save file: " + exception.Message);
-                    this.logger.AddDebugMessage(exception.ToString());
+                    _logger.AddUserMessage("Unable to save file: " + exception.Message);
+                    _logger.AddDebugMessage(exception.ToString());
 
-                    await this.invoke(async () => path = await this.promptForFilePath());
+                    await _pageObjects.Invoke(async () => path = await _pageObjects.PromptForSavePath());
                     if (path == null)
                     {
-                        this.logger.AddUserMessage("Save canceled.");
+                        _logger.AddUserMessage("Save canceled.");
 
                         // Returning true to indicate that the read worked. It doesn't
                         // really matter that the user chose not to keep the file.
@@ -91,108 +87,141 @@ namespace PcmHacking
         /// The return value should be used to suppress future warnings about using an unproven connection.
         /// </remarks>
         /// <returns>True if the read was successful, fales if failed or aborted.</returns>
-        public async Task<Stream?> Read(IProgress<ProgressUpdate>? progress = null)
+        public async Task<bool> Begin(MemoryStream? contentStream)
         {
-            this.logger.AddUserMessage("Querying operating system of current PCM.");
-            Response<uint> osidResponse = await this.vehicle.QueryOperatingSystemId(this.cancellationToken);
-            if (osidResponse.Status != ResponseStatus.Success)
+            ECUBase pcmInfo = null;
+            switch (_vehicle.ECUState)
             {
-                this.logger.AddUserMessage("Operating system query failed, will retry: " + osidResponse.Status);
-                await this.vehicle.ExitKernel();
+                case ECUStates.Invalid:
+                    _logger.AddUserMessage("Querying operating system of current PCM.");
+                    Response<uint> osidResponse = await _vehicle.QueryOperatingSystemId(_cancellationToken);
+                    if (osidResponse.Status != ResponseStatus.Success)
+                    {
+                        _logger.AddUserMessage("Operating system query failed, will retry: " + osidResponse.Status);
+                        await _vehicle.ExitKernel();
 
-                osidResponse = await this.vehicle.QueryOperatingSystemId(this.cancellationToken);
-                if (osidResponse.Status != ResponseStatus.Success)
-                {
-                    this.logger.AddUserMessage("Operating system query failed: " + osidResponse.Status);
-                }
+                        osidResponse = await _vehicle.QueryOperatingSystemId(_cancellationToken);
+                        if (osidResponse.Status != ResponseStatus.Success)
+                        {
+                            _logger.AddUserMessage("Operating system query failed: " + osidResponse.Status);
+                        }
+                    }
+                    if (osidResponse.Status == ResponseStatus.Success)
+                    {
+                        // Look up the information about this PCM, based on the OSID;
+                        _logger.AddUserMessage("OSID: " + osidResponse.Value);
+                        pcmInfo = ECUFactory.GetControllerByOSID(osidResponse.Value);
+                        _logger.AddUserMessage("Description: " + pcmInfo.ToString());
+                    }
+                    else
+                    {
+                        _logger.AddUserMessage("Unable to get operating system ID. Will assume this can be unlocked with the default seed/key algorithm.");
+
+                        UInt32 OperatingSystemId = 0;
+
+                        await _vehicle.ForceSendToolPresentNotification();
+                        await _pageObjects.Invoke(async () => OperatingSystemId = await _pageObjects.PromptForHardwareType());
+                        await _vehicle.ForceSendToolPresentNotification();
+
+                        pcmInfo = ECUFactory.GetControllerByOSID(OperatingSystemId); // osid
+
+                        _logger.AddUserMessage($"Using OsID: {pcmInfo.CurrentOS.OSID}");
+                    }
+                    break;
+                case ECUStates.Programmed:
+                    pcmInfo = _vehicle.ConnectedECU;
+                    _logger.AddUserMessage("OSID: " + pcmInfo.CurrentOS.OSID);
+                    _logger.AddUserMessage("Description: " + pcmInfo.ToString());
+                    break;
+                case ECUStates.Kernel: // These will be handled down the line.
+                    _logger.AddUserMessage("PCM is in kernel mode.");
+                        osidResponse = await _vehicle.QueryOperatingSystemIdFromKernel(_cancellationToken);
+                        if (osidResponse.Status != ResponseStatus.Success)
+                        {
+                            // The kernel seems broken. This shouldn't happen, but if it does, halt.
+                            _logger.AddUserMessage("The kernel did not respond to operating system ID query.");
+                            return false;
+                        }
+                        pcmInfo = ECUFactory.GetControllerByOSID(osidResponse.Value);
+                    break;
+                case ECUStates.Recovery: // Handled by hardware overrride 
+                    break;
             }
-
-            OSIDInfo pcmInfo;
-            if (osidResponse.Status == ResponseStatus.Success)
+            if (pcmInfo == null)
             {
-                // Look up the information about this PCM, based on the OSID;
-                this.logger.AddUserMessage("OSID: " + osidResponse.Value);
-                pcmInfo = new OSIDInfo(osidResponse.Value);
-                this.logger.AddUserMessage("Description: " + pcmInfo.Description);
+                throw new NullReferenceException(nameof(pcmInfo));
             }
-            else
+            if(!pcmInfo.IsSupported && _actionArguments.HardwareType != PcmType.Undefined)
             {
-                this.logger.AddUserMessage("Unable to get operating system ID. Will assume this can be unlocked with the default seed/key algorithm.");
-
-                UInt32 OperatingSystemId = 0;
-
-                await this.vehicle.ForceSendToolPresentNotification();
-                await this.invoke(async () => OperatingSystemId = await this.promptForOperatingSystemId());
-                await this.vehicle.ForceSendToolPresentNotification();
-
-                pcmInfo = new OSIDInfo(OperatingSystemId); // osid
-
-                this.logger.AddUserMessage($"Using OsID: {pcmInfo.OSID}");
+                _logger.AddUserMessage("Detected hardware type override on Unsupported ECU. Please be sure to post results!");
+                pcmInfo = ECUFactory.GetControllerOverride(_actionArguments.HardwareType, pcmInfo.CurrentOS.OSID);
+                _logger.AddUserMessage($"Continuing read with hardware type of {_actionArguments.HardwareType}");
             }
-
             // Pre flight checks to block invalid write operations by PCM type.
             if (!pcmInfo.IsSupported)
             {
                 string msg = $"Abort: The connected {pcmInfo.HardwareType.ToString()} PCM is not supported.";
-                this.logger.AddUserMessage(msg);
-                await this.invoke(async () => await this.alert(msg, "Abort"));
-                return null;
+                _logger.AddUserMessage(msg);
+                await _pageObjects.Invoke(async () => await _pageObjects.ShowAlert(msg, "Abort"));
+                return false;
             }
 
             if (!pcmInfo.IsSupportedRead)
             {
                 string msg = $"Abort: The connected {pcmInfo.HardwareType.ToString()} PCM is not supported for read operations.";
-                this.logger.AddUserMessage(msg);
-                await this.invoke(async () => await this.alert(msg, "Abort"));
-                return null;
+                _logger.AddUserMessage(msg);
+                await _pageObjects.Invoke(async () => await _pageObjects.ShowAlert(msg, "Abort"));
+                return false;
             }
 
-            if (pcmInfo.HardwareType == PcmType.P05)
+            if (pcmInfo.IsUnderDevelopment)
             {
                 string msg = $"WARNING: {pcmInfo.HardwareType.ToString()} Support is still in development.";
-                this.logger.AddUserMessage(msg);
+                _logger.AddUserMessage(msg);
                 bool shouldContinue = false;
-                await this.invoke(async () => { shouldContinue = await this.promptForYesNo(msg, "Continue?"); });                
+                await _pageObjects.Invoke(async () => { shouldContinue = await _pageObjects.PromptYesOrNo(msg, "Continue?"); });
                 if (!shouldContinue)
                 {
-                    this.logger.AddUserMessage("User chose not to proceed.");
-                    return null;
+                    _logger.AddUserMessage("User chose not to proceed.");
+                    return false;
                 }
             }
 
-            await this.vehicle.SuppressChatter();
+            await _vehicle.SuppressChatter();
 
-            bool unlocked = await this.vehicle.UnlockEcu(pcmInfo.KeyAlgorithm);
+            bool unlocked = await _vehicle.UnlockEcu(pcmInfo.KeyAlgorithm);
             if (!unlocked)
             {
-                this.logger.AddUserMessage("Unlock was not successful.");
-                return null;
+                _logger.AddUserMessage("Unlock was not successful.");
+                return false;
             }
 
-            this.logger.AddUserMessage("Unlock succeeded.");
+            _logger.AddUserMessage("Unlock succeeded.");
 
-            if (cancellationToken.IsCancellationRequested)
+            if (_cancellationToken.IsCancellationRequested)
             {
-                return null;
+                return false;
             }
 
             // Do the actual reading.
             DateTime start = DateTime.Now;
 
             CKernelReader reader = new CKernelReader(
-                this.vehicle,
+                _vehicle,
                 pcmInfo,
-                this.logger);
+                _logger,
+                _progress);
 
-            Response<Stream> readResponse = await reader.ReadContents(this.cancellationToken, progress);
+            Response<Stream> readResponse = await reader.ReadContents(_cancellationToken);
 
-            this.logger.AddUserMessage("Elapsed time " + DateTime.Now.Subtract(start));
+            _logger.AddUserMessage("Elapsed time " + DateTime.Now.Subtract(start));
             if (readResponse.Status != ResponseStatus.Success)
             {
-                this.logger.AddUserMessage("Read failed, " + readResponse.Status.ToString());
-                return null;
+                _logger.AddUserMessage("Read failed, " + readResponse.Status.ToString());
+                return false;
             }
-            return readResponse.Value;
+            readResponse.Value.CopyTo(contentStream);
+            return true;
         }
     }
 }
