@@ -1,4 +1,5 @@
-﻿using System;
+﻿using PcmHacking.ECU;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -79,7 +80,7 @@ namespace PcmHacking
         public async Task<Response<byte[]>> LoadKernelFromFile(string path)
         {
             byte[] file = { 0x00 }; // dummy value
-
+            string kernelName = $"Kernel-{this.ConnectedECU.BaseHardwareType}.bin";
             if (path == "")
             {
                 return Response.Create(ResponseStatus.Error, file);
