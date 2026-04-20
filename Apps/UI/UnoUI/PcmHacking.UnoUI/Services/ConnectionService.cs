@@ -286,9 +286,20 @@ public class ConnectionService : IConnectionService
 
         Device? newDevice = null;
         string portDesc = settings.DeviceCategory == DeviceConstants.DeviceCategorySerial ? settings.DeviceNameOrPort : settings.DeviceCategory;
+        if (portDesc == DeviceConstants.DeviceCategoryBT) // Only just to shorten in UI.
+        {
+            portDesc = "BT";
+        }
         if (this.device == null || settings != this.newSettings)
         {
-            await this.DeviceName.SetAsync($"Detecting({portDesc})");
+            if (string.IsNullOrEmpty(portDesc))
+            {
+                await this.DeviceName.SetAsync("Select a device.");
+            }
+            else
+            {
+                await this.DeviceName.SetAsync($"Detecting ({portDesc})");
+            }
             await this.DeviceState.SetAsync("Connecting...");
 
             try
@@ -311,11 +322,11 @@ public class ConnectionService : IConnectionService
                 return (null, null);
             }
 
-            if(await newDevice.Initialize())
+            if (await newDevice.Initialize())
                 this.device = newDevice;
         }
 
-        if(this.device == null)
+        if (this.device == null)
         {
             return (null, null);
         }
@@ -769,7 +780,7 @@ public class ConnectionService : IConnectionService
         catch (Exception exception)
         {
             this.logger.AddUserMessage("Communications exception: " + exception.Message);
-            if(exception is InvalidOperationException)
+            if(exception is InvalidOperationException || exception is IOException) 
             {
                 try
                 {
