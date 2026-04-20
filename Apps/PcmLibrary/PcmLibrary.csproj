@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
@@ -23,6 +23,8 @@
     <PackageReference Include="Microsoft.Bcl.HashCode" />
     <PackageReference Include="Newtonsoft.Json" />
     <PackageReference Include="System.Collections.Immutable" />
+    <PackageReference Include="System.IO.Ports" />
+    <PackageReference Include="System.Text.RegularExpressions" />
     <PackageReference Include="System.Xml.XmlSerializer" />
   </ItemGroup>
 

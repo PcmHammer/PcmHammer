@@ -23,6 +23,7 @@ public partial record WriteModel : IAsyncLogger
     private readonly LoggerAdapter loggerAdapter;
     private readonly IPlatformService platformService;
     private readonly IDispatcher dispatcher;
+    private byte[] _fileBuffer;
 
     private CancellationTokenSource? tokenSource;
     const string defaultPath = "No file selected.";
@@ -50,7 +51,7 @@ public partial record WriteModel : IAsyncLogger
     public IState<bool> UseCustomKeyEnabled => State<bool>.Value(this, () => true);
     public IState<string> CustomKey => State<string>.Value(this, () => "");
     public IState<bool> CustomKeyEnabled => State<bool>.Value(this, () => true);
-
+    private List<string> _localUserMessages;
 
     public WriteModel(
         INavigator navigator,
@@ -74,7 +75,8 @@ public partial record WriteModel : IAsyncLogger
         var _2 = this.PreferCalibrationWrite.SetAsync(this.settingsService.IsCalibrationWritePreferred());
         var _3 = this.UseCustomKey.SetAsync(this.settingsService.GetUseCustomKey());
         var _4 = this.CustomKey.SetAsync(this.settingsService.GetCustomKey());
-        var _5 = this.EnableControls(false);        
+        var _5 = this.EnableControls(false);
+        _localUserMessages = [];
     }
 
     private string GetStartButtonText()
@@ -168,9 +170,14 @@ public partial record WriteModel : IAsyncLogger
     [Command]
     public async ValueTask Start(CancellationToken cancellationToken)
     {
+#if ANDROID
+        await Platforms.Android.PermissionMethods.ExtractKernelsToFileAndroid(); // Approach with a fire-and-forget tactic - Should complete well before an action will run.
+#endif
         await this.EnableControls(true);
-        
-        string? path = await this.Path.Value();
+        string? path = string.Empty;
+#if !ANDROID // Force Android devices to use the file picker to load bytes from file. StorageFile.Path doesn't seem to play freindly as means to open the file again.
+        path = await this.Path.Value();
+#endif
         if (string.IsNullOrWhiteSpace(path) || string.Compare(path, defaultPath, StringComparison.OrdinalIgnoreCase) == 0)
         {
             path = await this.PromptForFileOpenPath();
@@ -235,12 +242,14 @@ public partial record WriteModel : IAsyncLogger
                     this.PromptForYesNo,
                     writeCancellationToken);
 
+#if WINDOWS
                 using (new AwayMode())
                 {
-                    await writeManager.Write(path);
-                    await lease.Vehicle.ExitKernel();
-                    await lease.Vehicle.ClearTroubleCodes();
+                    await PerformWrite(path, writeManager);
                 }
+#elif ANDROID
+                await PerformWrite(path, writeManager);
+#endif
             }
         }
         catch (Exception exception)
@@ -249,12 +258,27 @@ public partial record WriteModel : IAsyncLogger
             await this.AddUserMessage(exception.Message);
             await Task.Delay(1000, cancellationToken);
             await this.AddDebugMessage(exception.ToString());
+            await this.EnableControls(false);
         }
         finally
         {
             this.tokenSource = null;
             await this.EnableControls(false);
         }
+    }
+
+    private async Task PerformWrite(string path, WriteManager writeManager)
+    {
+#if ANDROID
+        await writeManager.Write(_fileBuffer);
+#else
+        if (writeManager.Write(path).Result)
+        {
+            this.AddUserMessage("Write succeeded!");
+            this.tokenSource = null;
+            await this.EnableControls(false);
+        }
+#endif
     }
 
     [Command]
@@ -294,7 +318,13 @@ public partial record WriteModel : IAsyncLogger
         {
             return null;
         }
-
+#if ANDROID
+        var openedFile = await file.OpenReadAsync();
+        _fileBuffer = openedFile.AsStream().ToMemoryStream().ToArray();
+        openedFile.Dispose();
+        return file.Name;
+#endif
+        _fileBuffer = null;
         return file.Path;
     }
 
@@ -312,13 +342,13 @@ public partial record WriteModel : IAsyncLogger
 
     public async Task AddUserMessage(string message)
     {
-        await this.UserLog.SetAsync(this.UserLog.Value() + Environment.NewLine + message);
+        _localUserMessages.Add(message);
+        await this.UserLog.SetAsync(_localUserMessages.ToArray().JoinBy("\r\n"));
     }
 
-    public Task AddDebugMessage(string message)
+    public async Task AddDebugMessage(string message)
     {
         // TODO: Debug message logging
-        return Task.CompletedTask;
     }
 
     public async Task StatusUpdateActivity(string activity)

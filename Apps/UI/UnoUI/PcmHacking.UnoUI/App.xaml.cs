@@ -1,8 +1,11 @@
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.UI.Dispatching;
 using PcmHacking.UnoUI.Services;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Text;
 using Uno.Resizetizer;
+using Windows.System.Display;
 
 namespace PcmHacking.UnoUI;
 public partial class App : Application
@@ -15,8 +18,12 @@ public partial class App : Application
     /// See SettingsModel.OpenLogFolderPicker for example.
     /// </remarks>
     public static Window? StaticMainWindow { get; private set; }
+
+    public static CancellationTokenSource ApplicationShutdownSource = new();
         
     private DispatcherQueue dispatcherQueue = DispatcherQueue.GetForCurrentThread();
+
+    private static int _unhandledExceptionExchange;
 
     /// <summary>
     /// Initializes the singleton application object. This is the first line of authored code
@@ -26,6 +33,42 @@ public partial class App : Application
     {
         App.InitializeLogger();
         this.InitializeComponent();
+
+        AppDomain.CurrentDomain.UnhandledException += (sender, eventArgs) => {
+            if (Interlocked.CompareExchange(ref _unhandledExceptionExchange, 1, 0) == 0)
+            {
+                try
+                {
+                    StackTrace? currentStackTrace;
+
+                    try
+                    {
+                        currentStackTrace = new StackTrace(1, true);
+                    }
+                    catch
+                    {
+                        currentStackTrace = null;
+                    }
+
+                    Debug.WriteLine(new StringBuilder()
+                        .AppendLine($"{DateTime.Now:O} DCA exception thrown: {((Exception)eventArgs.ExceptionObject).Message}")
+                        .AppendLine("----- Exception -----")
+                        .AppendLine(((Exception)eventArgs.ExceptionObject).ToString().TrimEnd())
+                        .AppendLine("----- Full Stack -----")
+                        .AppendLine(currentStackTrace?.ToString().TrimEnd())
+                        .AppendLine()
+                        .ToString());
+                }
+                catch
+                {
+                    // ignored
+                }
+                finally
+                {
+                    Interlocked.Exchange(ref _unhandledExceptionExchange, 0);
+                }
+            }
+        };
     }
 
     protected Window? MainWindow { get; private set; }
@@ -111,6 +154,9 @@ public partial class App : Application
 
     protected async override void OnLaunched(LaunchActivatedEventArgs args)
     {
+#if ANDROID
+        await Platforms.Android.PermissionMethods.RequestAndroidPermissions();
+#endif
         var builder = this.CreateBuilder(args)
             // Add navigation support for toolkit controls such as TabBar and NavigationView
             .UseToolkitNavigation()
@@ -181,6 +227,10 @@ public partial class App : Application
             );
         MainWindow = builder.Window;
         StaticMainWindow = builder.Window;
+        MainWindow.AppWindow.Closing += (s, e) =>
+        {
+            App.ApplicationShutdownSource.Cancel();
+        };
 
 #if WINDOWS
         StaticMainWindow.Title = "PCM Hammer";

@@ -11,3 +11,5 @@ echo Debug: %DEBUG%
 set NET_VERSION=net10.0
 for %%T in (%ARCH64%\%NET_VERSION%-android %ARCH32%\%NET_VERSION%-windows10.0.26100.0\win-x86) do copy %SOURCE%\*.bin %UNO_PATH%\%%T
 copy %SOURCE%\*.bin WindowsForms\PcmHammer\bin\debug
+mkdir %UNO_PATH%\..\Assets\BuildFiles
+copy %SOURCE%\*.bin %UNO_PATH%\..\Assets\BuildFiles

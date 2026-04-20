@@ -18,8 +18,8 @@ namespace PcmHacking
             List<J2534DotNet.J2534Device> installedDLLs = new List<J2534DotNet.J2534Device>();
             try
             {
-                installedDLLs = J2534DotNet.J2534Detect.ListDevices();
-                return installedDLLs;
+                installedDLLs = J2534Detect.ListDevices();
+                return [.. installedDLLs.Where(x => !string.IsNullOrWhiteSpace(x.Name))];
             }
             catch (Exception exception)
             {

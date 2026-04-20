@@ -126,5 +126,20 @@ namespace PcmHacking
                 this.port.DiscardBuffers();
             }
         }
+
+        public override Task<bool> IsCommandBroadcasting(byte command)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override string GetDeviceType()
+        {
+            return "Mock device";
+        }
+
+        public override Task<bool> CheckDeviceConnection()
+        {
+            throw new NotImplementedException();
+        }
     }
 }

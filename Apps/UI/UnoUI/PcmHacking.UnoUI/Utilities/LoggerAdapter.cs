@@ -1,6 +1,7 @@
 using PcmHacking.UnoUI.Services;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -90,7 +91,7 @@ namespace PcmHacking.UnoUI.Utilities
             }
             else
             {
-                Console.WriteLine($"UserMessage: {message}");
+                Debug.WriteLine($"UserMessage: {message}");
             }
         }
 
@@ -111,7 +112,7 @@ namespace PcmHacking.UnoUI.Utilities
             }
             else
             {
-                Console.WriteLine($"DebugMessage: {message}");
+                Debug.WriteLine($"DebugMessage: {message}");
             }
         }
 
@@ -125,7 +126,7 @@ namespace PcmHacking.UnoUI.Utilities
             }
             else
             {
-                Console.WriteLine($"Activity: {activity}");
+                Debug.WriteLine($"Activity: {activity}");
             }
         }
 
@@ -137,7 +138,7 @@ namespace PcmHacking.UnoUI.Utilities
             }
             else
             {
-                Console.WriteLine($"TimeRemaining: {remaining}");
+                Debug.WriteLine($"TimeRemaining: {remaining}");
             }
         }
 
@@ -149,7 +150,7 @@ namespace PcmHacking.UnoUI.Utilities
             }
             else
             {
-                Console.WriteLine($"PercentDone: {percent}");
+                Debug.WriteLine($"PercentDone: {percent}");
             }
         }
 
@@ -161,7 +162,7 @@ namespace PcmHacking.UnoUI.Utilities
             }
             else
             {
-                Console.WriteLine($"RetryCount: {retries}");
+                Debug.WriteLine($"RetryCount: {retries}");
             }
         }
 
@@ -173,7 +174,7 @@ namespace PcmHacking.UnoUI.Utilities
             }
             else
             {
-                Console.WriteLine($"ProgressBar: Completed={completed}, Visible={visible}");
+                Debug.WriteLine($"ProgressBar: Completed={completed}, Visible={visible}");
             }
         }
 
@@ -185,7 +186,7 @@ namespace PcmHacking.UnoUI.Utilities
             }
             else
             {
-                Console.WriteLine($"Kbps: {Kbps}");
+                Debug.WriteLine($"Kbps: {Kbps}");
             }
         }
 
@@ -197,7 +198,7 @@ namespace PcmHacking.UnoUI.Utilities
             }
             else
             {
-                Console.WriteLine("Reset");
+                Debug.WriteLine("Reset");
             }
         }
     }

@@ -137,6 +137,10 @@ namespace PcmHacking
             throw new NotImplementedException("This is only implemented by derived classes.");
         }
 
+        public virtual Task<bool> IsCommandBroadcasting(byte command)
+        {
+            throw new NotImplementedException("This is only implemented by derived classes.");
+        }
         /// <summary>
         /// Send a request in string form, wait for a response (for init)
         /// </summary>
@@ -158,6 +162,15 @@ namespace PcmHacking
             {
                 return string.Empty;
             }
+        }
+
+        public async Task SendNoReply(string message)
+        {
+            try
+            {
+                await this.Port.Send(Encoding.ASCII.GetBytes(message + " \r"));
+            }
+            catch { }
         }
 
         /// <summary>

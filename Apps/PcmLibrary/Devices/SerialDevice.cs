@@ -46,10 +46,5 @@ namespace PcmHacking
         {
             return this.GetDeviceType() + " on " + this.Port.ToString();
         }
-
-        /// <summary>
-        /// Return a descriptive string for this type of hardware.
-        /// </summary>
-        public abstract string GetDeviceType();
     }
 }

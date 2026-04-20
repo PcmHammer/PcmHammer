@@ -131,6 +131,10 @@ namespace PcmHacking
         /// </summary>
         public override async Task<TimeoutScenario> SetTimeout(TimeoutScenario scenario)
         {
+            if(this.implementation == null)
+            {
+                return TimeoutScenario.Undefined;
+            }
             if (this.currentTimeoutScenario == scenario)
             {
                 return this.currentTimeoutScenario;
@@ -215,6 +219,21 @@ namespace PcmHacking
         public override void ClearMessageBuffer()
         {
             this.Port.DiscardBuffers();
+        }
+
+        public override Task<bool> IsCommandBroadcasting(byte command)
+        {
+            return this.implementation?.IsCommandBroadcasting(command);
+        }
+
+        public override async Task<bool> CheckDeviceConnection()
+        {
+            string elmID = await this.implementation.SendRequest("AT I");                // Identify (ELM)
+            if (elmID != "?" || !string.IsNullOrEmpty(elmID))
+            {
+                return true;
+            }
+            return false;
         }
     }
 }

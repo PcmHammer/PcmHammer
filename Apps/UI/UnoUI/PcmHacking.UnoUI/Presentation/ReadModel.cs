@@ -18,6 +18,7 @@ public partial record ReadModel : IAsyncLogger
     private readonly LoggerAdapter loggerAdapter;
     private readonly IPlatformService platformService;
     private readonly IDispatcher dispatcher;
+    private StorageFile _selectedFile;
 
     private CancellationTokenSource? tokenSource;
     const string defaultPath = "No file selected.";
@@ -40,6 +41,7 @@ public partial record ReadModel : IAsyncLogger
     public IState<bool> UseCustomKeyEnabled => State<bool>.Value(this, () => true);
     public IState<string> CustomKey => State<string>.Value(this, () => "");
     public IState<bool> CustomKeyEnabled => State<bool>.Value(this, () => true);
+    private List<string> _localUserMessages;
 
     public ReadModel(
         INavigator navigator,
@@ -59,6 +61,7 @@ public partial record ReadModel : IAsyncLogger
         var _1 = this.UseCustomKey.SetAsync(this.settingsService.GetUseCustomKey());
         var _2 = this.CustomKey.SetAsync(this.settingsService.GetCustomKey());
         var _3 = this.EnableControls(false);
+        _localUserMessages = [];
     }
 
     private async ValueTask UseCustomKeyChanged(bool value, CancellationToken ct)
@@ -85,9 +88,15 @@ public partial record ReadModel : IAsyncLogger
     [Command]
     public async ValueTask Start(CancellationToken cancellationToken)
     {
+#if ANDROID
+        await Platforms.Android.PermissionMethods.ExtractKernelsToFileAndroid(); // Approach with a fire-and-forget tactic - Should complete well before an action will run.
+#endif
         await this.EnableControls(true);
 
-        string? path = await this.Path.Value();
+        string? path = string.Empty;
+#if !ANDROID
+        path = await this.Path.Value();
+#endif
         if (string.IsNullOrWhiteSpace(path) || string.Compare(path, defaultPath, StringComparison.OrdinalIgnoreCase) == 0)
         {
             path = await this.PromptForFileSavePath();
@@ -145,13 +154,14 @@ public partial record ReadModel : IAsyncLogger
                     this.Alert,
                     this.PromptForYesNo,
                     readCancellationToken);
-
+#if WINDOWS
                 using (new AwayMode())
                 {
-                    await readManager.Read(path);
-                    await lease.Vehicle.ExitKernel();
-                    await lease.Vehicle.ClearTroubleCodes();
+                    await performRead(path, lease, readManager);
                 }
+#elif ANDROID
+                await performRead(path, lease, readManager);
+#endif
             }
         }
         catch (Exception exception)
@@ -165,6 +175,17 @@ public partial record ReadModel : IAsyncLogger
         {
             this.tokenSource = null;
             await this.EnableControls(false);
+        }
+    }
+
+    private async Task performRead(string path, ConnectionLease lease, ReadManager readManager)
+    {
+        Stream? readContents = await readManager.Read();
+        if (_selectedFile != null && readContents != null)
+        {
+            Stream writeStream = await _selectedFile.OpenStreamForWriteAsync();
+            await readContents.CopyToAsync(writeStream);
+            await writeStream.DisposeAsync();
         }
     }
 
@@ -222,8 +243,8 @@ public partial record ReadModel : IAsyncLogger
         {
             return null; // TODO: change the return-type to Task<string?> in the refactoring branch.
         }
-
-        return file.Path;
+        _selectedFile = file;
+        return file.Name;
     }
 
     private Task<uint> PromptForOperatingSystemId()
@@ -246,7 +267,8 @@ public partial record ReadModel : IAsyncLogger
     
     public async Task AddUserMessage(string message)
     {
-        await this.UserLog.SetAsync(this.UserLog.Value() + Environment.NewLine + message);
+        _localUserMessages.Add(message);
+        await this.UserLog.SetAsync(_localUserMessages.ToArray().JoinBy("\r\n"));
     }
     
     public Task AddDebugMessage(string message)

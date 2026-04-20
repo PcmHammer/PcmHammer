@@ -91,5 +91,10 @@ namespace PcmHacking
         {
             return Task.FromResult((int)(this.BytesToReceive.Length - this.BytesToReceive.Position));
         }
+
+        public Task ChangeBaudRate(int baudRate)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

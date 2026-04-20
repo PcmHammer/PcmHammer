@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using PcmHacking.UnoUI.Utilities;
 
 namespace PcmHacking.UnoUI.Services;
@@ -95,13 +94,14 @@ public class ConnectionLease : IDisposable
 
 public interface IConnectionService
 {
-    IState<string> Port { get; }
-    IState<string> Device { get; }
+    IState<string> DeviceName { get; }
+    IState<string> DeviceState { get; }
     IState<ConnectionStates> ConnectionState { get; }
     IState<string> Activity { get; }
     IState<string> ConnectionError { get; }
     IState<string> OperatingSystemId { get; }
     IState<string> Voltage { get; }
+    int ResetTimeRemaining { get; }
 
     Task<bool> TryConnect(CurrentSettings settings);
     Task<ConnectionLease> BeginActivity(string activity, bool canInterrupt = false);
@@ -132,9 +132,12 @@ public class ConnectionService : IConnectionService
     private CurrentSettings? newSettings;
     private CurrentSettings? lastSettings;
     private int retryPeriod = SlowRetryPeriod;
+    private DateTime _leftActiveState = DateTime.MinValue;
+    private const string _recoveryString = "** RECOVERY **";
+    private const string _kernelString = "** KERNEL **";
 
-    public IState<string> Port => State.Value(this, () => string.Empty);
-    public IState<string> Device => State.Value(this, () => string.Empty);
+    public IState<string> DeviceName => State.Value(this, () => string.Empty);
+    public IState<string> DeviceState => State.Value(this, () => string.Empty);
     public IState<ConnectionStates> ConnectionState => State.Value(this, () => ConnectionStates.NotConfigured);
     public IState<string> Activity => State.Value(this, () => string.Empty);
     public IState<string> ConnectionError => State.Value(this, () => string.Empty);
@@ -152,6 +155,20 @@ public class ConnectionService : IConnectionService
         this.protocol = new PcmHacking.Protocol();
     }
 
+    public int ResetTimeRemaining
+    {
+        get
+        {
+            if (_leftActiveState != DateTime.MinValue && DateTime.Now < _leftActiveState + TimeSpan.FromSeconds(10))
+            {
+                DateTime exitTime = _leftActiveState + TimeSpan.FromSeconds(10);
+                return (exitTime - DateTime.Now).Seconds;
+            }
+            _leftActiveState = DateTime.MinValue;
+            return -1;
+        }
+    }
+
     /// <summary>
     /// This should only be used when connection settings change. Callers should generally use BeginActivity instead.
     /// </summary>
@@ -165,9 +182,6 @@ public class ConnectionService : IConnectionService
             // to acquire the semaphore explicitly first.
             await this.stateChangeSemaphore.WaitAsync();
 
-            await this.Port.SetAsync(settings.Obd2SerialPortName);
-            await this.Device.SetAsync(settings.Obd2SerialDeviceName);
-
             await this.BeginActivityInternal(TestingActivity, ConnectionStates.Connecting);
 
             // Clear the settings shown in the UI, and allow time for the UI to update.
@@ -175,10 +189,13 @@ public class ConnectionService : IConnectionService
             await Task.Delay(100);
 
             (Device? newDevice, Vehicle? newVehicle) = await TryReconnect(settings);
+
             if (newDevice == null || newVehicle == null)
             {
+                await DeviceState.SetAsync("Faulted");
                 return false;
             }
+            await DeviceState.SetAsync("Connected");
 
             if (await this.TryPollOnce(newVehicle))
             {
@@ -194,6 +211,10 @@ public class ConnectionService : IConnectionService
             {
                 this.logger.AddUserMessage("Connection test failed.");
                 this.newSettings = settings;
+                if(this.lastSettings == null)
+                {
+                    this.lastSettings = newSettings; // This avoids inactivity if device/PCM fails first try, unless this was intended.
+                }
                 newVehicle.Dispose();
                 newVehicle = null;
                 newDevice.Dispose();
@@ -204,6 +225,7 @@ public class ConnectionService : IConnectionService
         catch (Exception exception)
         {
             this.newSettings = settings;
+            await DeviceState.SetAsync("Faulted");
             this.logger.AddDebugMessage("Exception while connecting to vehicle.");
             this.logger.AddDebugMessage(exception.ToString());
             return false;
@@ -234,40 +256,81 @@ public class ConnectionService : IConnectionService
 
     private async Task<(Device? newDevice, Vehicle? newVehicle)> TryReconnect(CurrentSettings settings)
     {
+        if (App.ApplicationShutdownSource.IsCancellationRequested && this.vehicle != null)
+        {
+            this.vehicle.ShutdownSignalSource.Cancel();
+            this.vehicle?.Dispose();
+            return (null, null);
+        }
         if (this.vehicle != null)
         {
             this.vehicle.Dispose();
             this.vehicle = null;
         }
-
-        // This ends up being a no-op because vehicle.Dispose() also disposes the underlying connection.
-        // Not sure if that's a good thing or a bad thing, but it's probably fine.
         if (this.device != null)
         {
-            this.device.Dispose();
-            this.device = null;
+            try
+            {
+                if (!await this.device.CheckDeviceConnection())
+                {
+                    this.device.Dispose();
+                    this.device = null;
+                }
+            }
+            catch
+            {
+                this.device.Dispose();
+                this.device = null;
+            }
         }
 
-        // Allow time for port to reset.
-        await Task.Delay(100);
+        Device? newDevice = null;
+        string portDesc = settings.DeviceCategory == DeviceConstants.DeviceCategorySerial ? settings.DeviceNameOrPort : settings.DeviceCategory;
+        if (this.device == null || settings != this.newSettings)
+        {
+            await this.DeviceName.SetAsync($"Detecting({portDesc})");
+            await this.DeviceState.SetAsync("Connecting...");
 
-        Device newDevice = DeviceFactory.CreateDevice(
-            this.logger,
-            settings.DeviceCategory,
-            settings.Obd2SerialPortName,
-            settings.Obd2SerialDeviceName,
-            settings.J2534DeviceName);
-        if (newDevice == null)
+            try
+            {
+                if (settings.DeviceCategory == DeviceConstants.DeviceCategoryBT) // Bluetooth on multi-platform requires the use of a separtate library written in .NET core, so we have to special case it here.
+                {
+                    newDevice = await BluetoothDeviceFactory.CreateBluetoothDevice(settings.DeviceNameOrPort, this.logger);
+                }
+                else
+                {
+                    newDevice = DeviceFactory.CreateDevice(this.logger, settings.DeviceCategory, settings.DeviceNameOrPort);
+                }
+            }
+            catch (TimeoutException)
+            {
+                return (null, null);
+            }
+            if (newDevice == null)
+            {
+                return (null, null);
+            }
+
+            if(await newDevice.Initialize())
+                this.device = newDevice;
+        }
+
+        if(this.device == null)
         {
             return (null, null);
         }
-
-        await newDevice.Initialize();
-
-        ToolPresentNotifier notifier = new ToolPresentNotifier(newDevice, this.protocol, this.logger);
-        Vehicle newVehicle = new Vehicle(newDevice, this.protocol, this.logger, notifier);
+        await this.DeviceName.SetAsync($"{this.device.GetDeviceType()}({portDesc})");
+        ToolPresentNotifier notifier = new ToolPresentNotifier(this.device, this.protocol, this.logger);
+        string basePath = string.Empty; // We will need to pass along a path to target kernel; Android won't path to a proper directory with GetExecutingAssembly().Location.
+#if WINDOWS
+            string exePath = System.Reflection.Assembly.GetExecutingAssembly().Location;
+            basePath = Path.GetDirectoryName(exePath);
+#elif ANDROID
+            basePath = "/storage/emulated/0/PCMHammer/Bins";
+#endif
+        Vehicle newVehicle = new Vehicle(this.device, this.protocol, this.logger, notifier, basePath); // Kernel will use old logic on presence of empty string.
         await this.ConnectionState.SetAsync(ConnectionStates.Connecting);
-        return (newDevice, newVehicle);
+        return (this.device, newVehicle);
     }
 
     // 
@@ -304,6 +367,11 @@ public class ConnectionService : IConnectionService
                 break;
         }
 
+        if (activity.StartsWith("Resetting"))
+        {
+            nextState = ConnectionStates.Polling;
+        }
+
         // This will wait for any in-progress operations to complete, then acquire the semaphore.
         await this.stateChangeSemaphore.WaitAsync();
 
@@ -334,7 +402,7 @@ public class ConnectionService : IConnectionService
                 throw new ConnectionUnavailableException("Not connected.");
             }
 
-            
+
             await this.BeginActivityInternal(activity, nextState);
         }
         catch (Exception)
@@ -343,7 +411,7 @@ public class ConnectionService : IConnectionService
             // acquired) the 'using' pattern won't call the Dispose method,
             // so the semaphore has to be released explicitly.
             this.stateChangeSemaphore.Release();
-            throw;
+            return null;
         }
 
         return new ConnectionLease(this, this.vehicle, activity);
@@ -389,11 +457,11 @@ public class ConnectionService : IConnectionService
                     ConnectionStates.Connected |
                     ConnectionStates.Connecting |
                     ConnectionStates.NotConfigured;
-
                 if (!this.TryTransition(allowed, ConnectionStates.Polling))
                 {
                     this.logger.AddDebugMessage($"Skipping poll, internalState is {this.internalState}");
-                    throw new ConnectionUnavailableException("Unable to poll. " + errorMessage);
+                    if(ResetTimeRemaining == -1)
+                        throw new ConnectionUnavailableException("Unable to poll. " + errorMessage);
                 }
                 break;
 
@@ -438,6 +506,7 @@ public class ConnectionService : IConnectionService
             //
             // Also, for reasons unknown, the underlying serial port can't always be re-opened, especially with the ObdX driver.
             // Need to figure that out before we can re-create the Vehicle instance here.
+
             if (isConnected)
             {
                 ConnectionStates allowed =
@@ -496,6 +565,10 @@ public class ConnectionService : IConnectionService
             return;
         }
 
+        if (this.device == null && this.internalState == ConnectionStates.Connected)
+        {
+            ForceTransition(ConnectionStates.NotConnected);
+        }
         bool disconnected = false;
         Vehicle? acquiredVehicle = null;
         try
@@ -529,7 +602,7 @@ public class ConnectionService : IConnectionService
             {
                 if (await this.TryConnect(this.lastSettings))
                 {
-                    this.logger.AddUserMessage("Re-onnected with current settings.");
+                    this.logger.AddUserMessage("Re-connected with current settings.");
                 }
                 else
                 {
@@ -537,9 +610,13 @@ public class ConnectionService : IConnectionService
                     return;
                 }
             }
-
             using (ConnectionLease lease = await this.BeginActivity(PollingActivity, true))
             {
+                if(lease == null)
+                {
+                    ForceTransition(ConnectionStates.NotConnected);
+                    return;
+                }
                 acquiredVehicle = lease.Vehicle;
                 if (acquiredVehicle == null)
                 {
@@ -555,7 +632,8 @@ public class ConnectionService : IConnectionService
                     disconnected = true;
 
                     // This will cause EndActivity to transition to NotConnected.
-                    lease.ConnectionLost = true;
+                    if(ResetTimeRemaining != -1)
+                        lease.ConnectionLost = true;
                 }
             }
         }
@@ -593,9 +671,13 @@ public class ConnectionService : IConnectionService
         {
             try
             {
+                if(ResetTimeRemaining != -1)
+                {
+                    return true;
+                }
                 success = await TimeoutUtilities.TaskWithTimeoutAndException(
                     this.TryRequestVehicleInfo(vehicle, source.Token),
-                    TimeSpan.FromSeconds(1));
+                    TimeSpan.FromSeconds(3));
             }
             catch (TimeoutException)
             {
@@ -609,6 +691,11 @@ public class ConnectionService : IConnectionService
                 this.logBuffer.Enabled = true;
                 this.logger.AddUserMessage("Error while testing vehicle connection.");
                 this.logger.AddDebugMessage(exception.ToString());
+                if(this.vehicle != null)
+                {
+                    this.vehicle?.Dispose();
+                    this.vehicle = null;
+                }
             }
         }
 
@@ -635,7 +722,27 @@ public class ConnectionService : IConnectionService
 
         try
         {
-            await this.OperatingSystemId.SetAsync(String.Empty);
+            if(await this.OperatingSystemId.Value() == _recoveryString || await this.OperatingSystemId.Value() == _kernelString)
+            {
+                await this.OperatingSystemId.SetAsync(string.Empty);
+            }
+            this.logger.AddUserMessage("Checking for a recovery message...");
+            Response<bool> recoveryResponse = await vehicle.CheckForRecoveryMode(cancellationToken);
+            if (recoveryResponse.Status == ResponseStatus.Success && recoveryResponse.Value == true)
+            {
+                this.logger.AddUserMessage("PCM/ECM recovery mode detected!");
+                await this.OperatingSystemId.SetAsync(_recoveryString);
+                return true;
+            }
+            this.logger.AddUserMessage("No recovery message detected. Checking for live kernel...");
+            uint ver = await vehicle.GetKernelVersion(maxRetries: 1);
+            if (ver != 0)
+            {
+                this.logger.AddUserMessage($"Detected kernel version: {ver}");
+                await this.OperatingSystemId.SetAsync(_kernelString);
+                return true;
+            }
+            await this.OperatingSystemId.SetAsync(string.Empty);
             Response<uint> osidResponse = await vehicle.QueryOperatingSystemId(cancellationToken);
             if (osidResponse.Status == ResponseStatus.Success)
             {
@@ -662,6 +769,15 @@ public class ConnectionService : IConnectionService
         catch (Exception exception)
         {
             this.logger.AddUserMessage("Communications exception: " + exception.Message);
+            if(exception is InvalidOperationException)
+            {
+                try
+                {
+                    this.device?.Dispose();
+                }
+                catch { }
+                this.device = null;
+            }
             return false;
         }
 
@@ -684,13 +800,23 @@ public class ConnectionService : IConnectionService
     /// </remarks>
     private bool TryTransition(ConnectionStates expected, ConnectionStates newState)
     {
-        this.logger.AddDebugMessage($"Transition requested from: {this.internalState}, to: {newState}");
-        if (((this.internalState & expected) > 0) || this.internalState == newState)
+        this.logger.AddDebugMessage($"Transition requested from: {this.internalState}, to: {newState}"); 
+        if (ResetTimeRemaining != -1 && newState > ConnectionStates.Connected)
+        {
+            this.logger.AddDebugMessage($"Transition denied due to ECM/PCM reset, staying in: {this.internalState}");
+            return false;
+        }
+        if (this.internalState == ConnectionStates.Active && newState == ConnectionStates.Connected)
+        {
+            this.vehicle?.ExitKernel().Wait();
+            this.vehicle?.ClearTroubleCodes().Wait();
+            _leftActiveState = DateTime.Now;
+        }
+        if (((this.internalState & expected) > 0) || this.internalState == newState && ResetTimeRemaining == -1)
         {
             this.ForceTransition(newState);
             return true;
         }
-
         this.logger.AddDebugMessage($"Transition denied, staying in: {this.internalState}");
         return false;
     }

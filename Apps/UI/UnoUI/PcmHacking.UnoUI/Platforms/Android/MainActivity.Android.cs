@@ -1,5 +1,9 @@
+using Android;
 using Android.App;
-using Android.Content.PM;
+using Android.Content;
+using Android.Nfc;
+using Android.Provider;
+using AndroidX.Core.App;
 using Android.OS;
 using Android.Views;
 using Android.Widget;
@@ -12,4 +16,24 @@ namespace PcmHacking.UnoUI.Droid;
 )]
 public class MainActivity : Microsoft.UI.Xaml.ApplicationActivity
 {
+    protected async override void OnCreate(Bundle bundle)
+    {
+        base.OnCreate(bundle);
+    }
+
+    public static void RequestFilePermisions()
+    {
+        try
+        {
+            global::Android.Net.Uri uri = global::Android.Net.Uri.Parse("package:" + Current.PackageName);
+            Intent intent = new Intent(Settings.ActionManageAppAllFilesAccessPermission, uri);
+            Current.StartActivity(intent);
+        }
+        catch (Exception ex)
+        {
+            Intent intent = new Intent();
+            intent.SetAction(Settings.ActionManageAppAllFilesAccessPermission);
+            Current?.StartActivity(intent);
+        }
+    }
 }
