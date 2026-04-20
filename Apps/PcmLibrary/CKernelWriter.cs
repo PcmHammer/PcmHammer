@@ -8,20 +8,6 @@ using System.Threading.Tasks;
 
 namespace PcmHacking
 {
-    /// <summary>
-    /// How much of the PCM to erase and rewrite.
-    /// </summary>
-    public enum WriteType
-    {
-        None = 0,
-        Compare,
-        TestWrite,
-        Calibration,
-        Parameters,
-        OsPlusCalibrationPlusBoot,
-        Full,
-    }
-
     public class CKernelWriter
     {
         private readonly Vehicle vehicle;
