@@ -14,7 +14,7 @@ namespace PcmHacking
         private readonly IEnumerable<MemoryRange> ranges;
         private readonly Vehicle vehicle;
         private readonly Protocol protocol;
-        private readonly OSIDInfo pcmInfo;
+        private readonly ECUBase pcmInfo;
         private readonly ILogger logger;
 
         public CKernelVerifier(
@@ -22,7 +22,7 @@ namespace PcmHacking
             IEnumerable<MemoryRange> ranges, 
             Vehicle vehicle, 
             Protocol protocol, 
-            OSIDInfo pcmInfo,
+            ECUBase pcmInfo,
             ILogger logger)
         {
             this.image = image;

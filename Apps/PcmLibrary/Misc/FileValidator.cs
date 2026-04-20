@@ -1,3 +1,4 @@
+using PcmHacking.ECU;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -54,7 +55,7 @@ namespace PcmHacking
         {
             "Operating system",
             "Engine calibration",
-            "Engine diagnostics.",
+            "Engine diagnostics",
             "Transmission calibration",
             "Transmission diagnostics",
             "Fuel system",
@@ -173,10 +174,10 @@ namespace PcmHacking
         {
             UInt32 fileOsid = this.GetOsidFromImage();
 
-            OSIDInfo pcmInfo = new OSIDInfo(pcmOsid);
-            OSIDInfo fileInfo = new OSIDInfo(fileOsid);
+            ECUBase pcmInfo = ECUFactory.GetControllerByOSID(pcmOsid);
+            ECUBase fileInfo = ECUFactory.GetControllerByOSID(fileOsid);
 
-            if (pcmInfo.HardwareType == fileInfo.HardwareType)
+            if (pcmInfo.BaseHardwareType == fileInfo.HardwareType)
             {
                 this.logger.AddUserMessage("PCM and file match hardware " + fileInfo.HardwareType.ToString());
                 return true;
@@ -206,7 +207,7 @@ namespace PcmHacking
             UInt32 osid = 0;
             switch (type)
             {
-                case PcmType.P01_P59:
+                case PcmType.P01:
                     osid = ReadUnsigned(image, 0x504);
                     break;
 
@@ -277,7 +278,7 @@ namespace PcmHacking
             switch (type)
             {
                 // have a segment table
-                case PcmType.P01_P59:
+                case PcmType.P01:
                     tableAddress = 0x50C;
                     segments = 8;
                     break;
@@ -377,7 +378,7 @@ namespace PcmHacking
                         UInt32 checksumAddress;
                         switch (type)
                         {
-                            case PcmType.P01_P59:
+                            case PcmType.P01:
                                 checksumAddress = startAddress == 0 ? 0x500 : startAddress;
                                 break;
 
@@ -528,7 +529,7 @@ namespace PcmHacking
                     if ((image[0x7FFFE] == 0x4A) && (image[0x7FFFF] == 0xFC))
                     {
                         this.logger.AddUserMessage("File is P01 512KiB.");
-                        return PcmType.P01_P59;
+                        return PcmType.P01;
                     }
                 }
 
@@ -583,7 +584,7 @@ namespace PcmHacking
                     if ((image[0xFFFFE] == 0x4A) && (image[0xFFFFF] == 0xFC))
                     {
                         this.logger.AddUserMessage("File is P59 1024KiB.");
-                        return PcmType.P01_P59;
+                        return PcmType.P01;
                     }
                 }
 
@@ -700,7 +701,7 @@ namespace PcmHacking
                 }
                 switch (type)
                 {
-                    case PcmType.P01_P59:
+                    case PcmType.P01:
                         if (address == 0x4000)
                         {
                             address = 0x20000;
@@ -1048,7 +1049,7 @@ namespace PcmHacking
         {
             switch (type)
             {
-                case PcmType.P01_P59:
+                case PcmType.P01:
                     return this.HasSize(512 * 1024, 1024 * 1024) &&
                         this.HasRange(0x504, 4, "P01/P59 OSID") &&
                         this.HasRange(0x50C, 8 * 8, "P01/P59 segment table");

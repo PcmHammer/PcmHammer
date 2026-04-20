@@ -333,14 +333,14 @@ namespace PcmHacking
         /// <summary>
         /// Load the executable payload on the PCM at the supplied address, and execute it.
         /// </summary>
-        public async Task<bool> PCMExecute(OSIDInfo info, byte[] payload, CancellationToken cancellationToken)
+        public async Task<bool> PCMExecute(ECUBase info, byte[] payload, CancellationToken cancellationToken)
         {
             // Note that we request an upload of 4k maximum, because the PCM will reject anything bigger.
             // But you can request a 4k upload and then send up to 16k if you want, and the PCM will not object.
             int claimedSize = Math.Min(4096, payload.Length);
 
             // Since we're going to lie about the size, we need to check for overflow ourselves.
-            if (info.HardwareType == PcmType.P01_P59)
+            if (info.HardwareType == PcmType.P01)
             {
                 if (info.KernelBaseAddress + payload.Length > 0xFFCDFF)
                 {
@@ -490,7 +490,7 @@ namespace PcmHacking
         /// <summary>
         /// Does everything required to switch to VPW 4x
         /// </summary>
-        public async Task<bool> VehicleSetVPW4x(OSIDInfo pcmInfo, VpwSpeed newSpeed)
+        public async Task<bool> VehicleSetVPW4x(ECUBase pcmInfo, VpwSpeed newSpeed)
         {
             if (!device.Supports4X) 
             {

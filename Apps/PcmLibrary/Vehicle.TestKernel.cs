@@ -1,4 +1,5 @@
-﻿using System;
+﻿using PcmHacking.ECU;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -81,7 +82,7 @@ namespace PcmHacking
                     }
                     else
                     {
-                        OSIDInfo pi = new OSIDInfo(osidResponse.Value);
+                        ECUBase pi = ECUFactory.GetControllerByOSID(osidResponse.Value);
                         keyAlgorithm = pi.KeyAlgorithm;
                     }
 
@@ -100,7 +101,7 @@ namespace PcmHacking
                         return false;
                     }
 
-                    OSIDInfo info = new OSIDInfo(12202088); // todo, make selectable
+                    ECUBase info = ECUFactory.GetControllerByOSID(12202088); // todo, make selectable
                     if (!await PCMExecute(info, response.Value, cancellationToken))
                     {
                         logger.AddUserMessage("Failed to upload kernel to PCM");

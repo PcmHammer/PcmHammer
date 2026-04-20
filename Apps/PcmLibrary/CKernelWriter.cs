@@ -25,7 +25,7 @@ namespace PcmHacking
     public class CKernelWriter
     {
         private readonly Vehicle vehicle;
-        private readonly OSIDInfo pcmInfo;
+        private readonly ECUBase pcmInfo;
         private readonly Protocol protocol;
         private readonly WriteType writeType;
         private readonly ILogger logger;
