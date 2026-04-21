@@ -8,7 +8,7 @@ using Android.OS;
 using Android.Views;
 using Android.Widget;
 
-namespace PcmHacking.UnoUI.Droid;
+namespace PcmHacking.UnoUI.Platforms.Android;
 [Activity(
     MainLauncher = true,
     ConfigurationChanges = global::Uno.UI.ActivityHelper.AllConfigChanges,

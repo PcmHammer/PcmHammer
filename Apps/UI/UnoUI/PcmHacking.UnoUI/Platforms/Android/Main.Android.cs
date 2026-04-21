@@ -11,8 +11,8 @@ using Android.Widget;
 using Com.Nostra13.Universalimageloader.Core;
 using Microsoft.UI.Xaml.Media;
 
-namespace PcmHacking.UnoUI.Droid;
-[global::Android.App.ApplicationAttribute(
+namespace PcmHacking.UnoUI.Platforms.Android;
+[Application(
     Label = "@string/ApplicationName",
     Icon = "@mipmap/icon",
     LargeHeap = true,

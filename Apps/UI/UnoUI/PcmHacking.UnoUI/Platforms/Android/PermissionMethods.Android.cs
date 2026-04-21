@@ -24,12 +24,13 @@ namespace PcmHacking.UnoUI.Platforms.Android
             await Windows.Extensions.PermissionsHelper.TryGetPermission(CancellationToken.None, Manifest.Permission.LocationHardware);
             await Windows.Extensions.PermissionsHelper.TryGetPermission(CancellationToken.None, Manifest.Permission.ForegroundService);
             await Windows.Extensions.PermissionsHelper.TryGetPermission(CancellationToken.None, Manifest.Permission.ForegroundServiceDataSync);
+           
             if (global::Android.OS.Build.VERSION.SdkInt >= global::Android.OS.BuildVersionCodes.R)
             {
                 bool result = global::Android.OS.Environment.IsExternalStorageManager;
                 if (!result)
                 {
-                    Droid.MainActivity.RequestFilePermisions();
+                    MainActivity.RequestFilePermisions();
                 }
             }
         }
