@@ -22,6 +22,7 @@ public sealed partial class MainPage : Page
         _displayRequest = new Windows.System.Display.DisplayRequest();
 #if ANDROID
         _displayRequest.RequestActive();
+        await Platforms.Android.PermissionMethods.RequestAndroidPermissions(); // Try, try again? We need to get file permissions before trying to extract kernels...
 #endif
     }
 

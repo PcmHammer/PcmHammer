@@ -37,12 +37,7 @@ namespace PcmHacking.UnoUI.Platforms.Android
 
         public static async Task ExtractKernelsToFileAndroid()
         {
-            bool result = global::Android.OS.Environment.IsExternalStorageManager;
-            if (!result)
-            {
-                Droid.MainActivity.RequestFilePermisions();
-                return;
-            }
+            await RequestAndroidPermissions();
             string[] KernelNames = ["Kernel-BlackBox.bin", "Kernel-P01.bin", "Kernel-P04.bin", "Kernel-P04_Early.bin", "Kernel-P05.bin", "Kernel-P08.bin", "Kernel-P10.bin", "Kernel-P11.bin", "Kernel-P12.bin", "Kernel-E54.bin", "Loader-P04.bin"];
             foreach (string kernel in KernelNames)
             {

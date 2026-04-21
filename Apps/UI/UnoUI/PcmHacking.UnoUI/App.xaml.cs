@@ -154,9 +154,6 @@ public partial class App : Application
 
     protected async override void OnLaunched(LaunchActivatedEventArgs args)
     {
-#if ANDROID
-        await Platforms.Android.PermissionMethods.RequestAndroidPermissions();
-#endif
         var builder = this.CreateBuilder(args)
             // Add navigation support for toolkit controls such as TabBar and NavigationView
             .UseToolkitNavigation()
@@ -240,11 +237,10 @@ public partial class App : Application
         Windows.Win32.PInvoke.ShowWindow((Windows.Win32.Foundation.HWND)_hwnd, Windows.Win32.UI.WindowsAndMessaging.SHOW_WINDOW_CMD.SW_MAXIMIZE);
 #endif
 
-#if DEBUG
-        MainWindow.UseStudio();
-#endif
         MainWindow.SetWindowIcon();
-
+#if ANDROID
+        await Platforms.Android.PermissionMethods.RequestAndroidPermissions();
+#endif
         Host = await builder.NavigateAsync<Shell>();
     }
 
