@@ -106,8 +106,13 @@ namespace PcmHacking.ECU {
         {
             get
             {
+                if(BaseHardwareType == PcmType.E60 || HardwareType <= PcmType.Unsupported)
+                {
+                    return "";
+                }
                 return $"Kernel-{BaseHardwareType}.bin";
             }
+
         }
 
         /// <summary>
@@ -122,7 +127,19 @@ namespace PcmHacking.ECU {
         {
             get
             {
-                return $"Loader-{BaseHardwareType}.bin";
+                if (LoaderRequired)
+                {
+                    if (HardwareType <= PcmType.Unsupported)
+                    {
+                        return "";
+                    }
+                    if (HardwareType == PcmType.P04_Early || HardwareType == PcmType.P04_Early_512k) 
+                    {
+                        return $"Loader-{PcmType.P04}.bin";
+                    }
+                    return $"Loader-{BaseHardwareType}.bin";
+                }
+                return "";
             }
         }
 
