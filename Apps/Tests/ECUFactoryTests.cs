@@ -88,6 +88,20 @@ namespace Tests
                 Assert.IsTrue(a.LoaderFileName == b.LoaderFileName);
                 Assert.IsTrue(a.LoaderRequired == b.LoaderRequired);
             }
+
+            foreach(ECUBase ecu in ECUFactory.StoredECUs)
+            {
+                PcmType type = ecu.BaseHardwareType;
+                ECUBase testObj = ECUFactory.GetControllerOverride(type, 0);
+                Assert.IsNotNull(testObj);
+                Assert.IsTrue(ecu.BaseHardwareType == testObj.BaseHardwareType);
+                if (Enum.TryParse(Enum.GetName(typeof(PcmType), type), true, out PcmTypeOld oldType))
+                {
+                    OSIDInfo crossTranslateTest = new OSIDInfo(oldType);
+                    Assert.IsNotNull(crossTranslateTest);
+                    Assert.IsTrue(Enum.GetName(typeof(PcmType), ecu.BaseHardwareType) == Enum.GetName(typeof(PcmTypeOld), crossTranslateTest.HardwareType));
+                }
+            }
         }
     }
 }
