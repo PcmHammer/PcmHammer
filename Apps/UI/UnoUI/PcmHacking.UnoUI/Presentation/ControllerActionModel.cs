@@ -77,9 +77,73 @@ public partial record ControllerActionModel : IAsyncLogger
         this.actionText = $"{(ECUActionArguments.SelectedAction == ControllerActions.Write ? $"{ECUActionArguments.WriteType} " : "")}{ECUActionArguments.SelectedAction}";
         if(ECUActionArguments != null)
         {
-            _ = Start();
-        }
     }
+
+    private async Task<bool> ControllerPreFlightChecks(ECUBase pcmInfo)
+    {
+        if (!pcmInfo.IsSupported && _actionArguments.HardwareType != PcmType.Undefined)
+        {
+            this.loggerAdapter.AddUserMessage("Detected hardware type override on Unsupported ECU. Please be sure to post results!");
+            pcmInfo = ECUFactory.GetControllerOverride(_actionArguments.HardwareType, pcmInfo.GetCurrentOSID());
+            this.loggerAdapter.AddUserMessage($"Continuing read with hardware type of {_actionArguments.HardwareType}");
+        }
+        // Pre flight checks to block invalid write operations by PCM type.
+        if (!pcmInfo.IsSupported)
+        {
+            string msg = $"Abort: The connected {pcmInfo.HardwareType.ToString()} PCM is not supported.";
+            await new AlertPrompt("Abort", msg).ShowAsync();
+            return false;
+        }
+
+        if (!pcmInfo.IsSupportedRead)
+        {
+            string msg = $"Abort: The connected {pcmInfo.HardwareType.ToString()} PCM is not supported for read operations.";
+            await new AlertPrompt("Abort", msg).ShowAsync();
+            return false;
+        }
+
+        if (pcmInfo.IsUnderDevelopment)
+        {
+            string msg = $"WARNING: {pcmInfo.HardwareType.ToString()} Support is still in development.";
+            ContentDialogResult result = await new BinaryPrompt("Do you wish to continue?", msg).ShowAsync();
+            if (result != ContentDialogResult.Primary)
+            {
+                return false;
+            }
+        }
+
+        // Write mode only checks.
+        if (_actionArguments.SelectedAction == ControllerActions.Write)
+        {
+
+            // If the factory binary is not paritioned we cant write by segment, block the non-full write types
+            if (!pcmInfo.IsSupportedWriteBySegment && (_actionArguments.WriteType == WriteType.Calibration || _actionArguments.WriteType == WriteType.OsPlusCalibrationPlusBoot || _actionArguments.WriteType == WriteType.Parameters))
+            {
+                string msg = $"Error: The connected {pcmInfo.HardwareType.ToString()} PCM binary format is not partitioned and does not support partial write." + Environment.NewLine +
+                            "You will need to do a Write Full Flash (Clone) instead.";
+                await new AlertPrompt(msg, "Error").ShowAsync();
+                return false;
+            }
+
+            // If we cant write the slave, warn the user of operating system changes
+            if (pcmInfo.HardwareSlaveCPU == true && !pcmInfo.IsSupportedWriteSlaveCPU && (_actionArguments.WriteType == WriteType.Full || _actionArguments.WriteType == WriteType.OsPlusCalibrationPlusBoot))
+            {
+                string msg = $"Warning: Writes to the {pcmInfo.HardwareType.ToString()} slave CPU are not supported." + Environment.NewLine +
+                            "You must have another way to update the slave CPU to match when you change operating system, else electroncic throttle may not work." + Environment.NewLine +
+                            "Restore this PCM to its original operating system if this happens." + Environment.NewLine +
+                            "Do you want to continue?";
+                
+                ContentDialogResult result = await new BinaryPrompt("Warning!", msg).ShowAsync();
+
+                if (result != ContentDialogResult.Primary)
+                {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
 
     private async ValueTask UseCustomKeyChanged(bool value, CancellationToken ct)
     {
@@ -123,6 +187,14 @@ public partial record ControllerActionModel : IAsyncLogger
 
             lease.Vehicle.Enable4xReadWrite = ECUActionArguments?.UseHighSpeed ?? false;
             lease.Vehicle.UserDefinedKey = (ECUActionArguments?.CustomKey ?? 0) == 0 ? -1 : (int)(ECUActionArguments?.CustomKey ?? 0);
+            if (this.connectionService.GetConnectedECU() != null)
+            {
+                bool checksRequired = await dispatcher.ExecuteAsync<bool>(async (ct) =>
+                {
+                    return await ControllerPreFlightChecks(this.connectionService.GetConnectedECU());
+                }, actionCancellationToken);
+                _actionArguments.PreFlightChecksRequired = checksRequired;
+            }
 
             Progress<ProgressUpdate>? progress = new Progress<ProgressUpdate>((progress) =>
             {

@@ -157,6 +157,10 @@ namespace PcmHacking
                 pcmInfo = ECUFactory.GetControllerOverride(_actionArguments.HardwareType, pcmInfo.CurrentOS.OSID);
                 _logger.AddUserMessage($"Continuing read with hardware type of {_actionArguments.HardwareType}");
             }
+
+                // These tests want the UI, but this library doesn't behave with UNO's. These tests can be now be found in ControllerActionSetup. Left here under a conditional only for temporary backwards compat with WinForms.
+            if (_actionArguments.PreFlightChecksRequired)
+            {
             // Pre flight checks to block invalid write operations by PCM type.
             if (!pcmInfo.IsSupported)
             {
@@ -185,6 +189,7 @@ namespace PcmHacking
                     _logger.AddUserMessage("User chose not to proceed.");
                     return false;
                 }
+            }
             }
 
             await _vehicle.SuppressChatter();
