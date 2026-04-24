@@ -103,7 +103,7 @@ namespace PcmHacking
             if(_deviceStream == null) {
                 throw new IOException("Bluetooth device stream is null.");
             }
-            await _deviceStream.WriteAsync(buffer);
+            await _deviceStream.WriteAsync(buffer, 0, buffer.Length);
             await _deviceStream.FlushAsync().AwaitWithTimeout(TimeSpan.FromMilliseconds(_packetTimeout));
         }
 
@@ -131,7 +131,7 @@ namespace PcmHacking
                     int bytesRead = 0;
                     try
                     {
-                        bytesRead = await _deviceStream.ReadAsync(incomingData); // Read all available bytes.
+                        bytesRead = await _deviceStream.ReadAsync(incomingData, 0, incomingData.Length); // Read all available bytes.
                     }
                     catch (Exception ex)
                     {
