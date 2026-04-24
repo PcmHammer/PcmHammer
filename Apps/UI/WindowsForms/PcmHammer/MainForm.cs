@@ -1,5 +1,6 @@
 ﻿using CommandLine;
 using Microsoft.Win32;
+using PcmHacking.ECU;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -587,7 +588,7 @@ namespace PcmHacking
             switch (this.currentWriteType)
             {
                 case WriteType.None:
-                case WriteType.TestWrite:
+                case WriteType.Test:
                     break;
 
                 default:
@@ -800,7 +801,7 @@ namespace PcmHacking
 
             try
             {
-                OSIDInfo pcmInfo = null;
+                ECUBase pcmInfo = null;
 
                 this.DisableUserInput();
 
@@ -817,7 +818,7 @@ namespace PcmHacking
                 if (osResponse.Status == ResponseStatus.Success)
                 {
                     this.AddUserMessage("OSID: " + osResponse.Value.ToString());
-                    pcmInfo = new OSIDInfo(osResponse.Value);
+                    pcmInfo = ECUFactory.GetControllerByOSID(osResponse.Value);
                     this.AddUserMessage("Description: " + pcmInfo.Description);
                 }
                 else
@@ -1107,7 +1108,7 @@ namespace PcmHacking
         {
             if (!BackgroundWorker.IsAlive)
             {
-                BackgroundWorker = new System.Threading.Thread(() => write_BackgroundThread(WriteType.TestWrite));
+                BackgroundWorker = new System.Threading.Thread(() => write_BackgroundThread(WriteType.Test));
                 BackgroundWorker.IsBackground = true;
                 BackgroundWorker.Start();
             }
@@ -1131,7 +1132,7 @@ namespace PcmHacking
         /// </summary>
         private void CancelButton_Click(object sender, EventArgs e)
         {
-            if ((this.currentWriteType != WriteType.None) && (this.currentWriteType != WriteType.TestWrite))
+            if ((this.currentWriteType != WriteType.None) && (this.currentWriteType != WriteType.Test))
             {
                 var choice = MessageBox.Show(
                     this,
@@ -1196,18 +1197,28 @@ namespace PcmHacking
                         return;
                     }
 
+                    Progress<ProgressUpdate>? progress = new Progress<ProgressUpdate>((progress) =>
+                    {
+                        UpdateProgress(progress);
+                    });
+
                     this.cancellationTokenSource = new CancellationTokenSource();
                     ReadManager readManager = new ReadManager(
                         this,
                         this.Vehicle,
-                        (action) => { this.Invoke(action); return Task.CompletedTask; },
-                        this.PromptForFileSavePath,
-                        this.PromptForOperatingSystemId,
-                        this.Alert,
-                        this.PromptForYesNo,
-                        this.cancellationTokenSource.Token);
+                        new ECUActionArguments { SelectedAction = ControllerActions.Read },
+                        new ControllerPageObjects
+                        {
+                            Invoke = (action) => { return Task.FromResult(Invoke(action)); },
+                            PromptForSavePath = PromptForFileSavePath,
+                            PromptForHardwareType = PromptForOperatingSystemId,
+                            ShowAlert = async (a, b) => await Alert(a, b),
+                            PromptYesOrNo = async (a, b) => await PromptForYesNo(a, b)
+                        },
+                        this.cancellationTokenSource.Token,
+                        progress);
 
-                    if (await readManager.Read(path))
+                    if (await readManager.Begin(path))
                     {
                         // This will suppress the scary warnings prior to writing.
                         Configuration.Settings.ConnectionVerified = true;
@@ -1229,6 +1240,16 @@ namespace PcmHacking
                     this.cancellationTokenSource = null;
                 }
             }
+        }
+
+        private void UpdateProgress(ProgressUpdate progress)
+        {
+            this.StatusUpdateActivity(progress.Activity);
+            this.StatusUpdateTimeRemaining($"T-{progress.TimeRemaining}");
+            this.StatusUpdatePercentDone($"{(progress.Percentage * 100.0):0.00}%");
+            this.StatusUpdateRetryCount(progress.RetryCount.ToString());
+            this.StatusUpdateProgressBar(progress.Percentage, progress.ProgressBarVisible);
+            this.StatusUpdateKbps($"{progress.Rate} Kbps");
         }
 
         private Task<string> PromptForFileSavePath()
@@ -1324,7 +1345,7 @@ namespace PcmHacking
                     if (path == null)
                     {
                         this.AddUserMessage(
-                            writeType == WriteType.TestWrite ?
+                            writeType == WriteType.Test ?
                                 "Test write canceled." :
                                 "Write canceled.");
                         return;
@@ -1332,15 +1353,27 @@ namespace PcmHacking
 
                     this.AddUserMessage(path);
 
+                    Progress<ProgressUpdate>? progress = new Progress<ProgressUpdate>((progress) =>
+                    {
+                        UpdateProgress(progress);
+                    });
+
                     WriteManager writer = new WriteManager(
                         this,
                         this.Vehicle,
-                         writeType,
-                        this.Alert,
-                        this.PromptForYesNo,
-                        this.cancellationTokenSource.Token);
+                         new ECUActionArguments
+                         {
+                             WriteType = writeType,
+                         },
+                         new ControllerPageObjects
+                         {
+                             ShowAlert = this.Alert,
+                             PromptYesOrNo = this.PromptForYesNo
+                         },
+                        this.cancellationTokenSource.Token,
+                        progress);
 
-                    bool success = await writer.Write(path);
+                    bool success = await writer.Begin(path);
 
                     if (success)
                     {
