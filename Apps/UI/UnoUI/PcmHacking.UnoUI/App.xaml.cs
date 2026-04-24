@@ -254,14 +254,16 @@ public partial class App : Application
             new ViewMap<MenuPage, MenuModel>(),
 
             // Features on the main menu ("Test Write" is implemented with WritePage)
-            new ViewMap<SettingsPage, SettingsModel>(),
-            new ViewMap<ControllerActionSetupPage, ControllerActionSetupModel>(),
             new ViewMap<ControllerFunctionsPage, ControllerFunctionsModel>(),
-            new ViewMap<HelpPage, HelpModel>(),
             new ViewMap<DataLoggingPage, DataLoggingModel>(),
+            new ViewMap<HelpPage, HelpModel>(),
+            new ViewMap<SettingsPage, SettingsModel>(),
 
-            // "Other functions" pages
-            new ViewMap<ControllerActionPage, ControllerActionModel>(),
+            // Controller action pages/dialog found in "Read/Write functions"
+            new ResultDataViewMap<ControllerActionSetupDialog, ControllerActionSetupModel, ActionResult>(),
+            new DataViewMap<ControllerActionPage, ControllerActionModel, ECUActionArguments>(),
+
+            // "Read/Write functions"'s other pages
             new ViewMap<DumpRamPage, DumpRamModel>(),
             new ViewMap<VinChangePage, VinChangeModel>(),
             new ViewMap<CrankRelearnPage, CrankRelearnModel>(),
@@ -271,10 +273,7 @@ public partial class App : Application
             
             // Data logging pages
             new DataViewMap<DataLoggingEditPage, DataLoggingEditModel, ParameterEditContext>(),
-            new DataViewMap<DataLoggingParametersPage, DataLoggingParametersModel, LoggingContext>(),
-
-            // This implements the delay before a read or write operation
-            new ResultDataViewMap<DelayPage, DelayModel, DelayResult>()
+            new DataViewMap<DataLoggingParametersPage, DataLoggingParametersModel, LoggingContext>()
         );
 
         routes.Register(
