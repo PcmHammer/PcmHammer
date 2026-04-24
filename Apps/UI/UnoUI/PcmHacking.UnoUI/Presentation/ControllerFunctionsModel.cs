@@ -252,13 +252,21 @@ public partial record ControllerFunctionsModel
     public async Task GoToRead()
     {
         ControllerActionSetupModel.SelectedAction = ControllerActions.Read;
-        await this.navigator.NavigateViewModelAsync<ControllerActionSetupModel>(this);
+        ActionResult? result = await this.navigator.GetDataAsync<ControllerActionSetupModel, ActionResult>(this, cancellation: cancellation.Token);
+        if(result != null && result.Proceed)
+        {
+            await this.navigator.NavigateViewModelAsync<ControllerActionModel>(this, data: result.Arguments);
+        }
     }
 
     public async Task GoToWrite()
     {
         ControllerActionSetupModel.SelectedAction = ControllerActions.Write;
-        await this.navigator.NavigateViewModelAsync<ControllerActionSetupModel>(this);
+        ActionResult? result = await this.navigator.GetDataAsync<ControllerActionSetupModel, ActionResult>(this, cancellation: cancellation.Token);
+        if (result != null && result.Proceed)
+        {
+            await this.navigator.NavigateViewModelAsync<ControllerActionModel>(this, data: result.Arguments);
+        }
     }
 
     public async Task GoToDumpRam()
