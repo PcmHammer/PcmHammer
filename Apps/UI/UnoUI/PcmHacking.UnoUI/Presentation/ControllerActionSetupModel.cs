@@ -13,8 +13,10 @@ namespace PcmHacking.UnoUI.Presentation;
 
 public record WriteTypeEntity(WriteType Type) : Entity("WriteType");
 
-public partial record ControllerActionSetupModel : IAsyncLogger
+public record ActionResult(bool Proceed = false, ECUActionArguments? Arguments = null);
+public partial record ControllerActionSetupModel
 {
+    public ActionResult Result { get; set; }
     public static ControllerActions SelectedAction = ControllerActions.Write;
 
     private readonly INavigator navigator;
@@ -33,20 +35,13 @@ public partial record ControllerActionSetupModel : IAsyncLogger
     public IState<string> SelectedHardwareType => State<string>.Value(this, () => this.GetCurrentHardwareType().Result);
 
     public IListFeed<string> WriteTypes => ListFeed<string>.Async(ct => this.GetWriteTypes(ct)).Selection(SelectedWriteType);
-    public IState<string> SelectedWriteType => State<string>.Value(this, () => { return Enum.GetName(WriteType.Test) ?? "Test"; });
+    public IState<string> SelectedWriteType => State<string>.Value(this, () => { return Enum.GetName(WriteType.Test) ?? "Test"; })
+        .ForEach(WriteTypeChanged);
 
     public IState<bool> StartEnabled => State<bool>.Value(this, () => true);
     public IState<bool> CancelEnabled => State<bool>.Value(this, () => false);
-    public IState<bool> PreferCalibrationWriteEnabled => State<bool>.Value(this, () => true);
 
     public IState<string> Path => State<string>.Value(this, () => defaultPath);
-    public IState<string> UserLog => State<string>.Value(this, () => String.Empty);
-    public IState<string> Activity => State<string>.Value(this, () => String.Empty);
-    public IState<string> TimeRemaining => State<string>.Value(this, () => String.Empty);
-    public IState<string> PercentDone => State<string>.Value(this, () => String.Empty);
-    public IState<string> RetryCount => State<string>.Value(this, () => String.Empty);
-    public IState<string> Kbps => State<string>.Value(this, () => String.Empty);
-    public IState<double> Progress => State<double>.Value(this, () => 0.0);
     public IState<string> StartButtonText => State<string>.Value(this, () => this.GetStartButtonText());
 
     public IState<bool> UseCustomKey => State<bool>.Value(this, () => false).ForEach((value, ct) => UseCustomKeyChanged(value, ct));
@@ -56,7 +51,6 @@ public partial record ControllerActionSetupModel : IAsyncLogger
     public IState<bool> UseHighSpeed => State<bool>.Value(this, () => this.settingsService.Is4xReadWriteEnabled());
     public IState<bool> IsHardwareSelectable => State<bool>.Value(this, () => false);
     public IState<bool> ShowDebug => State<bool>.Value(this, () => this.settingsService.IsDebugMode()); // TODO: make this a user setting that can be toggled on the UI, and persisted like the custom key settings.
-    private List<string> _localUserMessages;
     private ECUActionArguments _actionArguments = new();
 
     public ControllerActionSetupModel(
@@ -83,6 +77,11 @@ public partial record ControllerActionSetupModel : IAsyncLogger
 
     public bool IsWriteMode => SelectedAction == ControllerActions.Write;
 
+    private async ValueTask WriteTypeChanged(string? newValue, CancellationToken ct) 
+    {
+        _actionArguments.WriteType = Enum.Parse<WriteType>(newValue);
+    }
+
     private string GetStartButtonText()
     {
         switch (SelectedAction)
@@ -95,49 +94,13 @@ public partial record ControllerActionSetupModel : IAsyncLogger
                 switch (_actionArguments.WriteType)
                 {
                     case WriteType.Test:
-                        return "Start Test";
+                        return "Start Test write";
                     case WriteType.Compare:
                         return "Start Comparison";
                     default:
                         return "Start Writing";
                 }
                 default:
-                throw new InvalidOperationException("Invalid index of ControllerActions!");
-        }
-    }
-
-    private string GetCalibrationOnlyCheckboxText()
-    {
-        switch (_actionArguments.WriteType)
-        {
-            case WriteType.Test:
-                return "Test Calibration Only (if possible)";
-            case WriteType.Compare:
-                return "Compare Calibration Only (if possible)";
-            default:
-                return "Write Calibration Only (if possible)";
-        }
-    }
-
-    private string GetActivityText()
-    {
-        switch (SelectedAction)
-        {
-            case ControllerActions.Undefined:
-                throw new InvalidOperationException("SelectedAction was not defined!");
-            case ControllerActions.Read:
-                return "Reading";
-            case ControllerActions.Write:
-                switch (_actionArguments.WriteType)
-                {
-                    case WriteType.Test:
-                        return "Testing";
-                    case WriteType.Compare:
-                        return "Verifying";
-                    default:
-                        return "Writing";
-                }
-            default:
                 throw new InvalidOperationException("Invalid index of ControllerActions!");
         }
     }
@@ -157,12 +120,6 @@ public partial record ControllerActionSetupModel : IAsyncLogger
         return Enum.GetName(PcmType.Undefined) ?? string.Empty;
     }
 
-    private ValueTask PreferCalibrationWriteChanged(bool preferCalibrationWrite, CancellationToken cancellationToken)
-    {
-        this.settingsService.ShouldPreferCalibrationWrite(preferCalibrationWrite);
-        return ValueTask.CompletedTask;
-    }
-
     private async ValueTask UseCustomKeyChanged(bool value, CancellationToken ct)
     {
         await this.CustomKeyEnabled.SetAsync(value, ct);
@@ -178,6 +135,7 @@ public partial record ControllerActionSetupModel : IAsyncLogger
     private ValueTask<IImmutableList<string>> GetHardwareTypes(CancellationToken ct)
     {
         List<string> hardwareTypes = [.. Enum.GetNames<PcmType>()];
+        hardwareTypes.Remove(Enum.GetName<PcmType>(PcmType.Unsupported) ?? ""); // Leave `Undefined` as a placeholder, remove this as it should never be a selection.
         IImmutableList<string> res = ImmutableList.CreateRange(hardwareTypes);
         return ValueTask.FromResult(res);
 
@@ -188,7 +146,6 @@ public partial record ControllerActionSetupModel : IAsyncLogger
         List<string> writeTypes = [.. Enum.GetNames<WriteType>()];
         IImmutableList<string> res = ImmutableList.CreateRange(writeTypes);
         return ValueTask.FromResult(res);
-
     }
 
     private async Task EnableControls(bool busy)
@@ -196,20 +153,19 @@ public partial record ControllerActionSetupModel : IAsyncLogger
         await this.StartEnabled.SetAsync(!busy);
         await this.UseCustomKeyEnabled.SetAsync(!busy);
         await this.CustomKeyEnabled.SetAsync(!busy);
+    }
 
-        if ((_actionArguments.WriteType == WriteType.Test) || (_actionArguments.WriteType == WriteType.Compare))
-        {
-            await PreferCalibrationWriteEnabled.SetAsync(false);
-        }
-        else
-        {
-            await PreferCalibrationWriteEnabled.SetAsync(!busy);
-        }
+    [Command]
+    public async ValueTask Cancel(CancellationToken ct)
+    {
+        Result = new(false, null);
+        await this.navigator.NavigateBackWithResultAsync<ActionResult>(this, data: Result);
     }
 
     [Command]
     public async ValueTask Start(CancellationToken cancellationToken)
     {
+        
 #if ANDROID
         await Platforms.Android.PermissionMethods.ExtractKernelsToFileAndroid();
 #endif
@@ -221,7 +177,7 @@ public partial record ControllerActionSetupModel : IAsyncLogger
             await this.ChooseFile();
             if (_actionArguments.StorageFileObject == null)
             {
-                await this.AddUserMessage("No file selected.");
+                this.loggerAdapter.AddUserMessage("No file selected.");
                 await this.StartEnabled.SetAsync(true);
                 return;
             }
@@ -239,49 +195,24 @@ public partial record ControllerActionSetupModel : IAsyncLogger
         {
             customKey = 0;
         }
-        ControllerActionModel.ECUActionArguments = new ECUActionArguments()
+
+        // Set the static object to be passed to the action model.
+        ECUActionArguments args = new()
         {
             SelectedAction = ControllerActionSetupModel.SelectedAction,
             HardwareType = Enum.Parse<PcmType>(await SelectedHardwareType.Value() ?? "Undefined"),
-            WriteType = (WriteType)Enum.Parse(typeof(WriteType), await SelectedWriteType.Value()),
+            WriteType = Enum.Parse<WriteType>(await SelectedWriteType.Value()),
             UseHighSpeed = await this.UseHighSpeed.Value(), // We can safely use this like an override, since it was set to device prefrences on page load. User selection beyond that will reflect here.
             ShowDebug = await this.ShowDebug.Value(),
             CustomKey = customKey,
             ContentStream = _actionArguments.ContentStream,
             StorageFileObject = _actionArguments.StorageFileObject
         };
-
-        this.tokenSource = new CancellationTokenSource();
-        CancellationToken writeCancellationToken = this.tokenSource.Token;
-        try
-        {
-            await this.navigator.NavigateViewModelAsync<ControllerActionModel>(this, cancellation: writeCancellationToken);
-        }
-        catch (Exception exception)
-        {
-            await this.AddUserMessage("Write failed: ");
-            await this.AddUserMessage(exception.Message);
-            await Task.Delay(1000, cancellationToken);
-            await this.AddDebugMessage(exception.ToString());
-            await this.EnableControls(false);
-        }
-        finally
-        {
-            this.tokenSource = null;
-            await this.EnableControls(false);
-        }
+        Result = new(true, args);
+        await this.navigator.NavigateBackWithResultAsync<ActionResult>(this, data: Result);
     }
 
-    private async Task PerformWrite(WriteManager writeManager)
-    {
-        await writeManager.Begin(_actionArguments.ContentStream);
-#if !ANDROID
-        await this.AddUserMessage("Write succeeded!");
-        this.tokenSource = null;
-        await this.EnableControls(false);
-#endif
-    }
-
+    // This variant of ChooseFile selects the proper picker strategy using the set SelectedAction.
     [Command]
     public async Task ChooseFile()
     {
@@ -306,76 +237,5 @@ public partial record ControllerActionSetupModel : IAsyncLogger
         { 
             await this.StartEnabled.SetAsync(true);
         }
-    }
-
-    private Task Alert(string message, string title)
-    {
-        // TODO: Alert popup
-        return Task.CompletedTask;
-    }
-
-    private Task<bool> PromptForYesNo(string message, string title)
-    {
-        // TODO: Yes/No dialog box
-        return Task.FromResult(true);
-    }
-
-    public async Task AddUserMessage(string message)
-    {
-        _localUserMessages.Add(message);
-        await this.UserLog.SetAsync(_localUserMessages.ToArray().JoinBy("\r\n"));
-    }
-
-    public async Task AddDebugMessage(string message)
-    {
-        // TODO: Debug message logging
-    }
-
-    public async Task StatusUpdateActivity(string activity)
-    {
-        await this.Activity.SetAsync(activity);
-    }
-
-    public async Task StatusUpdateTimeRemaining(string remaining)
-    {
-        await this.TimeRemaining.SetAsync("Estimated Completion: " + remaining);
-    }
-
-    public async Task StatusUpdatePercentDone(string percent)
-    {
-        await this.PercentDone.SetAsync("Progress: " + percent);
-    }
-
-    public async Task StatusUpdateRetryCount(string retries)
-    {
-        if (string.IsNullOrWhiteSpace(retries))
-        {
-            retries = "None.";
-        }
-
-        await this.RetryCount.SetAsync("Retried messages: " + retries);
-    }
-
-    public async Task StatusUpdateProgressBar(double completed, bool visible)
-    {
-        await this.Progress.SetAsync(completed * 100);
-    }
-
-    public async Task StatusUpdateKbps(string Kbps)
-    {
-        await this.Kbps.SetAsync("Connection Speed: " + Kbps);
-    }
-
-    public async Task StatusUpdateReset()
-    {
-        // Not resetting these, so that the user can still see the speed and retry count after the flash completes.
-        // await this.RetryCount.SetAsync(String.Empty);
-        // await this.Kbps.SetAsync(String.Empty);
-
-        await this.Activity.SetAsync(String.Empty);
-        await this.TimeRemaining.SetAsync(String.Empty);
-        await this.PercentDone.SetAsync(String.Empty);
-
-        await this.Progress.SetAsync(0.0);
     }
 }
