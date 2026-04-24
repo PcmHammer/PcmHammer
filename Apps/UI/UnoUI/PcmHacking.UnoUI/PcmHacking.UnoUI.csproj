@@ -149,17 +149,20 @@
     <Compile Update="Presentation\MainPage.xaml.cs">
       <DependentUpon>MainPage.xaml</DependentUpon>
     </Compile>
+    <Compile Update="Presentation\ControllerActionPage.xaml.cs">
+      <DependentUpon>ControllerActionPage.xaml</DependentUpon>
+    </Compile>
     <Compile Update="Presentation\VinChangePage.xaml.cs">
       <DependentUpon>VinChangePage.xaml</DependentUpon>
     </Compile>
-    <Compile Update="Presentation\DelayPage.xaml.cs">
-      <DependentUpon>DelayPage.xaml</DependentUpon>
+    <Compile Update="Presentation\PromptDialog.xaml.cs">
+      <DependentUpon>PromptDialog.xaml</DependentUpon>
     </Compile>
     <Compile Update="Presentation\VinChange.xaml.cs">
       <DependentUpon>VinChange.xaml</DependentUpon>
     </Compile>
-    <Compile Update="Presentation\OtherFunctionsPage.xaml.cs">
-      <DependentUpon>OtherFunctionsPage.xaml</DependentUpon>
+    <Compile Update="Presentation\ControllerFunctionsPage.xaml.cs">
+      <DependentUpon>ControllerFunctionsPage.xaml</DependentUpon>
     </Compile>
     <Compile Update="Presentation\MenuPage.xaml.cs">
       <DependentUpon>MenuPage.xaml</DependentUpon>
@@ -173,6 +176,9 @@
     <Compile Update="Presentation\DataLoggingPage.xaml.cs">
       <DependentUpon>DataLoggingPage.xaml</DependentUpon>
     </Compile>
+    <Compile Update="Presentation\ControllerActionSetupDialog.xaml.cs">
+      <DependentUpon>ControllerActionSetupDialog.xaml</DependentUpon>
+    </Compile>
   </ItemGroup>
 
   <ItemGroup>
@@ -182,19 +188,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Page Update="Presentation\ReadPage.xaml">
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-  </ItemGroup>
-
-  <ItemGroup>
     <Page Update="Presentation\SettingsPage.xaml">
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-  </ItemGroup>
-
-  <ItemGroup>
-    <Page Update="Presentation\WritePage.xaml">
       <Generator>MSBuild:Compile</Generator>
     </Page>
   </ItemGroup>
@@ -215,13 +209,6 @@
 
   <ItemGroup>
     <Page Update="Presentation\CrankRelearnPage.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-  </ItemGroup>
-
-  <ItemGroup>
-    <Page Update="Presentation\OtherFunctionsPage.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -250,12 +237,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Page Update="Presentation\DelayPage.xaml">
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-  </ItemGroup>
-
-  <ItemGroup>
     <Page Update="Presentation\VinChangePage.xaml">
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -275,6 +256,31 @@
 
   <ItemGroup>
     <Page Update="Presentation\MainPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Page Update="Presentation\ControllerFunctionsPage.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Page Update="Presentation\ControllerActionPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Page Update="Presentation\PromptDialog.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Page Update="Presentation\ControllerActionSetupDialog.xaml">
       <Generator>MSBuild:Compile</Generator>
     </Page>
   </ItemGroup>
