@@ -1,3 +1,4 @@
+using PcmHacking.ECU;
 using PcmHacking.UnoUI.Services;
 using PcmHacking.UnoUI.Utilities;
 using System.Globalization;
@@ -11,8 +12,7 @@ namespace PcmHacking.UnoUI.Presentation;
 
 public partial record ControllerActionModel : IAsyncLogger
 {
-    public static ECUActionArguments? ECUActionArguments = null;
-
+    private readonly ECUActionArguments _actionArguments;
     private readonly INavigator navigator;
     private readonly IConnectionService connectionService;
     private readonly ISettingsService settingsService;
@@ -28,10 +28,8 @@ public partial record ControllerActionModel : IAsyncLogger
 
     public string Title { get { return "Read PCM"; } }
 
-    public IState<bool> StartEnabled => State<bool>.Value(this, () => true);
-    public IState<bool> CancelEnabled => State<bool>.Value(this, () => false);
+    public IState<string> CancelText => State<string>.Value(this, ()=> "Cancel");
 
-    public IState<string> Path => State<string>.Value(this, () => defaultPath); 
     public IListState<string> UserLog => ListState<string>.Empty(this);
     public IState<string> Activity => State<string>.Value(this, () => String.Empty);
     public IState<string> TimeRemaining => State<string>.Value(this, () => String.Empty);
@@ -39,14 +37,8 @@ public partial record ControllerActionModel : IAsyncLogger
     public IState<string> RetryCount => State<string>.Value(this, () => String.Empty);
     public IState<string> Kbps => State<string>.Value(this, () => String.Empty);
     public IState<double> Progress => State<double>.Value(this, () => 0.0);
-
-    public IState<bool> UseCustomKey => State<bool>.Value(this, () => false).ForEach((value, ct) => UseCustomKeyChanged(value, ct));
-    public IState<bool> UseCustomKeyEnabled => State<bool>.Value(this, () => true);
-    public IState<string> CustomKey => State<string>.Value(this, () => "");
-    public IState<bool> CustomKeyEnabled => State<bool>.Value(this, () => true);
-    public IState<string> CancelText => State<string>.Value(this, ()=> "Cancel");
-    private List<string> _localUserMessages;
     private bool _isActive = false;
+
 
     public ControllerActionModel(
         INavigator navigator,
@@ -54,7 +46,8 @@ public partial record ControllerActionModel : IAsyncLogger
         ISettingsService settingsService,
         LoggerAdapter loggerAdapter,
         IPlatformService platformService,
-        IDispatcher dispatcher)
+        IDispatcher dispatcher,
+        ECUActionArguments arguments)
     {
         this.navigator = navigator ?? throw new ArgumentNullException(nameof(navigator));
         this.connectionService = connectionService ?? throw new ArgumentNullException(nameof(connectionService));
@@ -62,21 +55,17 @@ public partial record ControllerActionModel : IAsyncLogger
         this.loggerAdapter = loggerAdapter ?? throw new ArgumentNullException(nameof(loggerAdapter));
         this.platformService = platformService ?? throw new ArgumentNullException(nameof(platformService));
         this.dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
-        
-        _ = this.UseCustomKey.SetAsync(this.settingsService.GetUseCustomKey());
-        _ = this.CustomKey.SetAsync(this.settingsService.GetCustomKey());
-        _ = this.EnableControls(false);
-        _localUserMessages = [];
+        _actionArguments = arguments ?? throw new ArgumentNullException(nameof(arguments));
+
         pageObjects = new ControllerPageObjects
         {
-            PromptYesOrNo = this.PromptForYesNo,
-            Invoke = this.Invoke,
-            ShowAlert = this.Alert,
+            PromptYesOrNo = async (t, m) => await PromptForYesNo(t, m),
+            Invoke = async (action) => await Invoke(action),
+            ShowAlert = async (t, m) => await this.Alert(t, m),
             PromptForHardwareType = null,
         };
-        this.actionText = $"{(ECUActionArguments.SelectedAction == ControllerActions.Write ? $"{ECUActionArguments.WriteType} " : "")}{ECUActionArguments.SelectedAction}";
-        if(ECUActionArguments != null)
-        {
+        this.actionText = $"{(_actionArguments.SelectedAction == ControllerActions.Write ? $"{_actionArguments.WriteType} " : "")}{_actionArguments.SelectedAction}";
+        _ = Start();
     }
 
     private async Task<bool> ControllerPreFlightChecks(ECUBase pcmInfo)
@@ -144,49 +133,28 @@ public partial record ControllerActionModel : IAsyncLogger
         return true;
     }
 
-
-    private async ValueTask UseCustomKeyChanged(bool value, CancellationToken ct)
-    {
-        await this.CustomKeyEnabled.SetAsync(value, ct);
-        this.settingsService.SetUseCustomKey(value);
-    }
-
-    public async Task CustomKeyChanged(string value)
-    {
-        await this.CustomKey.SetAsync(value);
-        this.settingsService.SetCustomKey(value);
-    }
-
-    private async Task EnableControls(bool busy)
-    {
-        await this.StartEnabled.SetAsync(!busy);
-        await this.UseCustomKeyEnabled.SetAsync(!busy);
-        await this.CustomKeyEnabled.SetAsync(!busy);
-
-        await this.CancelEnabled.SetAsync(busy);
-    }
-
     public async ValueTask Start()
     {
         _isActive = true;
         await this.AddUserMessage($"Beginning selected {this.actionText} operation.");
+
 #if ANDROID
         await Platforms.Android.PermissionMethods.ExtractKernelsToFileAndroid();
 #endif
-        await this.EnableControls(true);
 
         // TODO: Review the scenarios in which the given cancellationToken
         // can get signaled, and review how the read process handles those
         // signals.
         this.tokenSource = new CancellationTokenSource();
-        CancellationToken readCancellationToken = this.tokenSource.Token;
+        CancellationToken actionCancellationToken = this.tokenSource.Token;
         try
         {
             ConnectionLease lease = await this.connectionService.BeginActivity($"{this.actionText} PCM", false);
             LogInterceptor interceptor = new LogInterceptor(this.loggerAdapter, this);
 
-            lease.Vehicle.Enable4xReadWrite = ECUActionArguments?.UseHighSpeed ?? false;
-            lease.Vehicle.UserDefinedKey = (ECUActionArguments?.CustomKey ?? 0) == 0 ? -1 : (int)(ECUActionArguments?.CustomKey ?? 0);
+            lease.Vehicle.Enable4xReadWrite = _actionArguments?.UseHighSpeed ?? false;
+            lease.Vehicle.UserDefinedKey = (_actionArguments?.CustomKey ?? 0) == 0 ? -1 : (int)(_actionArguments?.CustomKey ?? 0);
+
             if (this.connectionService.GetConnectedECU() != null)
             {
                 bool checksRequired = await dispatcher.ExecuteAsync<bool>(async (ct) =>
@@ -202,9 +170,9 @@ public partial record ControllerActionModel : IAsyncLogger
             });
 
             ControllerManager manager = new(lease.Vehicle,
-                ECUActionArguments ?? new(),
+                _actionArguments ?? new(),
                 pageObjects,
-                readCancellationToken,
+                actionCancellationToken,
                 progress,
                 this.loggerAdapter);
 
@@ -220,7 +188,7 @@ public partial record ControllerActionModel : IAsyncLogger
             Platforms.Android.DataService.StartService(this.actionText, PerformControllerAction(manager),
                 async () =>
                 {
-                    if (readCancellationToken.IsCancellationRequested)
+                    if (actionCancellationToken.IsCancellationRequested)
                     {
                         await this.AddUserMessage($"{this.actionText} was canceled.");
                     }
@@ -229,17 +197,19 @@ public partial record ControllerActionModel : IAsyncLogger
                         await this.AddUserMessage($"{this.actionText} completed successfully.");
                     }
                     this.tokenSource = null;
-                    await this.EnableControls(false);
                     lease.Dispose();
                     interceptor.Dispose();
+                    _isActive = false;
+                    await this.CancelText.SetAsync("Close");
                 },
                 async () =>
                 {
                     await this.AddUserMessage($"{this.actionText} failed: ");
                     this.tokenSource = null;
-                    await this.EnableControls(false);
                     lease.Dispose();
                     interceptor.Dispose();
+                    _isActive = false;
+                    await this.CancelText.SetAsync("Close");
                 });
             return;
 #endif
@@ -254,11 +224,9 @@ public partial record ControllerActionModel : IAsyncLogger
         {
 #if !ANDROID
             this.tokenSource = null;
-            await this.EnableControls(false);
-#endif
-            ECUActionArguments = null;
             _isActive = false;
             await this.CancelText.SetAsync("Close");
+#endif
         }
     }
 
@@ -329,21 +297,15 @@ public partial record ControllerActionModel : IAsyncLogger
             await this.AddUserMessage("Cancelling.");
             this.tokenSource?.Cancel();
             this.tokenSource = null;
+        } 
+        else
+        {
+            await this.navigator.GoBack(this);
         }
     }
 
     private async Task UpdateProgress(ProgressUpdate progress)
     {
-        if (progress.UserMessage != null)
-        {
-            await AddUserMessage(progress.UserMessage);
-            return;
-        }
-        if (progress.DebugMessage != null)
-        {
-            await AddDebugMessage(progress.DebugMessage);
-            return;
-        }
 #if ANDROID
         if (Platforms.Android.DataService.IsServiceRunning())
         {
@@ -362,51 +324,33 @@ public partial record ControllerActionModel : IAsyncLogger
         });
     }
 
-    private async Task Invoke(Action action)
+    private async Task Invoke(Action? action)
     {
-        var tcs = new TaskCompletionSource();
-        await this.dispatcher.ExecuteAsync(() =>
-        {
-            try
-            {
-                action();
-                tcs.SetResult();
-            }
-            catch (Exception ex)
-            {
-                tcs.SetException(ex);
-            }
-        });
-        await tcs.Task;
+        action?.Invoke();
     }
 
-    private Task<uint> PromptForOperatingSystemId()
+    private async Task<bool> PromptForYesNo(string message, string title)
     {
-        // TODO: OS ID dialog box
-        return Task.FromResult(12587603u);
+        return true;
     }
 
-    private Task<bool> PromptForYesNo(string message, string title)
+    private async Task Alert(string message, string title)
     {
-        // TODO: Yes/No dialog box
-        return Task.FromResult(true);
+
     }
 
-    private Task Alert(string message, string title)
-    {
-        // TODO: Alert popup
-        return Task.CompletedTask;
-    }
-    
     public async Task AddUserMessage(string message)
     {
 
         await this.UserLog.Update(updater: existing => existing.Add(message), ct: CancellationToken.None);
     }
-    
+
     public async Task AddDebugMessage(string message)
     {
-
+        if (_actionArguments?.ShowDebug ?? false)
+        {
+            await this.UserLog.Update(updater: existing => existing.Add(message), ct: CancellationToken.None);
+        }
     }
 
     public async Task StatusUpdateActivity(string activity)

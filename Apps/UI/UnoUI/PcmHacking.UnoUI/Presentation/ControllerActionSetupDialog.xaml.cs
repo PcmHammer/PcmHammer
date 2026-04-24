@@ -13,6 +13,9 @@ using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
 using PcmHacking.UnoUI.Utilities;
+using Windows.UI.Core;
+using PcmHacking.UnoUI.Services;
+
 
 // The Blank Page item template is documented at https://go.microsoft.com/fwlink/?LinkId=234238
 
@@ -25,33 +28,15 @@ namespace PcmHacking.UnoUI.Presentation
     /// This is mostly duplicated in ReadPage.xaml.cs, but Uno didn't like it when I used a shared base class for both pages.
     /// TODO: try creating a single ReadWritePage/ReadWriteModel to eliminate the duplicated code.
     /// </remarks>
-    public sealed partial class ControllerActionSetupPage : Page
+    public sealed partial class ControllerActionSetupDialog : ContentDialog
     {
         private ControllerActionSetupModel? model;
-        private bool _shouldGoBackAgain = false;
 
-        public ControllerActionSetupPage()
+        public ControllerActionSetupDialog()
         {
             this.InitializeComponent();
             this.DataContextChanged += this.OnDataContextChanged;
-            this.Loaded += ControllerActionSetupPage_Loaded;
-        }
-
-        private void ControllerActionSetupPage_Loaded(object sender, RoutedEventArgs e)
-        {
-            if (_shouldGoBackAgain)
-            {
-                this.Frame.GoBack();
-            }
-        }
-
-        protected async override void OnNavigatedTo(NavigationEventArgs e)
-        {
-            base.OnNavigatedTo(e);
-            if(e.NavigationMode == NavigationMode.Back)
-            {
-                _shouldGoBackAgain = true;
-            }
+            DialogService.SetBaseDialog(this);
         }
 
         private void OnDataContextChanged(FrameworkElement sender, DataContextChangedEventArgs args)

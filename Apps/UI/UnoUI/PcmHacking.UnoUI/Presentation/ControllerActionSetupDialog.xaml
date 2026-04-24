@@ -1,5 +1,5 @@
-﻿<Page
-    x:Class="PcmHacking.UnoUI.Presentation.ControllerActionSetupPage"
+﻿<ContentDialog
+    x:Class="PcmHacking.UnoUI.Presentation.ControllerActionSetupDialog"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:PcmHacking.UnoUI.Presentation"
@@ -72,10 +72,15 @@
                       ItemsSource="{Binding WriteTypes}" />
         </StackPanel>
 
-        <Button Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="2" Content="{Binding StartButtonText}" Margin="10"
+        <Button Grid.Row="5" Grid.Column="0" Content="{Binding StartButtonText}" Margin="10"
               HorizontalAlignment="Stretch"
               VerticalAlignment="Stretch"
               Command="{Binding Start}"
               IsEnabled="{Binding StartEnabled}" />
+        
+        <Button Grid.Row="5" Grid.Column="1" Content="Cancel" Margin="10"
+              HorizontalAlignment="Stretch"
+              VerticalAlignment="Stretch"
+              Command="{Binding Cancel}" />
     </Grid>
-</Page>
+</ContentDialog>
