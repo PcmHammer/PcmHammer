@@ -48,7 +48,7 @@ namespace PcmHacking
             _controllerActionLookup = new Dictionary<ControllerActions, IControllerManager> {
                 { ControllerActions.Read, new ReadManager(logger, _vehicle, ActionArgs, ControllerPageObjects, _cancellationTokenSource, progress) },
                 { ControllerActions.Write, new WriteManager(logger, _vehicle, ActionArgs, ControllerPageObjects, _cancellationTokenSource, progress) }
-            };
+            };                
         }
 
         public async Task<bool> BeginAction()

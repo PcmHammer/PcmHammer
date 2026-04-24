@@ -12,6 +12,7 @@ public class ECUActionArguments
     public PcmType HardwareType = PcmType.Undefined; 
     public bool UseHighSpeed = false;
     public bool ShowDebug = false;
+    public bool PreFlightChecksRequired = false;
     public uint CustomKey = 0;
     public MemoryStream ContentStream;
     public object? StorageFileObject;

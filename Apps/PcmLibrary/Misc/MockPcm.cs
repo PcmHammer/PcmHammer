@@ -209,7 +209,7 @@ namespace PcmHacking
                 {
                     responseBuffer = [Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, 0x7D, 0x01, 0x00, 0x89, 0x44, 0x71];
                 }
-                if (payload[0] == 0x02)
+                if (payload[0] == 0x02) // I realize - there is a better way. I send a stream of 0xEE's, so outcome should be predictable. In a way, this is a test feature.
                 {
                     if(payload[4] == 0x02) responseBuffer = [Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, 0x7D, 0x02, 0x02, 0x00, 0x00, 0x02, 0x00, 0x00, 0x56, 0x49, 0x3F, 0x28];
 
@@ -271,7 +271,7 @@ namespace PcmHacking
                         break;
 
                     case BlockId.OperatingSystemID:
-                        responseData = UnsignedToByteArray(12212157);
+                        responseData = UnsignedToByteArray(12212156);
                         break;
 
                     case BlockId.CalibrationID:

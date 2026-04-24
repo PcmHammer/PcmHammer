@@ -48,7 +48,6 @@ namespace PcmHacking.UnoUI.Presentation
             }
 
             this.model = newModel;
-
             bool darkMode = this.XamlRoot == null ? false : SystemThemeHelper.IsRootInDarkMode(this.XamlRoot);
             ColorUtilities.Initialize(darkMode);
             this.ProgressBar.Background = ColorUtilities.Instance.AccentBackgroundBrush;
