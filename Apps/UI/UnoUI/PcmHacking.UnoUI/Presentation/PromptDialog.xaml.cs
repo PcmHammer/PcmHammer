@@ -92,10 +92,34 @@ public partial class PromptDialog : ContentDialog
     }
 }
 
-public sealed partial class AlertPrompt(string title, string message, PrimaryButton primarySelection = PrimaryButton.Close) : PromptDialog(title, message, primarySelection);
+public sealed partial class AlertPrompt : PromptDialog
+{
+    public AlertPrompt(string title, string message, PrimaryButton primarySelection = PrimaryButton.Close, string closeText = "Confirm", string? leftButton = null, List<string>? comboBoxSource = null, string? midButton = null)
+        : base(title, message, primarySelection, closeText, leftButton, comboBoxSource, midButton)
+    {
+    }
+}
 
-public sealed partial class BinaryPrompt(string title, string message, string acceptText = "Yes", string cancelText = "No", PrimaryButton primarySelection = PrimaryButton.Close) : PromptDialog(title, message, primarySelection, cancelText, acceptText);
+public sealed partial class BinaryPrompt : PromptDialog
+{
+    public BinaryPrompt(string title, string message, string acceptText = "Yes", string cancelText = "No", PrimaryButton primarySelection = PrimaryButton.Close)
+        : base(title, message, primarySelection, cancelText, acceptText)
+    {
+    }
+}
 
-public sealed partial class MultipleChoicePrompt(string title, string message, string ChoiceA, string choiceB, string cancelText, PrimaryButton primarySelection = PrimaryButton.Close) : PromptDialog(title, message, primarySelection, cancelText, ChoiceA, null, choiceB);
+public sealed partial class MultipleChoicePrompt : PromptDialog
+{
+    public MultipleChoicePrompt(string title, string message, string ChoiceA, string choiceB, string cancelText, PrimaryButton primarySelection = PrimaryButton.Close)
+        : base(title, message, primarySelection, cancelText, ChoiceA, null, choiceB)
+    {
+    }
+}
 
-public sealed partial class TwoButtonComboPrompt(string title, string message, string acceptText, string cancelText, List<string> itemsSource, PrimaryButton primarySelection = PrimaryButton.Close) : PromptDialog(title, message, primarySelection, cancelText, acceptText, itemsSource);
+public sealed partial class TwoButtonComboPrompt : PromptDialog
+{
+    public TwoButtonComboPrompt(string title, string message, string acceptText, string cancelText, List<string> itemsSource, PrimaryButton primarySelection = PrimaryButton.Close)
+        : base(title, message, primarySelection, cancelText, acceptText, itemsSource)
+    {
+    }
+}
