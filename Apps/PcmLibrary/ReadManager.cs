@@ -224,7 +224,7 @@ namespace PcmHacking
                 _vehicle,
                 pcmInfo,
                 _logger,
-                _progress);
+                _progress ?? new Progress<ProgressUpdate>());
 
             Response<Stream> readResponse = await reader.ReadContents(_cancellationToken);
 
@@ -234,7 +234,11 @@ namespace PcmHacking
                 _logger.AddUserMessage("Read failed, " + readResponse.Status.ToString());
                 return false;
             }
-            readResponse.Value.CopyTo(contentStream);
+            if (contentStream != null)
+            {
+                readResponse.Value.CopyTo(contentStream);
+                contentStream.Position = 0;
+            }
             return true;
         }
     }
