@@ -28,7 +28,7 @@ namespace PcmHacking.ECU {
     public abstract class ECUBase {
         public List<OSInfo> KnownOperatingSystems { get; set; }
 
-        public OSInfo CurrentOS { get; private set; }
+        private OSInfo _currentOS { get; set; }
 
         public bool HardwareTypeOverridden { get; set; }
 
@@ -90,7 +90,7 @@ namespace PcmHacking.ECU {
         {
             get
             {
-                return (uint)CurrentOS.ServiceNumber;
+                return (uint)_currentOS.ServiceNumber;
             }
         }
 
@@ -167,7 +167,7 @@ namespace PcmHacking.ECU {
         public int KeyAlgorithm { 
             get
             {
-                return CurrentOS?.KeyAlgorithm ?? _keyAlgorithm;
+                return _currentOS?.KeyAlgorithm ?? _keyAlgorithm;
             }
             set
             {
@@ -216,8 +216,8 @@ namespace PcmHacking.ECU {
         {
             get
             {
-                if (CurrentOS == null) return false;
-                return CurrentOS.Manufacturer != Manufacturer;
+                if (_currentOS == null) return false;
+                return _currentOS.Manufacturer != Manufacturer;
             }
         }
 
@@ -291,24 +291,28 @@ namespace PcmHacking.ECU {
         }
 
         public void SetCurrentOSID(uint osid) {
-            CurrentOS = KnownOperatingSystems.FirstOrDefault(x => x.OSID == osid);
-            if (CurrentOS == null)
+            _currentOS = KnownOperatingSystems.FirstOrDefault(x => x.OSID == osid);
+            if (_currentOS == null)
             {
-                CurrentOS = new OSInfo("Unsupported ECU", osid, -1, KeyAlgorithm);
+                _currentOS = new OSInfo("Unsupported ECU", osid, -1, KeyAlgorithm);
             }
         }
+
+        public uint GetCurrentOSID() => _currentOS.OSID;
+
+        public void SetOverriddenState() => _currentOS.SetOverridePresent();
 
         public override string ToString()
         {
             string suffix = IsCustomOS ? "COS" : "OEM";
             string servNo = ServiceNumber != 0 ? $"{ServiceNumber}." : string.Empty;
             string servString = $"{servNo}{suffix}";
-            if (CurrentOS.ServiceNumber == -1)
+            if (_currentOS.ServiceNumber == -1)
             {
                 return "Unsupported ECU";
             }
             string format = "{0}_{1} - {2} {3}K";
-            return string.Format(format, Manufacturer, HardwareType, servString, ImageSize);
+            return string.Format(format, Manufacturer, HardwareType, servString, ImageSize / 1024);
         }
     }
 }

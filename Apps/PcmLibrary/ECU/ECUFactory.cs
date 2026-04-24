@@ -44,6 +44,7 @@ namespace PcmHacking.ECU
         {
             ECUBase controller = StoredECUs.First(x => x.HardwareType == type);
             controller.SetCurrentOSID(osid);
+            controller.SetOverriddenState();
             return controller;
         }
     }
