@@ -36,7 +36,6 @@ namespace PcmHacking.UnoUI.Presentation
         {
             this.InitializeComponent();
             this.DataContextChanged += this.OnDataContextChanged;
-            DialogService.SetBaseDialog(this);
         }
 
         private void OnDataContextChanged(FrameworkElement sender, DataContextChangedEventArgs args)
