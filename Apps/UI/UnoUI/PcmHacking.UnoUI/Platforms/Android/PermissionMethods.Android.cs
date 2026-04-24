@@ -35,6 +35,24 @@ namespace PcmHacking.UnoUI.Platforms.Android
             }
         }
 
+        public static async Task<bool> ArePermissionsGranted() => 
+            await Windows.Extensions.PermissionsHelper.CheckPermission(CancellationToken.None, Manifest.Permission.PostNotifications) &&
+            await Windows.Extensions.PermissionsHelper.CheckPermission(CancellationToken.None, Manifest.Permission.Bluetooth) &&
+            await Windows.Extensions.PermissionsHelper.CheckPermission(CancellationToken.None, Manifest.Permission.BluetoothAdvertise) &&
+            await Windows.Extensions.PermissionsHelper.CheckPermission(CancellationToken.None, Manifest.Permission.BluetoothScan) &&
+            await Windows.Extensions.PermissionsHelper.CheckPermission(CancellationToken.None, Manifest.Permission.BluetoothConnect) &&
+            await Windows.Extensions.PermissionsHelper.CheckPermission(CancellationToken.None, Manifest.Permission.AccessCoarseLocation) &&
+            await Windows.Extensions.PermissionsHelper.CheckPermission(CancellationToken.None, Manifest.Permission.Internet) &&
+            await Windows.Extensions.PermissionsHelper.CheckPermission(CancellationToken.None, Manifest.Permission.ManageExternalStorage) &&
+            await Windows.Extensions.PermissionsHelper.CheckPermission(CancellationToken.None, Manifest.Permission.ReadExternalStorage) &&
+            await Windows.Extensions.PermissionsHelper.CheckPermission(CancellationToken.None, Manifest.Permission.WriteExternalStorage) &&
+            await Windows.Extensions.PermissionsHelper.CheckPermission(CancellationToken.None, Manifest.Permission.AccessBackgroundLocation) &&
+            await Windows.Extensions.PermissionsHelper.CheckPermission(CancellationToken.None, Manifest.Permission.AccessFineLocation) &&
+            await Windows.Extensions.PermissionsHelper.CheckPermission(CancellationToken.None, Manifest.Permission.LocationHardware) &&
+            await Windows.Extensions.PermissionsHelper.CheckPermission(CancellationToken.None, Manifest.Permission.ForegroundService) &&
+            await Windows.Extensions.PermissionsHelper.CheckPermission(CancellationToken.None, Manifest.Permission.ForegroundServiceDataSync) &&
+            global::Android.OS.Environment.IsExternalStorageManager;
+
         public static async Task ExtractKernelsToFileAndroid()
         {
             await RequestAndroidPermissions();
