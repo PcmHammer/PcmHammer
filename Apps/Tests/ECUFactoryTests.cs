@@ -65,7 +65,7 @@ namespace Tests
                 {
                     Assert.IsTrue(Enum.GetName(typeof(PcmType), a.BaseHardwareType) == Enum.GetName(typeof(PcmTypeOld), b.HardwareType));
                 }
-                Assert.IsTrue(a.CurrentOS.OSID == b.OSID);
+                Assert.IsTrue(a.GetCurrentOSID() == b.OSID);
                 Assert.IsTrue(a.ChecksumSupport == b.ChecksumSupport);
                 Assert.IsTrue(a.KeyAlgorithm == b.KeyAlgorithm);
                 Assert.IsTrue(a.FlashCRCSupport == b.FlashCRCSupport);
