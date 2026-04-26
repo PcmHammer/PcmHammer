@@ -16,20 +16,37 @@ namespace PcmHacking.UnoUI.Platforms.Android;
 )]
 public class MainActivity : Microsoft.UI.Xaml.ApplicationActivity
 {
+    public static bool IsPaused { get; private set; }
     protected async override void OnCreate(Bundle bundle)
     {
         base.OnCreate(bundle);
     }
 
-    public static void RequestFilePermisions()
+    protected override void OnResume()
+    {
+        IsPaused = false;
+        base.OnResume();
+    }
+
+    protected override void OnPause()
+    {
+        IsPaused = true;
+        base.OnPause();
+    }
+
+    public static async Task RequestFilePermisions()
     {
         try
         {
             global::Android.Net.Uri uri = global::Android.Net.Uri.Parse("package:" + Current.PackageName);
             Intent intent = new Intent(Settings.ActionManageAppAllFilesAccessPermission, uri);
-            Current.StartActivity(intent);
+            Current.StartActivityForResult(intent, 1);
+            while (!IsPaused) // TODO: This needs a suitable exit strategy in the event the request does not actually fire.
+            {
+                await Task.Delay(1);
+            }
         }
-        catch (Exception ex)
+        catch (System.Exception ex)
         {
             Intent intent = new Intent();
             intent.SetAction(Settings.ActionManageAppAllFilesAccessPermission);

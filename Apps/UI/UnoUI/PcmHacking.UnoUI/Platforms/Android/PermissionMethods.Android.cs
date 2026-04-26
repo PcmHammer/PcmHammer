@@ -30,7 +30,15 @@ namespace PcmHacking.UnoUI.Platforms.Android
                 bool result = global::Android.OS.Environment.IsExternalStorageManager;
                 if (!result)
                 {
-                    MainActivity.RequestFilePermisions();
+                    await MainActivity.RequestFilePermisions();
+                    while (MainActivity.IsPaused) // TODO: This needs a suitable exit strategy in the event the request does not actually fire.
+                    {
+                        await Task.Delay(10);
+                    }
+                    if (!global::Android.OS.Environment.IsExternalStorageManager)
+                    {
+                        return false;
+                    }
                 }
             }
         }
