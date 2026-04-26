@@ -16,12 +16,14 @@ public partial record MainModel
         IStringLocalizer localizer,
         INavigator navigator,
         ISettingsService settingsService,
-        IConnectionService vehicleService)
+        IConnectionService vehicleService,
+        IDispatcher dispatcher)
     {
         this.navigator = navigator;
         this.settingsService = settingsService;
         this.connectionService = vehicleService;
         this.Title = localizer["ApplicationName"];
+        DialogService.SetDispatcher(dispatcher);
 
         vehicleService.ConnectionState.ForEach((state, ct) => this.ConnectionStateChanged(ct));
 
