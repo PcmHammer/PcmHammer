@@ -238,9 +238,6 @@ public partial class App : Application
 #endif
 
         MainWindow.SetWindowIcon();
-#if ANDROID
-        await Platforms.Android.PermissionMethods.RequestAndroidPermissions();
-#endif
         Host = await builder.NavigateAsync<Shell>();
     }
 
@@ -261,7 +258,7 @@ public partial class App : Application
 
             // Controller action pages/dialog found in "Read/Write functions"
             new ResultDataViewMap<ControllerActionSetupDialog, ControllerActionSetupModel, ActionResult>(),
-            new DataViewMap<ControllerActionPage, ControllerActionModel, ECUActionArguments>(),
+            new ResultDataViewMap<ControllerActionPage, ControllerActionModel, ECUActionArguments>(),
 
             // "Read/Write functions"'s other pages
             new ViewMap<DumpRamPage, DumpRamModel>(),

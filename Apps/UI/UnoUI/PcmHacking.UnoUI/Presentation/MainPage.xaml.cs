@@ -18,11 +18,10 @@ public sealed partial class MainPage : Page
 
     private async void Page_Loaded(object sender, RoutedEventArgs e)
     {
-        XamlRootService.Initialize(this.Frame.XamlRoot); 
+        XamlRootService.Initialize(this.Frame.XamlRoot);
         _displayRequest = new Windows.System.Display.DisplayRequest();
 #if ANDROID
         _displayRequest.RequestActive();
-        await Platforms.Android.PermissionMethods.RequestAndroidPermissions(); // Try, try again? We need to get file permissions before trying to extract kernels...
 #endif
         AlertPrompt prompt = new AlertPrompt("Disclaimer!", 
             "This version of PCM Hammer is an experimental build!\r\n\r\n" +
