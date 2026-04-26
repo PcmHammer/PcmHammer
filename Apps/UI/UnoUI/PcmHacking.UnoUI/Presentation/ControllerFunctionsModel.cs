@@ -251,21 +251,26 @@ public partial record ControllerFunctionsModel
 
     public async Task GoToRead()
     {
-        ControllerActionSetupModel.SelectedAction = ControllerActions.Read;
-        ActionResult? result = await this.navigator.GetDataAsync<ControllerActionSetupModel, ActionResult>(this, cancellation: cancellation.Token);
-        if(result != null && result.Proceed)
-        {
-            await this.navigator.NavigateViewModelAsync<ControllerActionModel>(this, data: result.Arguments);
-        }
+        await PerformControllerAction(ControllerActions.Read);
     }
 
     public async Task GoToWrite()
     {
-        ControllerActionSetupModel.SelectedAction = ControllerActions.Write;
+        await PerformControllerAction(ControllerActions.Write);
+    }
+
+    private async Task PerformControllerAction(ControllerActions selectedAction)
+    {
+        ControllerActionSetupModel.SelectedAction = selectedAction;
         ActionResult? result = await this.navigator.GetDataAsync<ControllerActionSetupModel, ActionResult>(this, cancellation: cancellation.Token);
         if (result != null && result.Proceed)
         {
-            await this.navigator.NavigateViewModelAsync<ControllerActionModel>(this, data: result.Arguments);
+            var controllerResult = await this.navigator.GetDataAsync<ControllerActionModel, ControllerActionResult>(this, data: result.Arguments);
+            if (controllerResult != null && controllerResult.Suceeded)
+            {
+                // TODO: Alert? We should really already know why failure happened in the logs...
+            }
+            await this.navigator.GoBack(this); // There was an issue re-opening the ControllerActionSetup dialog after closing the page. This hack sends us back to a refreshed state.
         }
     }
 

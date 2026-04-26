@@ -1,3 +1,4 @@
+using Microsoft.UI.Dispatching;
 using PcmHacking.ECU;
 using PcmHacking.UnoUI.Services;
 using PcmHacking.UnoUI.Utilities;
@@ -10,8 +11,11 @@ using Windows.UI.Core;
 
 namespace PcmHacking.UnoUI.Presentation;
 
+public record ControllerActionResult(bool Suceeded = true);
+
 public partial record ControllerActionModel : IAsyncLogger
 {
+    public ControllerActionResult Result;
     private readonly ECUActionArguments _actionArguments;
     private readonly INavigator navigator;
     private readonly IConnectionService connectionService;
@@ -221,10 +225,6 @@ public partial record ControllerActionModel : IAsyncLogger
                     {
                         await this.AddUserMessage($"{this.actionText} was canceled.");
                     }
-                    else
-                    {
-                        await this.AddUserMessage($"{this.actionText} completed successfully.");
-                    }
                     this.tokenSource = null;
                     lease.Dispose();
                     interceptor.Dispose();
@@ -314,6 +314,7 @@ public partial record ControllerActionModel : IAsyncLogger
         }
         finally
         {
+            Result = new(success);
             string suffix = success == true ? "successfully." : "with errors.";
             await this.AddUserMessage($"{this.actionText} completed {suffix}");
         }
