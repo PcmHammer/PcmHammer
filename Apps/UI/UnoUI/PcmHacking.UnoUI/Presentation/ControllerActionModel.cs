@@ -139,6 +139,18 @@ public partial record ControllerActionModel : IAsyncLogger
         await this.AddUserMessage($"Beginning selected {this.actionText} operation.");
 
 #if ANDROID
+        if (!await Platforms.Android.PermissionMethods.IsStorageGranted())
+        {
+            bool result = await DialogService.ShowBinaryPrompt("File permissions",
+        "PCM Hammer needs access to file storage\r\n" +
+        "to load the required kernel bin. Press\r\n" +
+        "Okay to proceed to grant this permission.", primarySelection: PrimaryButton.Left);
+
+            if (result)
+            {
+                await dispatcher.ExecuteAsync(async (ct) => await Platforms.Android.PermissionMethods.GrantStoragePermissions());
+            }
+        }
         await Platforms.Android.PermissionMethods.ExtractKernelsToFileAndroid();
 #endif
 
@@ -185,6 +197,23 @@ public partial record ControllerActionModel : IAsyncLogger
                     interceptor.Dispose();
                 }
 #elif ANDROID
+            if(!await Platforms.Android.PermissionMethods.IsNotificationsGranted())
+            {
+                bool result = await DialogService.ShowBinaryPrompt("Grant permission?",
+                    "PCM Hammer uses a background service with push\r\n" +
+                    "notifications. Press Okay to grant this permission.", primarySelection: PrimaryButton.Left);
+                if (result)
+                {
+                    if(await dispatcher.ExecuteAsync(async (ct) => await Platforms.Android.PermissionMethods.GrantNotificationPermission()))
+                    {
+                        // TODO: What do we do when users perform confusing actions?
+                    }
+                }
+                else
+                {
+                    // TODO: Create a user variable in settings to store the wish for no notifications. Use this flag to skip the update to the notification down flow.
+                }
+            }
             Platforms.Android.DataService.StartService(this.actionText, PerformControllerAction(manager),
                 async () =>
                 {

@@ -165,10 +165,6 @@ public partial record ControllerActionSetupModel
     [Command]
     public async ValueTask Start(CancellationToken cancellationToken)
     {
-        
-#if ANDROID
-        await Platforms.Android.PermissionMethods.ExtractKernelsToFileAndroid();
-#endif
         await this.EnableControls(true);
         string? path = string.Empty;
 

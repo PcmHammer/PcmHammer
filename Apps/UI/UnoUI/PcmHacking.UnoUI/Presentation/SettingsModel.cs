@@ -132,10 +132,10 @@ public partial record SettingsModel
         IList<SerialPortListing> portList = new List<SerialPortListing>();
 #if WINDOWS
         IEnumerable<SerialPortInfo> portNames = PortDiscovery.GetPorts(progressLogger);
-        portList = [.. portNames.Where(p => !p.Name.Contains("Standard Serial over Bluetooth link")).Select(x => { return new SerialPortListing { DisplayName = x.ToString(), PortName = x.PortName }; })];
+        portList = [.. portNames.Where(p => !p.Name.Contains("Standard Serial over Bluetooth link")).Select(x => { return new SerialPortListing { DisplayName = x.ToString(), PortName = x.PortName }; })];
+
 #endif
         portList.Add(new SerialPortListing { DisplayName = MockPort.PortName, PortName = MockPort.PortName });
-        // I got an error that this wasn't returning anything, and it would seem that all below is necassary to satisfy. 
         IImmutableList<SerialPortListing> result = ImmutableList.CreateRange(portList);
         return ValueTask.FromResult(result);
     }
@@ -173,6 +173,26 @@ public partial record SettingsModel
         await UseSerialDevice.SetAsync(newValue as string == DeviceConstants.DeviceCategorySerial);
         await UseJ2534Device.SetAsync(newValue as string == DeviceConstants.DeviceCategoryJ2534);
         await UseBTDevice.SetAsync(newValue as string == DeviceConstants.DeviceCategoryBT);
+        if(newValue as string == DeviceConstants.DeviceCategoryBT)
+        {
+#if ANDROID
+            if(!await Platforms.Android.PermissionMethods.IsBluetoothGranted())
+            {
+                ContentDialogResult result = await dispatcherQueue.ExecuteAsync(async (ct) => await new BinaryPrompt("Request permissions",
+                    "PCM Hammer requires access to nearby devices\r\n" +
+                    "in order to use Bluetooth. Press \"Okay\" to be navigate to\r\n" +
+                    "this permission page.", "Okay", "Cancel", PrimaryButton.Left).ShowAsync(), ct);
+        
+                if (result == ContentDialogResult.Primary)
+                {
+                    if(!await Platforms.Android.PermissionMethods.GrantBluetoothPermissions())
+                    {
+                        // TODO: How to handle bad user decisions?
+                    }
+                }
+            }
+#endif
+        }
         await ConnectionSettingsChanged(newValue, ct);
     }
 
