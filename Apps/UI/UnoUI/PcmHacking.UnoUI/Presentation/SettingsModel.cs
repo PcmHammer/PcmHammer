@@ -61,11 +61,12 @@ public partial record SettingsModel
     }
 
     private CancellationTokenSource? deviceConnectionCancelSource = new();
+    private Signal _deviceRefreshSignal = new();
     public IListFeed<string> DeviceCategories => ListFeed<string>.Async(ct => this.GetDeviceCategories(ct)).Selection(SelectedDeviceType);
-    public IListFeed<SerialPortListing> BTDevices => ListFeed<SerialPortListing>.Async(ct => this.GetBluetoothDevices(ct)).Selection(SelectedBluetoothDevice);
-    public IListFeed<string> JDevices => ListFeed<string>.Async(ct => this.GetJDevices(ct)).Selection(SelectedJDevice);
-    public IListFeed<SerialPortListing> Obd2Ports => ListFeed.Async(ct => this.GetPortNames(ct)).Selection(SelectedObd2Port);
-    public IListFeed<SerialPortListing> CanPorts => ListFeed.Async(ct => this.GetPortNames(ct)).Selection(SelectedCanPort);
+    public IListFeed<SerialPortListing> BTDevices => ListFeed<SerialPortListing>.Async(ct => this.GetBluetoothDevices(ct), _deviceRefreshSignal).Selection(SelectedBluetoothDevice);
+    public IListFeed<string> JDevices => ListFeed<string>.Async(ct => this.GetJDevices(ct), _deviceRefreshSignal).Selection(SelectedJDevice);
+    public IListFeed<SerialPortListing> Obd2Ports => ListFeed.Async(ct => this.GetPortNames(ct), _deviceRefreshSignal).Selection(SelectedObd2Port);
+    public IListFeed<SerialPortListing> CanPorts => ListFeed.Async(ct => this.GetPortNames(ct), _deviceRefreshSignal).Selection(SelectedCanPort);
     
     public IState<string> SelectedDeviceType => State<string>
         .Async(this, ct => ValueTask.FromResult(settingsService.GetObd2DeviceCategory()))
@@ -193,6 +194,7 @@ public partial record SettingsModel
             }
 #endif
         }
+        _deviceRefreshSignal.Raise();
         await ConnectionSettingsChanged(newValue, ct);
     }
 
