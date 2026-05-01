@@ -18,7 +18,7 @@
             <RowDefinition Height="Auto" x:Name="ActivityRow"/>
             <RowDefinition Height="Auto" x:Name="TimeAndPercentRow"/>
             <RowDefinition Height="Auto" x:Name="RetryAndKbpsRow"/>
-            
+
         </Grid.RowDefinitions>
 
         <Grid.ColumnDefinitions>
@@ -46,7 +46,7 @@
             </ListView.ItemContainerStyle>
             <ListView.ItemTemplate>
                 <DataTemplate>
-                    <TextBox Text="{Binding}" FontFamily="Courier New" IsReadOnly="True" BorderThickness="0" AllowFocusOnInteraction="False" PreventKeyboardDisplayOnProgrammaticFocus="True" Background="Transparent" />
+                    <TextBlock Text="{Binding Mode=OneTime}" FontFamily="Courier New" />
                 </DataTemplate>
             </ListView.ItemTemplate>
         </ListView>

@@ -4,6 +4,7 @@ using PcmHacking.UnoUI.Services;
 using PcmHacking.UnoUI.Utilities;
 using System.Globalization;
 using System.Runtime.CompilerServices;
+using System.Timers;
 using Uno.Extensions.Reactive.Commands;
 using Windows.Devices.Bluetooth.Advertisement;
 using Windows.Storage.Pickers;
@@ -26,6 +27,9 @@ public partial record ControllerActionModel : IAsyncLogger
     private StorageFile? _selectedFile;
     private ControllerPageObjects pageObjects;
     private readonly string actionText;
+    private System.Timers.Timer _logUpdateTimer;
+    private List<string> _localMessages = [];
+    private int _logTimerDelay = 100;
 
     private CancellationTokenSource? tokenSource;
     const string defaultPath = "No file selected.";
@@ -60,6 +64,11 @@ public partial record ControllerActionModel : IAsyncLogger
         this.platformService = platformService ?? throw new ArgumentNullException(nameof(platformService));
         this.dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
         _actionArguments = arguments ?? throw new ArgumentNullException(nameof(arguments));
+#if ANDROID
+        _logTimerDelay = 1000;
+#endif
+        _logUpdateTimer = new(_logTimerDelay);
+        _logUpdateTimer.Elapsed += _logUpdateTimer_Elapsed;
 
         pageObjects = new ControllerPageObjects
         {
@@ -70,6 +79,12 @@ public partial record ControllerActionModel : IAsyncLogger
         };
         this.actionText = $"{(_actionArguments.SelectedAction == ControllerActions.Write ? $"{_actionArguments.WriteType} " : "")}{_actionArguments.SelectedAction}";
         _ = Start();
+        _logUpdateTimer.Start();
+    }
+
+    private void _logUpdateTimer_Elapsed(object? sender, ElapsedEventArgs e)
+    {
+        UserLog.UpdateAsync(updater: e => e = _localMessages.ToImmutableList());
     }
 
     private async Task<bool> ControllerPreFlightChecks(ECUBase pcmInfo)
@@ -372,15 +387,14 @@ public partial record ControllerActionModel : IAsyncLogger
 
     public async Task AddUserMessage(string message)
     {
-
-        await this.UserLog.Update(updater: existing => existing.Add(message), ct: CancellationToken.None);
+        _localMessages.Insert(0, message);
     }
 
     public async Task AddDebugMessage(string message)
     {
         if (_actionArguments?.ShowDebug ?? false)
         {
-            await this.UserLog.Update(updater: existing => existing.Add(message), ct: CancellationToken.None);
+            _localMessages.Insert(0, message);
         }
     }
 

@@ -51,20 +51,7 @@ namespace PcmHacking.UnoUI.Presentation
             bool darkMode = this.XamlRoot == null ? false : SystemThemeHelper.IsRootInDarkMode(this.XamlRoot);
             ColorUtilities.Initialize(darkMode);
             this.ProgressBar.Background = ColorUtilities.Instance.AccentBackgroundBrush;
-            this.model.UserLog.ForEach(async (value, cancellationToken) => await this.OnUserLogChanged(cancellationToken));
         }
 
-        private Task OnUserLogChanged(CancellationToken cancellationToken)
-        {
-            this.DispatcherQueue.TryEnqueue(() =>
-            {
-                if (this.UserLog.Items.Count > 0)
-                {
-                    this.UserLog.ScrollIntoView(this.UserLog.Items[this.UserLog.Items.Count - 1], ScrollIntoViewAlignment.Leading);
-                }
-            });
-
-            return Task.CompletedTask;
-        }
     }
 }
