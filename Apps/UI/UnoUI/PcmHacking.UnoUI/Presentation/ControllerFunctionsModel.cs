@@ -269,17 +269,20 @@ public partial record ControllerFunctionsModel
 
     private async Task PerformControllerAction(ControllerActions selectedAction)
     {
+        cancellationSource = new CancellationTokenSource();
         ControllerActionSetupModel.SelectedAction = selectedAction;
-        ActionResult? result = await this.navigator.GetDataAsync<ControllerActionSetupModel, ActionResult>(this, cancellation: cancellation.Token);
+        var navResult = await this.navigator.NavigateViewModelForResultAsync<ControllerActionSetupModel, ActionResult>(this, data: selectedAction, cancellation: cancellationSource.Token).AsResult();
+        ActionResult? result = navResult.SomeOrDefault();
         if (result != null && result.Proceed)
         {
-            var controllerResult = await this.navigator.GetDataAsync<ControllerActionModel, ControllerActionResult>(this, data: result.Arguments);
+            var controllerResult = await this.navigator.GetDataAsync<ControllerActionModel, ControllerActionResult>(this, data: result.Arguments, cancellation: cancellationSource.Token);
             if (controllerResult != null && controllerResult.Suceeded)
             {
                 // TODO: Alert? We should really already know why failure happened in the logs...
             }
-            await this.navigator.GoBack(this); // There was an issue re-opening the ControllerActionSetup dialog after closing the page. This hack sends us back to a refreshed state.
+           // await this.navigator.GoBack(this); // There was an issue re-opening the ControllerActionSetup dialog after closing the page. This hack sends us back to a refreshed state.
         }
+        cancellationSource.Cancel();
     }
 
     public async Task GoToDumpRam()

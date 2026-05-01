@@ -257,8 +257,8 @@ public partial class App : Application
             new ViewMap<SettingsPage, SettingsModel>(),
 
             // Controller action pages/dialog found in "Read/Write functions"
-            new ResultDataViewMap<ControllerActionSetupDialog, ControllerActionSetupModel, ActionResult>(),
-            new ResultDataViewMap<ControllerActionPage, ControllerActionModel, ECUActionArguments>(),
+            new DataViewMap<ControllerActionSetupDialog, ControllerActionSetupModel, ActionResult>(),
+            new DataViewMap<ControllerActionPage, ControllerActionModel, ECUActionArguments>(),
 
             // "Read/Write functions"'s other pages
             new ViewMap<DumpRamPage, DumpRamModel>(),
