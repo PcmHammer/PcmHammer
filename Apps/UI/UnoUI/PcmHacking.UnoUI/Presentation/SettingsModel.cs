@@ -179,12 +179,12 @@ public partial record SettingsModel
 #if ANDROID
             if(!await Platforms.Android.PermissionMethods.IsBluetoothGranted())
             {
-                ContentDialogResult result = await dispatcherQueue.ExecuteAsync(async (ct) => await new BinaryPrompt("Request permissions",
+                bool result = await DialogService.ShowBinaryPrompt("Request permissions",
                     "PCM Hammer requires access to nearby devices\r\n" +
                     "in order to use Bluetooth. Press \"Okay\" to be navigate to\r\n" +
-                    "this permission page.", "Okay", "Cancel", PrimaryButton.Left).ShowAsync(), ct);
+                    "this permission page.", "Okay", "Cancel", PrimaryButton.Left);
         
-                if (result == ContentDialogResult.Primary)
+                if (result)
                 {
                     if(!await Platforms.Android.PermissionMethods.GrantBluetoothPermissions())
                     {
