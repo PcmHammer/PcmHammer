@@ -821,8 +821,6 @@ public class ConnectionService : IConnectionService
         }
         if (this.internalState == ConnectionStates.Active && newState == ConnectionStates.Connected)
         {
-            this.vehicle?.ExitKernel().Wait();
-            this.vehicle?.ClearTroubleCodes().Wait();
             _leftActiveState = DateTime.Now;
         }
         if (((this.internalState & expected) > 0) || this.internalState == newState && ResetTimeRemaining == -1)
