@@ -20,9 +20,7 @@ public partial record ControllerActionModel : IAsyncLogger
     private readonly ECUActionArguments _actionArguments;
     private readonly INavigator navigator;
     private readonly IConnectionService connectionService;
-    private readonly ISettingsService settingsService;
     private readonly LoggerAdapter loggerAdapter;
-    private readonly IPlatformService platformService;
     private readonly IDispatcher dispatcher;
     private StorageFile? _selectedFile;
     private ControllerPageObjects pageObjects;
@@ -32,7 +30,6 @@ public partial record ControllerActionModel : IAsyncLogger
     private int _logTimerDelay = 100;
 
     private CancellationTokenSource? tokenSource;
-    const string defaultPath = "No file selected.";
 
     public string Title { get { return "Read PCM"; } }
 
@@ -47,21 +44,16 @@ public partial record ControllerActionModel : IAsyncLogger
     public IState<double> Progress => State<double>.Value(this, () => 0.0);
     private bool _isActive = false;
 
-
     public ControllerActionModel(
         INavigator navigator,
         IConnectionService connectionService,
-        ISettingsService settingsService,
         LoggerAdapter loggerAdapter,
-        IPlatformService platformService,
         IDispatcher dispatcher,
         ECUActionArguments arguments)
     {
         this.navigator = navigator ?? throw new ArgumentNullException(nameof(navigator));
         this.connectionService = connectionService ?? throw new ArgumentNullException(nameof(connectionService));
-        this.settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
         this.loggerAdapter = loggerAdapter ?? throw new ArgumentNullException(nameof(loggerAdapter));
-        this.platformService = platformService ?? throw new ArgumentNullException(nameof(platformService));
         this.dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
         _actionArguments = arguments ?? throw new ArgumentNullException(nameof(arguments));
 #if ANDROID

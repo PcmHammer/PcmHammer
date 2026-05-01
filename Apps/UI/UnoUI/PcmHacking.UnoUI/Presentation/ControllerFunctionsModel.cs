@@ -24,11 +24,11 @@ public partial record ControllerFunctionsModel
 {
     private const string defaultClearCodesButtonText = "Clear Trouble Codes";
     private const string defaultValue = "---";
-    private readonly DispatcherQueue dispatcherQueue;
+    private readonly IDispatcher dispatcherQueue;
     private readonly INavigator navigator;
     private readonly IConnectionService connectionService;
     private readonly LoggerAdapter progressLogger;
-    private readonly CancellationTokenSource cancellation = new CancellationTokenSource();
+    private CancellationTokenSource cancellationSource = new CancellationTokenSource();
 
     public IState<string> ResetCodesButtonText => State<string>.Value(this, () => defaultClearCodesButtonText);
     public IState<string> Description => State<string>.Value(this, () => defaultValue);
@@ -44,7 +44,7 @@ public partial record ControllerFunctionsModel
         INavigator navigator, 
         IConnectionService vehicleService,
         LoggerAdapter logger,
-        DispatcherQueue dispatcherQueue)
+        IDispatcher dispatcherQueue)
     {
         this.navigator = navigator;
         this.connectionService = vehicleService;
@@ -59,7 +59,7 @@ public partial record ControllerFunctionsModel
 
     public void NavigatedAway()
     {
-        cancellation.Cancel();
+        cancellationSource.Cancel();
     }
 
     private async Task UpdateActionButtonStates(CancellationToken ct)
@@ -73,9 +73,9 @@ public partial record ControllerFunctionsModel
     {
         await this.ClearDetails();
 
-        while (!cancellation.Token.IsCancellationRequested)
+        while (!cancellationSource.Token.IsCancellationRequested)
         {
-            if (await this.ReadProperties(cancellation.Token))
+            if (await this.ReadProperties(cancellationSource.Token))
             {
                 break;
             }

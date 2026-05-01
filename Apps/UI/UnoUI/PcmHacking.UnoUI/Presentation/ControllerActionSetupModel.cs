@@ -16,7 +16,6 @@ public record WriteTypeEntity(WriteType Type) : Entity("WriteType");
 public record ActionResult(bool Proceed = false, ECUActionArguments? Arguments = null);
 public partial record ControllerActionSetupModel
 {
-    public ActionResult Result { get; set; }
     public static ControllerActions SelectedAction = ControllerActions.Write;
 
     private readonly INavigator navigator;
@@ -24,7 +23,6 @@ public partial record ControllerActionSetupModel
     private readonly ISettingsService settingsService;
     private readonly LoggerAdapter loggerAdapter;
     private readonly IPlatformService platformService;
-    private readonly IDispatcher dispatcher;
 
     private CancellationTokenSource? tokenSource;
     const string defaultPath = "No file selected.";
@@ -58,15 +56,13 @@ public partial record ControllerActionSetupModel
         IConnectionService connectionService,
         ISettingsService settingsService,
         LoggerAdapter loggerAdapter,
-        IPlatformService platformService,
-        IDispatcher dispatcher)
+        IPlatformService platformService)
     {
         this.navigator = navigator;
         this.connectionService = connectionService ?? throw new ArgumentNullException(nameof(connectionService));
         this.settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
         this.loggerAdapter = loggerAdapter ?? throw new ArgumentNullException(nameof(loggerAdapter));
         this.platformService = platformService ?? throw new ArgumentNullException(nameof(platformService));
-        this.dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
 
         // Fire-and-forget initialization
         _ = this.Path.SetAsync(this.settingsService.GetLastWrittenFile());
@@ -158,8 +154,7 @@ public partial record ControllerActionSetupModel
     [Command]
     public async ValueTask Cancel(CancellationToken ct)
     {
-        Result = new(false, null);
-        await this.navigator.NavigateBackWithResultAsync<ActionResult>(this, data: Result);
+        await this.navigator.NavigateBackWithResultAsync<ActionResult>(this, data: new ActionResult(false, null));
     }
 
     [Command]
@@ -198,14 +193,13 @@ public partial record ControllerActionSetupModel
             SelectedAction = ControllerActionSetupModel.SelectedAction,
             HardwareType = Enum.Parse<PcmType>(await SelectedHardwareType.Value() ?? "Undefined"),
             WriteType = Enum.Parse<WriteType>(await SelectedWriteType.Value()),
-            UseHighSpeed = await this.UseHighSpeed.Value(), // We can safely use this like an override, since it was set to device prefrences on page load. User selection beyond that will reflect here.
+            UseHighSpeed = await this.UseHighSpeed.Value(), // We can safely use this like an override, since it was set to device preferences on page load. User selection beyond that will reflect here.
             ShowDebug = await this.ShowDebug.Value(),
             CustomKey = customKey,
             ContentStream = _actionArguments.ContentStream,
             StorageFileObject = _actionArguments.StorageFileObject
         };
-        Result = new(true, args);
-        await this.navigator.NavigateBackWithResultAsync<ActionResult>(this, data: Result);
+        await this.navigator.NavigateBackWithResultAsync<ActionResult>(this, data: new ActionResult(true, args));
     }
 
     // This variant of ChooseFile selects the proper picker strategy using the set SelectedAction.

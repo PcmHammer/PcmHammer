@@ -204,7 +204,6 @@ public partial record SettingsModel
         {
             deviceConnectionCancelSource.Cancel();
             deviceConnectionCancelSource.Dispose();
-            await Task.Delay(500, ct);
             deviceConnectionCancelSource = null;
         }
         string deviceCategory = await SelectedDeviceType.Value() ?? string.Empty;
