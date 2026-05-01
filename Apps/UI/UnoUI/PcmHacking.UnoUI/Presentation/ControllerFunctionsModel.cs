@@ -38,6 +38,7 @@ public partial record ControllerFunctionsModel
     public IState<string> SerialNumber => State<string>.Value(this, () => defaultValue);
     public IState<string> BroadcastCode => State<string>.Value(this, () => defaultValue);
     public IState<string> Mec => State<string>.Value(this, () => defaultValue);
+    public IState<bool> ActionButtonsEnabled => State<bool>.Value(this, () => false);
 
     public ControllerFunctionsModel(
         INavigator navigator, 
@@ -49,7 +50,7 @@ public partial record ControllerFunctionsModel
         this.connectionService = vehicleService;
         this.progressLogger = logger;
         this.dispatcherQueue = dispatcherQueue;
-
+        connectionService.ConnectionState.ForEach(async (state, ct) => await UpdateActionButtonStates(ct));
         // Loaded="{Binding ReadProperties}"
         this.dispatcherQueue.TryEnqueue(async () => {
             await this.MainLoop();
@@ -59,6 +60,13 @@ public partial record ControllerFunctionsModel
     public void NavigatedAway()
     {
         cancellation.Cancel();
+    }
+
+    private async Task UpdateActionButtonStates(CancellationToken ct)
+    {
+        ConnectionStates currentState = await this.connectionService.ConnectionState.Value(ct);
+        bool resetting = connectionService.ResetTimeRemaining > 0;
+        await ActionButtonsEnabled.SetAsync(!resetting && currentState >= ConnectionStates.Connected);
     }
 
     private async Task MainLoop()

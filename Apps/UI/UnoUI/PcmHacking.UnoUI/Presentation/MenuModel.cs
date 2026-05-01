@@ -8,18 +8,34 @@ public partial record MenuModel
 {
     private readonly INavigator navigator;
     private readonly INoticeService noticeService;
+    private readonly IConnectionService connectionService;
 
     public IState<string> HelpButtonText => State<string>.Value(this, () => String.Empty);
+
+    public IState<bool> ActionButtonsEnabled => State<bool>.Value(this, () => false);
+
+    public IState<bool> AllButtonsEnabled => State<bool>.Value(this, () => true)
+        .ForEach(async (state, ct) => await UpdateActionButtonStates(ct));
 
     public MenuModel(
         IStringLocalizer localizer,
         INavigator navigator,
-        INoticeService noticeService)
+        INoticeService noticeService,
+        IConnectionService connectionService)
     {
         this.navigator = navigator ?? throw new ArgumentNullException(nameof(navigator));
         this.noticeService = noticeService ?? throw new ArgumentNullException(nameof(noticeService));
+        this.connectionService = connectionService ?? throw new ArgumentNullException(nameof(connectionService));
         this.noticeService.NoticeData.ForEach(async (notice, ct) => await this.HelpButtonText.SetAsync(notice.HelpButtonText ?? String.Empty));
         var _ = this.noticeService.GetNotice();
+        connectionService.ConnectionState.ForEach(async (state, ct) => await this.UpdateActionButtonStates(ct));
+    }
+
+    private async Task UpdateActionButtonStates(CancellationToken ct)
+    {
+        ConnectionStates currentState = await this.connectionService.ConnectionState.Value(ct);
+        bool resetting = connectionService.ResetTimeRemaining > 0;
+        await ActionButtonsEnabled.SetAsync(!resetting && currentState >= ConnectionStates.Connected);
     }
 
     public async Task GoToDataLogging()
@@ -30,6 +46,12 @@ public partial record MenuModel
     public async Task GoToSettings()
     {
         await this.navigator.NavigateViewModelAsync<SettingsModel>(this);
+    }
+
+
+    public void ButtonStateControl(bool buttonsEnabled)
+    {
+        _ = AllButtonsEnabled.SetAsync(buttonsEnabled);
     }
 
     public async Task GoToExit()

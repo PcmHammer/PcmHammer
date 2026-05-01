@@ -6,6 +6,7 @@
       xmlns:utu="using:Uno.Toolkit.UI"
       NavigationCacheMode="Required"
       >
+
   <ScrollViewer>
     <Grid utu:SafeArea.Insets="VisibleBounds">
       <Grid.RowDefinitions>
@@ -23,6 +24,7 @@
               Name="ControllerFunctionsButton"
               Content="Read/Write Functions"
               Margin="10"
+              IsEnabled="{Binding ActionButtonsEnabled}"
               Padding="10"
               HorizontalAlignment="Stretch"
               VerticalAlignment="Stretch"              
@@ -34,6 +36,7 @@
               Content="Data Logging"
               Margin="10"
               Padding="10"
+              IsEnabled="{Binding ActionButtonsEnabled}"
               HorizontalAlignment="Stretch"
               VerticalAlignment="Stretch"                            
               AutomationProperties.AutomationId="DataLoggingButton"

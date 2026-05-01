@@ -130,6 +130,7 @@
             <Button Grid.Row="0" Grid.Column="0" Command="{Binding GoToRead}"
           Margin="10"
           Padding="10"
+                    IsEnabled="{Binding ActionButtonsEnabled}"
           HorizontalAlignment="Stretch"
           VerticalAlignment="Stretch">
                 <TextBlock Text="Read PCM" />
@@ -138,6 +139,7 @@
             <Button Grid.Row="0" Grid.Column="1" Command="{Binding GoToWrite}"
                     Margin="10"
                     Padding="10"
+                    IsEnabled="{Binding ActionButtonsEnabled}"
                     HorizontalAlignment="Stretch"
                     VerticalAlignment="Stretch">
                 <TextBlock Text="Write PCM" />
@@ -146,6 +148,7 @@
             <Button Grid.Row="0" Grid.Column="2" Command="{Binding GoToChangeVin}"
           Margin="10"
           Padding="10"
+                    IsEnabled="{Binding ActionButtonsEnabled}"
           HorizontalAlignment="Stretch"
           VerticalAlignment="Stretch">
                 <TextBlock Text="Change VIN" />
@@ -154,6 +157,7 @@
             <Button Grid.Row="1" Grid.Column="0" Command="{Binding GoToDumpRam}"
           Margin="10"
           Padding="10"
+                    IsEnabled="{Binding ActionButtonsEnabled}"
           HorizontalAlignment="Stretch"
           VerticalAlignment="Stretch">
                 <TextBlock Text="Dump RAM" />
@@ -162,6 +166,7 @@
             <Button Grid.Row="1" Grid.Column="1" Command="{Binding GoToCrankRelearn}"
           Margin="10"
           Padding="10"
+                    IsEnabled="{Binding ActionButtonsEnabled}"
           HorizontalAlignment="Stretch"
           VerticalAlignment="Stretch">
                 <TextBlock Text="Crank Relearn" />
@@ -170,6 +175,7 @@
             <Button Grid.Row="1" Grid.Column="2" Command="{Binding ResetCodes}"
           Margin="10"
           Padding="10"
+                    IsEnabled="{Binding ActionButtonsEnabled}"
           HorizontalAlignment="Stretch"
           VerticalAlignment="Stretch">
                 <TextBlock Text="{Binding ResetCodesButtonText}" />
