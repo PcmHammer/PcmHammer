@@ -34,6 +34,7 @@ namespace PcmHacking.UnoUI.Presentation
 
         public ControllerActionSetupDialog()
         {
+            XamlRoot = XamlRootService.GetXamlRoot();
             this.InitializeComponent();
             this.DataContextChanged += this.OnDataContextChanged;
         }
