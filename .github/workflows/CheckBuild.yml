@@ -198,6 +198,9 @@ jobs:
     - name: Build Uno Windows (Debug)
       run: dotnet build Apps/UI/UnoUI/PcmHacking.UnoUI/PcmHacking.UnoUI.csproj -c Debug -f net10.0-windows10.0.26100.0
 
+    - name: Build CLI (Debug)
+      run: dotnet build Apps/PcmHacking.CLI/PcmHacking.CLI.csproj -c Debug -f net10.0
+
     - name: Publish Uno Android (Release APK)
       run: >
         dotnet publish Apps/UI/UnoUI/PcmHacking.UnoUI/PcmHacking.UnoUI.csproj
@@ -217,6 +220,8 @@ jobs:
         $assemblyInfo = Get-Content "Apps/UI/WindowsForms/PcmHammer/Properties/AssemblyInfo.cs" -Raw
         $winFormsVersion = ([regex]::Match($assemblyInfo, 'AssemblyFileVersion\\(\"([^\"]+)\"\\)')).Groups[1].Value
         if ([string]::IsNullOrWhiteSpace($winFormsVersion)) { $winFormsVersion = "unknown" }
+
+        $cliVersion = (get-item Apps/Pcmhacking.CLI/bin/Debug/net10.0/Pcmhacking.CLI.exe).VersionInfo.FileVersion;
 
         $timestampUtc = [DateTime]::UtcNow.ToString("yyyyMMdd_HHmmss")
         $isReleaseTag = "${{ startsWith(github.ref, 'refs/tags/') }}" -eq "true"
@@ -243,6 +248,7 @@ jobs:
         "WINFORMS_VERSION=$winFormsVersion" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         "WINFORMS_ARTIFACT_SUFFIX=$winFormsArtifactSuffix" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         "UNO_ARTIFACT_SUFFIX=$unoArtifactSuffix" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        "CLI_ARTIFACT_SUFFIX=cliVersion" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
     - name: Stage WinForms artifact payload
       shell: pwsh
@@ -301,6 +307,26 @@ jobs:
         Copy-Item -Path "$($unoWindowsOutput.Directory.FullName)/*" -Destination "TemporaryArtifactStorage/UnoWindows" -Recurse -Force
         Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/*.LogProfile" -Destination "TemporaryArtifactStorage/UnoWindows" -Force
         Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/Parameters.*.xml" -Destination "TemporaryArtifactStorage/UnoWindows" -Force
+
+    - name: Stage CLI artifact payload
+      shell: pwsh
+      run: |
+        $cliOutput = Get-ChildItem -Path "Apps/PcmHacking.CLI/bin" -Recurse -File -ErrorAction SilentlyContinue `
+          | Where-Object {
+              ($_.Name -like "pcm*.exe" -or $_.Name -like "*.dll") -and
+              $_.FullName -like "*net10.0*"
+            } `
+          | Sort-Object FullName `
+          | Select-Object -First 1
+
+        if (!$cliOutput) {
+          throw "CLI output file (pcm*.exe or *.dll) not found under Apps/PcmHacking.CLI/bin"
+        }
+
+        New-Item -ItemType Directory -Force -Path TemporaryArtifactStorage/CLI | Out-Null
+        New-Item -ItemType Directory -Force -Path TemporaryArtifactStorage/CLI/Kernels | Out-Null
+        Copy-Item -Path "TemporaryArtifactStorage/Kernels/*.bin" -Destination "TemporaryArtifactStorage/CLI/Kernels" -Force
+        Copy-Item -Path "$($cliOutput.Directory.FullName)/*" -Destination "TemporaryArtifactStorage/CLI" -Recurse -Force
 
     - name: Stage Uno Android artifact payload
       shell: pwsh
@@ -382,3 +408,9 @@ jobs:
       with:
         name: PCMHammer_UnoAndroid_${{ env.UNO_ARTIFACT_SUFFIX }}_${{ github.sha }}
         path: TemporaryArtifactStorage/UnoAndroid
+
+    - name: Upload Uno Android artifact
+      uses: actions/upload-artifact@v7
+      with:
+        name: PCMHammer_CLI_${{ env.CLI_ARTIFACT_SUFFIX }}_${{ github.sha }}
+        path: TemporaryArtifactStorage/CLI
