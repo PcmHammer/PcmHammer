@@ -324,7 +324,9 @@ namespace PcmHacking
 
             DateTime start = DateTime.Now;
 
-           CKernelWriter writer = new CKernelWriter(
+            vehicle.Enable4xReadWrite = _actionArguments.UseHighSpeed || vehicle.Enable4xReadWrite;
+
+            CKernelWriter writer = new CKernelWriter(
                 this.vehicle,
                 pcmInfo,
                 new Protocol(),

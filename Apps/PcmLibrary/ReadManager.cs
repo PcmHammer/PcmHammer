@@ -226,6 +226,8 @@ namespace PcmHacking
                 _logger,
                 _progress ?? new Progress<ProgressUpdate>());
 
+            _vehicle.Enable4xReadWrite = _actionArguments.UseHighSpeed || _vehicle.Enable4xReadWrite;
+
             Response<Stream> readResponse = await reader.ReadContents(_cancellationToken);
 
             _logger.AddUserMessage("Elapsed time " + DateTime.Now.Subtract(start));
