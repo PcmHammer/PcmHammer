@@ -314,7 +314,7 @@ jobs:
         $cliOutput = Get-ChildItem -Path "Apps/PcmHacking.CLI/bin" -Recurse -File -ErrorAction SilentlyContinue `
           | Where-Object {
               ($_.Name -like "pcm*.exe" -or $_.Name -like "*.dll") -and
-              $_.FullName -like "*net10.0*"
+              $_.FullName -like "*net10.0-windows10.0.19041.0*"
             } `
           | Sort-Object FullName `
           | Select-Object -First 1
