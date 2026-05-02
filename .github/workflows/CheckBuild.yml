@@ -221,7 +221,7 @@ jobs:
         $winFormsVersion = ([regex]::Match($assemblyInfo, 'AssemblyFileVersion\\(\"([^\"]+)\"\\)')).Groups[1].Value
         if ([string]::IsNullOrWhiteSpace($winFormsVersion)) { $winFormsVersion = "unknown" }
 
-        $cliVersion = (get-item Apps/Pcmhacking.CLI/bin/Debug/net10.0/Pcmhacking.CLI.exe).VersionInfo.FileVersion;
+        $cliVersion = (get-item Apps/Pcmhacking.CLI/bin/Debug/net10.0-windows10.0.19041.0/Pcmhacking.CLI.exe).VersionInfo.FileVersion;
 
         $timestampUtc = [DateTime]::UtcNow.ToString("yyyyMMdd_HHmmss")
         $isReleaseTag = "${{ startsWith(github.ref, 'refs/tags/') }}" -eq "true"
