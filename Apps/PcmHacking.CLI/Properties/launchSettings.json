@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "PcmHacking.CLI": {
+      "commandName": "Project",
+      "commandLineArgs": "-dt Serial -da COM9 -a Read -o E:\\untitled.bin -v -hs"
+    }
+  }
+}
