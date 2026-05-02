@@ -2,7 +2,12 @@
   "profiles": {
     "PcmHacking.CLI": {
       "commandName": "Project",
-      "commandLineArgs": "-dt Serial -da COM9 -a Read -o E:\\untitled.bin -v -hs"
+      "commandLineArgs": "-dt Bluetooth -da 00043E8ADB45 -a Read -o E:\\untitled.bin -v -hs"
+    },
+    "WSL": {
+      "commandName": "WSL2",
+      "commandLineArgs": "{ProjectDir}/bin/Debug/net10.0-windows10.0.19041.0/PcmHacking.CLI.dll -dt Serial -da /dev/ttyS9 -a Read -o E:/untitled.bin -v -hs",
+      "distributionName": "Ubuntu"
     }
   }
 }
