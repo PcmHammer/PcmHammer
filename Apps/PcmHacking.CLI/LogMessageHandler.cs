@@ -7,7 +7,7 @@ namespace PcmHacking.CLI;
     public enum LogLevel {
         Unspecified,
         Info,
-        Error
+        Debug
     }
 
     public class LogEntry {
@@ -48,7 +48,7 @@ namespace PcmHacking.CLI;
             return stringBuilder.ToString();
         }
         public void AddDebugMessage(string message) {
-            _logger.Write(LogLevel.Error, message, _logPrefix);
+            _logger.Write(LogLevel.Debug, message, _logPrefix);
         }
 
         public void AddUserMessage(string message) {
@@ -167,9 +167,9 @@ public class LogEntryStreamHandler : IDisposable
         {
             result.AddRange(_logEntries[LogLevel.Info]);
         }
-        if (_logEntries.ContainsKey(LogLevel.Error) && _logEntries[LogLevel.Error].Count > 0)
+        if (_logEntries.ContainsKey(LogLevel.Debug) && _logEntries[LogLevel.Debug].Count > 0)
         {
-            result.AddRange(_logEntries[LogLevel.Error]);
+            result.AddRange(_logEntries[LogLevel.Debug]);
         }
         result.Sort(new LogTimeStampComparer());
         return result;
