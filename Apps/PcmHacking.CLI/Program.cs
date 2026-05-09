@@ -298,7 +298,7 @@ if (result == 0)
         Invoke = async (action) => action.Invoke(),
         ShowAlert = async (t, m) =>
         {
-            Console.WriteLine(m);
+        await vehicle.DiscoverConnectedECU(cancellationSource.Token); // This new method universally handles discovery of connection hardware. The only thing left to do is per-state validation.
             Console.ReadLine();
         },
         PromptYesOrNo = async (t, m) =>

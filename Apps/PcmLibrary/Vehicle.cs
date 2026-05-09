@@ -204,6 +204,52 @@ namespace PcmHacking
             }
         }
 
+        public async Task<ECUBase> DiscoverConnectedECU(CancellationToken ct)
+        {
+            Response<uint> osidResponse = new(ResponseStatus.Error, 0); 
+
+            this.logger.AddUserMessage("Checking for recovery mode...");
+            Response<bool> recoveryModeResponse = await CheckForRecoveryMode(ct);
+
+            if (recoveryModeResponse.Status == ResponseStatus.Success && recoveryModeResponse.Value)
+            {
+                this.logger.AddUserMessage("PCM is in recovery mode.");
+                ConnectedECU = ECUFactory.GetControllerOverride(PcmType.Undefined);
+                ConnectedECU.ECUState = ECUStates.Recovery;
+                return ConnectedECU;
+            }
+
+            this.logger.AddUserMessage("No Recovery message detected. Checking for a live kernel...");
+            uint kernelVersion = await GetKernelVersion(1);
+            if (kernelVersion != 0)
+            {
+                this.logger.AddUserMessage("Kernel version: " + kernelVersion.ToString("X8"));
+                this.logger.AddUserMessage("Asking kernel for the PCM's operating system ID...");
+
+                osidResponse = await QueryOperatingSystemIdFromKernel(ct);
+                if (osidResponse.Status != ResponseStatus.Success)
+                {
+                    // The kernel seems broken. This shouldn't happen, but if it does, halt.
+                    this.logger.AddUserMessage("The kernel did not respond to operating system ID query.");
+                    return ConnectedECU;
+                }
+                ConnectedECU = ECUFactory.GetControllerByOSID(osidResponse.Value);
+                ConnectedECU.ECUState = ECUStates.Kernel;
+                return ConnectedECU;
+            }
+            this.logger.AddUserMessage("Requesting operating system ID...");
+            osidResponse = await QueryOperatingSystemId(ct);
+            if (osidResponse.Status == ResponseStatus.Success)
+            {
+                ConnectedECU = ECUFactory.GetControllerByOSID(osidResponse.Value);
+                ConnectedECU.ECUState = ECUStates.Programmed;
+                return ConnectedECU;
+            }
+            ConnectedECU = ECUFactory.GetControllerOverride(PcmType.Undefined);
+            ConnectedECU.ECUState = ECUStates.Invalid;
+            return ConnectedECU;
+        }
+
         /// <summary>
         /// Re-initialize the device.
         /// </summary>

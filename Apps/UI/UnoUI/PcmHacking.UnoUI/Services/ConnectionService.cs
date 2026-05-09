@@ -727,39 +727,24 @@ public class ConnectionService : IConnectionService
 
         try
         {
-            if(await this.OperatingSystemId.Value() == _recoveryString || await this.OperatingSystemId.Value() == _kernelString)
-            {
                 await this.OperatingSystemId.SetAsync(string.Empty);
-            }
-            this.logger.AddUserMessage("Checking for a recovery message...");
-            Response<bool> recoveryResponse = await vehicle.CheckForRecoveryMode(cancellationToken);
-            if (recoveryResponse.Status == ResponseStatus.Success && recoveryResponse.Value == true)
+            ECUBase pcm = await vehicle.DiscoverConnectedECU(cancellationToken);
+            switch (pcm.ECUState)
             {
-                this.logger.AddUserMessage("PCM/ECM recovery mode detected!");
+                case ECUStates.Invalid:
+                    await this.ResetVehicleInfo(vehicle);
+                    return false;
+                case ECUStates.Programmed:
+                    await this.OperatingSystemId.SetAsync(pcm.GetCurrentOSID().ToString());
+                    break;
+                case ECUStates.Kernel:
+                    await this.OperatingSystemId.SetAsync(_kernelString);
+                    return true;
+                case ECUStates.Recovery:
                 await this.OperatingSystemId.SetAsync(_recoveryString);
-                vehicle.ECUState = ECUStates.Recovery;
                 return true;
-            }
-            this.logger.AddUserMessage("No recovery message detected. Checking for live kernel...");
-            uint ver = await vehicle.GetKernelVersion(maxRetries: 1);
-            if (ver != 0)
-            {
-                this.logger.AddUserMessage($"Detected kernel version: {ver}");
-                await this.OperatingSystemId.SetAsync(_kernelString);
-                vehicle.ECUState = ECUStates.Kernel;
-                return true;
-            }
-            await this.OperatingSystemId.SetAsync(string.Empty);
-            Response<uint> osidResponse = await vehicle.QueryOperatingSystemId(cancellationToken);
-            if (osidResponse.Status == ResponseStatus.Success)
-            {
-                await this.OperatingSystemId.SetAsync(osidResponse.Value.ToString());
-                vehicle.ConnectedECU = ECUFactory.GetControllerByOSID(osidResponse.Value);
-            }
-            else
-            {
-                await this.ResetVehicleInfo(vehicle);
-                return false;
+                default:
+                    break;
             }
 
             await this.Voltage.SetAsync(String.Empty);
@@ -788,7 +773,6 @@ public class ConnectionService : IConnectionService
             }
             return false;
         }
-        vehicle.ECUState = ECUStates.Programmed;
         return true;
     }
 
