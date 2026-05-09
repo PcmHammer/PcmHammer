@@ -111,7 +111,7 @@ namespace PcmHacking
             this.userLog.Invoke(
                 (MethodInvoker)delegate ()
                 {
-                    this.userLog.AppendText("[" + timestamp + "]  " + message + Environment.NewLine);
+                        this.userLog.AppendText("[" + timestamp + "]  " + message + Environment.NewLine);
 
                     // User messages are added to the debug log as well, so that the debug log has everything.
                     this.debugLog.AppendText("[" + timestamp + "]  " + message + Environment.NewLine);
@@ -786,7 +786,7 @@ namespace PcmHacking
         {
             await this.InitializeCurrentDevice();
         }
-        
+
         /// <summary>
         /// Read the VIN, OS, etc.
         /// </summary>
@@ -801,9 +801,33 @@ namespace PcmHacking
 
             try
             {
-                ECUBase pcmInfo = null;
+                // We can now check for Recovery/Kernel states and be able to provide this instead of failing.
+                ECUBase pcmInfo = await this.Vehicle.DiscoverConnectedECU(CancellationToken.None);
 
                 this.DisableUserInput();
+
+                var osResponse = pcmInfo.GetCurrentOSID();
+                switch (pcmInfo.ECUState)
+                {
+                    case ECUStates.Invalid:
+                        this.AddUserMessage("PCM Hammer could not identify this controller.");
+                        return;
+                    case ECUStates.Programmed:
+                        break;
+                    case ECUStates.Kernel:
+                        this.AddUserMessage("Connected controller is currently in Kernel mode!");
+                        this.AddUserMessage("OSID: " + osResponse.ToString());
+                        this.AddUserMessage("Description: " + pcmInfo.Description);
+                        return;
+                    case ECUStates.Recovery:
+                        this.AddUserMessage("Connected controller is currently in Recovery mode!");
+                        return;
+                    default:
+                        break;
+                }
+
+                this.AddUserMessage("OSID: " + osResponse.ToString());
+                this.AddUserMessage("Description: " + pcmInfo.Description);
 
                 var vinResponse = await this.Vehicle.QueryVin();
                 if (vinResponse.Status != ResponseStatus.Success)
@@ -812,19 +836,8 @@ namespace PcmHacking
                     await this.Vehicle.ExitKernel();
                     return;
                 }
-                this.AddUserMessage("VIN: " + vinResponse.Value);
 
-                var osResponse = await this.Vehicle.QueryOperatingSystemId(CancellationToken.None);
-                if (osResponse.Status == ResponseStatus.Success)
-                {
-                    this.AddUserMessage("OSID: " + osResponse.Value.ToString());
-                    pcmInfo = ECUFactory.GetControllerByOSID(osResponse.Value);
-                    this.AddUserMessage("Description: " + pcmInfo.Description);
-                }
-                else
-                {
-                    this.AddUserMessage("OS ID query failed: " + osResponse.Status.ToString());
-                }
+                this.AddUserMessage("VIN: " + vinResponse.Value);
 
                 // Disable Calibration ID lookup for those that do not provide it
                 if (pcmInfo != null && pcmInfo.HardwareType != PcmType.BlackBox)
@@ -1011,7 +1024,7 @@ namespace PcmHacking
                     MessageBoxDefaultButton.Button1); ;
             }
 
-            switch(result)
+            switch (result)
             {
                 case DialogResult.OK:
                 case DialogResult.Yes:
@@ -1035,7 +1048,7 @@ namespace PcmHacking
             if (!BackgroundWorker.IsAlive)
             {
                 if (ConfirmBeforeWrite("This will update the calibration on your PCM."))
-                { 
+                {
                     BackgroundWorker = new System.Threading.Thread(() => write_BackgroundThread(WriteType.Calibration));
                     BackgroundWorker.IsBackground = true;
                     BackgroundWorker.Start();
@@ -1083,7 +1096,7 @@ namespace PcmHacking
             if (!BackgroundWorker.IsAlive)
             {
                 if (ConfirmBeforeWrite("This will replace the contents of the flash memory on your PCM."))
-                { 
+                {
                     BackgroundWorker = new System.Threading.Thread(() => write_BackgroundThread(WriteType.Full));
                     BackgroundWorker.IsBackground = true;
                     BackgroundWorker.Start();
@@ -1191,36 +1204,34 @@ namespace PcmHacking
                     string path = "";
                     await this.InvokeWrapper(async () => path = await this.PromptForFileSavePath());
 
-                    if (path == null)
+                    if (string.IsNullOrWhiteSpace(path))
                     {
                         this.AddUserMessage("Read canceled.");
                         return;
                     }
 
-                    Progress<ProgressUpdate>? progress = new Progress<ProgressUpdate>((progress) =>
-                    {
-                        UpdateProgress(progress);
-                    });
+                    ECUActionArguments actionArgs = new ECUActionArguments { SelectedAction = ControllerActions.Read };
 
-                    this.cancellationTokenSource = new CancellationTokenSource();
-                    ReadManager readManager = new ReadManager(
-                        this,
-                        this.Vehicle,
-                        new ECUActionArguments { SelectedAction = ControllerActions.Read },
-                        new ControllerPageObjects
+                    if (await BeginActionAsync(actionArgs))
+                    {
+                        try
                         {
-                            Invoke = (action) => { return Task.FromResult(Invoke(action)); },
-                            PromptForSavePath = PromptForFileSavePath,
-                            PromptForHardwareType = PromptForOperatingSystemId,
-                            ShowAlert = async (a, b) => await Alert(a, b),
-                            PromptYesOrNo = async (a, b) => await PromptForYesNo(a, b)
-                        },
-                        this.cancellationTokenSource.Token,
-                        progress);
+                            AddUserMessage("Saving contents to " + path);
 
-                    if (await readManager.Begin(path))
-                    {
-                        // This will suppress the scary warnings prior to writing.
+                            actionArgs.ContentStream.Position = 0;
+
+                            using (Stream output = File.Open(path, FileMode.Create))
+                            {
+                                await actionArgs.ContentStream.CopyToAsync(output);
+                                AddUserMessage("File saved successfully!");
+                            }
+                            return;
+                        }
+                        catch (IOException exception)
+                        {
+                            AddUserMessage("Unable to save file: " + exception.Message);
+                            AddDebugMessage(exception.ToString());
+                        }
                         Configuration.Settings.ConnectionVerified = true;
                     }
                 }
@@ -1242,6 +1253,49 @@ namespace PcmHacking
             }
         }
 
+        private async Task<bool> BeginActionAsync(ECUActionArguments arguments)
+        {
+            Progress<ProgressUpdate>? progress = new Progress<ProgressUpdate>((progress) =>
+            {
+                UpdateProgress(progress);
+            });
+            this.cancellationTokenSource = new CancellationTokenSource();
+
+            ControllerManager manager = new(
+                this.Vehicle,
+                arguments,
+                new ControllerPageObjects(),
+                this.cancellationTokenSource.Token,
+                progress,
+                this);
+            manager.Initialize();
+
+            await this.Vehicle.DiscoverConnectedECU(cancellationTokenSource.Token);
+
+            PreFlightCheckResult checkResult = this.Vehicle.ConnectedECU.GetPreCheckResults(ControllerActions.Read, WriteType.None);
+            if (checkResult.ShouldPrompt)
+            {
+                await this.InvokeWrapper(async () =>
+                {
+                    if (checkResult.CanProceed)
+                    {
+                        DialogResult result = MessageBox.Show(checkResult.PromptMessage, "Precheck prompt", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+                        if (result != DialogResult.Yes)
+                        {
+                            AddUserMessage("Abort! User chose to exit.");
+                            return;
+                        }
+                    }
+                    else
+                    {
+                        MessageBox.Show(checkResult.PromptMessage, "Precheck prompt", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        return;
+                    }
+                });
+            }
+            return await manager.BeginAction();
+        }
+
         private void UpdateProgress(ProgressUpdate progress)
         {
             this.StatusUpdateActivity(progress.Activity);
@@ -1258,7 +1312,7 @@ namespace PcmHacking
 
             if (path == null)
             {
-                return null;
+                return Task.FromResult(string.Empty);
             }
 
             this.AddUserMessage("Will save to " + path);
@@ -1271,32 +1325,6 @@ namespace PcmHacking
             }
 
             return Task.FromResult(path);
-        }
-
-        private Task<UInt32> PromptForOperatingSystemId()
-        {
-            OperatingSystemIDDialogBox osDialog = new OperatingSystemIDDialogBox();
-            DialogResult dialogResult = osDialog.ShowDialog();
-            if (dialogResult == DialogResult.OK)
-            {
-                return Task.FromResult(osDialog.OperatingSystemId);
-            }
-            else
-            {
-                return Task.FromResult((UInt32)0);
-            }
-        }
-
-        private Task<bool> PromptForYesNo(string message, string title)
-        {
-            DialogResult dialogResult = MessageBox.Show(message, title, MessageBoxButtons.YesNo);
-            return Task.FromResult(dialogResult == DialogResult.Yes);
-        }
-
-        private Task Alert(string message, string title)
-        {
-            MessageBox.Show(message, title);
-            return Task.CompletedTask;
         }
 
         /// <summary>
@@ -1318,7 +1346,7 @@ namespace PcmHacking
                     }
 
                     this.cancellationTokenSource = new CancellationTokenSource();
-                    
+
                     this.Invoke((MethodInvoker)delegate ()
                     {
                         this.DisableUserInput();
@@ -1358,28 +1386,21 @@ namespace PcmHacking
                         UpdateProgress(progress);
                     });
 
-                    WriteManager writer = new WriteManager(
-                        this,
-                        this.Vehicle,
-                         new ECUActionArguments
-                         {
-                             WriteType = writeType,
-                         },
-                         new ControllerPageObjects
-                         {
-                             ShowAlert = this.Alert,
-                             PromptYesOrNo = this.PromptForYesNo
-                         },
-                        this.cancellationTokenSource.Token,
-                        progress);
-
-                    bool success = await writer.Begin(path);
-
-                    if (success)
+                    ECUActionArguments actionArguments = new ECUActionArguments
                     {
-                    // This will suppress the scary warnings prior to writing.
-                    Configuration.Settings.ConnectionVerified = true;
-                }
+                        SelectedAction = ControllerActions.Write,
+                        WriteType = writeType,
+                        ContentStream = new()
+                    };
+                    FileStream file = File.Open(path, FileMode.Open, FileAccess.Read);
+                    await file.CopyToAsync(actionArguments.ContentStream);
+                    file.Close();
+
+                    if (await BeginActionAsync(actionArguments))
+                    {
+                        // This will suppress the scary warnings prior to writing.
+                        Configuration.Settings.ConnectionVerified = true;
+                    }
                 }
                 catch (IOException exception)
                 {
