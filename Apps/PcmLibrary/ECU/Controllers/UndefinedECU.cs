@@ -185,6 +185,9 @@ namespace PcmHacking.ECU.Controllers {
                 { new OSInfo("GM", 16256445, -1, 0) },
             };
 
+        public override ECUBase Clone()
+        {
+            return new UndefinedECU();
         }
     }
 }

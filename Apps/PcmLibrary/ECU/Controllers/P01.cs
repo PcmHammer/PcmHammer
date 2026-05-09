@@ -26,6 +26,7 @@ namespace PcmHacking.ECU.Controllers {
             FlashCRCSupport = true;
             FlashIDSupport = true;
             KernelVersionSupport = true;
+            IsUnderDevelopment = true;
             KernelMaxBlockSize = 4096;
             KnownOperatingSystems = new List<OSInfo>() {
                 { new OSInfo("HPT", 1251001, 0, 3) },
@@ -92,7 +93,7 @@ namespace PcmHacking.ECU.Controllers {
                 { new OSInfo("HPT", 1281016, 0, 40) },
                 { new OSInfo("HPT", 1281918, 0, 40) },
 
-                { new OSInfo("GM", 9360360, 9354896, 40) },   
+                { new OSInfo("GM", 9360360, 9354896, 40) },
                 { new OSInfo("GM", 9360361, 9354896, 40) },
                 { new OSInfo("GM", 9361140, 9354896, 40) },
                 { new OSInfo("GM", 9363996, 9354896, 40) },
@@ -165,7 +166,40 @@ namespace PcmHacking.ECU.Controllers {
                 { new OSInfo("EFILive", 04110002, 0, 40) },
                 { new OSInfo("EFILive", 05120002, 0, 40) },
             };
+        }
 
+        public P01(P01 original)
+        {
+            BaseHardwareType = original.BaseHardwareType;
+            ChecksumSupport = original.ChecksumSupport;
+            Description = original.Description;
+            FlashCRCSupport = original.FlashCRCSupport;
+            FlashIDSupport = original.FlashIDSupport;
+            HardwareSlaveCPU = original.HardwareSlaveCPU;
+            HardwareType = original.HardwareType;
+            HardwareTypeOverridden = original.HardwareTypeOverridden;
+            ImageBaseAddress = original.ImageBaseAddress;
+            ImageSize = original.ImageSize;
+            IsSupported = original.IsSupported;
+            IsSupportedRead = original.IsSupportedRead;
+            IsSupportedWrite = original.IsSupportedWrite;
+            IsSupportedWriteBootSector = original.IsSupportedWriteBootSector;
+            IsSupportedWriteBySegment = original.IsSupportedWriteBySegment;
+            IsSupportedWriteSlaveCPU = original.IsSupportedWriteSlaveCPU;
+            IsUnderDevelopment = original.IsUnderDevelopment;
+            KernelBaseAddress = original.KernelBaseAddress;
+            KernelMaxBlockSize = original.KernelMaxBlockSize;
+            KernelVersionSupport = original.KernelVersionSupport;
+            KeyAlgorithm = original.KeyAlgorithm;
+            KnownOperatingSystems = original.KnownOperatingSystems;
+            LoaderBaseAddress = original.LoaderBaseAddress;
+            LoaderRequired = original.LoaderRequired;
+            Manufacturer = original.Manufacturer;
+        }
+
+        public override ECUBase Clone()
+        {
+            return new P01(this);
         }
     }
 }

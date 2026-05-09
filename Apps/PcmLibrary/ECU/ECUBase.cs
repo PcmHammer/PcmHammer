@@ -300,7 +300,7 @@ namespace PcmHacking.ECU {
 
         public uint GetCurrentOSID() => _currentOS.OSID;
 
-        public void SetOverriddenState() => _currentOS.SetOverridePresent();
+        public abstract ECUBase Clone();
 
         public override string ToString()
         {

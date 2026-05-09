@@ -39,7 +39,40 @@ namespace PcmHacking.ECU.Controllers {
                 { new OSInfo("GM", 16251315, 16263494, 16) },
                 { new OSInfo("GM", 16265175, 16263494, 16) },
             };
+        }
 
+        public BlackBox(BlackBox original)
+        {
+            BaseHardwareType = original.BaseHardwareType;
+            ChecksumSupport = original.ChecksumSupport;
+            Description = original.Description;
+            FlashCRCSupport = original.FlashCRCSupport;
+            FlashIDSupport = original.FlashIDSupport;
+            HardwareSlaveCPU = original.HardwareSlaveCPU;
+            HardwareType = original.HardwareType;
+            HardwareTypeOverridden = original.HardwareTypeOverridden;
+            ImageBaseAddress = original.ImageBaseAddress;
+            ImageSize = original.ImageSize;
+            IsSupported = original.IsSupported;
+            IsSupportedRead = original.IsSupportedRead;
+            IsSupportedWrite = original.IsSupportedWrite;
+            IsSupportedWriteBootSector = original.IsSupportedWriteBootSector;
+            IsSupportedWriteBySegment = original.IsSupportedWriteBySegment;
+            IsSupportedWriteSlaveCPU = original.IsSupportedWriteSlaveCPU;
+            IsUnderDevelopment = original.IsUnderDevelopment;
+            KernelBaseAddress = original.KernelBaseAddress;
+            KernelMaxBlockSize = original.KernelMaxBlockSize;
+            KernelVersionSupport = original.KernelVersionSupport;
+            KeyAlgorithm = original.KeyAlgorithm;
+            KnownOperatingSystems = original.KnownOperatingSystems;
+            LoaderBaseAddress = original.LoaderBaseAddress;
+            LoaderRequired = original.LoaderRequired;
+            Manufacturer = original.Manufacturer;
+        }
+
+        public override ECUBase Clone()
+        {
+            return new BlackBox(this);
         }
     }
 }

@@ -1454,7 +1454,40 @@ namespace PcmHacking.ECU.Controllers {
                 { new OSInfo("GM", 16268407, 16236757, 14) },
                 { new OSInfo("GM", 49807546, 16236757, 14) },
             };
+        }
 
+        public P04(P04 original)
+        {
+            BaseHardwareType = original.BaseHardwareType;
+            ChecksumSupport = original.ChecksumSupport;
+            Description = original.Description;
+            FlashCRCSupport = original.FlashCRCSupport;
+            FlashIDSupport = original.FlashIDSupport;
+            HardwareSlaveCPU = original.HardwareSlaveCPU;
+            HardwareType = original.HardwareType;
+            HardwareTypeOverridden = original.HardwareTypeOverridden;
+            ImageBaseAddress = original.ImageBaseAddress;
+            ImageSize = original.ImageSize;
+            IsSupported = original.IsSupported;
+            IsSupportedRead = original.IsSupportedRead;
+            IsSupportedWrite = original.IsSupportedWrite;
+            IsSupportedWriteBootSector = original.IsSupportedWriteBootSector;
+            IsSupportedWriteBySegment = original.IsSupportedWriteBySegment;
+            IsSupportedWriteSlaveCPU = original.IsSupportedWriteSlaveCPU;
+            IsUnderDevelopment = original.IsUnderDevelopment;
+            KernelBaseAddress = original.KernelBaseAddress;
+            KernelMaxBlockSize = original.KernelMaxBlockSize;
+            KernelVersionSupport = original.KernelVersionSupport;
+            KeyAlgorithm = original.KeyAlgorithm;
+            KnownOperatingSystems = original.KnownOperatingSystems;
+            LoaderBaseAddress = original.LoaderBaseAddress;
+            LoaderRequired = original.LoaderRequired;
+            Manufacturer = original.Manufacturer;
+        }
+
+        public override ECUBase Clone()
+        {
+            return new P04(this);
         }
     }
 }
