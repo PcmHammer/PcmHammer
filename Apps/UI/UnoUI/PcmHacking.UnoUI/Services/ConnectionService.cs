@@ -671,7 +671,6 @@ public class ConnectionService : IConnectionService
     private async Task<bool> TryPollOnce(Vehicle vehicle)
     {
         bool success = false;
-        vehicle.ECUState = ECUStates.Invalid;
         using (var source = new CancellationTokenSource())
         {
             try
@@ -727,7 +726,7 @@ public class ConnectionService : IConnectionService
 
         try
         {
-                await this.OperatingSystemId.SetAsync(string.Empty);
+            await this.OperatingSystemId.SetAsync(string.Empty);
             ECUBase pcm = await vehicle.DiscoverConnectedECU(cancellationToken);
             switch (pcm.ECUState)
             {
@@ -741,8 +740,8 @@ public class ConnectionService : IConnectionService
                     await this.OperatingSystemId.SetAsync(_kernelString);
                     return true;
                 case ECUStates.Recovery:
-                await this.OperatingSystemId.SetAsync(_recoveryString);
-                return true;
+                    await this.OperatingSystemId.SetAsync(_recoveryString);
+                    return true;
                 default:
                     break;
             }
