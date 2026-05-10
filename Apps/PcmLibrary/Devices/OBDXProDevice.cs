@@ -457,7 +457,7 @@ namespace PcmHacking
         public override async Task<bool> IsCommandBroadcasting(byte command)
         {
             this.ClearMessageQueue();
-            byte[] expectedMsg = [Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, command, 0x00];
+            byte[] expectedMsg = [Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, command];
             try
             {
                 await this.ReadDVIPacket(200);
@@ -468,12 +468,7 @@ namespace PcmHacking
             Message incoming = await ReceiveMessage();
             if (incoming != null)
             {
-                byte[] recv = incoming.GetBytes();
-                if(recv.Length >= 5)
-                {
-                    expectedMsg[4] = recv[4];
-                }
-                if (Utility.CompareArrays(recv, expectedMsg))
+                if (Utility.CompareArraysPart(incoming.GetBytes(), expectedMsg))
                     return true;
             }
             return false;
