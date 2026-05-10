@@ -1276,6 +1276,7 @@ namespace PcmHacking
 
             await this.Vehicle.DiscoverConnectedECU(cancellationTokenSource.Token);
 
+            bool shouldHalt = false;
             PreFlightCheckResult checkResult = this.Vehicle.ConnectedECU.GetPreCheckResults(ControllerActions.Read, WriteType.None);
             if (checkResult.ShouldPrompt)
             {
@@ -1287,15 +1288,18 @@ namespace PcmHacking
                         if (result != DialogResult.Yes)
                         {
                             AddUserMessage("Abort! User chose to exit.");
-                            return;
+                            shouldHalt = true;
                         }
                     }
                     else
                     {
                         MessageBox.Show(checkResult.PromptMessage, "Precheck prompt", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                        return;
+                        shouldHalt = true;
                     }
                 });
+            }
+            if(shouldHalt) { 
+                this.cancellationTokenSource.Cancel();
             }
             return await manager.BeginAction();
         }
