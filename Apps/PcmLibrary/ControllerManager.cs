@@ -38,21 +38,25 @@ namespace PcmHacking
         public ControllerPageObjects ControllerPageObjects = pageObjects;
         private Dictionary<ControllerActions, IControllerManager> _controllerActionLookup = [];
         private readonly Vehicle _vehicle = vehicle;
-        private readonly CancellationToken _cancellationTokenSource = cancellationToken;
-        private readonly ILogger? logger = logger;
-        private readonly IProgress<ProgressUpdate>? progress = progress;
+        private readonly CancellationToken _cancellationToken = cancellationToken;
+        private readonly ILogger logger = logger;
+        private readonly IProgress<ProgressUpdate> progress = progress;
 
 
         public void Initialize()
         {
             _controllerActionLookup = new Dictionary<ControllerActions, IControllerManager> {
-                { ControllerActions.Read, new ReadManager(logger, _vehicle, ActionArgs, ControllerPageObjects, _cancellationTokenSource, progress) },
-                { ControllerActions.Write, new WriteManager(logger, _vehicle, ActionArgs, ControllerPageObjects, _cancellationTokenSource, progress) }
+                { ControllerActions.Read, new ReadManager(logger, _vehicle, ActionArgs, ControllerPageObjects, _cancellationToken, progress) },
+                { ControllerActions.Write, new WriteManager(logger, _vehicle, ActionArgs, ControllerPageObjects, _cancellationToken, progress) }
             };                
         }
 
         public async Task<bool> BeginAction()
         {
+            if (ActionArgs.PreFlightChecksRequired)
+            {
+                throw new Exception("Caller should use GetPreFlightCheckResult to prompt users before starting action!");
+            }
             IControllerManager? selectedManager = null;
             if (_controllerActionLookup.TryGetValue(ActionArgs.SelectedAction, out selectedManager))
             {
