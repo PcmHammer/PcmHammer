@@ -13,6 +13,23 @@ namespace Tests
     public class ECUFactoryTests
     {
         [TestMethod]
+        public void Can_Modify_Flag_And_Get_New_Controller()
+        {
+            ECUBase firstP01 = ECUFactory.GetControllerByOSID(12212156);
+            firstP01.IsSupported = false;
+            ECUBase secondP01 = ECUFactory.GetControllerByOSID(12212156);
+            Assert.IsTrue(secondP01.IsSupported);
+        }
+
+        [TestMethod]
+        public void Can_Set_CurrentOS_Object()
+        {
+            ECUBase p01 = ECUFactory.GetControllerByOSID(12212156);
+            Assert.IsNotNull(p01);
+            Assert.AreEqual(p01.GetCurrentOSID(), 12212156u);
+        }
+
+        [TestMethod]
         public void Validate_OS_Lookups()
         {
             uint p01_id = 12212156;
