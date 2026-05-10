@@ -48,7 +48,7 @@ namespace PcmHacking.ECU {
         }
         public List<OSInfo> KnownOperatingSystems { get; set; }
 
-        private OSInfo _currentOS { get; set; }
+        private OSInfo currentOS { get; set; }
 
         public bool HardwareTypeOverridden { get; set; }
 
@@ -110,7 +110,7 @@ namespace PcmHacking.ECU {
         {
             get
             {
-                return (uint)_currentOS.ServiceNumber;
+                return (uint)currentOS.ServiceNumber;
             }
         }
 
@@ -187,7 +187,7 @@ namespace PcmHacking.ECU {
         public int KeyAlgorithm { 
             get
             {
-                return _currentOS?.KeyAlgorithm ?? _keyAlgorithm;
+                return currentOS?.KeyAlgorithm ?? _keyAlgorithm;
             }
             set
             {
@@ -236,8 +236,8 @@ namespace PcmHacking.ECU {
         {
             get
             {
-                if (_currentOS == null) return false;
-                return _currentOS.Manufacturer != Manufacturer;
+                if (currentOS == null) return false;
+                return currentOS.Manufacturer != Manufacturer;
             }
         }
 
@@ -311,8 +311,8 @@ namespace PcmHacking.ECU {
         }
 
         public void SetCurrentOSID(uint osid) {
-            _currentOS = KnownOperatingSystems.FirstOrDefault(x => x.OSID == osid);
-            if (_currentOS == null)
+            currentOS = KnownOperatingSystems.FirstOrDefault(x => x.OSID == osid);
+            if (currentOS == null)
 
         public PreFlightCheckResult GetPreCheckResults(ControllerActions selectedAction, WriteType writeType = WriteType.None)
         {
@@ -321,7 +321,7 @@ namespace PcmHacking.ECU {
             result.ShouldPrompt = false;
             StringBuilder builder = new();
             builder.AppendLine();
-            if((CurrentOS == null || CurrentOS.ServiceNumber == -1) && !(CurrentOS?.IdOverridePresent ?? false))
+            if((currentOS == null || currentOS.ServiceNumber == -1) && !(currentOS?.IdOverridePresent ?? false))
             {
                 result.CanProceed = false;
                 builder.AppendLine("An unsupported OSID was detected.\r\n");
@@ -410,7 +410,9 @@ namespace PcmHacking.ECU {
             return result;
         }
 
-        public uint GetCurrentOSID() => _currentOS.OSID;
+        public uint GetCurrentOSID() => currentOS.OSID;
+
+        public void SetOverriddenState() => currentOS.SetOverridePresent();
 
         public abstract ECUBase Clone();
 
@@ -419,7 +421,7 @@ namespace PcmHacking.ECU {
             string suffix = IsCustomOS ? "COS" : "OEM";
             string servNo = ServiceNumber != 0 ? $"{ServiceNumber}." : string.Empty;
             string servString = $"{servNo}{suffix}";
-            if (_currentOS.ServiceNumber == -1)
+            if (currentOS == null || currentOS.ServiceNumber == -1)
             {
                 return "Unsupported ECU";
             }
