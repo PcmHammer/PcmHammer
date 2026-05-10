@@ -177,14 +177,40 @@ public partial record ControllerActionModel : IAsyncLogger
 
             lease.Vehicle.Enable4xReadWrite = _actionArguments?.UseHighSpeed ?? false;
             lease.Vehicle.UserDefinedKey = (_actionArguments?.CustomKey ?? 0) == 0 ? -1 : (int)(_actionArguments?.CustomKey ?? 0);
-
-            if (this.connectionService.GetConnectedECU() != null)
+            ECUBase pcm = this.connectionService.GetConnectedECU();
+            if (pcm != null && _actionArguments != null)
             {
-                bool checksRequired = await dispatcher.ExecuteAsync<bool>(async (ct) =>
+                PreFlightCheckResult checkResult = pcm.GetPreCheckResults(_actionArguments.SelectedAction, _actionArguments.WriteType);
+                string promptTitle = "Precheck prompt";
+                if (checkResult.ShouldPrompt)
                 {
-                    return await ControllerPreFlightChecks(this.connectionService.GetConnectedECU());
-                }, actionCancellationToken);
-                _actionArguments.PreFlightChecksRequired = checksRequired;
+                    if (checkResult.CanProceed)
+                    {
+                        bool canProceed = await DialogService.ShowBinaryPrompt(promptTitle, checkResult.PromptMessage ?? string.Empty);
+                        if (canProceed)
+                        {
+                            loggerAdapter.AddUserMessage("User has accepted precheck conditions and action will proceed.");
+                        }
+                        else
+            {
+                            loggerAdapter.AddUserMessage("User has declined the prechecks, and this operation has been canceled.");
+                            this.tokenSource.Cancel();
+                            interceptor.Dispose();
+                            lease.Dispose();
+                            return;
+                        }
+                    }
+                    else
+                {
+                        await DialogService.ShowAlertPrompt(promptTitle, checkResult.PromptMessage ?? string.Empty);
+                        loggerAdapter.AddUserMessage("Precheck conditions found that prevented this operation from executing.");
+                        this.tokenSource.Cancel(); 
+                        interceptor.Dispose();
+                        lease.Dispose();
+                        return;
+
+                    }
+                }
             }
 
             Progress<ProgressUpdate>? progress = new Progress<ProgressUpdate>((progress) =>
