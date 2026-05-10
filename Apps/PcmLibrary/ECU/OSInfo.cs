@@ -10,6 +10,11 @@ namespace PcmHacking.ECU {
         public int KeyAlgorithm { get; private set; }
         public bool IdOverridePresent { get; private set; } = false;
 
+        public OSInfo() 
+        { 
+            Manufacturer = "unknown";
+        }
+
         public OSInfo(string manufacturer, uint osid, int serviceNumber = 0, int keyAlgo = 0)
         {
             Manufacturer = manufacturer;
