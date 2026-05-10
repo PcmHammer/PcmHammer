@@ -726,8 +726,20 @@ public class ConnectionService : IConnectionService
 
         try
         {
+            ECUBase pcm = null;
             await this.OperatingSystemId.SetAsync(string.Empty);
-            ECUBase pcm = await vehicle.DiscoverConnectedECU(cancellationToken);
+            try
+            {
+                pcm = await vehicle.DiscoverConnectedECU(cancellationToken);
+            }
+            catch
+            {
+                throw new IOException();
+            }
+            if (pcm == null)
+            {
+                return false;
+            }
             switch (pcm.ECUState)
             {
                 case ECUStates.Invalid:
