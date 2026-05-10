@@ -380,13 +380,13 @@ namespace PcmHacking
             {
                 // Error from the device
                 Message result = new Message(receive);
-                this.Logger.AddDebugMessage("XPro Error: " + result.ToString());
+                this.Logger.AddUserMessage("XPro Error: " + result.ToString(), LogLevels.Trace);
                 return Response.Create(ResponseStatus.Error, result);
             }
             else
             {
                 // Valid message from the device
-                this.Logger.AddDebugMessage("XPro: " + receive.ToHex());
+                this.Logger.AddUserMessage("XPro: " + receive.ToHex(), LogLevels.Trace); // TRACE
                 return Response.Create(ResponseStatus.Success, new Message(receive));
             }
         }
@@ -551,12 +551,12 @@ namespace PcmHacking
                 byte[] Val = m.Value.GetBytes();
                 if (Val[0] == 0x20 && Val[2] == 0x00)
                 {
-                    this.Logger.AddDebugMessage("TX: " + message.ToString());
+                    this.Logger.AddUserMessage("TX: " + message.ToString(), LogLevels.Trace); // TRACE
                     return Response.Create(ResponseStatus.Success, message);
                 }
                 else if (Val[0] == 0x21 && Val[2] == 0x00)
                 {
-                    this.Logger.AddDebugMessage("TX: " + message.ToString());
+                    this.Logger.AddUserMessage("TX: " + message.ToString(), LogLevels.Trace); // TRACE
                     return Response.Create(ResponseStatus.Success, message);
                 }
                 else

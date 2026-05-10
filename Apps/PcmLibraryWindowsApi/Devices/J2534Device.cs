@@ -281,7 +281,7 @@ namespace PcmHacking
                 return Task.FromResult(0);
             }
 
-            this.Logger.AddDebugMessage("RX: " + PassMess.Data.ToHex());
+            this.Logger.AddUserMessage("RX: " + PassMess.Data.ToHex(), LogLevels.Trace);
             this.Enqueue(new Message(PassMess.Data, (ulong)PassMess.Timestamp, (ulong)OBDError));
             return Task.FromResult(0);
         }
@@ -312,7 +312,7 @@ namespace PcmHacking
         public override Task<bool> SendMessage(Message message)
         {
             //this.Logger.AddDebugMessage("Send request called");
-            this.Logger.AddDebugMessage("TX: " + message.GetBytes().ToHex());
+            this.Logger.AddUserMessage("TX: " + message.GetBytes().ToHex(), LogLevels.Trace);
             Response<J2534Err> MyError = SendNetworkMessage(message, TxFlag.NONE);
             if (MyError.Status != ResponseStatus.Success)
             {

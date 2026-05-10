@@ -75,7 +75,7 @@ namespace PcmHacking
         /// </summary>
         private async Task SendNotification()
         {
-            this.logger.AddDebugMessage("Sending 'test device present' notification.");
+            this.logger.AddUserMessage("Sending 'test device present' notification.", LogLevels.Trace); // TRACE
             Message message = this.protocol.CreateTestDevicePresentNotification();
             TimeoutScenario originalScenario = await this.device.SetTimeout(TimeoutScenario.Minimum);
             await this.device.SendMessage(message);
