@@ -377,7 +377,7 @@ public partial record ControllerActionModel : IAsyncLogger
 
     }
 
-    public async Task AddUserMessage(string message)
+    public async Task AddUserMessage(string message, LogLevels level = 0)
     {
         _localMessages.Insert(0, message);
     }

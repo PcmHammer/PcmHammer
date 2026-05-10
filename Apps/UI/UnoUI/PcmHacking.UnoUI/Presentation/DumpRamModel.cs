@@ -292,7 +292,7 @@ public partial record DumpRamModel : IAsyncLogger
         return Task.CompletedTask;
     }
     
-    public async Task AddUserMessage(string message)
+    public async Task AddUserMessage(string message, LogLevels level = 0)
     {
         await this.UserLog.SetAsync(this.UserLog.Value() + Environment.NewLine + message);
     }

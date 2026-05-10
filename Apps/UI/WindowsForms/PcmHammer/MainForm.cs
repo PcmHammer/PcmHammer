@@ -104,17 +104,21 @@ namespace PcmHacking
         /// <summary>
         /// Add a message to the main window.
         /// </summary>
-        public override void AddUserMessage(string message)
+        public override void AddUserMessage(string message, LogLevels level = 0)
         {
             string timestamp = DateTime.Now.ToString("hh:mm:ss:fff");
 
             this.userLog.Invoke(
                 (MethodInvoker)delegate ()
                 {
+                    if (level == LogLevels.Info)
+                    {
                         this.userLog.AppendText("[" + timestamp + "]  " + message + Environment.NewLine);
+                    }
 
                     // User messages are added to the debug log as well, so that the debug log has everything.
                     this.debugLog.AppendText("[" + timestamp + "]  " + message + Environment.NewLine);
+
                 });
         }
 
