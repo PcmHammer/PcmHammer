@@ -130,13 +130,10 @@ namespace PcmHacking
                     return false;
                 }
 
-                if (!this.pcmInfo.HardwareTypeOverridden)
+                Utility.ReportOperatingSystems(validator.GetOsidFromImage(), osidResponse.Value, this.writeType, this.logger, out bool shouldHalt);
+                if (needToCheckOperatingSystem && shouldHalt && !(this.vehicle?.ConnectedECU?.HardwareTypeOverridden ?? false))
                 {
-                    Utility.ReportOperatingSystems(validator.GetOsidFromImage(), osidResponse.Value, this.writeType, this.logger, out bool shouldHalt);
-                    if (needToCheckOperatingSystem && shouldHalt && !(this.vehicle?.ConnectedECU?.HardwareTypeOverridden ?? false))
-                    {
-                        return false;
-                    }
+                    return false;
                 }
 
                 success = await this.Write(cancellationToken, image);
