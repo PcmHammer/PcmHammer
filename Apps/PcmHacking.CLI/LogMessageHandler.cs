@@ -4,12 +4,6 @@ using System.Text;
 
 namespace PcmHacking.CLI;
 
-    public enum LogLevel {
-        Unspecified,
-        Info,
-        Debug
-    }
-
     public class LogEntry {
         public DateTime TimeStamp;
         public string Message;
@@ -25,9 +19,12 @@ namespace PcmHacking.CLI;
     public class LogMessageHandler : ILogger {
         private readonly LogEntryStreamHandler _logger;
         private readonly string _logPrefix;
-        public LogMessageHandler(string prefix, bool logToFileEnabled) {
+        private readonly LogLevels _logLevel;
+
+        public LogMessageHandler(LogLevels desiredLogLevel, string prefix, bool logToFileEnabled, bool displayTimestamps, bool isConsole) {
             _logPrefix = prefix;
-            _logger = new LogEntryStreamHandler(prefix, logToFileEnabled);
+            _logger = new LogEntryStreamHandler(desiredLogLevel, prefix, logToFileEnabled, displayTimestamps, isConsole);
+            _logLevel = desiredLogLevel;
         }
 
         public string GetUserMessageString() {
@@ -40,7 +37,7 @@ namespace PcmHacking.CLI;
         }
 
         public string GetDebugMessageString() {
-            string[] lines = _logger.GetDebugLogs().Select(x => $"{x.TimeStamp:dddd, MMMM dd yyyy @hh:mm:ss:ff} - {x.Message}").ToArray();
+            string[] lines = _logger.GetLogs(_logLevel).Select(x => $"{x.TimeStamp:dddd, MMMM dd yyyy @hh:mm:ss:ff} - {x.Message}").ToArray();
             StringBuilder stringBuilder = new();
             foreach (string line in lines) {
                 stringBuilder.AppendLine(line);
@@ -48,11 +45,11 @@ namespace PcmHacking.CLI;
             return stringBuilder.ToString();
         }
         public void AddDebugMessage(string message) {
-            _logger.Write(LogLevel.Debug, message, _logPrefix);
+            _logger.Write(LogLevels.Debug, message, _logPrefix);
         }
 
-        public void AddUserMessage(string message) {
-            _logger.Write(LogLevel.Info, message, _logPrefix);
+        public void AddUserMessage(string message, LogLevels desiredLevel = LogLevels.Info) {
+            _logger.Write(desiredLevel, message, _logPrefix);
         }
 
         public void StatusUpdateActivity(string activity) {
@@ -79,17 +76,18 @@ namespace PcmHacking.CLI;
 
 public class LogEntryStreamHandler : IDisposable
 {
-    private readonly Dictionary<LogLevel, List<LogEntry>> _logEntries;
+    private readonly Dictionary<LogLevels, CircularBuffer<LogEntry>> _logEntries;
     private readonly string _logPrefix;
-    private TextWriter? _logWriter;
-    private MemoryStream _backupLogStream;
-    private System.Timers.Timer _flushTimer;
+    private readonly bool _displayTimestamps;
+    private readonly bool _isConsole;
+    private readonly LogLevels _logLevel;
+    private readonly TextWriter? _logWriter;
     private protected object _lock = new();
-    private bool _fileError = false;
 
-    public LogEntryStreamHandler(string logPrefix, bool logToFile)
+    public LogEntryStreamHandler(LogLevels logLevel, string logPrefix, bool logToFile, bool displayTimestamps, bool isConsole)
     {
         _logEntries = [];
+        _logLevel = logLevel;
         _logPrefix = logPrefix;
         if (logToFile)
         {
@@ -97,49 +95,39 @@ public class LogEntryStreamHandler : IDisposable
             {
                 FileStream fs = File.Open(@$"{AppContext.BaseDirectory}/{_logPrefix}_{DateTime.Now.ToString("yyyyMMdd_HHmmssff")}.log", FileMode.CreateNew, FileAccess.ReadWrite, FileShare.ReadWrite);
                 _logWriter = new StreamWriter(fs);
-                _flushTimer = new System.Timers.Timer(3000);
-                _flushTimer.Elapsed += _flushTimer_Elapsed;
-                _flushTimer.Start();
             }
-            catch (Exception e)
+            catch
             {
-                _fileError = true;
                 _logWriter = null;
             }
         }
-        if (_fileError || !logToFile)
-        {
-            _backupLogStream = new MemoryStream();
-            _logWriter = new StreamWriter(_backupLogStream);
-            if (_fileError)
-            {
-            }
-        }
+        _displayTimestamps = displayTimestamps;
+        _isConsole = isConsole;
     }
 
-    private void _flushTimer_Elapsed(object? sender, System.Timers.ElapsedEventArgs e)
+    public void Write(LogLevels level, string entry, string source)
     {
-        if (_logWriter != null)
+        if (!_logEntries.TryGetValue(level, out CircularBuffer<LogEntry>? value))
         {
-            Flush();
-        }
-    }
-
-    public void Write(LogLevel level, string entry, string source)
-    {
-        if (_logWriter == null)
-        {
-            return;
-        }
-        if (!_logEntries.TryGetValue(level, out List<LogEntry>? value))
-        {
-            value = [];
+            value = new CircularBuffer<LogEntry>(2000);
             _logEntries.Add(level, value);
         }
-
-        value.Add(new(source, entry));
-        _logWriter.WriteLine($"{source}.{level}: {entry}");
-        Console.WriteLine($"{source}.{level}: {entry}");
+        LogEntry logEntry = new(source, entry);
+        value.Add(logEntry);
+        string timestampPrefix = _displayTimestamps ? $"{logEntry.TimeStamp.ToString("MMMM-dd-yyyy@hh:mm:ss:fftt")} - " : string.Empty; 
+        string msg = $"{timestampPrefix}{source}.{level}: {entry}";
+        _logWriter?.WriteLine(msg); // Always write everything to file - Excel or the likes of can sort/filter by level.
+        if (_logLevel >= level)
+        {
+            if (_isConsole)
+            {
+                Console.WriteLine(msg); // Only print desired to console. TODO: We can add a flag to override this for GUI applications, should this logger be used there!
+            }
+            else
+            {
+                Debug.WriteLine(msg);
+            }
+        }
     }
 
     public void Flush()
@@ -158,21 +146,15 @@ public class LogEntryStreamHandler : IDisposable
         }
     }
 
-    public List<LogEntry> GetUserLogs() => _logEntries[LogLevel.Info];
+    public List<LogEntry> GetUserLogs() => [.. _logEntries[LogLevels.Info]];
 
-    public List<LogEntry> GetDebugLogs()
+    public List<LogEntry> GetLogs(LogLevels threshold)
     {
-        List<LogEntry> result = [];
-        if (_logEntries.ContainsKey(LogLevel.Info) && _logEntries[LogLevel.Info].Count > 0)
-        {
-            result.AddRange(_logEntries[LogLevel.Info]);
-        }
-        if (_logEntries.ContainsKey(LogLevel.Debug) && _logEntries[LogLevel.Debug].Count > 0)
-        {
-            result.AddRange(_logEntries[LogLevel.Debug]);
-        }
-        result.Sort(new LogTimeStampComparer());
-        return result;
+        var result = _logEntries.Where(x => x.Key <= threshold).Select(x => x.Value).ToList();
+        List<LogEntry> logCollection = [];
+        result.ForEach(x => logCollection.AddRange(x));
+        logCollection.Sort(new LogTimeStampComparer());
+        return logCollection;
     }
 
     public void Dispose()
