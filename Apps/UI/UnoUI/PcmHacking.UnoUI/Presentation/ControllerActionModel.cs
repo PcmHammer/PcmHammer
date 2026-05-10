@@ -405,7 +405,12 @@ public partial record ControllerActionModel : IAsyncLogger
 
     public async Task AddUserMessage(string message, LogLevels level = 0)
     {
+        if (level == LogLevels.Info || (_actionArguments?.ShowDebug ?? false))
+        {
         _localMessages.Insert(0, message);
+            return;
+    }
+        loggerAdapter.AddDebugMessage(message);
     }
 
     public async Task AddDebugMessage(string message)
