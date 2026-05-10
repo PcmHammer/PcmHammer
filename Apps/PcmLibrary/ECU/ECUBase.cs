@@ -319,6 +319,10 @@ namespace PcmHacking.ECU {
         public void SetCurrentOSID(uint osid) {
             currentOS = KnownOperatingSystems.FirstOrDefault(x => x.OSID == osid);
             if (currentOS == null)
+            {
+                currentOS = new OSInfo("Undefined ECU", osid, 0, KeyAlgorithm);
+            }
+        }
 
         public PreFlightCheckResult GetPreCheckResults(ControllerActions selectedAction, WriteType writeType = WriteType.None)
         {
@@ -429,7 +433,7 @@ namespace PcmHacking.ECU {
             string servString = $"{servNo}{suffix}";
             if (currentOS == null || currentOS.ServiceNumber == -1)
             {
-                return "Unsupported ECU";
+                return "Undefined ECU";
             }
             string format = "{0}_{1} - {2} {3}K";
             return string.Format(format, Manufacturer, HardwareType, servString, ImageSize / 1024);
