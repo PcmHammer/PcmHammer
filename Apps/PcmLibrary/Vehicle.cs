@@ -75,19 +75,6 @@ namespace PcmHacking
 
         private ECUBase detectedECU;
 
-
-        public ECUStates ECUState
-        {
-            get
-            {
-                return eCUState;
-            }
-            set
-            {
-                eCUState = value;
-            }
-        }
-
         public ECUBase? ConnectedECU
         {
             get
