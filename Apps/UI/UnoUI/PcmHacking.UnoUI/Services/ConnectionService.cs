@@ -783,8 +783,7 @@ public class ConnectionService : IConnectionService
         await this.Voltage.SetAsync(String.Empty);
         if (vehicle != null)
         {
-            vehicle.ECUState = ECUStates.Invalid;
-            vehicle.ConnectedECU = null;
+            vehicle.ConnectedECU = ECUFactory.GetControllerByOSID(0); // This will set it to a default ECU with no capabilities, which is important to avoid errors in the UI.
         }
     }
 
