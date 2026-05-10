@@ -201,7 +201,7 @@ namespace PcmHacking
             if (recoveryModeResponse.Status == ResponseStatus.Success && recoveryModeResponse.Value)
             {
                 this.logger.AddUserMessage("PCM is in recovery mode.");
-                ConnectedECU = ECUFactory.GetControllerOverride(PcmType.Undefined);
+                ConnectedECU = ECUFactory.GetControllerByOSID(0);
                 ConnectedECU.ECUState = ECUStates.Recovery;
                 return ConnectedECU;
             }
