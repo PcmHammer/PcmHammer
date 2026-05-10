@@ -32,7 +32,7 @@ namespace PcmHacking
         Task<bool> Begin(string path);
     }
 
-    public class ControllerManager(Vehicle vehicle, ECUActionArguments actionArgs, ControllerPageObjects pageObjects, CancellationToken cancellationToken, IProgress<ProgressUpdate>? progress = null, ILogger? logger = null)
+    public class ControllerManager(Vehicle vehicle, ECUActionArguments actionArgs, ControllerPageObjects pageObjects, CancellationToken cancellationToken, IProgress<ProgressUpdate> progress, ILogger logger)
     {
         public ECUActionArguments ActionArgs = actionArgs;
         public ControllerPageObjects ControllerPageObjects = pageObjects;
@@ -63,12 +63,12 @@ namespace PcmHacking
             {
                 if (ActionArgs.SelectedAction == ControllerActions.Read && ActionArgs.ContentStream == null)
                 {
-                    ActionArgs.ContentStream = new MemoryStream(1208800);
+                    ActionArgs.ContentStream = new MemoryStream(1208800); // This is a bit hacky - but if we intend to pass this as a parameter and get data back, we can't re-create it outside of this scope. Give a large buffer to clear anything we can throw at it.
                 }
                 ActionActive = true;
                 try
                 {
-                return await selectedManager.Begin(ActionArgs.ContentStream);
+                    return await selectedManager.Begin(ActionArgs.ContentStream);
                 } finally
                 { 
                     ActionActive = false; 
