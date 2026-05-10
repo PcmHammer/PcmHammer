@@ -36,6 +36,7 @@ namespace PcmHacking
     {
         public ECUActionArguments ActionArgs = actionArgs;
         public ControllerPageObjects ControllerPageObjects = pageObjects;
+        public bool ActionActive = false;
         private Dictionary<ControllerActions, IControllerManager> _controllerActionLookup = [];
         private readonly Vehicle _vehicle = vehicle;
         private readonly CancellationToken _cancellationToken = cancellationToken;
@@ -64,7 +65,14 @@ namespace PcmHacking
                 {
                     ActionArgs.ContentStream = new MemoryStream(1208800);
                 }
+                ActionActive = true;
+                try
+                {
                 return await selectedManager.Begin(ActionArgs.ContentStream);
+                } finally
+                { 
+                    ActionActive = false; 
+                }
             }
             return false;
         }

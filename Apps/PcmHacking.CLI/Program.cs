@@ -8,6 +8,9 @@ CancellationTokenSource cancellationSource = new CancellationTokenSource();
 static string GetBooleanAnswer(bool state)
 {
     return state ? "Yes" : "No";
+        while (controllerManager.ActionActive)
+        {
+            Thread.Sleep(20);
 }
 
 static string GetWriteTypesString()
