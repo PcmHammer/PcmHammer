@@ -33,6 +33,19 @@ namespace PcmHacking.ECU {
     }
 
     public abstract class ECUBase {
+        private ECUStates _ecuState;
+
+        public ECUStates ECUState
+        {
+            get
+            {
+                return _ecuState;
+            }
+            set
+            {
+                _ecuState = value;
+            }
+        }
         public List<OSInfo> KnownOperatingSystems { get; set; }
 
         private OSInfo _currentOS { get; set; }
