@@ -25,6 +25,13 @@ namespace PcmHacking.ECU {
         BlackBox
     }
 
+    public class PreFlightCheckResult
+    {
+        public string? PromptMessage;
+        public bool ShouldPrompt;
+        public bool CanProceed;
+    }
+
     public abstract class ECUBase {
         public List<OSInfo> KnownOperatingSystems { get; set; }
 
@@ -293,9 +300,101 @@ namespace PcmHacking.ECU {
         public void SetCurrentOSID(uint osid) {
             _currentOS = KnownOperatingSystems.FirstOrDefault(x => x.OSID == osid);
             if (_currentOS == null)
+
+        public PreFlightCheckResult GetPreCheckResults(ControllerActions selectedAction, WriteType writeType = WriteType.None)
+        {
+            PreFlightCheckResult result = new();
+            result.CanProceed = true;
+            result.ShouldPrompt = false;
+            StringBuilder builder = new();
+            builder.AppendLine();
+            if((CurrentOS == null || CurrentOS.ServiceNumber == -1) && !(CurrentOS?.IdOverridePresent ?? false))
             {
-                _currentOS = new OSInfo("Unsupported ECU", osid, -1, KeyAlgorithm);
+                result.CanProceed = false;
+                builder.AppendLine("An unsupported OSID was detected.\r\n");
             }
+            while (true)
+            {
+                if (ECUState == ECUStates.Recovery)
+                {
+                    builder.AppendLine("This controller is in Recovery mode!");
+                    if(selectedAction == ControllerActions.Write)
+                    {
+                        builder.AppendLine("PCM Hammer will attempt to recover the controller\r\n" +
+                        "with the supplied file. If this file is not a valid\r\n" +
+                        "match to this hardware type, the unit may brick!\r\n");
+                    }
+                    else
+                    {
+                        builder.AppendLine("Reading from a controller in recovery mode\r\n" +
+                            "is currently an unsupported operation. Abort!\r\n");
+                        result.CanProceed = false;
+                    }
+                    break;
+                }
+                if (HardwareType == PcmType.Undefined)
+                {
+                    result.CanProceed = false;
+                    builder.AppendLine(
+                        "Unable to determine PCM hardware type.\r\n" +
+                        "If you know the hardware type, please specify it\r\n" +
+                        "manually with the -hw flag and try again!");
+                    break;
+                }
+                if (!IsSupported)
+                {
+                    result.CanProceed = false;
+                    builder.AppendLine("An unsupported controller was detected.\r\n");
+                    break;
+                }
+                if (!IsSupportedRead && selectedAction == ControllerActions.Read)
+                {
+                    builder.AppendLine("This controller currently does not support reading.\r\n");
+                    result.CanProceed = false;
+                }
+                if (IsUnderDevelopment)
+                {
+                    builder.AppendLine($"WARNING: {HardwareType.ToString()} Support is still in development.\r\nThere is additional brick risk in this operation\r\n");
+                }
+                if (selectedAction == ControllerActions.Write)
+                {
+                    if (!IsSupportedWrite)
+                    {
+                        builder.AppendLine("This controller currently does not support writing.\r\n");
+                        result.CanProceed = false;
+                    }
+                    if (!IsSupportedWriteBootSector && writeType >= WriteType.OsPlusCalibrationPlusBoot)
+                    {
+                        builder.AppendLine(
+                            "This controller currently does not support writing\r\n" +
+                            " to boot sector. Calibration write only!\r\n");
+                        result.CanProceed = false;
+                    }
+                    if (HardwareSlaveCPU && !IsSupportedWriteSlaveCPU && writeType >= WriteType.OsPlusCalibrationPlusBoot)
+                    {
+                        builder.AppendLine("This controller currently does not support slave CPU writing.\r\n" +
+                            "Flashing an incompatible OS can leave ETC inoperable!\r\n" +
+                            "Before you proceed, a backup is highly recommended!\r\n" +
+                            "Flashing the original OS will likely restore functionality.\r\n");
+                    }
+                    if (!IsSupportedWriteBySegment && writeType < WriteType.Full)
+                    {
+                        builder.AppendLine("This controller does not support section writes. Full flash only!\r\n");
+                        result.CanProceed = false;
+                    }
+                }
+                break;
+            }
+            if (!string.IsNullOrWhiteSpace(builder.ToString()))
+            {
+                builder.AppendLine();
+                builder.AppendLine("**********************\r\n");
+                builder.AppendLine(result.CanProceed ? "Considering the message(s) above, do you wish to proceed?" : "Due to the above conditions, the requested operation cannot be performed!");
+                builder.Insert(0, "\r\n**********************\r\n");
+                result.PromptMessage = builder.ToString();
+                result.ShouldPrompt = true;
+            }
+            return result;
         }
 
         public uint GetCurrentOSID() => _currentOS.OSID;
