@@ -26,7 +26,6 @@ namespace PcmHacking.ECU.Controllers {
             FlashCRCSupport = true;
             FlashIDSupport = true;
             KernelVersionSupport = true;
-            IsUnderDevelopment = true;
             KernelMaxBlockSize = 4096;
             KnownOperatingSystems = new List<OSInfo>() {
                 { new OSInfo("HPT", 1251001, 0, 3) },
