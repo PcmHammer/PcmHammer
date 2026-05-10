@@ -25,6 +25,7 @@ namespace PcmHacking.ECU
             new E54(),
             new E60(),
             new BlackBox(),
+            new UnsupportedECU()
         };
 
         public static ECUBase GetControllerByOSID(uint osid)
