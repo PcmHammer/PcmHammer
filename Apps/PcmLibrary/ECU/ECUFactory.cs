@@ -32,17 +32,18 @@ namespace PcmHacking.ECU
             ECUBase controller = StoredECUs.FirstOrDefault(x => x.ECUSupportsOSID(osid));
             if (controller != null)
             {
-                controller.SetCurrentOSID(osid);
-                return controller;
+                ECUBase newController = controller.Clone();
+                newController.SetCurrentOSID(osid);
+                return newController;
             }
             controller = new UndefinedECU();
             controller.SetCurrentOSID(osid);
             return controller;
         }
 
-        public static ECUBase GetControllerOverride(PcmType type, uint osid)
+        public static ECUBase GetControllerOverride(PcmType type, uint osid = 0)
         {
-            ECUBase controller = StoredECUs.First(x => x.HardwareType == type);
+            ECUBase controller = StoredECUs.First(x => x.HardwareType == type).Clone();
             controller.SetCurrentOSID(osid);
             controller.SetOverriddenState();
             return controller;
