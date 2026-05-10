@@ -1,16 +1,27 @@
 ﻿using System.CommandLine;
+using System.ComponentModel;
 using PcmHacking;
 using PcmHacking.CLI;
 using PcmHacking.ECU;
 
 CancellationTokenSource cancellationSource = new CancellationTokenSource();
+ControllerManager? controllerManager = null;
+Vehicle? vehicle = null;
+Device? device = null;
+bool forced = false;
 
-static string GetBooleanAnswer(bool state)
+Console.CancelKeyPress += Console_CancelKeyPress;
+
+async void Console_CancelKeyPress(object? sender, ConsoleCancelEventArgs e)
 {
-    return state ? "Yes" : "No";
+    cancellationSource.Cancel();
+    if(controllerManager != null)
+    {
         while (controllerManager.ActionActive)
         {
             Thread.Sleep(20);
+        }
+    }
 }
 
 static string GetWriteTypesString()
@@ -26,11 +37,6 @@ static string GetPcmTypesString()
     writeNames.Remove("Undefined");
     writeNames.Remove("Unsupported");
     return string.Join(", ", writeNames);
-}
-
-foreach (var arg in args)
-{
-    Console.WriteLine(arg);
 }
 
 Option<string> deviceTypeOption = new("--devType", "-dt")
@@ -53,7 +59,7 @@ Option<string> deviceAddressOption = new("--devAddr", "-da")
     Description = "Device address: COM port => Serial; BT => address, hex, no spaces; J2534 => Driver's device name",
     Required = true
 };
-deviceTypeOption.Validators.Add(v =>
+deviceAddressOption.Validators.Add(v =>
 {
     if (!string.IsNullOrEmpty(v.GetValueOrDefault<string>()))
     {
@@ -87,6 +93,7 @@ hardwareOption.Validators.Add(v =>
     {
         if (v.GetValueOrDefault<string>() == name)
         {
+            forced = true;
             return;
         }
     }
@@ -113,10 +120,10 @@ Option<string> customKeyOption = new("--customKey", "-c")
 {
     Description = "Optional custom key used for controller unlocking.",
 };
-writeOption.Validators.Add(v =>
+customKeyOption.Validators.Add(v =>
 {
     string value = v.GetValueOrDefault<string>();
-    if (uint.TryParse(value, out var key) && value.Length == 4)
+    if (string.IsNullOrEmpty(value) || (uint.TryParse(value, out var key) && value.Length == 4))
     {
         return;
     }
@@ -164,21 +171,28 @@ outputOption.Validators.Add(v =>
     }
 });
 
-Option<bool> forceOption = new("--force", "-f")
+Option<string> logLevelOption = new("--logLevel", "-l")
 {
-    Description = "This will disable OSID => hardware match and attempt with value set by -hw",
-    DefaultValueFactory = _ => false
+    Description = "Sets the desired logging output. Available options: Info, Debug, Trace",
+    DefaultValueFactory = _ => "Info"
 };
-
-Option<bool> verboseOption = new("--verbose", "-v")
-{
-    Description = "Adding this flag will log debug messages to console.",
-    DefaultValueFactory = _ => false
-};
+logLevelOption.Validators.Add(v => { 
+    string entry = v.GetValueOrDefault<string>();
+    if (entry != null && Enum.GetNames<LogLevels>().Contains(entry))
+    {
+        return;
+    }
+    v.AddError("A custom logging level was set, but an invalid entry was detected!");
+});
 
 Option<bool> useHighSpeedOption = new("--highSpeed", "-hs")
 {
     Description = "CLI will use slower baud rate to controller unless this is set. Not supported on all devices!"
+};
+
+Option<bool> skipPreChecksOption = new("--YES", "-Y")
+{
+    Description = "CLI will skip all pre-checks used to determine compatibility. Advanced users only!"
 };
 
 RootCommand root = new RootCommand("PCM Hammer CLI")
@@ -190,10 +204,14 @@ RootCommand root = new RootCommand("PCM Hammer CLI")
     writeOption,
     inputOption,
     outputOption,
-    forceOption,
-    verboseOption,
-    useHighSpeedOption
+    customKeyOption,
+    logLevelOption,
+    useHighSpeedOption,
+    skipPreChecksOption
 };
+
+Console.WriteLine($"{root.Name} has started with the following arguments:");
+Console.WriteLine(string.Join(' ', args));
 
 string deviceType = string.Empty;
 string deviceAddress = string.Empty;
@@ -202,10 +220,11 @@ string selectedHardware = string.Empty;
 string writeType = string.Empty;
 string inputPath = string.Empty;
 string outputPath = string.Empty;
-bool forced = false;
-bool verbose = false;
+string customKey = string.Empty;
+string logLevel = string.Empty;
 bool highSpeed = false;
 bool isWrite = false;
+bool skipChecks = false;
 
 root.SetAction(parsed =>
 {
@@ -215,10 +234,11 @@ root.SetAction(parsed =>
     selectedHardware = parsed.GetValue(hardwareOption) ?? string.Empty;
     writeType = parsed.GetValue(writeOption) ?? string.Empty;
     inputPath = parsed.GetValue(inputOption) ?? string.Empty;
+    customKey = parsed.GetValue(customKeyOption) ?? string.Empty;
+    logLevel = parsed.GetValue(logLevelOption) ?? string.Empty;
     outputPath = parsed.GetValue(outputOption) ?? string.Empty;
-    forced = parsed.GetValue(forceOption);
-    verbose = parsed.GetValue(verboseOption);
     highSpeed = parsed.GetValue(useHighSpeedOption);
+    skipChecks = parsed.GetValue(skipPreChecksOption);
 });
 
 var result = root.Parse(args).Invoke();
@@ -236,7 +256,7 @@ if(selectedAction == ControllerActions.Write.ToString())
         Console.WriteLine("Error! Write action detected, but a proper input file path was not set!");
     }
 }
-else // It was read...
+else
 {
     if (string.IsNullOrEmpty(outputPath))
     {
@@ -249,6 +269,16 @@ if (forced)
     if (string.IsNullOrEmpty(selectedHardware))
     {
         Console.WriteLine("Error! Forced flag was set, but a hardware selection was not!");
+        return 1;
+    }
+}
+uint keyOutput = 0;
+if (!string.IsNullOrEmpty(customKey))
+{
+    if(!uint.TryParse(customKey, out keyOutput))
+    {
+        Console.WriteLine("Error! A custom key was set, but failed to parse to unsigned integer. Check command!");
+        return 1;
     }
 }
 
@@ -260,12 +290,19 @@ if (result == 0)
         WriteType = isWrite ? Enum.Parse<WriteType>(writeType) : WriteType.None,
         HardwareType = forced ? Enum.Parse<PcmType>(selectedHardware) : PcmType.Undefined,
         UseHighSpeed = highSpeed,
-        ShowDebug = verbose
+        CustomKey = keyOutput,
+        ShowDebug = Enum.Parse<LogLevels>(logLevel) >= LogLevels.Debug
     };
 
-    ILogger logger = new LogMessageHandler($"CLI.{selectedAction}", true);
-    Device device = null;
-    Vehicle vehicle = null;
+    if (actionArgs.SelectedAction == ControllerActions.Write)
+    {
+        actionArgs.ContentStream = new();
+        FileStream file = File.Open(inputPath, FileMode.Open, FileAccess.Read);
+        await file.CopyToAsync(actionArgs.ContentStream);
+        file.Close();
+    }
+
+    ILogger logger = new LogMessageHandler(Enum.Parse<LogLevels>(logLevel), $"CLI.{selectedAction}", true, true, true);
 
     if (deviceType == DeviceConstants.DeviceCategoryBT)
     {
@@ -285,7 +322,7 @@ if (result == 0)
     {
         if (!await device.Initialize())
         {
-            Console.WriteLine("Selected device did not proper initialize. Please check settings and connection, and try again!");
+            Console.WriteLine("Selected device did not initialize properly. Please check settings and connection, and try again!");
             return 1;
         }
     }
@@ -296,31 +333,70 @@ if (result == 0)
     Protocol protocol = new();
     vehicle = new(device, protocol, logger, new ToolPresentNotifier(device, protocol, logger), $@"{AppContext.BaseDirectory}\Kernels");
 
-    ControllerPageObjects pageObjects = new()
+    ControllerPageObjects pageObjects = new();
+    int lastPercent = -1;
+    Progress<ProgressUpdate> progress = new Progress<ProgressUpdate>(progress =>
     {
-        Invoke = async (action) => action.Invoke(),
-        ShowAlert = async (t, m) =>
+        if (!string.IsNullOrEmpty(progress.Activity))
         {
-        await vehicle.DiscoverConnectedECU(cancellationSource.Token); // This new method universally handles discovery of connection hardware. The only thing left to do is per-state validation.
-            Console.ReadLine();
-        },
-        PromptYesOrNo = async (t, m) =>
-        {
-            Console.WriteLine(m);
-            string? response = Console.ReadLine();
-            if (response?.ToUpper() == "Y" ||  response?.ToUpper() == "YES")
-            {
-                return true;
-            }
-            return false;
+            Console.WriteLine(progress.Activity);
+            return;
         }
-    };
+        int curProgress = (int)(progress.Percentage * 100);
+        if (curProgress % 5 == 0 && curProgress > lastPercent)
+        {
+            lastPercent = curProgress;
+            logger.AddUserMessage($"{curProgress}% completed @ {progress.Rate} Kb/s. ETR: {progress.TimeRemaining}");
+        }
+    });
 
-    ControllerManager manager = new ControllerManager(vehicle, actionArgs, pageObjects, cancellationSource.Token, null, logger);
-    manager.Initialize();
-
-    if (await manager.BeginAction())
+    if (actionArgs.HardwareType != PcmType.Undefined)
     {
+        vehicle.ConnectedECU = ECUFactory.GetControllerOverride(actionArgs.HardwareType);
+    }
+    else
+    {
+        await vehicle.DiscoverConnectedECU(cancellationSource.Token); // This new method universally handles discovery of connection hardware. The only thing left to do is per-state validation.
+    }
+    if (vehicle.ConnectedECU == null)
+    {
+        throw new Exception("ConnectedECU object was null! Call DiscoverConnectedECU first.");
+    }
+
+    controllerManager = new ControllerManager(vehicle, actionArgs, pageObjects, cancellationSource.Token, progress, logger);
+    controllerManager.Initialize();
+
+    PreFlightCheckResult checkResult = vehicle.ConnectedECU.GetPreCheckResults(actionArgs.SelectedAction, actionArgs.WriteType);
+    if(skipChecks && checkResult.ShouldPrompt)
+    {
+        logger.AddUserMessage("Warning! Precheck conditions present were skipped due to flag -(Y)ES present in command.\r\n!! This can lead to bricking your ECU if this hardware is not compatible !!");
+    }
+    if (checkResult.ShouldPrompt && !skipChecks)
+    {
+        logger.AddUserMessage(checkResult.PromptMessage ?? string.Empty); // This will never be empty, just satisfy the null check.
+        logger.AddUserMessage(checkResult.CanProceed ? "Type (Y)ES followed by 'Enter' to continue." : "Abort! Press 'Enter' to exit application.");
+        string userInput = Console.ReadLine() ?? string.Empty;
+        if(!checkResult.CanProceed)
+        {
+            return 1;
+        }
+        bool userResult = false;
+        
+
+        if (userInput?.ToUpper() == "Y" || userInput?.ToUpper() == "YES")
+        {
+            userResult = true;
+        }
+        if (!userResult)
+        {
+            logger.AddUserMessage("Abort! User chose to exit.");
+            return 1;
+        }
+    }
+    actionArgs.PreFlightChecksRequired = false;
+
+    if (await controllerManager.BeginAction())
+{
         if (actionArgs.SelectedAction == ControllerActions.Read)
         {
             if (actionArgs.ContentStream != null && actionArgs.ContentStream.Length > 0)
@@ -334,7 +410,7 @@ if (result == 0)
         {
             return 0;
         }
-        Console.WriteLine("Something has failed! Check the logs and try again!");
+    Console.WriteLine("Something has failed! Check the logs and try again!");
         return 1;
     }
 }

@@ -2,7 +2,7 @@
   "profiles": {
     "PcmHacking.CLI": {
       "commandName": "Project",
-      "commandLineArgs": "-dt Bluetooth -da 00043E8ADB45 -a Read -o E:\\untitled.bin -v -hs"
+      "commandLineArgs": "-dt Serial -da \"Mock Port\" -a Read -o F:\\CLI_Tests.bin -hs"
     },
     "WSL": {
       "commandName": "WSL2",
