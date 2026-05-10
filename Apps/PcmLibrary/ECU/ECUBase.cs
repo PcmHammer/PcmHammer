@@ -242,11 +242,17 @@ namespace PcmHacking.ECU {
         }
 
 
-        public ECUBase() {
+        public ECUBase()
+        {
+            KnownOperatingSystems = [];
+            currentOS = new();
             Initialize();
         }
 
-        public ECUBase(int osid) {
+        public ECUBase(int osid)
+        {
+            KnownOperatingSystems = [];
+            currentOS = new();
             Initialize();
         }
 
