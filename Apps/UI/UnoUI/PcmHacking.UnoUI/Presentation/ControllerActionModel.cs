@@ -12,7 +12,7 @@ using Windows.UI.Core;
 
 namespace PcmHacking.UnoUI.Presentation;
 
-public record ControllerActionResult(bool Suceeded = true);
+public record ControllerActionResult(bool Succeeded = true);
 
 public partial record ControllerActionModel : IAsyncLogger
 {
@@ -83,7 +83,7 @@ public partial record ControllerActionModel : IAsyncLogger
     {
         if (!pcmInfo.IsSupported && _actionArguments.HardwareType != PcmType.Undefined)
         {
-            this.loggerAdapter.AddUserMessage("Detected hardware type override on Unsupported ECU. Please be sure to post results!");
+            this.loggerAdapter.AddUserMessage("Detected hardware type override on undefined ECU. Please be sure to post results!");
             pcmInfo = ECUFactory.GetControllerOverride(_actionArguments.HardwareType, pcmInfo.GetCurrentOSID());
             this.loggerAdapter.AddUserMessage($"Continuing read with hardware type of {_actionArguments.HardwareType}");
         }
@@ -173,7 +173,7 @@ public partial record ControllerActionModel : IAsyncLogger
         try
         {
             ConnectionLease lease = await this.connectionService.BeginActivity($"{this.actionText} PCM", false);
-            LogInterceptor interceptor = new LogInterceptor(this.loggerAdapter, this);
+            LogInterceptor interceptor = new(this.loggerAdapter, this);
 
             lease.Vehicle.Enable4xReadWrite = _actionArguments?.UseHighSpeed ?? false;
             lease.Vehicle.UserDefinedKey = (_actionArguments?.CustomKey ?? 0) == 0 ? -1 : (int)(_actionArguments?.CustomKey ?? 0);
@@ -192,7 +192,7 @@ public partial record ControllerActionModel : IAsyncLogger
                             loggerAdapter.AddUserMessage("User has accepted precheck conditions and action will proceed.");
                         }
                         else
-            {
+                        {
                             loggerAdapter.AddUserMessage("User has declined the prechecks, and this operation has been canceled.");
                             this.tokenSource.Cancel();
                             interceptor.Dispose();
@@ -201,7 +201,7 @@ public partial record ControllerActionModel : IAsyncLogger
                         }
                     }
                     else
-                {
+                    {
                         await DialogService.ShowAlertPrompt(promptTitle, checkResult.PromptMessage ?? string.Empty);
                         loggerAdapter.AddUserMessage("Precheck conditions found that prevented this operation from executing.");
                         this.tokenSource.Cancel(); 

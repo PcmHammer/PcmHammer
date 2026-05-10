@@ -276,7 +276,7 @@ public partial record ControllerFunctionsModel
         if (result != null && result.Proceed)
         {
             var controllerResult = await this.navigator.GetDataAsync<ControllerActionModel, ControllerActionResult>(this, data: result.Arguments, cancellation: cancellationSource.Token);
-            if (controllerResult != null && controllerResult.Suceeded)
+            if (controllerResult != null && controllerResult.Succeeded)
             {
                 // TODO: Alert? We should really already know why failure happened in the logs...
             }
