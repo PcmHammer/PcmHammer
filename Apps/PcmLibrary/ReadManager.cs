@@ -89,85 +89,40 @@ namespace PcmHacking
         /// <returns>True if the read was successful, fales if failed or aborted.</returns>
         public async Task<bool> Begin(MemoryStream? contentStream)
         {
+            if(_vehicle.ConnectedECU == null)
+            {
+                throw new NullReferenceException("vehicle.ConnectedECU was null!");
+            }
             if(_actionArguments == null)
             {
                 throw new NullReferenceException($"{nameof(_actionArguments)} was null.");
             }
-            ECUBase? pcmInfo = null;
-                switch (_vehicle.ECUState)
+            ECUBase? pcmInfo = _vehicle.ConnectedECU;
+                switch (_vehicle.ConnectedECU.ECUState)
                 {
-                    case ECUStates.Invalid: // This really only exists for WinForms now, this all is handled by the ConnectionService.
-                        _logger.AddUserMessage("Querying operating system of current PCM.");
-                        Response<uint> osidResponse = await _vehicle.QueryOperatingSystemId(_cancellationToken);
-                        if (osidResponse.Status != ResponseStatus.Success)
-                        {
-                            _logger.AddUserMessage("Operating system query failed, will retry: " + osidResponse.Status);
-                            await _vehicle.ExitKernel();
-
-                            osidResponse = await _vehicle.QueryOperatingSystemId(_cancellationToken);
-                            if (osidResponse.Status != ResponseStatus.Success)
-                            {
-                                _logger.AddUserMessage("Operating system query failed: " + osidResponse.Status);
-                            }
-                        }
-                        if (osidResponse.Status == ResponseStatus.Success)
-                        {
-                            // Look up the information about this PCM, based on the OSID;
-                            _logger.AddUserMessage("OSID: " + osidResponse.Value);
-                            pcmInfo = ECUFactory.GetControllerByOSID(osidResponse.Value);
-                            _logger.AddUserMessage("Description: " + pcmInfo.ToString());
-                        }
-                        else
-                        {
-                            _logger.AddUserMessage("Unable to get operating system ID. Will assume this can be unlocked with the default seed/key algorithm.");
-
-                            UInt32 OperatingSystemId = 0;
-
-                            await _vehicle.ForceSendToolPresentNotification();
-                            await _pageObjects.Invoke(async () => OperatingSystemId = await _pageObjects.PromptForHardwareType()); // One would say I should gaurd this here too (UI call), but in theory we should never reach this.
-                            await _vehicle.ForceSendToolPresentNotification();
-
-                            pcmInfo = ECUFactory.GetControllerByOSID(OperatingSystemId); // osid
-
-                            _logger.AddUserMessage($"Using OsID: {pcmInfo.GetCurrentOSID()}");
-                        }
-                        break;
+                    case ECUStates.Invalid: 
+                    break;
                     case ECUStates.Programmed:
-                        pcmInfo = _vehicle.ConnectedECU;
                         _logger.AddUserMessage("OSID: " + pcmInfo.GetCurrentOSID());
                         _logger.AddUserMessage("Description: " + pcmInfo.ToString());
                         break;
-                    case ECUStates.Kernel: // These will be handled down the line.
-                        _logger.AddUserMessage("PCM is in kernel mode.");
-                            osidResponse = await _vehicle.QueryOperatingSystemIdFromKernel(_cancellationToken);
-                            if (osidResponse.Status != ResponseStatus.Success)
-                            {
-                                // The kernel seems broken. This shouldn't happen, but if it does, halt.
-                                _logger.AddUserMessage("The kernel did not respond to operating system ID query.");
-                                return false;
-                            }
-                            pcmInfo = ECUFactory.GetControllerByOSID(osidResponse.Value);
+                    case ECUStates.Kernel: // What should we be doing for a PCM already in kernel mode?
                         break;
-                    case ECUStates.Recovery: // Handled by hardware overrride 
+                    case ECUStates.Recovery: // Refuse to read? Unsure of the possible intent here.
                         break;
                 }
             if (pcmInfo == null)
             {
                 throw new NullReferenceException(nameof(pcmInfo));
             }
-            if(_vehicle.ConnectedECU == null)
-            {
-                _vehicle.ConnectedECU = pcmInfo;
-            }
-
             if (!pcmInfo.IsSupported && _actionArguments.HardwareType != PcmType.Undefined)
             {
-                _logger.AddUserMessage("Detected hardware type override on Unsupported ECU. Please be sure to post results!");
-                pcmInfo = ECUFactory.GetControllerOverride(_actionArguments.HardwareType, pcmInfo.GetCurrentOSID());
+                _logger.AddUserMessage("Detected hardware type override on undefined ECU. Please be sure to post results!");
+                pcmInfo = ECUFactory.GetControllerOverride(_actionArguments.HardwareType);
                 _logger.AddUserMessage($"Continuing read with hardware type of {_actionArguments.HardwareType}");
             }
 
-                // These tests want the UI, but this library doesn't behave with UNO's. These tests can be now be found in ControllerActionSetup. Left here under a conditional only for temporary backwards compat with WinForms.
+                // These tests are retired here, left only for reference at the moment. We can now call ECUBase.GetPreCheckResults() to determine whether to display a prompt.
             if (_actionArguments.PreFlightChecksRequired)
             {
                 // Pre flight checks to block invalid write operations by PCM type.
