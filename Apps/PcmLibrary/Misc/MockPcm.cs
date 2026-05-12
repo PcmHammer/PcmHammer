@@ -231,6 +231,10 @@ namespace PcmHacking
                 {
                     responseBuffer = [Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, 0x7D, 0x03, 0x00, 0xBA, 0x57, 0xBC];
                 }
+                if (payload[0] == 0x05)
+                {
+                    responseBuffer = [Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, 0x7D, 0x05, 0x00, 0x00];
+                }
             }
             else if (this.modeByte == 0x3C)
             {
