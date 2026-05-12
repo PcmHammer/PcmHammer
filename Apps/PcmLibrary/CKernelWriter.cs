@@ -14,16 +14,16 @@ namespace PcmHacking
         private readonly Vehicle vehicle;
         private readonly ECUBase pcmInfo;
         private readonly Protocol protocol;
-        private readonly WriteType writeType;
+        private readonly ECUActionArguments _ecuActionArguments;
         private readonly ILogger logger;
         private readonly IProgress<ProgressUpdate> progress;
 
-        public CKernelWriter(Vehicle vehicle, ECUBase pcmInfo, Protocol protocol, WriteType writeType, ILogger logger, IProgress<ProgressUpdate> progress)
+        public CKernelWriter(Vehicle vehicle, ECUBase pcmInfo, Protocol protocol, ECUActionArguments arguments, ILogger logger, IProgress<ProgressUpdate> progress)
         {
             this.vehicle = vehicle;
             this.pcmInfo = pcmInfo;
             this.protocol = protocol;
-            this.writeType = writeType;
+            _ecuActionArguments = arguments;
             this.logger = logger;
             this.progress = progress;
         }
@@ -130,7 +130,7 @@ namespace PcmHacking
                     return false;
                 }
 
-                Utility.ReportOperatingSystems(validator.GetOsidFromImage(), osidResponse.Value, this.writeType, this.logger, out bool shouldHalt);
+                Utility.ReportOperatingSystems(validator.GetOsidFromImage(), osidResponse.Value, _ecuActionArguments.WriteType, this.logger, out bool shouldHalt);
                 if (needToCheckOperatingSystem && shouldHalt && !(this.vehicle?.ConnectedECU?.HardwareTypeOverridden ?? false))
                 {
                     return false;
@@ -153,7 +153,7 @@ namespace PcmHacking
             {
                 if (!success)
                 {
-                    switch (this.writeType)
+                    switch (_ecuActionArguments.WriteType)
                     {
                         case WriteType.None:
                         case WriteType.Compare:
@@ -194,7 +194,7 @@ namespace PcmHacking
             await this.vehicle.SendToolPresentNotification();
 
             BlockType relevantBlocks;
-            switch (this.writeType)
+            switch (_ecuActionArguments.WriteType)
             {
                 case WriteType.Compare:
                     relevantBlocks = BlockType.All;
@@ -227,7 +227,7 @@ namespace PcmHacking
                     break;
 
                 default:
-                    throw new InvalidDataException("Unsuppported operation type: " + this.writeType.ToString());
+                    throw new InvalidDataException("Unsupported operation type: " + _ecuActionArguments.WriteType.ToString());
             }
 
             // Which flash chip?
@@ -275,7 +275,7 @@ namespace PcmHacking
                     allRangesMatch = true;
 
                     // Don't stop here if the user just wants to test their cable.
-                    if (this.writeType == WriteType.Test)
+                    if (_ecuActionArguments.WriteType == WriteType.Test)
                     {
                         if (attempt == 1)
                         {
@@ -294,7 +294,7 @@ namespace PcmHacking
                 }
 
                 // For test writes, report results after the first iteration, then we're done.
-                if ((this.writeType == WriteType.Test) && (attempt > 1))
+                if ((_ecuActionArguments.WriteType == WriteType.Test) && (attempt > 1))
                 {
                     logger.AddUserMessage("Test write complete.");
                     Utility.ReportRetryCount("Write", messageRetryCount, pcmInfo.ImageSize, this.logger);
@@ -302,7 +302,7 @@ namespace PcmHacking
                 }
 
                 // Stop now if the user only requested a comparison.
-                if (this.writeType == WriteType.Compare)
+                if (_ecuActionArguments.WriteType == WriteType.Compare)
                 {
                     this.logger.AddUserMessage("Note that mismatched Parameter blocks are to be expected.");
                     this.logger.AddUserMessage("Parameter data can change every time the PCM is used.");
@@ -337,7 +337,7 @@ namespace PcmHacking
                             range.Address,
                             range.Address + (range.Size - 1)));
 
-                    if (this.writeType == WriteType.Test)
+                    if (_ecuActionArguments.WriteType == WriteType.Test)
                     {
                         this.logger.AddUserMessage("Pretending to erase.");
                     }
@@ -349,7 +349,7 @@ namespace PcmHacking
                         }
                     }
 
-                    if (this.writeType == WriteType.Test)
+                    if (_ecuActionArguments.WriteType == WriteType.Test)
                     {
                         this.logger.AddUserMessage("Pretending to write...");
                     }
@@ -384,7 +384,7 @@ namespace PcmHacking
 
             if (allRangesMatch)
             {
-                if (this.writeType != WriteType.Compare && this.writeType != WriteType.Test)
+                if (_ecuActionArguments.WriteType != WriteType.Compare && _ecuActionArguments.WriteType != WriteType.Test)
                 {
                     this.logger.AddUserMessage("Flash successful!");
                 }
@@ -397,7 +397,7 @@ namespace PcmHacking
             this.logger.AddUserMessage("THE CHANGES WERE -NOT- WRITTEN SUCCESSFULLY");
             this.logger.AddUserMessage("===============================================");
 
-            if (this.writeType == WriteType.Calibration)
+            if (_ecuActionArguments.WriteType == WriteType.Calibration)
             {
                 this.logger.AddUserMessage("Erasing Calibration to force recovery mode.");
                 this.logger.AddUserMessage("");
@@ -447,7 +447,7 @@ namespace PcmHacking
 
         private bool ShouldProcess(MemoryRange range, BlockType relevantBlocks)
         {
-            if ((range.ActualCrc == range.DesiredCrc) && (this.writeType != WriteType.Test))
+            if ((range.ActualCrc == range.DesiredCrc) && (_ecuActionArguments.WriteType != WriteType.Test))
             {
                 return false;
             }
@@ -475,7 +475,7 @@ namespace PcmHacking
         private bool IsWritePlanAllowedByPcmInfo(FlashChip flashChip, BlockType relevantBlocks)
         {
             // Compare and test-write are non-destructive.
-            if (this.writeType == WriteType.Compare || this.writeType == WriteType.Test)
+            if (_ecuActionArguments.WriteType == WriteType.Compare || _ecuActionArguments.WriteType == WriteType.Test)
             {
                 return true;
             }
