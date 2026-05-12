@@ -1,5 +1,6 @@
 ﻿using System.CommandLine;
 using System.ComponentModel;
+using System.Text;
 using PcmHacking;
 using PcmHacking.CLI;
 using PcmHacking.ECU;
@@ -98,6 +99,19 @@ hardwareOption.Validators.Add(v =>
         }
     }
     v.AddError("Hardware override flag was set, but the requested hardware type was not in the list!");
+});
+
+Option<string> flashOption = new("--flash", "-fl")
+{
+    Description = $"Set the flash chip ID manually. ADVANCED USERS ONLY!",
+};
+flashOption.Validators.Add(v =>
+{
+    string byteString = v.GetValueOrDefault<string>();
+    if(byteString.Length != 8)
+    {
+        v.AddError("ID sequence must contain 8 valid Hex characters!");
+    }
 });
 
 Option<string> writeOption = new("--writeType", "-w")
@@ -207,7 +221,8 @@ RootCommand root = new RootCommand("PCM Hammer CLI")
     customKeyOption,
     logLevelOption,
     useHighSpeedOption,
-    skipPreChecksOption
+    skipPreChecksOption,
+    flashOption
 };
 
 Console.WriteLine($"{root.Name} has started with the following arguments:");
@@ -217,6 +232,7 @@ string deviceType = string.Empty;
 string deviceAddress = string.Empty;
 string selectedAction = string.Empty;
 string selectedHardware = string.Empty;
+string flashId = string.Empty;
 string writeType = string.Empty;
 string inputPath = string.Empty;
 string outputPath = string.Empty;
@@ -232,6 +248,7 @@ root.SetAction(parsed =>
     deviceAddress = parsed.GetValue(deviceAddressOption) ?? string.Empty;
     selectedAction = parsed.GetValue(actionOption) ?? string.Empty;
     selectedHardware = parsed.GetValue(hardwareOption) ?? string.Empty;
+    flashId = parsed.GetValue(flashOption) ?? string.Empty;
     writeType = parsed.GetValue(writeOption) ?? string.Empty;
     inputPath = parsed.GetValue(inputOption) ?? string.Empty;
     customKey = parsed.GetValue(customKeyOption) ?? string.Empty;
@@ -303,6 +320,18 @@ if (result == 0)
     }
 
     ILogger logger = new LogMessageHandler(Enum.Parse<LogLevels>(logLevel), $"CLI.{selectedAction}", true, true, true);
+
+
+    if (!string.IsNullOrWhiteSpace(flashId))
+    {
+
+        if (Int32.TryParse(Encoding.ASCII.GetBytes(flashId), System.Globalization.NumberStyles.HexNumber, default, out Int32 value))
+        {
+            FlashChip chip = FlashChip.Create((uint)value, logger);
+            logger.AddUserMessage($"Using override flash chip: {chip}");
+            actionArgs.FlashChipId = (uint)value;
+        }
+    }
 
     if (deviceType == DeviceConstants.DeviceCategoryBT)
     {

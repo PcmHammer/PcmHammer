@@ -17,10 +17,15 @@ public class ECUActionArguments
     /// <summary>
     /// Specified controller type.
     /// </summary>
-    public PcmType HardwareType = PcmType.Undefined; 
+    public PcmType HardwareType = PcmType.Undefined;
 
     /// <summary>
-    /// Final  whether high-speed mode is enabled.
+    /// Allow for overriding a flash chip ID for advanced users.
+    /// </summary>
+    public uint FlashChipId = 0;
+
+    /// <summary>
+    /// Final whether high-speed mode is enabled.
     /// </summary>
     public bool UseHighSpeed = false;
 

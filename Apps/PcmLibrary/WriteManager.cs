@@ -250,7 +250,7 @@ namespace PcmHacking
                 this.vehicle,
                 pcmInfo,
                 new Protocol(),
-                _actionArguments.WriteType,
+                _actionArguments,
                 this.logger,
                 progress);
 
