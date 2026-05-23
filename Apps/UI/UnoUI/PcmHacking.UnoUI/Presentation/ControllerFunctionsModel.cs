@@ -94,6 +94,19 @@ public partial record ControllerFunctionsModel
             {
                 Vehicle vehicle = lease.Vehicle;
 
+                switch (vehicle.ConnectedECU.ECUState)
+                {
+                    case ECUStates.Invalid:
+                    case ECUStates.Programmed: // Both of these states should pool data below - assuming said invalid ECU is compatible.
+                        break;
+                    case ECUStates.Kernel:
+                        await this.Description.SetAsync($"Controller: Kernel mode (Version: {vehicle.ConnectedECU.LoadedKernelVersion})");
+                        return true;
+                    case ECUStates.Recovery:
+                        await this.Description.SetAsync($"Controller: Recovery mode (Write-only)");
+                        return true;
+                }
+
                 // All VPW PCMs support the VIN query.
                 await this.Vin.SetAsync(await this.GetVin(vehicle, cancellationToken));
                 await Task.Delay(delay);
@@ -171,7 +184,7 @@ public partial record ControllerFunctionsModel
             this.progressLogger.AddDebugMessage("Other Functions: Exception while reading properties.");
             this.progressLogger.AddDebugMessage(exception.Message);
             return false;
-        }        
+        }
     }
 
     private async Task ClearDetails()
