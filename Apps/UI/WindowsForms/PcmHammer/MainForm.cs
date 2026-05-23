@@ -1218,23 +1218,32 @@ namespace PcmHacking
 
                     if (await BeginActionAsync(actionArgs))
                     {
-                        try
+                        while (true)
                         {
-                            AddUserMessage("Saving contents to " + path);
-
-                            actionArgs.ContentStream.Position = 0;
-
-                            using (Stream output = File.Open(path, FileMode.Create))
+                            try
                             {
-                                await actionArgs.ContentStream.CopyToAsync(output);
-                                AddUserMessage("File saved successfully!");
+                                AddUserMessage("Saving contents to " + path);
+
+                                actionArgs.ContentStream.Position = 0;
+
+                                using (Stream output = File.Open(path, FileMode.Create))
+                                {
+                                    await actionArgs.ContentStream.CopyToAsync(output);
+                                    AddUserMessage("File saved successfully!");
+                                }
+                                break;
                             }
-                            return;
-                        }
-                        catch (IOException exception)
-                        {
-                            AddUserMessage("Unable to save file: " + exception.Message);
-                            AddDebugMessage(exception.ToString());
+                            catch (Exception exception)
+                            {
+                                AddUserMessage("Unable to save file: " + exception.Message);
+                                AddDebugMessage(exception.ToString());
+                                path = await PromptForFileSavePath();
+                                if (!string.IsNullOrEmpty(path))
+                                {
+                                    continue;
+                                }
+                                return;
+                            }
                         }
                         Configuration.Settings.ConnectionVerified = true;
                     }
@@ -1261,7 +1270,7 @@ namespace PcmHacking
         {
             Progress<ProgressUpdate>? progress = new Progress<ProgressUpdate>((progress) =>
             {
-                UpdateProgress(progress);
+                UpdateProgress(progress, arguments.SelectedAction);
             });
             this.cancellationTokenSource = new CancellationTokenSource();
 
@@ -1277,7 +1286,7 @@ namespace PcmHacking
             await this.Vehicle.DiscoverConnectedECU(cancellationTokenSource.Token);
 
             bool shouldHalt = false;
-            PreFlightCheckResult checkResult = this.Vehicle.ConnectedECU.GetPreCheckResults(ControllerActions.Read, WriteType.None);
+            PreFlightCheckResult checkResult = this.Vehicle.ConnectedECU.GetPreCheckResults(arguments.SelectedAction, arguments.WriteType);
             if (checkResult.ShouldPrompt)
             {
                 await this.InvokeWrapper(async () =>
@@ -1304,9 +1313,9 @@ namespace PcmHacking
             return await manager.BeginAction();
         }
 
-        private void UpdateProgress(ProgressUpdate progress)
+        private void UpdateProgress(ProgressUpdate progress, ControllerActions currentAction)
         {
-            this.StatusUpdateActivity(progress.Activity);
+            this.StatusUpdateActivity($"{(currentAction == ControllerActions.Write ? "Writing" : "Reading")}  {progress.PayloadLength} bytes {(currentAction == ControllerActions.Write ? "to" : "at")}  0x{progress.Address:X6}");
             this.StatusUpdateTimeRemaining($"T-{progress.TimeRemaining}");
             this.StatusUpdatePercentDone($"{(progress.Percentage * 100.0):0.00}%");
             this.StatusUpdateRetryCount(progress.RetryCount.ToString());
@@ -1389,17 +1398,18 @@ namespace PcmHacking
 
                     this.AddUserMessage(path);
 
-                    Progress<ProgressUpdate>? progress = new Progress<ProgressUpdate>((progress) =>
-                    {
-                        UpdateProgress(progress);
-                    });
-
                     ECUActionArguments actionArguments = new ECUActionArguments
                     {
                         SelectedAction = ControllerActions.Write,
                         WriteType = writeType,
                         ContentStream = new()
                     };
+
+                    Progress<ProgressUpdate>? progress = new Progress<ProgressUpdate>((progress) =>
+                    {
+                        UpdateProgress(progress, actionArguments.SelectedAction);
+                    });
+
                     FileStream file = File.Open(path, FileMode.Open, FileAccess.Read);
                     await file.CopyToAsync(actionArguments.ContentStream);
                     file.Close();
