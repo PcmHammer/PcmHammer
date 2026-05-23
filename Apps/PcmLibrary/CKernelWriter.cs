@@ -1,7 +1,9 @@
 using PcmHacking.ECU;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
+using System.IO.Ports;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -140,7 +142,7 @@ namespace PcmHacking
                     return false;
                 }
 
-                success = await this.Write(cancellationToken, image);
+                success = await this.Write(cancellationToken, image, _ecuActionArguments.FlashChipId);
 
                 // We only do cleanup after a successful write.
                 // If the kernel remains running, the user can try to flash again without rebooting and reloading.
@@ -193,7 +195,7 @@ namespace PcmHacking
         /// <summary>
         /// Write the calibration blocks.
         /// </summary>
-        private async Task<bool> Write(CancellationToken cancellationToken, byte[] image)
+        private async Task<bool> Write(CancellationToken cancellationToken, byte[] image, uint flashChipIdOverride = 0)
         {
             await this.vehicle.SendToolPresentNotification();
 
@@ -236,7 +238,16 @@ namespace PcmHacking
 
             // Which flash chip?
             await this.vehicle.SendToolPresentNotification();
-            UInt32 chipId = await this.vehicle.QueryFlashChipId(cancellationToken);
+
+            UInt32 chipId = 0;
+            if(flashChipIdOverride == 0)
+            {
+                chipId = await this.vehicle.QueryFlashChipId(cancellationToken);
+            }
+            else
+            {
+                chipId = flashChipIdOverride;
+            }
             FlashChip flashChip = FlashChip.Create(chipId, this.logger);
             logger.AddUserMessage("Flash chip: " + flashChip.ToString());
 
