@@ -46,6 +46,12 @@ namespace PcmHacking.ECU {
                 _ecuState = value;
             }
         }
+
+        /// <summary>
+        /// Keep a reference to the loaded kernel version, if one is detected.
+        /// </summary>
+        public uint LoadedKernelVersion { get; set; }
+
         public List<OSInfo> KnownOperatingSystems { get; set; }
 
         private OSInfo currentOS { get; set; }
