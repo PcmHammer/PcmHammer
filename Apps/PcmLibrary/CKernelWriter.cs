@@ -48,7 +48,7 @@ namespace PcmHacking
                 this.vehicle.ClearDeviceMessageQueue();
 
                 // TODO: install newer version if available.
-                if (kernelVersion == 0)
+                if (this.pcmInfo.ECUState != ECUStates.Kernel)
                 {
                     // Switch to 4x, if possible. But continue either way.
                     if (this.vehicle.Enable4xReadWrite)
@@ -118,6 +118,10 @@ namespace PcmHacking
                     }
 
                     logger.AddUserMessage("Kernel uploaded to PCM successfully.");
+                }
+                else
+                {
+                    logger.AddUserMessage("Controller is already running a loaded kernel! Proceed.");
                 }
                 // Confirm operating system match
                 await this.vehicle.SendToolPresentNotification();
@@ -361,7 +365,7 @@ namespace PcmHacking
                     Response<bool> writeResponse = await WriteMemoryRange(
                         range,
                         image,
-                        this.writeType == WriteType.Test,
+                        _ecuActionArguments.WriteType == WriteType.Test,
                         startTime,
                         totalSize,
                         bytesRemaining,

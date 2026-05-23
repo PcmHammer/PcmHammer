@@ -37,7 +37,7 @@ namespace PcmHacking
         /// <summary>
         /// Contains cross-platform code to handle user interactions to write the PCM's flash memory.
         /// Overloaded method that the utilizes Write(byte[]).
-        /// Accepts a string path for OSes that can directly access file structure. Kept here for compatability reasons.
+        /// Accepts a string path for OSes that can directly access file structure. Kept here for compatibility reasons.
         /// </summary>
         /// <returns>True if file opens and write succeeds. False if either condition fails.</returns>
         public async Task<bool> Begin(string path)
@@ -67,10 +67,12 @@ namespace PcmHacking
         /// <returns>True if the write was successful, fales if failed or aborted.</returns>
         public async Task<bool> Begin(MemoryStream? contentStream)
         {
+            // We should already be aware of the connected controller by now.
             if (this.vehicle.ConnectedECU == null)
             {
                 throw new NullReferenceException("vehicle.ConnectedECU was null!");
             }
+            // We should have arguments set before getting here.
             if (_actionArguments == null)
             {
                 throw new NullReferenceException($"{nameof(_actionArguments)} was null.");
@@ -99,8 +101,7 @@ namespace PcmHacking
             switch (vehicle.ConnectedECU.ECUState)
             {
                 case ECUStates.Invalid:
-                case ECUStates.Recovery:
-                    pcmInfo = ECUFactory.GetControllerByOSID(validator.GetOsidFromImage()); // Both of these states can be pushed with a hardware type override if this comes back undefined.
+                    pcmInfo = ECUFactory.GetControllerByOSID(validator.GetOsidFromImage());
                     break;
 
                 case ECUStates.Programmed:
@@ -119,6 +120,11 @@ namespace PcmHacking
                         }
                     }
                     needToCheckOperatingSystem = false;
+                    break;
+
+                case ECUStates.Recovery:
+                    pcmInfo = ECUFactory.GetControllerByOSID(validator.GetOsidFromImage());
+                    needUnlock = false;
                     break;
 
                 case ECUStates.Kernel:
