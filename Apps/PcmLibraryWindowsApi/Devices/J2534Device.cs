@@ -576,21 +576,21 @@ namespace PcmHacking
             }
         }
 
-        public override Task<bool> CheckDeviceConnection()
+        public async override Task<bool> CheckDeviceConnection()
         {
             try
             {
-                if (Initialize().Result)
+                if (await Initialize())
                 {
-                    return Task.FromResult(true);
+                    return true;
                 }
             }
             catch
             {
-                return Task.FromResult(false);
+                return false;
             }
 
-            return Task.FromResult(false);
+            return false;
         }
     }
 }
