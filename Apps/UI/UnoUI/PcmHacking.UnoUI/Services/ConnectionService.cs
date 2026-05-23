@@ -257,19 +257,14 @@ public class ConnectionService : IConnectionService
         {
             App.ApplicationShutdownSource.Cancel();
         }
-        while (this.internalState >= ConnectionStates.Connected)
-        {
-            await Task.Delay(10);
-        }
         if (this.vehicle != null)
         {
             this.vehicle.ShutdownSignalSource.Cancel(); // Calling this shutdown signal source will also dispose the device.
             this.vehicle.Dispose();
-            this.vehicle = null;
         }
-        if (this.device != null)
+        while (this.internalState >= ConnectionStates.Connected)
         {
-            this.device = null;
+            await Task.Delay(10);
         }
     }
 
@@ -339,7 +334,7 @@ public class ConnectionService : IConnectionService
 
             try
             {
-                if (settings.DeviceCategory == DeviceConstants.DeviceCategoryBT) // Bluetooth on multi-platform requires the use of a separtate library written in .NET core, so we have to special case it here.
+                if (settings.DeviceCategory == DeviceConstants.DeviceCategoryBT) // Bluetooth on multi-platform requires the use of a separate library written in .NET core, so we have to special case it here.
                 {
                     newDevice = await BluetoothDeviceFactory.CreateBluetoothDevice(settings.DeviceNameOrPort, this.logger);
                 }
