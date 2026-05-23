@@ -37,7 +37,6 @@ namespace PcmHacking.UnoUI.Platforms.Android
         }
 
         public static void UpdateProgress(int progress, string details) {
-            System.Diagnostics.Debug.WriteLine($"Calling Android label progress {progress}");
             var notifcationManager = global::Android.App.Application.Context.GetSystemService(Context.NotificationService) as NotificationManager;
             NotificationCompat.Builder note = BuildNotification(_actionType, progress, details);
             notifcationManager.Notify(NOTIFICATION_ID, note.Build());
@@ -53,6 +52,7 @@ namespace PcmHacking.UnoUI.Platforms.Android
             notification.SetOngoing(true);
             notification.SetOnlyAlertOnce(true);
             notification.SetPriority(1);
+            notification.SetSmallIcon(Resource.Drawable.Assets_AppIcon_targetsize_16);
             notification.SetProgress(100, progress, false);
             notification.SetContentTitle("PCM Hammer Operation running");
             notification.SetContentText($"The requested {actionType} operation is in progress: {details}");
