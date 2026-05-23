@@ -150,7 +150,7 @@ public partial record ControllerActionModel : IAsyncLogger
 
             Progress<ProgressUpdate>? progress = new Progress<ProgressUpdate>((progress) =>
             {
-                _ = UpdateProgress(progress);
+                _ = UpdateProgress(progress, _actionArguments?.SelectedAction ?? ControllerActions.Undefined);
             });
 
             ControllerManager manager = new(lease.Vehicle,
@@ -303,7 +303,7 @@ public partial record ControllerActionModel : IAsyncLogger
         }
     }
 
-    private async Task UpdateProgress(ProgressUpdate progress)
+    private async Task UpdateProgress(ProgressUpdate progress, ControllerActions currentAction)
     {
 #if ANDROID
         if (Platforms.Android.DataService.IsServiceRunning())
@@ -314,7 +314,7 @@ public partial record ControllerActionModel : IAsyncLogger
 #endif
         await Invoke(async () =>
         {
-            await this.StatusUpdateActivity(progress.Activity);
+            await this.StatusUpdateActivity($"{(currentAction == ControllerActions.Write ? "Writing" : "Reading")}  {progress.PayloadLength} bytes {(currentAction == ControllerActions.Write ? "to" : "at")}  0x{progress.Address:X6}");
             await this.StatusUpdateTimeRemaining($"T-{progress.TimeRemaining}");
             await this.StatusUpdatePercentDone($"{(progress.Percentage * 100.0):0.00}%");
             await this.StatusUpdateRetryCount(progress.RetryCount.ToString());
