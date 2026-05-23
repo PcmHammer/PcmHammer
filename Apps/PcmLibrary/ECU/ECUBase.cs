@@ -33,8 +33,10 @@ namespace PcmHacking.ECU {
     }
 
     public abstract class ECUBase {
-        private ECUStates _ecuState;
 
+        /// <summary>
+        /// This enum allows us to hold a state and pass it along 
+        /// </summary>
         public ECUStates ECUState
         {
             get
@@ -46,6 +48,7 @@ namespace PcmHacking.ECU {
                 _ecuState = value;
             }
         }
+        private ECUStates _ecuState;
 
         /// <summary>
         /// Keep a reference to the loaded kernel version, if one is detected.
@@ -390,13 +393,6 @@ namespace PcmHacking.ECU {
                     if (!IsSupportedWrite)
                     {
                         builder.AppendLine("This controller currently does not support writing.\r\n");
-                        result.CanProceed = false;
-                    }
-                    if (!IsSupportedWriteBootSector && writeType >= WriteType.OsPlusCalibrationPlusBoot)
-                    {
-                        builder.AppendLine(
-                            "This controller currently does not support writing\r\n" +
-                            " to boot sector. Calibration write only!\r\n");
                         result.CanProceed = false;
                     }
                     if (HardwareSlaveCPU && !IsSupportedWriteSlaveCPU && writeType >= WriteType.OsPlusCalibrationPlusBoot)
