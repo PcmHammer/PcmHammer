@@ -54,7 +54,6 @@ namespace PcmHacking.UnoUI.Platforms.Android
             notification.SetOnlyAlertOnce(true);
             notification.SetPriority(1);
             notification.SetProgress(100, progress, false);
-            notification.SetSmallIcon(Resource.Mipmap.icon);
             notification.SetContentTitle("PCM Hammer Operation running");
             notification.SetContentText($"The requested {actionType} operation is in progress: {details}");
             return notification;
