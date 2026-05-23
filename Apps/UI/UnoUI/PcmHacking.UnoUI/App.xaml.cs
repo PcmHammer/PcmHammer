@@ -224,10 +224,14 @@ public partial class App : Application
             );
         MainWindow = builder.Window;
         StaticMainWindow = builder.Window;
-        MainWindow.AppWindow.Closing += (s, e) =>
+        MainWindow.AppWindow.Closing += async (s, e) =>
         {
             App.ApplicationShutdownSource.Cancel();
+            await App.GetService<IConnectionService>().AwaitConnectionShutdown();
         };
+#if !WINDOWS
+        App.Current.Suspending += Current_Suspending;
+#endif
 
 #if WINDOWS
         StaticMainWindow.Title = "PCM Hammer";
@@ -239,6 +243,12 @@ public partial class App : Application
 
         MainWindow.SetWindowIcon();
         Host = await builder.NavigateAsync<Shell>();
+    }
+
+    private async void Current_Suspending(object sender, SuspendingEventArgs e)
+    {
+        App.ApplicationShutdownSource.Cancel();
+        await App.GetService<IConnectionService>().AwaitConnectionShutdown();
     }
 
     private static void RegisterRoutes(IViewRegistry views, IRouteRegistry routes)

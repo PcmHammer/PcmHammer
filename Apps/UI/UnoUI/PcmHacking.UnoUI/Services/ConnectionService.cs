@@ -107,6 +107,7 @@ public interface IConnectionService
     Task<bool> TryConnect(CurrentSettings settings);
     Task<ConnectionLease> BeginActivity(string activity, bool canInterrupt = false);
     ECUBase GetConnectedECU();
+    Task AwaitConnectionShutdown();
 }
 
 public class ConnectionService : IConnectionService
@@ -250,6 +251,28 @@ public class ConnectionService : IConnectionService
         return isConnected;
     }
 
+    public async Task AwaitConnectionShutdown()
+    {
+        if (!App.ApplicationShutdownSource.IsCancellationRequested)
+        {
+            App.ApplicationShutdownSource.Cancel();
+        }
+        while (this.internalState >= ConnectionStates.Connected)
+        {
+            await Task.Delay(10);
+        }
+        if (this.vehicle != null)
+        {
+            this.vehicle.ShutdownSignalSource.Cancel(); // Calling this shutdown signal source will also dispose the device.
+            this.vehicle.Dispose();
+            this.vehicle = null;
+        }
+        if (this.device != null)
+        {
+            this.device = null;
+        }
+    }
+
     /// <summary>
     /// Reconnect after a connection loss.
     /// </summary>
@@ -269,7 +292,6 @@ public class ConnectionService : IConnectionService
     {
         if (App.ApplicationShutdownSource.IsCancellationRequested && this.vehicle != null)
         {
-            this.vehicle.ShutdownSignalSource.Cancel();
             this.vehicle?.Dispose();
             this.device?.Dispose();
             return (null, null);
