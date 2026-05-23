@@ -170,13 +170,17 @@ public class ConnectionService : IConnectionService
         }
     }
 
-    public ECUBase? GetConnectedECU()
+    public ECUBase GetConnectedECU()
     {
-        if(this.internalState >= ConnectionStates.Connected || vehicle?.ConnectedECU != null)
+        if(vehicle?.ConnectedECU == null)
         {
-            return vehicle?.ConnectedECU;
+            throw new NullReferenceException(nameof(vehicle.ConnectedECU));
         }
-        return null;
+        if(this.internalState >= ConnectionStates.Connected || vehicle.ConnectedECU != null)
+        {
+            return vehicle.ConnectedECU;
+        }
+        return ECUFactory.GetControllerByOSID(0);
     }
 
     /// <summary>
