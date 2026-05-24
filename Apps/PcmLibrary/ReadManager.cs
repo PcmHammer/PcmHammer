@@ -70,8 +70,13 @@ namespace PcmHacking
                     this.logger.AddUserMessage("Unable to save file: " + exception.Message);
                     this.logger.AddDebugMessage(exception.ToString());
 
-                    await this.invoke(async () => path = await this.promptForFilePath());
-                    if (path == null)
+                    try
+                    {
+                        await this.invoke(async () =>
+                            path = await this.promptForFilePath()
+                        );
+                    }
+                    catch
                     {
                         this.logger.AddUserMessage("Save canceled.");
 
@@ -147,7 +152,7 @@ namespace PcmHacking
                 return null;
             }
 
-            if (pcmInfo.HardwareType == PcmType.P05)
+            if (pcmInfo.HardwareType == PcmType.P05 || pcmInfo.HardwareType == PcmType.P05b)
             {
                 string msg = $"WARNING: {pcmInfo.HardwareType.ToString()} Support is still in development.";
                 this.logger.AddUserMessage(msg);

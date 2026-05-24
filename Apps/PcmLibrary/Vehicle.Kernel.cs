@@ -340,7 +340,8 @@ namespace PcmHacking
             int claimedSize = Math.Min(4096, payload.Length);
 
             // Since we're going to lie about the size, we need to check for overflow ourselves.
-            if (info.HardwareType == PcmType.P01_P59)
+            // TODO: Can we just use the real size?
+            if (info.HardwareType == PcmType.P01 || info.HardwareType == PcmType.P59)
             {
                 if (info.KernelBaseAddress + payload.Length > 0xFFCDFF)
                 {

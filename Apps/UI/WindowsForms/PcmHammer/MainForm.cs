@@ -841,7 +841,7 @@ namespace PcmHacking
                 }
 
                 // Disable HardwareID lookup for the P05, P10, P12 and E54.
-                if (pcmInfo != null && pcmInfo.HardwareType != PcmType.P05 && pcmInfo.HardwareType != PcmType.P10 && pcmInfo.HardwareType != PcmType.P12 && pcmInfo.HardwareType != PcmType.E54)
+                if (pcmInfo != null && pcmInfo.HardwareType != PcmType.P05 && pcmInfo.HardwareType != PcmType.P05b && pcmInfo.HardwareType != PcmType.P10 && pcmInfo.HardwareType != PcmType.P12 && pcmInfo.HardwareType != PcmType.E54)
                 {
                     var hardwareResponse = await this.Vehicle.QueryHardwareId();
                     if (hardwareResponse.Status == ResponseStatus.Success)
@@ -1188,9 +1188,13 @@ namespace PcmHacking
 
                     // Get the path to save the image to.
                     string path = "";
-                    await this.InvokeWrapper(async () => path = await this.PromptForFileSavePath());
-
-                    if (path == null)
+                    try
+                    {
+                        await this.InvokeWrapper(async () =>
+                            path = await this.PromptForFileSavePath()
+                        );
+                    }
+                    catch
                     {
                         this.AddUserMessage("Read canceled.");
                         return;
