@@ -9,10 +9,12 @@ namespace PcmHacking
     public enum PcmType
     {
         Undefined = 0, // required for failed osid test on binary file
-        P01_P59,
+        P01,
+        P59,
         P04_Early,
         P04,
         P05,
+        P05b,
         P08,
         P10,
         P11,
@@ -197,9 +199,9 @@ namespace PcmHacking
                     this.ServiceNumber = 0;
                     break;
 
-                case PcmType.P01_P59:
-                    this.Description = "P01 512KiB or P59 1024KiB";
-                    this.HardwareType = PcmType.P01_P59;
+                case PcmType.P01:
+                    this.Description = "P01 512KiB";
+                    this.HardwareType = PcmType.P01;
                     this.HardwareSlaveCPU = false;
                     this.IsSupported = true;
                     this.IsSupportedRead = true;
@@ -212,7 +214,31 @@ namespace PcmHacking
                     this.LoaderFileName = string.Empty;
                     this.LoaderBaseAddress = 0x0;
                     this.ImageBaseAddress = 0x0;
-                    this.ImageSize = 512 * 1024; //for the P01, override for a P59 by OSID
+                    this.ImageSize = 512 * 1024;
+                    this.KeyAlgorithm = 40;
+                    this.ChecksumSupport = true;
+                    this.FlashCRCSupport = true;
+                    this.FlashIDSupport = true;
+                    this.KernelVersionSupport = true;
+                    this.KernelMaxBlockSize = 4096;
+                    break;
+
+                case PcmType.P59:
+                    this.Description = "P59 1MiB";
+                    this.HardwareType = PcmType.P59;
+                    this.HardwareSlaveCPU = false;
+                    this.IsSupported = true;
+                    this.IsSupportedRead = true;
+                    this.IsSupportedWrite = true;
+                    this.IsSupportedWriteSlaveCPU = true;
+                    this.IsSupportedWriteBySegment = true;
+                    this.LoaderRequired = false;
+                    this.KernelFileName = "Kernel-P01.bin";
+                    this.KernelBaseAddress = 0xFF8000;
+                    this.LoaderFileName = string.Empty;
+                    this.LoaderBaseAddress = 0x0;
+                    this.ImageBaseAddress = 0x0;
+                    this.ImageSize = 1024 * 1024;
                     this.KeyAlgorithm = 40;
                     this.ChecksumSupport = true;
                     this.FlashCRCSupport = true;
@@ -272,6 +298,29 @@ namespace PcmHacking
                 case PcmType.P05:
                     this.Description = "P05 (VPW)";
                     this.HardwareType = PcmType.P05;
+                    this.HardwareSlaveCPU = false;
+                    this.IsSupported = true;
+                    this.IsSupportedRead = true;
+                    this.IsSupportedWrite = true;
+                    this.IsSupportedWriteSlaveCPU = false;
+                    this.IsSupportedWriteBySegment = false;
+                    this.IsSupportedWriteBootSector = false;
+                    this.LoaderRequired = false;
+                    this.KernelFileName = "Kernel-P05.bin";
+                    this.KernelBaseAddress = 0xFFC100;
+                    this.ImageBaseAddress = 0x0;
+                    this.ImageSize = 1024 * 1024;
+                    this.KeyAlgorithm = 0x35;
+                    this.ChecksumSupport = true;
+                    this.FlashCRCSupport = true;
+                    this.FlashIDSupport = true;
+                    this.KernelVersionSupport = true;
+                    this.KernelMaxBlockSize = 4096;
+                    break;
+
+                case PcmType.P05b:
+                    this.Description = "P05b (VPW+CAN)";
+                    this.HardwareType = PcmType.P05b;
                     this.HardwareSlaveCPU = false;
                     this.IsSupported = true;
                     this.IsSupportedRead = true;
@@ -483,14 +532,12 @@ namespace PcmHacking
                 switch (osidString[5])
                 {
                     case '0': // P01
-                        PCMInfo(PcmType.P01_P59);
+                        PCMInfo(PcmType.P01);
                         this.Description = "VCM Suite P01 COS 512KiB";
-                        this.ImageSize = 512 * 1024;
                         return;
                     case '5': // P59
-                        PCMInfo(PcmType.P01_P59);
+                        PCMInfo(PcmType.P59);
                         this.Description = "VCM Suite P59 COS 1MiB";
-                        this.ImageSize = 1024 * 1024;
                         return;
                 }
             }
@@ -499,28 +546,28 @@ namespace PcmHacking
             switch (osid)
             {
                 // LB7 Duramax EFI Live COS
-                case 01337601:
-                case 01710001:
-                case 01887301:
-                case 02444101:
-                case 02600601:
-                case 02685301:
-                case 03904401:
-                case 01337605:
-                case 01710005:
-                case 01887305:
-                case 02444105:
-                case 02600605:
-                case 02685305:
-                case 03904405:
+                case 1337601:
+                case 1337605:
+                case 1710001:
+                case 1710005:
+                case 1887301:
+                case 1887305:
+                case 2444101:
+                case 2444105:
+                case 2600601:
+                case 2600605:
+                case 2685301:
+                case 2685305:
+                case 3904401:
+                case 3904405:
                     PCMInfo(PcmType.E54);
                     this.Description = "E54 LB7 EFILive COS";
                     break;
 
                 // LB7 Duramax service no 9388505
                 case 15063376:
-                case 15188873:
                 case 15097100:
+                case 15188873:
                     PCMInfo(PcmType.E54);
                     this.Description = "E54 Service No 9388505";
                     break;
@@ -533,6 +580,13 @@ namespace PcmHacking
                 case 15189044:
                     PCMInfo(PcmType.E54);
                     this.Description = "E54 Service No 12210729";
+                    break;
+
+                // E54 service number unknown
+                case 9393838:
+                    PCMInfo(PcmType.E54);
+                    this.Description = "E54";
+                    this.ServiceNumber = 0;
                     break;
 
                 // LLY Duramax E60 service no 12244189 - 1mbyte?
@@ -562,73 +616,73 @@ namespace PcmHacking
 
                 // VCM Suite COS Version 1
                 case 1251001:
-                    PCMInfo(PcmType.P01_P59);
+                    PCMInfo(PcmType.P01);
                     this.Description = "VCM Suite 2 Bar";
                     this.KeyAlgorithm = 3;
                     break;
 
                 case 1261001:
-                    PCMInfo(PcmType.P01_P59);
+                    PCMInfo(PcmType.P01);
                     this.Description = "VCM Suite 3 Bar";
                     this.KeyAlgorithm = 4;
                     break;
 
                 case 1271001:
-                    PCMInfo(PcmType.P01_P59);
+                    PCMInfo(PcmType.P01);
                     this.Description = "VCM Suite Mafless";
                     this.KeyAlgorithm = 5;
                     break;
 
                 case 1281001:
-                    PCMInfo(PcmType.P01_P59);
+                    PCMInfo(PcmType.P01);
                     this.Description = "VCM Suite MAF RTT";
                     this.KeyAlgorithm = 6;
                     break;
 
                 case 1271002:
-                    PCMInfo(PcmType.P01_P59);
+                    PCMInfo(PcmType.P01);
                     this.Description = "VCM Suite Mafless";
                     this.KeyAlgorithm = 7;
                     break;
 
                 case 1251002:
-                    PCMInfo(PcmType.P01_P59);
+                    PCMInfo(PcmType.P01);
                     this.Description = "VCM Suite 2 Bar";
                     this.KeyAlgorithm = 8;
                     break;
 
                 case 1261002:
-                    PCMInfo(PcmType.P01_P59);
+                    PCMInfo(PcmType.P01);
                     this.Description = "VCM Suite MAF RTT";
                     this.KeyAlgorithm = 9;
                     break;
 
                 case 1281002:
-                    PCMInfo(PcmType.P01_P59);
+                    PCMInfo(PcmType.P01);
                     this.Description = "VCM Suite 3 Bar";
                     this.KeyAlgorithm = 10;
                     break;
 
                 case 1271003:
-                    PCMInfo(PcmType.P01_P59);
+                    PCMInfo(PcmType.P01);
                     this.Description = "VCM Suite Mafless";
                     this.KeyAlgorithm = 11;
                     break;
 
                 case 1251003:
-                    PCMInfo(PcmType.P01_P59);
+                    PCMInfo(PcmType.P01);
                     this.Description = "VCM Suite 2 Bar";
                     this.KeyAlgorithm = 12;
                     break;
 
                 case 1261003:
-                    PCMInfo(PcmType.P01_P59);
+                    PCMInfo(PcmType.P01);
                     this.Description = "VCM Suite 3 Bar";
                     this.KeyAlgorithm = 13;
                     break;
 
                 case 1281003:
-                    PCMInfo(PcmType.P01_P59);
+                    PCMInfo(PcmType.P01);
                     this.Description = "VCM Suite MAF RTT";
                     this.KeyAlgorithm = 14;
                     break;
@@ -685,7 +739,7 @@ namespace PcmHacking
                 case 1281014:
                 case 1281016:
                 case 1281918:
-                    PCMInfo(PcmType.P01_P59);
+                    PCMInfo(PcmType.P01);
                     this.Description = "Unknown VCM Suite COS";
                     break;
 
@@ -693,10 +747,9 @@ namespace PcmHacking
 
                 // 12583560
                 case 12590777:
-                    PCMInfo(PcmType.P01_P59);
+                    PCMInfo(PcmType.P59);
                     this.Description = "P59a Hybrid Service No 12583560";
                     this.ServiceNumber = 12583560;
-                    this.ImageSize = 1024 * 1024;
                     break;
 
                 // 9354896
@@ -706,14 +759,15 @@ namespace PcmHacking
                 case 9363996:
                 case 9365637:
                 case 9373372:
+                case 9376077:
+                case 9378746:
                 case 9379910:
                 case 9381344:
                 case 12205612:
                 case 12584929:
                 case 12593359:
                 case 12597506:
-                case 16253027:
-                    PCMInfo(PcmType.P01_P59);
+                    PCMInfo(PcmType.P01);
                     this.Description = "P01 Service No 9354896";
                     this.ServiceNumber = 9354896;
                     break;
@@ -724,65 +778,58 @@ namespace PcmHacking
                 case 12208322:
                 case 12209203:
                 case 12212156:
+                case 12213218:
                 case 12216125:
+                case 12220483:
                 case 12221588:
                 case 12225074: // main 2003/2004 OS
                 case 12593358:
-                    PCMInfo(PcmType.P01_P59);
+                    PCMInfo(PcmType.P01);
                     this.Description = "P01 Service No 12200411";
                     this.ServiceNumber = 12200411;
                     break;
 
-                case 01250001:
-                case 01290001:
-                case 02020002:
-                case 02040001:
-                case 03150002:
-                case 04072901:
-                case 04073101:
-                case 04110003:
-                case 05120003:
-                case 01250002:
-                case 01290002:
-                case 02020003:
-                case 02040002:
-                case 03150003:
-                case 04072902:
-                case 04073102:
-                case 04140001:
-                case 01250003:
-                case 01290003:
-                case 02020005:
-                case 02040003:
-                case 03170001:
-                case 04072903:
-                case 04073103:
-                case 04140002:
-                case 01270001:
-                case 01290005:
-                case 02030001:
-                case 03110001:
-                case 03190001:
-                case 04073001:
-                case 04080001:
-                case 04140003:
-                case 01270002:
-                case 02010001:
-                case 02030002:
-                case 03130001:
-                case 03190002:
-                case 04073002:
-                case 04110001:
-                case 05120001:
-                case 01270003:
-                case 02020001:
-                case 02030003:
-                case 03150001:
-                case 03190003:
-                case 04073003:
-                case 04110002:
-                case 05120002:
-                    PCMInfo(PcmType.P01_P59);
+                case 1250001:
+                case 1250002:
+                case 1250003:
+                case 1270001:
+                case 1270002:
+                case 1270003:
+                case 1290001:
+                case 1290002:
+                case 1290003:
+                case 1290005:
+                case 2010001:
+                case 2020001:
+                case 2020002:
+                case 2020003:
+                case 2020005:
+                case 2030001:
+                case 2030002:
+                case 2030003:
+                case 2040001:
+                case 2040002:
+                case 2040003:
+                case 3110001:
+                case 3130001:
+                case 3150001:
+                case 3150002:
+                case 3170001:
+                case 3190001:
+                case 3190002:
+                case 4072901:
+                case 4072902:
+                case 4072903:
+                case 4073001:
+                case 4073002:
+                case 4073101:
+                case 4073102:
+                case 4080001:
+                case 4110002:
+                case 4140001:
+                case 4140002:
+                case 5120001:
+                    PCMInfo(PcmType.P01);
                     this.ServiceNumber = 12200411;
                     string type = osid.ToString();
                     switch (Convert.ToInt32(type, 10))
@@ -809,6 +856,21 @@ namespace PcmHacking
                     }
                     break;
 
+                case 3150003:
+                case 3190003:
+                case 4073003:
+                case 4073103:
+                case 4110001:
+                case 4110003:
+                case 4140003:
+                case 4140004:
+                case 5120002:
+                case 5120003:
+                    PCMInfo(PcmType.P59);
+                    this.Description = "P59 EFI Live COS";
+                    this.ServiceNumber = 12200411;
+                    break;
+
                 // 1Mb pcms
                 // GMC Sierra service number 12589463 
                 case 12591725:
@@ -816,9 +878,8 @@ namespace PcmHacking
                 case 12593555:
                 case 12606961:
                 case 12612115:
-                    PCMInfo(PcmType.P01_P59);
+                    PCMInfo(PcmType.P59);
                     this.Description = "P59 Service No 12589463";
-                    this.ImageSize = 1024 * 1024;
                     this.ServiceNumber = 12589463;
                     break;
 
@@ -832,9 +893,8 @@ namespace PcmHacking
                 case 12592433: //Aussie
                 case 12606960:
                 case 12612114:
-                    PCMInfo(PcmType.P01_P59);
+                    PCMInfo(PcmType.P59);
                     this.Description = "P59 Service No 12586242";
-                    this.ImageSize = 1024 * 1024;
                     this.ServiceNumber = 12589463;
                     break;
 
@@ -848,9 +908,8 @@ namespace PcmHacking
                 case 76030007:
                 case 76030008:
                 case 76030009:
-                    PCMInfo(PcmType.P01_P59);
+                    PCMInfo(PcmType.P59);
                     this.Description = "P59 Service No 12586243";
-                    this.ImageSize = 1024 * 1024;
                     this.ServiceNumber = 12589463;
                     break;
 
@@ -859,9 +918,8 @@ namespace PcmHacking
                 case 12579405:
                 case 12580055:
                 case 12593058:
-                    PCMInfo(PcmType.P01_P59);
+                    PCMInfo(PcmType.P59);
                     this.Description = "P59 Service No 12582605";
-                    this.ImageSize = 1024 * 1024;
                     this.ServiceNumber = 12582605;
                     break;
 
@@ -874,9 +932,8 @@ namespace PcmHacking
                 case 12613246:
                 case 12613247:
                 case 12619623:
-                    PCMInfo(PcmType.P01_P59);
+                    PCMInfo(PcmType.P59);
                     this.Description = "P59 Service No 12582811";
-                    this.ImageSize = 1024 * 1024;
                     this.ServiceNumber = 12582811;
                     break;
 
@@ -884,10 +941,21 @@ namespace PcmHacking
                 case 12597120:
                 case 12613248:
                 case 12619624:
-                    PCMInfo(PcmType.P01_P59);
+                    PCMInfo(PcmType.P59);
                     this.Description = "P59 Service No 12602802";
-                    this.ImageSize = 1024 * 1024;
                     this.ServiceNumber = 12602802;
+                    break;
+
+                // P59 service number unknown
+                case 12568640:
+                case 12584941:
+                case 12591347:
+                case 12592122:
+                case 12594368:
+                case 12604949:
+                    PCMInfo(PcmType.P59);
+                    this.Description = "P59";
+                    this.ServiceNumber = 0;
                     break;
 
                 // 96/97 BlackBox is very different to 98+ and is unsupported. It has 2x 128KiB flash chips and talks its own OBD variant.
@@ -923,6 +991,13 @@ namespace PcmHacking
                     this.ServiceNumber = 16263494;
                     break;
 
+                // BlackBox service number unknown
+                case 16258745:
+                    PCMInfo(PcmType.BlackBox);
+                    this.Description = "BlackBox";
+                    this.ServiceNumber = 0;
+                    break;
+
                 // 1996/1997 V8 Service number 16238212. Looks like the mid 90s 256k P04
                 case 9350054:
                 case 9350490:
@@ -954,8 +1029,6 @@ namespace PcmHacking
                 case 9354739:
                 case 9354740:
                 case 9355161:
-                case 9355162:
-                case 9355166:
                 case 9355171:
                 case 9355181:
                 case 9355191:
@@ -963,7 +1036,6 @@ namespace PcmHacking
                 case 9355211:
                 case 9355221:
                 case 9355231:
-                case 9359652:
                 case 9359661:
                 case 9365931:
                 case 9365941:
@@ -973,19 +1045,9 @@ namespace PcmHacking
                 case 9366221:
                 case 9369651:
                 case 9375571:
-                case 9375572:
-                case 9375573:
-                case 9375574:
-                case 9375575:
-                case 9375576:
-                case 9375577:
-                case 9375578:
-                case 9375579:
                 case 9375581:
-                case 9375582:
                 case 9375583:
                 case 9375584:
-                case 9375585:
                 case 9375591:
                 case 9375601:
                 case 9375611:
@@ -1005,17 +1067,14 @@ namespace PcmHacking
                 case 9384547:
                 case 9384548:
                 case 9384549:
-                case 9384550:
                 case 9384557:
                 case 9384558:
                 case 9384562:
                 case 9384569:
                 case 9384575:
-                case 9384578:
                 case 9384584:
                 case 9384585:
                 case 9384587:
-                case 9384588:
                 case 9384589:
                 case 9384590:
                 case 9384592:
@@ -1025,7 +1084,6 @@ namespace PcmHacking
                 case 12593457:
                 case 12593458:
                 case 12593459:
-                case 12593460:
                 case 12596953:
                 case 12596954:
                 case 12596955:
@@ -1071,7 +1129,6 @@ namespace PcmHacking
                 case 16267014:
                 case 16267957:
                 case 16267958:
-                case 16267959:
                 case 16267960:
                 case 16267962:
                 case 16267963:
@@ -1171,6 +1228,7 @@ namespace PcmHacking
                 case 16238525:
                 case 16238532:
                 case 16238533:
+                case 16240118:
                 case 16240637:
                 case 16241229:
                 case 16245321:
@@ -1209,6 +1267,7 @@ namespace PcmHacking
                 case 16259008:
                 case 16259012:
                 case 16259016:
+                case 16259017:
                 case 16259018:
                 case 16259195:
                 case 16259652:
@@ -1244,6 +1303,9 @@ namespace PcmHacking
                 case 16259720:
                 case 16259906:
                 case 16265837:
+                case 16265838:
+                case 16265841:
+                case 16265843:
                 case 16266038:
                 case 16266902:
                 case 16268480:
@@ -1259,7 +1321,6 @@ namespace PcmHacking
                 case 28004945:
                 case 28029988:
                 case 93802333:
-                case 93802334:
                     PCMInfo(PcmType.P04_Early);
                     this.KeyAlgorithm = 0x06;
                     this.ImageSize = 512 * 1024;
@@ -1267,8 +1328,7 @@ namespace PcmHacking
                     this.ServiceNumber = 16217058; // cant find data to split this group but as they compatible use 16207326 for both for now.
                     break;
 
-                // Service number 
-                case 16252952: // 97 Lesabre Service No 16217058
+                // Service number
                 case 9350560:
                 case 9355202:
                 case 9355203:
@@ -1363,6 +1423,8 @@ namespace PcmHacking
                 case 16242720:
                 case 16243381:
                 case 16243385:
+                case 16243605:
+                case 16243608:
                 case 16243643:
                 case 16243648:
                 case 16243817:
@@ -1380,8 +1442,12 @@ namespace PcmHacking
                 case 16244324:
                 case 16244906:
                 case 16245158:
+                case 16245161:
+                case 16245165:
                 case 16245167:
+                case 16245168:
                 case 16245315:
+                case 16245316:
                 case 16245318:
                 case 16245478:
                 case 16245480:
@@ -1389,12 +1455,22 @@ namespace PcmHacking
                 case 16248316: // Service No 16227797
                 case 16248320:
                 case 16251789:
+                case 16251790:
+                case 16251791:
                 case 16252225:
+                case 16252226:
                 case 16252227:
+                case 16252229:
+                case 16252230:
                 case 16252720:
+                case 16252926:
+                case 16252933:
+                case 16252936:
+                case 16252940:
                 case 16252943:
                 case 16252946:
                 case 16252951:
+                case 16252952: // 97 Lesabre Service No 16217058
                 case 16252955:
                 case 16252956:
                 case 16252957:
@@ -1405,16 +1481,21 @@ namespace PcmHacking
                 case 16252963:
                 case 16252965:
                 case 16252966:
+                case 16253031:
                 case 16253035:
+                case 16254057:
                 case 16254062:
                 case 16254063:
                 case 16254333:
                 case 16254337:
+                case 16254342:
                 case 16254467:
                 case 16254468:
                 case 16254712:
                 case 16254718:
                 case 16254720:
+                case 16255225:
+                case 16255243:
                 case 16255967:
                 case 16257407:
                 case 16257531:
@@ -1422,6 +1503,8 @@ namespace PcmHacking
                 case 16257533:
                 case 16257536: // Service number 16227797
                 case 16257537:
+                case 16257542:
+                case 16257551:
                 case 16257725:
                 case 16257726:
                     PCMInfo(PcmType.P04_Early);
@@ -1758,7 +1841,6 @@ namespace PcmHacking
                 case 9393832:
                 case 9393898:
                 case 9393901:
-                case 10384528:
                 case 10384529:
                 case 12201457:
                 case 12201458:
@@ -2164,8 +2246,6 @@ namespace PcmHacking
                 case 12219150:
                 case 12219182:
                 case 12219184:
-                case 12219185:
-                case 12219186:
                 case 12219273:
                 case 12219275:
                 case 12219350:
@@ -2293,7 +2373,6 @@ namespace PcmHacking
                 case 12228140:
                 case 12228141:
                 case 12228142:
-                case 12243363:
                 case 12248764:
                 case 12571887:
                 case 12571888:
@@ -2347,24 +2426,14 @@ namespace PcmHacking
                 case 12583479:
                 case 12583589:
                 case 12583590:
-                case 12583591:
-                case 12583592:
                 case 12583710:
                 case 12583711:
                 case 12583754:
-                case 12583756:
                 case 12583759:
                 case 12583761:
-                case 12583762:
-                case 12583763:
                 case 12583770:
-                case 12583780:
                 case 12583781:
-                case 12583782:
                 case 12583783:
-                case 12583784:
-                case 12583785:
-                case 12583786:
                 case 12583787:
                 case 12584714:
                 case 12584716:
@@ -2400,7 +2469,6 @@ namespace PcmHacking
                 case 12586838:
                 case 12588234:
                 case 12588235:
-                case 12588932:
                 case 12588938:
                 case 12588939:
                 case 12588941:
@@ -2488,20 +2556,11 @@ namespace PcmHacking
                 case 12596260:
                 case 12596261:
                 case 12596441:
-                case 12596631:
                 case 12596957:
-                case 12596958:
                 case 12596959:
-                case 12596960:
-                case 12597689:
-                case 12597690:
                 case 12598451:
                 case 12598452:
                 case 12598453:
-                case 12598564:
-                case 12598565:
-                case 12598583:
-                case 12598584:
                 case 12598587:
                 case 12598588:
                 case 12598589:
@@ -2604,14 +2663,10 @@ namespace PcmHacking
                 case 12592638:
                 case 12592639:
                 case 12592640:
-                case 12593461:
-                case 12593462:
-                case 12593463:
                 case 12593468:
                 case 12593469:
                 case 12593470:
                 // case 12593523: could be a P11? https://pcmhacking.net/forums/viewtopic.php?p=120275#p120275
-                case 12593525:
                 case 12593819:
                 case 12593820:
                 case 12593821:
@@ -2636,8 +2691,6 @@ namespace PcmHacking
                 case 12594535:
                 case 12594541:
                 case 12594542:
-                case 12594548:
-                case 12594550:
                 case 12598601:
                 case 12598602:
                 case 12598603:
@@ -2907,11 +2960,15 @@ namespace PcmHacking
                     this.ServiceNumber = 16236757;
                     break;
 
+                case 12584056:
                 case 12584057:
                 case 12584058:
+                case 12588931:
+                case 12588932:
                 case 12588933:
                 case 12619740:
                 case 12619742:
+                case 12619744:
                     PCMInfo(PcmType.P05);
                     this.Description = "2004 P05 (VPW) Service No 12581501";
                     this.ServiceNumber = 12581501;
@@ -2925,11 +2982,6 @@ namespace PcmHacking
                     break;
                 */
                 case 12597270: // tested on bench as dual protocol can + vpw on 12591279
-                case 12599697: // unknown service number, P05b can+vpw type with AMD
-                case 12608100:
-                case 12612950:
-                case 12619714:
-                case 12619715:
                     PCMInfo(PcmType.P05);
                     this.Description = "2005 P05 (VPW) Service No 12591279";
                     this.ServiceNumber = 12591279;
@@ -2942,6 +2994,61 @@ namespace PcmHacking
                     PCMInfo(PcmType.P05);
                     this.Description = "2005 P05 (VPW+CAN) Service No 12604963";
                     this.ServiceNumber = 12604963;
+                    break;
+
+                // P05 service number unknown
+                case 12592928:
+                case 12596136:
+                case 12596138:
+                case 12600367:
+                case 12603291:
+                    PCMInfo(PcmType.P05);
+                    this.Description = "P05";
+                    this.ServiceNumber = 0;
+                    break;
+
+                // P05b service number unknown
+                case 12585292:
+                case 12585293:
+                case 12585294:
+                case 12589239:
+                case 12594884:
+                case 12596629:
+                case 12596630:
+                case 12596631:
+                case 12596632:
+                case 12596633:
+                case 12598122:
+                case 12598125:
+                case 12598324:
+                case 12598325:
+                case 12599697:
+                case 12600156:
+                case 12600158:
+                case 12600160:
+                case 12603346:
+                case 12603347:
+                case 12603348:
+                case 12608097:
+                case 12608100:
+                case 12612947:
+                case 12612950:
+                case 12619714:
+                case 12619715:
+                case 12619722:
+                case 12619724:
+                case 12626396:
+                case 12626398:
+                case 12635873:
+                case 12635874:
+                case 12635875:
+                case 12635876:
+                case 12635877:
+                case 12635878:
+                case 12635879:
+                    PCMInfo(PcmType.P05b);
+                    this.Description = "P05b";
+                    this.ServiceNumber = 0;
                     break;
 
                 // P08 Service Number 9356249
@@ -2963,15 +3070,16 @@ namespace PcmHacking
                 case 12216187: // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136163
                 case 12216489:
                 case 12216571: // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136163
+                case 12221087: // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136159 2000 Cavalier 2.2 auto
                 case 12221096:
                 case 12221111: // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136163
                 case 12222128: // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136159 2000 Cavalier 2.4 auto
                 case 12222134: // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136159 grand am 2.4
                 case 12222135: // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136159 grand am 2.4
-                case 12225346: // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136159 2000 Cavalier 2.2 manual
-                case 12225345: // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136159 2000 Cavalier 2.2 manual
-                case 16257436:
                 case 12222446: // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136163
+                case 12225345: // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136159 2000 Cavalier 2.2 manual
+                case 12225346: // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136159 2000 Cavalier 2.2 manual
+                case 16257436:
                     PCMInfo(PcmType.P08);
                     this.Description = "P08 Service No 9356249";
                     this.ServiceNumber = 9356249;
@@ -2994,17 +3102,6 @@ namespace PcmHacking
                     PCMInfo(PcmType.P08);
                     this.Description = "P08 Service No 12202203";
                     this.ServiceNumber = 12202203;
-                    break;
-
-                // P08 12605873
-                case 12604676:
-                case 12607442:
-                case 12608370:
-                case 12610013:
-                case 12611951:
-                    PCMInfo(PcmType.P08);
-                    this.Description = "P08 Service No 12605873";
-                    this.ServiceNumber = 12605873;
                     break;
 
                 // P08 Service No 16228016 (Part No 16245305)
@@ -3040,11 +3137,6 @@ namespace PcmHacking
                     this.Description = "P08 Service No 16228016";
                     this.ServiceNumber = 16228016;
                     break;
-                case 12221087: // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136159 2000 Cavalier 2.2 auto
-                    PCMInfo(PcmType.P08);
-                    this.Description = "P08 Service No 9356249";
-                    this.ServiceNumber = 9356249;
-                    break;
 
                 // P08s of unknown service number (includes some P11) :(
                 case 9351290:
@@ -3052,28 +3144,27 @@ namespace PcmHacking
                 case 9351321:
                 case 9353418:
                 case 9353422:
+                case 9353732:
+                case 9353738:
                 case 9354904:
                 case 9354907:
                 case 9354910:
-                case 9353732:
-                case 9353738:
+                case 9354914:
                 case 9355300:
                 case 9355302:
                 case 9356822:
                 case 9364356:
-                case 9354914:
                 case 9365276:
                 case 9365292:
                 case 9365308:
                 case 9365310:
                 case 9365324:
-                case 9368451:
                 case 9367522:
+                case 9368451:
                 case 9368547:
-                case 9373177:
                 case 9372478:
+                case 9373177:
                 case 9374787:
-                case 9387229:
                 case 9382927:
                 case 9382928:
                 case 9382941:
@@ -3083,6 +3174,7 @@ namespace PcmHacking
                 case 9383089:
                 case 9387205:
                 case 9387214:
+                case 9387229:
                 case 9387552:
                 case 12201228:
                 case 12201231:
@@ -3094,28 +3186,24 @@ namespace PcmHacking
                 case 12206042:
                 case 12206045:
                 case 12206049:
-                case 12208535:
-                case 12215090:
-                case 12215092:
-                case 12216490:
                 case 12208527:
+                case 12208535:
+                case 12216490:
                 case 12216567:
                 case 12216568:
                 case 12217195:
-                case 12218876:
                 case 12221098:
                 case 12222110:
                 case 12222131:
                 case 12223050:
                 case 12225336:
-                case 12580049:
-                case 12580051:
                 case 12571890:
                 case 12578485:
                 case 12580025:
                 case 12583655:
-                case 16267114:
+                case 16253027:
                 case 16267097:
+                case 16267114:
                     PCMInfo(PcmType.P08);
                     this.Description = "P08";
                     this.ServiceNumber = 16228016; // unknown, use any for now.
@@ -3149,6 +3237,76 @@ namespace PcmHacking
                     this.ServiceNumber = 12574976;
                     break;
 
+                // P11 service number unknown
+                case 10384528:
+                case 12215090:
+                case 12215092:
+                case 12217996:
+                case 12218876:
+                case 12218880:
+                case 12218881:
+                case 12218882:
+                case 12218890:
+                case 12218892:
+                case 12219185:
+                case 12219186:
+                case 12224985:
+                case 12226745:
+                case 12229535:
+                case 12235939:
+                case 12243363:
+                case 12571654:
+                case 12571657:
+                case 12578583:
+                case 12578585:
+                case 12579663:
+                case 12579665:
+                case 12579668:
+                case 12579673:
+                case 12580049:
+                case 12580051:
+                case 12582997:
+                case 12583591:
+                case 12583592:
+                case 12583753:
+                case 12583755:
+                case 12583756:
+                case 12583758:
+                case 12583762:
+                case 12583763:
+                case 12583780:
+                case 12583782:
+                case 12583784:
+                case 12583785:
+                case 12583786:
+                case 12584713:
+                case 12584715:
+                case 12584717:
+                case 12584719:
+                case 12585894:
+                case 12587615:
+                case 12587617:
+                case 12593509:
+                case 12593510:
+                case 12593525:
+                case 12593527:
+                case 12593529:
+                case 12594548:
+                case 12594550:
+                case 12596603:
+                case 12596936:
+                case 12597689:
+                case 12597690:
+                case 12598564:
+                case 12598565:
+                case 12598583:
+                case 12598584:
+                case 12598585:
+                case 93802334:
+                    PCMInfo(PcmType.P11);
+                    this.Description = "P11";
+                    this.ServiceNumber = 0;
+                    break;
                 case 12218878: // Antus' P11
                 case 12593523: // https://pcmhacking.net/forums/viewtopic.php?p=120275#p120275
                     PCMInfo(PcmType.P11);
@@ -3177,8 +3335,12 @@ namespace PcmHacking
                 case 12601321: //2006 LX9
                 case 12601774: //2005 Chevy Cobalt SS 2.0L
                 case 12601904: //2005 Saturn Ion Redline 2.0L
+                case 12604440: //LL8 - Atlas I6 (4200) P12
                 case 12605256: //2006 Chevy Cobalt SS 2.0L
                 case 12605261: //2006 Chevy Cobalt SS 2.0L
+                case 12606374: //L52 - Atlas I5 (3500) P12
+                case 12606375: //L52 - Atlas I5 (3500) P12
+                case 12606400: //2006 Chevy Trailblazer 4.2L (Atlas I6)
                 case 12610624: //2007 Chevy Cobalt SS 2.0L & 2007 Saturn Ion Redline 2.0L
                 case 12610641: //GMS3 OS (04 Ion Redline GMS3)
                 case 12610642: //GMS3 OS (05 Ion Redline GMS3)
@@ -3187,14 +3349,10 @@ namespace PcmHacking
                 case 12610645: //GMS3 OS (06-07 Cobalt SS GMS3)
                 case 12623279:
                 case 12627882:
-                case 12627884:
-                case 12631085:
-                case 12604440: //LL8 - Atlas I6 (4200) P12
-                case 12606400: //2006 Chevy Trailblazer 4.2L (Atlas I6)
-                case 12606374: //L52 - Atlas I5 (3500) P12
-                case 12606375: //L52 - Atlas I5 (3500) P12
                 case 12627883:
+                case 12627884:
                 case 12627885: //2007 Trailblazer P12 (service number not confirmed, variant is)
+                case 12631085:
                     this.Description = "P12 1Mb Service No 12597521";
                     this.ServiceNumber = 12597521;
                     PCMInfo(PcmType.P12);
@@ -3209,6 +3367,35 @@ namespace PcmHacking
                     this.Description = "P12b (2Mb) Service No 12569773";
                     this.ImageSize = 2048 * 1024;
                     this.ServiceNumber = 12569773;
+                    break;
+
+                // P12 service number unknown
+                case 5534509:
+                case 12587080:
+                case 12589734:
+                case 12590492:
+                case 12590652:
+                case 12591649:
+                case 12594432:
+                case 12594447:
+                case 12596301:
+                case 12596785:
+                case 12597424:
+                case 12597635:
+                case 12597756:
+                case 12598555:
+                case 12598559:
+                case 12600819:
+                case 12606370:
+                case 12607148:
+                case 12610647:
+                case 12610648:
+                case 12623277:
+                case 12623278:
+                case 19171603:
+                    PCMInfo(PcmType.P12);
+                    this.Description = "P12";
+                    this.ServiceNumber = 0;
                     break;
 
                 default:

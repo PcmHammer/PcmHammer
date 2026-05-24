@@ -126,12 +126,12 @@ namespace PcmHacking.ECU {
         /// <summary>
         /// If false, writes must be blocked when a boot-sector write is required.
         /// </summary>
-        public bool IsSupportedWriteBootSector { get; private set; }
+        public bool IsSupportedWriteBootSector { get; protected set; }
 
         /// <summary>
         /// Indicates that support for this PCM type is still in development.
         /// </summary>
-        public bool IsUnderDevelopment { get; private set; }
+        public bool IsUnderDevelopment { get; protected set; }
 
 
         public ECUBase() {
@@ -169,11 +169,8 @@ namespace PcmHacking.ECU {
             IsUnderDevelopment = false;
         }
 
-        public bool ECUSupportsOSID(uint osid) {
-            if (KnownOperatingSystems.Any(x => x.OSID == osid)) {
-                return true;
-            }
-            return false;
+        public virtual bool ECUSupportsOSID(uint osid) {
+            return KnownOperatingSystems.Any(x => x.OSID == osid);
         }
 
         public void SetCurrentOSID(uint osid) {

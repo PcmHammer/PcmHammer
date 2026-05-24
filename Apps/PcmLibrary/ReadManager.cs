@@ -147,7 +147,7 @@ namespace PcmHacking
                 return null;
             }
 
-            if (pcmInfo.HardwareType == PcmType.P05)
+            if (pcmInfo.HardwareType == PcmType.P05 || pcmInfo.HardwareType == PcmType.P05b)
             {
                 string msg = $"WARNING: {pcmInfo.HardwareType.ToString()} Support is still in development.";
                 this.logger.AddUserMessage(msg);

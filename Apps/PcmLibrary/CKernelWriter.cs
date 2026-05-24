@@ -248,8 +248,9 @@ namespace PcmHacking
             FlashChip flashChip = FlashChip.Create(chipId, this.logger);
             logger.AddUserMessage("Flash chip: " + flashChip.ToString());
 
-            // This is the only thing preventing a P01 os write to a P59 or vice-versa because of the shared P01_P59 type
-            // But a P10/P11 can have a 1Mb chip while using 512KiB images, so that can be allowed.
+            // A P10/P11 can have a 1Mb chip while using 512KiB images, so that can be allowed
+            // This originally was to prevent cross flashing between P01 and P59 but we have now split those types
+            // Still a good safety check
             if ((pcmInfo.HardwareType == PcmType.P10 || pcmInfo.HardwareType == PcmType.P11) &&
                 image.Length == 512 * 1024 &&
                 flashChip.Size == 1024 * 1024)
@@ -491,7 +492,7 @@ namespace PcmHacking
                 return true;
             }
 
-            // Allow attempts to write boot sector on PCMs that do not support it
+            // Boot sector writes are supported; allow all write plans.
             if (this.pcmInfo.IsSupportedWriteBootSector)
             {
                 return true;
