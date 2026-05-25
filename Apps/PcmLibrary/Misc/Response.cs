@@ -45,6 +45,11 @@ namespace PcmHacking
         /// The request was refused.
         /// </summary>
         Refused = 6,
+
+        /// <summary>
+        /// The operation completed but the result could not be verified (e.g. CRC timed out).
+        /// </summary>
+        Unverified = 7,
     }
 
     /// <summary>
