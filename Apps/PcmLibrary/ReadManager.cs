@@ -70,13 +70,8 @@ namespace PcmHacking
                     this.logger.AddUserMessage("Unable to save file: " + exception.Message);
                     this.logger.AddDebugMessage(exception.ToString());
 
-                    try
-                    {
-                        await this.invoke(async () =>
-                            path = await this.promptForFilePath()
-                        );
-                    }
-                    catch
+                    await this.invoke(async () => path = await this.promptForFilePath());
+                    if (path == null)
                     {
                         this.logger.AddUserMessage("Save canceled.");
 
