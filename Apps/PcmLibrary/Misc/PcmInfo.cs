@@ -15,6 +15,7 @@ namespace PcmHacking
         P04,
         P05,
         P05b,
+        P05c,
         P08,
         P10,
         P11,
@@ -316,6 +317,15 @@ namespace PcmHacking
                     this.FlashIDSupport = true;
                     this.KernelVersionSupport = true;
                     this.KernelMaxBlockSize = 4096;
+                    break;
+
+                case PcmType.P05c:
+                    this.Description = "P05c (CAN only)";
+                    this.HardwareType = PcmType.P05c;
+                    this.IsSupported = false;
+                    this.IsSupportedRead = false;
+                    this.IsSupportedWrite = false;
+                    this.ImageSize = 1024 * 1024;
                     break;
 
                 case PcmType.P05b:

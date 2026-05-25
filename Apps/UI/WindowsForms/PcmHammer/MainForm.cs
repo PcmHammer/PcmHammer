@@ -975,9 +975,58 @@ namespace PcmHacking
         {
             if (!BackgroundWorker.IsAlive)
             {
-                BackgroundWorker = new System.Threading.Thread(() => readFullContents_BackgroundThread());
+                this.StartOperationFromDialog(false, WriteType.Full);
+            }
+        }
+
+        private void StartOperationFromDialog(bool defaultIsWrite, WriteType defaultWriteType)
+        {
+            using (OperationSelectionDialogBox dialog = new OperationSelectionDialogBox(defaultIsWrite, defaultWriteType))
+            {
+                DialogResult result = dialog.ShowDialog(this);
+                if (result != DialogResult.OK || dialog.Selection == null)
+                {
+                    return;
+                }
+
+                OperationSelection selection = dialog.Selection;
+
+                if (selection.IsWrite)
+                {
+                    if (!ConfirmBeforeWrite(this.GetWriteConfirmationText(selection.WriteType)))
+                    {
+                        return;
+                    }
+
+                    BackgroundWorker = new System.Threading.Thread(
+                        () => write_BackgroundThread(selection.WriteType, null, selection.UseAutoPcmType, selection.SelectedPcmType));
+                }
+                else
+                {
+                    BackgroundWorker = new System.Threading.Thread(
+                        () => readFullContents_BackgroundThread(selection.UseAutoPcmType, selection.SelectedPcmType));
+                }
+
                 BackgroundWorker.IsBackground = true;
                 BackgroundWorker.Start();
+            }
+        }
+
+        private string GetWriteConfirmationText(WriteType writeType)
+        {
+            switch (writeType)
+            {
+                case WriteType.Parameters:
+                    return "This will update the parameter block on your PCM.";
+
+                case WriteType.OsPlusCalibrationPlusBoot:
+                    return "This will replace the operating system and calibration on your PCM.";
+
+                case WriteType.Full:
+                    return "This will replace the contents of the flash memory on your PCM.";
+
+                default:
+                    return "This will update your PCM.";
             }
         }
 
@@ -1033,12 +1082,7 @@ namespace PcmHacking
         {
             if (!BackgroundWorker.IsAlive)
             {
-                if (ConfirmBeforeWrite("This will update the calibration on your PCM."))
-                { 
-                    BackgroundWorker = new System.Threading.Thread(() => write_BackgroundThread(WriteType.Calibration));
-                    BackgroundWorker.IsBackground = true;
-                    BackgroundWorker.Start();
-                }
+                this.StartOperationFromDialog(true, WriteType.OsPlusCalibrationPlusBoot);
             }
         }
 
@@ -1049,12 +1093,7 @@ namespace PcmHacking
         {
             if (!BackgroundWorker.IsAlive)
             {
-                if (ConfirmBeforeWrite("This will update the parameter block on your PCM."))
-                {
-                    BackgroundWorker = new System.Threading.Thread(() => write_BackgroundThread(WriteType.Parameters));
-                    BackgroundWorker.IsBackground = true;
-                    BackgroundWorker.Start();
-                }
+                this.StartOperationFromDialog(true, WriteType.Parameters);
             }
         }
 
@@ -1065,12 +1104,7 @@ namespace PcmHacking
         {
             if (!BackgroundWorker.IsAlive)
             {
-                if (ConfirmBeforeWrite("This will replace the operating system and calibration on your PCM."))
-                {
-                    BackgroundWorker = new System.Threading.Thread(() => write_BackgroundThread(WriteType.OsPlusCalibrationPlusBoot));
-                    BackgroundWorker.IsBackground = true;
-                    BackgroundWorker.Start();
-                }
+                this.StartOperationFromDialog(true, WriteType.OsPlusCalibrationPlusBoot);
             }
         }
 
@@ -1081,12 +1115,7 @@ namespace PcmHacking
         {
             if (!BackgroundWorker.IsAlive)
             {
-                if (ConfirmBeforeWrite("This will replace the contents of the flash memory on your PCM."))
-                { 
-                    BackgroundWorker = new System.Threading.Thread(() => write_BackgroundThread(WriteType.Full));
-                    BackgroundWorker.IsBackground = true;
-                    BackgroundWorker.Start();
-                }
+                this.StartOperationFromDialog(true, WriteType.Full);
             }
         }
 
@@ -1167,7 +1196,7 @@ namespace PcmHacking
         /// <summary>
         /// Read the entire contents of the flash.
         /// </summary>
-        private async void readFullContents_BackgroundThread()
+        private async void readFullContents_BackgroundThread(bool useAutoPcmType = true, PcmType selectedPcmType = PcmType.Undefined)
         {
             using (new AwayMode())
             {
@@ -1181,7 +1210,7 @@ namespace PcmHacking
 
                     if (this.Vehicle == null)
                     {
-                        // This shouldn't be possible - it would mean the buttons 
+                        // This shouldn't be possible - it would mean the buttons
                         // were enabled when they shouldn't be.
                         return;
                     }
@@ -1196,6 +1225,8 @@ namespace PcmHacking
                         return;
                     }
 
+                    PcmType forcedPcmType = useAutoPcmType ? PcmType.Undefined : selectedPcmType;
+
                     this.cancellationTokenSource = new CancellationTokenSource();
                     ReadManager readManager = new ReadManager(
                         this,
@@ -1207,7 +1238,7 @@ namespace PcmHacking
                         this.PromptForYesNo,
                         this.cancellationTokenSource.Token);
 
-                    if (await readManager.Read(path))
+                    if (await readManager.Read(path, forcedPcmType))
                     {
                         // This will suppress the scary warnings prior to writing.
                         Configuration.Settings.ConnectionVerified = true;
@@ -1281,7 +1312,7 @@ namespace PcmHacking
         /// <summary>
         /// Write changes to the PCM's flash memory.
         /// </summary>
-        private async void write_BackgroundThread(WriteType writeType, string path = null)
+        private async void write_BackgroundThread(WriteType writeType, string path = null, bool useAutoPcmType = true, PcmType selectedPcmType = PcmType.Undefined)
         {
             using (new AwayMode())
             {
@@ -1332,15 +1363,17 @@ namespace PcmHacking
 
                     this.AddUserMessage(path);
 
+                    PcmType forcedPcmType = useAutoPcmType ? PcmType.Undefined : selectedPcmType;
+
                     WriteManager writer = new WriteManager(
                         this,
                         this.Vehicle,
-                         writeType,
+                        writeType,
                         this.Alert,
                         this.PromptForYesNo,
                         this.cancellationTokenSource.Token);
 
-                    bool success = await writer.Write(path);
+                    bool success = await writer.Write(path, forcedPcmType);
 
                     if (success)
                     {
@@ -1451,6 +1484,7 @@ namespace PcmHacking
             FileValidator validator = new FileValidator(image, this);
             if (validator.IsValid())
             {
+                this.AddUserMessage("File is " + new OSIDInfo(validator.GetFileType()).Description + ".");
                 this.AddUserMessage("All checksums are valid.");
             }
             else

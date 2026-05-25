@@ -42,9 +42,9 @@ namespace PcmHacking
             this.cancellationToken = cancellationToken;
         }
 
-        public async Task<bool> Read(string path)
+        public async Task<bool> Read(string path, PcmType forcedPcmType = PcmType.Undefined)
         {
-            Stream? readContents = await Read();
+            Stream? readContents = await Read((IProgress<ProgressUpdate>?)null, forcedPcmType);
             if (readContents == null)
             {
                 return false;
@@ -91,43 +91,51 @@ namespace PcmHacking
         /// The return value should be used to suppress future warnings about using an unproven connection.
         /// </remarks>
         /// <returns>True if the read was successful, fales if failed or aborted.</returns>
-        public async Task<Stream?> Read(IProgress<ProgressUpdate>? progress = null)
+        public async Task<Stream?> Read(IProgress<ProgressUpdate>? progress = null, PcmType forcedPcmType = PcmType.Undefined)
         {
-            this.logger.AddUserMessage("Querying operating system of current PCM.");
-            Response<uint> osidResponse = await this.vehicle.QueryOperatingSystemId(this.cancellationToken);
-            if (osidResponse.Status != ResponseStatus.Success)
-            {
-                this.logger.AddUserMessage("Operating system query failed, will retry: " + osidResponse.Status);
-                await this.vehicle.ExitKernel();
-
-                osidResponse = await this.vehicle.QueryOperatingSystemId(this.cancellationToken);
-                if (osidResponse.Status != ResponseStatus.Success)
-                {
-                    this.logger.AddUserMessage("Operating system query failed: " + osidResponse.Status);
-                }
-            }
-
             OSIDInfo pcmInfo;
-            if (osidResponse.Status == ResponseStatus.Success)
+            if (forcedPcmType != PcmType.Undefined)
             {
-                // Look up the information about this PCM, based on the OSID;
-                this.logger.AddUserMessage("OSID: " + osidResponse.Value);
-                pcmInfo = new OSIDInfo(osidResponse.Value);
-                this.logger.AddUserMessage("Description: " + pcmInfo.Description);
+                pcmInfo = new OSIDInfo(forcedPcmType);
+                this.logger.AddUserMessage("Using manually selected PCM type: " + pcmInfo.HardwareType);
             }
             else
             {
-                this.logger.AddUserMessage("Unable to get operating system ID. Will assume this can be unlocked with the default seed/key algorithm.");
+                this.logger.AddUserMessage("Querying operating system of current PCM.");
+                Response<uint> osidResponse = await this.vehicle.QueryOperatingSystemId(this.cancellationToken);
+                if (osidResponse.Status != ResponseStatus.Success)
+                {
+                    this.logger.AddUserMessage("Operating system query failed, will retry: " + osidResponse.Status);
+                    await this.vehicle.ExitKernel();
 
-                UInt32 OperatingSystemId = 0;
+                    osidResponse = await this.vehicle.QueryOperatingSystemId(this.cancellationToken);
+                    if (osidResponse.Status != ResponseStatus.Success)
+                    {
+                        this.logger.AddUserMessage("Operating system query failed: " + osidResponse.Status);
+                    }
+                }
 
-                await this.vehicle.ForceSendToolPresentNotification();
-                await this.invoke(async () => OperatingSystemId = await this.promptForOperatingSystemId());
-                await this.vehicle.ForceSendToolPresentNotification();
+                if (osidResponse.Status == ResponseStatus.Success)
+                {
+                    // Look up the information about this PCM, based on the OSID;
+                    this.logger.AddUserMessage("OSID: " + osidResponse.Value);
+                    pcmInfo = new OSIDInfo(osidResponse.Value);
+                    this.logger.AddUserMessage("Description: " + pcmInfo.Description);
+                }
+                else
+                {
+                    this.logger.AddUserMessage("Unable to get operating system ID. Will assume this can be unlocked with the default seed/key algorithm.");
 
-                pcmInfo = new OSIDInfo(OperatingSystemId); // osid
+                    UInt32 OperatingSystemId = 0;
 
-                this.logger.AddUserMessage($"Using OsID: {pcmInfo.OSID}");
+                    await this.vehicle.ForceSendToolPresentNotification();
+                    await this.invoke(async () => OperatingSystemId = await this.promptForOperatingSystemId());
+                    await this.vehicle.ForceSendToolPresentNotification();
+
+                    pcmInfo = new OSIDInfo(OperatingSystemId); // osid
+
+                    this.logger.AddUserMessage($"Using OsID: {pcmInfo.OSID}");
+                }
             }
 
             // Pre flight checks to block invalid write operations by PCM type.
