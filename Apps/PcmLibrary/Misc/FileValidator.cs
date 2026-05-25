@@ -106,20 +106,6 @@ namespace PcmHacking
                 return PcmType.Undefined;
             }
 
-            if (type == PcmType.P05)
-            {
-                UInt32 fileOsid = this.GetOsidFromImage(type);
-                if (fileOsid != 0)
-                {
-                    OSIDInfo osidInfo = new OSIDInfo(fileOsid);
-                    if (osidInfo.HardwareType == PcmType.P05b)
-                    {
-                        this.logger.AddDebugMessage("P05->P05b detection from OSID lookup.");
-                        return PcmType.P05b;
-                    }
-                }
-            }
-
             return type;
         }
 
@@ -624,6 +610,12 @@ namespace PcmHacking
                         (image[0x20883] == 0x01) && (image[0x20884] == 0x23) && (image[0x20885] == 0x80))
                     {
                         return PcmType.P05c;
+                    }
+
+                    UInt32 osid = ReadUnsigned(image, 0xFFFFA);
+                    if (osid != 0 && new OSIDInfo(osid).HardwareType == PcmType.P05b)
+                    {
+                        return PcmType.P05b;
                     }
                     return PcmType.P05;
                 }
