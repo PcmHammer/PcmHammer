@@ -26,12 +26,24 @@ namespace PcmHacking.ECU.Controllers {
             KernelMaxBlockSize = 4096;
             KnownOperatingSystems = new List<OSInfo>() {
                 // Service No 9366810
+<<<<<<< HEAD
                 new OSInfo(9365095, 9366810, "Vortec Black Box 98/99 Service No 9366810 or 9355699", 16),
                 new OSInfo(16263425, 9366810, "Vortec Black Box 98/99 Service No 9366810 or 9355699", 16),
                 // Service No 16263494
                 new OSInfo(9360505, 16263494, "Vortec Black Box 98-02, 4 Plug, Service No 16263494", 16),
                 new OSInfo(9365085, 16263494, "Vortec Black Box 98-02, 4 Plug, Service No 16263494", 16),
                 new OSInfo(16265175, 16263494, "Vortec Black Box 98-02, 4 Plug, Service No 16263494", 16),
+=======
+                new OSInfo(9355699, 9366810, "Vortec Black Box 98/99 Service No 9366810", 16),
+                new OSInfo(9365095, 9366810, "Vortec Black Box 98/99 Service No 9366810", 16),
+                new OSInfo(16263425, 9366810, "Vortec Black Box 98/99 Service No 9366810", 16),
+                // Service No 16263494
+                new OSInfo(9360505, 16263494, "Vortec Black Box 98-02 Service No 16263494", 16),
+                new OSInfo(9365085, 16263494, "Vortec Black Box 98-02 Service No 16263494", 16),
+                new OSInfo(9384185, 16263494, "Vortec Black Box 98-02 Service No 16263494", 16),
+                new OSInfo(16251315, 16263494, "Vortec Black Box 98-02 Service No 16263494", 16),
+                new OSInfo(16265175, 16263494, "Vortec Black Box 98-02 Service No 16263494", 16),
+>>>>>>> 13730720684dbdc3bb9923c992ae205e3ef497c1
                 // Service number unknown
                 new OSInfo(16258745, 0, "BlackBox", 16),
             };
