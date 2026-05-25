@@ -137,6 +137,16 @@ namespace PcmHacking
                 UInt32 fileOsid = this.GetOsidFromImage(type);
                 this.logger.AddUserMessage("File operating system ID: " + fileOsid);
 
+                if (type == PcmType.P05 && fileOsid != 0)
+                {
+                    OSIDInfo osidInfo = new OSIDInfo(fileOsid);
+                    if (osidInfo.HardwareType == PcmType.P05b)
+                    {
+                        type = PcmType.P05b;
+                        this.logger.AddDebugMessage("P05->P05b detection from OSID lookup.");
+                    }
+                }
+
                 return this.ValidateChecksums(type);
             }
             catch (Exception exception)
@@ -206,7 +216,8 @@ namespace PcmHacking
             UInt32 osid = 0;
             switch (type)
             {
-                case PcmType.P01_P59:
+                case PcmType.P01:
+                case PcmType.P59:
                     osid = ReadUnsigned(image, 0x504);
                     break;
 
@@ -232,6 +243,7 @@ namespace PcmHacking
                     break;
 
                 case PcmType.P05:
+                case PcmType.P05b:
                     if (ReadUnsigned(image, 0x20882) == 0x012380)
                     {
                         logger.AddDebugMessage("P05c Variant, Reading OSID from ASCII at 0x208AA");
@@ -277,7 +289,8 @@ namespace PcmHacking
             switch (type)
             {
                 // have a segment table
-                case PcmType.P01_P59:
+                case PcmType.P01:
+                case PcmType.P59:
                     tableAddress = 0x50C;
                     segments = 8;
                     break;
@@ -302,6 +315,7 @@ namespace PcmHacking
                 case PcmType.P04:
                 case PcmType.P04_Early:
                 case PcmType.P05:
+                case PcmType.P05b:
                 case PcmType.P08:
                 case PcmType.P11:
                 case PcmType.E54:
@@ -320,6 +334,7 @@ namespace PcmHacking
                 case PcmType.P04_Early:
                 case PcmType.P04:
                 case PcmType.P05:
+                case PcmType.P05b:
                     success &= ValidateParamBlockP04();
                     if (ReadUnsigned(image, 0x20882) == 0x012380) { // P05c special case
                         this.logger.AddUserMessage("\tStart\tEnd\tStored\tNeeded\tVerdict\tSegment Name");
@@ -377,7 +392,8 @@ namespace PcmHacking
                         UInt32 checksumAddress;
                         switch (type)
                         {
-                            case PcmType.P01_P59:
+                            case PcmType.P01:
+                            case PcmType.P59:
                                 checksumAddress = startAddress == 0 ? 0x500 : startAddress;
                                 break;
 
@@ -528,7 +544,7 @@ namespace PcmHacking
                     if ((image[0x7FFFE] == 0x4A) && (image[0x7FFFF] == 0xFC))
                     {
                         this.logger.AddUserMessage("File is P01 512KiB.");
-                        return PcmType.P01_P59;
+                        return PcmType.P01;
                     }
                 }
 
@@ -583,7 +599,7 @@ namespace PcmHacking
                     if ((image[0xFFFFE] == 0x4A) && (image[0xFFFFF] == 0xFC))
                     {
                         this.logger.AddUserMessage("File is P59 1024KiB.");
-                        return PcmType.P01_P59;
+                        return PcmType.P59;
                     }
                 }
 
@@ -700,7 +716,8 @@ namespace PcmHacking
                 }
                 switch (type)
                 {
-                    case PcmType.P01_P59:
+                    case PcmType.P01:
+                    case PcmType.P59:
                         if (address == 0x4000)
                         {
                             address = 0x20000;
@@ -708,6 +725,7 @@ namespace PcmHacking
                         break;
 
                     case PcmType.P05: // Only used for P05c, Other P05s use P04 routines.
+                    case PcmType.P05b:
                         if (address == 0x4000)
                         {
                             address = 0x20000;
@@ -1048,8 +1066,13 @@ namespace PcmHacking
         {
             switch (type)
             {
-                case PcmType.P01_P59:
-                    return this.HasSize(512 * 1024, 1024 * 1024) &&
+                case PcmType.P01:
+                    return this.HasSize(512 * 1024) &&
+                        this.HasRange(0x504, 4, "P01/P59 OSID") &&
+                        this.HasRange(0x50C, 8 * 8, "P01/P59 segment table");
+
+                case PcmType.P59:
+                    return this.HasSize(1024 * 1024) &&
                         this.HasRange(0x504, 4, "P01/P59 OSID") &&
                         this.HasRange(0x50C, 8 * 8, "P01/P59 segment table");
 
@@ -1060,6 +1083,7 @@ namespace PcmHacking
                     return this.HasSize(512 * 1024);
 
                 case PcmType.P05:
+                case PcmType.P05b:
                     return this.HasSize(1024 * 1024) &&
                         this.HasRange(0x20882, 4, "P05 variant marker") &&
                         this.HasRange(0xFFFFA, 4, "P05 OSID");
