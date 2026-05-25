@@ -320,7 +320,7 @@ namespace PcmHacking
                     break;
 
                 case PcmType.P05c:
-                    this.Description = "P05c (CAN only)";
+                    this.Description = "P05c (CAN only, unsupported)";
                     this.HardwareType = PcmType.P05c;
                     this.IsSupported = false;
                     this.IsSupportedRead = false;
