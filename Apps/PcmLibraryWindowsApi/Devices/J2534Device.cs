@@ -116,41 +116,44 @@ namespace PcmHacking
             // Check not already loaded
             if (IsLoaded == true)
             {
-                // Disconnect protocol before disconnecting tool.
-                try
+                // Only disconnect protocol if it was actually opened — a failed previous
+                // init may have left IsLoaded true but never reached ConnectToProtocol.
+                if (IsProtocolOpen)
                 {
-                    m = DisconnectFromProtocol();
+                    try
+                    {
+                        m = DisconnectFromProtocol();
+                    }
+                    catch
+                    {
+                        CloseLibrary();
+                        IsJ2534Open = false;
+                        return false;
+                    }
+                    if (m.Status != ResponseStatus.Success)
+                    {
+                        this.Logger.AddUserMessage("Error disconnecting from protocol.");
+                        return false;
+                    }
+                    this.Logger.AddDebugMessage("Successfully disconnected from protocol.");
                 }
-                catch
+
+                // Only disconnect tool if it was actually opened.
+                if (IsJ2534Open)
                 {
+                    m = DisconnectTool();
+                    if (m.Status != ResponseStatus.Success)
+                    {
+                        this.Logger.AddUserMessage("Error disconnecting from tool.");
+                        return false;
+                    }
+                    this.Logger.AddDebugMessage("Successfully disconnected from tool.");
+                }
+                else
+                {
+                    // DLL is loaded but tool was never opened — just unload the DLL.
                     CloseLibrary();
-                    IsJ2534Open = false;
-                    return false;
                 }
-                if (m.Status != ResponseStatus.Success)
-                {
-                    this.Logger.AddUserMessage("Error disconnecting from protocol.");
-                    return false;
-                }
-                this.Logger.AddDebugMessage("Successfully disconnected from protocol.");
-
-                // Disconnect tool before unloading DLL.
-                m = DisconnectTool();
-                if (m.Status != ResponseStatus.Success)
-                {
-                    this.Logger.AddUserMessage("Error disconnecting from tool.");
-                    return false;
-                }
-                this.Logger.AddDebugMessage("Successfully disconnected from tool.");
-
-                // Unload DLL.
-                m2 = CloseLibrary();
-                if (m2.Status != ResponseStatus.Success)
-                {
-                    this.Logger.AddUserMessage("Error unloading DLL");
-                    return false;
-                }
-                this.Logger.AddDebugMessage("Successfully unloaded DLL.");
             }
 
             // Connect to requested DLL
@@ -449,6 +452,10 @@ namespace PcmHacking
         /// </summary>
         private Response<J2534Err> DisconnectFromProtocol()
         {
+            if (!IsProtocolOpen)
+            {
+                return Response.Create(ResponseStatus.Success, J2534Err.STATUS_NOERROR);
+            }
             OBDError = J2534Port.Functions.Disconnect((int)ChannelID);
             if (OBDError != J2534Err.STATUS_NOERROR)
             {
