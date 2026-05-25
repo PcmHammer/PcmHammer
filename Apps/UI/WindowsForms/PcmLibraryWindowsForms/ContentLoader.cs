@@ -47,6 +47,7 @@ namespace PcmHacking
             }
 
             this.logger.AddDebugMessage("Loading " + fileName + " from embedded resource.");
+            try { File.Delete(this.GetCacheFilePath()); } catch { }
             var resourceName = "PcmHammer." + fileName;
             return this.assembly.GetManifestResourceStream(resourceName);
         }
@@ -56,10 +57,9 @@ namespace PcmHacking
         /// </summary>
         private string GetFileUrl(string path)
         {
-            string urlBase = "https://raw.githubusercontent.com/LegacyNsfw/PcmHacks/";
-            string branch = this.appVersion == null ? "develop" : "Release/" + this.appVersion;
-            string result = urlBase + branch + path;
-            return result;
+            string urlBase = "https://raw.githubusercontent.com/PcmHammer/PcmHammer/";
+            string branch = this.appVersion == null ? "refs/heads/develop" : "refs/heads/Release/" + this.appVersion;
+            return urlBase + branch + path;
         }
 
         /// <summary>
@@ -88,7 +88,7 @@ namespace PcmHacking
             {
                 HttpRequestMessage request = new HttpRequestMessage(
                     HttpMethod.Get,
-                    GetFileUrl("/Apps/PcmHammer/" + fileName));
+                    GetFileUrl("/Apps/UI/WindowsForms/PcmHammer/" + fileName));
 
                 request.Headers.Add("Cache-Control", "no-cache");
                 HttpClient client = new HttpClient();
@@ -102,7 +102,7 @@ namespace PcmHacking
                     try
                     {
                         string path = this.GetCacheFilePath();
-                        using (Stream file = File.OpenWrite(path))
+                        using (Stream file = File.Create(path))
                         {
                             await stream.CopyToAsync(file);
                         }
