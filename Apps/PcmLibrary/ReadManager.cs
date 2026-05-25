@@ -42,13 +42,25 @@ namespace PcmHacking
             this.cancellationToken = cancellationToken;
         }
 
-        public async Task<bool> Read(string path)
+        public async Task<bool> Read(string path, PcmType forcedPcmType = PcmType.Undefined)
         {
-            Stream? readContents = await Read();
-            if (readContents == null)
+            Response<Stream> readResponse = await RunRead(null, forcedPcmType);
+            if (readResponse == null || readResponse.Value == null)
             {
                 return false;
             }
+
+            Stream readContents = readResponse.Value;
+
+            if (readResponse.Status == ResponseStatus.Unverified)
+            {
+                path = GetBadReadPath(path);
+                this.logger.AddUserMessage("##############################################################################");
+                this.logger.AddUserMessage("WARNING: Verification timed out. File could not be validated and may be corrupt.");
+                this.logger.AddUserMessage("Saved to " + path + " for debugging only. Do not use this file without validation.");
+                this.logger.AddUserMessage("##############################################################################");
+            }
+
             // Save the contents to the path that the user provided.
             while (true)
             {
@@ -81,56 +93,80 @@ namespace PcmHacking
                     }
                 }
             }
-
         }
 
         /// <summary>
         /// Contains cross-platform code to handle user interactions to read the PCM's flash memory.
         /// </summary>
-        /// <remarks>
-        /// The return value should be used to suppress future warnings about using an unproven connection.
-        /// </remarks>
-        /// <returns>True if the read was successful, fales if failed or aborted.</returns>
-        public async Task<Stream?> Read(IProgress<ProgressUpdate>? progress = null)
+        /// <returns>The stream on success or unverified read; null on failure or abort.</returns>
+        public async Task<Stream?> Read(IProgress<ProgressUpdate>? progress = null, PcmType forcedPcmType = PcmType.Undefined)
         {
-            this.logger.AddUserMessage("Querying operating system of current PCM.");
-            Response<uint> osidResponse = await this.vehicle.QueryOperatingSystemId(this.cancellationToken);
-            if (osidResponse.Status != ResponseStatus.Success)
+            Response<Stream> readResponse = await RunRead(progress, forcedPcmType);
+            if (readResponse == null || readResponse.Value == null)
             {
-                this.logger.AddUserMessage("Operating system query failed, will retry: " + osidResponse.Status);
-                await this.vehicle.ExitKernel();
-
-                osidResponse = await this.vehicle.QueryOperatingSystemId(this.cancellationToken);
-                if (osidResponse.Status != ResponseStatus.Success)
-                {
-                    this.logger.AddUserMessage("Operating system query failed: " + osidResponse.Status);
-                }
+                return null;
             }
-
-            OSIDInfo pcmInfo;
-            if (osidResponse.Status == ResponseStatus.Success)
+            if (readResponse.Status == ResponseStatus.Success || readResponse.Status == ResponseStatus.Unverified)
             {
-                // Look up the information about this PCM, based on the OSID;
-                this.logger.AddUserMessage("OSID: " + osidResponse.Value);
-                pcmInfo = new OSIDInfo(osidResponse.Value);
-                this.logger.AddUserMessage("Description: " + pcmInfo.Description);
+                return readResponse.Value;
+            }
+            return null;
+        }
+
+        private static string GetBadReadPath(string path)
+        {
+            string dir = Path.GetDirectoryName(path);
+            string name = Path.GetFileNameWithoutExtension(path);
+            string ext = Path.GetExtension(path);
+            return Path.Combine(dir, name + "_badread" + ext);
+        }
+
+        private async Task<Response<Stream>> RunRead(IProgress<ProgressUpdate>? progress, PcmType forcedPcmType)
+        {
+            OSIDInfo pcmInfo;
+            if (forcedPcmType != PcmType.Undefined)
+            {
+                pcmInfo = new OSIDInfo(forcedPcmType);
+                this.logger.AddUserMessage("Using manually selected PCM type: " + pcmInfo.HardwareType);
             }
             else
             {
-                this.logger.AddUserMessage("Unable to get operating system ID. Will assume this can be unlocked with the default seed/key algorithm.");
+                this.logger.AddUserMessage("Querying operating system of current PCM.");
+                Response<uint> osidResponse = await this.vehicle.QueryOperatingSystemId(this.cancellationToken);
+                if (osidResponse.Status != ResponseStatus.Success)
+                {
+                    this.logger.AddUserMessage("Operating system query failed, will retry: " + osidResponse.Status);
+                    await this.vehicle.ExitKernel();
 
-                UInt32 OperatingSystemId = 0;
+                    osidResponse = await this.vehicle.QueryOperatingSystemId(this.cancellationToken);
+                    if (osidResponse.Status != ResponseStatus.Success)
+                    {
+                        this.logger.AddUserMessage("Operating system query failed: " + osidResponse.Status);
+                    }
+                }
 
-                await this.vehicle.ForceSendToolPresentNotification();
-                await this.invoke(async () => OperatingSystemId = await this.promptForOperatingSystemId());
-                await this.vehicle.ForceSendToolPresentNotification();
+                if (osidResponse.Status == ResponseStatus.Success)
+                {
+                    this.logger.AddUserMessage("OSID: " + osidResponse.Value);
+                    pcmInfo = new OSIDInfo(osidResponse.Value);
+                    this.logger.AddUserMessage("Description: " + pcmInfo.Description);
+                }
+                else
+                {
+                    this.logger.AddUserMessage("Unable to get operating system ID. Will assume this can be unlocked with the default seed/key algorithm.");
 
-                pcmInfo = new OSIDInfo(OperatingSystemId); // osid
+                    UInt32 OperatingSystemId = 0;
 
-                this.logger.AddUserMessage($"Using OsID: {pcmInfo.OSID}");
+                    await this.vehicle.ForceSendToolPresentNotification();
+                    await this.invoke(async () => OperatingSystemId = await this.promptForOperatingSystemId());
+                    await this.vehicle.ForceSendToolPresentNotification();
+
+                    pcmInfo = new OSIDInfo(OperatingSystemId);
+
+                    this.logger.AddUserMessage($"Using OsID: {pcmInfo.OSID}");
+                }
             }
 
-            // Pre flight checks to block invalid write operations by PCM type.
             if (!pcmInfo.IsSupported)
             {
                 string msg = $"Abort: The connected {pcmInfo.HardwareType.ToString()} PCM is not supported.";
@@ -152,7 +188,7 @@ namespace PcmHacking
                 string msg = $"WARNING: {pcmInfo.HardwareType.ToString()} Support is still in development.";
                 this.logger.AddUserMessage(msg);
                 bool shouldContinue = false;
-                await this.invoke(async () => { shouldContinue = await this.promptForYesNo(msg, "Continue?"); });                
+                await this.invoke(async () => { shouldContinue = await this.promptForYesNo(msg, "Continue?"); });
                 if (!shouldContinue)
                 {
                     this.logger.AddUserMessage("User chose not to proceed.");
@@ -176,7 +212,6 @@ namespace PcmHacking
                 return null;
             }
 
-            // Do the actual reading.
             DateTime start = DateTime.Now;
 
             CKernelReader reader = new CKernelReader(
@@ -187,12 +222,14 @@ namespace PcmHacking
             Response<Stream> readResponse = await reader.ReadContents(this.cancellationToken, progress);
 
             this.logger.AddUserMessage("Elapsed time " + DateTime.Now.Subtract(start));
-            if (readResponse.Status != ResponseStatus.Success)
+
+            if (readResponse.Status != ResponseStatus.Success && readResponse.Status != ResponseStatus.Unverified)
             {
                 this.logger.AddUserMessage("Read failed, " + readResponse.Status.ToString());
                 return null;
             }
-            return readResponse.Value;
+
+            return readResponse;
         }
     }
 }

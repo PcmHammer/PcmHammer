@@ -125,6 +125,11 @@ namespace PcmHacking
         /// </summary>
         private bool TryVerifyInitialBytes(Message actual, byte[] expected, out ResponseStatus status)
         {
+            if (actual == null)
+            {
+                status = ResponseStatus.Timeout;
+                return false;
+            }
             return TryVerifyInitialBytes(actual.GetBytes(), expected, out status);
         }
 

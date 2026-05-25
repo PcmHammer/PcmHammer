@@ -39,7 +39,7 @@ namespace PcmHacking
         /// Accepts a string path for OSes that can directly access file structure.
         /// </summary>
         /// <returns>True if file opens and write succeeds. False if either condition fails.</returns>
-        public async Task<bool> Write(string path)
+        public async Task<bool> Write(string path, PcmType forcedPcmType = PcmType.Undefined)
         {
             byte[] image;
             using (Stream stream = File.OpenRead(path))
@@ -53,7 +53,7 @@ namespace PcmHacking
                     return false;
                 }
             }
-            return await Write(image);
+            return await Write(image, forcedPcmType);
         }
 
         /// <summary>
@@ -64,15 +64,17 @@ namespace PcmHacking
         /// The return value should be used to suppress future warnings about using an unproven connection.
         /// </remarks>
         /// <returns>True if the write was successful, fales if failed or aborted.</returns>
-        public async Task<bool> Write(byte[] image)
+        public async Task<bool> Write(byte[] image, PcmType forcedPcmType = PcmType.Undefined)
         {
-            // Sanity checks. 
-            FileValidator validator = new FileValidator(image, this.logger);
+            // Sanity checks.
+            PcmType? forcedFileType = forcedPcmType != PcmType.Undefined ? forcedPcmType : (PcmType?)null;
+            FileValidator validator = new FileValidator(image, this.logger, forcedFileType);
             if (!validator.IsValid())
             {
                 this.logger.AddUserMessage("This file is corrupt or its format is unknown to PCMHammer. It would render your PCM unusable.");
                 return false;
             }
+            this.logger.AddUserMessage("File is " + new OSIDInfo(validator.GetFileType()).Description + ".");
 
             UInt32 kernelVersion = 0;
             bool needUnlock;
@@ -84,86 +86,97 @@ namespace PcmHacking
                 (writeType != WriteType.Full) &&
                 (writeType != WriteType.TestWrite);
 
-            this.logger.AddUserMessage("Requesting operating system ID...");
-            Response<uint> osidResponse = await this.vehicle.QueryOperatingSystemId(this.cancellationToken);
-            if (osidResponse.Status == ResponseStatus.Success)
+            if (forcedPcmType != PcmType.Undefined)
             {
-                pcmInfo = new OSIDInfo(osidResponse.Value);
+                pcmInfo = new OSIDInfo(forcedPcmType);
                 keyAlgorithm = pcmInfo.KeyAlgorithm;
                 needUnlock = true;
-
-                if (!validator.IsSameHardware(osidResponse.Value))
-                {
-                    return false;
-                }
-
-                if (!validator.IsSameOperatingSystem(osidResponse.Value))
-                {
-                    Utility.ReportOperatingSystems(validator.GetOsidFromImage(), osidResponse.Value, writeType, this.logger, out shouldHalt);
-                    if (shouldHalt)
-                    {
-                        return false;
-                    }
-                }
-
                 needToCheckOperatingSystem = false;
+                this.logger.AddUserMessage("Using manually selected PCM type: " + pcmInfo.HardwareType);
             }
             else
             {
-                if (this.cancellationToken.IsCancellationRequested)
+                this.logger.AddUserMessage("Requesting operating system ID...");
+                Response<uint> osidResponse = await this.vehicle.QueryOperatingSystemId(this.cancellationToken);
+                if (osidResponse.Status == ResponseStatus.Success)
                 {
-                    return false;
-                }
+                    pcmInfo = new OSIDInfo(osidResponse.Value);
+                    keyAlgorithm = pcmInfo.KeyAlgorithm;
+                    needUnlock = true;
 
-                this.logger.AddUserMessage("Operating system request failed, checking for a live kernel...");
-
-                kernelVersion = await this.vehicle.GetKernelVersion();
-                if (kernelVersion == 0)
-                {
-                    this.logger.AddUserMessage("Checking for recovery mode...");
-                    bool recoveryMode = await this.vehicle.IsInRecoveryMode();
-
-                    if (recoveryMode)
+                    if (!validator.IsSameHardware(osidResponse.Value))
                     {
-                        this.logger.AddUserMessage("PCM is in recovery mode.");
-                        needUnlock = true;
+                        return false;
                     }
-                    else
+
+                    if (!validator.IsSameOperatingSystem(osidResponse.Value))
                     {
-                        this.logger.AddUserMessage("PCM is not responding to OSID, kernel version, or recovery mode checks.");
-                        this.logger.AddUserMessage("Unlock may not work, but we'll try...");
-                        needUnlock = true;
-                    }
-                    pcmInfo = new OSIDInfo(validator.GetOsidFromImage()); // Prevent Null Reference Exceptions from breaking Recovery Mode
-                }
-                else
-                {
-                    needUnlock = false;
-
-                    this.logger.AddUserMessage("Kernel version: " + kernelVersion.ToString("X8"));
-
-                    this.logger.AddUserMessage("Asking kernel for the PCM's operating system ID...");
-
-                    if (needToCheckOperatingSystem)
-                    {
-                        osidResponse = await this.vehicle.QueryOperatingSystemIdFromKernel(this.cancellationToken);
-                        if (osidResponse.Status != ResponseStatus.Success)
-                        {
-                            // The kernel seems broken. This shouldn't happen, but if it does, halt.
-                            this.logger.AddUserMessage("The kernel did not respond to operating system ID query.");
-                            return false;
-                        }
-
                         Utility.ReportOperatingSystems(validator.GetOsidFromImage(), osidResponse.Value, writeType, this.logger, out shouldHalt);
                         if (shouldHalt)
                         {
                             return false;
                         }
-
-                        pcmInfo = new OSIDInfo(osidResponse.Value);
                     }
 
                     needToCheckOperatingSystem = false;
+                }
+                else
+                {
+                    if (this.cancellationToken.IsCancellationRequested)
+                    {
+                        return false;
+                    }
+
+                    this.logger.AddUserMessage("Operating system request failed, checking for a live kernel...");
+
+                    kernelVersion = await this.vehicle.GetKernelVersion();
+                    if (kernelVersion == 0)
+                    {
+                        this.logger.AddUserMessage("Checking for recovery mode...");
+                        bool recoveryMode = await this.vehicle.IsInRecoveryMode();
+
+                        if (recoveryMode)
+                        {
+                            this.logger.AddUserMessage("PCM is in recovery mode.");
+                            needUnlock = true;
+                        }
+                        else
+                        {
+                            this.logger.AddUserMessage("PCM is not responding to OSID, kernel version, or recovery mode checks.");
+                            this.logger.AddUserMessage("Unlock may not work, but we'll try...");
+                            needUnlock = true;
+                        }
+                        pcmInfo = new OSIDInfo(validator.GetOsidFromImage()); // Prevent Null Reference Exceptions from breaking Recovery Mode
+                    }
+                    else
+                    {
+                        needUnlock = false;
+
+                        this.logger.AddUserMessage("Kernel version: " + kernelVersion.ToString("X8"));
+
+                        this.logger.AddUserMessage("Asking kernel for the PCM's operating system ID...");
+
+                        if (needToCheckOperatingSystem)
+                        {
+                            osidResponse = await this.vehicle.QueryOperatingSystemIdFromKernel(this.cancellationToken);
+                            if (osidResponse.Status != ResponseStatus.Success)
+                            {
+                                // The kernel seems broken. This shouldn't happen, but if it does, halt.
+                                this.logger.AddUserMessage("The kernel did not respond to operating system ID query.");
+                                return false;
+                            }
+
+                            Utility.ReportOperatingSystems(validator.GetOsidFromImage(), osidResponse.Value, writeType, this.logger, out shouldHalt);
+                            if (shouldHalt)
+                            {
+                                return false;
+                            }
+
+                            pcmInfo = new OSIDInfo(osidResponse.Value);
+                        }
+
+                        needToCheckOperatingSystem = false;
+                    }
                 }
             }
 

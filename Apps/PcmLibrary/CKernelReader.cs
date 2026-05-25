@@ -233,12 +233,19 @@ namespace PcmHacking
 
                     logger.StatusUpdateReset();
 
-                    if (await verifier.CompareRanges(
+                    CrcVerificationResult verificationResult = await verifier.CompareRanges(
                         image,
                         BlockType.All,
-                        cancellationToken))
+                        cancellationToken);
+
+                    if (verificationResult == CrcVerificationResult.Verified)
                     {
                         logger.AddUserMessage("The contents of the file match the contents of the PCM.");
+                    }
+                    else if (verificationResult == CrcVerificationResult.Timeout)
+                    {
+                        MemoryStream unverifiedStream = new MemoryStream(image);
+                        return new Response<Stream>(ResponseStatus.Unverified, unverifiedStream);
                     }
                     else
                     {

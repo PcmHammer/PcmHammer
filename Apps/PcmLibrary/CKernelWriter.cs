@@ -279,10 +279,18 @@ namespace PcmHacking
             {
                 logger.StatusUpdateReset();
 
-                if (await verifier.CompareRanges(
+                CrcVerificationResult verificationResult = await verifier.CompareRanges(
                     image,
                     relevantBlocks,
-                    cancellationToken))
+                    cancellationToken);
+
+                if (verificationResult == CrcVerificationResult.Timeout)
+                {
+                    this.logger.AddUserMessage("PCM stopped responding during write verification. Aborting.");
+                    return false;
+                }
+
+                if (verificationResult == CrcVerificationResult.Verified)
                 {
                     allRangesMatch = true;
 

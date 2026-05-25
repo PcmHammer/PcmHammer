@@ -8,6 +8,14 @@ using System.Threading.Tasks;
 
 namespace PcmHacking
 {
+    public enum CrcVerificationResult
+    {
+        Verified,
+        Mismatch,
+        Timeout,
+        Cancelled,
+    }
+
     public class CKernelVerifier
     {
         private readonly byte[] image;
@@ -51,13 +59,14 @@ namespace PcmHacking
         /// <summary>
         /// Compare CRCs from the file to CRCs from the PCM.
         /// </summary>
-        public async Task<bool> CompareRanges(byte[] image, BlockType blockTypes, CancellationToken cancellationToken)
+        public async Task<CrcVerificationResult> CompareRanges(byte[] image, BlockType blockTypes, CancellationToken cancellationToken)
         {
             // This only takes a fraction of a second.
             logger.AddUserMessage("Calculating CRCs from file.");
             this.GetCrcFromImage();
 
-            bool successForAllRanges = true;
+            bool anyTimeout = false;
+            bool anyMismatch = false;
 
             await this.vehicle.SendToolPresentNotification();
             await this.vehicle.SetDeviceTimeout(TimeoutScenario.ReadCrc);
@@ -68,25 +77,11 @@ namespace PcmHacking
             foreach (MemoryRange range in this.ranges)
             {
                 string formatString = "{0:X6}-{1:X6}\t{2:X8}\t{3:X8}\t{4}\t{5}";
-
-                string range_type = "General";
-
-                if (pcmInfo.IsSupportedWriteBySegment)
-                {
-                    range_type = range.Type.ToString();
-                }
+                string range_type = pcmInfo.IsSupportedWriteBySegment ? range.Type.ToString() : "General";
 
                 if (((range.Type & blockTypes) == 0) || (range.Address >= this.pcmInfo.ImageSize))
                 {
-                    this.logger.AddUserMessage(
-                    string.Format(
-                        formatString,
-                        range.Address,
-                        range.Address + (range.Size - 1),
-                        "not needed",
-                        "not needed",
-                        "n/a",
-                        range_type));
+                    this.logger.AddUserMessage(string.Format(formatString, range.Address, range.Address + (range.Size - 1), "not needed", "not needed", "n/a", range_type));
                     continue;
                 }
 
@@ -94,23 +89,22 @@ namespace PcmHacking
                 this.vehicle.ClearDeviceMessageQueue();
                 logger.StatusUpdateActivity($"Processing CRC for range {range.Address:X6}-{range.Address + (range.Size - 1):X6}");
 
-                // For C Kernels each poll of the pcm causes it to CRC 16kb of segment data.
-                // When the segment sum is available it is returned.
-                int maxAttempts = 50; // Logged highs of 38 on 1m P12, the rest are a good deal lower.
-                int retryDelay = 50; // used for polling speed
+                // For C Kernels each poll of the PCM causes it to CRC 16kb of segment data.
+                // When the segment sum is available it is returned. Logged highs of 38 polls on a 1m P12.
+                int retryDelay = 50;
                 bool success = false;
+                int consecutiveTimeouts = 0;
                 UInt32 crc = 0;
 
                 Message query = this.protocol.CreateCrcQuery(range.Address, range.Size);
-                for (int segment = 0; segment < maxAttempts; segment++)
+                while (true)
                 {
-                    logger.StatusUpdateActivity($"Processing CRC for range {range.Address:X6}-{range.Address + (range.Size - 1):X6}");
-                    logger.StatusUpdateProgressBar((double)segment / maxAttempts, true);
-
                     if (cancellationToken.IsCancellationRequested)
                     {
-                        return false;
+                        return CrcVerificationResult.Cancelled;
                     }
+
+                    logger.StatusUpdateActivity($"Processing CRC for range {range.Address:X6}-{range.Address + (range.Size - 1):X6}");
 
                     await this.vehicle.SendToolPresentNotification();
 
@@ -120,25 +114,24 @@ namespace PcmHacking
                         continue;
                     }
 
-                    int RXmaxAttempts = 5;
                     Message response = await this.vehicle.ReceiveMessage();
                     if (response == null)
+                    {
+                        consecutiveTimeouts++;
+                        if (consecutiveTimeouts >= 6)
                         {
-                        for (int j = 0; j < RXmaxAttempts; j++)
-                        {
-                            if (cancellationToken.IsCancellationRequested)
-                            {
-                                return false;
-                            }
-                            this.logger.AddDebugMessage($"CRC read failed, re-trying {range.Address.ToString("X8")} / {range.Size.ToString("X8")}");
-                            response = await this.vehicle.ReceiveMessage();
-                            if (response == null)
-                            {
-                                continue;
-                            }
+                            string detail = anyTimeout ? "" : " Kernel may have crashed.";
+                            this.logger.AddUserMessage($"PCM stopped responding during CRC check at {range.Address:X8} / {range.Size:X8}.{detail}");
+                            anyTimeout = true;
                             break;
                         }
+                        this.logger.AddDebugMessage($"CRC no response, re-querying {range.Address.ToString("X8")} / {range.Size.ToString("X8")}");
+                        await Task.Delay(retryDelay);
+                        continue;
                     }
+
+                    consecutiveTimeouts = 0;
+
                     Response<UInt32> crcResponse = this.protocol.ParseCrc(response, range.Address, range.Size);
                     if (crcResponse.Status != ResponseStatus.Success)
                     {
@@ -149,48 +142,35 @@ namespace PcmHacking
                     crc = crcResponse.Value;
                     break;
                 }
+
                 logger.StatusUpdateProgressBar(0, false);
 
                 if (!success)
                 {
-                    this.logger.AddUserMessage("Unable to get CRC for memory range " + range.Address.ToString("X8") + " / " + range.Size.ToString("X8"));
-                    successForAllRanges = false;
+                    if (!anyTimeout)
+                    {
+                        this.logger.AddUserMessage("Unable to get CRC for memory range " + range.Address.ToString("X8") + " / " + range.Size.ToString("X8"));
+                    }
+                    anyMismatch = true;
                     continue;
                 }
 
                 this.vehicle.ClearDeviceMessageQueue();
 
                 range.ActualCrc = crc;
-               
-                this.logger.AddUserMessage(
-                    string.Format(
-                        formatString,
-                        range.Address,
-                        range.Address + (range.Size - 1),
-                        range.DesiredCrc,
-                        range.ActualCrc,
-                        range.DesiredCrc == range.ActualCrc ? "Same" : "Different",
-                        range_type));
+
+                bool match = range.DesiredCrc == range.ActualCrc;
+                if (!match) anyMismatch = true;
+
+                this.logger.AddUserMessage(string.Format(formatString, range.Address, range.Address + (range.Size - 1), range.DesiredCrc, range.ActualCrc, match ? "Same" : "Different", range_type));
             }
 
             await this.vehicle.SendToolPresentNotification();
-
-            foreach (MemoryRange range in this.ranges)
-            {
-                if ((range.Type & blockTypes) == 0)
-                {
-                    continue;
-                }
-
-                if (range.ActualCrc != range.DesiredCrc)
-                {
-                    return false;
-                }
-            }
-
             this.vehicle.ClearDeviceMessageQueue();
 
-            return successForAllRanges;
+            if (anyTimeout) return CrcVerificationResult.Timeout;
+            if (anyMismatch) return CrcVerificationResult.Mismatch;
+            return CrcVerificationResult.Verified;
         }
     }
 }
