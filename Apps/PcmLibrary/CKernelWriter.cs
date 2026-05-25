@@ -607,11 +607,17 @@ namespace PcmHacking
                     timeRemaining = TimeSpan.FromSeconds(secondsRemaining).ToString("mm\\:ss");
                 }
 
-                logger.StatusUpdateActivity($"Writing {thisPayloadSize} bytes to 0x{startAddress:X6}");
-                logger.StatusUpdatePercentDone((totalWritten * 100 / totalSize > 0) ? $"{totalWritten * 100 / totalSize}%" : string.Empty);
-                logger.StatusUpdateTimeRemaining($"T-{timeRemaining}");
-                logger.StatusUpdateKbps((bytesPerSecond > 0) ? $"{(double)bytesPerSecond * 8.00 / 1000.00:0.00} Kbps" : string.Empty);
-                logger.StatusUpdateProgressBar((double)(totalWritten + thisPayloadSize) / totalSize, true);
+                ProgressUpdate update = new()
+                {
+                    Percentage = totalWritten / totalSize,
+                    TimeRemaining = timeRemaining,
+                    Rate = bytesPerSecond * 8.00 / 1000.00,
+                    ProgressBarVisible = true,
+                    Address = $"{startAddress:X6}",
+                    PayloadLength = (int)thisPayloadSize,
+                    TotalLength = (int)totalSize
+                };
+                progress.Report(update);
 
                 await this.vehicle.SetDeviceTimeout(TimeoutScenario.WriteMemoryBlock);
 
