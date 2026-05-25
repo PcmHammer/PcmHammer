@@ -1188,13 +1188,9 @@ namespace PcmHacking
 
                     // Get the path to save the image to.
                     string path = "";
-                    try
-                    {
-                        await this.InvokeWrapper(async () =>
-                            path = await this.PromptForFileSavePath()
-                        );
-                    }
-                    catch
+                    await this.InvokeWrapper(async () => path = await this.PromptForFileSavePath());
+
+                    if (path == null)
                     {
                         this.AddUserMessage("Read canceled.");
                         return;
@@ -1241,7 +1237,7 @@ namespace PcmHacking
 
             if (path == null)
             {
-                return null;
+                return Task.FromResult<string>(null);
             }
 
             this.AddUserMessage("Will save to " + path);
@@ -1250,7 +1246,7 @@ namespace PcmHacking
             DialogResult dialogResult = dialogBox.ShowDialog(this);
             if (dialogResult == DialogResult.Cancel)
             {
-                return null;
+                return Task.FromResult<string>(null);
             }
 
             return Task.FromResult(path);
