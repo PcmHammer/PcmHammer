@@ -1,6 +1,4 @@
-using CommunityToolkit.Mvvm.Messaging;
 using PcmHacking.UnoUI.Services;
-using Uno.Extensions.Navigation;
 
 namespace PcmHacking.UnoUI.Presentation;
 
@@ -9,6 +7,7 @@ public partial record MenuModel
     private readonly INavigator navigator;
     private readonly INoticeService noticeService;
     private readonly IConnectionService connectionService;
+    private readonly IDispatcher _dispatcher;
 
     public IState<string> HelpButtonText => State<string>.Value(this, () => String.Empty);
 
@@ -21,8 +20,10 @@ public partial record MenuModel
         IStringLocalizer localizer,
         INavigator navigator,
         INoticeService noticeService,
-        IConnectionService connectionService)
+        IConnectionService connectionService,
+        IDispatcher dispatcher)
     {
+        _dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
         this.navigator = navigator ?? throw new ArgumentNullException(nameof(navigator));
         this.noticeService = noticeService ?? throw new ArgumentNullException(nameof(noticeService));
         this.connectionService = connectionService ?? throw new ArgumentNullException(nameof(connectionService));
@@ -57,8 +58,11 @@ public partial record MenuModel
     public async Task GoToExit()
     {
         App.ApplicationShutdownSource.Cancel();
-        await Task.Delay(1000);
-        Environment.Exit(0);
+        await _dispatcher.ExecuteAsync(async () =>
+        {
+            await App.GetService<IConnectionService>().AwaitConnectionShutdown();
+            Application.Current?.Exit();
+        });
     }
 
     public async Task GoToControllerFunctions()

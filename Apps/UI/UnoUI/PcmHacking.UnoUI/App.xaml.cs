@@ -223,7 +223,10 @@ public partial class App : Application
         StaticMainWindow = builder.Window;
         MainWindow.AppWindow.Closing += async (s, e) =>
         {
-            App.ApplicationShutdownSource.Cancel();
+            if (!App.ApplicationShutdownSource.IsCancellationRequested)
+            {
+                App.ApplicationShutdownSource.Cancel();
+            }
             await App.GetService<IConnectionService>().AwaitConnectionShutdown();
         };
 #if !WINDOWS
@@ -244,8 +247,10 @@ public partial class App : Application
 
     private async void Current_Suspending(object sender, SuspendingEventArgs e)
     {
-        App.ApplicationShutdownSource.Cancel();
-        await App.GetService<IConnectionService>().AwaitConnectionShutdown();
+        if (App.ApplicationShutdownSource.IsCancellationRequested)
+        {
+            await App.GetService<IConnectionService>().AwaitConnectionShutdown();
+        }
     }
 
     private static void RegisterRoutes(IViewRegistry views, IRouteRegistry routes)
