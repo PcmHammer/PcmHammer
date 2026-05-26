@@ -10,7 +10,7 @@ namespace PcmHacking
     public class DeviceFactory
     {
         /// <summary>
-        /// This might not really need to be async. If the J2534 stuff doesn't need it, then this doesn't need it either. Only ised in WinForms.
+        /// This might not really need to be async. If the J2534 stuff doesn't need it, then this doesn't need it either. Only used in WinForms.
         /// </summary>
         public static Device CreateDeviceFromConfigurationSettings(ILogger logger)
         {

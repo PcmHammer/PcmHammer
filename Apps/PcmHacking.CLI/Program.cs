@@ -385,7 +385,7 @@ if (result == 0)
     }
     else
     {
-        await vehicle.DiscoverConnectedECU(cancellationSource.Token); // This new method universally handles discovery of connection hardware. The only thing left to do is per-state validation.
+        await vehicle.DiscoverConnectedECU(cancellationSource.Token); // This new method universally handles discovery of connected hardware. The only thing left to do is per-state validation.
     }
     if (vehicle.ConnectedECU == null)
     {

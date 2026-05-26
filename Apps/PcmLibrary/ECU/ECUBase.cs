@@ -35,7 +35,7 @@ namespace PcmHacking.ECU {
     public abstract class ECUBase {
 
         /// <summary>
-        /// This enum allows us to hold a state and pass it along 
+        /// This enum allows us to hold a reference to the current state of the connected controller.
         /// </summary>
         public ECUStates ECUState
         {

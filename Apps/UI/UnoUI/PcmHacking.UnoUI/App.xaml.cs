@@ -2,10 +2,7 @@ using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.UI.Dispatching;
 using PcmHacking.UnoUI.Services;
 using System.Diagnostics;
-using System.Runtime.InteropServices;
 using System.Text;
-using Uno.Resizetizer;
-using Windows.System.Display;
 
 namespace PcmHacking.UnoUI;
 public partial class App : Application

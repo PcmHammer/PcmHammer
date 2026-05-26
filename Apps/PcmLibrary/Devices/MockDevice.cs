@@ -63,7 +63,6 @@ namespace PcmHacking
         {
             Thread.Sleep(100);
 
-            StringBuilder builder = new StringBuilder();
             this.Logger.AddUserMessage("Sending message " + message.GetBytes().ToHex(), LogLevels.Trace);
             if (this.port is MockPort)
             {

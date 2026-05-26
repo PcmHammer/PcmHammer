@@ -422,7 +422,7 @@ namespace PcmHacking
                         StrResp = "";
                         continue;
                     }
-                    else if (rx[0] == 0xA) continue;//newline
+                    else if (rx[0] == 0xA) continue; //newline
                     StrResp += Convert.ToChar(rx[0]);
                 }
 
