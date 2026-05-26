@@ -46,7 +46,7 @@ namespace J2534DotNet
         {
             if (m_wrapper == null)
             {
-                throw new NullReferenceException("J2534 wrapper object is null.");
+                return false;
             }
             return m_wrapper.FreeLibrary();
         }
