@@ -21,6 +21,8 @@ namespace PcmHacking
         private Func<string, string, Task<bool>> promptForYesNo;
         private CancellationToken cancellationToken;
 
+        public int CrcPollingDelayMs { get; set; } = 50;
+
         public ReadManager(
             ILogger logger, 
             Vehicle vehicle,
@@ -217,7 +219,10 @@ namespace PcmHacking
             CKernelReader reader = new CKernelReader(
                 this.vehicle,
                 pcmInfo,
-                this.logger);
+                this.logger)
+            {
+                CrcPollingDelayMs = this.CrcPollingDelayMs,
+            };
 
             Response<Stream> readResponse = await reader.ReadContents(this.cancellationToken, progress);
 

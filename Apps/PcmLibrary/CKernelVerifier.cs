@@ -25,11 +25,13 @@ namespace PcmHacking
         private readonly OSIDInfo pcmInfo;
         private readonly ILogger logger;
 
+        public int PollingDelayMs { get; set; } = 50;
+
         public CKernelVerifier(
-            byte[] image, 
-            IEnumerable<MemoryRange> ranges, 
-            Vehicle vehicle, 
-            Protocol protocol, 
+            byte[] image,
+            IEnumerable<MemoryRange> ranges,
+            Vehicle vehicle,
+            Protocol protocol,
             OSIDInfo pcmInfo,
             ILogger logger)
         {
@@ -91,7 +93,7 @@ namespace PcmHacking
 
                 // For C Kernels each poll of the PCM causes it to CRC 16kb of segment data.
                 // When the segment sum is available it is returned. Logged highs of 38 polls on a 1m P12.
-                int retryDelay = 50;
+                int retryDelay = this.PollingDelayMs;
                 bool success = false;
                 int consecutiveTimeouts = 0;
                 UInt32 crc = 0;

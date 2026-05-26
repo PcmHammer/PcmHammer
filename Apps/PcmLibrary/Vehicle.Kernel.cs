@@ -94,7 +94,7 @@ namespace PcmHacking
             {
                 finalDir = _basePath;
             }
-            path = Path.Combine(_basePath, path);
+            path = Path.Combine(finalDir, path);
 
             try
             {

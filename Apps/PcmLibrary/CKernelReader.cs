@@ -18,6 +18,8 @@ namespace PcmHacking
         private readonly Protocol protocol;
         private readonly ILogger logger;
 
+        public int CrcPollingDelayMs { get; set; } = 50;
+
         public CKernelReader(Vehicle vehicle, OSIDInfo pcmInfo, ILogger logger)
         {
             this.vehicle = vehicle;
@@ -229,7 +231,10 @@ namespace PcmHacking
                         this.vehicle,
                         this.protocol,
                         this.pcmInfo,
-                        this.logger);
+                        this.logger)
+                    {
+                        PollingDelayMs = this.CrcPollingDelayMs,
+                    };
 
                     logger.StatusUpdateReset();
 
