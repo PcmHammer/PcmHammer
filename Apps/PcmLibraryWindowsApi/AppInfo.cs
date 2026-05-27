@@ -32,6 +32,16 @@ namespace PcmHacking
         }
 
         /// <summary>
+        /// Returns "Version: x.x.x" for release builds, or null for dev builds where no version is set.
+        /// Use this when no build timestamp is available (e.g. Uno multi-target builds).
+        /// </summary>
+        public static string GetVersionLine()
+        {
+            string version = GetReleaseVersion();
+            return version != null ? $"Version: {version}" : null;
+        }
+
+        /// <summary>
         /// Returns "Running at: {day}, {date}, {time} {UTC offset}" using the local timezone.
         /// </summary>
         public static string GetRunningAtMessage()

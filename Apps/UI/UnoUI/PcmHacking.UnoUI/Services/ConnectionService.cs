@@ -203,7 +203,8 @@ public class ConnectionService : IConnectionService
             {
                 this.logger.AddUserMessage("PCM Hammer");
 #if !ANDROID
-                this.logger.AddUserMessage(AppInfo.GetVersionOrBuildLine(Generated.BuildTime));
+                string versionLine = AppInfo.GetVersionLine();
+                if (versionLine != null) this.logger.AddUserMessage(versionLine);
                 this.logger.AddUserMessage(AppInfo.GetRunningAtMessage());
 #else
                 this.logger.AddUserMessage("Running at: " + DateTime.Now.ToString("dddd, MMMM dd yyyy, HH:mm:ss"));
