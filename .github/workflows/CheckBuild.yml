@@ -229,7 +229,7 @@ jobs:
 
         $timestampUtc = [DateTime]::UtcNow.ToString("yyyyMMdd_HHmmss")
         $isReleaseTag = "${{ startsWith(github.ref, 'refs/tags/') }}" -eq "true"
-        $unoLooksUnversioned = ($unoDisplay -eq "1.0" -and $unoVersion -eq "1")
+        $unoLooksUnversioned = ($unoDisplay -eq "0.0.0.0")
         $branchNameRaw = if ([string]::IsNullOrWhiteSpace($env:GITHUB_HEAD_REF)) { $env:GITHUB_REF_NAME } else { $env:GITHUB_HEAD_REF }
         $branchNameSafe = $branchNameRaw -replace '[\\/]', '-'
         $branchNameSafe = $branchNameSafe -replace '[^A-Za-z0-9._-]', '-'
