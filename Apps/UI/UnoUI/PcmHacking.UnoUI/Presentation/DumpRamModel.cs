@@ -1,3 +1,4 @@
+﻿// SPDX-License-Identifier: GPL-3.0-only
 using Microsoft.Extensions.Logging;
 using Microsoft.UI.Dispatching;
 using PcmHacking.UnoUI.Services;

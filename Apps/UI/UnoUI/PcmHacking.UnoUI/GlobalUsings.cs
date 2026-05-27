@@ -1,4 +1,5 @@
-﻿global using System.Collections.Immutable;
+﻿// SPDX-License-Identifier: GPL-3.0-only
+global using System.Collections.Immutable;
 global using Microsoft.Extensions.DependencyInjection;
 global using Microsoft.Extensions.Hosting;
 global using Microsoft.Extensions.Localization;

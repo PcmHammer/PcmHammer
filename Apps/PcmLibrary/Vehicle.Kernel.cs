@@ -1,4 +1,5 @@
-﻿using System;
+﻿// SPDX-License-Identifier: GPL-3.0-only
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -94,7 +95,7 @@ namespace PcmHacking
             {
                 finalDir = _basePath;
             }
-            path = Path.Combine(_basePath, path);
+            path = Path.Combine(finalDir, path);
 
             try
             {

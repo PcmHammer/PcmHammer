@@ -8,7 +8,8 @@
     <Title>PCM Library</Title>
     <Authors>PCM Hacking</Authors>
     <Company>PcmHacking.net</Company>
-    <Copyright>2018-2024 PcmHacking.Net</Copyright>
+    <Copyright>2018-2026 PcmHacking.Net</Copyright>
+    <PackageLicenseExpression>GPL-3.0-only</PackageLicenseExpression>
     <PackageProjectUrl>https://PcmHammer.org</PackageProjectUrl>
     <PackageReleaseNotes>This is an untested experiment. You almost certainly don't want to use it.</PackageReleaseNotes>
   </PropertyGroup>

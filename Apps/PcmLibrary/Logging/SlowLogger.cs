@@ -1,4 +1,5 @@
-﻿//#define FAST_LOGGING
+﻿// SPDX-License-Identifier: GPL-3.0-only
+//#define FAST_LOGGING
 
 using System;
 using System.Collections.Generic;

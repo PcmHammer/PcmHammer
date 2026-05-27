@@ -1,4 +1,5 @@
-﻿using System;
+﻿// SPDX-License-Identifier: GPL-3.0-only
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -116,7 +117,7 @@ namespace PcmHacking
             // Check not already loaded
             if (IsLoaded == true)
             {
-                // Only disconnect protocol if it was actually opened — a failed previous
+                // Only disconnect protocol if it was actually opened - a failed previous
                 // init may have left IsLoaded true but never reached ConnectToProtocol.
                 if (IsProtocolOpen)
                 {
@@ -151,7 +152,7 @@ namespace PcmHacking
                 }
                 else
                 {
-                    // DLL is loaded but tool was never opened — just unload the DLL.
+                    // DLL is loaded but tool was never opened - just unload the DLL.
                     CloseLibrary();
                 }
             }

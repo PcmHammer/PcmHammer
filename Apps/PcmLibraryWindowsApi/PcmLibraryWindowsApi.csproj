@@ -46,6 +46,7 @@
     <PackageReference Include="System.Management" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AppInfo.cs" />
     <Compile Include="DeviceConfiguration.cs" />
     <Compile Include="Devices\DeviceFactory.cs" />
     <Compile Include="Devices\J2534Device.cs" />

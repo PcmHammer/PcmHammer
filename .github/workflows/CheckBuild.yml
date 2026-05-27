@@ -102,6 +102,14 @@ jobs:
     needs: Kernels
     runs-on: windows-2025
 
+    env:
+      # Declared here so the linter knows these variables are valid; the empty
+      # defaults are never used — the "Read app versions" step overwrites them
+      # at runtime via $GITHUB_ENV before the upload steps reference them.
+      WINFORMS_ARTIFACT_SUFFIX: ''
+      UNO_ARTIFACT_SUFFIX: ''
+      CLI_ARTIFACT_SUFFIX: ''
+
     steps:
     - name: Checkout Code
       uses: actions/checkout@v6
@@ -194,6 +202,7 @@ jobs:
         Invoke-Build "Apps/UI/WindowsForms/PcmHammer/PcmHammer.csproj"
         Invoke-Build "Apps/UI/WindowsForms/PcmLogger/PcmLogger.csproj"
         Invoke-Build "Apps/UI/WindowsForms/VpwExplorer/VpwExplorer.csproj"
+        Invoke-Build "Apps/UI/PcmHammerCLI/PcmHammerCLI.csproj"
 
     - name: Build Uno Windows (Debug)
       run: dotnet build Apps/UI/UnoUI/PcmHacking.UnoUI/PcmHacking.UnoUI.csproj -c Debug -f net10.0-windows10.0.26100.0
@@ -220,7 +229,7 @@ jobs:
 
         $timestampUtc = [DateTime]::UtcNow.ToString("yyyyMMdd_HHmmss")
         $isReleaseTag = "${{ startsWith(github.ref, 'refs/tags/') }}" -eq "true"
-        $unoLooksUnversioned = ($unoDisplay -eq "1.0" -and $unoVersion -eq "1")
+        $unoLooksUnversioned = ($unoDisplay -eq "0.0.0.0")
         $branchNameRaw = if ([string]::IsNullOrWhiteSpace($env:GITHUB_HEAD_REF)) { $env:GITHUB_REF_NAME } else { $env:GITHUB_HEAD_REF }
         $branchNameSafe = $branchNameRaw -replace '[\\/]', '-'
         $branchNameSafe = $branchNameSafe -replace '[^A-Za-z0-9._-]', '-'
@@ -238,11 +247,15 @@ jobs:
           $unoArtifactSuffix = "utc$timestampUtc" + "_" + $branchNameSafe + "_development_test_version"
         }
 
+        # CLI shares the same version as WinForms since they are built from the same codebase.
+        $cliArtifactSuffix = $winFormsArtifactSuffix
+
         "UNO_DISPLAY_VERSION=$unoDisplay" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         "UNO_APP_VERSION=$unoVersion" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         "WINFORMS_VERSION=$winFormsVersion" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         "WINFORMS_ARTIFACT_SUFFIX=$winFormsArtifactSuffix" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         "UNO_ARTIFACT_SUFFIX=$unoArtifactSuffix" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        "CLI_ARTIFACT_SUFFIX=$cliArtifactSuffix" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
     - name: Stage WinForms artifact payload
       shell: pwsh
@@ -365,6 +378,21 @@ jobs:
           Copy-Item -Path $apk.FullName -Destination "TemporaryArtifactStorage/UnoAndroid" -Force
         }
 
+    - name: Stage CLI artifact payload
+      shell: pwsh
+      run: |
+        $cliExe = Get-ChildItem -Path "Apps/UI/PcmHammerCLI/bin" -Recurse -File -Filter "pcmhammer-cli.exe" -ErrorAction SilentlyContinue |
+          Sort-Object LastWriteTime -Descending |
+          Select-Object -First 1
+
+        if (!$cliExe) {
+          throw "Unable to find pcmhammer-cli.exe under Apps/UI/PcmHammerCLI/bin"
+        }
+
+        Write-Host "Detected CLI exe at $($cliExe.FullName)"
+        New-Item -ItemType Directory -Force -Path TemporaryArtifactStorage/CLI | Out-Null
+        Copy-Item -Path $cliExe.FullName -Destination "TemporaryArtifactStorage/CLI" -Force
+
     - name: Upload WinForms artifact
       uses: actions/upload-artifact@v7
       with:
@@ -382,3 +410,9 @@ jobs:
       with:
         name: PCMHammer_UnoAndroid_${{ env.UNO_ARTIFACT_SUFFIX }}_${{ github.sha }}
         path: TemporaryArtifactStorage/UnoAndroid
+
+    - name: Upload CLI artifact
+      uses: actions/upload-artifact@v7
+      with:
+        name: PCMHammer_CLI_${{ env.CLI_ARTIFACT_SUFFIX }}_${{ github.sha }}
+        path: TemporaryArtifactStorage/CLI

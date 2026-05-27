@@ -1,4 +1,5 @@
-﻿#if ANDROID
+﻿// SPDX-License-Identifier: GPL-3.0-only
+#if ANDROID
 using Android.App;
 using Android.Content;
 using Android.OS;

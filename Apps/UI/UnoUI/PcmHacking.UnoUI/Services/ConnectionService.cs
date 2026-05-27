@@ -1,3 +1,5 @@
+﻿// SPDX-License-Identifier: GPL-3.0-only
+using PcmHacking;
 using PcmHacking.UnoUI.Utilities;
 
 namespace PcmHacking.UnoUI.Services;
@@ -199,6 +201,15 @@ public class ConnectionService : IConnectionService
 
             if (await this.TryPollOnce(newVehicle))
             {
+                this.logger.AddUserMessage("PCM Hammer");
+#if !ANDROID
+                string versionLine = AppInfo.GetVersionLine();
+                if (versionLine != null) this.logger.AddUserMessage(versionLine);
+                this.logger.AddUserMessage(AppInfo.GetRunningAtMessage());
+#else
+                this.logger.AddUserMessage("Running at: " + DateTime.Now.ToString("dddd, MMMM dd yyyy, HH:mm:ss"));
+#endif
+                this.logger.AddUserMessage("Copyright (C) 2018-2026 PcmHacking.net - GPL v3");
                 this.logger.AddUserMessage("Connection test succeeded.");
                 this.newSettings = settings;
                 this.lastSettings = settings;

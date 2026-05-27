@@ -1,96 +1,97 @@
 param
 (
-	[Parameter(Mandatory=$true)] [String] $ReleaseNumber,
-	[Switch] $BranchAlreadyExists,
-	[Switch] $Preview
+    [Parameter(Mandatory=$true)] [String] $Version
 )
 
-if (($ReleaseNumber.Length -ne 4) -and -not $Preview)
+# Accept x.x.x (pad to x.x.x.0) or x.x.x.x (use as-is).
+# The git tag keeps the user-supplied string; the assembly version is always x.x.x.x.
+$Tag = $Version
+if ($Version -match '^\d+\.\d+\.\d+$')
 {
-	write-host You must provide a 4-digit release number, for example: 2.01
-	exit
+    $Version = "$Version.0"
+}
+elseif ($Version -notmatch '^\d+\.\d+\.\d+\.\d+$')
+{
+    Write-Host "Version must be in x.x.x or x.x.x.x format. Examples: 2.0.1  or  2.0.1.1"
+    exit 1
 }
 
-Remove-Item -Recurse Apps\PcmHammer\bin\debug -ErrorAction SilentlyContinue
-Remove-Item -Recurse Apps\PcmLogger\bin\debug -ErrorAction SilentlyContinue
-Remove-Item -Recurse Release -ErrorAction SilentlyContinue;
-Remove-Item -Recurse "PcmHammer$ReleaseNumber" -ErrorAction SilentlyContinue
+Write-Host "Assembly version : $Version"
+Write-Host "Git tag          : $Tag"
 
-if ($Preview)
-{
-	$ReleaseNumber = "$ReleaseNumber-Preview"
+# ---------------------------------------------------------------------------
+function Update-AssemblyInfo {
+    param([string]$File)
+    if (-not (Test-Path $File)) { Write-Warning "Not found: $File"; return }
+    Write-Host "  $File"
+    $c = Get-Content $File -Raw
+    $c = $c -replace 'AssemblyVersion\("[^"]*"\)',            "AssemblyVersion(`"$Version`")"
+    $c = $c -replace 'AssemblyFileVersion\("[^"]*"\)',        "AssemblyFileVersion(`"$Version`")"
+    if ($c -match 'AssemblyInformationalVersion')
+    {
+        $c = $c -replace 'AssemblyInformationalVersion\("[^"]*"\)', "AssemblyInformationalVersion(`"$Version`")"
+    }
+    else
+    {
+        $c = $c.TrimEnd() + "`r`n[assembly: AssemblyInformationalVersion(`"$Version`")]`r`n"
+    }
+    Set-Content $File $c -NoNewline
+    git add $File
 }
-else
+# ---------------------------------------------------------------------------
+
+Write-Host "Updating AssemblyInfo files..."
+# Libraries
+Update-AssemblyInfo "Apps\PcmLibraryWindowsApi\Properties\AssemblyInfo.cs"
+Update-AssemblyInfo "Apps\UI\WindowsForms\PcmLibraryWindowsForms\Properties\AssemblyInfo.cs"
+Update-AssemblyInfo "Apps\Tests\Properties\AssemblyInfo.cs"
+# Applications
+Update-AssemblyInfo "Apps\UI\WindowsForms\PcmHammer\Properties\AssemblyInfo.cs"
+Update-AssemblyInfo "Apps\UI\WindowsForms\PcmHammerCLI\Properties\AssemblyInfo.cs"
+Update-AssemblyInfo "Apps\UI\WindowsForms\PcmLogger\Properties\AssemblyInfo.cs"
+Update-AssemblyInfo "Apps\UI\WindowsForms\VpwExplorer\Properties\AssemblyInfo.cs"
+
+# PcmLibrary uses SDK-style <Version> instead of AssemblyInfo.cs
+Write-Host "Updating PcmLibrary version..."
+$pcmLibProj = "Apps\PcmLibrary\PcmLibrary.csproj"
+if (Test-Path $pcmLibProj)
 {
-	if (-not $BranchAlreadyExists)
-	{
-		git checkout develop
-		git checkout -b "Release/$ReleaseNumber"
-	}
-}
-
-write-host ===============================================================================
-write-host = Updating version in help.html
-$file = "Apps\PcmHammer\help.html"
-$find = "    <h1>PCM Hammer Development Release</h1>"
-$replace = "    <h1>PCM Hammer Release $ReleaseNumber</h1>"
-(Get-Content $file).Replace($find, $replace) | Set-Content $file
-git add $file
-
-write-host ===============================================================================
-write-host = Updating version in PcmHammer MainForm.cs
-$file = "Apps\PcmHammer\MainForm.cs"
-$find = "        private const string AppVersion = null;"
-$replace = '        private const string AppVersion = "' + $ReleaseNumber + '";'
-(Get-Content $file).Replace($find, $replace) | Set-Content $file
-git add $file
-
-write-host ===============================================================================
-write-host = Running difftool - confirm changes to MainForm.cs and help.html now.
-git difftool --cached
-
-
-# Should call "dotnet build" here
-write-host "Rebuild all in Visual Studio now."
-read-host -Prompt "Press Enter to continue..."
-
-write-host ===============================================================================
-write-host = Rebuilding kernel
-cd Kernels
-.\BuildAll.cmd
-cd ..
-
-write-host ===============================================================================
-write-host = Copying files to release directory
-
-$unused = mkdir Release
-
-copy Kernels\*.bin Release
-
-copy Apps\PcmHammer\bin\Debug\PcmHammer.* Release
-copy Apps\PcmHammer\bin\Debug\*.dll Release
-copy Apps\PcmHammer\bin\Debug\*.pdb Release
-
-copy Apps\PcmLogger\bin\Debug\PcmLogger.* Release
-copy Apps\PcmLogger\bin\Debug\*.dll Release
-copy Apps\PcmLogger\bin\Debug\*.pdb Release
-copy Apps\PcmLogger\*.LogProfile Release
-copy Apps\PcmLogger\Parameters.*.xml Release
-
-copy Apps\VpwExplorer\bin\Debug\VpwExplorer.* Release
-copy Apps\VpwExplorer\bin\Debug\*.dll Release
-copy Apps\VpwExplorer\bin\Debug\*.pdb Release
-
-
-# The order of these two operations matters - it ensures that the zip file contains a directory named PcmHammerNNN.
-Rename-Item Release "PcmHammer-$ReleaseNumber"
-7z.exe a -r "PcmHammer-$ReleaseNumber.zip" "PcmHammer-$ReleaseNumber\*.*"
-
-if (-not $Preview)
-{
-	write-host ========================== WARNING ===============================
-	write-host You still need to commit the changes to MainForm.cs and help.html.
-	write-host ========================== WARNING ===============================
+    Write-Host "  $pcmLibProj"
+    $c = Get-Content $pcmLibProj -Raw
+    $c = $c -replace '<Version>[^<]*</Version>', "<Version>$Version</Version>"
+    Set-Content $pcmLibProj $c -NoNewline
+    git add $pcmLibProj
 }
 
-git status
+Write-Host "Updating Uno application version..."
+$unoProj = "Apps\UI\UnoUI\PcmHacking.UnoUI\PcmHacking.UnoUI.csproj"
+if (Test-Path $unoProj)
+{
+    $parts = $Version.Split('.')
+    # ApplicationVersion must be an integer; derive one from the four components.
+    $appVersionInt = [int]$parts[0] * 1000000 + [int]$parts[1] * 10000 + [int]$parts[2] * 100 + [int]$parts[3]
+    Write-Host "  $unoProj  (ApplicationVersion=$appVersionInt)"
+    $c = Get-Content $unoProj -Raw
+    $c = $c -replace '<Version>[^<]*</Version>',                                     "<Version>$Version</Version>"
+    $c = $c -replace '<ApplicationDisplayVersion>[^<]*</ApplicationDisplayVersion>', "<ApplicationDisplayVersion>$Version</ApplicationDisplayVersion>"
+    $c = $c -replace '<ApplicationVersion>[^<]*</ApplicationVersion>',               "<ApplicationVersion>$appVersionInt</ApplicationVersion>"
+    Set-Content $unoProj $c -NoNewline
+    git add $unoProj
+}
+
+Write-Host "Updating help.html..."
+$helpFile = "Apps\UI\WindowsForms\PcmHammer\help.html"
+if (Test-Path $helpFile)
+{
+    $c = Get-Content $helpFile -Raw
+    $c = $c -replace '<h1>PCM Hammer[^<]*</h1>', "<h1>PCM Hammer $Version</h1>"
+    Set-Content $helpFile $c -NoNewline
+    git add $helpFile
+}
+
+git commit -m "Release $Version"
+git tag $Tag
+
+Write-Host ""
+Write-Host "Tagged as $Tag. Push when ready:"
+Write-Host "  git push && git push origin $Tag"

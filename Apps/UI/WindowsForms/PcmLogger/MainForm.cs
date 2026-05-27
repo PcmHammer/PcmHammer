@@ -1,4 +1,5 @@
-﻿//#define Vpw4x
+﻿// SPDX-License-Identifier: GPL-3.0-only
+//#define Vpw4x
 
 using System;
 using System.Diagnostics;

@@ -1,3 +1,4 @@
+﻿// SPDX-License-Identifier: GPL-3.0-only
 using PcmHacking.UnoUI.Services;
 using Windows.UI.Core;
 namespace PcmHacking.UnoUI.Presentation;

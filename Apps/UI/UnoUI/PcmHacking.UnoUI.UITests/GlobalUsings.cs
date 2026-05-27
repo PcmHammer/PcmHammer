@@ -1,3 +1,4 @@
+﻿// SPDX-License-Identifier: GPL-3.0-only
 global using NUnit.Framework;
 global using Uno.UITest;
 global using Uno.UITest.Helpers.Queries;

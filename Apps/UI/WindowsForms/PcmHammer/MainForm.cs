@@ -1,4 +1,5 @@
-﻿using CommandLine;
+﻿// SPDX-License-Identifier: GPL-3.0-only
+using CommandLine;
 using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
@@ -63,17 +64,6 @@ namespace PcmHacking
         /// initialized.
         /// </summary>
         private const string AppName = "PCM Hammer";
-
-        /// <summary>
-        /// This becomes the second half of the window caption, is printed
-        /// when devices are initialized, and is used to create links to the
-        /// help.html and start.txt files.
-        /// 
-        /// If null, the build timestamp will be used.
-        /// 
-        /// If not null, use a number like "004" that matches a release branch.
-        /// </summary>
-        private const string AppVersion = null;
 
         /// <summary>
         /// We had to move some operations to a background thread for the J2534 code as the DLL functions do not have an awaiter.
@@ -354,17 +344,7 @@ namespace PcmHacking
         /// </summary>
         public override string GetAppNameAndVersion()
         {
-            string versionString = AppVersion;
-            if (versionString == null)
-            {
-                DateTime localTime = new DateTime(Generated.BuildTime).ToLocalTime();
-                versionString = String.Format(
-                    "({0}, {1})",
-                    localTime.ToShortDateString(),
-                    localTime.ToShortTimeString());
-            }
-
-            return AppName + " " + versionString;
+            return AppInfo.GetNameAndVersion(AppName, Generated.BuildTime);
         }
 
         /// <summary>
@@ -406,7 +386,7 @@ namespace PcmHacking
         {
             try
             {
-                this.Text = GetAppNameAndVersion();
+                this.Text = GetAppNameAndVersion().Replace('\n', ' ');
                 this.interfaceBox.Enabled = true;
                 this.operationsBox.Enabled = true;
 
@@ -521,7 +501,7 @@ namespace PcmHacking
         /// </summary>
         private async void LoadStartMessage(object unused)
         {
-            ContentLoader loader = new ContentLoader("start.txt", AppVersion, Assembly.GetExecutingAssembly(), this);
+            ContentLoader loader = new ContentLoader("start.txt", null, Assembly.GetExecutingAssembly(), this);
             using (Stream content = await loader.GetContentStream())
             {
                 try
@@ -542,7 +522,7 @@ namespace PcmHacking
         /// </summary>
         private async void LoadHelp(object unused)
         {
-            ContentLoader loader = new ContentLoader("help.html", AppVersion, Assembly.GetExecutingAssembly(), this);
+            ContentLoader loader = new ContentLoader("help.html", null, Assembly.GetExecutingAssembly(), this);
             Stream content = await loader.GetContentStream();
             this.helpWebBrowser.Invoke(
                 (MethodInvoker)delegate ()
@@ -563,7 +543,7 @@ namespace PcmHacking
         /// </summary>
         private async void LoadCredits(object unused)
         {
-            ContentLoader loader = new ContentLoader("credits.html", AppVersion, Assembly.GetExecutingAssembly(), this);
+            ContentLoader loader = new ContentLoader("credits.html", null, Assembly.GetExecutingAssembly(), this);
             Stream content = await loader.GetContentStream();
             this.helpWebBrowser.Invoke(
                 (MethodInvoker)delegate ()

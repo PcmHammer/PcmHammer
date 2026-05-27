@@ -1,3 +1,4 @@
+﻿// SPDX-License-Identifier: GPL-3.0-only
 using CommunityToolkit.Mvvm.Messaging;
 using PcmHacking.UnoUI.Services;
 using Uno.Extensions.Reactive.Commands;

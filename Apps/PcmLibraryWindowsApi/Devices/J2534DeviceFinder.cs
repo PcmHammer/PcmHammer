@@ -1,3 +1,4 @@
+﻿// SPDX-License-Identifier: GPL-3.0-only
 using J2534DotNet;
 using Microsoft.Win32;
 using System;

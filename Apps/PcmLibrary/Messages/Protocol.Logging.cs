@@ -1,3 +1,4 @@
+﻿// SPDX-License-Identifier: GPL-3.0-only
 //#define FAST_LOGGING
 
 using System;
