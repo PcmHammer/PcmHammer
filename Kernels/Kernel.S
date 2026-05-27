@@ -122,6 +122,11 @@ start:
     movea.w #0xB800, %sp               | Move the stack out the way P05/P08/E54
 #endif
 
+#if !defined(P04) && !defined(P04_Early) && !defined(BlackBox)
+    move.b  (J1850_Config).l, %d0      | Read DLC config register
+    move.b  %d0, DLCConfigSave         | Save for DLC recovery on receive timeout
+#endif
+
     move.b  #0x03, (J1850_Command).l   | Flush frame except for completion code
     move.b  #0x00, (J1850_TX_FIFO).l   | Initiate transfer
 
@@ -1114,41 +1119,57 @@ VPWSendNextByte:
 
     move.b  #0x0C, (J1850_Command).l   | 011 to BTAD - Load as last byte of transmit data
     move.b  (%a0)+, (J1850_TX_FIFO).l  | Drop the last byte in TX FIFO
-    bsr.w   WasteTime                  | Twiddle thumbs
-    move.b  #0x03, (J1850_Command).l   | Flush buffer
-    move.b  #0x00, (J1850_TX_FIFO).l   | Completion byte
+    bra.w   VPWSendFlush               | Tail call shared flush, rts returns to our caller
 
-VPWSendWaitForFlush:
+| =============== S U B R O U T I N E =======================================
+| Shared flush used by VPWSend and VPWSendBlock.
+| Sends RFC=11 flush command, waits for transmit completion, drains completion code.
+| Entered via bra (tail call) - rts returns to the original caller.
+VPWSendFlush:
+    bsr.w   WasteTime                  | Twiddle thumbs
+    move.b  #0x03, (J1850_Command).l   | RFC=11 Flush frame except for completion code
+    move.b  #0x00, (J1850_TX_FIFO).l   | Completion byte, initiates flush
+VPWSendFlushWait:
     bsr.w   ResetWatchdog              | Scratch the dog
     move.b  (J1850_Status).l, %d0      | Get status byte
     andi.b  #0xE0, %d0                 | Mask RFS 1110 0000
-    cmpi.b  #0xE0, %d0                 | Empty except for completion byte status
-    bne.s   VPWSendWaitForFlush        | Loop until true
-    move.b  (J1850_RX_FIFO).l, %d0     | Read FIFO
+    cmpi.b  #0xE0, %d0                 | RFS=111 completion code only, flush complete
+    bne.s   VPWSendFlushWait           | Not done, wait
+    move.b  (J1850_RX_FIFO).l, %d0    | Read and discard transmit completion code
     rts
 
 | =============== S U B R O U T I N E =======================================
 VPWReceive:
     movea.l #MessageBuffer, %a0        | Pointer to MessageBuffer buffer
+    move.l  #0x30000, %d1              | Idle timeout counter, reset on each byte received
 
 VPWReceiveReadFrame:
     bsr.w   ResetWatchdog              | Scratch the dog
     move.b  (J1850_Status).l, %d0      | Get status byte
     andi.b  #0xE0, %d0                 | Mask RFS register 1110 0000
     tst.b   %d0                        | 000x xxxx = no data (or invalid)
-    beq.s   VPWReceiveReadFrame        | Nothing, try again
+    bne.s   VPWReceiveHasData          | Got something, process it
+    subq.l  #1, %d1                    | Decrement idle timeout counter
+    bne.s   VPWReceiveReadFrame        | Not expired, keep waiting
+    bra.s   VPWReceiveTimeout          | Expired, reset DLC and return to MainLoop
 
+VPWReceiveHasData:
     cmpi.b  #0x80, %d0                 | 100x xxxx = All codes *greater* than this mean completion code at buffer head
     bgt.s   VPWReceiveReadComplete     | Done, cleanup
 
 | VPW Receive Read Byte                | Anything else, read a byte
+    cmpa.l  #MessageBuffer + 4096, %a0 | Buffer overflow check, 4096 byte message limit
+    bge.s   VPWReceiveTimeout          | Past buffer end, reset DLC and abort
     move.b  (J1850_RX_FIFO).l, (%a0)+  | Read from RX FIFO to input buffer, and move pointer to next byte
+    move.l  #0x30000, %d1              | Reset timeout counter on each received byte
     bra.s   VPWReceiveReadFrame        | Next try
 
 VPWReceiveReadComplete:
-    move.b  (J1850_RX_FIFO).l, (%a0)+  | The completion code, so eat it
-    movea.l #MessageBuffer, %a0        | Pointer to MessageBuffer buffer
-    move.b  (%a0), %d0                 |
+    move.b  (J1850_RX_FIFO).l, %d0    | Read completion code to register
+    movea.l #MessageBuffer, %a0        | Reset pointer to message start
+    andi.b  #0x30, %d0                 | Mask error bits (0x20=noise, 0x10=framing)
+    bne.s   VPWReceiveReadFrame        | Error set, discard frame and receive again
+    move.b  (%a0), %d0                 | Load message first byte
     andi.b  #0xFE, %d0                 | Mask 1111 1110
     cmpi.b  #0x6C, %d0                 | Priority 6C or 6D packet?
     bne.s   VPWReceiveReadFrame        | If not, abort and get next packet
@@ -1158,7 +1179,16 @@ VPWReceiveReadComplete:
     bne.s   VPWReceiveReadFrame        | Not an FE, junk it, get next packet
 
 VPWReceiveRTS:
-    rts                                | Must have been an FE, return for processing
+    rts                                | Return for processing
+
+VPWReceiveTimeout:
+#if !defined(P04) && !defined(P04_Early) && !defined(BlackBox)
+    move.b  DLCConfigSave, %d0         | Load saved DLC config register value
+    move.b  %d0, (J1850_Config).l      | Restore DLC config register to known state
+#endif
+    move.b  #0x03, (J1850_Command).l   | RFC=11 Flush DLC state machine to idle
+    move.b  #0x00, (J1850_TX_FIFO).l   | Completion byte, clears pending state
+    rts                                | Return to MainLoop for retry
 
 | =============== S U B R O U T I N E =======================================
 |
@@ -1195,8 +1225,9 @@ VPWSendBlock:
 
 VPWSendBlockMode35ReplyHeader:
     bsr.w   ResetWatchdog              | Scratch the dog
-    move.b  (%a1)+, (J1850_TX_FIFO).l  | Move Byte from Source to Destination
-    dbf     %d1, VPWSendBlockMode35ReplyHeader | Send Mode35 Reply Header 10 bytes
+    move.b  (%a1)+, (J1850_TX_FIFO).l  | Write header byte to TX FIFO
+    bsr.w   WaitForTXFIFO              | Wait for FIFO space, set BTAD=0x04 (middle byte)
+    dbf     %d1, VPWSendBlockMode35ReplyHeader | Repeat for all header bytes
 
     moveq   #0, %d1                    | Clear for checksum
     moveq   #0, %d2                    | Clear checksum scratch pad
@@ -1237,9 +1268,9 @@ VPWSendBlockWaitForBuffer2:
     andi.b  #3, %d2                    | Mask TMFS
     cmpi.b  #3, %d2                    | 3=Buffer full
     beq.s   VPWSendBlockWaitForBuffer2 | Wait for TX buffer to have room
-    move.b  #0xC, (J1850_Command).l    | BTAD ...0 11.. "Load as last byte of transmit data"
-    move.b  %d1, (J1850_TX_FIFO).l     | Move the Second checksum byte  to the TX FIFO
-    rts
+    move.b  #0xC, (J1850_Command).l    | BTAD=011 Load as last byte of transmit data
+    move.b  %d1, (J1850_TX_FIFO).l     | Write second checksum byte to TX FIFO
+    bra.w   VPWSendFlush               | Tail call shared flush, rts returns to our caller
 
 | ---------------------------------------------------------------------------
 
@@ -1282,6 +1313,9 @@ Mode60Reply:    .byte  0x6C, toolid, pcmid, 0x60
 
 | Erase Sector Reply, 7 bytes + 1 alignment
 EraseSectorReply:   .byte  0x6C, toolid, pcmid, 0x7D, 0x05, 0x00, 0x00, 0xAA
+
+| DLC config register value saved at startup, used to restore DLC on receive timeout
+DLCConfigSave:      .byte  0x00
 
 | Global buffer, it's at the end and it's not transported, thus length is irrelevant!
   .globl   MessageBuffer
