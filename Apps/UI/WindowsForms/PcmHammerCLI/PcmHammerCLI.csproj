@@ -50,10 +50,7 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="..\..\..\..\Kernels\*.bin">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <Visible>false</Visible>
-    </Content>
+    <EmbeddedResource Include="..\..\..\..\Kernels\*.bin" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\..\J2534DotNet\J2534DotNet\J2534DotNet.csproj">
@@ -69,5 +66,19 @@
       <Name>PcmLibrary</Name>
     </ProjectReference>
   </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Fody">
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Costura.Fody">
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+  <Target Name="Date" BeforeTargets="CoreCompile">
+    <WriteLinesToFile File="$(IntermediateOutputPath)generated.cs" Lines="static partial class Generated { public static long BuildTime = $([System.DateTime]::UtcNow.Ticks)%3B }" Overwrite="true" />
+    <ItemGroup>
+      <Compile Include="$(IntermediateOutputPath)generated.cs" />
+    </ItemGroup>
+  </Target>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

@@ -1,4 +1,5 @@
-﻿using Microsoft.UI.Xaml;
+﻿// SPDX-License-Identifier: GPL-3.0-only
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Data;

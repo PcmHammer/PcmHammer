@@ -1,3 +1,4 @@
+﻿// SPDX-License-Identifier: GPL-3.0-only
 using Microsoft.UI.Xaml.Input;
 using Windows.Foundation;
 

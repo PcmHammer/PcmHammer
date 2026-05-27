@@ -1,3 +1,4 @@
+﻿// SPDX-License-Identifier: GPL-3.0-only
 using PcmHacking.UnoUI.Services;
 using System;
 using System.Collections.Generic;

@@ -1,4 +1,5 @@
-﻿using PcmHacking.ECU.Controllers;
+﻿// SPDX-License-Identifier: GPL-3.0-only
+using PcmHacking.ECU.Controllers;
 using System;
 using System.Collections.Generic;
 using System.Linq;

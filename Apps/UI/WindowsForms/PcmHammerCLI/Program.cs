@@ -1,5 +1,8 @@
+﻿// SPDX-License-Identifier: GPL-3.0-only
 using System;
+using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -25,7 +28,7 @@ namespace PcmHacking
             string deviceName = null;
             string deviceCategory = null;
             bool listDevices = false;
-            bool verbose = false;
+            bool debug = false;
             int crcPollDelayMs = 50;
 
             for (int i = 0; i < args.Length; i++)
@@ -44,6 +47,9 @@ namespace PcmHacking
                         operation = "test-write";
                         if (i + 1 < args.Length && !args[i + 1].StartsWith("-")) filePath = args[++i];
                         break;
+                    case "--test-read":
+                        operation = "test-read";
+                        break;
                     case "--device":
                         if (i + 1 < args.Length) deviceName = args[++i];
                         break;
@@ -58,8 +64,8 @@ namespace PcmHacking
                     case "--list-devices":
                         listDevices = true;
                         break;
-                    case "--verbose":
-                        verbose = true;
+                    case "--debug":
+                        debug = true;
                         break;
                     case "--crc-poll-delay":
                         if (i + 1 < args.Length && int.TryParse(args[++i], out int parsedDelay))
@@ -72,7 +78,7 @@ namespace PcmHacking
                 }
             }
 
-            var logger = new ConsoleLogger(verbose);
+            var logger = new ConsoleLogger(debug);
 
             if (listDevices)
             {
@@ -87,11 +93,13 @@ namespace PcmHacking
                 return 1;
             }
 
-            if (filePath == null && operation != "read")
+            if (filePath == null && operation != "read" && operation != "test-read")
             {
                 Console.Error.WriteLine($"Error: No file path specified for --{operation}.");
                 return 1;
             }
+
+            string kernelDir = ExtractKernels();
 
             Device device = CreateDevice(deviceCategory, deviceName, logger);
             if (device == null)
@@ -106,7 +114,7 @@ namespace PcmHacking
                 Vehicle vehicle = null;
                 try
                 {
-                    vehicle = await InitializeVehicle(device, logger);
+                    vehicle = await InitializeVehicle(device, logger, kernelDir);
 
                     var cts = new CancellationTokenSource();
                     Console.CancelKeyPress += (s, e) =>
@@ -119,13 +127,13 @@ namespace PcmHacking
                     Func<Action, Task> invoke = (action) => { action(); return Task.CompletedTask; };
                     Func<string, string, Task> alert = (msg, title) =>
                     {
-                        Console.WriteLine($"[{title}] {msg}");
+                        logger.AddUserMessage($"[{title}] {msg}");
                         return Task.CompletedTask;
                     };
                     Func<string, string, Task<bool>> promptForYesNo = (msg, title) =>
                     {
-                        Console.WriteLine($"[{title}] {msg}");
-                        Console.WriteLine("Auto-proceeding.");
+                        logger.AddUserMessage($"[{title}] {msg}");
+                        logger.AddUserMessage("Auto-proceeding.");
                         return Task.FromResult(true);
                     };
 
@@ -150,6 +158,23 @@ namespace PcmHacking
                                 cts.Token);
                             readManager.CrcPollingDelayMs = crcPollDelayMs;
                             success = await readManager.Read(filePath);
+                            break;
+                        }
+                        case "test-read":
+                        {
+                            var readManager = new ReadManager(
+                                logger,
+                                vehicle,
+                                invoke,
+                                () => Task.FromResult<string>(null),
+                                () => Task.FromResult(0u),
+                                alert,
+                                promptForYesNo,
+                                cts.Token);
+                            readManager.CrcPollingDelayMs = crcPollDelayMs;
+                            var stream = await readManager.Read();
+                            success = stream != null;
+                            if (success) logger.AddUserMessage("Test read complete. Data not saved.");
                             break;
                         }
                         case "write":
@@ -183,7 +208,7 @@ namespace PcmHacking
                 catch (Exception ex)
                 {
                     Console.Error.WriteLine("Fatal error: " + ex.Message);
-                    if (verbose)
+                    if (debug)
                         Console.Error.WriteLine(ex.ToString());
                     return 1;
                 }
@@ -244,7 +269,30 @@ namespace PcmHacking
             return null;
         }
 
-        static async Task<Vehicle> InitializeVehicle(Device device, ILogger logger)
+        static string ExtractKernels()
+        {
+            string dir = Path.Combine(Path.GetTempPath(), "pcmhammer-cli-kernels");
+            Directory.CreateDirectory(dir);
+            var asm = Assembly.GetExecutingAssembly();
+            foreach (string name in asm.GetManifestResourceNames())
+            {
+                if (!name.EndsWith(".bin", StringComparison.OrdinalIgnoreCase)) continue;
+                string[] parts = name.Split('.');
+                string fileName = parts.Length >= 2
+                    ? parts[parts.Length - 2] + "." + parts[parts.Length - 1]
+                    : name;
+                string dest = Path.Combine(dir, fileName);
+                if (!File.Exists(dest))
+                {
+                    using (var s = asm.GetManifestResourceStream(name))
+                    using (var f = File.Create(dest))
+                        s.CopyTo(f);
+                }
+            }
+            return dir;
+        }
+
+        static async Task<Vehicle> InitializeVehicle(Device device, ILogger logger, string kernelDir)
         {
             Protocol protocol = new Protocol();
             var vehicle = new Vehicle(
@@ -252,10 +300,12 @@ namespace PcmHacking
                 protocol,
                 logger,
                 new ToolPresentNotifier(device, protocol, logger),
-                string.Empty);
+                kernelDir);
 
             logger.AddUserMessage("PCM Hammer CLI");
-            logger.AddUserMessage(DateTime.Now.ToString("dddd, MMMM dd yyyy @ HH:mm:ss"));
+            logger.AddUserMessage(AppInfo.GetVersionOrBuildLine(Generated.BuildTime));
+            logger.AddUserMessage(AppInfo.GetRunningAtMessage());
+            logger.AddUserMessage(AppInfo.CopyrightNotice);
             logger.AddUserMessage("Initializing device: " + vehicle.DeviceDescription);
 
             Task<bool> initTask = vehicle.ResetConnection();
@@ -282,6 +332,7 @@ namespace PcmHacking
             Console.WriteLine();
             Console.WriteLine("Usage:");
             Console.WriteLine("  pcmhammer-cli.exe --read [filename]       Read entire PCM to file");
+            Console.WriteLine("  pcmhammer-cli.exe --test-read             Read entire PCM without saving");
             Console.WriteLine("  pcmhammer-cli.exe --write <filename>      Write entire PCM from file");
             Console.WriteLine("  pcmhammer-cli.exe --test-write <filename> Test write (no permanent changes)");
             Console.WriteLine("  pcmhammer-cli.exe --list-devices          List available J2534 devices");
@@ -293,7 +344,7 @@ namespace PcmHacking
             Console.WriteLine("  --serial <port>           Specify a serial port (e.g. COM3)");
             Console.WriteLine();
             Console.WriteLine("Other options:");
-            Console.WriteLine("  --verbose                 Show debug messages");
+            Console.WriteLine("  --debug                   Show full debug log stream (includes all user messages)");
             Console.WriteLine("  --crc-poll-delay <ms>     Delay between CRC verification polls (default: 50)");
             Console.WriteLine("                            Increase if the PCM kernel crashes during verification");
             Console.WriteLine();

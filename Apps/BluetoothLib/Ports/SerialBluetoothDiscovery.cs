@@ -1,4 +1,5 @@
-﻿using InTheHand.Net.Sockets;
+﻿// SPDX-License-Identifier: GPL-3.0-only
+using InTheHand.Net.Sockets;
 using System.Collections;
 using System.Collections.Generic;
 

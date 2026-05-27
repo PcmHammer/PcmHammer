@@ -1,4 +1,5 @@
-﻿using System;
+﻿// SPDX-License-Identifier: GPL-3.0-only
+using System;
 using System.IO;
 using System.Net;
 using System.Net.Http;

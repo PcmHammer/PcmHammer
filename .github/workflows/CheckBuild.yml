@@ -102,6 +102,13 @@ jobs:
     needs: Kernels
     runs-on: windows-2025
 
+    env:
+      # Declared here so the linter knows these variables are valid; the empty
+      # defaults are never used — the "Read app versions" step overwrites them
+      # at runtime via $GITHUB_ENV before the upload steps reference them.
+      WINFORMS_ARTIFACT_SUFFIX: ''
+      UNO_ARTIFACT_SUFFIX: ''
+
     steps:
     - name: Checkout Code
       uses: actions/checkout@v6

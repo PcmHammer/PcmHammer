@@ -14,6 +14,7 @@
             <RowDefinition x:Name="MessageRow1"/>
             <RowDefinition x:Name="MessageRow2"/>
             <RowDefinition x:Name="BottomButtons"/>
+            <RowDefinition x:Name="CopyrightRow" Height="Auto"/>
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
             <ColumnDefinition/>
@@ -65,8 +66,16 @@
             Margin="10"
             Padding="10"
             HorizontalAlignment="Stretch"
-            VerticalAlignment="Stretch"              
+            VerticalAlignment="Stretch"
             AutomationProperties.AutomationId="LogButton"
             Command="{Binding GoToLog}" />
+
+        <TextBlock Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2"
+            Text="Copyright (C) 2018-2026 PcmHacking.net - GPL v3"
+            Margin="10,4,10,10"
+            HorizontalAlignment="Center"
+            HorizontalTextAlignment="Center"
+            FontSize="12"
+            Opacity="0.6" />
     </Grid>
 </Page>

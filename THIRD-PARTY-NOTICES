@@ -1,0 +1,179 @@
+THIRD-PARTY NOTICES
+===================
+
+PCM Hammer includes or depends on third-party software listed below.
+Each component is provided under its own license terms.
+
+-------------------------------------------------------------------------------
+
+J2534DotNet
+-----------
+Vendored source: Apps/J2534DotNet/
+License: BSD 3-Clause
+
+  Copyright (c) 2010, Michael Kelly
+  michael.e.kelly@gmail.com
+  http://michael-kelly.com/
+
+  All rights reserved.
+  Redistribution and use in source and binary forms, with or without
+  modification, are permitted provided that the following conditions are met:
+
+  * Redistributions of source code must retain the above copyright notice,
+    this list of conditions and the following disclaimer.
+  * Redistributions in binary form must reproduce the above copyright notice,
+    this list of conditions and the following disclaimer in the documentation
+    and/or other materials provided with the distribution.
+  * Neither the name of the organization nor the names of its contributors may
+    be used to endorse or promote products derived from this software without
+    specific prior written permission.
+
+  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+  ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+  LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+  INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+  CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+  POSSIBILITY OF SUCH DAMAGE.
+
+-------------------------------------------------------------------------------
+
+The following packages are used under the MIT License.
+
+MIT License text (applies to all packages in this section unless noted):
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in
+  all copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+
+CommandLineParser 2.8.0
+  Copyright (c) 2005-2015 Giacomo Stelluti Scalabrino and contributors
+  https://github.com/commandlineparser/commandline
+
+Costura.Fody 5.7.0
+  Copyright (c) Simon Cropp and contributors
+  https://github.com/Fody/Costura
+
+coverlet.collector 6.0.2
+  Copyright (c) .NET Foundation and contributors
+  https://github.com/coverlet-coverage/coverlet
+
+DynamicExpresso.Core 2.19.1
+  Copyright (c) 2013 Davide Icardi
+  https://github.com/dynamicexpresso/DynamicExpresso
+
+Fody 6.8.0
+  Copyright (c) Simon Cropp
+  https://github.com/Fody/Fody
+
+GitHubActionsTestLogger 2.3.3
+  Copyright (c) Oleksii Holub
+  https://github.com/Tyrrrz/GitHubActionsTestLogger
+
+InTheHand.Bluetooth.Permissions 8.0.2
+  Copyright (c) Peter Foot
+  https://github.com/inthehand/32feet
+
+InTheHand.Net.Bluetooth 4.2.4
+  Copyright (c) Peter Foot
+  https://github.com/inthehand/32feet
+
+Microsoft.Bcl.HashCode 1.1.1
+  Copyright (c) Microsoft Corporation
+  https://github.com/dotnet/runtime
+
+Microsoft.Maui.Controls 10.0.31
+  Copyright (c) Microsoft Corporation
+  https://github.com/dotnet/maui
+
+Microsoft.NET.Test.Sdk 17.9.0
+  Copyright (c) Microsoft Corporation
+  https://github.com/microsoft/vstest
+
+Microsoft.Windows.CsWin32 0.3.183
+  Copyright (c) Microsoft Corporation
+  https://github.com/microsoft/CsWin32
+
+Newtonsoft.Json 13.0.3
+  Copyright (c) 2007 James Newton-King
+  https://www.newtonsoft.com/json
+
+NUnit 4.1.0
+  Copyright (c) Charlie Poole, Rob Prouse and contributors
+  https://nunit.org
+
+NUnit3TestAdapter 4.5.0
+  Copyright (c) Charlie Poole and contributors
+  https://github.com/nunit/nunit3-vs-adapter
+
+System.Collections.Immutable 7.0.0
+  Copyright (c) Microsoft Corporation
+  https://github.com/dotnet/runtime
+
+System.IO.Ports 10.0.5
+  Copyright (c) Microsoft Corporation
+  https://github.com/dotnet/runtime
+
+System.Management 8.0.0
+  Copyright (c) Microsoft Corporation
+  https://github.com/dotnet/runtime
+
+System.Text.RegularExpressions 4.3.1
+  Copyright (c) Microsoft Corporation
+  https://github.com/dotnet/runtime
+
+System.Xml.XmlSerializer 4.3.0
+  Copyright (c) Microsoft Corporation
+  https://github.com/dotnet/runtime
+
+Tmds.DBus 0.92.0
+  Copyright (c) Tom Deseyn
+  https://github.com/tmds/Tmds.DBus
+
+Tmds.DBus.Protocol 0.21.3
+  Copyright (c) Tom Deseyn
+  https://github.com/tmds/Tmds.DBus
+
+Xamarin.UITest 4.3.4
+  Copyright (c) Microsoft Corporation
+  https://learn.microsoft.com/en-us/appcenter/test-cloud/frameworks/uitest/
+
+-------------------------------------------------------------------------------
+
+The following packages are used under the Apache License, Version 2.0.
+
+Apache License 2.0:
+  https://www.apache.org/licenses/LICENSE-2.0
+
+  You may obtain a copy of the License at the URL above. A summary: you may
+  reproduce, distribute, and create derivative works under the same license,
+  but must preserve copyright and license notices and include the NOTICE file
+  if applicable.
+
+FluentAssertions 6.12.0
+  Copyright (c) Dennis Doomen, Jonas Nyrup and contributors
+  https://github.com/fluentassertions/fluentassertions
+
+Uno.UITest.Helpers 1.1.0-dev.70
+  Copyright (c) Uno Platform Inc.
+  https://github.com/unoplatform/Uno.UITest
+
+-------------------------------------------------------------------------------

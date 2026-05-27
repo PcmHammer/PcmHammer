@@ -1,3 +1,4 @@
+﻿// SPDX-License-Identifier: GPL-3.0-only
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -165,8 +166,10 @@ namespace PcmHacking
                 this.ResetLogs();
             });
 
-            this.AddUserMessage(GetAppNameAndVersion());
-            this.AddUserMessage(DateTime.Now.ToString("dddd, MMMM dd yyyy @hh:mm:ss:ff"));
+            foreach (string line in GetAppNameAndVersion().Split('\n'))
+                this.AddUserMessage(line);
+            this.AddUserMessage(AppInfo.GetRunningAtMessage());
+            this.AddUserMessage(AppInfo.CopyrightNotice);
 
             try
             {

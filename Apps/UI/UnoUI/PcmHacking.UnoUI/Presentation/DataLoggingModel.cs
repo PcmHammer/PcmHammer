@@ -1,3 +1,4 @@
+﻿// SPDX-License-Identifier: GPL-3.0-only
 //using Android.Text.Style;
 //using Microsoft.UI.Xaml;
 using Microsoft.UI.Dispatching;
