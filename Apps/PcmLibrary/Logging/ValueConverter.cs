@@ -22,7 +22,7 @@ namespace PcmHacking
                 bool flag = (bits & 1) != 0;
 
                 convertedValue = value;
-                formattedValue = flag ? conversion.TrueValue : conversion.FalseValue;
+                formattedValue = (flag ? conversion.TrueValue : conversion.FalseValue) ?? string.Empty;
             }
             else
             {

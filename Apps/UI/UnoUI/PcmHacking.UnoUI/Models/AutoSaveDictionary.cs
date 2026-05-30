@@ -69,7 +69,7 @@ namespace PcmHacking.UnoUI.Models
                 if (!_storageContainer.TryGetValue(key, out object? storedValue))
                 {
                     _storageContainer[key] = null;
-                    return null;
+                    return null!;
                 }
                 if (storedValue is JsonElement)
                 {
@@ -85,7 +85,7 @@ namespace PcmHacking.UnoUI.Models
                             }
                             break;
                         case JsonValueKind.Null:
-                            return null; // These cases should not happen.
+                            return null!; // These cases should not happen.
                         case JsonValueKind.Array: // Arrays will need some manual handling.
                             var array = element.EnumerateArray().ToArray();
                             if (array.Length > 0)
@@ -103,7 +103,7 @@ namespace PcmHacking.UnoUI.Models
                             }
                                 break;
                         case JsonValueKind.String:
-                            return element.GetString();
+                            return element.GetString()!;
                         case JsonValueKind.Number:
                             return element.GetInt32();
                         case JsonValueKind.True:
@@ -121,7 +121,7 @@ namespace PcmHacking.UnoUI.Models
                 {
                     return storedValue;
                 }
-                return null; // At this point, if it's not a simple string or boolean type, return null.
+                return null!; // At this point, if it's not a simple string or boolean type, return null.
             }
             set
             {
@@ -134,10 +134,10 @@ namespace PcmHacking.UnoUI.Models
         {
             try
             {
-                outputObject = JsonSerializer.Deserialize<T>(jsonString, _serializerOptions);
+                outputObject = JsonSerializer.Deserialize<T>(jsonString, _serializerOptions)!;
             } catch (Exception)
             {
-                outputObject = default(T);
+                outputObject = default(T)!;
                 return false;
             }
             return true;
@@ -150,7 +150,9 @@ namespace PcmHacking.UnoUI.Models
 
         public bool IsReadOnly => false;
 
-        public event MapChangedEventHandler<string, object> MapChanged;
+#pragma warning disable CS0067
+        public event MapChangedEventHandler<string, object>? MapChanged;
+#pragma warning restore CS0067
 
         public void Add(string key, object value)
         {
@@ -209,7 +211,7 @@ namespace PcmHacking.UnoUI.Models
         {
             if (_storageContainer.TryGetValue(key, out object? storedValue))
             {
-                value = storedValue;
+                value = storedValue!;
                 return true;
             }
 
@@ -240,8 +242,7 @@ namespace PcmHacking.UnoUI.Models
 
         private static string getFilePath()
         {
-            FileInfo loadedExe = new(Assembly.GetExecutingAssembly().Location);
-            return $@"{loadedExe.Directory.FullName}\Settings.Windows.json";
+            return Path.Combine(AppContext.BaseDirectory, "Settings.json");
         }
     }
 }

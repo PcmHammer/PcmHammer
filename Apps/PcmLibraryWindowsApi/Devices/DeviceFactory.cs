@@ -13,7 +13,7 @@ namespace PcmHacking
         /// <summary>
         /// This might not really need to be async. If the J2534 stuff doesn't need it, then this doesn't need it either. Only ised in WinForms.
         /// </summary>
-        public static Device CreateDeviceFromConfigurationSettings(ILogger logger)
+        public static Device? CreateDeviceFromConfigurationSettings(ILogger logger)
         {
             switch(DeviceConfiguration.Settings.DeviceCategory)
             {
@@ -28,7 +28,7 @@ namespace PcmHacking
             }
         }
 
-        public static Device CreateDevice(ILogger logger, string deviceCategory, string nameOrPort)
+        public static Device? CreateDevice(ILogger logger, string deviceCategory, string nameOrPort)
         {
             switch (deviceCategory)
             {
@@ -41,13 +41,13 @@ namespace PcmHacking
             }
         }
 
-        public static Device CreateSerialDevice(string serialPortName, string serialPortDeviceType, ILogger logger)
+        public static Device? CreateSerialDevice(string? serialPortName, string? serialPortDeviceType, ILogger logger)
         {
             try
             {
                 IPort port = CreatePortForDevice(serialPortName, logger);
 
-                Device device;
+                Device? device;
                 switch (serialPortDeviceType)
                 {
                     case OBDXProDevice.DeviceType:
@@ -86,7 +86,7 @@ namespace PcmHacking
             }
         }
 
-        public async static Task<Device> AutoDetectSerialDevice(string serialPortName, ILogger logger)
+        public async static Task<Device?> AutoDetectSerialDevice(string serialPortName, ILogger logger)
         {
             SerialPortConfiguration startConfig = new()
             {
@@ -176,7 +176,7 @@ namespace PcmHacking
             return result.Trim();
         }
 
-        private static IPort CreatePortForDevice(string serialPortName, ILogger logger)
+        private static IPort CreatePortForDevice(string? serialPortName, ILogger logger)
         {
             IPort port;
             if (string.Equals(MockPort.PortName, serialPortName))
@@ -189,13 +189,13 @@ namespace PcmHacking
             }
             else
             {
-                port = new StandardPort(serialPortName);
+                port = new StandardPort(serialPortName ?? string.Empty);
             }
 
             return port;
         }
 
-        public static Device CreateJ2534Device(string deviceType, ILogger logger)
+        public static Device? CreateJ2534Device(string? deviceType, ILogger logger)
         {
             foreach(var device in J2534DeviceFinder.FindInstalledJ2534DLLs(logger))
             {

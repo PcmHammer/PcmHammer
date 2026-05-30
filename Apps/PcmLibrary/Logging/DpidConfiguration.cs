@@ -42,7 +42,7 @@ namespace PcmHacking
         {
             get
             {
-                return LogColumns.Sum(x => (x.Parameter as PcmParameter).ByteCount);
+                return LogColumns.Sum(x => ((PcmParameter)x.Parameter).ByteCount);
             }
         }
 
@@ -53,7 +53,7 @@ namespace PcmHacking
 
         public bool TryAddLogColumn(LogColumn logColumn)
         {
-            if (this.TotalBytes + (logColumn.Parameter as PcmParameter).ByteCount > MaxBytes)
+            if (this.TotalBytes + ((PcmParameter)logColumn.Parameter).ByteCount > MaxBytes)
             {
                 return false;
             }

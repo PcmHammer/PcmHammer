@@ -31,14 +31,20 @@ namespace PcmHacking
                 return Response.Create(status, (UInt64)0);
             }
             byte[] responseBytes = responseMessage.GetBytes();
-            if (responseBytes.Length < 10)
+            if (responseBytes.Length < 12)
                 return Response.Create(ResponseStatus.Truncated, (UInt64)0);
-            UInt64 epoch =
-                ((UInt64)responseBytes[5] << 24) |
-                ((UInt64)responseBytes[6] << 16) |
-                ((UInt64)responseBytes[7] << 8) |
-                responseBytes[8];
-            UInt64 value = (epoch << 8) | responseBytes[9];
+            // Bytes 5-10: build timestamp as YY MM DD HH MN SS (year is offset from 2000)
+            // Byte 11: PCM type
+            var dt = new DateTime(
+                2000 + responseBytes[5],
+                responseBytes[6],
+                responseBytes[7],
+                responseBytes[8],
+                responseBytes[9],
+                responseBytes[10],
+                DateTimeKind.Utc);
+            UInt64 epoch = (UInt64)new DateTimeOffset(dt).ToUnixTimeSeconds();
+            UInt64 value = (epoch << 8) | responseBytes[11];
             return Response.Create(ResponseStatus.Success, value);
         }
 

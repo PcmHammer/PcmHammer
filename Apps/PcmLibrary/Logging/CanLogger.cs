@@ -69,7 +69,7 @@ namespace PcmHacking
             }
         }
 
-        public async Task SetPort(IPort port)
+        public async Task SetPort(IPort? port)
         {
             this.canPort?.Dispose();
             this.canPort = port;

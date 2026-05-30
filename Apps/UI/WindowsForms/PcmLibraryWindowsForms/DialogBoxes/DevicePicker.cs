@@ -21,22 +21,22 @@ namespace PcmHacking
         /// <summary>
         /// Indicate which category of device the user has chosen.
         /// </summary>
-        public string DeviceCategory { get; set; }
+        public string? DeviceCategory { get; set; }
 
         /// <summary>
         /// Indicates the name of the J2534 device that the user has chosen.
         /// </summary>
-        public string J2534DeviceType { get; set; }
+        public string? J2534DeviceType { get; set; }
 
         /// <summary>
         /// Indicates the serial port (COM port) that the user has chosen. Only relevant for serial devices.
         /// </summary>
-        public string SerialPort { get; set; }
+        public string? SerialPort { get; set; }
 
         /// <summary>
         /// Indicates which type of serial device the user has chosen.
         /// </summary>
-        public string SerialPortDeviceType { get; set; }
+        public string? SerialPortDeviceType { get; set; }
 
         /// <summary>
         /// Enable Disable VPW 4x.
@@ -130,7 +130,7 @@ namespace PcmHacking
         /// <summary>
         /// Set a ComboBox to the given item.
         /// </summary>
-        private static void SetDefault(ComboBox list, Func<object, string> getConfigurationValue, string value)
+        private static void SetDefault(ComboBox list, Func<object, string?> getConfigurationValue, string value)
         {
             foreach(object item in list.Items)
             {
@@ -265,7 +265,7 @@ namespace PcmHacking
         /// </summary>
         private void serialDeviceList_SelectedIndexChanged(object sender, EventArgs e)
         {
-            string item = this.serialDeviceList.SelectedItem?.ToString();
+            string? item = this.serialDeviceList.SelectedItem?.ToString();
             if (item == prompt)
             {
                 item = null;
@@ -279,7 +279,7 @@ namespace PcmHacking
         /// </summary>
         private void j2534DeviceList_SelectedIndexChanged(object sender, EventArgs e)
         {
-            string item = this.j2534DeviceList.SelectedItem?.ToString();
+            string? item = this.j2534DeviceList.SelectedItem?.ToString();
             if (item == prompt)
             {
                 item = null;
@@ -301,7 +301,7 @@ namespace PcmHacking
         /// </summary>
         private async void testButton_Click(object sender, EventArgs e)
         {
-            Device device;
+            Device? device;
             if (this.DeviceCategory == DeviceConfiguration.Constants.DeviceCategorySerial)
             {
                 device = DeviceFactory.CreateSerialDevice(this.SerialPort, this.SerialPortDeviceType, this.logger);

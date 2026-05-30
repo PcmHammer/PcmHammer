@@ -69,7 +69,7 @@ public class ConnectionLease : IDisposable
 
     public async Task Reconnect()
     {
-        this.vehicle = await this.connectionService.Reconnect();
+        this.vehicle = (await this.connectionService.Reconnect())!;
     }
 
     public void Dispose()
@@ -203,7 +203,7 @@ public class ConnectionService : IConnectionService
             {
                 this.logger.AddUserMessage("PCM Hammer");
 #if !ANDROID
-                string versionLine = AppInfo.GetVersionLine();
+                string? versionLine = AppInfo.GetVersionLine();
                 if (versionLine != null) this.logger.AddUserMessage(versionLine);
                 this.logger.AddUserMessage(AppInfo.GetRunningAtMessage());
 #else
@@ -259,7 +259,7 @@ public class ConnectionService : IConnectionService
     /// </remarks>
     public async Task<Vehicle?> Reconnect()
     {
-        (Device? newDevice, Vehicle? newVehicle) = await TryReconnect(this.lastSettings);
+        (Device? newDevice, Vehicle? newVehicle) = await TryReconnect(this.lastSettings!);
         this.device = newDevice;
         this.vehicle = newVehicle;
         return this.vehicle;
@@ -290,7 +290,7 @@ public class ConnectionService : IConnectionService
             }
             catch
             {
-                this.device.Dispose();
+                this.device?.Dispose();
                 this.device = null;
             }
         }
@@ -346,7 +346,7 @@ public class ConnectionService : IConnectionService
         string basePath = string.Empty; // We will need to pass along a path to target kernel; Android won't path to a proper directory with GetExecutingAssembly().Location.
 #if WINDOWS
             string exePath = System.Reflection.Assembly.GetExecutingAssembly().Location;
-            basePath = Path.GetDirectoryName(exePath);
+            basePath = Path.GetDirectoryName(exePath) ?? string.Empty;
 #elif ANDROID
             basePath = "/storage/emulated/0/PCMHammer/Bins";
 #endif
@@ -433,7 +433,7 @@ public class ConnectionService : IConnectionService
             // acquired) the 'using' pattern won't call the Dispose method,
             // so the semaphore has to be released explicitly.
             this.stateChangeSemaphore.Release();
-            return null;
+            return null!;
         }
 
         return new ConnectionLease(this, this.vehicle, activity);

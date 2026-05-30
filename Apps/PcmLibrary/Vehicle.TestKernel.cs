@@ -52,7 +52,7 @@ namespace PcmHacking
         /// <summary>
         /// For testing prototype kernels. 
         /// </summary>
-        public async Task<bool> ExitKernel(bool kernelRunning, bool recoveryMode, CancellationToken cancellationToken, Stream unused)
+        public async Task<bool> ExitKernel(bool kernelRunning, bool recoveryMode, CancellationToken cancellationToken, Stream? unused)
         {
             try
             {

@@ -22,12 +22,12 @@ namespace PcmHacking
         /// <summary>
         /// Singleton.
         /// </summary>
-        private static HttpServer instance;
+        private static HttpServer? instance;
 
         /// <summary>
         /// Which local serial port to expose remotely.
         /// </summary>
-        private IPort port;
+        private IPort? port;
 
         /// <summary>
         /// Provides access to the Results and Debug panes.
@@ -37,7 +37,7 @@ namespace PcmHacking
         /// <summary>
         /// Listens on the local HTTP port.
         /// </summary>
-        private HttpListener listener;
+        private HttpListener? listener;
 
         /// <summary>
         /// Creates an instance of the HttpServer class, and runs it on a background thread.
@@ -70,7 +70,7 @@ namespace PcmHacking
         /// </summary>
         public void Close()
         {
-            this.listener.Close();
+            this.listener?.Close();
         }
 
         /// <summary>
@@ -89,7 +89,7 @@ namespace PcmHacking
 
                     SerialPortConfiguration configuration = new SerialPortConfiguration();
                     configuration.BaudRate = 115200;
-                    await this.port.OpenAsync(configuration);
+                    await this.port!.OpenAsync(configuration);
 
                     // This loop handles incoming connections.
                     while (true)
@@ -174,7 +174,7 @@ namespace PcmHacking
 
             byte[] bytes = requestHex.ToBytes();
 
-            await port.Send(bytes);
+            await port!.Send(bytes);
 
             // Uncomment for testing.
             //
@@ -188,7 +188,7 @@ namespace PcmHacking
         private async Task Receive(HttpListenerContext context)
         {
             byte[] buffer = new byte[10 * 1000];
-            int length = await port.Receive(buffer, 0, buffer.Length);
+            int length = await port!.Receive(buffer, 0, buffer.Length);
             string responseHex = buffer.ToHex(length);
 
             this.logger.AddUserMessage("HTTP response: " + responseHex);

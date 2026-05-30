@@ -52,7 +52,7 @@ namespace PcmHacking
         {
             string parameterType = typeof(T).Name;
 
-            XElement container = xml.Root.Elements(string.Format("{0}s", parameterType)).FirstOrDefault();
+            XElement? container = xml.Root?.Elements(string.Format("{0}s", parameterType)).FirstOrDefault();
 
             if (container != null)
             {
@@ -60,7 +60,7 @@ namespace PcmHacking
                 {
                     string id = parameterElement.Attribute("id").Value;
                     string units = parameterElement.Attribute("units").Value;
-                    string zoomAttributeValue = parameterElement.Attribute("zoom")?.Value;
+                    string? zoomAttributeValue = parameterElement.Attribute("zoom")?.Value;
                     bool zoom = string.Equals(zoomAttributeValue, "true", StringComparison.OrdinalIgnoreCase);
                     this.AddParameterToProfile<T>(id, units, zoom);
                 }

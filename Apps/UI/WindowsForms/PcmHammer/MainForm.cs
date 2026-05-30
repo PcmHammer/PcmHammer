@@ -75,7 +75,7 @@ namespace PcmHacking
         /// It will be toggled if the user clicks the cancel button.
         /// Long-running operations can abort when this flag changes.
         /// </summary>
-        private CancellationTokenSource cancellationTokenSource;
+        private CancellationTokenSource? cancellationTokenSource;
 
         /// <summary>
         /// Indicates what type of write, if any, is in progress.
@@ -236,9 +236,9 @@ namespace PcmHacking
         /// <summary>
         /// Show the save-as dialog box (after a full read has completed).
         /// </summary>
-        private string ShowSaveAsDialog()
+        private string? ShowSaveAsDialog()
         {
-            string fileName = null;
+            string? fileName = null;
 
             using (SaveFileDialog dialog = new SaveFileDialog())
             {
@@ -266,9 +266,9 @@ namespace PcmHacking
         /// <summary>
         /// Show the file-open dialog box, so the user can choose the file to write to the flash.
         /// </summary>
-        private string ShowOpenDialog()
+        private string? ShowOpenDialog()
         {
-            string fileName = null;
+            string? fileName = null;
 
             using (OpenFileDialog dialog = new OpenFileDialog())
             {
@@ -502,7 +502,7 @@ namespace PcmHacking
         private async void LoadStartMessage(object unused)
         {
             ContentLoader loader = new ContentLoader("start.txt", null, Assembly.GetExecutingAssembly(), this);
-            using (Stream content = await loader.GetContentStream())
+            using (Stream? content = await loader.GetContentStream())
             {
                 try
                 {
@@ -523,7 +523,7 @@ namespace PcmHacking
         private async void LoadHelp(object unused)
         {
             ContentLoader loader = new ContentLoader("help.html", null, Assembly.GetExecutingAssembly(), this);
-            Stream content = await loader.GetContentStream();
+            Stream? content = await loader.GetContentStream();
             this.helpWebBrowser.Invoke(
                 (MethodInvoker)delegate ()
                 {
@@ -544,7 +544,7 @@ namespace PcmHacking
         private async void LoadCredits(object unused)
         {
             ContentLoader loader = new ContentLoader("credits.html", null, Assembly.GetExecutingAssembly(), this);
-            Stream content = await loader.GetContentStream();
+            Stream? content = await loader.GetContentStream();
             this.helpWebBrowser.Invoke(
                 (MethodInvoker)delegate ()
                 {
@@ -791,7 +791,7 @@ namespace PcmHacking
 
             try
             {
-                OSIDInfo pcmInfo = null;
+                OSIDInfo? pcmInfo = null;
 
                 this.DisableUserInput();
 
@@ -980,7 +980,7 @@ namespace PcmHacking
                     return;
                 }
 
-                OperationSelection selection = dialog.Selection;
+                OperationSelection selection = dialog.Selection!;
 
                 if (selection.IsWrite)
                 {
@@ -1207,7 +1207,7 @@ namespace PcmHacking
                     }
 
                     // Get the path to save the image to.
-                    string path = "";
+                    string? path = null;
                     await this.InvokeWrapper(async () => path = await this.PromptForFileSavePath());
 
                     if (path == null)
@@ -1253,13 +1253,13 @@ namespace PcmHacking
             }
         }
 
-        private Task<string> PromptForFileSavePath()
+        private Task<string?> PromptForFileSavePath()
         {
-            string path = this.ShowSaveAsDialog();
+            string? path = this.ShowSaveAsDialog();
 
             if (path == null)
             {
-                return Task.FromResult<string>(null);
+                return Task.FromResult<string?>(null);
             }
 
             this.AddUserMessage("Will save to " + path);
@@ -1268,10 +1268,10 @@ namespace PcmHacking
             DialogResult dialogResult = dialogBox.ShowDialog(this);
             if (dialogResult == DialogResult.Cancel)
             {
-                return Task.FromResult<string>(null);
+                return Task.FromResult<string?>(null);
             }
 
-            return Task.FromResult(path);
+            return Task.FromResult<string?>(path);
         }
 
         private Task<UInt32> PromptForOperatingSystemId()
@@ -1303,7 +1303,7 @@ namespace PcmHacking
         /// <summary>
         /// Write changes to the PCM's flash memory.
         /// </summary>
-        private async void write_BackgroundThread(WriteType writeType, string path = null, bool useAutoPcmType = true, PcmType selectedPcmType = PcmType.Undefined)
+        private async void write_BackgroundThread(WriteType writeType, string? path = null, bool useAutoPcmType = true, PcmType selectedPcmType = PcmType.Undefined)
         {
             using (new AwayMode())
             {
@@ -1442,7 +1442,7 @@ namespace PcmHacking
 
         private async void testFileChecksumsToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            string path = this.ShowOpenDialog();
+            string? path = this.ShowOpenDialog();
             if (path == null)
             {
                 return;

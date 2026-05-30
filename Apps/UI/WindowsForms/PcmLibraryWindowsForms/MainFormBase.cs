@@ -21,7 +21,7 @@ namespace PcmHacking
         /// <summary>
         /// The Vehicle object is our interface to the car. It has the device, the message generator, and the message parser.
         /// </summary>
-        private Vehicle vehicle;
+        private Vehicle vehicle = null!;
         protected Vehicle Vehicle { get { return this.vehicle; } }
 
         public virtual void AddDebugMessage(string message) { }
@@ -113,9 +113,9 @@ namespace PcmHacking
             if (this.vehicle != null)
             {
                 this.vehicle.Dispose();
-                this.vehicle = null;
+                this.vehicle = null!;
             }
-            Device device = DeviceFactory.CreateDeviceFromConfigurationSettings(this);
+            Device? device = DeviceFactory.CreateDeviceFromConfigurationSettings(this);
             if (device == null)
             {
                 this.Invoke((MethodInvoker)delegate()
@@ -143,7 +143,7 @@ namespace PcmHacking
 
             if (!await this.InitializeCurrentDevice())
             {
-                this.vehicle = null;
+                this.vehicle = null!;
                 return false;
             }
 

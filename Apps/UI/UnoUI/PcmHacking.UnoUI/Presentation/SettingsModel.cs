@@ -110,8 +110,9 @@ public partial record SettingsModel
         {
 #if WINDOWS
             return true;
-#endif
+#else
             return false;
+#endif
         }
     }
 
@@ -132,7 +133,7 @@ public partial record SettingsModel
         IList<SerialPortListing> portList = new List<SerialPortListing>();
 #if WINDOWS
         IEnumerable<SerialPortInfo> portNames = PortDiscovery.GetPorts(progressLogger);
-        portList = [.. portNames.Where(p => !p.Name.Contains("Standard Serial over Bluetooth link")).Select(x => { return new SerialPortListing { DisplayName = x.ToString(), PortName = x.PortName }; })];
+        portList = [.. portNames.Where(p => !p.Name.Contains("Standard Serial over Bluetooth link")).Select(x => { return new SerialPortListing { DisplayName = x.ToString(), PortName = x.PortName }; })];
 #endif
         portList.Add(new SerialPortListing { DisplayName = MockPort.PortName, PortName = MockPort.PortName });
         // I got an error that this wasn't returning anything, and it would seem that all below is necassary to satisfy. 
@@ -178,18 +179,18 @@ public partial record SettingsModel
 
     private async ValueTask ConnectionSettingsChanged<T>(T newValue, CancellationToken ct)
     {
-        string deviceCategory = await SelectedDeviceType.Value();
-        string portName =
-            deviceCategory == DeviceConstants.DeviceCategorySerial ? (await SelectedObd2Port.Value()).PortName :
+        string deviceCategory = await SelectedDeviceType.Value() ?? string.Empty;
+        string? portName =
+            deviceCategory == DeviceConstants.DeviceCategorySerial ? (await SelectedObd2Port.Value())?.PortName :
             deviceCategory == DeviceConstants.DeviceCategoryJ2534 ? await SelectedJDevice.Value() :
-            deviceCategory == DeviceConstants.DeviceCategoryBT ? await SelectedBluetoothDevice.Value() : "";
+            deviceCategory == DeviceConstants.DeviceCategoryBT ? await SelectedBluetoothDevice.Value() : string.Empty;
 
 
         CurrentSettings currentSettings = new CurrentSettings(
             deviceCategory,
-            portName,
+            portName ?? string.Empty,
             await this.UseCanDevice.Value(),
-            (await this.SelectedCanPort.Value()).PortName ?? "");
+            (await this.SelectedCanPort.Value())?.PortName ?? "");
 
         if (await this.connectionService.TryConnect(currentSettings))
         {

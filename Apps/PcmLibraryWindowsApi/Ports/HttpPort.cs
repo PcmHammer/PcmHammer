@@ -98,7 +98,7 @@ namespace PcmHacking
         /// </summary>
         async Task<int> IPort.Receive(byte[] buffer, int offset, int count)
         {
-            List<byte> lastBuffer = null;
+            List<byte>? lastBuffer = null;
 
             lock (sync)
             {

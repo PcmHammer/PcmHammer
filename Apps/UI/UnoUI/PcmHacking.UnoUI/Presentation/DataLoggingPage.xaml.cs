@@ -12,6 +12,9 @@ public sealed partial class DataLoggingPage : Page
     public DataLoggingPage()
     {
         this.InitializeComponent();
+#if !ANDROID
+        this.RecentFiles.PreviewKeyDown += ListView_KeyDown;
+#endif
     }
 
     private async void RecentFiles_DoubleTapped(object sender, Microsoft.UI.Xaml.Input.DoubleTappedRoutedEventArgs? e)

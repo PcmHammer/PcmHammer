@@ -10,7 +10,7 @@ namespace PcmHacking.UnoUI.Utilities
     // https://devblogs.microsoft.com/oldnewthing/20220505-00/?p=106585
     class TimeoutUtilities
     {
-        private static async Task<T?> DelayedTimeoutExceptionTask<T>(TimeSpan delay, CancellationToken token)
+        private static async Task<T> DelayedTimeoutExceptionTask<T>(TimeSpan delay, CancellationToken token)
         {
             await Task.Delay(delay);
             if (!token.IsCancellationRequested)
@@ -18,7 +18,7 @@ namespace PcmHacking.UnoUI.Utilities
                 throw new TimeoutException();
             }
 
-            return default;
+            return default!;
         }
 
         public static async Task<T> TaskWithTimeoutAndException<T>(

@@ -14,14 +14,14 @@ namespace PcmHacking
     public class ContentLoader
     {
         private readonly string fileName;
-        private readonly string appVersion;
+        private readonly string? appVersion;
         private readonly Assembly assembly;
         private readonly ILogger logger;
         
         /// <summary>
         /// Constructor.
         /// </summary>
-        public ContentLoader(string fileName, string appVersion, Assembly assembly, ILogger logger)
+        public ContentLoader(string fileName, string? appVersion, Assembly assembly, ILogger logger)
         {
             this.fileName = fileName;
             this.appVersion = appVersion;
@@ -33,9 +33,9 @@ namespace PcmHacking
         /// Get content from (in order of preference) network, local cache, or embedded resource.
         /// </summary>
         /// <returns></returns>
-        public async Task<Stream> GetContentStream()
+        public async Task<Stream?> GetContentStream()
         {
-            Stream result = await TryGetContentFromNetwork();
+            Stream? result = await TryGetContentFromNetwork();
             if (result != null)
             {
                 return result;
@@ -81,9 +81,9 @@ namespace PcmHacking
         /// <summary>
         /// Try to get content from the network.
         /// </summary>
-        private async Task<Stream> TryGetContentFromNetwork()
+        private async Task<Stream?> TryGetContentFromNetwork()
         {
-            Stream stream = null;
+            Stream? stream = null;
 
             try
             {
@@ -138,7 +138,7 @@ namespace PcmHacking
         /// <summary>
         /// Try to get content from the local cache.
         /// </summary>
-        private Stream TryGetContentFromCache()
+        private Stream? TryGetContentFromCache()
         {
             string path = GetCacheFilePath();
             try

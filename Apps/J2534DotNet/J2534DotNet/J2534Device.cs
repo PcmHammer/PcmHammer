@@ -28,10 +28,10 @@ namespace J2534DotNet
 {
     public class J2534Device
     {
-        public string Vendor { get; set; }
-        public string Name { get; set; }
-        public string FunctionLibrary { get; set; }
-        public string ConfigApplication { get; set; }
+        public string Vendor { get; set; } = null!;
+        public string Name { get; set; } = null!;
+        public string FunctionLibrary { get; set; } = null!;
+        public string ConfigApplication { get; set; } = null!;
         public int CANChannels { get; set; }
         public int ISO15765Channels { get; set; }
         public int J1850PWMChannels { get; set; }

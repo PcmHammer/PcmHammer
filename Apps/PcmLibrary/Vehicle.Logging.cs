@@ -66,8 +66,8 @@ namespace PcmHacking
                 int position = 1;
                 foreach (LogColumn column in group.LogColumns)
                 {
-                    PidParameter pidParameter = column.Parameter as PidParameter;
-                    RamParameter ramParameter = column.Parameter as RamParameter;
+                    PidParameter? pidParameter = column.Parameter as PidParameter;
+                    RamParameter? ramParameter = column.Parameter as RamParameter;
                     int byteCount;
 
                     if (pidParameter != null)
@@ -215,10 +215,10 @@ namespace PcmHacking
         /// <summary>
         /// Read a dpid response from the PCM.
         /// </summary>
-        public async Task<RawLogData> ReadLogData()
+        public async Task<RawLogData?> ReadLogData()
         {
             Message message;
-            RawLogData result = null;
+            RawLogData? result = null;
 
             for (int attempt = 1; attempt < 5; attempt++)
             {

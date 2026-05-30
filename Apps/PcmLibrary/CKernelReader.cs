@@ -40,7 +40,7 @@ namespace PcmHacking
         /// Read the full contents of the PCM.
         /// Assumes the PCM is unlocked and we're ready to go.
         /// </summary>
-        public async Task<Response<Stream>> ReadContents(CancellationToken cancellationToken, IProgress<ProgressUpdate> progress = null)
+        public async Task<Response<Stream>> ReadContents(CancellationToken cancellationToken, IProgress<ProgressUpdate>? progress = null)
         {
             try
             {
@@ -55,7 +55,7 @@ namespace PcmHacking
                     if (!await this.vehicle.VehicleSetVPW4x(this.pcmInfo, VpwSpeed.FourX))
                     {
                         this.logger.AddUserMessage("Stopping here because we were unable to switch to 4X.");
-                        return Response.Create(ResponseStatus.Error, (Stream)null);
+                        return Response.Create(ResponseStatus.Error, (Stream)null!);
                     }
                 }
                 else
@@ -74,12 +74,12 @@ namespace PcmHacking
                     if (response.Status != ResponseStatus.Success)
                     {
                         logger.AddUserMessage("Failed to load loader from file.");
-                        return new Response<Stream>(response.Status, null);
+                        return new Response<Stream>(response.Status, null!);
                     }
 
                     if (cancellationToken.IsCancellationRequested)
                     {
-                        return Response.Create(ResponseStatus.Cancelled, (Stream)null);
+                        return Response.Create(ResponseStatus.Cancelled, (Stream)null!);
                     }
 
                     await this.vehicle.SendToolPresentNotification();
@@ -90,7 +90,7 @@ namespace PcmHacking
 
                         return new Response<Stream>(
                             cancellationToken.IsCancellationRequested ? ResponseStatus.Cancelled : ResponseStatus.Error,
-                            null);
+                            null!);
                     }
 
                     logger.AddUserMessage("Loader uploaded to PCM successfully.");
@@ -101,12 +101,12 @@ namespace PcmHacking
                 if (response.Status != ResponseStatus.Success)
                 {
                     logger.AddUserMessage("Failed to load kernel from file.");
-                    return new Response<Stream>(response.Status, null);
+                    return new Response<Stream>(response.Status, null!);
                 }
 
                 if (cancellationToken.IsCancellationRequested)
                 {
-                    return Response.Create(ResponseStatus.Cancelled, (Stream)null);
+                    return Response.Create(ResponseStatus.Cancelled, (Stream)null!);
                 }
 
                 await this.vehicle.SendToolPresentNotification();
@@ -115,19 +115,19 @@ namespace PcmHacking
                 {
                     if (cancellationToken.IsCancellationRequested)
                     {
-                        return Response.Create(ResponseStatus.Cancelled, (Stream)null);
+                        return Response.Create(ResponseStatus.Cancelled, (Stream)null!);
                     }
 
                     logger.AddUserMessage("Failed to upload kernel to PCM");
 
-                    return Response.Create(ResponseStatus.Error, (Stream)null);
+                    return Response.Create(ResponseStatus.Error, (Stream)null!);
                 }
 
                 logger.AddUserMessage("Kernel uploaded to PCM successfully. Requesting data...");
 
                 if (cancellationToken.IsCancellationRequested)
                 {
-                    return Response.Create(ResponseStatus.Cancelled, (Stream)null);
+                    return Response.Create(ResponseStatus.Cancelled, (Stream)null!);
                 }
 
                 // Which flash chip?
@@ -135,7 +135,7 @@ namespace PcmHacking
 
                 if (cancellationToken.IsCancellationRequested)
                 {
-                    return Response.Create(ResponseStatus.Cancelled, (Stream)null);
+                    return Response.Create(ResponseStatus.Cancelled, (Stream)null!);
                 }
 
                 FlashChip flashChip = FlashChip.Create(0x12345678, this.logger);
@@ -144,7 +144,7 @@ namespace PcmHacking
                     UInt32 chipId = await this.vehicle.QueryFlashChipId(cancellationToken);
                     if (cancellationToken.IsCancellationRequested)
                     {
-                        return Response.Create(ResponseStatus.Cancelled, (Stream)null);
+                        return Response.Create(ResponseStatus.Cancelled, (Stream)null!);
                     }
 
                     flashChip = FlashChip.Create(chipId, this.logger);
@@ -174,7 +174,7 @@ namespace PcmHacking
                 {
                     if (cancellationToken.IsCancellationRequested)
                     {
-                        return Response.Create(ResponseStatus.Cancelled, (Stream)null);
+                        return Response.Create(ResponseStatus.Cancelled, (Stream)null!);
                     }
 
                     // The read kernel needs a short message here for reasons unknown. Without it, it will RX 2 messages then drop one.
@@ -210,7 +210,7 @@ namespace PcmHacking
                                 "Unable to read block from {0} to {1}",
                                 startAddress,
                                 (startAddress + blockSize) - 1));
-                        return new Response<Stream>(ResponseStatus.Error, null);
+                        return new Response<Stream>(ResponseStatus.Error, null!);
                     }
 
                     startAddress += blockSize;
@@ -268,7 +268,7 @@ namespace PcmHacking
             {
                 this.logger.AddUserMessage("Something went wrong. " + exception.Message);
                 this.logger.AddDebugMessage(exception.ToString());
-                return new Response<Stream>(ResponseStatus.Error, null);
+                return new Response<Stream>(ResponseStatus.Error, null!);
             }
             finally
             {
@@ -286,7 +286,7 @@ namespace PcmHacking
             int startAddress, 
             DateTime startTime,
             CancellationToken cancellationToken,
-             IProgress<ProgressUpdate> progress)
+             IProgress<ProgressUpdate>? progress)
         {
             this.logger.AddDebugMessage(string.Format("Reading from {0} / 0x{0:X}, length {1} / 0x{1:X}", startAddress, length));
 

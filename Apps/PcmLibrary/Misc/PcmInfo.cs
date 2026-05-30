@@ -42,7 +42,7 @@ namespace PcmHacking
         /// <summary>
         /// Descriptive text.
         /// </summary>
-        public string Description { get; private set; }
+        public string Description { get; private set; } = string.Empty;
 
         /// <summary>
         /// Indicates whether this PCM is supported by the app.
@@ -96,7 +96,7 @@ namespace PcmHacking
         /// <summary>
         /// Name of the kernel file to use.
         /// </summary>
-        public string KernelFileName { get; private set; }
+        public string KernelFileName { get; private set; } = string.Empty;
 
         /// <summary>
         /// Base address to begin writing the kernel to.
@@ -106,7 +106,7 @@ namespace PcmHacking
         /// <summary>
         /// Name of the kernel loader file to use.
         /// </summary>
-        public string LoaderFileName { get; private set; }
+        public string LoaderFileName { get; private set; } = string.Empty;
 
         /// <summary>
         /// Base address to begin writing the kernel loader to.

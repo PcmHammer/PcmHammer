@@ -545,7 +545,7 @@ namespace PcmHacking
                 // The list of modules may not be useful after all, but 
                 // checking for an empty list indicates an uncooperative
                 // module on the VPW bus.
-                List<byte> modules = await this.RequestHighSpeedPermission(notifier);
+                List<byte>? modules = await this.RequestHighSpeedPermission(notifier);
                 if (modules == null)
                 {
                     // A device has refused the switch to high speed mode.
@@ -562,13 +562,13 @@ namespace PcmHacking
                 // These responses usually get lost, so this code might be pointless.
                 Stopwatch sw = new Stopwatch();
                 sw.Start();
-                Message response = null;
 
                 // WARNING: The AllPro stopped receiving permission-to-upload messages when this timeout period
-                // was set to 1500ms.  Reducing it to 500 seems to have fixed that problem. 
-                // 
+                // was set to 1500ms.  Reducing it to 500 seems to have fixed that problem.
+                //
                 // It would be nice to find a way to wait equally long with all devices, as refusal messages
-                // are still a potetial source of trouble. 
+                // are still a potetial source of trouble.
+                Message? response = null;
                 while (((response = await this.device.ReceiveMessage()) != null) && (sw.ElapsedMilliseconds < 500))
                 {
                     Response<bool> refused = this.protocol.ParseHighSpeedRefusal(response);
@@ -605,7 +605,7 @@ namespace PcmHacking
         /// <summary>
         /// Ask all of the devices on the VPW bus for permission to switch to 4X speed.
         /// </summary>
-        private async Task<List<byte>> RequestHighSpeedPermission(ToolPresentNotifier notifier)
+        private async Task<List<byte>?> RequestHighSpeedPermission(ToolPresentNotifier notifier)
         {
             Message permissionCheck = this.protocol.CreateHighSpeedPermissionRequest(DeviceId.Broadcast);
             await this.device.SendMessage(permissionCheck);
@@ -614,7 +614,7 @@ namespace PcmHacking
             // So until that gets fixed, we could miss a 'refuse' response and try to switch
             // to 4X anyhow. That just results in an aborted read attempt, with no harm done.
             List<byte> result = new List<byte>();
-            Message response = null;
+            Message? response = null;
             bool anyRefused = false;
             while ((response = await this.device.ReceiveMessage()) != null)
             {

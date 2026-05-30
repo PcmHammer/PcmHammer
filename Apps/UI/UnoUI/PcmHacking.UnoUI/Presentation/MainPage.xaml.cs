@@ -6,7 +6,7 @@ namespace PcmHacking.UnoUI.Presentation;
 public sealed partial class MainPage : Page
 {
 
-    private Windows.System.Display.DisplayRequest _displayRequest;
+    private Windows.System.Display.DisplayRequest _displayRequest = null!;
 
     public MainPage()
     {
@@ -19,7 +19,7 @@ public sealed partial class MainPage : Page
 
     private async void Page_Loaded(object sender, RoutedEventArgs e)
     {
-        XamlRootService.Initialize(this.XamlRoot); 
+        XamlRootService.Initialize(this.XamlRoot!);
         _displayRequest = new Windows.System.Display.DisplayRequest();
 #if ANDROID
         _displayRequest.RequestActive();

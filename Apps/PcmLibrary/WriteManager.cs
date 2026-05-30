@@ -81,7 +81,7 @@ namespace PcmHacking
             bool needUnlock;
             int keyAlgorithm = 1;
             bool shouldHalt;
-            OSIDInfo pcmInfo = null;
+            OSIDInfo? pcmInfo = null;
             bool needToCheckOperatingSystem =
                 (writeType != WriteType.OsPlusCalibrationPlusBoot) &&
                 (writeType != WriteType.Full) &&
@@ -182,7 +182,7 @@ namespace PcmHacking
             }
 
             // Pre flight checks to block invalid write operations by PCM type.
-            if (!pcmInfo.IsSupported)
+            if (!pcmInfo!.IsSupported)
             {
                 string msg = $"Abort: The connected {pcmInfo.HardwareType.ToString()} PCM is not supported.";
                 this.logger.AddUserMessage(msg);

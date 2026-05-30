@@ -23,7 +23,7 @@ namespace PcmHacking
         /// </summary>
         public static string GetVersionOrBuildLine(long buildTimeTicks)
         {
-            string version = GetReleaseVersion();
+            string? version = GetReleaseVersion();
             if (version != null)
                 return $"Version: {version}";
 
@@ -35,9 +35,9 @@ namespace PcmHacking
         /// Returns "Version: x.x.x" for release builds, or null for dev builds where no version is set.
         /// Use this when no build timestamp is available (e.g. Uno multi-target builds).
         /// </summary>
-        public static string GetVersionLine()
+        public static string? GetVersionLine()
         {
-            string version = GetReleaseVersion();
+            string? version = GetReleaseVersion();
             return version != null ? $"Version: {version}" : null;
         }
 
@@ -55,7 +55,7 @@ namespace PcmHacking
         /// AssemblyFileVersion is used to detect whether a release version is set;
         /// AssemblyInformationalVersion is used for display (may include a -Preview suffix).
         /// </summary>
-        private static string GetReleaseVersion()
+        private static string? GetReleaseVersion()
         {
             try
             {

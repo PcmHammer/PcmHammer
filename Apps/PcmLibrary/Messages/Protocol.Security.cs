@@ -82,7 +82,7 @@ namespace PcmHacking
             switch (unlockCode)
             {
                 case Security.Allowed:
-                    errorMessage = null;
+                    errorMessage = null!;
                     return Response.Create(ResponseStatus.Success, true);
 
                 case Security.Denied:

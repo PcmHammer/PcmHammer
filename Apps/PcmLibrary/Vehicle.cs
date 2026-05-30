@@ -141,7 +141,7 @@ namespace PcmHacking
         /// </summary>
         ~Vehicle()
         {
-            this.Dispose(false);
+            _ = this.Dispose(false);
         }
 
         /// <summary>
@@ -149,7 +149,7 @@ namespace PcmHacking
         /// </summary>
         public void Dispose()
         {
-            this.Dispose(true);
+            _ = this.Dispose(true);
             GC.SuppressFinalize(this);
         }
 
@@ -161,7 +161,7 @@ namespace PcmHacking
             if (ShutdownSignalSource.IsCancellationRequested) // Prevent the disposal of the Vehicle class from disposing the device. This can then be held by ConnectionService to be passed back in.
             { 
                 this.device.Dispose();
-                this.device = null;
+                this.device = null!;
             }
         }
 
@@ -433,9 +433,9 @@ namespace PcmHacking
         /// <summary>
         /// Wait for an incoming message.
         /// </summary>
-        private async Task<Message> ReceiveMessage(CancellationToken cancellationToken)
+        private async Task<Message?> ReceiveMessage(CancellationToken cancellationToken)
         {
-            Message response = null;
+            Message? response = null;
 
             for (int pause = 0; pause < 3; pause++)
             {

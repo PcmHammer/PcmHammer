@@ -15,7 +15,7 @@ namespace PcmHacking
         const int CellIndexUnits = 3;
 
         //private Dictionary<string, DataGridViewRow> parameterIdsToRows;
-        private ParameterDatabase database;
+        private ParameterDatabase database = null!;
         private bool suspendSelectionEvents = true;
 
         private void FillParameterGrid()
@@ -112,7 +112,7 @@ namespace PcmHacking
         {
             // This ensures that checkbox changes are committed immediately.
             // By default they are on committed when focus leaves the cell.
-            DataGridViewCheckBoxCell checkBoxCell = this.parameterGrid.CurrentCell as DataGridViewCheckBoxCell;
+            DataGridViewCheckBoxCell? checkBoxCell = this.parameterGrid.CurrentCell as DataGridViewCheckBoxCell;
             if ((checkBoxCell != null) && checkBoxCell.IsInEditMode && this.parameterGrid.IsCurrentCellDirty)
             {
                 this.parameterGrid.EndEdit();
@@ -173,7 +173,7 @@ namespace PcmHacking
                 if ((bool)row.Cells[CellIndexEnable].Value == true)
                 {
                     Parameter parameter = (Parameter)row.Cells[CellIndexParameter].Value;
-                    Conversion conversion = null;
+                    Conversion? conversion = null;
 
                     DataGridViewComboBoxCell cell = (DataGridViewComboBoxCell)(row.Cells[CellIndexUnits]);
                     foreach (Conversion candidate in cell.Items)
@@ -189,7 +189,7 @@ namespace PcmHacking
                     }
 
                     bool zoom = (bool)row.Cells[CellIndexZoom].Value;
-                    LogColumn column = new LogColumn(parameter, conversion, zoom);
+                    LogColumn column = new LogColumn(parameter, conversion!, zoom);
                     this.currentProfile.AddColumn(column);
                 }
             }
@@ -233,7 +233,7 @@ namespace PcmHacking
 
             foreach (DataGridViewRow row in this.parameterGrid.Rows)
             {
-                Parameter parameter = row.Cells[CellIndexParameter].Value as Parameter;
+                Parameter? parameter = row.Cells[CellIndexParameter].Value as Parameter;
                 if (parameter == null)
                 {
                     continue;

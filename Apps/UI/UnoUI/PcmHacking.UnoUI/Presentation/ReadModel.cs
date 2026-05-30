@@ -17,7 +17,7 @@ public partial record ReadModel : IAsyncLogger
     private readonly LoggerAdapter loggerAdapter;
     private readonly IPlatformService platformService;
     private readonly IDispatcher dispatcher;
-    private StorageFile _selectedFile;
+    private StorageFile _selectedFile = null!;
 
     private CancellationTokenSource? tokenSource;
     const string defaultPath = "No file selected.";
@@ -205,7 +205,7 @@ public partial record ReadModel : IAsyncLogger
         }
     }
 
-    private async Task performRead(string path, ConnectionLease lease, ReadManager readManager, IProgress<ProgressUpdate> progress = null)
+    private async Task performRead(string path, ConnectionLease lease, ReadManager readManager, IProgress<ProgressUpdate>? progress = null)
     {
         Stream? readContents = null;
         try
@@ -240,7 +240,7 @@ public partial record ReadModel : IAsyncLogger
         try
         {
             await this.StartEnabled.SetAsync(false);
-            string path = await this.PromptForFileSavePath();
+            string? path = await this.PromptForFileSavePath();
             await this.Path.SetAsync(path);
         }
         finally
@@ -288,7 +288,7 @@ public partial record ReadModel : IAsyncLogger
         await tcs.Task;
     }
 
-    private async Task<string> PromptForFileSavePath()
+    private async Task<string?> PromptForFileSavePath()
     {
         // Open a Save-As dialog to get the file path
         FileSavePicker savePicker = new FileSavePicker();

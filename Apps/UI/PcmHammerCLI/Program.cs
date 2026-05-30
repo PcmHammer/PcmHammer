@@ -23,10 +23,10 @@ namespace PcmHacking
                 return args.Length == 0 ? 1 : 0;
             }
 
-            string operation = null;
-            string filePath = null;
-            string deviceName = null;
-            string deviceCategory = null;
+            string? operation = null;
+            string? filePath = null;
+            string? deviceName = null;
+            string? deviceCategory = null;
             bool listDevices = false;
             bool debug = false;
             int crcPollDelayMs = 50;
@@ -101,7 +101,7 @@ namespace PcmHacking
 
             string kernelDir = ExtractKernels();
 
-            Device device = CreateDevice(deviceCategory, deviceName, logger);
+            Device? device = CreateDevice(deviceCategory, deviceName, logger);
             if (device == null)
             {
                 Console.Error.WriteLine("Error: No device found.");
@@ -111,7 +111,7 @@ namespace PcmHacking
 
             using (new AwayMode())
             {
-                Vehicle vehicle = null;
+                Vehicle? vehicle = null;
                 try
                 {
                     vehicle = await InitializeVehicle(device, logger, kernelDir);
@@ -151,7 +151,7 @@ namespace PcmHacking
                                 logger,
                                 vehicle,
                                 invoke,
-                                () => Task.FromResult<string>(null),
+                                () => Task.FromResult<string?>(null),
                                 () => Task.FromResult(0u),
                                 alert,
                                 promptForYesNo,
@@ -166,7 +166,7 @@ namespace PcmHacking
                                 logger,
                                 vehicle,
                                 invoke,
-                                () => Task.FromResult<string>(null),
+                                () => Task.FromResult<string?>(null),
                                 () => Task.FromResult(0u),
                                 alert,
                                 promptForYesNo,
@@ -186,7 +186,7 @@ namespace PcmHacking
                                 alert,
                                 promptForYesNo,
                                 cts.Token);
-                            success = await writeManager.Write(filePath);
+                            success = await writeManager.Write(filePath!);
                             break;
                         }
                         case "test-write":
@@ -198,7 +198,7 @@ namespace PcmHacking
                                 alert,
                                 promptForYesNo,
                                 cts.Token);
-                            success = await writeManager.Write(filePath);
+                            success = await writeManager.Write(filePath!);
                             break;
                         }
                     }
@@ -236,7 +236,7 @@ namespace PcmHacking
             }
         }
 
-        static Device CreateDevice(string deviceCategory, string deviceName, ILogger logger)
+        static Device? CreateDevice(string? deviceCategory, string? deviceName, ILogger logger)
         {
             // Explicit J2534 by name
             if (deviceCategory == DeviceConfiguration.Constants.DeviceCategoryJ2534 && deviceName != null)

@@ -23,16 +23,16 @@ namespace PcmHacking
         private byte firstByte;
         private bool physical;
         private byte modeByte;
-        private string modeName;
+        private string modeName = null!;
         private byte readWriteBlockId;
-        private string readWriteBlockName;
-        private string header;
-        private string destination;
-        private string sender;
-        private string crcMessage;
+        private string readWriteBlockName = null!;
+        private string header = null!;
+        private string destination = null!;
+        private string sender = null!;
+        private string crcMessage = null!;
         ILogger logger;
 
-        private byte[] responseBuffer;
+        private byte[]? responseBuffer;
 
         public MockPcm(ILogger logger)
         {

@@ -192,7 +192,7 @@ namespace PcmHacking
                 await Task.Delay(50);
             }
 
-            return Response.Create(ResponseStatus.Timeout, (Message)null);
+            return Response.Create(ResponseStatus.Timeout, (Message)null!);
         }
 
         /// <summary>
@@ -255,7 +255,7 @@ namespace PcmHacking
                 if (Chk == false)
                 {
                     this.Logger.AddDebugMessage("Timeout.. no data present A");
-                    return Response.Create(ResponseStatus.Timeout, (Message)null);
+                    return Response.Create(ResponseStatus.Timeout, (Message)null!);
                 }
 
                 //get first byte for command
@@ -264,7 +264,7 @@ namespace PcmHacking
             catch (Exception) // timeout exception - log no data, return error.
             {
                 this.Logger.AddDebugMessage("No Data");
-                return Response.Create(ResponseStatus.Timeout, (Message)null);
+                return Response.Create(ResponseStatus.Timeout, (Message)null!);
             }
 
 
@@ -280,7 +280,7 @@ namespace PcmHacking
                         if (Chk == false)
                         {
                             this.Logger.AddDebugMessage("Timeout.. no data present B");
-                            return Response.Create(ResponseStatus.Timeout, (Message)null);
+                            return Response.Create(ResponseStatus.Timeout, (Message)null!);
                         }
                         await this.Port.Receive(timestampbuf, i, 1);
                     }
@@ -292,7 +292,7 @@ namespace PcmHacking
                     if (Chk == false)
                     {
                         this.Logger.AddDebugMessage("Timeout.. no data present C");
-                        return Response.Create(ResponseStatus.Timeout, (Message)null);
+                        return Response.Create(ResponseStatus.Timeout, (Message)null!);
                     }
                     await this.Port.Receive(rx, 1, 1);
                     Length = rx[1];
@@ -304,7 +304,7 @@ namespace PcmHacking
                     if (Chk == false)
                     {
                         this.Logger.AddDebugMessage("Timeout.. no data present D");
-                        return Response.Create(ResponseStatus.Timeout, (Message)null);
+                        return Response.Create(ResponseStatus.Timeout, (Message)null!);
                     }
                     await this.Port.Receive(rx, 1, 2);
                     Length = (ushort)((ushort)(rx[1] * 0x100) + rx[2]);
@@ -317,7 +317,7 @@ namespace PcmHacking
                 if (Chk == false)
                 {
                     this.Logger.AddDebugMessage("Timeout.. no data present E");
-                    return Response.Create(ResponseStatus.Timeout, (Message)null);
+                    return Response.Create(ResponseStatus.Timeout, (Message)null!);
                 }
                 await this.Port.Receive(rx, 1, 1);
                 Length = rx[1];
@@ -328,7 +328,7 @@ namespace PcmHacking
             if (Chk == false)
             {
                 this.Logger.AddDebugMessage("Timeout.. no data present F");
-                return Response.Create(ResponseStatus.Timeout, (Message)null);
+                return Response.Create(ResponseStatus.Timeout, (Message)null!);
             }
 
             int bytes;
@@ -339,7 +339,7 @@ namespace PcmHacking
             if (bytes <= 0)
             {
                 this.Logger.AddDebugMessage("Failed reading " + Length + " byte packet");
-                return Response.Create(ResponseStatus.Error, (Message)null);
+                return Response.Create(ResponseStatus.Error, (Message)null!);
             }
             //should have entire frame now
             //verify checksum correct
@@ -361,7 +361,7 @@ namespace PcmHacking
             {
                 this.Logger.AddDebugMessage("Total Length Data=" + Length + " RX: " + receive.ToHex());
                 this.Logger.AddDebugMessage("Checksum error on received message.");
-                return null;
+                return Response.Create(ResponseStatus.Error, (Message)null!);
             }
 
             // this.Logger.AddDebugMessage("Total Length Data=" + Length + " RX: " + receive.ToHex());
@@ -375,7 +375,7 @@ namespace PcmHacking
 
                 // This can be useful for debugging, but is generally too noisy.
                 // this.Logger.AddDebugMessage("RX: " + StrippedFrame.ToHex());
-                return null;
+                return Response.Create(ResponseStatus.UnexpectedResponse, (Message)null!);
             }
             else if (receive[0] == 0x7F)
             {
@@ -519,7 +519,7 @@ namespace PcmHacking
             await this.Port.Send(SendPacket);
 
             // Wait for confirmation of successful send
-            Response<Message> m = null;
+            Response<Message>? m = null;
 
             for (int attempt = 0; attempt < 10; attempt++)
             {
@@ -687,7 +687,7 @@ namespace PcmHacking
             else
             {
                 this.Logger.AddUserMessage("OBDX Pro device not found or failed response");
-                return new Response<String>(ResponseStatus.Error, null);
+                return new Response<String>(ResponseStatus.Error, null!);
             }
             Details = ToolConnected;
 
@@ -721,7 +721,7 @@ namespace PcmHacking
             else
             {
                 this.Logger.AddUserMessage("Unable to read firmware version");
-                return new Response<String>(ResponseStatus.Error, null);
+                return new Response<String>(ResponseStatus.Error, null!);
             }
 
             //Hardware version
@@ -748,7 +748,7 @@ namespace PcmHacking
             else
             {
                 this.Logger.AddUserMessage("Unable to read hardware version");
-                return new Response<String>(ResponseStatus.Error, null);
+                return new Response<String>(ResponseStatus.Error, null!);
             }
 
 
@@ -770,7 +770,7 @@ namespace PcmHacking
             else
             {
                 this.Logger.AddUserMessage("Unable to read unique Serial");
-                return new Response<String>(ResponseStatus.Error, null);
+                return new Response<String>(ResponseStatus.Error, null!);
             }
         }
 

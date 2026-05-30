@@ -16,7 +16,7 @@ namespace PcmHacking
         private ILogger logger;
         private Vehicle vehicle;
         private Func<Action, Task> invoke;
-        private Func<Task<string>> promptForFilePath;
+        private Func<Task<string?>> promptForFilePath;
         private Func<Task<UInt32>> promptForOperatingSystemId;
         private Func<string, string, Task> alert;
         private Func<string, string, Task<bool>> promptForYesNo;
@@ -28,7 +28,7 @@ namespace PcmHacking
             ILogger logger, 
             Vehicle vehicle,
             Func<Action, Task> invoke, 
-            Func<Task<string>> promptForFilePath,
+            Func<Task<string?>> promptForFilePath,
             Func<Task<UInt32>> promptForOperatingSystemId,
             Func<string, string, Task> alert,
             Func<string, string, Task<bool>> promptForYesNo,
@@ -47,7 +47,7 @@ namespace PcmHacking
 
         public async Task<bool> Read(string path, PcmType forcedPcmType = PcmType.Undefined)
         {
-            Response<Stream> readResponse = await RunRead(null, forcedPcmType);
+            Response<Stream>? readResponse = await RunRead(null, forcedPcmType);
             if (readResponse == null || readResponse.Value == null)
             {
                 return false;
@@ -85,8 +85,9 @@ namespace PcmHacking
                     this.logger.AddUserMessage("Unable to save file: " + exception.Message);
                     this.logger.AddDebugMessage(exception.ToString());
 
-                    await this.invoke(async () => path = await this.promptForFilePath());
-                    if (path == null)
+                    string? newPath = null;
+                    await this.invoke(async () => newPath = await this.promptForFilePath());
+                    if (newPath == null)
                     {
                         this.logger.AddUserMessage("Save canceled.");
 
@@ -94,6 +95,7 @@ namespace PcmHacking
                         // really matter that the user chose not to keep the file.
                         return true;
                     }
+                    path = newPath;
                 }
             }
         }
@@ -104,7 +106,7 @@ namespace PcmHacking
         /// <returns>The stream on success or unverified read; null on failure or abort.</returns>
         public async Task<Stream?> Read(IProgress<ProgressUpdate>? progress = null, PcmType forcedPcmType = PcmType.Undefined)
         {
-            Response<Stream> readResponse = await RunRead(progress, forcedPcmType);
+            Response<Stream>? readResponse = await RunRead(progress, forcedPcmType);
             if (readResponse == null || readResponse.Value == null)
             {
                 return null;
@@ -124,7 +126,7 @@ namespace PcmHacking
             return Path.Combine(dir, name + "_badread" + ext);
         }
 
-        private async Task<Response<Stream>> RunRead(IProgress<ProgressUpdate>? progress, PcmType forcedPcmType)
+        private async Task<Response<Stream>?> RunRead(IProgress<ProgressUpdate>? progress, PcmType forcedPcmType)
         {
             OSIDInfo pcmInfo;
             if (forcedPcmType != PcmType.Undefined)

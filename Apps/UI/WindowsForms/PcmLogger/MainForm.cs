@@ -15,14 +15,14 @@ namespace PcmHacking
         private bool saving;
         private object loggingLock = new object();
         private bool logStopRequested;
-        private TaskScheduler uiThreadScheduler;
+        private TaskScheduler uiThreadScheduler = null!;
         private uint osid;
 
         private const string appName = "PCM Logger";
         private const string defaultFileName = "New Profile";
         private string fileName = defaultFileName;
 
-        private string canPortName;
+        private string? canPortName;
 
         /// <summary>
         /// Constructor

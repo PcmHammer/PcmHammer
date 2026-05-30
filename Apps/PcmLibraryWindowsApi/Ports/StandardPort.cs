@@ -18,13 +18,13 @@ namespace PcmHacking
     public class StandardPort : IPort
     {
         private string name;
-        private SerialPort port;
+        private SerialPort? port;
 
         /// <summary>
         /// This is an experiment that did not end well the first time, but I still think it should work.
         /// </summary>
         // private Action<object, SerialDataReceivedEventArgs> dataReceivedCallback;
-        Action<byte[], int> dataReceived;
+        Action<byte[], int>? dataReceived;
 
         /// <summary>
         /// Constructor.
@@ -58,7 +58,7 @@ namespace PcmHacking
             {
                 this.port.Dispose();
             }
-            SerialPortConfiguration config = configuration as SerialPortConfiguration;
+            SerialPortConfiguration config = (SerialPortConfiguration)configuration;
             this.port = new SerialPort(this.name);
             this.port.BaudRate = config.BaudRate;
             this.port.DataBits = 8;
@@ -100,7 +100,7 @@ namespace PcmHacking
                     int bytesReceived = await this.port.BaseStream.ReadAsync(buffer, 0, buffer.Length);
                     if (bytesReceived > 0)
                     {
-                        this.dataReceived(buffer, bytesReceived);
+                        this.dataReceived?.Invoke(buffer, bytesReceived);
                     }
                 }
                 catch(Exception exception)
@@ -117,7 +117,7 @@ namespace PcmHacking
 
         public Task ChangeBaudRate(int baudRate)
         {
-            this.port.BaudRate = baudRate;
+            this.port!.BaudRate = baudRate;
             this.port.DiscardInBuffer();
             return Task.CompletedTask;
         }
@@ -140,7 +140,7 @@ namespace PcmHacking
         async Task IPort.Send(byte[] buffer)
         {
 
-            await this.port.BaseStream.WriteAsync(buffer, 0, buffer.Length).AwaitWithTimeout(TimeSpan.FromSeconds(5));
+            await this.port!.BaseStream.WriteAsync(buffer, 0, buffer.Length).AwaitWithTimeout(TimeSpan.FromSeconds(5));
 
             // This flush is probably not strictly necessary, but just in case...
             await this.port.BaseStream.FlushAsync().AwaitWithTimeout(TimeSpan.FromSeconds(5));
@@ -154,8 +154,8 @@ namespace PcmHacking
             try
             {
                 return TimeoutUtilities.TaskWithTimeoutAndException(
-                    Task.Run(() => this.port.Read(buffer, offset, count)),
-                    TimeSpan.FromMilliseconds(this.port.ReadTimeout));
+                    Task.Run(() => this.port!.Read(buffer, offset, count)),
+                    TimeSpan.FromMilliseconds(this.port!.ReadTimeout));
             } catch (TimeoutException) 
             {
                 return Task.FromResult(0);
@@ -167,7 +167,7 @@ namespace PcmHacking
         /// </summary>
         public Task DiscardBuffers()
         {
-            this.port.DiscardInBuffer();
+            this.port!.DiscardInBuffer();
             this.port.DiscardOutBuffer();
             return Task.FromResult(0);
         }
@@ -177,7 +177,7 @@ namespace PcmHacking
         /// </summary>
         public void SetTimeout(int milliseconds)
         {
-            this.port.ReadTimeout = milliseconds;
+            this.port!.ReadTimeout = milliseconds;
         }
 
         /// <summary>
@@ -188,8 +188,8 @@ namespace PcmHacking
             if (args.EventType == SerialData.Chars)
             {
                 byte[] buffer = new byte[1000];
-                int bytesReceived = await this.port.BaseStream.ReadAsync(buffer, 0, buffer.Length);
-                this.dataReceived(buffer, bytesReceived);
+                int bytesReceived = await this.port!.BaseStream.ReadAsync(buffer, 0, buffer.Length);
+                this.dataReceived?.Invoke(buffer, bytesReceived);
 
             }
         }
@@ -199,7 +199,7 @@ namespace PcmHacking
         /// </summary>
         Task<int> IPort.GetReceiveQueueSize()
         {
-            return Task.FromResult(this.port.BytesToRead);
+            return Task.FromResult(this.port!.BytesToRead);
         }
     }
 }

@@ -232,7 +232,7 @@ public partial record DumpRamModel : IAsyncLogger
         try
         {
             await this.StartEnabled.SetAsync(false);
-            string path = await this.PromptForFileSavePath();
+            string? path = await this.PromptForFileSavePath();
             await this.Path.SetAsync(path);
         }
         finally
@@ -259,7 +259,7 @@ public partial record DumpRamModel : IAsyncLogger
         await tcs.Task;
     }
 
-    private async Task<string> PromptForFileSavePath()
+    private async Task<string?> PromptForFileSavePath()
     {
         // Open a Save-As dialog to get the file path
         FileSavePicker savePicker = new FileSavePicker();

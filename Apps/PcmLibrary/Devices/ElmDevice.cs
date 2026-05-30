@@ -23,7 +23,7 @@ namespace PcmHacking
         /// <summary>
         /// This will be initalized after discovering which device is actually connected at the moment.
         /// </summary>
-        private ElmDeviceImplementation implementation = null;
+        private ElmDeviceImplementation? implementation = null;
 
         /// <summary>
         /// Constructor.
@@ -93,14 +93,14 @@ namespace PcmHacking
                 }
 
                 // These are shared by all ELM-based devices.
-                if (!await this.implementation.SendAndVerify("AT AL", "OK") ||               // Allow Long packets
+                if (!await this.implementation!.SendAndVerify("AT AL", "OK") ||               // Allow Long packets
                     !await this.implementation.SendAndVerify("AT SP2", "OK") ||              // Set Protocol 2 (VPW)
                     !await this.implementation.SendAndVerify("AT DP", "SAE J1850 VPW") ||    // Get Protocol (Verify VPW)
                     !await this.implementation.SendAndVerify("AT AR", "OK") ||               // Turn Auto Receive on (default should be on anyway)
                     !await this.implementation.SendAndVerify("AT AT0", "OK") ||              // Disable adaptive timeouts
                     !await this.implementation.SendAndVerify("AT SR " + DeviceId.Tool.ToString("X2"), "OK") || // Set receive filter to this tool ID
                     !await this.implementation.SendAndVerify("AT H1", "OK") ||               // Send headers
-                    !await this.implementation.SendAndVerify("AT ST 20", "OK")               // Set timeout (will be adjusted later, too)                 
+                    !await this.implementation.SendAndVerify("AT ST 20", "OK")               // Set timeout (will be adjusted later, too)
                     )
                 {
                     return false;
@@ -178,7 +178,7 @@ namespace PcmHacking
         /// </summary>
         public override async Task<bool> SendMessage(Message message)
         {
-            return await this.implementation.SendMessage(message);
+            return await this.implementation!.SendMessage(message);
         }
 
         /// <summary>
@@ -187,7 +187,7 @@ namespace PcmHacking
         /// <returns></returns>
         protected override async Task Receive()
         {
-            await this.implementation.Receive();
+            await this.implementation!.Receive();
         }
 
         /// <summary>
@@ -201,13 +201,13 @@ namespace PcmHacking
             if (newSpeed == VpwSpeed.Standard)
             {
                 this.Logger.AddDebugMessage("AllPro setting VPW 1X");
-                if (!await this.implementation.SendAndVerify("AT VPW1", "OK"))
+                if (!await this.implementation!.SendAndVerify("AT VPW1", "OK"))
                     return false;
             }
             else
             {
                 this.Logger.AddDebugMessage("AllPro setting VPW 4X");
-                if (!await this.implementation.SendAndVerify("AT VPW4", "OK"))
+                if (!await this.implementation!.SendAndVerify("AT VPW4", "OK"))
                     return false;
             }
 
@@ -224,12 +224,12 @@ namespace PcmHacking
 
         public override Task<bool> IsCommandBroadcasting(byte command)
         {
-            return this.implementation?.IsCommandBroadcasting(command);
+            return this.implementation?.IsCommandBroadcasting(command) ?? Task.FromResult(false);
         }
 
         public override async Task<bool> CheckDeviceConnection()
         {
-            string elmID = await this.implementation.SendRequest("AT I");                // Identify (ELM)
+            string elmID = await this.implementation!.SendRequest("AT I");                // Identify (ELM)
             if (elmID != "?" || !string.IsNullOrEmpty(elmID))
             {
                 return true;

@@ -65,10 +65,8 @@
             Grid.Column="0"            
             Name="RecentFiles" 
             ItemsSource="{Binding RecentFiles}"
-            IsDoubleTapEnabled="true"
             Tapped="RecentFiles_Tapped"
-            DoubleTapped="RecentFiles_DoubleTapped" 
-            PreviewKeyDown="ListView_KeyDown"
+            DoubleTapped="RecentFiles_DoubleTapped"
             IsTabStop="true">
 
             <ListView.ItemTemplate>

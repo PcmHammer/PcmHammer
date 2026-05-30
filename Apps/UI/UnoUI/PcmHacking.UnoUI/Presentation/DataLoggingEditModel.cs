@@ -14,7 +14,7 @@ public partial record DataLoggingEditModel
     public IState<bool> Zoom => State<bool>.Value(this, () => false);
     public IState<string> Prompt => State<string>.Value(this, () => string.Empty);
     public IState<string> Filter => State<string>.Value(this, () => string.Empty).ForEach(async (text, ct) => await UpdateParameterList(text));
-    public IState<Parameter?> SelectedParameter => State<Parameter>.Value(this, () => null);
+    public IState<Parameter> SelectedParameter => State<Parameter>.Value(this, () => null!);
     public IState<Visibility> DeleteButtonVisibility => State<Visibility>.Value(this, ()=> Visibility.Visible);
 
     public DataLoggingEditModel(
@@ -106,7 +106,7 @@ public partial record DataLoggingEditModel
 
         var zoom = await this.Zoom.Value();
 
-        if (this.editContext == null)
+        if (this.editContext == null || selectedParameter == null || selectedConversion == null)
         {
             return;
         }

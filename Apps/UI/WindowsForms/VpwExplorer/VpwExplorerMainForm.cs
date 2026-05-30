@@ -15,7 +15,7 @@ namespace PcmHacking
 {
     public partial class PcmExplorerMainForm : MainFormBase
     {
-        private TaskScheduler uiThreadScheduler;
+        private TaskScheduler uiThreadScheduler = null!;
 
         public PcmExplorerMainForm()
         {
@@ -143,7 +143,7 @@ namespace PcmHacking
         {
             string messageText = this.message.Text;
             StringReader reader = new StringReader(messageText);
-            string line = null;
+            string? line = null;
             while ((line = reader.ReadLine()) != null)
             {
                 line = line.Trim();

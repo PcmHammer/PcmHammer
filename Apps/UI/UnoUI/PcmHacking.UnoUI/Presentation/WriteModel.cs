@@ -24,7 +24,9 @@ public partial record WriteModel : IAsyncLogger
     private readonly LoggerAdapter loggerAdapter;
     private readonly IPlatformService platformService;
     private readonly IDispatcher dispatcher;
-    private byte[] _fileBuffer;
+#pragma warning disable CS0414
+    private byte[] _fileBuffer = Array.Empty<byte>();
+#pragma warning restore CS0414
 
     private CancellationTokenSource? tokenSource;
     const string defaultPath = "No file selected.";
@@ -275,7 +277,7 @@ public partial record WriteModel : IAsyncLogger
 #else
         if (writeManager.Write(path).Result)
         {
-            this.AddUserMessage("Write succeeded!");
+            await this.AddUserMessage("Write succeeded!");
             this.tokenSource = null;
             await this.EnableControls(false);
         }
@@ -324,9 +326,10 @@ public partial record WriteModel : IAsyncLogger
         _fileBuffer = openedFile.AsStream().ToMemoryStream().ToArray();
         openedFile.Dispose();
         return file.Name;
-#endif
-        _fileBuffer = null;
+#else
+        _fileBuffer = Array.Empty<byte>();
         return file.Path;
+#endif
     }
 
     private Task Alert(string message, string title)
