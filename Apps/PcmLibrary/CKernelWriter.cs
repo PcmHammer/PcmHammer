@@ -245,8 +245,14 @@ namespace PcmHacking
 
             // Which flash chip?
             await this.vehicle.SendToolPresentNotification();
-            UInt32 chipId = await this.vehicle.QueryFlashChipId(cancellationToken);
-            FlashChip flashChip = FlashChip.Create(chipId, this.logger);
+            Response<UInt32> chipIdResponse = await this.vehicle.QueryFlashChipId(cancellationToken);
+            if (chipIdResponse.Status != ResponseStatus.Success)
+            {
+                await this.vehicle.Cleanup();
+                return false;
+            }
+
+            FlashChip flashChip = FlashChip.Create(chipIdResponse.Value, this.logger);
             logger.AddUserMessage("Flash chip: " + flashChip.ToString());
 
             // A P10/P11 can have a 1Mb chip while using 512KiB images, so that can be allowed

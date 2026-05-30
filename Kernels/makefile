@@ -12,7 +12,8 @@ LD = $(PREFIX)ld
 OBJCOPY = $(PREFIX)objcopy
 OBJDUMP = $(PREFIX)objdump
 
-CCFLAGS = -c -fomit-frame-pointer -std=gnu99 -mcpu=68332 -D$(pcm)
+BUILD_EPOCH := $(shell date +%s)
+CCFLAGS = -c -fomit-frame-pointer -std=gnu99 -mcpu=68332 -D$(pcm) -DBUILD_EPOCH=$(BUILD_EPOCH)
 LDFLAGS =
 DUMPFLAGS = -d -S
 COPYFLAGS = -O binary

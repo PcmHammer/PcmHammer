@@ -346,6 +346,11 @@ ProcessCRCBitLoop:
 
 ProcessCRCMainLoopCheck:
     bsr.w   ResetWatchdog              | Scratch the dog
+    move.b  (J1850_Status).l, %d1     | Check RFS - any data in FIFO?
+    andi.b  #0xE0, %d1                | Mask RFS bits 7:5
+    beq.s   ProcessCRCMainLoopNoRX    | FIFO empty, skip drain
+    move.b  (J1850_RX_FIFO).l, %d1   | Drain one byte to prevent FIFO overflow
+ProcessCRCMainLoopNoRX:
     cmpa.l  %a1, %a2                   | Is byte < nBytes?
     bne.s   ProcessCRCMainLoop         | If not, iterate main loop
 

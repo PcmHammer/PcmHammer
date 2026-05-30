@@ -141,13 +141,18 @@ namespace PcmHacking
                 FlashChip flashChip = FlashChip.Create(0x12345678, this.logger);
                 if (this.pcmInfo.FlashIDSupport)
                 {
-                    UInt32 chipId = await this.vehicle.QueryFlashChipId(cancellationToken);
-                    if (cancellationToken.IsCancellationRequested)
+                    Response<UInt32> chipIdResponse = await this.vehicle.QueryFlashChipId(cancellationToken);
+                    if (chipIdResponse.Status == ResponseStatus.Cancelled)
                     {
                         return Response.Create(ResponseStatus.Cancelled, (Stream)null!);
                     }
 
-                    flashChip = FlashChip.Create(chipId, this.logger);
+                    if (chipIdResponse.Status != ResponseStatus.Success)
+                    {
+                        return Response.Create(ResponseStatus.Error, (Stream)null!);
+                    }
+
+                    flashChip = FlashChip.Create(chipIdResponse.Value, this.logger);
                     logger.AddUserMessage("Flash chip: " + flashChip.ToString());
                 }
 
