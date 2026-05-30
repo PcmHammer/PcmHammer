@@ -117,7 +117,12 @@ namespace PcmHacking
                     }
                 }
 
-                logger.AddDebugMessage("Loaded " + path);
+                using (var md5 = System.Security.Cryptography.MD5.Create())
+                {
+                    string hash = BitConverter.ToString(md5.ComputeHash(file)).Replace("-", "");
+                    logger.AddUserMessage($"Loaded {Path.GetFileName(path)} ({file.Length} bytes)");
+                    logger.AddUserMessage($"Kernel MD5={hash}");
+                }
             }
             catch (ArgumentException)
             {
@@ -281,12 +286,20 @@ namespace PcmHacking
         /// Check for a running kernel.
         /// </summary>
         /// <returns></returns>
-        public async Task<UInt32> GetKernelVersion(int maxRetries = 5)
+        public static string FormatKernelVersion(UInt64 v)
+        {
+            uint epoch = (uint)((v >> 8) & 0xFFFFFFFF);
+            byte pcmType = (byte)(v & 0xFF);
+            var dt = DateTimeOffset.FromUnixTimeSeconds(epoch).UtcDateTime;
+            return $"{dt:yyyy/MM/dd HH:mm:ss} PCM=0x{pcmType:X2}";
+        }
+
+        public async Task<UInt64> GetKernelVersion(int maxRetries = 5)
         {
             return await this.GetKernelVersion(CancellationToken.None);
         }
 
-        public async Task<UInt32> GetKernelVersion(CancellationToken cancellationToken, int maxRetries = 5)
+        public async Task<UInt64> GetKernelVersion(CancellationToken cancellationToken, int maxRetries = 5)
         {
             Message query = this.protocol.CreateKernelVersionQuery();
             for (int retryCount = 0; retryCount < maxRetries; retryCount++)
@@ -309,7 +322,7 @@ namespace PcmHacking
                     continue;
                 }
 
-                Response<UInt32> response = this.protocol.ParseKernelVersion(reply);
+                Response<UInt64> response = this.protocol.ParseKernelVersion(reply);
                 if ((response.Status == ResponseStatus.Success) && (response.Value != 0))
                 {
                     return response.Value;
@@ -465,7 +478,7 @@ namespace PcmHacking
 
             if (ReportKernelID && info.KernelVersionSupport)
             {
-                UInt32 kernelVersion = await this.GetKernelVersion(cancellationToken);
+                UInt64 kernelVersion = await this.GetKernelVersion(cancellationToken);
                 if (cancellationToken.IsCancellationRequested)
                 {
                     return false;
@@ -476,7 +489,7 @@ namespace PcmHacking
                     this.logger.AddUserMessage($"{(info.LoaderRequired ? "Loader" : "Kernel")} failed to start.");
                     return false;
                 }
-                this.logger.AddUserMessage($"{(info.LoaderRequired ? "Loader" : "Kernel")} Version: {kernelVersion.ToString("X8")}");
+                this.logger.AddUserMessage($"{(info.LoaderRequired ? "Loader" : "Kernel")} Version: {FormatKernelVersion(kernelVersion)}");
             }
 
             if (info.LoaderRequired)

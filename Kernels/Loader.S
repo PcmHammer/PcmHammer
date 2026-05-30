@@ -82,19 +82,19 @@ WasteTime:
 ProcessKernelID:
     movea.l #KernelIDReply, %a0        | Pointer to KernelIDReply buffer
 #if defined P01
-    move.b  #0x01, 8(%a0)              | P01, P59
+    move.b  #0x01, 9(%a0)              | P01, P59
 #elif defined P04
-    move.b  #0x04, 8(%a0)              | P04
+    move.b  #0x04, 9(%a0)              | P04
 #elif defined P08
-    move.b  #0x08, 8(%a0)              | P08
+    move.b  #0x08, 9(%a0)              | P08
 #elif defined P10
-    move.b  #0x0A, 8(%a0)              | P10
+    move.b  #0x0A, 9(%a0)              | P10
 #elif defined P12
-    move.b  #0x0C, 8(%a0)              | P12
+    move.b  #0x0C, 9(%a0)              | P12
 #elif defined E54
-    move.b  #0x36, 8(%a0)              | E54
+    move.b  #0x36, 9(%a0)              | E54
 #endif
-    move.l  #9, %d0                    | It's 9 bytes long
+    move.l  #10, %d0                   | It's 10 bytes long
     bsr.w   VPWSend                    | Send it
     jmp     MainLoop                   | Return to MainLoop
 
@@ -265,15 +265,18 @@ VPWReceiveRTS:
 .ascii "(c)2023 pcmhacking.net" | An Antus / Gampy collaboration
 | All AA bytes are padding for alignment
 
-| Kernel ID Response, 9 bytes + 1 alignment
-| 4 bytes, the first 12 bits are a static ID, next 12 bits are version, 4th byte = PCM ID
+| Kernel ID Response, 10 bytes + 1 alignment
+| Bytes 5-8: build timestamp as Unix epoch uint32 big-endian (set by Build.cmd via BUILD_EPOCH)
+| Byte 9: PCM type ID (written at runtime by ProcessKernelID)
 | P01/P59 = 01
 | P04     = 04
 | P08     = 08
 | P10     = 0A
 | P12     = 0C
 | E54     = 36
-KernelIDReply:  .byte  0x6C, toolid, pcmid, 0x7D, 0x00, 0x69, 0x00, 0x01, 0x00, 0xAA
+KernelIDReply:  .byte  0x6C, toolid, pcmid, 0x7D, 0x00
+                .long  BUILD_EPOCH
+                .byte  0x00, 0xAA
 
 | Mode34 Reply, 6 bytes - 6C F0 10 74 00 44, Default Success
 Mode34Reply:    .byte  0x6C, toolid, pcmid, 0x74, 0x00, 0x44

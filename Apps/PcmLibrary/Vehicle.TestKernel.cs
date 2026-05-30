@@ -68,7 +68,7 @@ namespace PcmHacking
 
                     logger.AddUserMessage("Test kernel found.");
 
-                    UInt32 kernelVersion = 0;
+                    UInt64 kernelVersion = 0;
                     int keyAlgorithm = 1; // default, will work for most factory operating systems.
                     Response<uint> osidResponse = await this.QueryOperatingSystemId(cancellationToken);
                     if (osidResponse.Status != ResponseStatus.Success)
@@ -254,7 +254,7 @@ namespace PcmHacking
                 Message vr = await this.device.ReceiveMessage();
                 if (vr != null)
                 {
-                    Response<UInt32> resp = this.protocol.ParseKernelVersion(vr);
+                    Response<UInt64> resp = this.protocol.ParseKernelVersion(vr);
                     if (resp.Status == ResponseStatus.Success)
                     {
                         this.logger.AddDebugMessage("Got Kernel Version");

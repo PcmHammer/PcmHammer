@@ -8,15 +8,17 @@ goto beginning
 * Name         : Build.cmd
 * Description  : Build PcmHammer's kernel with options, most specifically the kernel base address.
 * Author       : Gampy <pcmhacking.net>
-* Authored Date: 11/16/2018
-* Revision Date: 05/19/2020 - Gampy <pcmhacking.net> Cleanup for publication.
-* Revision Date: 04/01/2022 - Gampy <pcmhacking.net> Added -t<PCM Type>, added -r dump kernel RAM map.
-* Revision Date: 04/14/2022 - Gampy <pcmhacking.net> Fixed ld map dump.
-* Revision Date: 03/01/2023 - Gampy <pcmhacking.net> Merged P04, swapped -p & -t, removed -r, reworked
+* Authored Date: 2026-11-16
+* Revision Date: 2026-05-19 - Gampy <pcmhacking.net> Cleanup for publication.
+* Revision Date: 2026-04-01 - Gampy <pcmhacking.net> Added -t<PCM Type>, added -r dump kernel RAM map.
+* Revision Date: 2026-04-14 - Gampy <pcmhacking.net> Fixed ld map dump.
+* Revision Date: 2026-03/01 - Gampy <pcmhacking.net> Merged P04, swapped -p & -t, removed -r, reworked
 *                                                    for ease of adding new kernels, see NOTES:.
-* Revision Date: 03/25/2023 - Gampy <pcmhacking.net> Added Assembly Kernel and Kernel Loader.
+* Revision Date: 2023-03-25 - Gampy <pcmhacking.net> Added Assembly Kernel and Kernel Loader.
 *                                                    Added -l Kernel Loader Address.
 *                                                    Added -x Build Assembly Kernel and or Loader.
+* Revision Date: 2026-05-30 - Antus <pcmhacking.net> Generate an epoc to embed in the kernel as a version/build time stamp
+
 *
 * Authors disclaimer
 *   It is what it is, you can do with it as you please. (with respect)
@@ -207,20 +209,24 @@ rem * Create PCM specific object file list from CFiles-<PCM>.list
   setlocal disabledelayedexpansion
 )
 
+rem *** Build timestamp as Unix epoch (seconds since 1970-01-01 UTC)
+for /f %%a in ('powershell "[DateTimeOffset]::UtcNow.ToUnixTimeSeconds()"') do set BUILD_EPOCH=%%a
+set BUILD_DEFS=-DBUILD_EPOCH=%BUILD_EPOCH%
+
 rem *** All that for this ...
 
 if not defined ASSEMBLY_KERNEL (
   rem ***
   rem *** C Kernel
   rem ***
-  "%GCC_LOCATION%\m68k-elf-gcc.exe" -c -D=%PCM% -fomit-frame-pointer -std=gnu99 -mcpu=68332 -O0 Kernel-%PCM%.c @CFiles-%PCM%.list
+  "%GCC_LOCATION%\m68k-elf-gcc.exe" -c -D=%PCM% %BUILD_DEFS% -fomit-frame-pointer -std=gnu99 -mcpu=68332 -O0 Kernel-%PCM%.c @CFiles-%PCM%.list
   if %errorlevel% neq 0 goto :EOF
 
   rem * Create PCM specific Linker Script (.ld).
   rem *** WARNING! Redirections (>) break inside if statements and do ugly things to the environment!
   rem *** If you get brave and test the above mentioned issue, be sure to use a new command interpreter each time, for it does corrupt it!
   rem *** To get around this, we'll do it in another environment, thus no if statement, thus no issue.
-  call CreateCKernelPCMSpecificLinkerScript.cmd %PCM%
+  call "%~dp0CreateCKernelPCMSpecificLinkerScript.cmd" %PCM%
 
   "%GCC_LOCATION%\m68k-elf-ld.exe" --section-start .kernel_code=0x%BASE_ADDRESS% -T LinkerScript.tmp %DUMPMAP% -o Kernel-%PCM%.elf Kernel-%PCM%.o %OLIST%
   if %errorlevel% neq 0 goto :EOF
@@ -241,7 +247,7 @@ if not defined ASSEMBLY_KERNEL (
   )
 ) else (
   rem *** Builds the Assembly kernel
-  "%GCC_LOCATION%\m68k-elf-gcc.exe" -c -D=%PCM% -fomit-frame-pointer -std=gnu99 -mcpu=68332 -O0 Kernel.S
+  "%GCC_LOCATION%\m68k-elf-gcc.exe" -c -D=%PCM% %BUILD_DEFS% -fomit-frame-pointer -std=gnu99 -mcpu=68332 -O0 Kernel.S
   if %errorlevel% neq 0 goto :EOF
 
   "%GCC_LOCATION%\m68k-elf-ld.exe" --section-start .text=0x%BASE_ADDRESS% -T Kernel.ld %DUMPMAP% -o Kernel-%PCM%.elf Kernel.o
@@ -263,7 +269,7 @@ if not defined ASSEMBLY_KERNEL (
   rem *** Handle the Kernel Loader
   if defined LOADER_ADDRESS (
     rem *** All that for this ...
-    "%GCC_LOCATION%\m68k-elf-gcc.exe" -c -D=%PCM% -fomit-frame-pointer -std=gnu99 -mcpu=68332 -O0 Loader.S
+    "%GCC_LOCATION%\m68k-elf-gcc.exe" -c -D=%PCM% %BUILD_DEFS% -fomit-frame-pointer -std=gnu99 -mcpu=68332 -O0 Loader.S
     if %errorlevel% neq 0 goto :EOF
 
     "%GCC_LOCATION%\m68k-elf-ld.exe" --section-start .text=0x%LOADER_ADDRESS% -T Loader.ld %DUMPMAP% -o Loader-%PCM%.elf Loader.o

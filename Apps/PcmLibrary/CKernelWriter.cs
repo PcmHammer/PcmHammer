@@ -46,7 +46,7 @@ namespace PcmHacking
         /// </summary>
         public async Task<bool> Write(
             byte[] image,
-            UInt32 kernelVersion, 
+            UInt64 kernelVersion,
             FileValidator validator,
             bool needToCheckOperatingSystem,
             CancellationToken cancellationToken)

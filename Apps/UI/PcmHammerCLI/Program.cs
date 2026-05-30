@@ -282,12 +282,9 @@ namespace PcmHacking
                     ? parts[parts.Length - 2] + "." + parts[parts.Length - 1]
                     : name;
                 string dest = Path.Combine(dir, fileName);
-                if (!File.Exists(dest))
-                {
-                    using (var s = asm.GetManifestResourceStream(name))
-                    using (var f = File.Create(dest))
-                        s.CopyTo(f);
-                }
+                using (var s = asm.GetManifestResourceStream(name))
+                using (var f = File.Create(dest))
+                    s.CopyTo(f);
             }
             return dir;
         }

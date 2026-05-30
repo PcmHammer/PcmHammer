@@ -564,6 +564,17 @@ namespace PcmHacking
         /// </summary>
         private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
         {
+            if (this.cancellationTokenSource != null)
+            {
+                MessageBox.Show(
+                    this,
+                    "There is an operation in progress. End this before exiting the app.",
+                    "PCM Hammer",
+                    MessageBoxButtons.OK);
+                e.Cancel = true;
+                return;
+            }
+
             switch (this.currentWriteType)
             {
                 case WriteType.None:

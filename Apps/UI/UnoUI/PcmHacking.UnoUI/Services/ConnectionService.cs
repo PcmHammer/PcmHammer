@@ -757,10 +757,10 @@ public class ConnectionService : IConnectionService
                 return true;
             }
             this.logger.AddUserMessage("No recovery message detected. Checking for live kernel...");
-            uint ver = await vehicle.GetKernelVersion(maxRetries: 1);
+            ulong ver = await vehicle.GetKernelVersion(maxRetries: 1);
             if (ver != 0)
             {
-                this.logger.AddUserMessage($"Detected kernel version: {ver}");
+                this.logger.AddUserMessage($"Detected kernel version: {Vehicle.FormatKernelVersion(ver)}");
                 await this.OperatingSystemId.SetAsync(_kernelString);
                 return true;
             }

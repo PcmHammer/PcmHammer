@@ -48,6 +48,20 @@
   .equ COP3,             0xFFC006
 #endif
 
+| Word-form aliases for hardware registers in 0xFF8000-0xFFFFFF (sign-extends identically on 68k)
+#if defined P01 || defined P04 || defined P04_Early || defined P05 || defined P08 || defined P10 || defined P11 || defined P12 || defined E54 || defined BlackBox
+  .equ J1850_Config_w,   (J1850_Config  & 0xFFFF)
+  .equ J1850_Command_w,  (J1850_Command & 0xFFFF)
+  .equ J1850_TX_FIFO_w,  (J1850_TX_FIFO & 0xFFFF)
+  .equ J1850_Status_w,   (J1850_Status  & 0xFFFF)
+  .equ J1850_RX_FIFO_w,  (J1850_RX_FIFO & 0xFFFF)
+  .equ COP1_w,           (COP1 & 0xFFFF)
+  .equ COP2_w,           (COP2 & 0xFFFF)
+#endif
+#if defined BlackBox
+  .equ COP3_w,           (COP3 & 0xFFFF)
+#endif
+
 | Misc
 .equ toolid,             0xF0
 .equ pcmid,              0x10

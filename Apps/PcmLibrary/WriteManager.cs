@@ -77,7 +77,7 @@ namespace PcmHacking
             }
             this.logger.AddUserMessage("File is " + new OSIDInfo(validator.GetFileType()).Description + ".");
 
-            UInt32 kernelVersion = 0;
+            UInt64 kernelVersion = 0;
             bool needUnlock;
             int keyAlgorithm = 1;
             bool shouldHalt;
@@ -153,7 +153,7 @@ namespace PcmHacking
                     {
                         needUnlock = false;
 
-                        this.logger.AddUserMessage("Kernel version: " + kernelVersion.ToString("X8"));
+                        this.logger.AddUserMessage("Kernel version: " + Vehicle.FormatKernelVersion(kernelVersion));
 
                         this.logger.AddUserMessage("Asking kernel for the PCM's operating system ID...");
 

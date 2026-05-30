@@ -71,7 +71,6 @@ for %%A in (
 if not defined DISABLE_COPY call :CopyToDetectedTargets
 
 popd
-pause
 goto :EOF
 
 :CopyToDetectedTargets
@@ -80,6 +79,11 @@ set COPY_TARGET_COUNT=0
 rem Windows Forms targets (stable locations)
 call :CopyBinsToTarget "..\Apps\UI\WindowsForms\PcmHammer\bin\Debug"
 call :CopyBinsToTarget "..\Apps\UI\WindowsForms\PcmHammer\bin\Release"
+
+rem CLI targets (kernels are embedded at CLI build time from Kernels source,
+rem but we copy here so the bin dir can be inspected to verify the right kernels were built)
+call :CopyBinsToTarget "..\Apps\UI\PcmHammerCLI\bin\Release"
+call :CopyBinsToTarget "..\Apps\UI\PcmHammerCLI\bin\Debug"
 
 rem Uno targets (detected by output folder patterns)
 call :CopyToDetectedUnoTargets
