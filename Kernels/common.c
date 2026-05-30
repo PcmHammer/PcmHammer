@@ -475,22 +475,22 @@ void HandleVersionQuery()
 	MessageBuffer[2] = 0x10;
 	MessageBuffer[3] = 0x7D;
 	MessageBuffer[4] = 0x00;
-	MessageBuffer[5] = BUILD_YY;
-	MessageBuffer[6] = BUILD_MM;
-	MessageBuffer[7] = BUILD_DD;
-	MessageBuffer[8] = BUILD_HH;
-	MessageBuffer[9] = BUILD_MN;
-	MessageBuffer[10] = BUILD_SS;
+	MessageBuffer[5] = (BUILD_EPOCH >> 24) & 0xFF;
+	MessageBuffer[6] = (BUILD_EPOCH >> 16) & 0xFF;
+	MessageBuffer[7] = (BUILD_EPOCH >>  8) & 0xFF;
+	MessageBuffer[8] = (BUILD_EPOCH      ) & 0xFF;
 #if defined P12
-	MessageBuffer[11] = 0x0C;
+	MessageBuffer[9] = 0x0C;
+#elif defined P11
+	MessageBuffer[9] = 0x0B;
 #elif defined P10
-	MessageBuffer[11] = 0x0A;
+	MessageBuffer[9] = 0x0A;
 #else
-	MessageBuffer[11] = 0x01;
+	MessageBuffer[9] = 0x01;
 #endif
 	// The AllPro and ScanTool devices need a short delay to switch from
 	// sending to receiving. Otherwise they'll miss the response.
 	ElmSleep();
 
-	WriteMessage(MessageBuffer, 12, Complete);
+	WriteMessage(MessageBuffer, 10, Complete);
 }
