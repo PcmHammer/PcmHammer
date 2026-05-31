@@ -293,12 +293,12 @@ namespace PcmHacking
 
             this.device.ClearMessageQueue();
 
-            this.logger.AddDebugMessage("Sending seed request.");
+            logger.AddDebugMessage("Sending seed request.");
             Message seedRequest = this.protocol.CreateSeedRequest();
 
             if (!await this.TrySendMessage(seedRequest, "seed request"))
             {
-                this.logger.AddUserMessage("Unable to send seed request.");
+                logger.AddUserMessage("Unable to send seed request.");
                 return false;
             }
 
@@ -310,16 +310,16 @@ namespace PcmHacking
                 Message seedResponse = await this.device.ReceiveMessage();
                 if (seedResponse == null)
                 {
-                    this.logger.AddDebugMessage("No response to seed request.");
+                    logger.AddDebugMessage("No response to seed request.");
                     return false;
                 }
 
                 if (this.protocol.IsUnlocked(seedResponse.GetBytes()))
                 {
-                    this.logger.AddUserMessage("PCM is already unlocked");
+                    logger.AddUserMessage("PCM is already unlocked");
                     if (UserDefinedKey >= 0)
                     {
-                        this.logger.AddUserMessage("Continuing unlock process with user defined key");
+                        logger.AddUserMessage("Continuing unlock process with user defined key");
                     }
                     else
                     {
@@ -327,7 +327,7 @@ namespace PcmHacking
                     }
                 }
 
-                this.logger.AddDebugMessage("Parsing seed value.");
+                logger.AddDebugMessage("Parsing seed value.");
                 Response<UInt16> seedValueResponse = this.protocol.ParseSeed(seedResponse.GetBytes());
                 if (seedValueResponse.Status == ResponseStatus.Success)
                 {
@@ -336,26 +336,26 @@ namespace PcmHacking
                     break;
                 }
 
-                this.logger.AddDebugMessage("Unable to parse seed response. Attempt #" + attempt.ToString());
+                logger.AddDebugMessage("Unable to parse seed response. Attempt #" + attempt.ToString());
             }
 
             if (!seedReceived)
             {
-                this.logger.AddUserMessage("No seed reponse received, unable to unlock PCM.");
+                logger.AddUserMessage("No seed reponse received, unable to unlock PCM.");
                 return false;
             }
 
             // If the seed is a common occurance of corrupted security data, and the user is not attempting to use a custom key, provide a useful suggestion
             if (((seedValue == 0x0000) || (seedValue == 0xFFFF)) && (UserDefinedKey == -1))
             {
-                this.logger.AddUserMessage($"***NOTICE**** Seed is 0x{seedValue.ToString("X4")}, if this process fails, try setting a user defined key of 0x{seedValue.ToString("X4")}");
+                logger.AddUserMessage($"***NOTICE**** Seed is 0x{seedValue.ToString("X4")}, if this process fails, try setting a user defined key of 0x{seedValue.ToString("X4")}");
             }
 
             // if we have a user defined key the user might be trying to recover from a corrupted param block
             // so we still let it though
             if ((seedValue == 0x0000) && (UserDefinedKey == -1))
             {
-                this.logger.AddUserMessage("PCM Unlock not required");
+                logger.AddUserMessage("PCM Unlock not required");
                 return true;
             }
 
@@ -366,15 +366,15 @@ namespace PcmHacking
             }
             else
             {
-                this.logger.AddUserMessage($"User Defined Key: 0x{UserDefinedKey.ToString("X4")}");
+                logger.AddUserMessage($"User Defined Key: 0x{UserDefinedKey.ToString("X4")}");
                 key = (UInt16)UserDefinedKey;
             }
 
-            this.logger.AddDebugMessage("Sending unlock request (" + seedValue.ToString("X4") + ", " + key.ToString("X4") + ")");
+            logger.AddDebugMessage("Sending unlock request (" + seedValue.ToString("X4") + ", " + key.ToString("X4") + ")");
             Message unlockRequest = this.protocol.CreateUnlockRequest(key);
             if (!await this.TrySendMessage(unlockRequest, "unlock request"))
             {
-                this.logger.AddDebugMessage("Unable to send unlock request.");
+                logger.AddDebugMessage("Unable to send unlock request.");
                 return false;
             }
 
@@ -383,7 +383,7 @@ namespace PcmHacking
                 Message unlockResponse = await this.device.ReceiveMessage();
                 if (unlockResponse == null)
                 {
-                    this.logger.AddDebugMessage("No response to unlock request. Attempt #" + attempt.ToString());
+                    logger.AddDebugMessage("No response to unlock request. Attempt #" + attempt.ToString());
                     continue;
                 }
 
@@ -393,7 +393,7 @@ namespace PcmHacking
                     return result.Value;
                 }
 
-                this.logger.AddUserMessage(errorMessage);
+                logger.AddUserMessage(errorMessage);
 
                 byte[] unlockBytes = unlockResponse.GetBytes();
                 bool TerminalFailure =
@@ -408,7 +408,7 @@ namespace PcmHacking
                 }
             }
 
-            this.logger.AddUserMessage("Unable to process unlock response.");
+            logger.AddUserMessage("Unable to process unlock response.");
             return false;
         }
 
@@ -424,7 +424,7 @@ namespace PcmHacking
                     return true;
                 }
 
-                this.logger.AddDebugMessage("Unable to send " + description + " message. Attempt #" + attempt.ToString());
+                logger.AddDebugMessage("Unable to send " + description + " message. Attempt #" + attempt.ToString());
             }
 
             return false;
@@ -447,7 +447,7 @@ namespace PcmHacking
                 response = await this.device.ReceiveMessage();
                 if (response == null)
                 {
-                    this.logger.AddDebugMessage("No response to read request yet.");
+                    logger.AddDebugMessage("No response to read request yet.");
                     await Task.Delay(10);
                     continue;
                 }
@@ -480,11 +480,11 @@ namespace PcmHacking
                 Response<bool> response = filter(message);
                 if ((response.Status != ResponseStatus.Success) && (response.Status != ResponseStatus.Refused))
                 {
-                    this.logger.AddDebugMessage("Ignoring message: " + response.Status + "  " + message.ToString());
+                    logger.AddDebugMessage("Ignoring message: " + response.Status + "  " + message.ToString());
                     continue;
                 }
 
-                this.logger.AddDebugMessage("Found response, " + response.Status);
+                logger.AddDebugMessage("Found response, " + response.Status);
                 return response.Value;
             }
 
@@ -503,7 +503,7 @@ namespace PcmHacking
 
             if (!await this.device.SendMessage(message))
             {
-                this.logger.AddDebugMessage("Unable to send read request.");
+                logger.AddDebugMessage("Unable to send read request.");
                 return Response.Create<byte[]>(ResponseStatus.Error, new byte[0]);
             }
 
@@ -518,11 +518,11 @@ namespace PcmHacking
                 Message payloadMessage = await this.device.ReceiveMessage();
                 if (payloadMessage == null)
                 {
-                    this.logger.AddDebugMessage("No payload following read request.");
+                    logger.AddDebugMessage("No payload following read request.");
                     continue;
                 }
 
-                this.logger.AddDebugMessage("Processing message");
+                logger.AddDebugMessage("Processing message");
 
                 Response<byte[]> payloadResponse = messageParser(payloadMessage);
                 if (payloadResponse.Status == ResponseStatus.Success)
@@ -531,7 +531,7 @@ namespace PcmHacking
                 }
 
                 lastStatus = payloadResponse.Status;
-                this.logger.AddDebugMessage("Unable to process response: " + lastStatus + " " + payloadMessage.ToString());
+                logger.AddDebugMessage("Unable to process response: " + lastStatus + " " + payloadMessage.ToString());
             }
 
             return Response.Create<byte[]>(lastStatus, new byte[0]);
@@ -542,7 +542,7 @@ namespace PcmHacking
             Message request = this.protocol.CreateCrankRelearnRequest();
             if (!await this.TrySendMessage(request, "Crank relearn request"))
             {
-                this.logger.AddDebugMessage("Unable to send crank relearn request.");
+                logger.AddDebugMessage("Unable to send crank relearn request.");
                 return Response.Create(ResponseStatus.Error, 0);
             }
 

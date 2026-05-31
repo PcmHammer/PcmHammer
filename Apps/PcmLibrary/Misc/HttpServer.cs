@@ -123,7 +123,7 @@ namespace PcmHacking
                         }
                         catch (Exception exception)
                         {
-                            this.logger.AddUserMessage("HTTP 500 " + exception.ToString());
+                            logger.AddUserMessage("HTTP 500 " + exception.ToString());
 
                             var writer = new StreamWriter(context.Response.OutputStream);
                             context.Response.StatusCode = 500;
@@ -136,8 +136,8 @@ namespace PcmHacking
                 }
                 catch (Exception exception)
                 {
-                    this.logger.AddUserMessage("The web server crashed. Will restart in 5 seconds.");
-                    this.logger.AddUserMessage(exception.ToString());
+                    logger.AddUserMessage("The web server crashed. Will restart in 5 seconds.");
+                    logger.AddUserMessage(exception.ToString());
 
                     if (this.listener != null)
                     {
@@ -170,7 +170,7 @@ namespace PcmHacking
                 context.Response.Close();
             }
 
-            this.logger.AddUserMessage("HTTP request: " + requestHex);
+            logger.AddUserMessage("HTTP request: " + requestHex);
 
             byte[] bytes = requestHex.ToBytes();
 
@@ -191,7 +191,7 @@ namespace PcmHacking
             int length = await port!.Receive(buffer, 0, buffer.Length);
             string responseHex = buffer.ToHex(length);
 
-            this.logger.AddUserMessage("HTTP response: " + responseHex);
+            logger.AddUserMessage("HTTP response: " + responseHex);
 
             var writer = new StreamWriter(context.Response.OutputStream);
             await writer.WriteLineAsync(responseHex);

@@ -109,7 +109,7 @@ namespace PcmHacking
                         }
                         else
                         {
-                            this.logger.AddUserMessage(
+                            logger.AddUserMessage(
                                 string.Format("Parameter {0} is not defined for PCM {1}",
                                 ramParameter.Name,
                                 osid));
@@ -141,14 +141,14 @@ namespace PcmHacking
 
                         if (responseMessage[3] == 0x6C)
                         {
-                            this.logger.AddDebugMessage("Configured " + column.ToString());
+                            logger.AddDebugMessage("Configured " + column.ToString());
                             configured = true;
                             break;
                         }
 
                         if (responseMessage[3] == 0x7F && responseMessage[4] == 0x2C)
                         {
-                            this.logger.AddUserMessage("Unable to configure " + column.ToString());
+                            logger.AddUserMessage("Unable to configure " + column.ToString());
                             throw new ParameterNotSupportedException(column.Parameter);
                         }
                     }

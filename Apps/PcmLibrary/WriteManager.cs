@@ -50,7 +50,7 @@ namespace PcmHacking
                 if (bytesRead != stream.Length)
                 {
                     // If this happens too much, we should try looping rather than reading the whole file in one shot.
-                    this.logger.AddUserMessage("Unable to load file.");
+                    logger.AddUserMessage("Unable to load file.");
                     return false;
                 }
             }
@@ -72,10 +72,10 @@ namespace PcmHacking
             FileValidator validator = new FileValidator(image, this.logger, forcedFileType);
             if (!validator.IsValid())
             {
-                this.logger.AddUserMessage("This file is corrupt or its format is unknown to PCMHammer. It would render your PCM unusable.");
+                logger.AddUserMessage("This file is corrupt or its format is unknown to PCMHammer. It would render your PCM unusable.");
                 return false;
             }
-            this.logger.AddUserMessage("File is " + new OSIDInfo(validator.GetFileType()).Description + ".");
+            logger.AddUserMessage("File is " + new OSIDInfo(validator.GetFileType()).Description + ".");
 
             UInt64 kernelVersion = 0;
             bool needUnlock;
@@ -94,11 +94,11 @@ namespace PcmHacking
                 keyAlgorithm = pcmInfo.KeyAlgorithm;
                 needUnlock = true;
                 needToCheckOperatingSystem = false;
-                this.logger.AddUserMessage("Using manually selected PCM type: " + pcmInfo.HardwareType);
+                logger.AddUserMessage("Using manually selected PCM type: " + pcmInfo.HardwareType);
             }
             else
             {
-                this.logger.AddUserMessage("Requesting operating system ID...");
+                logger.AddUserMessage("Requesting operating system ID...");
                 Response<uint> osidResponse = await this.vehicle.QueryOperatingSystemId(this.cancellationToken);
                 if (osidResponse.Status == ResponseStatus.Success)
                 {
@@ -114,8 +114,8 @@ namespace PcmHacking
 
                     if (!validator.IsSameOperatingSystem(osidResponse.Value))
                     {
-                        this.logger.AddUserMessage("PCM operating system ID: " + osidResponse.Value);
-                        this.logger.AddUserMessage("File operating system ID: " + validator.GetOsidFromImage());
+                        logger.AddUserMessage("PCM operating system ID: " + osidResponse.Value);
+                        logger.AddUserMessage("File operating system ID: " + validator.GetOsidFromImage());
                         Utility.ReportOperatingSystems(validator.GetOsidFromImage(), osidResponse.Value, writeType, this.logger, out shouldHalt);
                         if (shouldHalt)
                         {
@@ -124,7 +124,7 @@ namespace PcmHacking
                     }
                     else
                     {
-                        this.logger.AddUserMessage("PCM and file are both operating system " + osidResponse.Value);
+                        logger.AddUserMessage("PCM and file are both operating system " + osidResponse.Value);
                     }
 
                     needToCheckOperatingSystem = false;
@@ -136,23 +136,23 @@ namespace PcmHacking
                         return false;
                     }
 
-                    this.logger.AddUserMessage("Operating system request failed, checking for a live kernel...");
+                    logger.AddUserMessage("Operating system request failed, checking for a live kernel...");
 
                     kernelVersion = await this.vehicle.GetKernelVersion();
                     if (kernelVersion == 0)
                     {
-                        this.logger.AddUserMessage("Checking for recovery mode...");
+                        logger.AddUserMessage("Checking for recovery mode...");
                         bool recoveryMode = await this.vehicle.IsInRecoveryMode();
 
                         if (recoveryMode)
                         {
-                            this.logger.AddUserMessage("PCM is in recovery mode.");
+                            logger.AddUserMessage("PCM is in recovery mode.");
                             needUnlock = true;
                         }
                         else
                         {
-                            this.logger.AddUserMessage("PCM is not responding to OSID, kernel version, or recovery mode checks.");
-                            this.logger.AddUserMessage("Unlock may not work, but we'll try...");
+                            logger.AddUserMessage("PCM is not responding to OSID, kernel version, or recovery mode checks.");
+                            logger.AddUserMessage("Unlock may not work, but we'll try...");
                             needUnlock = true;
                         }
                         pcmInfo = new OSIDInfo(validator.GetOsidFromImage()); // Prevent Null Reference Exceptions from breaking Recovery Mode
@@ -161,9 +161,9 @@ namespace PcmHacking
                     {
                         needUnlock = false;
 
-                        this.logger.AddUserMessage("Kernel version: " + Vehicle.FormatKernelVersion(kernelVersion));
+                        logger.AddUserMessage("Kernel version: " + Vehicle.FormatKernelVersion(kernelVersion));
 
-                        this.logger.AddUserMessage("Asking kernel for the PCM's operating system ID...");
+                        logger.AddUserMessage("Asking kernel for the PCM's operating system ID...");
 
                         if (needToCheckOperatingSystem)
                         {
@@ -171,7 +171,7 @@ namespace PcmHacking
                             if (osidResponse.Status != ResponseStatus.Success)
                             {
                                 // The kernel seems broken. This shouldn't happen, but if it does, halt.
-                                this.logger.AddUserMessage("The kernel did not respond to operating system ID query.");
+                                logger.AddUserMessage("The kernel did not respond to operating system ID query.");
                                 return false;
                             }
 
@@ -193,7 +193,7 @@ namespace PcmHacking
             if (!pcmInfo!.IsSupported)
             {
                 string msg = $"Abort: The connected {pcmInfo.HardwareType.ToString()} PCM is not supported.";
-                this.logger.AddUserMessage(msg);
+                logger.AddUserMessage(msg);
                 await this.alert(msg, "Abort");
                 return false;
             }
@@ -201,7 +201,7 @@ namespace PcmHacking
             if (!pcmInfo.IsSupportedWrite)
             {
                 string msg = $"Abort: The connected {pcmInfo.HardwareType.ToString()} PCM is not supported for write operations.";
-                this.logger.AddUserMessage(msg);
+                logger.AddUserMessage(msg);
                 await this.alert(msg, "Abort");
                 return false;
             }
@@ -209,14 +209,14 @@ namespace PcmHacking
             if (pcmInfo.IsUnderDevelopment)
             {
                 string msg = $"WARNING: {pcmInfo.HardwareType.ToString()} Support is still in development.\r\nThere is additional brick risk in this operation\r\nDo you want to continue?";
-                this.logger.AddUserMessage(msg);
+                logger.AddUserMessage(msg);
                 if (await this.promptForYesNo(msg, "Brick Risk"))
                 {
-                    this.logger.AddUserMessage("User chose to proceed.");
+                    logger.AddUserMessage("User chose to proceed.");
                 }
                 else
                 {
-                    this.logger.AddUserMessage("User chose not to proceed.");
+                    logger.AddUserMessage("User chose not to proceed.");
                     return false;
                 }
             }
@@ -226,7 +226,7 @@ namespace PcmHacking
             {
                 string msg = $"Error: The connected {pcmInfo.HardwareType.ToString()} PCM binary format is not partitioned and does not support partial write." + Environment.NewLine +
                             "You will need to do a Write Full Flash (Clone) instead.";
-                this.logger.AddUserMessage(msg);
+                logger.AddUserMessage(msg);
                 await this.alert(msg, "Error");
                 return false;
             }
@@ -240,14 +240,14 @@ namespace PcmHacking
                             "When you change the operating system you need need another way to update the slave CPU to match, else electroncic throttle may not work." + Environment.NewLine +
                             "PCM Hammer can re-write the original OS to undo any change if kept backup." + Environment.NewLine +
                             "Do you want to continue?";
-                this.logger.AddUserMessage(msg);
+                logger.AddUserMessage(msg);
                 if (await this.promptForYesNo(msg, "Warning!"))
                 {
-                    this.logger.AddUserMessage("User chose to proceed.");
+                    logger.AddUserMessage("User chose to proceed.");
                 }
                 else
                 { 
-                    this.logger.AddUserMessage("User chose not to proceed.");
+                    logger.AddUserMessage("User chose not to proceed.");
                     return false;
                 }
             }
@@ -277,11 +277,11 @@ namespace PcmHacking
                 bool unlocked = await this.vehicle.UnlockEcu(keyAlgorithm);
                 if (!unlocked)
                 {
-                    this.logger.AddUserMessage("Unlock was not successful.");
+                    logger.AddUserMessage("Unlock was not successful.");
                     return false;
                 }
 
-                this.logger.AddUserMessage("Unlock succeeded.");
+                logger.AddUserMessage("Unlock succeeded.");
             }
 
             DateTime start = DateTime.Now;
@@ -299,7 +299,7 @@ namespace PcmHacking
                 validator,
                 needToCheckOperatingSystem,
                 this.cancellationToken);
-            this.logger.AddUserMessage("Elapsed time " + DateTime.Now.Subtract(start));
+            logger.AddUserMessage("Elapsed time " + DateTime.Now.Subtract(start));
             return true;
         }
     }

@@ -86,15 +86,15 @@ namespace PcmHacking
                         keyAlgorithm = pi.KeyAlgorithm;
                     }
 
-                    this.logger.AddUserMessage("Unlocking PCM...");
+                    logger.AddUserMessage("Unlocking PCM...");
                     bool unlocked = await this.UnlockEcu(keyAlgorithm);
                     if (!unlocked)
                     {
-                        this.logger.AddUserMessage("Unlock was not successful.");
+                        logger.AddUserMessage("Unlock was not successful.");
                         return false;
                     }
 
-                    this.logger.AddUserMessage("Unlock OK.");
+                    logger.AddUserMessage("Unlock OK.");
 
                     if (cancellationToken.IsCancellationRequested)
                     {
@@ -121,13 +121,13 @@ namespace PcmHacking
             }
             catch (Exception exception)
             {
-                this.logger.AddUserMessage("Something went wrong. " + exception.Message);
-                this.logger.AddDebugMessage(exception.ToString());
+                logger.AddUserMessage("Something went wrong. " + exception.Message);
+                logger.AddDebugMessage(exception.ToString());
                 return false;
             }
             finally
             {
-                this.logger.AddUserMessage("Halting kernel.");
+                logger.AddUserMessage("Halting kernel.");
                 await this.Cleanup();
             }
         }
@@ -220,13 +220,13 @@ namespace PcmHacking
 
                 if (!success)
                 {
-                    this.logger.AddUserMessage("Unable to get CRC for memory range " + range.Address.ToString("X8") + " / " + range.Size.ToString("X8"));
+                    logger.AddUserMessage("Unable to get CRC for memory range " + range.Address.ToString("X8") + " / " + range.Size.ToString("X8"));
                     continue;
                 }
 
                 range.ActualCrc = crc;
 
-                this.logger.AddUserMessage(
+                logger.AddUserMessage(
                     string.Format(
                         "Range {0:X6}-{1:X6} - Local: {2:X8} - PCM: {3:X8} - {4}",
                         range.Address,
@@ -257,7 +257,7 @@ namespace PcmHacking
                     Response<UInt64> resp = this.protocol.ParseKernelVersion(vr);
                     if (resp.Status == ResponseStatus.Success)
                     {
-                        this.logger.AddDebugMessage("Got Kernel Version");
+                        logger.AddDebugMessage("Got Kernel Version");
                         successRate++;
                     }
                 }
@@ -266,7 +266,7 @@ namespace PcmHacking
                 continue;
             }
 
-            this.logger.AddDebugMessage("Success rate: " + successRate.ToString());
+            logger.AddDebugMessage("Success rate: " + successRate.ToString());
         }
 
 
@@ -289,8 +289,8 @@ namespace PcmHacking
                     Response<UInt32> resp = this.protocol.ParseFlashMemoryType(responseMessage);
                     if (resp.Status == ResponseStatus.Success)
                     {
-                        this.logger.AddUserMessage("Flash chip ID: " + resp.Value.ToString("X8"));
-                        this.logger.AddDebugMessage("Got Kernel Version");
+                        logger.AddUserMessage("Flash chip ID: " + resp.Value.ToString("X8"));
+                        logger.AddDebugMessage("Got Kernel Version");
                         successRate++;
                     }
                 }
@@ -336,7 +336,7 @@ namespace PcmHacking
 
                     if (!await device.SendMessage(blockMessage))
                     {
-                        this.logger.AddDebugMessage("WritePayload: Unable to send message.");
+                        logger.AddDebugMessage("WritePayload: Unable to send message.");
                         continue;
                     }
 
@@ -345,7 +345,7 @@ namespace PcmHacking
                         break;
                     }
 
-                    this.logger.AddDebugMessage("WritePayload: Upload request failed.");
+                    logger.AddDebugMessage("WritePayload: Upload request failed.");
                 }
             }
         }

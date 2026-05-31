@@ -54,13 +54,13 @@ namespace PcmHacking
                     // if the vehicle bus switches but the device does not, the bus will need to time out to revert back to 1x, and the next steps will fail.
                     if (!await this.vehicle.VehicleSetVPW4x(this.pcmInfo, VpwSpeed.FourX))
                     {
-                        this.logger.AddUserMessage("Stopping here because we were unable to switch to 4X.");
+                        logger.AddUserMessage("Stopping here because we were unable to switch to 4X.");
                         return Response.Create(ResponseStatus.Error, (Stream)null!);
                     }
                 }
                 else
                 {
-                    this.logger.AddUserMessage("4X communications disabled by configuration.");
+                    logger.AddUserMessage("4X communications disabled by configuration.");
                 }
 
                 await this.vehicle.SendToolPresentNotification();
@@ -192,7 +192,7 @@ namespace PcmHacking
 
                     if (blockSize < 1)
                     {
-                        this.logger.AddUserMessage("Image download complete");
+                        logger.AddUserMessage("Image download complete");
                         break;
                     }
 
@@ -210,7 +210,7 @@ namespace PcmHacking
                         progress);
                     if (readResponse.Status != ResponseStatus.Success)
                     {
-                        this.logger.AddUserMessage(
+                        logger.AddUserMessage(
                             string.Format(
                                 "Unable to read block from {0} to {1}",
                                 startAddress,
@@ -271,8 +271,8 @@ namespace PcmHacking
             }
             catch(Exception exception)
             {
-                this.logger.AddUserMessage("Something went wrong. " + exception.Message);
-                this.logger.AddDebugMessage(exception.ToString());
+                logger.AddUserMessage("Something went wrong. " + exception.Message);
+                logger.AddDebugMessage(exception.ToString());
                 return new Response<Stream>(ResponseStatus.Error, null!);
             }
             finally
@@ -293,7 +293,7 @@ namespace PcmHacking
             CancellationToken cancellationToken,
              IProgress<ProgressUpdate>? progress)
         {
-            this.logger.AddDebugMessage(string.Format("Reading from {0} / 0x{0:X}, length {1} / 0x{1:X}", startAddress, length));
+            logger.AddDebugMessage(string.Format("Reading from {0} / 0x{0:X}, length {1} / 0x{1:X}", startAddress, length));
 
             int retryCount = 0;
             for (; retryCount < Vehicle.MaxSendAttempts; retryCount++)
@@ -310,7 +310,7 @@ namespace PcmHacking
 
                 if(readResponse.Status != ResponseStatus.Success)
                 {
-                    this.logger.AddDebugMessage("Unable to read segment: " + readResponse.Status);
+                    logger.AddDebugMessage("Unable to read segment: " + readResponse.Status);
                     continue;
                 }
 
@@ -318,7 +318,7 @@ namespace PcmHacking
 
                 if (payload.Length != length)
                 {
-                    this.logger.AddUserMessage(
+                    logger.AddUserMessage(
                         string.Format(
                             "Expected {0} bytes, received {1} bytes.",
                             length,

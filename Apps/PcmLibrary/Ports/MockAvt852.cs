@@ -57,7 +57,7 @@ namespace PcmHacking
         /// </summary>
         Task IPort.Send(byte[] buffer)
         {
-            this.logger.AddDebugMessage("MockAvt852 received: " + buffer.ToHex());
+            logger.AddDebugMessage("MockAvt852 received: " + buffer.ToHex());
 
             if (Utility.CompareArrays(buffer, AvtDevice.AVT_RESET.GetBytes()))
             {
@@ -94,7 +94,7 @@ namespace PcmHacking
                 sent++;
             }
                         
-            this.logger.AddDebugMessage("MockAvt852 sending: " + this.responseBuffer!.ToHex());
+            logger.AddDebugMessage("MockAvt852 sending: " + this.responseBuffer!.ToHex());
 
             return Task.FromResult(sent);
         }

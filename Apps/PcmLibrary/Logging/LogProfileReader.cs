@@ -40,8 +40,8 @@ namespace PcmHacking
             }
             catch(Exception exception)
             {
-                this.logger.AddUserMessage("Unable to load profile " + Path.GetFileName(path));
-                this.logger.AddDebugMessage(exception.ToString());
+                logger.AddUserMessage("Unable to load profile " + Path.GetFileName(path));
+                logger.AddDebugMessage(exception.ToString());
                 this.profile = new LogProfile();
             }
 
@@ -72,13 +72,13 @@ namespace PcmHacking
             T parameter;
             if (!this.database.TryGetParameter<T>(id, out parameter))
             {
-                this.logger.AddUserMessage($"Parameter {id} is not supported by this version of PCM Hammer.");
+                logger.AddUserMessage($"Parameter {id} is not supported by this version of PCM Hammer.");
                 return;
             }
 
             if (!parameter.IsSupported(this.osid))
             {
-                this.logger.AddUserMessage($"Parameter {id} is not supported by this operating system.");
+                logger.AddUserMessage($"Parameter {id} is not supported by this operating system.");
                 return;
             }
 

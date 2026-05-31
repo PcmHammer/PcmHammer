@@ -125,7 +125,7 @@ namespace PcmHacking
             }
 
             // TODO: re-order the placeholders and parameters.
-            this.logger.AddDebugMessage(
+            logger.AddDebugMessage(
                 string.Format(
                     "Mock PCM Received: {4} ({0}), {1,-40} {5,-50} {2}  {3}",
                     this.header, // 0

@@ -47,7 +47,7 @@ namespace PcmHacking
                 return result;
             }
 
-            this.logger.AddDebugMessage("Loading " + fileName + " from embedded resource.");
+            logger.AddDebugMessage("Loading " + fileName + " from embedded resource.");
             try { File.Delete(this.GetCacheFilePath()); } catch { }
             var resourceName = "PcmHammer." + fileName;
             return this.assembly.GetManifestResourceStream(resourceName);
@@ -110,7 +110,7 @@ namespace PcmHacking
                     }
                     catch (Exception saveException)
                     {
-                        this.logger.AddDebugMessage("Unable to cache " + fileName + ": " + saveException.ToString());
+                        logger.AddDebugMessage("Unable to cache " + fileName + ": " + saveException.ToString());
                     }
                     finally
                     {
@@ -119,18 +119,18 @@ namespace PcmHacking
                         stream.Position = 0;
                     }
 
-                    this.logger.AddDebugMessage("Loaded " + this.fileName + " from network.");
+                    logger.AddDebugMessage("Loaded " + this.fileName + " from network.");
                     return stream;
                 }
                 else
                 {
-                    this.logger.AddDebugMessage("Unable to retrieve " + fileName + " from network: HTTP " + response.StatusCode + ".");
+                    logger.AddDebugMessage("Unable to retrieve " + fileName + " from network: HTTP " + response.StatusCode + ".");
                     return null;
                 }
             }
             catch (Exception exception)
             {
-                this.logger.AddDebugMessage("Unable to retrieve " + fileName + " from network: " + exception.ToString());
+                logger.AddDebugMessage("Unable to retrieve " + fileName + " from network: " + exception.ToString());
                 return null;
             }
         }
@@ -144,12 +144,12 @@ namespace PcmHacking
             try
             {
                 Stream result = File.OpenRead(path);
-                this.logger.AddDebugMessage("Loaded " + this.fileName + " from cache.");
+                logger.AddDebugMessage("Loaded " + this.fileName + " from cache.");
                 return result;
             }
             catch (Exception exception)
             {
-                this.logger.AddDebugMessage("Unable to retrieve " + fileName + " from cache: " + exception.ToString());
+                logger.AddDebugMessage("Unable to retrieve " + fileName + " from cache: " + exception.ToString());
                 return null;
             }
         }

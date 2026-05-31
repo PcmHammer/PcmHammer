@@ -86,7 +86,7 @@ namespace PcmHacking
 
                 if (!success)
                 {
-                    this.logger.AddDebugMessage("Send failed. Attempt #" + sendAttempt.ToString());
+                    logger.AddDebugMessage("Send failed. Attempt #" + sendAttempt.ToString());
                     continue;
                 }
 
@@ -108,7 +108,7 @@ namespace PcmHacking
                         if (timeouts >= this.MaxTimeouts)
                         {
                             // Maybe try sending again if we haven't run out of send attempts.
-                            this.logger.AddDebugMessage(
+                            logger.AddDebugMessage(
                                 string.Format(
                                     "Receive timed out. Attempt #{0}, Timeout #{1}.",
                                     receiveAttempt,
@@ -135,7 +135,7 @@ namespace PcmHacking
                         return Response.Create(ResponseStatus.Error, default(T)!);
                     }
 
-                    this.logger.AddDebugMessage(
+                    logger.AddDebugMessage(
                         string.Format(
                             "Received an unexpected response. Attempt #{0}, status {1}.",
                             receiveAttempt,

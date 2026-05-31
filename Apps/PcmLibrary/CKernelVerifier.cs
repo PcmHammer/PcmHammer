@@ -84,7 +84,7 @@ namespace PcmHacking
 
                 if (((range.Type & blockTypes) == 0) || (range.Address >= this.pcmInfo.ImageSize))
                 {
-                    this.logger.AddUserMessage(string.Format(formatString, range.Address, range.Address + (range.Size - 1), "not needed", "not needed", "n/a", range_type));
+                    logger.AddUserMessage(string.Format(formatString, range.Address, range.Address + (range.Size - 1), "not needed", "not needed", "n/a", range_type));
                     continue;
                 }
 
@@ -113,7 +113,7 @@ namespace PcmHacking
 
                     if (!await this.vehicle.SendMessage(query))
                     {
-                        this.logger.AddUserMessage($"CRC query failed reading range {range.Address.ToString("X8")} / {range.Size.ToString("X8")}");
+                        logger.AddUserMessage($"CRC query failed reading range {range.Address.ToString("X8")} / {range.Size.ToString("X8")}");
                         continue;
                     }
 
@@ -124,11 +124,11 @@ namespace PcmHacking
                         if (consecutiveTimeouts >= 6)
                         {
                             string detail = anyTimeout ? "" : " Kernel may have crashed.";
-                            this.logger.AddUserMessage($"PCM stopped responding during CRC check at {range.Address:X8} / {range.Size:X8}.{detail}");
+                            logger.AddUserMessage($"PCM stopped responding during CRC check at {range.Address:X8} / {range.Size:X8}.{detail}");
                             anyTimeout = true;
                             break;
                         }
-                        this.logger.AddDebugMessage($"CRC no response, re-querying {range.Address.ToString("X8")} / {range.Size.ToString("X8")}");
+                        logger.AddDebugMessage($"CRC no response, re-querying {range.Address.ToString("X8")} / {range.Size.ToString("X8")}");
                         await Task.Delay(retryDelay);
                         continue;
                     }
@@ -152,7 +152,7 @@ namespace PcmHacking
                 {
                     if (!anyTimeout)
                     {
-                        this.logger.AddUserMessage("Unable to get CRC for memory range " + range.Address.ToString("X8") + " / " + range.Size.ToString("X8"));
+                        logger.AddUserMessage("Unable to get CRC for memory range " + range.Address.ToString("X8") + " / " + range.Size.ToString("X8"));
                     }
                     anyMismatch = true;
                     continue;
@@ -165,7 +165,7 @@ namespace PcmHacking
                 bool match = range.DesiredCrc == range.ActualCrc;
                 if (!match) anyMismatch = true;
 
-                this.logger.AddUserMessage(string.Format(formatString, range.Address, range.Address + (range.Size - 1), range.DesiredCrc, range.ActualCrc, match ? "Same" : "Different", range_type));
+                logger.AddUserMessage(string.Format(formatString, range.Address, range.Address + (range.Size - 1), range.DesiredCrc, range.ActualCrc, match ? "Same" : "Different", range_type));
             }
 
             await this.vehicle.SendToolPresentNotification();

@@ -23,7 +23,7 @@ namespace PcmHacking
         /// </summary>
         public async Task SuppressChatter()
         {
-            this.logger.AddDebugMessage("Suppressing VPW chatter.");
+            logger.AddDebugMessage("Suppressing VPW chatter.");
             Message suppressChatter = this.protocol.CreateDisableNormalMessageTransmission();
             await this.device.SendMessage(suppressChatter);
             await this.notifier.ForceNotify();
@@ -35,7 +35,7 @@ namespace PcmHacking
                 Message received = await this.device.ReceiveMessage();
                 if (received != null)
                 {
-                    this.logger.AddDebugMessage("Ignoring chatter: " + received.ToString());
+                    logger.AddDebugMessage("Ignoring chatter: " + received.ToString());
                     break;
                 }
                 else
@@ -161,7 +161,7 @@ namespace PcmHacking
         /// </remarks>
         public async Task Cleanup()
         {
-            this.logger.AddDebugMessage("Halting the kernel.");
+            logger.AddDebugMessage("Halting the kernel.");
             await this.ExitKernel();
             await this.ClearTroubleCodes();
         }
@@ -194,7 +194,7 @@ namespace PcmHacking
         /// </summary>
         public async Task ClearTroubleCodes()
         {
-            this.logger.AddUserMessage("Clearing trouble codes.");
+            logger.AddUserMessage("Clearing trouble codes.");
             this.device.ClearMessageQueue();
 
             // No timeout because we don't care about responses to these messages.
@@ -442,7 +442,7 @@ namespace PcmHacking
                 int bytesSent = payload.Length - offset;
                 int percentDone = bytesSent * 100 / payload.Length;
 
-                this.logger.AddUserMessage($"{(info.LoaderRequired ? "Loader" : "Kernel")} upload {percentDone}% complete.");
+                logger.AddUserMessage($"{(info.LoaderRequired ? "Loader" : "Kernel")} upload {percentDone}% complete.");
 
                 if (cancellationToken.IsCancellationRequested)
                 {
@@ -469,7 +469,7 @@ namespace PcmHacking
                 }
             }
 
-            this.logger.AddUserMessage($"{(info.LoaderRequired ? "Loader" : "Kernel")} upload 100% complete.");
+            logger.AddUserMessage($"{(info.LoaderRequired ? "Loader" : "Kernel")} upload 100% complete.");
 
             if (cancellationToken.IsCancellationRequested)
             {
@@ -486,10 +486,10 @@ namespace PcmHacking
 
                 if (kernelVersion == 0)
                 {
-                    this.logger.AddUserMessage($"{(info.LoaderRequired ? "Loader" : "Kernel")} failed to start.");
+                    logger.AddUserMessage($"{(info.LoaderRequired ? "Loader" : "Kernel")} failed to start.");
                     return false;
                 }
-                this.logger.AddUserMessage($"{(info.LoaderRequired ? "Loader" : "Kernel")} Version: {FormatKernelVersion(kernelVersion)}");
+                logger.AddUserMessage($"{(info.LoaderRequired ? "Loader" : "Kernel")} Version: {FormatKernelVersion(kernelVersion)}");
             }
 
             if (info.LoaderRequired)
@@ -583,7 +583,7 @@ namespace PcmHacking
                     if (refused.Value == false)
                     {
                         // TODO: Add module number.
-                        this.logger.AddUserMessage("Module refused high-speed switch.");
+                        logger.AddUserMessage("Module refused high-speed switch.");
                         return false;
                     }
                 }
@@ -618,7 +618,7 @@ namespace PcmHacking
             bool anyRefused = false;
             while ((response = await this.device.ReceiveMessage()) != null)
             {
-                this.logger.AddDebugMessage("Parsing " + response.GetBytes().ToHex());
+                logger.AddDebugMessage("Parsing " + response.GetBytes().ToHex());
                 Protocol.HighSpeedPermissionResult parsed = this.protocol.ParseHighSpeedPermissionResponse(response);
                 if (!parsed.IsValid)
                 {
@@ -630,7 +630,7 @@ namespace PcmHacking
 
                 if (parsed.PermissionGranted)
                 {
-                    this.logger.AddUserMessage(string.Format("Module 0x{0:X2} ({1}) has agreed to enter high-speed mode.", parsed.DeviceId, DeviceId.DeviceCategory(parsed.DeviceId)));
+                    logger.AddUserMessage(string.Format("Module 0x{0:X2} ({1}) has agreed to enter high-speed mode.", parsed.DeviceId, DeviceId.DeviceCategory(parsed.DeviceId)));
 
                     // Forcing a notification message should help ELM devices receive responses.
                     await notifier.ForceNotify();
@@ -638,7 +638,7 @@ namespace PcmHacking
                     continue;
                 }
 
-                this.logger.AddUserMessage(string.Format("Module 0x{0:X2} ({1}) has refused to enter high-speed mode.", parsed.DeviceId, DeviceId.DeviceCategory(parsed.DeviceId)));
+                logger.AddUserMessage(string.Format("Module 0x{0:X2} ({1}) has refused to enter high-speed mode.", parsed.DeviceId, DeviceId.DeviceCategory(parsed.DeviceId)));
                 anyRefused = true;
             }
 
@@ -669,7 +669,7 @@ namespace PcmHacking
 
                 if (!await device.SendMessage(message))
                 {
-                    this.logger.AddDebugMessage("WritePayload: Unable to send message.");
+                    logger.AddDebugMessage("WritePayload: Unable to send message.");
                     continue;
                 }
 
@@ -678,12 +678,12 @@ namespace PcmHacking
                     return Response.Create(ResponseStatus.Success, true, retryCount);
                 }
 
-                this.logger.AddDebugMessage("WritePayload: Upload request failed.");
+                logger.AddDebugMessage("WritePayload: Upload request failed.");
                 await Task.Delay(100);
                 await this.SendToolPresentNotification();
             }
 
-            this.logger.AddDebugMessage("WritePayload: Giving up.");
+            logger.AddDebugMessage("WritePayload: Giving up.");
             return Response.Create(ResponseStatus.Error, false, retryCount);
         }
     }

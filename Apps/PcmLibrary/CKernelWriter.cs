@@ -68,13 +68,13 @@ namespace PcmHacking
                         // if the vehicle bus switches but the device does not, the bus will need to time out to revert back to 1x, and the next steps will fail.
                         if (!await this.vehicle.VehicleSetVPW4x(this.pcmInfo, VpwSpeed.FourX))
                         {
-                            this.logger.AddUserMessage("Stopping here because we were unable to switch to 4X.");
+                            logger.AddUserMessage("Stopping here because we were unable to switch to 4X.");
                             return false;
                         }
                     }
                     else
                     {
-                        this.logger.AddUserMessage("4X communications disabled by configuration.");
+                        logger.AddUserMessage("4X communications disabled by configuration.");
                     }
 
                     await this.vehicle.SendToolPresentNotification();
@@ -139,7 +139,7 @@ namespace PcmHacking
                 if (needToCheckOperatingSystem && (osidResponse.Status != ResponseStatus.Success))
                 {
                     // The kernel seems broken. This shouldn't happen, but if it does, halt.
-                    this.logger.AddUserMessage("The kernel did not respond to operating system ID query.");
+                    logger.AddUserMessage("The kernel did not respond to operating system ID query.");
                     return false;
                 }
 
@@ -172,23 +172,23 @@ namespace PcmHacking
                         case WriteType.Compare:
                         case WriteType.TestWrite:
                             await this.vehicle.Cleanup();
-                            this.logger.AddUserMessage("Something has gone wrong. Please report this error.");
-                            this.logger.AddUserMessage("Errors during comparisons or test writes indicate a");
-                            this.logger.AddUserMessage("problem with the PCM, interface, cable, or app. Don't");
-                            this.logger.AddUserMessage("try to do any actual writing until you are certain that");
-                            this.logger.AddUserMessage("the underlying problem has been completely corrected.");
+                            logger.AddUserMessage("Something has gone wrong. Please report this error.");
+                            logger.AddUserMessage("Errors during comparisons or test writes indicate a");
+                            logger.AddUserMessage("problem with the PCM, interface, cable, or app. Don't");
+                            logger.AddUserMessage("try to do any actual writing until you are certain that");
+                            logger.AddUserMessage("the underlying problem has been completely corrected.");
                             break;
 
                         default:
-                            this.logger.AddUserMessage("Something went wrong. " + exception.Message);
-                            this.logger.AddUserMessage("Do not power off the PCM! Do not exit this program!");
-                            this.logger.AddUserMessage("Try flashing again. If errors continue, seek help online.");
+                            logger.AddUserMessage("Something went wrong. " + exception.Message);
+                            logger.AddUserMessage("Do not power off the PCM! Do not exit this program!");
+                            logger.AddUserMessage("Try flashing again. If errors continue, seek help online.");
                             break;
                     }
 
-                    this.logger.AddUserMessage("https://pcmhacking.net/forums/viewtopic.php?f=42&t=6080");
-                    this.logger.AddUserMessage(string.Empty);
-                    this.logger.AddUserMessage(exception.ToString());
+                    logger.AddUserMessage("https://pcmhacking.net/forums/viewtopic.php?f=42&t=6080");
+                    logger.AddUserMessage(string.Empty);
+                    logger.AddUserMessage(exception.ToString());
                 }
 
                 return success;
@@ -262,11 +262,11 @@ namespace PcmHacking
                 image.Length == 512 * 1024 &&
                 flashChip.Size == 1024 * 1024)
             {
-                this.logger.AddUserMessage(string.Format("File size {0:n0} for flash chip size {1:n0}. Allowable for {2}.", image.Length, flashChip.Size, pcmInfo.HardwareType));
+                logger.AddUserMessage(string.Format("File size {0:n0} for flash chip size {1:n0}. Allowable for {2}.", image.Length, flashChip.Size, pcmInfo.HardwareType));
             }
             else if (image.Length != flashChip.Size)
             {
-                this.logger.AddUserMessage(string.Format("File size {0:n0} does not match flash chip size {1:n0}. This image is not compatible with this PCM.", image.Length, flashChip.Size));
+                logger.AddUserMessage(string.Format("File size {0:n0} does not match flash chip size {1:n0}. This image is not compatible with this PCM.", image.Length, flashChip.Size));
                 await this.vehicle.Cleanup();
                 return false;
             }
@@ -293,7 +293,7 @@ namespace PcmHacking
 
                 if (verificationResult == CrcVerificationResult.Timeout)
                 {
-                    this.logger.AddUserMessage("PCM stopped responding during write verification. Aborting.");
+                    logger.AddUserMessage("PCM stopped responding during write verification. Aborting.");
                     return false;
                 }
 
@@ -306,12 +306,12 @@ namespace PcmHacking
                     {
                         if (attempt == 1)
                         {
-                            this.logger.AddUserMessage("Beginning test.");
+                            logger.AddUserMessage("Beginning test.");
                         }
                     }
                     else
                     {
-                        this.logger.AddUserMessage("All relevant ranges are identical.");
+                        logger.AddUserMessage("All relevant ranges are identical.");
                         if (attempt > 1)
                         {
                             Utility.ReportRetryCount("Write", messageRetryCount, pcmInfo.ImageSize, this.logger);
@@ -331,8 +331,8 @@ namespace PcmHacking
                 // Stop now if the user only requested a comparison.
                 if (this.writeType == WriteType.Compare)
                 {
-                    this.logger.AddUserMessage("Note that mismatched Parameter blocks are to be expected.");
-                    this.logger.AddUserMessage("Parameter data can change every time the PCM is used.");
+                    logger.AddUserMessage("Note that mismatched Parameter blocks are to be expected.");
+                    logger.AddUserMessage("Parameter data can change every time the PCM is used.");
                     return true;
                 }
 
@@ -340,8 +340,8 @@ namespace PcmHacking
                 // does not allow boot-sector writes and boot would be written.
                 if (!this.IsWritePlanAllowedByPcmInfo(flashChip, relevantBlocks))
                 {
-                    this.logger.AddUserMessage("Boot sector write is required for this operation.");
-                    this.logger.AddUserMessage($"Abort: The {this.pcmInfo.HardwareType} boot sector is write protected. This PCM is not compatible with this file.");
+                    logger.AddUserMessage("Boot sector write is required for this operation.");
+                    logger.AddUserMessage($"Abort: The {this.pcmInfo.HardwareType} boot sector is write protected. This PCM is not compatible with this file.");
                     await this.vehicle.Cleanup();
                     return false;
                 }
@@ -358,7 +358,7 @@ namespace PcmHacking
                         continue;
                     }
 
-                    this.logger.AddUserMessage(
+                    logger.AddUserMessage(
                         string.Format(
                             "Processing range {0:X6}-{1:X6}",
                             range.Address,
@@ -366,13 +366,13 @@ namespace PcmHacking
 
                     if (cancellationToken.IsCancellationRequested)
                     {
-                        this.logger.AddUserMessage("Cancelled before erase.");
+                        logger.AddUserMessage("Cancelled before erase.");
                         return false;
                     }
 
                     if (this.writeType == WriteType.TestWrite)
                     {
-                        this.logger.AddUserMessage("Pretending to erase.");
+                        logger.AddUserMessage("Pretending to erase.");
                     }
                     else
                     {
@@ -384,11 +384,11 @@ namespace PcmHacking
 
                     if (this.writeType == WriteType.TestWrite)
                     {
-                        this.logger.AddUserMessage("Pretending to write...");
+                        logger.AddUserMessage("Pretending to write...");
                     }
                     else
                     {
-                        this.logger.AddUserMessage("Writing...");
+                        logger.AddUserMessage("Writing...");
                     }
 
                     Response<bool> writeResponse = await WriteMemoryRange(
@@ -402,7 +402,7 @@ namespace PcmHacking
 
                     if (writeResponse.RetryCount > 0)
                     {
-                        this.logger.AddUserMessage("Retry count for this block: " + writeResponse.RetryCount);
+                        logger.AddUserMessage("Retry count for this block: " + writeResponse.RetryCount);
                         messageRetryCount += writeResponse.RetryCount;
                     }
 
@@ -419,21 +419,21 @@ namespace PcmHacking
             {
                 if (this.writeType != WriteType.Compare && this.writeType != WriteType.TestWrite)
                 {
-                    this.logger.AddUserMessage("Flash successful!");
+                    logger.AddUserMessage("Flash successful!");
                 }
                 return true;
             }
 
             // During a test write, we will return from the middle of the loop above.
             // So if we made it here, a real write has failed.
-            this.logger.AddUserMessage("===============================================");
-            this.logger.AddUserMessage("THE CHANGES WERE -NOT- WRITTEN SUCCESSFULLY");
-            this.logger.AddUserMessage("===============================================");
+            logger.AddUserMessage("===============================================");
+            logger.AddUserMessage("THE CHANGES WERE -NOT- WRITTEN SUCCESSFULLY");
+            logger.AddUserMessage("===============================================");
 
             if (this.writeType == WriteType.Calibration)
             {
-                this.logger.AddUserMessage("Erasing Calibration to force recovery mode.");
-                this.logger.AddUserMessage("");
+                logger.AddUserMessage("Erasing Calibration to force recovery mode.");
+                logger.AddUserMessage("");
 
                 foreach(MemoryRange range in flashChip.MemoryRanges)
                 {
@@ -446,18 +446,18 @@ namespace PcmHacking
 
             if (cancellationToken.IsCancellationRequested)
             {
-                this.logger.AddUserMessage("");
-                this.logger.AddUserMessage("The operation was cancelled.");
-                this.logger.AddUserMessage("This PCM is probably not usable in its current state.");
-                this.logger.AddUserMessage("");
+                logger.AddUserMessage("");
+                logger.AddUserMessage("The operation was cancelled.");
+                logger.AddUserMessage("This PCM is probably not usable in its current state.");
+                logger.AddUserMessage("");
             }
             else
             {
-                this.logger.AddUserMessage("This may indicate a hardware problem on the PCM.");
-                this.logger.AddUserMessage("We tried, and re-tried, and it still didn't work.");
-                this.logger.AddUserMessage("");
-                this.logger.AddUserMessage("Please start a new thread at pcmhacking.net, and");
-                this.logger.AddUserMessage("include the contents of the debug tab.");
+                logger.AddUserMessage("This may indicate a hardware problem on the PCM.");
+                logger.AddUserMessage("We tried, and re-tried, and it still didn't work.");
+                logger.AddUserMessage("");
+                logger.AddUserMessage("Please start a new thread at pcmhacking.net, and");
+                logger.AddUserMessage("include the contents of the debug tab.");
                 this.RequestDebugLogs(cancellationToken);
             }
 
@@ -542,7 +542,7 @@ namespace PcmHacking
         /// </summary>
         private async Task<bool> EraseMemoryRange(MemoryRange range, CancellationToken cancellationToken)
         {
-            this.logger.AddUserMessage("Erasing.");
+            logger.AddUserMessage("Erasing.");
 
             await this.vehicle.SetDeviceTimeout(TimeoutScenario.EraseMemoryBlock);
             Query<byte> eraseRequest = this.vehicle.CreateQuery<byte>(
@@ -555,14 +555,14 @@ namespace PcmHacking
 
             if (eraseResponse.Status != ResponseStatus.Success)
             {
-                this.logger.AddUserMessage("Unable to erase flash memory: " + eraseResponse.Status.ToString());
+                logger.AddUserMessage("Unable to erase flash memory: " + eraseResponse.Status.ToString());
                 this.RequestDebugLogs(cancellationToken);
                 return false;
             }
 
             if (eraseResponse.Value != 0x00)
             {
-                this.logger.AddUserMessage("Unable to erase flash memory. Code: " + eraseResponse.Value.ToString("X2"));
+                logger.AddUserMessage("Unable to erase flash memory. Code: " + eraseResponse.Value.ToString("X2"));
                 this.RequestDebugLogs(cancellationToken);
                 return false;
             }
@@ -653,10 +653,10 @@ namespace PcmHacking
         {
             if (!cancellationToken.IsCancellationRequested)
             {
-                this.logger.AddUserMessage("Select the debug tab, click anywhere in the text,");
-                this.logger.AddUserMessage("press Ctrl+A to select the text, and Ctrl+C to");
-                this.logger.AddUserMessage("copy the text. Press Ctrl+V to paste that content");
-                this.logger.AddUserMessage("content into your forum post.");
+                logger.AddUserMessage("Select the debug tab, click anywhere in the text,");
+                logger.AddUserMessage("press Ctrl+A to select the text, and Ctrl+C to");
+                logger.AddUserMessage("copy the text. Press Ctrl+V to paste that content");
+                logger.AddUserMessage("content into your forum post.");
             }
         }
     }

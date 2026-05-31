@@ -118,23 +118,23 @@ namespace PcmHacking
         {
             if (this.image.Length == 256 * 1024)
             {
-                this.logger.AddUserMessage("Identifying 256KiB file.");
+                logger.AddUserMessage("Identifying 256KiB file.");
             }
             else if (this.image.Length == 512 * 1024)
             {
-                this.logger.AddUserMessage("Identifying 512KiB file.");
+                logger.AddUserMessage("Identifying 512KiB file.");
             }
             else if (this.image.Length == 1024 * 1024)
             {
-                this.logger.AddUserMessage("Identifying 1024KiB file.");
+                logger.AddUserMessage("Identifying 1024KiB file.");
             }
             else if (this.image.Length == 2048 * 1024)
             {
-                this.logger.AddUserMessage("Identifying 2048KiB file.");
+                logger.AddUserMessage("Identifying 2048KiB file.");
             }
             else
             {
-                this.logger.AddUserMessage(
+                logger.AddUserMessage(
                     string.Format(
                         "Files must be 256KiB, 512KiB, 1024KiB or 2048KiB. This file is {0} / {1:X} bytes long.",
                         this.image.Length,
@@ -151,14 +151,14 @@ namespace PcmHacking
                 }
 
                 UInt32 fileOsid = this.GetOsidFromImage(type);
-                this.logger.AddUserMessage("File operating system ID: " + fileOsid);
+                logger.AddUserMessage("File operating system ID: " + fileOsid);
 
                 return this.ValidateChecksums(type);
             }
             catch (Exception exception)
             {
-                this.logger.AddUserMessage("Unable to validate file format/checksums.");
-                this.logger.AddDebugMessage(exception.ToString());
+                logger.AddUserMessage("Unable to validate file format/checksums.");
+                logger.AddDebugMessage(exception.ToString());
                 return false;
             }
         }
@@ -183,13 +183,13 @@ namespace PcmHacking
 
             if (pcmInfo.HardwareType == fileInfo.HardwareType)
             {
-                this.logger.AddUserMessage("PCM and file match hardware " + fileInfo.HardwareType.ToString());
+                logger.AddUserMessage("PCM and file match hardware " + fileInfo.HardwareType.ToString());
                 return true;
             }
 
-            this.logger.AddUserMessage("Hardware types do not match. This file is not compatible with this PCM");
-            this.logger.AddUserMessage("PCM Hardware is: " + pcmInfo.HardwareType.ToString());
-            this.logger.AddUserMessage("File requires: " + fileInfo.HardwareType.ToString());
+            logger.AddUserMessage("Hardware types do not match. This file is not compatible with this PCM");
+            logger.AddUserMessage("PCM Hardware is: " + pcmInfo.HardwareType.ToString());
+            logger.AddUserMessage("File requires: " + fileInfo.HardwareType.ToString());
             return false;
         }
 
@@ -322,7 +322,7 @@ namespace PcmHacking
                     return false;
 
                 default:
-                    this.logger.AddDebugMessage("TODO: Implement FileValidator::ValidateChecksums for a " + type.ToString());
+                    logger.AddDebugMessage("TODO: Implement FileValidator::ValidateChecksums for a " + type.ToString());
                     return false;
             }
 
@@ -335,26 +335,26 @@ namespace PcmHacking
                 case PcmType.P05c:
                     success &= ValidateParamBlockP04();
                     if (ReadUnsigned(image, 0x20882) == 0x012380) { // P05c special case
-                        this.logger.AddUserMessage("\tStart\tEnd\tStored\tNeeded\tVerdict\tSegment Name");
+                        logger.AddUserMessage("\tStart\tEnd\tStored\tNeeded\tVerdict\tSegment Name");
                         success &= ValidateRangeWordSum(type, 0x0000, 0xFFFFF, 0x20880, "Operating System");
                         success &= ValidateRangeWordSum(type, 0x8002, 0x1FFFF, 0x8000, "Engine Calibration");
                     }
                     else
                     {
-                        this.logger.AddUserMessage("\tStart\tEnd\tStored\t\tNeeded\t\tVerdict\tSegment Name");
+                        logger.AddUserMessage("\tStart\tEnd\tStored\t\tNeeded\t\tVerdict\tSegment Name");
                         success &= ValidateRangeP04(true);
                     }
                     break;
                 case PcmType.P08:
-                    this.logger.AddUserMessage("\tStart\tEnd\tStored\tNeeded\tVerdict\tSegment Name");
+                    logger.AddUserMessage("\tStart\tEnd\tStored\tNeeded\tVerdict\tSegment Name");
                     success &= ValidateRangeByteSum(type, 0, 0x7FFFB, 0x8004, "Whole File");
                     break;
                 case PcmType.P11:
-                    this.logger.AddUserMessage("\tStart\tEnd\tStored\tNeeded\tVerdict\tSegment Name");
+                    logger.AddUserMessage("\tStart\tEnd\tStored\tNeeded\tVerdict\tSegment Name");
                     success &= ValidateRangeWordSum(type, 0, 0x7FFFB, 0x8000, "Whole File");
                     break;
                 case PcmType.P12:
-                    this.logger.AddUserMessage("\tStart\tEnd\tStored\tNeeded\tVerdict\tSegment Name");
+                    logger.AddUserMessage("\tStart\tEnd\tStored\tNeeded\tVerdict\tSegment Name");
                     success &= ValidateRangeP12(0x922, 0x900, 0x94A, 2, "Boot Block");
                     success &= ValidateRangeP12(0x8022, 0, 0x804A, 2, "Operating System");
                     success &= ValidateRangeP12(0x80C4, 0, 0x80E4, 2, "Engine Calibration");
@@ -365,7 +365,7 @@ namespace PcmHacking
                     success &= ValidateRangeP12(0x8091, 0, 0x80B1, 2, "System");
                     break;
                 case PcmType.E54:
-                    this.logger.AddUserMessage("\tStart\tEnd\tStored\tNeeded\tVerdict\tSegment Name");
+                    logger.AddUserMessage("\tStart\tEnd\tStored\tNeeded\tVerdict\tSegment Name");
                     success &= ValidateRangeWordSum(type, 0x20002, 0x6FFFF, 0x20000, "Operating System");
                     success &= ValidateRangeWordSum(type, 0x8002, 0x19FFF, 0x8000, "Engine Calibration");
                     success &= ValidateRangeWordSum(type, 0x1A002, 0x1C7FF, 0x1A000, "Engine Diagnostics");
@@ -376,7 +376,7 @@ namespace PcmHacking
 
                 // The rest can use the generic code
                 default:
-                    this.logger.AddUserMessage("\tStart\tEnd\tStored\tNeeded\tVerdict\tSegment Name");
+                    logger.AddUserMessage("\tStart\tEnd\tStored\tNeeded\tVerdict\tSegment Name");
                     for (UInt32 segment = 0; segment < segments; segment++)
                     {
                         UInt32 startAddressLocation = tableAddress + (segment * 8);
@@ -427,7 +427,7 @@ namespace PcmHacking
 
                         if ((startAddress >= image.Length) || (endAddress >= image.Length) || (checksumAddress >= image.Length))
                         {
-                            this.logger.AddUserMessage("Checksum table is corrupt.");
+                            logger.AddUserMessage("Checksum table is corrupt.");
                             return false;
                         }
 
@@ -478,7 +478,7 @@ namespace PcmHacking
             {
                 if (!this.forcedTypeLogged)
                 {
-                    this.logger.AddUserMessage("File type forced to " + this.forcedType.Value + " (manual selection).");
+                    logger.AddUserMessage("File type forced to " + this.forcedType.Value + " (manual selection).");
                     this.forcedTypeLogged = true;
                 }
 
@@ -488,7 +488,7 @@ namespace PcmHacking
             // All currently supported bins are 256KiB, 512KiB, 1024KiB or 20248KiB
             if ((image.Length != 256 * 1024) && (image.Length != 512 * 1024) && (image.Length != 1024 * 1024) && (image.Length != 2048 * 1024))
             {
-                this.logger.AddUserMessage("Files of size " + image.Length.ToString("X8") + " are not supported.");
+                logger.AddUserMessage("Files of size " + image.Length.ToString("X8") + " are not supported.");
                 return PcmType.Undefined;
             }
 
@@ -496,7 +496,7 @@ namespace PcmHacking
             // P04 512Kb
             if (image.Length == 256 * 1024)
             {
-                this.logger.AddDebugMessage("Trying P04 256KiB");
+                logger.AddDebugMessage("Trying P04 256KiB");
                 if ((image[0x3FFFE] == 0xA5) && (image[0x3FFFF] == 0x5A))
                 {
                     return PcmType.P04_Early;
@@ -508,7 +508,7 @@ namespace PcmHacking
             {
                 // E54 512Kb
                 // Must be before P01, P01 can pass for a E54, but an E54 cannot pass as a P01
-                this.logger.AddDebugMessage("Trying E54 512KiB");
+                logger.AddDebugMessage("Trying E54 512KiB");
                 if ((image[0x1FFFE] == 0x4A) && (image[0x1FFFF] == 0xFC))
                 {
                     if ((image[0x7FFFE] == 0x4A) && (image[0x7FFFF] == 0xFC))
@@ -520,7 +520,7 @@ namespace PcmHacking
                 }
 
                 // BlackBox 512Kb. Thanks to Universal Patcher team for the logic in autodetect.xml
-                this.logger.AddDebugMessage("Trying Vortec BlackBox 512KiB");
+                logger.AddDebugMessage("Trying Vortec BlackBox 512KiB");
                 if ((image[0x1FFFE] == 0x4A) && (image[0x1FFFF] == 0xFC))
                 {
                     if ((image[0x7FFFE] == 0x4A) && (image[0x7FFFF] == 0xFC))
@@ -533,7 +533,7 @@ namespace PcmHacking
                 }
 
                 // P01 512Kb
-                this.logger.AddDebugMessage("Trying P01 512KiB");
+                logger.AddDebugMessage("Trying P01 512KiB");
                 if ((image[0x1FFFE] == 0x4A) && (image[0x1FFFF] == 0xFC))
                 {
                     if ((image[0x7FFFE] == 0x4A) && (image[0x7FFFF] == 0xFC))
@@ -543,7 +543,7 @@ namespace PcmHacking
                 }
 
                 // P04 512Kb
-                this.logger.AddDebugMessage("Trying P04 512KiB");
+                logger.AddDebugMessage("Trying P04 512KiB");
                 // Last 4 bytes:
                 // A5 5A FF FF = P04
                 // XX XX XX XX A5 5A = P04 (XX is the OSID)
@@ -553,7 +553,7 @@ namespace PcmHacking
                     return PcmType.P04;
                 }
 
-                this.logger.AddDebugMessage("Trying P10 512KiB");
+                logger.AddDebugMessage("Trying P10 512KiB");
                 if ((image[0x17FFE] == 0x55) && (image[0x17FFF] == 0x55))
                 {
                     if ((image[0x7FFFC] == 0xA5) && (image[0x7FFFD] == 0x5A) && (image[0x7FFFE] == 0xA5) && (image[0x7FFFF] == 0xA5))
@@ -566,14 +566,14 @@ namespace PcmHacking
                 }
 
                 // P11 512KiB (boot-sector SHA-256 + 0x7FFFC marker).
-                this.logger.AddDebugMessage("Trying P11 512KiB boot hash + marker");
+                logger.AddDebugMessage("Trying P11 512KiB boot hash + marker");
                 if (this.HasP11TailMarkerAt7FFFC() && this.IsKnownP11BootSector())
                 {
                     return PcmType.P11;
                 }
 
                 // P08 512KiB
-                this.logger.AddDebugMessage("Trying P08 512KiB");
+                logger.AddDebugMessage("Trying P08 512KiB");
                 if ((image[0x7FFFC] == 0xA5) && (image[0x7FFFD] == 0x5A) && (image[0x7FFFE] == 0xA5) && (image[0x7FFFF] == 0xA5))
                 {
                     return PcmType.P08;
@@ -583,7 +583,7 @@ namespace PcmHacking
             // 1MiB types
             if (image.Length == 1024 * 1024)
             {
-                this.logger.AddDebugMessage("Trying P59 1024KiB");
+                logger.AddDebugMessage("Trying P59 1024KiB");
                 if ((image[0x1FFFE] == 0x4A) && (image[0x1FFFF] == 0xFC))
                 {
                     if ((image[0xFFFFE] == 0x4A) && (image[0xFFFFF] == 0xFC))
@@ -593,7 +593,7 @@ namespace PcmHacking
                 }
 
                 // P05/P05c 1024KiB
-                this.logger.AddDebugMessage("Trying P05/P05c 1024KiB");
+                logger.AddDebugMessage("Trying P05/P05c 1024KiB");
                 if ((image[0xFFFFE] == 0xA5) && (image[0xFFFFF] == 0x5A))
                 {
                     if ((image[0x1FFFE] == 0xA5) && (image[0x1FFFF] == 0x5A) &&
@@ -611,13 +611,13 @@ namespace PcmHacking
                 }
 
                 // P11 1024KiB (boot-sector SHA-256 + 0x7FFFC marker).
-                this.logger.AddDebugMessage("Trying P11 1024KiB boot hash + marker");
+                logger.AddDebugMessage("Trying P11 1024KiB boot hash + marker");
                 if (this.HasP11TailMarkerAt7FFFC() && this.IsKnownP11BootSector())
                 {
                     return PcmType.P11;
                 }
 
-                this.logger.AddDebugMessage("Trying P12 1024KiB");
+                logger.AddDebugMessage("Trying P12 1024KiB");
                 if ((image[0xFFFF8] == 0xAA) && (image[0xFFFF9] == 0x55))
                 {
                     return PcmType.P12;
@@ -627,14 +627,14 @@ namespace PcmHacking
             // 2024KiB types
             if (image.Length == 2048 * 1024)
             {
-                this.logger.AddDebugMessage("Trying P12 2048KiB");
+                logger.AddDebugMessage("Trying P12 2048KiB");
                 if ((image[0x17FFF8] == 0xAA) && (image[0x17FFF9] == 0x55))
                 {
                     return PcmType.P12;
                 }
             }
 
-            this.logger.AddDebugMessage("Unable to identify or validate bin image content");
+            logger.AddDebugMessage("Unable to identify or validate bin image content");
             return PcmType.Undefined;
         }
 
@@ -643,7 +643,7 @@ namespace PcmHacking
         /// </summary>
         private void PrintHeader()
         {
-            this.logger.AddUserMessage("\tStart\tEnd\tResult\tFile\tActual\tContent");
+            logger.AddUserMessage("\tStart\tEnd\tResult\tFile\tActual\tContent");
         }
 
         /// <summary>
@@ -681,7 +681,7 @@ namespace PcmHacking
                 verdict ? "Good" : "BAD",
                 description);
 
-            this.logger.AddUserMessage(error);
+            logger.AddUserMessage(error);
             return verdict;
         }
 
@@ -770,7 +770,7 @@ namespace PcmHacking
                 verdict ? "Good" : "BAD",
                 description);
 
-            this.logger.AddUserMessage(error);
+            logger.AddUserMessage(error);
             return verdict;
         }
 
@@ -834,7 +834,7 @@ namespace PcmHacking
                 verdict ? "Good" : "BAD",
                 description);
 
-            this.logger.AddUserMessage(error);
+            logger.AddUserMessage(error);
             return verdict;
         }
 
@@ -920,7 +920,7 @@ namespace PcmHacking
 
             if (!sumFound || ((sumaddr + 3) >= this.image.Length))
             {
-                this.logger.AddUserMessage("Unable to locate a valid checksum pointer for this P04/P05 image.");
+                logger.AddUserMessage("Unable to locate a valid checksum pointer for this P04/P05 image.");
                 return false;
             }
 
@@ -984,7 +984,7 @@ namespace PcmHacking
                 verdict ? "Good" : "BAD",
                 "Whole File");
 
-            this.logger.AddUserMessage(error);
+            logger.AddUserMessage(error);
             return verdict;
         }
 
@@ -1004,30 +1004,30 @@ namespace PcmHacking
             switch (this.image.Length)
             {
                 case 256 * 1024:
-                    this.logger.AddDebugMessage("256KiB P04, no param block required");
+                    logger.AddDebugMessage("256KiB P04, no param block required");
                     return true;
                 case 512 * 1024:
                 case 1024 * 1024:
                     if (Utility.IsBlank(this.image, 0x4000, 0x2000) || Utility.IsBlank(this.image, 0x6000, 0x2000))
                     {
-                        this.logger.AddUserMessage("P04/P05 1998+, checking for valid paramater block");
+                        logger.AddUserMessage("P04/P05 1998+, checking for valid paramater block");
                         if ((image[0x43F6] == 0xA5) && (image[0x43F7] == 0xA0))
                         {
-                            this.logger.AddUserMessage("Param block at 0x4000");
+                            logger.AddUserMessage("Param block at 0x4000");
                             return true;
                         }
                         if ((image[0x63F6] == 0xA5) && (image[0x63F7] == 0xA0))
                         {
-                            this.logger.AddUserMessage("Param block at 0x6000");
+                            logger.AddUserMessage("Param block at 0x6000");
                             return true;
                         }
-                        this.logger.AddUserMessage("1998+ P04/P05 with missing param block. This file is bad and would soft brick your PCM.");
+                        logger.AddUserMessage("1998+ P04/P05 with missing param block. This file is bad and would soft brick your PCM.");
                         return false;
                     }
-                    this.logger.AddUserMessage("1997 type P04, Param block not needed");
+                    logger.AddUserMessage("1997 type P04, Param block not needed");
                     return true;
             }
-            this.logger.AddDebugMessage("BUG: ValidateParamBlockP04 called with image of invalid size");
+            logger.AddDebugMessage("BUG: ValidateParamBlockP04 called with image of invalid size");
             return false; // unreachable
         }
 
@@ -1044,7 +1044,7 @@ namespace PcmHacking
 
             if (!this.ValidateTypeLayout(type))
             {
-                this.logger.AddUserMessage("The file structure does not match the selected or detected PCM type.");
+                logger.AddUserMessage("The file structure does not match the selected or detected PCM type.");
                 return false;
             }
 
@@ -1156,7 +1156,7 @@ namespace PcmHacking
 
                     if (start > end || end >= this.image.Length)
                     {
-                        this.logger.AddDebugMessage("P12 checksum block range is invalid.");
+                        logger.AddDebugMessage("P12 checksum block range is invalid.");
                         return false;
                     }
                 }
@@ -1175,7 +1175,7 @@ namespace PcmHacking
                 }
             }
 
-            this.logger.AddDebugMessage("Unexpected file size for selected/detected type.");
+            logger.AddDebugMessage("Unexpected file size for selected/detected type.");
             return false;
         }
 
@@ -1192,7 +1192,7 @@ namespace PcmHacking
                 return true;
             }
 
-            this.logger.AddDebugMessage($"{purpose} is out of range.");
+            logger.AddDebugMessage($"{purpose} is out of range.");
             return false;
         }
 
@@ -1212,7 +1212,7 @@ namespace PcmHacking
                 string.Equals(hash, P11BootSectorSha256_12576162, StringComparison.OrdinalIgnoreCase);
             if (!match)
             {
-                this.logger.AddDebugMessage(
+                logger.AddDebugMessage(
                     "P11 boot sector hash mismatch. Found: " + hash +
                     ", Expected one of: " + P11BootSectorSha256_12210553 +
                     " (12210553), " + P11BootSectorSha256_12576162 + " (12576162).");
@@ -1239,7 +1239,7 @@ namespace PcmHacking
 
             if (!match)
             {
-                this.logger.AddDebugMessage("P11 marker A5 5A A5 A5 was not found at 0x7FFFC.");
+                logger.AddDebugMessage("P11 marker A5 5A A5 A5 was not found at 0x7FFFC.");
             }
 
             return match;
