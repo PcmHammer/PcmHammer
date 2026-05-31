@@ -82,6 +82,7 @@ namespace PcmHacking
             int keyAlgorithm = 1;
             bool shouldHalt;
             OSIDInfo? pcmInfo = null;
+            uint? pcmOsid = null;
             bool needToCheckOperatingSystem =
                 (writeType != WriteType.OsPlusCalibrationPlusBoot) &&
                 (writeType != WriteType.Full) &&
@@ -102,6 +103,7 @@ namespace PcmHacking
                 if (osidResponse.Status == ResponseStatus.Success)
                 {
                     pcmInfo = new OSIDInfo(osidResponse.Value);
+                    pcmOsid = osidResponse.Value;
                     keyAlgorithm = pcmInfo.KeyAlgorithm;
                     needUnlock = true;
 
@@ -223,12 +225,15 @@ namespace PcmHacking
                 return false;
             }
 
-            // If we cant write the slave, warn the user of operating system changes
-            if (pcmInfo.HardwareSlaveCPU == true && !pcmInfo.IsSupportedWriteSlaveCPU && (writeType == WriteType.Full || writeType == WriteType.OsPlusCalibrationPlusBoot))
+            // If we cant write the slave, warn the user of operating system changes, if there are any.
+            // Skip the warning if we know the file OS matches the PCM OS — no slave CPU sync needed.
+            bool osWillChange = pcmOsid == null || !validator.IsSameOperatingSystem(pcmOsid.Value);
+            if (pcmInfo.HardwareSlaveCPU == true && !pcmInfo.IsSupportedWriteSlaveCPU && (writeType == WriteType.Full || writeType == WriteType.OsPlusCalibrationPlusBoot) && osWillChange)
             {
                 string msg = $"Warning: Writes to the {pcmInfo.HardwareType.ToString()} slave CPU are not supported." + Environment.NewLine +
-                            "You must have another way to update the slave CPU to match when you change operating system, else electroncic throttle may not work." + Environment.NewLine +
-                            "Restore this PCM to its original operating system if this happens." + Environment.NewLine +
+                            "When you change the operating system you need need another way to update the slave CPU to match, else electroncic throttle may not work." + Environment.NewLine +
+                            "PCM Hammer can re-write the original OS to undo any change if kept backup." + Environment.NewLine +
+                            "PCM Hammer can re-write the original OS to undo any change if kept backup." + Environment.NewLine +
                             "Do you want to continue?";
                 this.logger.AddUserMessage(msg);
                 if (await this.promptForYesNo(msg, "Warning!"))

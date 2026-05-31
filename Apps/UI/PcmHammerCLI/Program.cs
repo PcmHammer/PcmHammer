@@ -10,8 +10,12 @@ namespace PcmHacking
 {
     class Program
     {
+        static Vehicle? activeVehicle;
+        static bool operationInProgress;
+
         static int Main(string[] args)
         {
+            AppDomain.CurrentDomain.ProcessExit += (s, e) => activeVehicle?.Dispose();
             return RunAsync(args).GetAwaiter().GetResult();
         }
 
@@ -29,7 +33,7 @@ namespace PcmHacking
             string? deviceCategory = null;
             bool listDevices = false;
             bool debug = false;
-            int crcPollDelayMs = 50;
+            int crcPollDelayMs = 500;
 
             for (int i = 0; i < args.Length; i++)
             {
@@ -115,13 +119,17 @@ namespace PcmHacking
                 try
                 {
                     vehicle = await InitializeVehicle(device, logger, kernelDir);
+                    activeVehicle = vehicle;
 
                     var cts = new CancellationTokenSource();
                     Console.CancelKeyPress += (s, e) =>
                     {
                         e.Cancel = true;
+                        if (operationInProgress)
+                            Console.Error.WriteLine("\nOperation in progress — waiting for clean shutdown. Press Ctrl+C again to force quit.");
+                        else
+                            Console.Error.WriteLine("\nCancellation requested.");
                         cts.Cancel();
-                        Console.Error.WriteLine("\nCancellation requested.");
                     };
 
                     Func<Action, Task> invoke = (action) => { action(); return Task.CompletedTask; };
@@ -137,6 +145,7 @@ namespace PcmHacking
                         return Task.FromResult(true);
                     };
 
+                    operationInProgress = true;
                     bool success = false;
                     switch (operation)
                     {
@@ -203,6 +212,7 @@ namespace PcmHacking
                         }
                     }
 
+                    operationInProgress = false;
                     return success ? 0 : 1;
                 }
                 catch (Exception ex)
@@ -214,6 +224,8 @@ namespace PcmHacking
                 }
                 finally
                 {
+                    operationInProgress = false;
+                    activeVehicle = null;
                     vehicle?.Dispose();
                 }
             }
@@ -342,7 +354,7 @@ namespace PcmHacking
             Console.WriteLine();
             Console.WriteLine("Other options:");
             Console.WriteLine("  --debug                   Show full debug log stream (includes all user messages)");
-            Console.WriteLine("  --crc-poll-delay <ms>     Delay between CRC verification polls (default: 50)");
+            Console.WriteLine("  --crc-poll-delay <ms>     Delay between CRC verification polls (default: 500)");
             Console.WriteLine("                            Increase if the PCM kernel crashes during verification");
             Console.WriteLine();
             Console.WriteLine("Examples:");

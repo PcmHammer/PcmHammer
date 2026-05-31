@@ -624,6 +624,8 @@ namespace PcmHacking
                 string fileName = Configuration.Settings.LogDirectory + "\\" + GetLogFilename(debugLog.Name);
                 SaveLog(this.debugLog, fileName);
             }
+
+            this.Vehicle?.Dispose();
         }
 
         /// <summary>

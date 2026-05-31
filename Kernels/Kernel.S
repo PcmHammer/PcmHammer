@@ -122,11 +122,6 @@ start:
     movea.w #0xB800, %sp               | Move the stack out the way P05/P08/E54
 #endif
 
-#if !defined(P04) && !defined(P04_Early) && !defined(BlackBox)
-    move.b  (J1850_Config).l, %d0      | Read DLC config register
-    move.b  %d0, DLCConfigSave         | Save for DLC recovery on receive timeout
-#endif
-
 | P04/BlackBox: aliased TX_FIFO/RX_FIFO share one address. Writing 0x00 to TX_FIFO loads a
 | transmit byte, locking the DLC in a partial transmit state that blocks receive. Skip flush
 | and Wait01 entirely - the DLC was receiving correctly during upload so it is already in a
@@ -1169,7 +1164,7 @@ VPWReceiveReadFrame:
     bne.s   VPWReceiveHasData          | Got something, process it
     subq.l  #1, %d1                    | Decrement idle timeout counter
     bne.s   VPWReceiveReadFrame        | Not expired, keep waiting
-    bra.s   VPWReceiveTimeout          | Expired, reset DLC and return to MainLoop
+    bra.s   VPWReceiveTimeout          | Expired, return to MainLoop
 
 VPWReceiveHasData:
     cmpi.b  #0x80, %d0                 | 100x xxxx = All codes *greater* than this mean completion code at buffer head
@@ -1177,16 +1172,14 @@ VPWReceiveHasData:
 
 | VPW Receive Read Byte                | Anything else, read a byte
     cmpa.l  #MessageBuffer + 4096, %a0 | Buffer overflow check, 4096 byte message limit
-    bge.s   VPWReceiveTimeout          | Past buffer end, reset DLC and abort
+    bge.s   VPWReceiveTimeout          | Past buffer end, abort
     move.b  (J1850_RX_FIFO).l, (%a0)+  | Read from RX FIFO to input buffer, and move pointer to next byte
     move.l  #0x30000, %d1              | Reset timeout counter on each received byte
     bra.s   VPWReceiveReadFrame        | Next try
 
 VPWReceiveReadComplete:
-    move.b  (J1850_RX_FIFO).l, %d0    | Read completion code to register
+    move.b  (J1850_RX_FIFO).l, (%a0)+ | Read completion code (discard, advance pointer)
     movea.l #MessageBuffer, %a0        | Reset pointer to message start
-    andi.b  #0x30, %d0                 | Mask error bits (0x20=noise, 0x10=framing)
-    bne.s   VPWReceiveReadFrame        | Error set, discard frame and receive again
     move.b  (%a0), %d0                 | Load message first byte
     andi.b  #0xFE, %d0                 | Mask 1111 1110
     cmpi.b  #0x6C, %d0                 | Priority 6C or 6D packet?
@@ -1200,12 +1193,6 @@ VPWReceiveRTS:
     rts                                | Return for processing
 
 VPWReceiveTimeout:
-#if !defined(P04) && !defined(P04_Early) && !defined(BlackBox)
-    move.b  DLCConfigSave, %d0         | Load saved DLC config register value
-    move.b  %d0, (J1850_Config).l      | Restore DLC config register to known state
-#endif
-    move.b  #0x03, (J1850_Command).l   | RFC=11 Flush DLC state machine to idle
-    move.b  #0x00, (J1850_TX_FIFO).l   | Completion byte, clears pending state
     rts                                | Return to MainLoop for retry
 
 | =============== S U B R O U T I N E =======================================
@@ -1334,9 +1321,6 @@ Mode60Reply:    .byte  0x6C, toolid, pcmid, 0x60
 
 | Erase Sector Reply, 7 bytes + 1 alignment
 EraseSectorReply:   .byte  0x6C, toolid, pcmid, 0x7D, 0x05, 0x00, 0x00, 0xAA
-
-| DLC config register value saved at startup, used to restore DLC on receive timeout
-DLCConfigSave:      .byte  0x00
 
 | Global buffer, it's at the end and it's not transported, thus length is irrelevant!
   .globl   MessageBuffer
