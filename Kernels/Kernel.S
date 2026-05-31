@@ -400,9 +400,12 @@ ProcessFlashID:
 #elif defined P05 || defined P12
     move.w  #0xF322, (SIM_CSOR0).w     | 0xFA7E
 #else
-    move.w  #0x0007, (SIM_CSBAR0).w    | 0xFA4C Set CS registers
-    move.w  #0x6820, (SIM_CSORBT).w    | 0xFA4A
-    move.w  #0x7060, (SIM_CSOR0).w     | 0xFA4E
+    move.w  #0x0007, (SIM_CSBARBT).w   | 0xFA48 Enable CS (may be disabled by OS after upload)
+    move.w  #0x6820, (SIM_CSORBT).w    | 0xFA4A CS write mode
+    move.w  #0x0007, (SIM_CSBAR0).w    | 0xFA4C Enable CS0 at address 0
+    move.w  #0x7060, (SIM_CSOR0).w     | 0xFA4E CS0 write mode
+    nop                                | Pipeline settling before first CS access
+    nop
 #endif
     movea.w #0, %a0                    | Pointer to address 0 (First word)
     move.w  #SIGNATURE_CMD, (%a0)      | Command Intel Read ID State (0x9090)
@@ -438,7 +441,7 @@ ProcessFlashIDFound:
 #elif defined P05 || defined P12
     move.w  #0xA332, (SIM_CSOR0).w     | 0xFA7E
 #else
-    move.w  #0x1060, (SIM_CSOR0).w     | 0xFA4E
+    move.w  #0x1060, (SIM_CSOR0).w     | 0xFA4E CS0 back to read-only
 #endif
     move.b  %d1, FlashIDReply + 6      | Move MFG ID byte 2 to FlashIDReply buffer byte 7
     lsr.w   #8, %d1                    | Shift MFG ID Right
