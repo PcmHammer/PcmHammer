@@ -168,18 +168,7 @@ namespace PcmHacking
         /// </summary>
         public bool IsSameOperatingSystem(UInt32 pcmOsid)
         {
-            UInt32 fileOsid = this.GetOsidFromImage();
-
-            if (pcmOsid == fileOsid)
-            {
-                this.logger.AddUserMessage("PCM and file are both operating system " + pcmOsid);
-                return true;
-            }
-
-            this.logger.AddUserMessage("Operating system IDs do not match.");
-            this.logger.AddUserMessage("PCM operating system ID: " + pcmOsid);
-            this.logger.AddUserMessage("File operating system ID: " + fileOsid);
-            return false;
+            return pcmOsid == this.GetOsidFromImage();
         }
 
         /// <summary>

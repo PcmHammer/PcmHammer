@@ -114,11 +114,17 @@ namespace PcmHacking
 
                     if (!validator.IsSameOperatingSystem(osidResponse.Value))
                     {
+                        this.logger.AddUserMessage("PCM operating system ID: " + osidResponse.Value);
+                        this.logger.AddUserMessage("File operating system ID: " + validator.GetOsidFromImage());
                         Utility.ReportOperatingSystems(validator.GetOsidFromImage(), osidResponse.Value, writeType, this.logger, out shouldHalt);
                         if (shouldHalt)
                         {
                             return false;
                         }
+                    }
+                    else
+                    {
+                        this.logger.AddUserMessage("PCM and file are both operating system " + osidResponse.Value);
                     }
 
                     needToCheckOperatingSystem = false;
@@ -232,7 +238,6 @@ namespace PcmHacking
             {
                 string msg = $"Warning: Writes to the {pcmInfo.HardwareType.ToString()} slave CPU are not supported." + Environment.NewLine +
                             "When you change the operating system you need need another way to update the slave CPU to match, else electroncic throttle may not work." + Environment.NewLine +
-                            "PCM Hammer can re-write the original OS to undo any change if kept backup." + Environment.NewLine +
                             "PCM Hammer can re-write the original OS to undo any change if kept backup." + Environment.NewLine +
                             "Do you want to continue?";
                 this.logger.AddUserMessage(msg);

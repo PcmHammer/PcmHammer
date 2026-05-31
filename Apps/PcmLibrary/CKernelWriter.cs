@@ -364,6 +364,12 @@ namespace PcmHacking
                             range.Address,
                             range.Address + (range.Size - 1)));
 
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        this.logger.AddUserMessage("Cancelled before erase.");
+                        return false;
+                    }
+
                     if (this.writeType == WriteType.TestWrite)
                     {
                         this.logger.AddUserMessage("Pretending to erase.");

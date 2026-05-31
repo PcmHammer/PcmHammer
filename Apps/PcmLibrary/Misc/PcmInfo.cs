@@ -363,7 +363,7 @@ namespace PcmHacking
                     this.IsSupportedWriteBySegment = false;
                     this.LoaderRequired = false;
                     this.KernelFileName = "Kernel-P08.bin";
-                    this.KernelBaseAddress = 0xFFAC00;
+                    this.KernelBaseAddress = 0xFFABE0;
                     this.LoaderFileName = string.Empty;
                     this.LoaderBaseAddress = 0x0;
                     this.ImageBaseAddress = 0x0;
