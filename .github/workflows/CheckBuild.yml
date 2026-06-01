@@ -73,7 +73,7 @@ jobs:
           cp build/Kernel-${pcm}.bin ../TemporaryArtifactStorage/
           echo "    Cleanup after Kernel-${pcm}"
           echo
-          make clean
+          make -f makefile pcm=${pcm} clean
         done
 
     - name: Build Assembly Kernels and Loaders
@@ -120,7 +120,7 @@ jobs:
           cp build/Kernel-${pcm}.bin ../TemporaryArtifactStorage/
           echo "    Cleanup after Kernel-${pcm}"
           echo
-          make -f makefile-assembly clean
+          make -f makefile-assembly pcm=${pcm} srcdir=${srcdir} clean
           #
           # Build the Loader if requested
           #
@@ -132,7 +132,7 @@ jobs:
             cp build/Loader-${pcm}.bin ../TemporaryArtifactStorage/
             echo "    Cleanup after Loader-${pcm}"
             echo
-            make -f makefile-assembly clean
+            make -f makefile-assembly pcm=${pcm} name=Loader srcdir=${srcdir} clean
           fi
         done
 
