@@ -17,7 +17,7 @@ SECTIONS
 
     .kernel_data :
     {
-      Kernel.o (.kerneldata)
+      *(.kerneldata)
     }
 }
 

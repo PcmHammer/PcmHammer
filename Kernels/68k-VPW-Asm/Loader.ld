@@ -17,7 +17,7 @@ SECTIONS
 
     .kernel_data :
     {
-      Loader.o (.kerneldata)
+      *(.kerneldata)
     }
 }
 
