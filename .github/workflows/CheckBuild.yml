@@ -40,6 +40,23 @@ jobs:
       run: |
         cd Kernels
         mkdir -p build
+        BUILD_STEP_START=$(date +%s)
+        verify_bin() {
+          local file="$1"
+          if [ ! -f "$file" ]; then
+            echo "ERROR: $file was not created"
+            exit 1
+          fi
+          local hash mtime
+          hash=$(sha1sum "$file" | awk '{print $1}')
+          mtime=$(stat -c %Y "$file")
+          if [ "$mtime" -ge "$BUILD_STEP_START" ]; then
+            printf "%s  sha1:%s  OK\n" "$file" "$hash"
+          else
+            echo "ERROR: $file is stale (mtime=$mtime < start=$BUILD_STEP_START)"
+            exit 1
+          fi
+        }
         #
         # The following loop is the one location that needs to be updated when adding a new C kernel.
         # Add entries as: "PCM ADDRESS" — e.g. "P12 FF2000"
@@ -49,8 +66,9 @@ jobs:
           pcm=${p%% *}
           address=${p##* }
 
-          echo Building Kernel ":    ${pcm}"
+          echo "Building Kernel :    ${pcm}"
           make -f makefile PREFIX=/usr/bin/m68k-linux-gnu- pcm=${pcm} address=${address}
+          verify_bin "build/Kernel-${pcm}.bin"
           echo "    Copy-Item build/Kernel-${pcm}.bin to TemporaryArtifactStorage"
           cp build/Kernel-${pcm}.bin ../TemporaryArtifactStorage/
           echo "    Cleanup after Kernel-${pcm}"
@@ -62,6 +80,23 @@ jobs:
       run: |
         cd Kernels
         mkdir -p build
+        BUILD_STEP_START=$(date +%s)
+        verify_bin() {
+          local file="$1"
+          if [ ! -f "$file" ]; then
+            echo "ERROR: $file was not created"
+            exit 1
+          fi
+          local hash mtime
+          hash=$(sha1sum "$file" | awk '{print $1}')
+          mtime=$(stat -c %Y "$file")
+          if [ "$mtime" -ge "$BUILD_STEP_START" ]; then
+            printf "%s  sha1:%s  OK\n" "$file" "$hash"
+          else
+            echo "ERROR: $file is stale (mtime=$mtime < start=$BUILD_STEP_START)"
+            exit 1
+          fi
+        }
         #
         # Each group is required to have 4 elements in the following order:
         # 1: PCM Moniker (P01 (includes P59), P04, P08, etc...)
@@ -80,6 +115,7 @@ jobs:
 
           echo "Building Kernel :    ${pcm} (srcdir=${srcdir})"
           make -f makefile-assembly PREFIX=/usr/bin/m68k-linux-gnu- pcm=${pcm} address=${address} srcdir=${srcdir}
+          verify_bin "build/Kernel-${pcm}.bin"
           echo "    Copy-Item build/Kernel-${pcm}.bin to TemporaryArtifactStorage"
           cp build/Kernel-${pcm}.bin ../TemporaryArtifactStorage/
           echo "    Cleanup after Kernel-${pcm}"
@@ -91,6 +127,7 @@ jobs:
           if [ ${loader} != NOLOADER ]; then
             echo "Building Loader :    ${pcm} (srcdir=${srcdir})"
             make -f makefile-assembly PREFIX=/usr/bin/m68k-linux-gnu- pcm=${pcm} address=${loader} name=Loader srcdir=${srcdir}
+            verify_bin "build/Loader-${pcm}.bin"
             echo "    Copy-Item build/Loader-${pcm}.bin to TemporaryArtifactStorage"
             cp build/Loader-${pcm}.bin ../TemporaryArtifactStorage/
             echo "    Cleanup after Loader-${pcm}"

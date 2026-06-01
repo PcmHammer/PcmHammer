@@ -19,6 +19,7 @@ goto beginning
 *                                                    Added -x Build Assembly Kernel and or Loader.
 * Revision Date: 2026-05-30 - Antus <pcmhacking.net> Generate an epoch to embed in the kernel as version/build time stamp.
 * Revision Date: 2026-06-01 - Antus <pcmhacking.net> Restructure: VPW-C, VPW-Asm, VPW-P04 subdirs; build/ for outputs.
+* Revision Date: 2026-06-01 - Antus <pcmhacking.net> Verify .bin files: sha1, timestamp >= build start, OK/ERROR + exit.
 
 *
 * Authors disclaimer
@@ -147,6 +148,24 @@ goto beginning
   goto :EOF
 *
 *
+**
+* Verifies a freshly built .bin: must exist and have mtime >= BUILD_EPOCH.
+* Prints:  <file>  sha1:<hash>  OK    or    ERROR: <reason> and returns exit code 1.
+* Caller is responsible for (popd ^& exit /b 1) if called inside a pushd block.
+**
+:VerifyBin
+set "_VF=%~1"
+if not exist "%_VF%" (
+  echo ERROR: %_VF% was not created.
+  set "_VF="
+  exit /b 1
+)
+powershell -NoProfile -Command "& { $f = Get-Item '%_VF%'; $h = (Get-FileHash '%_VF%' -Algorithm SHA1).Hash.ToLower(); $t = [long][math]::Floor(($f.LastWriteTimeUtc - [DateTime]::new(1970,1,1,0,0,0,[System.DateTimeKind]::Utc)).TotalSeconds); if ($t -ge %BUILD_EPOCH%) { Write-Host ('%_VF%  sha1:' + $h + '  OK') } else { Write-Host ('ERROR: %_VF% is stale (mtime=' + $t + ' < start=%BUILD_EPOCH%)'); exit 1 } }"
+if %errorlevel% neq 0 (set "_VF=" & exit /b 1)
+set "_VF="
+goto :EOF
+*
+*
 *************************************** Beginning
 * Let us get to it!
 :beginning
@@ -248,6 +267,7 @@ if not defined ASSEMBLY_KERNEL (
   rem ***
   rem *** C Kernel
   rem ***
+  echo Building Kernel-%PCM%.bin [C, %SOURCE_DIR%]...
   "%GCC_LOCATION%\m68k-elf-gcc.exe" -c -D=%PCM% %BUILD_DEFS% -fomit-frame-pointer -std=gnu99 -mcpu=68332 -O0 Kernel-%PCM%.c @CFiles-%PCM%.list
   if %errorlevel% neq 0 (popd & goto :EOF)
 
@@ -260,6 +280,8 @@ if not defined ASSEMBLY_KERNEL (
 
   "%GCC_LOCATION%\m68k-elf-objcopy.exe" -O binary --only-section=.kernel_code --only-section=.rodata ..\build\Kernel-%PCM%.elf ..\build\Kernel-%PCM%.bin
   if %errorlevel% neq 0 (popd & goto :EOF)
+  call :VerifyBin "..\build\Kernel-%PCM%.bin"
+  if %errorlevel% neq 0 (popd & exit /b 1)
 
   if defined DUMP_ELF (
     "%GCC_LOCATION%\m68k-elf-objdump.exe" -d -S ..\build\Kernel-%PCM%.elf > ..\build\Kernel-%PCM%.disassembly
@@ -270,6 +292,7 @@ if not defined ASSEMBLY_KERNEL (
   rem ***
   rem *** Assembly Kernel
   rem ***
+  echo Building Kernel-%PCM%.bin [Assembly, %SOURCE_DIR%]...
   "%GCC_LOCATION%\m68k-elf-gcc.exe" -c -D=%PCM% %BUILD_DEFS% -fomit-frame-pointer -std=gnu99 -mcpu=68332 -O0 Kernel.S
   if %errorlevel% neq 0 (popd & goto :EOF)
 
@@ -278,6 +301,8 @@ if not defined ASSEMBLY_KERNEL (
 
   "%GCC_LOCATION%\m68k-elf-objcopy.exe" -O binary --only-section=.text --only-section=.data ..\build\Kernel-%PCM%.elf ..\build\Kernel-%PCM%.bin
   if %errorlevel% neq 0 (popd & goto :EOF)
+  call :VerifyBin "..\build\Kernel-%PCM%.bin"
+  if %errorlevel% neq 0 (popd & exit /b 1)
 
   if defined DUMP_ELF (
     "%GCC_LOCATION%\m68k-elf-objdump.exe" -d -S ..\build\Kernel-%PCM%.elf > ..\build\Kernel-%PCM%.disassembly
@@ -286,6 +311,7 @@ if not defined ASSEMBLY_KERNEL (
 
   rem *** Handle the Kernel Loader
   if defined LOADER_ADDRESS (
+    echo Building Loader-%PCM%.bin [Assembly, %SOURCE_DIR%]...
     "%GCC_LOCATION%\m68k-elf-gcc.exe" -c -D=%PCM% %BUILD_DEFS% -fomit-frame-pointer -std=gnu99 -mcpu=68332 -O0 Loader.S
     if %errorlevel% neq 0 (popd & goto :EOF)
 
@@ -294,6 +320,8 @@ if not defined ASSEMBLY_KERNEL (
 
     "%GCC_LOCATION%\m68k-elf-objcopy.exe" -O binary --only-section=.text --only-section=.data ..\build\Loader-%PCM%.elf ..\build\Loader-%PCM%.bin
     if %errorlevel% neq 0 (popd & goto :EOF)
+    call :VerifyBin "..\build\Loader-%PCM%.bin"
+    if %errorlevel% neq 0 (popd & exit /b 1)
 
     if defined DUMP_ELF (
       "%GCC_LOCATION%\m68k-elf-objdump.exe" -d -S ..\build\Loader-%PCM%.elf > ..\build\Loader-%PCM%.disassembly
