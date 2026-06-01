@@ -50,7 +50,7 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="..\..\..\Kernels\*.bin" />
+    <EmbeddedResource Include="..\..\..\Kernels\build\*.bin" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\J2534DotNet\J2534DotNet\J2534DotNet.csproj">

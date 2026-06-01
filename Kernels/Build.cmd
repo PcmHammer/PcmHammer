@@ -12,12 +12,13 @@ goto beginning
 * Revision Date: 2026-05-19 - Gampy <pcmhacking.net> Cleanup for publication.
 * Revision Date: 2026-04-01 - Gampy <pcmhacking.net> Added -t<PCM Type>, added -r dump kernel RAM map.
 * Revision Date: 2026-04-14 - Gampy <pcmhacking.net> Fixed ld map dump.
-* Revision Date: 2026-03/01 - Gampy <pcmhacking.net> Merged P04, swapped -p & -t, removed -r, reworked
+* Revision Date: 2026-04-03 - Gampy <pcmhacking.net> Merged P04, swapped -p & -t, removed -r, reworked
 *                                                    for ease of adding new kernels, see NOTES:.
 * Revision Date: 2023-03-25 - Gampy <pcmhacking.net> Added Assembly Kernel and Kernel Loader.
 *                                                    Added -l Kernel Loader Address.
 *                                                    Added -x Build Assembly Kernel and or Loader.
-* Revision Date: 2026-05-30 - Antus <pcmhacking.net> Generate an epoc to embed in the kernel as a version/build time stamp
+* Revision Date: 2026-05-30 - Antus <pcmhacking.net> Generate an epoch to embed in the kernel as version/build time stamp.
+* Revision Date: 2026-06-01 - Antus <pcmhacking.net> Restructure: VPW-C, VPW-Asm, VPW-P04 subdirs; build/ for outputs.
 
 *
 * Authors disclaimer
@@ -30,18 +31,29 @@ goto beginning
 *
 * NOTES:
 * To add a new C Kernel,
-*   1. Create the entry point C file named as "Kernel-<PCM>.c".
+*   1. Create the entry point C file named as "Kernel-<PCM>.c" in 68k-VPW-C\.
 *      It must contain at least, the following:
 *        int __attribute__((section(".kernelstart")))
 *        KernelStart(void)
 *        {
 *          // Create main loop here.
 *        }
-*   2. Create a plain text "CFiles-<PCM>.list" for ancillary C files.
+*   2. Create a plain text "CFiles-<PCM>.list" in 68k-VPW-C\ for ancillary C files.
 *      One dot c filename per line, no spaces, do not include Kernel-<PCM>.c.
 *      Must contain at least main.c.
 *   3. Add the new PCM to BuildAll.cmd.
 *   4. Add the new PCM to .github/workflows/CheckBuild.yml (See note in CheckBuild.yml).
+*
+* To add a new Assembly Kernel (non-P04),
+*   1. Add a new -p<PCM> entry in 68k-VPW-Asm\Kernel.S using an appropriate #ifdef block.
+*   2. Add the new PCM to BuildAll.cmd.
+*   3. Add the new PCM to .github/workflows/CheckBuild.yml.
+*
+* Source directories:
+*   68k-VPW-C\       - C kernel source files (Kernel-P01.c, Kernel-P10.c, Kernel-P12.c, main.c, etc.)
+*   68k-VPW-Asm\     - Assembly kernel source for all PCMs except P04 (Kernel.S, Loader.S, Common-Assembly.h)
+*   68k-VPW-Asm-P04\ - P04-specific assembly kernel (Kernel.S from crowbar, plus Loader.S, Kernel.ld, Loader.ld)
+*   build\           - All binary artifacts (.bin, .elf, .map, .disassembly)
 *
 **********************************************************************
 * Here we'll collect the routines (call :label / goto label).
@@ -191,19 +203,35 @@ rem * Handle command line options.
 )
 
 
-rem * Setup linker map dump
-if defined DUMP_MAP (set "DUMPMAP=-Map Kernel-%PCM%.map")
-
-rem * Ensure we have no trailing slash.
+rem * Ensure no trailing slash on paths.
 call :Detrailslash "%GCC_LOCATION%" GCC_LOCATION
 call :Detrailslash "%BIN_LOCATION%" BIN_LOCATION
 
-rem * Create PCM specific object file list from CFiles-<PCM>.list
+rem * Determine source directory based on PCM type and kernel type.
+rem *   P04 assembly uses 68k-VPW-Asm-P04 (crowbar-derived kernel with AMD flash support).
+rem *   All other assembly kernels use 68k-VPW-Asm.
+rem *   C kernels use 68k-VPW-C.
+set "SOURCE_DIR=68k-VPW-Asm"
+if not defined ASSEMBLY_KERNEL set "SOURCE_DIR=68k-VPW-C"
+if /i "%PCM%"=="P04" if defined ASSEMBLY_KERNEL set "SOURCE_DIR=68k-VPW-Asm-P04"
+
+rem * Ensure build directory exists.
+if not exist build mkdir build
+
+rem * Setup linker map dumps (point into build directory).
+if defined DUMP_MAP (
+  set "DUMPMAP=-Map ..\build\Kernel-%PCM%.map"
+  set "LDUMPMAP=-Map ..\build\Loader-%PCM%.map"
+)
+
+rem * Create PCM specific object file list from CFiles-<PCM>.list (C kernels only).
 (
   setlocal enabledelayedexpansion
-  if exist CFiles-%PCM%.list (
-    for /f %%A in (CFiles-%PCM%.list) do (
-      set "OLIST=!OLIST! %%~nA.o"
+  if not defined ASSEMBLY_KERNEL (
+    if exist "%SOURCE_DIR%\CFiles-%PCM%.list" (
+      for /f "usebackq" %%A in ("%SOURCE_DIR%\CFiles-%PCM%.list") do (
+        set "OLIST=!OLIST! %%~nA.o"
+      )
     )
   )
   setlocal disabledelayedexpansion
@@ -213,80 +241,79 @@ rem *** Build timestamp as Unix epoch (seconds since 1970-01-01 UTC)
 for /f %%a in ('powershell "[DateTimeOffset]::UtcNow.ToUnixTimeSeconds()"') do set BUILD_EPOCH=%%a
 set BUILD_DEFS=-DBUILD_EPOCH=%BUILD_EPOCH%
 
-rem *** All that for this ...
+rem *** Build from source subdirectory; binary outputs go to ..\build\
+pushd "%SOURCE_DIR%"
 
 if not defined ASSEMBLY_KERNEL (
   rem ***
   rem *** C Kernel
   rem ***
   "%GCC_LOCATION%\m68k-elf-gcc.exe" -c -D=%PCM% %BUILD_DEFS% -fomit-frame-pointer -std=gnu99 -mcpu=68332 -O0 Kernel-%PCM%.c @CFiles-%PCM%.list
-  if %errorlevel% neq 0 goto :EOF
+  if %errorlevel% neq 0 (popd & goto :EOF)
 
-  rem * Create PCM specific Linker Script (.ld).
-  rem *** WARNING! Redirections (>) break inside if statements and do ugly things to the environment!
-  rem *** If you get brave and test the above mentioned issue, be sure to use a new command interpreter each time, for it does corrupt it!
-  rem *** To get around this, we'll do it in another environment, thus no if statement, thus no issue.
+  rem * Create PCM specific Linker Script (.ld) in current (source) directory.
   call "%~dp0CreateCKernelPCMSpecificLinkerScript.cmd" %PCM%
 
-  "%GCC_LOCATION%\m68k-elf-ld.exe" --section-start .kernel_code=0x%BASE_ADDRESS% -T LinkerScript.tmp %DUMPMAP% -o Kernel-%PCM%.elf Kernel-%PCM%.o %OLIST%
-  if %errorlevel% neq 0 goto :EOF
-
+  "%GCC_LOCATION%\m68k-elf-ld.exe" --section-start .kernel_code=0x%BASE_ADDRESS% -T LinkerScript.tmp %DUMPMAP% -o ..\build\Kernel-%PCM%.elf Kernel-%PCM%.o %OLIST%
+  if %errorlevel% neq 0 (del /f LinkerScript.tmp & popd & goto :EOF)
   del /f LinkerScript.tmp
 
-  "%GCC_LOCATION%\m68k-elf-objcopy.exe" -O binary --only-section=.kernel_code --only-section=.rodata Kernel-%PCM%.elf Kernel-%PCM%.bin
-  if %errorlevel% neq 0 goto :EOF
+  "%GCC_LOCATION%\m68k-elf-objcopy.exe" -O binary --only-section=.kernel_code --only-section=.rodata ..\build\Kernel-%PCM%.elf ..\build\Kernel-%PCM%.bin
+  if %errorlevel% neq 0 (popd & goto :EOF)
 
   if defined DUMP_ELF (
-    "%GCC_LOCATION%\m68k-elf-objdump.exe" -d -S Kernel-%PCM%.elf > Kernel-%PCM%.disassembly
-    if %errorlevel% neq 0 goto :EOF
+    "%GCC_LOCATION%\m68k-elf-objdump.exe" -d -S ..\build\Kernel-%PCM%.elf > ..\build\Kernel-%PCM%.disassembly
+    if %errorlevel% neq 0 (popd & goto :EOF)
   )
 
-  if defined COPY_BIN (
-    echo Copying Kernel-%PCM%.bin -^> %BIN_LOCATION%\Kernel-%PCM%.bin
-    copy Kernel-%PCM%.bin "%BIN_LOCATION%" 1>nul
-  )
 ) else (
-  rem *** Builds the Assembly kernel
+  rem ***
+  rem *** Assembly Kernel
+  rem ***
   "%GCC_LOCATION%\m68k-elf-gcc.exe" -c -D=%PCM% %BUILD_DEFS% -fomit-frame-pointer -std=gnu99 -mcpu=68332 -O0 Kernel.S
-  if %errorlevel% neq 0 goto :EOF
+  if %errorlevel% neq 0 (popd & goto :EOF)
 
-  "%GCC_LOCATION%\m68k-elf-ld.exe" --section-start .text=0x%BASE_ADDRESS% -T Kernel.ld %DUMPMAP% -o Kernel-%PCM%.elf Kernel.o
-  if %errorlevel% neq 0 goto :EOF
+  "%GCC_LOCATION%\m68k-elf-ld.exe" --section-start .text=0x%BASE_ADDRESS% -T Kernel.ld %DUMPMAP% -o ..\build\Kernel-%PCM%.elf Kernel.o
+  if %errorlevel% neq 0 (popd & goto :EOF)
 
-  "%GCC_LOCATION%\m68k-elf-objcopy.exe" -O binary --only-section=.text --only-section=.data Kernel-%PCM%.elf Kernel-%PCM%.bin
-  if %errorlevel% neq 0 goto :EOF
+  "%GCC_LOCATION%\m68k-elf-objcopy.exe" -O binary --only-section=.text --only-section=.data ..\build\Kernel-%PCM%.elf ..\build\Kernel-%PCM%.bin
+  if %errorlevel% neq 0 (popd & goto :EOF)
 
   if defined DUMP_ELF (
-    "%GCC_LOCATION%\m68k-elf-objdump.exe" -d -S Kernel-%PCM%.elf > Kernel-%PCM%.disassembly
-    if %errorlevel% neq 0 goto :EOF
-  )
-
-  if defined COPY_BIN (
-    echo Copying Kernel-%PCM%.bin -^> %BIN_LOCATION%\Kernel-%PCM%.bin
-    copy Kernel-%PCM%.bin "%BIN_LOCATION%" 1>nul
+    "%GCC_LOCATION%\m68k-elf-objdump.exe" -d -S ..\build\Kernel-%PCM%.elf > ..\build\Kernel-%PCM%.disassembly
+    if %errorlevel% neq 0 (popd & goto :EOF)
   )
 
   rem *** Handle the Kernel Loader
   if defined LOADER_ADDRESS (
-    rem *** All that for this ...
     "%GCC_LOCATION%\m68k-elf-gcc.exe" -c -D=%PCM% %BUILD_DEFS% -fomit-frame-pointer -std=gnu99 -mcpu=68332 -O0 Loader.S
-    if %errorlevel% neq 0 goto :EOF
+    if %errorlevel% neq 0 (popd & goto :EOF)
 
-    "%GCC_LOCATION%\m68k-elf-ld.exe" --section-start .text=0x%LOADER_ADDRESS% -T Loader.ld %DUMPMAP% -o Loader-%PCM%.elf Loader.o
-    if %errorlevel% neq 0 goto :EOF
+    "%GCC_LOCATION%\m68k-elf-ld.exe" --section-start .text=0x%LOADER_ADDRESS% -T Loader.ld %LDUMPMAP% -o ..\build\Loader-%PCM%.elf Loader.o
+    if %errorlevel% neq 0 (popd & goto :EOF)
 
-    "%GCC_LOCATION%\m68k-elf-objcopy.exe" -O binary --only-section=.text --only-section=.data Loader-%PCM%.elf Loader-%PCM%.bin
-    if %errorlevel% neq 0 goto :EOF
+    "%GCC_LOCATION%\m68k-elf-objcopy.exe" -O binary --only-section=.text --only-section=.data ..\build\Loader-%PCM%.elf ..\build\Loader-%PCM%.bin
+    if %errorlevel% neq 0 (popd & goto :EOF)
 
     if defined DUMP_ELF (
-      "%GCC_LOCATION%\m68k-elf-objdump.exe" -d -S Loader-%PCM%.elf > Loader-%PCM%.disassembly
-      if %errorlevel% neq 0 goto :EOF
-    )
-
-    if defined COPY_BIN (
-      echo Copying Loader-%PCM%.bin -^> %BIN_LOCATION%\Loader-%PCM%.bin
-      copy Loader-%PCM%.bin "%BIN_LOCATION%" 1>nul
+      "%GCC_LOCATION%\m68k-elf-objdump.exe" -d -S ..\build\Loader-%PCM%.elf > ..\build\Loader-%PCM%.disassembly
+      if %errorlevel% neq 0 (popd & goto :EOF)
     )
   )
 )
 
+popd
+
+rem *** Install: copy binaries from build\ to BIN_LOCATION if requested.
+if defined COPY_BIN (
+  if exist "build\Kernel-%PCM%.bin" (
+    echo Copying Kernel-%PCM%.bin -^> %BIN_LOCATION%\Kernel-%PCM%.bin
+    copy build\Kernel-%PCM%.bin "%BIN_LOCATION%" 1>nul
+  )
+  if defined LOADER_ADDRESS (
+    if exist "build\Loader-%PCM%.bin" (
+      echo Copying Loader-%PCM%.bin -^> %BIN_LOCATION%\Loader-%PCM%.bin
+      copy build\Loader-%PCM%.bin "%BIN_LOCATION%" 1>nul
+    )
+  )
+)

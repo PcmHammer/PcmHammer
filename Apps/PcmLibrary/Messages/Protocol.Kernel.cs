@@ -31,14 +31,15 @@ namespace PcmHacking
                 return Response.Create(status, (UInt64)0);
             }
             byte[] responseBytes = responseMessage.GetBytes();
-            if (responseBytes.Length < 10)
+            if (responseBytes.Length < 9)
                 return Response.Create(ResponseStatus.Truncated, (UInt64)0);
             UInt64 epoch =
                 ((UInt64)responseBytes[5] << 24) |
                 ((UInt64)responseBytes[6] << 16) |
                 ((UInt64)responseBytes[7] <<  8) |
                 responseBytes[8];
-            UInt64 value = (epoch << 8) | responseBytes[9];
+            byte pcmType = responseBytes.Length >= 10 ? responseBytes[9] : (byte)0x00;
+            UInt64 value = (epoch << 8) | pcmType;
             return Response.Create(ResponseStatus.Success, value);
         }
 

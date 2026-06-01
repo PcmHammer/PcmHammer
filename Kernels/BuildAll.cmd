@@ -12,6 +12,7 @@ goto beginning
 * Revision Date: 03/01/2023 - Merged P04
 * Revision Date: 03/25/2023 - Gampy <pcmhacking.net> Updated for new Assembly Kernels and Loaders.
 * Revision Date: 05/23/2023 - Antus <pcmhacking.net> Update P04 loader address.
+* Revision Date: 2026-06-01 - Antus <pcmhacking.net> Restructure: 68k-VPW-C, 68k-VPW-Asm, 68k-VPW-Asm-P04; build/ for outputs.
 *
 * Authors disclaimer
 *   It is what it is, you can do with it as you please. (with respect)
@@ -54,12 +55,12 @@ rem * They would need to be changed below.
   setlocal disabledelayedexpansion
 )
 
-REM P04_Early uses the P04 loader
+rem P04_Early uses the P04 loader; P04 uses 68k-VPW-Asm-P04, all others use 68k-VPW-Asm or 68k-VPW-C.
 for %%A in (
   "-pP01 -aFF8000 -x",
   "-pP04 -aFF8000 -lFF9890 -x",
   "-pP04_Early -aFF8000 -x",
-  "-pP05 -aFFC100 -X",
+  "-pP05 -aFFC100 -x",
   "-pP08 -aFFABE0 -x",
   "-pP10 -aFFB800 -x",
   "-pP11 -aFFC000 -x",
@@ -80,7 +81,7 @@ rem Windows Forms targets (stable locations)
 call :CopyBinsToTarget "..\Apps\UI\WindowsForms\PcmHammer\bin\Debug"
 call :CopyBinsToTarget "..\Apps\UI\WindowsForms\PcmHammer\bin\Release"
 
-rem CLI targets (kernels are embedded at CLI build time from Kernels source,
+rem CLI targets (kernels are embedded at CLI build time from build\ dir,
 rem but we copy here so the bin dir can be inspected to verify the right kernels were built)
 call :CopyBinsToTarget "..\Apps\UI\PcmHammerCLI\bin\Release"
 call :CopyBinsToTarget "..\Apps\UI\PcmHammerCLI\bin\Debug"
@@ -89,7 +90,7 @@ rem Uno targets (detected by output folder patterns)
 call :CopyToDetectedUnoTargets
 
 if "%COPY_TARGET_COUNT%" == "0" (
-  echo No output targets detected. Kernels remain in %cd%.
+  echo No output targets detected. Kernels remain in build\.
 )
 
 goto :EOF
@@ -122,14 +123,14 @@ if not exist "%TARGET%" (
 
 echo Detected target: "%TARGET%"
 
-if exist "Kernel-*.bin" (
-  echo   Copying Kernel-*.bin to "%TARGET%"
-  copy /Y Kernel-*.bin "%TARGET%\" 1>nul 2>nul
+if exist "build\Kernel-*.bin" (
+  echo   Copying build\Kernel-*.bin to "%TARGET%"
+  copy /Y build\Kernel-*.bin "%TARGET%\" 1>nul 2>nul
 )
 
-if exist "Loader-*.bin" (
-  echo   Copying Loader-*.bin to "%TARGET%"
-  copy /Y Loader-*.bin "%TARGET%\" 1>nul 2>nul
+if exist "build\Loader-*.bin" (
+  echo   Copying build\Loader-*.bin to "%TARGET%"
+  copy /Y build\Loader-*.bin "%TARGET%\" 1>nul 2>nul
 )
 
 set /a COPY_TARGET_COUNT+=1

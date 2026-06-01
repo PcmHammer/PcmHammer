@@ -3,34 +3,34 @@
 PCM Hammer and tools support reading, writing, and data logging with General Motors P01, P04, P05 (VPW), P08, P10, P11, P12, P59, 4 connector 98-02 Black Box and E54 Powertrain Control Modules (PCMs).
 
 ```
-+---------+--------+-------+---------+----------+---------+-------+--------+-------------+---------+
-|         |        |       | Clone   | Segment  | Recovery| Slave |        |             |         |
-|PCM Type | Logging| Read  | Write   | Write    | Write   | Write | Loader | Boot Sector | Kernel  |
-+---------+--------+-------+---------+----------+---------+-------+--------+-------------+---------+
-|Black    |        |       |         |          |         |       |        |             |         |
-|Box 4    |        |       |         |          |         |       |        |             |         |
-|Connector| Yes    | Yes   | Yes     | N/A      | ?       | N/A   | N/A    | Yes         | Assembly|
-|P01      | Yes    | Yes   | Yes     | Yes      | Yes     | N/A   | N/A    | Yes         | C       |
-|P04      | Yes    | Yes   | Yes     | N/A      | N/A     | N/A   | Yes    | Yes         | Assembly|
-|P05(VPW) | Yes    | Yes   | Yes     | N/A      | ?       | N/A   | N/A    | No          | Assembly|
-|P08      | Yes    | Yes   | Yes     | Yes      | No      | N/A   | N/A    | Yes         | Assembly|
-|P10      | Yes    | Yes   | Yes     | Yes      | Yes     | No    | N/A    | Yes         | C       |
-|P11      | Yes    | Yes   | Yes     | Yes      | ?       | No    | N/A    | Yes         | Assembly|
-|P12      | Yes    | Yes   | Yes     | Yes      | Yes     | No    | N/A    | No          | C       |
-|P59      | Yes    | Yes   | Yes     | Yes      | Yes     | N/A   | N/A    | Yes         | C       |
-|E54      | Yes    | Yes   | Yes     | Yes      | No      | N/A   | N/A    | Yes         | Assembly|
-+---------+--------+-------+---------+----------+---------+-------+--------+-------------+---------+
++-----------+--------+-------+---------+----------+---------+-------+--------+-------------+---------+
+|           |        |       | Clone   | Segment  | Recovery| Slave |        |             |         |
+|PCM Type   | Logging| Read  | Write   | Write    | Write   | Write | Loader | Boot Sector | Kernel  |
++-----------+--------+-------+---------+----------+---------+-------+--------+-------------+---------+
+|BlackBox   |        |       |         |          |         |       |        |             |         |
+|4 Connector| Yes    | Yes   | Yes     | N/A      | ?       | N/A   | N/A    | Yes         | Assembly|
+|P01        | Yes    | Yes   | Yes     | Yes      | Yes     | N/A   | N/A    | Yes         | Assembly|
+|P04 (All)  | Yes    | Yes   | Yes     | N/A      | N/A     | N/A   | Yes    | Yes         | Assembly|
+|P05a, P05b | Yes    | Yes   | Yes     | N/A      | ?       | N/A   | N/A    | No          | Assembly|
+|P08        | Yes    | Yes   | Yes     | Yes      | No      | N/A   | N/A    | Yes         | Assembly|
+|P10        | Yes    | Yes   | Yes     | Yes      | Yes     | No    | N/A    | Yes         | Assembly|
+|P11        | Yes    | Yes   | Yes     | Yes      | ?       | No    | N/A    | Yes         | Assembly|
+|P12 (All)  | Yes    | Yes   | Yes     | Yes      | Yes     | No    | N/A    | No          | Assembly|
+|P59        | Yes    | Yes   | Yes     | Yes      | Yes     | N/A   | N/A    | Yes         | Assembly|
+|E54        | Yes    | Yes   | Yes     | Yes      | No      | N/A   | N/A    | Yes         | Assembly|
++-----------+--------+-------+---------+----------+---------+-------+--------+-------------+---------+
 ```
 
 Yes means an operation is supported by the PCM, and tested in PCM Hammer.
 No means an operation is possible in the PCM, or not supported.
 N/A means the operation is not applicable (eg PCM does not have a slave cpu).
 
-The C kernels are the original and trusted kernel.
+The C kernels are the original kernel, superceded by smaller kernels written in asm.
 The Assembly kernels are the smaller new generation of kernel.
 The PCM Hammer team recommends to flash PCMs on the bench and with a good power supply of around 12.5v to 14v. 
 The required current is around 1 amp. Phone chargers and other cheap switch mode power supplies often cause
 flash failure due to poor quality power.
+Very thin power wires can cause voltage drop under load and cause problems.
 Quality lab type power supplies, or charged car batteries with good floating voltages are recommended.
 There are mutiple revisions of P05 PCM. PCMHammer only works with VPW capable units (P05a, P05b) and does not support CAN (P05c).
 
@@ -39,6 +39,9 @@ There are mutiple revisions of P05 PCM. PCMHammer only works with VPW capable un
 Go here: https://github.com/PcmHammer/PcmHammer/releases
 
 The most recent release will be at the top of that page.
+Winforms (Windows) version is the main release.
+Windows CLI is available for automated or command line use where that is required.
+Windows Uno and Android Uno are experimental and not recommended at this stage.
 
 Click "Assets" (below the description of the release) and download the .zip file.   
 

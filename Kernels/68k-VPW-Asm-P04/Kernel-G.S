@@ -122,11 +122,11 @@ start:
     movea.w #0xB800, %sp               | Move the stack out the way P05/P08/E54
 #endif
 
-| P04/BlackBox: aliased TX_FIFO/RX_FIFO share one address. Writing 0x00 to TX_FIFO loads a
-| transmit byte, locking the DLC in a partial transmit state that blocks receive. Skip flush
-| and Wait01 entirely - the DLC was receiving correctly during upload so it is already in a
-| usable state. VPWReceive timeout (Patch D+E) handles any stale FIFO data.
 #if !defined(P04) && !defined(P04_Early) && !defined(BlackBox)
+    move.b  (J1850_Config).l, %d0      | Read DLC config register
+    move.b  %d0, DLCConfigSave         | Save for DLC recovery on receive timeout
+#endif
+
     move.b  #0x03, (J1850_Command).l   | Flush frame except for completion code
     move.b  #0x00, (J1850_TX_FIFO).l   | Initiate transfer
 
@@ -142,11 +142,6 @@ Wait01:
     cmpi.b  #0xE0, %d0                 | Check for "completion code only, at head of buffer" message 1110 0000
     bne.b   Wait01                     | Not ready? wait and retry
     move.b  (J1850_RX_FIFO).l, %d0     | Strip off the completion code
-#else
-#if defined P11
-    bset    #4, (SIM_18).w             | 0xFA18
-#endif
-#endif
 
 #if defined P12
     movea.l #Mode36Reply, %a0          | Reply Success to mode 3680, only P12 needs this.
@@ -223,29 +218,29 @@ WasteTime:
 ProcessKernelID:
     movea.l #KernelIDReply, %a0        | Pointer to KernelIDReply buffer
 #if defined P01
-    move.b  #0x01, 9(%a0)              | P01, P59
+    move.b  #0x01, 11(%a0)             | P01, P59
 #elif defined P04_Early
-    move.b  #0x44, 9(%a0)              | P04 256k
+    move.b  #0x44, 11(%a0)             | P04 256k
 #elif defined P04
-    move.b  #0x04, 9(%a0)              | P04
+    move.b  #0x04, 11(%a0)             | P04
 #elif defined P05
-    move.b  #0x05, 9(%a0)              | P05
+    move.b  #0x05, 11(%a0)             | P05
 #elif defined P08
-    move.b  #0x08, 9(%a0)              | P08
+    move.b  #0x08, 11(%a0)             | P08
 #elif defined P10
-    move.b  #0x0A, 9(%a0)              | P10
+    move.b  #0x0A, 11(%a0)             | P10
 #elif defined P11
-    move.b  #0x0B, 9(%a0)              | P11
+    move.b  #0x0B, 11(%a0)             | P11
 #elif defined P12
-    move.b  #0x0C, 9(%a0)              | P12
+    move.b  #0x0C, 11(%a0)             | P12
 #elif defined E54
-    move.b  #0x36, 9(%a0)              | E54
+    move.b  #0x36, 11(%a0)             | E54
 #elif defined BlackBox
-    move.b  #0x88, 9(%a0)              | BlackBox
+    move.b  #0x88, 11(%a0)             | BlackBox
 #endif
-    move.w  #10, %d0                   | It's 10 bytes long
+    move.w  #12, %d0                   | It's 12 bytes long
     bsr.w   VPWSend                    | Send it
-    bra.w   MainLoop                   | Return to MainLoop
+    jmp     MainLoop                   | Return to MainLoop
 
 | =============== S U B R O U T I N E =======================================
 | Process Operating System ID
@@ -289,7 +284,7 @@ ProcessOsID:
     movea.l #OsIDReply, %a0            | Pointer to OsIDReply buffer
     move.w  #9, %d0                    | It's 9 bytes long (6C F0 10 7D 03 00 BA 48 C2)
     bsr.w   VPWSend                    | Send it
-    bra.w   MainLoop                   | Return to MainLoop
+    jmp     MainLoop                   | Return to MainLoop
 | =============== S U B R O U T I N E =======================================
 | Process CRC Request
 | Mode 3D02
@@ -341,10 +336,10 @@ ProcessCRCBitLoop:
 
 ProcessCRCMainLoopCheck:
     bsr.w   ResetWatchdog              | Scratch the dog
-    move.b  (J1850_Status).l, %d1     | Check RFS - any data in FIFO?
-    andi.b  #0xE0, %d1                | Mask RFS bits 7:5
-    beq.s   ProcessCRCMainLoopNoRX    | FIFO empty, skip drain
-    move.b  (J1850_RX_FIFO).l, %d1   | Drain one byte to prevent FIFO overflow
+    move.b  (J1850_Status).l, %d1      | Check RFS
+    andi.b  #0xE0, %d1                 | Mask RFS bits 7:5
+    beq.s   ProcessCRCMainLoopNoRX     | FIFO empty, skip drain
+    move.b  (J1850_RX_FIFO).l, %d1    | Drain one byte
 ProcessCRCMainLoopNoRX:
     cmpa.l  %a1, %a2                   | Is byte < nBytes?
     bne.s   ProcessCRCMainLoop         | If not, iterate main loop
@@ -364,7 +359,7 @@ ProcessCRCMainLoopNoRX:
 
     move.w  #15, %d0                   | It's 15 bytes long (6C F0 10 7D 02 01 00 00 01 00 00 67 86 6E C2)
     bsr.w   VPWSend                    | Send it
-    bra.w   MainLoop                   | Return to MainLoop
+    jmp     MainLoop                   | Return to MainLoop
 
 ProcessCRCPolynomial:
     eori.l  #POLYNOMIAL, %d0           | ^ POLYNOMIAL;
@@ -395,12 +390,9 @@ ProcessFlashID:
 #elif defined P05 || defined P12
     move.w  #0xF322, (SIM_CSOR0).w     | 0xFA7E
 #else
-    move.w  #0x0007, (SIM_CSBARBT).w   | 0xFA48 Enable CS (may be disabled by OS after upload)
-    move.w  #0x6820, (SIM_CSORBT).w    | 0xFA4A CS write mode
-    move.w  #0x0007, (SIM_CSBAR0).w    | 0xFA4C Enable CS0 at address 0
-    move.w  #0x7060, (SIM_CSOR0).w     | 0xFA4E CS0 write mode
-    nop                                | Pipeline settling before first CS access
-    nop
+    move.w  #0x0007, (SIM_CSBAR0).w    | 0xFA4C Set CS registers
+    move.w  #0x6820, (SIM_CSORBT).w    | 0xFA4A
+    move.w  #0x7060, (SIM_CSOR0).w     | 0xFA4E
 #endif
     movea.w #0, %a0                    | Pointer to address 0 (First word)
     move.w  #SIGNATURE_CMD, (%a0)      | Command Intel Read ID State (0x9090)
@@ -436,7 +428,7 @@ ProcessFlashIDFound:
 #elif defined P05 || defined P12
     move.w  #0xA332, (SIM_CSOR0).w     | 0xFA7E
 #else
-    move.w  #0x1060, (SIM_CSOR0).w     | 0xFA4E CS0 back to read-only
+    move.w  #0x1060, (SIM_CSOR0).w     | 0xFA4E
 #endif
     move.b  %d1, FlashIDReply + 6      | Move MFG ID byte 2 to FlashIDReply buffer byte 7
     lsr.w   #8, %d1                    | Shift MFG ID Right
@@ -449,7 +441,7 @@ ProcessFlashIDFound:
     movea.l #FlashIDReply, %a0         | Pointer to FlashIDReply buffer
     move.w  #9, %d0                    | It's 9 bytes long
     bsr.w   VPWSend                    | Send it
-    bra.w   MainLoop
+    jmp     MainLoop
 
 | =============== S U B R O U T I N E =======================================
 |
@@ -506,7 +498,7 @@ ProcessEraseFlashFinal:
     move.b  %d0, 5(%a0)                | Move error value to EraseSectorReply buffer
     move.w  #7, %d0                    | PCMHammer returns 7 bytes, 6C F0 10 7D 05 00 00, last two are Status and Error?, why two??
     bsr.w   VPWSend                    | Send it!
-    bra.w   MainLoop
+    jmp     MainLoop
 
 | =============== S U B R O U T I N E =======================================
 |
@@ -999,7 +991,7 @@ ProcessMode34:
     movea.l #Mode34Reply, %a0          | Pointer to Mode34Reply buffer
     move.w  #6, %d0                    | It's 6 bytes long
     bsr.w   VPWSend                    | Send it
-    bra.w   MainLoop
+    jmp     MainLoop
 
 | =============== S U B R O U T I N E =======================================
 |
@@ -1025,7 +1017,7 @@ ProcessMode35:
     or.b    MessageBuffer + 6, %d0     | Second length byte
 
     bsr.w   VPWSendBlock               | Send it
-    bra.w   MainLoop                   | Back to MainLoop
+    jmp     MainLoop                   | Back to MainLoop
  
 | =============== S U B R O U T I N E =======================================
 | The packet is in the buffer when this function is called
@@ -1086,7 +1078,7 @@ ProcessMode36NextSum:
     movea.l #Mode36Reply, %a0          | Pointer to Mode36Reply buffer
     move.w  #6, %d0                    | Message is 6 bytes long
     bsr.w   VPWSend                    | Send it
-    bra.w   MainLoop                   | Return to main loop
+    jmp     MainLoop                   | Return to main loop
 
 ProcessMode36Data:
     | a0 - Source Address
@@ -1164,7 +1156,7 @@ VPWReceiveReadFrame:
     bne.s   VPWReceiveHasData          | Got something, process it
     subq.l  #1, %d1                    | Decrement idle timeout counter
     bne.s   VPWReceiveReadFrame        | Not expired, keep waiting
-    bra.s   VPWReceiveTimeout          | Expired, return to MainLoop
+    bra.s   VPWReceiveTimeout          | Expired, reset DLC and return to MainLoop
 
 VPWReceiveHasData:
     cmpi.b  #0x80, %d0                 | 100x xxxx = All codes *greater* than this mean completion code at buffer head
@@ -1172,14 +1164,16 @@ VPWReceiveHasData:
 
 | VPW Receive Read Byte                | Anything else, read a byte
     cmpa.l  #MessageBuffer + 4096, %a0 | Buffer overflow check, 4096 byte message limit
-    bge.s   VPWReceiveTimeout          | Past buffer end, abort
+    bge.s   VPWReceiveTimeout          | Past buffer end, reset DLC and abort
     move.b  (J1850_RX_FIFO).l, (%a0)+  | Read from RX FIFO to input buffer, and move pointer to next byte
     move.l  #0x30000, %d1              | Reset timeout counter on each received byte
     bra.s   VPWReceiveReadFrame        | Next try
 
 VPWReceiveReadComplete:
-    move.b  (J1850_RX_FIFO).l, (%a0)+ | Read completion code (discard, advance pointer)
+    move.b  (J1850_RX_FIFO).l, %d0    | Read completion code to register
     movea.l #MessageBuffer, %a0        | Reset pointer to message start
+    andi.b  #0x30, %d0                 | Mask error bits (0x20=noise, 0x10=framing)
+    bne.s   VPWReceiveReadFrame        | Error set, discard frame and receive again
     move.b  (%a0), %d0                 | Load message first byte
     andi.b  #0xFE, %d0                 | Mask 1111 1110
     cmpi.b  #0x6C, %d0                 | Priority 6C or 6D packet?
@@ -1193,6 +1187,12 @@ VPWReceiveRTS:
     rts                                | Return for processing
 
 VPWReceiveTimeout:
+#if !defined(P04) && !defined(P04_Early) && !defined(BlackBox)
+    move.b  DLCConfigSave, %d0         | Load saved DLC config register value
+    move.b  %d0, (J1850_Config).l      | Restore DLC config register to known state
+#endif
+    move.b  #0x03, (J1850_Command).l   | RFC=11 Flush DLC state machine to idle
+    move.b  #0x00, (J1850_TX_FIFO).l   | Completion byte, clears pending state
     rts                                | Return to MainLoop for retry
 
 | =============== S U B R O U T I N E =======================================
@@ -1293,9 +1293,9 @@ FlashIDReply:   .byte  0x6C, toolid, pcmid, 0x7D, 0x01, 0x00, 0x00, 0x00, 0x00, 
 | Os ID Reply, 9 bytes + 1 alignment
 OsIDReply:      .byte  0x6C, toolid, pcmid, 0x7D, 0x03, 0x00, 0x00, 0x00, 0x00, 0xAA
 
-| Kernel ID Response, 10 bytes + 1 alignment
-| Bytes 5-8: build timestamp as Unix epoch uint32 big-endian (set by Build.cmd via BUILD_EPOCH)
-| Byte 9: PCM type ID (written at runtime by ProcessKernelID)
+| Kernel ID Response, 12 bytes + 1 alignment
+| Bytes 5-10: build timestamp YYMMDDHHMMSS (set by Build.cmd via BUILD_YY/MM/DD/HH/MN/SS defines)
+| Byte 11: PCM type ID (written at runtime by ProcessKernelID)
 | P01/P59   = 01
 | P04_Early = 44
 | P04       = 04
@@ -1307,7 +1307,7 @@ OsIDReply:      .byte  0x6C, toolid, pcmid, 0x7D, 0x03, 0x00, 0x00, 0x00, 0x00, 
 | E54       = 36
 | BlackBox  = 88
 KernelIDReply:  .byte  0x6C, toolid, pcmid, 0x7D, 0x00
-                .long  BUILD_EPOCH
+                .byte  BUILD_YY, BUILD_MM, BUILD_DD, BUILD_HH, BUILD_MN, BUILD_SS
                 .byte  0x00, 0xAA
 
 | Mode34 Reply, 6 bytes - 6C F0 10 74 00 44, Default Success
@@ -1321,6 +1321,9 @@ Mode60Reply:    .byte  0x6C, toolid, pcmid, 0x60
 
 | Erase Sector Reply, 7 bytes + 1 alignment
 EraseSectorReply:   .byte  0x6C, toolid, pcmid, 0x7D, 0x05, 0x00, 0x00, 0xAA
+
+| DLC config register value saved at startup, used to restore DLC on receive timeout
+DLCConfigSave:      .byte  0x00
 
 | Global buffer, it's at the end and it's not transported, thus length is irrelevant!
   .globl   MessageBuffer

@@ -1,10 +1,12 @@
 # Use toolchain from: https://github.com/haarer/toolchain68k
 # Configure for m68k-elf target and install to default location
 # 04/16/2023 - GampyG28 <github.com> Authored
+# 2026-06-01 - Antus <pcmhacking.net> Restructure: source from srcdir, output to build/
 #
 pcm ?= P01
 address ?= FF8000
 name ?= Kernel
+srcdir ?= 68k-VPW-Asm
 
 PREFIX = /opt/crosschain/bin/m68k-elf-
 
@@ -14,21 +16,22 @@ OBJCOPY = $(PREFIX)objcopy
 RM = rm -f
 
 BUILD_EPOCH := $(shell date +%s)
+BUILD_DIR = build
 CCFLAGS = -c -fomit-frame-pointer -std=gnu99 -mcpu=68332 -D$(pcm) -DBUILD_EPOCH=$(BUILD_EPOCH)
-LDFLAGS = --section-start .text=0x${address} -T ${name}.ld 
+LDFLAGS = --section-start .text=0x${address} -T $(srcdir)/${name}.ld
 COPYFLAGS = -O binary --only-section=.text --only-section=.data
 
-all: ${name}.bin
+all: $(BUILD_DIR)/${name}-${pcm}.bin
 
-${name}.o: ${name}.S
+$(BUILD_DIR)/${name}.o: $(srcdir)/${name}.S
+	@mkdir -p $(BUILD_DIR)
 	$(CC) $(CCFLAGS) $< -o $@
 
-${name}.elf: ${name}.o
+$(BUILD_DIR)/${name}-${pcm}.elf: $(BUILD_DIR)/${name}.o
 	$(LD) $(LDFLAGS) $< -o $@
 
-${name}.bin: ${name}.elf
-	$(OBJCOPY) $(COPYFLAGS) ${name}.elf ${name}-${pcm}.bin
+$(BUILD_DIR)/${name}-${pcm}.bin: $(BUILD_DIR)/${name}-${pcm}.elf
+	$(OBJCOPY) $(COPYFLAGS) $< $@
 
 clean:
-	${RM} *.bin *.o *.elf *.tmp
-
+	${RM} $(BUILD_DIR)/${name}.o $(BUILD_DIR)/${name}-${pcm}.elf $(BUILD_DIR)/${name}-${pcm}.bin

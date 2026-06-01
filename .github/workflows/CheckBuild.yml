@@ -39,6 +39,7 @@ jobs:
     - name: Build C Kernels
       run: |
         cd Kernels
+        mkdir -p build
         #
         # The following loop is the one location that needs to be updated when adding a new C kernel.
         # Add entries as: "PCM ADDRESS" — e.g. "P12 FF2000"
@@ -50,8 +51,8 @@ jobs:
 
           echo Building Kernel ":    ${pcm}"
           make -f makefile PREFIX=/usr/bin/m68k-linux-gnu- pcm=${pcm} address=${address}
-          echo "    Copy-Item Kernel-${pcm}.bin to TemporaryArtifactStorage"
-          cp Kernel-${pcm}.bin ../TemporaryArtifactStorage/
+          echo "    Copy-Item build/Kernel-${pcm}.bin to TemporaryArtifactStorage"
+          cp build/Kernel-${pcm}.bin ../TemporaryArtifactStorage/
           echo "    Cleanup after Kernel-${pcm}"
           echo
           make clean
@@ -60,23 +61,27 @@ jobs:
     - name: Build Assembly Kernels and Loaders
       run: |
         cd Kernels
+        mkdir -p build
         #
-        # Each group is required to have 3 elements in the following order
+        # Each group is required to have 4 elements in the following order:
         # 1: PCM Moniker (P01 (includes P59), P04, P08, etc...)
         # 2: Kernel Base Address
         # 3: Loader Base Address or NOLOADER if a loader is not used.
+        # 4: Source directory (68k-VPW-Asm for standard, 68k-VPW-Asm-P04 for P04)
         #
-        for p in "P01 FF8000 NOLOADER" "P04 FF8000 FF9890" "P04_Early FF8000 NOLOADER" "P05 FFC100 NOLOADER" "P08 FFABE0 NOLOADER" "P10 FFB800 NOLOADER" "P11 FFC000 NOLOADER" "P12 FF2000 NOLOADER" "E54 FF9100 NOLOADER" "BlackBox FFC300 NOLOADER"; do
+        for p in "P01 FF8000 NOLOADER 68k-VPW-Asm" "P04 FF8000 FF9890 68k-VPW-Asm-P04" "P04_Early FF8000 NOLOADER 68k-VPW-Asm" "P05 FFC100 NOLOADER 68k-VPW-Asm" "P08 FFABE0 NOLOADER 68k-VPW-Asm" "P10 FFB800 NOLOADER 68k-VPW-Asm" "P11 FFC000 NOLOADER 68k-VPW-Asm" "P12 FF2000 NOLOADER 68k-VPW-Asm" "E54 FF9100 NOLOADER 68k-VPW-Asm" "BlackBox FFC300 NOLOADER 68k-VPW-Asm"; do
           pcm="${p%% *}";
           p="${p#* }"
           address="${p%% *}"
           p="${p#* }"
           loader="${p%% *}"
+          p="${p#* }"
+          srcdir="${p%% *}"
 
-          echo "Building Kernel :    ${pcm}"
-          make -f makefile-assembly PREFIX=/usr/bin/m68k-linux-gnu- pcm=${pcm} address=${address}
-          echo "    Copy-Item Kernel-${pcm}.bin to TemporaryArtifactStorage"
-          cp Kernel-${pcm}.bin ../TemporaryArtifactStorage/
+          echo "Building Kernel :    ${pcm} (srcdir=${srcdir})"
+          make -f makefile-assembly PREFIX=/usr/bin/m68k-linux-gnu- pcm=${pcm} address=${address} srcdir=${srcdir}
+          echo "    Copy-Item build/Kernel-${pcm}.bin to TemporaryArtifactStorage"
+          cp build/Kernel-${pcm}.bin ../TemporaryArtifactStorage/
           echo "    Cleanup after Kernel-${pcm}"
           echo
           make -f makefile-assembly clean
@@ -84,10 +89,10 @@ jobs:
           # Build the Loader if requested
           #
           if [ ${loader} != NOLOADER ]; then
-            echo "Building Loader :    ${pcm}"
-            make -f makefile-assembly PREFIX=/usr/bin/m68k-linux-gnu- pcm=${pcm} address=${loader} name=Loader
-            echo "    Copy-Item Loader-${pcm}.bin to TemporaryArtifactStorage"
-            cp Loader-${pcm}.bin ../TemporaryArtifactStorage/
+            echo "Building Loader :    ${pcm} (srcdir=${srcdir})"
+            make -f makefile-assembly PREFIX=/usr/bin/m68k-linux-gnu- pcm=${pcm} address=${loader} name=Loader srcdir=${srcdir}
+            echo "    Copy-Item build/Loader-${pcm}.bin to TemporaryArtifactStorage"
+            cp build/Loader-${pcm}.bin ../TemporaryArtifactStorage/
             echo "    Cleanup after Loader-${pcm}"
             echo
             make -f makefile-assembly clean
