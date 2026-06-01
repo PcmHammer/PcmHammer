@@ -144,7 +144,7 @@ jobs:
 
   Applications:
     needs: Kernels
-    runs-on: windows-2025
+    runs-on: windows-2025-vs2026
 
     env:
       # Declared here so the linter knows these variables are valid; the empty
@@ -257,7 +257,6 @@ jobs:
         -c Release
         -f net10.0-android
         -p:AndroidPackageFormat=apk
-        -p:AndroidFastDeploymentType=None
         -p:EmbedAssembliesIntoApk=true
 
     - name: Read app versions
