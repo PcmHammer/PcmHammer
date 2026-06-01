@@ -390,6 +390,16 @@ ProcessFlashID:
     move.w  #0x7060, (SIM_CSOR0).w     | 0xFA4E
 #endif
     movea.w #0, %a0                    | Pointer to address 0 (First word)
+    move.w  #SIGNATURE_CMD, (%a0)      | Command Intel Read ID State (0x9090)
+    move.w  (%a0), %d1                 | Move MFG ID to d1
+    movea.w #2, %a0                    | Pointer to address 2 (Second word)
+    move.w  (%a0), %d0                 | Move Flash ID to d0
+    movea.w #0, %a0                    | Pointer to address 0 (First word)
+    move.w  #READ_ARRAY_CMD, (%a0)     | Command Intel Read Array State (0xFFFF)
+
+    cmp.w   #INTEL_ID, %d1             | Intel ID is 0x0089
+    beq.s   ProcessFlashIDFound        | Jump found if Intel
+
     movea.w #AMD_CMD_ADDRESS_A, %a1    | Pointer to AMD Command Address A (0xAAA)
     movea.w #AMD_CMD_ADDRESS_B, %a2    | Pointer to AMD Command Address B (0x554)
     move.w  #AMD_CMD_UNLOCK_A, (%a1)   | Command AMD Unlock A  (0xAAAA)
