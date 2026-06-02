@@ -50,6 +50,10 @@ namespace PcmHacking
                         operation = "test-write";
                         if (i + 1 < args.Length && !args[i + 1].StartsWith("-")) filePath = args[++i];
                         break;
+                    case "--verify":
+                        operation = "verify";
+                        if (i + 1 < args.Length && !args[i + 1].StartsWith("-")) filePath = args[++i];
+                        break;
                     case "--test-read":
                         operation = "test-read";
                         break;
@@ -188,6 +192,21 @@ namespace PcmHacking
                                 logger,
                                 vehicle,
                                 WriteType.TestWrite,
+                                alert,
+                                promptForYesNo,
+                                cts.Token);
+                            success = await writeManager.Write(filePath!);
+                            break;
+                        }
+                        case "verify":
+                        {
+                            // CRC-compare the file against the PCM (no erase/write). Triggers the
+                            // kernel's ProcessCRC (mode 3D02) over each range, which is what we
+                            // need to exercise the RX-FIFO-during-CRC behaviour on the bench.
+                            var writeManager = new WriteManager(
+                                logger,
+                                vehicle,
+                                WriteType.Compare,
                                 alert,
                                 promptForYesNo,
                                 cts.Token);
@@ -479,6 +498,7 @@ namespace PcmHacking
             Console.WriteLine("  --test-read               Read entire PCM without saving");
             Console.WriteLine("  --write <file>            Write entire PCM from file");
             Console.WriteLine("  --test-write <file>       Test write (no permanent changes)");
+            Console.WriteLine("  --verify <file>           CRC-compare file against PCM (no erase/write)");
             Console.WriteLine("  --get-properties          Read VIN, OSID, calibration, serial, voltage");
             Console.WriteLine("  --list-devices            List available serial and J2534 devices with index numbers");
             Console.WriteLine();

@@ -7,6 +7,14 @@
 | 2026-04-09 Antus / PCMHacking.net Add P11
 | ===========================================================================
 |
+| NOTE: This shared kernel builds every assembly PCM EXCEPT P04. P04 has its
+| own source in ..\68k-VPW-Asm-P04\Kernel.S because its flash-ID detection is
+| absolute-address sensitive (only works with ProcessFlashID @ 0xFF81BE) and
+| this kernel's layout places it elsewhere, breaking P04 flash detection on
+| real silicon. See that file's header for the full explanation. Build.cmd
+| enforces the routing. P04_Early still builds from THIS shared kernel.
+| ===========================================================================
+|
 | C directives will only work if the source filename is .S, yup, capital S.
 | That is the extension gnu has asscoaited the assembler with and it is case sensitive.
 | When using gcc.exe with -x assembler option and anyother extension, the C directives will fail.
