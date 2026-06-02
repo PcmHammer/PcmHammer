@@ -122,6 +122,11 @@ start:
     movea.w #0xB800, %sp               | Move the stack out the way P05/P08/E54
 #endif
 
+| P04/BlackBox: aliased TX_FIFO/RX_FIFO share one address. Writing 0x00 to TX_FIFO loads a
+| transmit byte, locking the DLC in a partial transmit state that blocks receive. Skip flush
+| and Wait01 entirely - the DLC was receiving correctly during upload so it is already in a
+| usable state. VPWReceive timeout (Patch D+E) handles any stale FIFO data.
+#if !defined(P04) && !defined(P04_Early) && !defined(BlackBox)
     move.b  #0x03, (J1850_Command).l   | Flush frame except for completion code
     move.b  #0x00, (J1850_TX_FIFO).l   | Initiate transfer
 
@@ -137,6 +142,11 @@ Wait01:
     cmpi.b  #0xE0, %d0                 | Check for "completion code only, at head of buffer" message 1110 0000
     bne.b   Wait01                     | Not ready? wait and retry
     move.b  (J1850_RX_FIFO).l, %d0     | Strip off the completion code
+#else
+#if defined P11
+    bset    #4, (SIM_18).w             | 0xFA18
+#endif
+#endif
 
 #if defined P12
     movea.l #Mode36Reply, %a0          | Reply Success to mode 3680, only P12 needs this.
@@ -385,9 +395,12 @@ ProcessFlashID:
 #elif defined P05 || defined P12
     move.w  #0xF322, (SIM_CSOR0).w     | 0xFA7E
 #else
-    move.w  #0x0007, (SIM_CSBAR0).w    | 0xFA4C Set CS registers
-    move.w  #0x6820, (SIM_CSORBT).w    | 0xFA4A
-    move.w  #0x7060, (SIM_CSOR0).w     | 0xFA4E
+    move.w  #0x0007, (SIM_CSBARBT).w   | 0xFA48 Enable CS (may be disabled by OS after upload)
+    move.w  #0x6820, (SIM_CSORBT).w    | 0xFA4A CS write mode
+    move.w  #0x0007, (SIM_CSBAR0).w    | 0xFA4C Enable CS0 at address 0
+    move.w  #0x7060, (SIM_CSOR0).w     | 0xFA4E CS0 write mode
+    nop                                | Pipeline settling before first CS access
+    nop
 #endif
     movea.w #0, %a0                    | Pointer to address 0 (First word)
     move.w  #SIGNATURE_CMD, (%a0)      | Command Intel Read ID State (0x9090)
@@ -1180,7 +1193,7 @@ VPWReceiveRTS:
     rts                                | Return for processing
 
 VPWReceiveTimeout:
-    rts
+    rts                                | Return to MainLoop for retry
 
 | =============== S U B R O U T I N E =======================================
 |
