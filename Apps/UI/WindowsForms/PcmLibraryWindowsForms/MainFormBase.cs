@@ -67,6 +67,17 @@ namespace PcmHacking
         /// <returns></returns>
         public async Task<bool> HandleSelectButtonClick()
         {
+            // Release the currently-connected device before showing the picker so its port is
+            // free. Otherwise the dialog's Auto Detect / Test can't open a port that the live
+            // connection is already holding (e.g. "Access to the port 'COM3' is denied" when the
+            // picker pre-selects the device that is already in use).
+            bool hadDevice = this.vehicle != null;
+            if (this.vehicle != null)
+            {
+                this.vehicle.Dispose();
+                this.vehicle = null!;
+            }
+
             using (DevicePicker picker = new DevicePicker(this))
             {
                 DialogResult result = picker.ShowDialog();
@@ -102,6 +113,14 @@ namespace PcmHacking
                     return await this.ResetDevice();
                 }
             }
+
+            // The user cancelled. Re-open whatever device was connected before, so closing the
+            // dialog doesn't silently disconnect them.
+            if (hadDevice)
+            {
+                return await this.ResetDevice();
+            }
+
             return false;
         }
 

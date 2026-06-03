@@ -58,7 +58,7 @@ namespace PcmHacking
             this.categories.Controls.Add(this.serialRadioButton);
             this.categories.Location = new System.Drawing.Point(12, 12);
             this.categories.Name = "categories";
-            this.categories.Size = new System.Drawing.Size(283, 49);
+            this.categories.Size = new System.Drawing.Size(360, 49);
             this.categories.TabIndex = 0;
             this.categories.TabStop = false;
             this.categories.Text = "Device &Category";
@@ -95,7 +95,7 @@ namespace PcmHacking
             this.serialOptionsGroupBox.Controls.Add(this.label1);
             this.serialOptionsGroupBox.Location = new System.Drawing.Point(12, 68);
             this.serialOptionsGroupBox.Name = "serialOptionsGroupBox";
-            this.serialOptionsGroupBox.Size = new System.Drawing.Size(283, 122);
+            this.serialOptionsGroupBox.Size = new System.Drawing.Size(360, 122);
             this.serialOptionsGroupBox.TabIndex = 1;
             this.serialOptionsGroupBox.TabStop = false;
             this.serialOptionsGroupBox.Text = "Serial Device Options";
@@ -106,7 +106,7 @@ namespace PcmHacking
             this.serialDeviceList.FormattingEnabled = true;
             this.serialDeviceList.Location = new System.Drawing.Point(7, 82);
             this.serialDeviceList.Name = "serialDeviceList";
-            this.serialDeviceList.Size = new System.Drawing.Size(266, 21);
+            this.serialDeviceList.Size = new System.Drawing.Size(347, 21);
             this.serialDeviceList.TabIndex = 3;
             this.serialDeviceList.SelectedIndexChanged += new System.EventHandler(this.serialDeviceList_SelectedIndexChanged);
             // 
@@ -125,7 +125,7 @@ namespace PcmHacking
             this.serialPortList.FormattingEnabled = true;
             this.serialPortList.Location = new System.Drawing.Point(7, 36);
             this.serialPortList.Name = "serialPortList";
-            this.serialPortList.Size = new System.Drawing.Size(266, 21);
+            this.serialPortList.Size = new System.Drawing.Size(347, 21);
             this.serialPortList.TabIndex = 1;
             this.serialPortList.SelectedIndexChanged += new System.EventHandler(this.serialPortList_SelectedIndexChanged);
             // 
@@ -144,7 +144,7 @@ namespace PcmHacking
             this.j2534OptionsGroupBox.Controls.Add(this.label3);
             this.j2534OptionsGroupBox.Location = new System.Drawing.Point(12, 197);
             this.j2534OptionsGroupBox.Name = "j2534OptionsGroupBox";
-            this.j2534OptionsGroupBox.Size = new System.Drawing.Size(283, 72);
+            this.j2534OptionsGroupBox.Size = new System.Drawing.Size(360, 72);
             this.j2534OptionsGroupBox.TabIndex = 2;
             this.j2534OptionsGroupBox.TabStop = false;
             this.j2534OptionsGroupBox.Text = "J2534 Device Options";
@@ -155,7 +155,7 @@ namespace PcmHacking
             this.j2534DeviceList.FormattingEnabled = true;
             this.j2534DeviceList.Location = new System.Drawing.Point(7, 37);
             this.j2534DeviceList.Name = "j2534DeviceList";
-            this.j2534DeviceList.Size = new System.Drawing.Size(270, 21);
+            this.j2534DeviceList.Size = new System.Drawing.Size(347, 21);
             this.j2534DeviceList.TabIndex = 1;
             this.j2534DeviceList.SelectedIndexChanged += new System.EventHandler(this.j2534DeviceList_SelectedIndexChanged);
             // 
@@ -170,10 +170,10 @@ namespace PcmHacking
             // 
             // autoDetectButton
             // 
-            this.autoDetectButton.Anchor = System.Windows.Forms.AnchorStyles.Bottom;
-            this.autoDetectButton.Location = new System.Drawing.Point(13, 330);
+            this.autoDetectButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.autoDetectButton.Location = new System.Drawing.Point(12, 350);
             this.autoDetectButton.Name = "autoDetectButton";
-            this.autoDetectButton.Size = new System.Drawing.Size(94, 23);
+            this.autoDetectButton.Size = new System.Drawing.Size(85, 23);
             this.autoDetectButton.TabIndex = 3;
             this.autoDetectButton.Text = "&Auto Detect";
             this.autoDetectButton.UseVisualStyleBackColor = true;
@@ -181,12 +181,11 @@ namespace PcmHacking
             // 
             // okButton
             // 
-            this.okButton.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
+            this.okButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
             this.okButton.DialogResult = System.Windows.Forms.DialogResult.OK;
-            this.okButton.Location = new System.Drawing.Point(301, 12);
+            this.okButton.Location = new System.Drawing.Point(196, 350);
             this.okButton.Name = "okButton";
-            this.okButton.Size = new System.Drawing.Size(94, 23);
+            this.okButton.Size = new System.Drawing.Size(85, 23);
             this.okButton.TabIndex = 5;
             this.okButton.Text = "&OK";
             this.okButton.UseVisualStyleBackColor = true;
@@ -194,11 +193,11 @@ namespace PcmHacking
             // 
             // cancelButton
             // 
-            this.cancelButton.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.cancelButton.Location = new System.Drawing.Point(301, 41);
+            this.cancelButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
+            this.cancelButton.DialogResult = System.Windows.Forms.DialogResult.Cancel;
+            this.cancelButton.Location = new System.Drawing.Point(287, 350);
             this.cancelButton.Name = "cancelButton";
-            this.cancelButton.Size = new System.Drawing.Size(94, 23);
+            this.cancelButton.Size = new System.Drawing.Size(85, 23);
             this.cancelButton.TabIndex = 6;
             this.cancelButton.Text = "&Cancel";
             this.cancelButton.UseVisualStyleBackColor = true;
@@ -206,10 +205,10 @@ namespace PcmHacking
             // 
             // testButton
             // 
-            this.testButton.Anchor = System.Windows.Forms.AnchorStyles.Bottom;
-            this.testButton.Location = new System.Drawing.Point(201, 330);
+            this.testButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.testButton.Location = new System.Drawing.Point(103, 350);
             this.testButton.Name = "testButton";
-            this.testButton.Size = new System.Drawing.Size(94, 23);
+            this.testButton.Size = new System.Drawing.Size(85, 23);
             this.testButton.TabIndex = 4;
             this.testButton.Text = "&Test";
             this.testButton.UseVisualStyleBackColor = true;
@@ -217,10 +216,12 @@ namespace PcmHacking
             // 
             // status
             // 
-            this.status.AutoSize = true;
-            this.status.Location = new System.Drawing.Point(12, 276);
+            this.status.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.status.AutoSize = false;
+            this.status.Location = new System.Drawing.Point(12, 318);
             this.status.Name = "status";
-            this.status.Size = new System.Drawing.Size(0, 13);
+            this.status.Size = new System.Drawing.Size(360, 28);
             this.status.TabIndex = 7;
             // 
             // enable4xReadWriteCheckBox
@@ -239,7 +240,7 @@ namespace PcmHacking
             this.optionsGroupBox.Controls.Add(this.enable4xReadWriteCheckBox);
             this.optionsGroupBox.Location = new System.Drawing.Point(12, 275);
             this.optionsGroupBox.Name = "optionsGroupBox";
-            this.optionsGroupBox.Size = new System.Drawing.Size(283, 39);
+            this.optionsGroupBox.Size = new System.Drawing.Size(360, 39);
             this.optionsGroupBox.TabIndex = 9;
             this.optionsGroupBox.TabStop = false;
             this.optionsGroupBox.Text = "Options";
@@ -247,9 +248,13 @@ namespace PcmHacking
             // DevicePicker
             // 
             this.AcceptButton = this.okButton;
+            this.CancelButton = this.cancelButton;
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(407, 365);
+            this.ClientSize = new System.Drawing.Size(384, 385);
+            this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedDialog;
+            this.MaximizeBox = false;
+            this.MinimizeBox = false;
             this.Controls.Add(this.optionsGroupBox);
             this.Controls.Add(this.status);
             this.Controls.Add(this.testButton);

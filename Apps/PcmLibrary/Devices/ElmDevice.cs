@@ -92,8 +92,16 @@ namespace PcmHacking
                     }
                 }
 
+                // Neither the AllPro nor the ScanTool implementation recognized the hardware.
+                // Report it cleanly instead of falling through to a NullReferenceException below.
+                if (this.implementation == null)
+                {
+                    this.Logger.AddUserMessage("No supported ELM-based device found on this port.");
+                    return false;
+                }
+
                 // These are shared by all ELM-based devices.
-                if (!await this.implementation!.SendAndVerify("AT AL", "OK") ||               // Allow Long packets
+                if (!await this.implementation.SendAndVerify("AT AL", "OK") ||               // Allow Long packets
                     !await this.implementation.SendAndVerify("AT SP2", "OK") ||              // Set Protocol 2 (VPW)
                     !await this.implementation.SendAndVerify("AT DP", "SAE J1850 VPW") ||    // Get Protocol (Verify VPW)
                     !await this.implementation.SendAndVerify("AT AR", "OK") ||               // Turn Auto Receive on (default should be on anyway)

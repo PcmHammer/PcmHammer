@@ -172,6 +172,16 @@ namespace PcmHacking
         {
             Task<bool> task = this.device.Initialize();
             bool completedWithoutTimeout = await task.AwaitWithTimeout(TimeSpan.FromSeconds(10));
+            if (!completedWithoutTimeout)
+            {
+                // Initialize() is still running (e.g. a defunct port that opens but never answers).
+                // Do NOT read task.Result here: on an incomplete Task that blocks the caller until
+                // the task finishes, and because Initialize()'s continuations resume on the calling
+                // (often UI) thread, that block deadlocks the whole app. Report failure and leave the
+                // orphaned task to unwind on its own. The caller disposes the device/port afterwards.
+                return false;
+            }
+
             return task.Result;
         }
 
