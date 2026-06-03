@@ -192,10 +192,13 @@ namespace PcmHacking
                 this.ResetLogs();
             });
 
-            foreach (string line in GetAppNameAndVersion().Split('\n'))
+            // Show the copyright on the same line as the app name, e.g.
+            // "PCM Hammer - Copyright (C) ...", then the build/version and "Running at" lines.
+            string[] appLines = GetAppNameAndVersion().Split('\n');
+            appLines[0] = appLines[0] + " - " + AppInfo.CopyrightNotice;
+            foreach (string line in appLines)
                 this.AddUserMessage(line);
             this.AddUserMessage(AppInfo.GetRunningAtMessage());
-            this.AddUserMessage(AppInfo.CopyrightNotice);
 
             try
             {
