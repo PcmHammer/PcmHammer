@@ -143,7 +143,14 @@ namespace PcmHacking
 
             if (!await this.InitializeCurrentDevice())
             {
-                this.vehicle = null!;
+                // Initialization failed (e.g. a defunct port). Dispose the vehicle so the
+                // device and its serial port are released, instead of leaking an open port
+                // and a running Receiver loop that we can never reach again.
+                if (this.vehicle != null)
+                {
+                    this.vehicle.Dispose();
+                    this.vehicle = null!;
+                }
                 return false;
             }
 

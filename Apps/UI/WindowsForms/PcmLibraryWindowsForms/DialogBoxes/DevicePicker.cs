@@ -323,18 +323,36 @@ namespace PcmHacking
             }
 
             this.status.Text = device.ToString() + " created.";
-            
-            bool initialized = await device.Initialize();
-            if (initialized)
-            {
-                this.status.Text = device.ToString() + " initialized successfully.";
-            }
-            else
-            {
-                this.status.Text = "Unable to initalize " + device.ToString();
-            }
 
-            device.Dispose();
+            try
+            {
+                // Guard the test with a timeout: a defunct port (e.g. a stale Bluetooth COM
+                // port) can make Initialize() hang, which would otherwise freeze the dialog.
+                Task<bool> initializeTask = device.Initialize();
+                bool completed = await initializeTask.AwaitWithTimeout(TimeSpan.FromSeconds(5));
+                if (!completed)
+                {
+                    this.status.Text = "Timed out trying to use " + device.ToString();
+                }
+                else if (initializeTask.Result)
+                {
+                    this.status.Text = device.ToString() + " initialized successfully.";
+                }
+                else
+                {
+                    this.status.Text = "Unable to initalize " + device.ToString();
+                }
+            }
+            catch (Exception exception)
+            {
+                this.status.Text = "Unable to use " + device.ToString() + ": " + exception.Message;
+            }
+            finally
+            {
+                // Dispose is non-blocking for serial ports (see StandardPort), so this is safe
+                // on the UI thread even when the underlying device is dead.
+                device.Dispose();
+            }
         }
     }
 }
