@@ -120,8 +120,10 @@ namespace PcmHacking
                 using (var md5 = System.Security.Cryptography.MD5.Create())
                 {
                     string hash = BitConverter.ToString(md5.ComputeHash(file)).Replace("-", "");
-                    logger.AddUserMessage($"Loaded {Path.GetFileName(path)} ({file.Length} bytes)");
-                    logger.AddUserMessage($"Kernel MD5={hash}");
+                    string fileName = Path.GetFileName(path);
+                    string payloadType = fileName.StartsWith("Loader", StringComparison.OrdinalIgnoreCase) ? "Loader" : "Kernel";
+                    logger.AddUserMessage($"Loaded {fileName} ({file.Length} bytes)");
+                    logger.AddUserMessage($"{payloadType} MD5={hash}");
                 }
             }
             catch (ArgumentException)
