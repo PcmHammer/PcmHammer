@@ -62,7 +62,7 @@ namespace PcmHacking
 
             lock (this)
             {
-                string timestamp = DateTime.Now.ToString("hh:mm:ss:fff");
+                string timestamp = DateTime.Now.ToString("HH:mm:ss.fff");
                 this.debugLog.AppendText("[" + timestamp + "]  " + message + Environment.NewLine);
             }
         }

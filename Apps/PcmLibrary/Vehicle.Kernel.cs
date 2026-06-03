@@ -291,7 +291,7 @@ namespace PcmHacking
             uint epoch = (uint)((v >> 8) & 0xFFFFFFFF);
             byte pcmType = (byte)(v & 0xFF);
             var dt = DateTimeOffset.FromUnixTimeSeconds(epoch).UtcDateTime;
-            return $"{dt:yyyy/MM/dd HH:mm:ss} PCM=0x{pcmType:X2}";
+            return $"{dt:yyyy-MM-dd HH:mm:ss} PCM=0x{pcmType:X2}";
         }
 
         public async Task<UInt64> GetKernelVersion(int maxRetries = 5)

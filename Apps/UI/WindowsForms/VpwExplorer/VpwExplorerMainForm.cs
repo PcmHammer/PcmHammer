@@ -56,7 +56,7 @@ namespace PcmHacking
 
         private string GetTimestamp()
         {
-            return DateTime.Now.ToString("hh:mm:ss:fff");
+            return DateTime.Now.ToString("HH:mm:ss.fff");
         }
 
         public override void ResetLogs()

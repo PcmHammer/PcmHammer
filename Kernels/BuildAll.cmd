@@ -8,10 +8,10 @@ goto beginning
 * Name         : BuildAll.cmd
 * Description  : Build All of PcmHammer's kernels.
 * Author       : Gampy <pcmhacking.net>
-* Authored Date: 04/11/2022
-* Revision Date: 03/01/2023 - Merged P04
-* Revision Date: 03/25/2023 - Gampy <pcmhacking.net> Updated for new Assembly Kernels and Loaders.
-* Revision Date: 05/23/2023 - Antus <pcmhacking.net> Update P04 loader address.
+* Authored Date: 2022-04-11
+* Revision Date: 2023-03-01 - Merged P04
+* Revision Date: 2023-03-25 - Gampy <pcmhacking.net> Updated for new Assembly Kernels and Loaders.
+* Revision Date: 2023-05-23 - Antus <pcmhacking.net> Update P04 loader address.
 * Revision Date: 2026-06-01 - Antus <pcmhacking.net> Restructure: 68k-VPW-C, 68k-VPW-Asm, 68k-VPW-Asm-P04; build/ for outputs.
 *
 * Authors disclaimer

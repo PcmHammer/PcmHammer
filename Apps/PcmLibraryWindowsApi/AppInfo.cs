@@ -28,7 +28,7 @@ namespace PcmHacking
                 return $"Version: {version}";
 
             DateTime localTime = new DateTime(buildTimeTicks).ToLocalTime();
-            return $"Build: {localTime.ToShortDateString()} {localTime.ToShortTimeString()}";
+            return $"Build: {localTime:yyyy-MM-dd HH:mm:ss}";
         }
 
         /// <summary>

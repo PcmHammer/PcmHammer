@@ -95,7 +95,7 @@ namespace PcmHacking
         /// </summary>
         public override void AddUserMessage(string message)
         {
-            string timestamp = DateTime.Now.ToString("hh:mm:ss:fff");
+            string timestamp = DateTime.Now.ToString("HH:mm:ss.fff");
 
             this.userLog.Invoke(
                 (MethodInvoker)delegate ()
@@ -112,7 +112,7 @@ namespace PcmHacking
         /// </summary>
         public override void AddDebugMessage(string message)
         {
-            string timestamp = DateTime.Now.ToString("hh:mm:ss:fff");
+            string timestamp = DateTime.Now.ToString("HH:mm:ss.fff");
 
             this.debugLog.Invoke(
                 (MethodInvoker)delegate ()
