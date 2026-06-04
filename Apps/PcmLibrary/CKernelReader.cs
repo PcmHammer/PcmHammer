@@ -259,6 +259,7 @@ namespace PcmHacking
                         this.vehicle,
                         this.protocol,
                         this.pcmInfo,
+                        (UInt32)imageSize,
                         this.logger)
                     {
                         PollingDelayMs = this.CrcPollingDelayMs,

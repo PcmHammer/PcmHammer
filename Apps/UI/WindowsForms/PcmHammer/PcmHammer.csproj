@@ -101,6 +101,7 @@
     <Compile Include="DialogBoxes\DelayDialogBox.Designer.cs">
       <DependentUpon>DelayDialogBox.cs</DependentUpon>
     </Compile>
+    <Compile Include="DialogBoxes\BruteForceDialogBox.cs" />
     <Compile Include="DialogBoxes\OperationSelectionDialogBox.cs" />
     <Compile Include="DialogBoxes\SettingsDialogBox.cs">
       <SubType>Form</SubType>

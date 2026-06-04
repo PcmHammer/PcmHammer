@@ -31,6 +31,10 @@ namespace PcmHacking
         private readonly WriteType writeType;
         private readonly ILogger logger;
 
+        // How much of the flash chip we will verify and (re)write. Set once the chip is identified
+        // in Write(). Normally the detected chip size, not the (possibly smaller) PCM-type default.
+        private UInt32 effectiveImageSize;
+
         public CKernelWriter(Vehicle vehicle, OSIDInfo pcmInfo, Protocol protocol, WriteType writeType, ILogger logger)
         {
             this.vehicle = vehicle;
@@ -271,12 +275,30 @@ namespace PcmHacking
                 return false;
             }
 
+            // Decide how much of the chip we will verify and (re)write. Use the detected flash
+            // chip size rather than the PCM-type default size: the default can be too small (e.g.
+            // a P04_Early defaults to 256KiB but may physically carry a 512KiB chip), which would
+            // otherwise leave the upper half unwritten and unverified. The P10/P11 are the
+            // intentional exception - they carry a larger chip than they use (only the lower
+            // 512KiB is wired up), so we keep the smaller PCM-type size for those. The size check
+            // above guarantees the file matches whichever size we settle on, so we never read past
+            // the end of the image below. This mirrors the read path in CKernelReader.
+            if (pcmInfo.HardwareType == PcmType.P10 || pcmInfo.HardwareType == PcmType.P11)
+            {
+                this.effectiveImageSize = (UInt32)this.pcmInfo.ImageSize;
+            }
+            else
+            {
+                this.effectiveImageSize = flashChip.Size;
+            }
+
             CKernelVerifier verifier = new CKernelVerifier(
                 image,
                 flashChip.MemoryRanges,
                 this.vehicle,
                 this.protocol,
                 this.pcmInfo,
+                this.effectiveImageSize,
                 this.logger);
 
             bool allRangesMatch = false;
@@ -487,8 +509,9 @@ namespace PcmHacking
 
             // The P10 has the same flash chip as the P59, but the high bit of the address bus
             // isn't connected, so there will be hardware errors talking to the top 512kb.
-            // So, we skip ranges that are beyond the size of the usable image.
-            if (range.Address >= this.pcmInfo.ImageSize)
+            // So, we skip ranges that are beyond the size of the usable image. For most PCMs the
+            // usable size is the whole detected chip; for P10/P11 it is the smaller PCM-type size.
+            if (range.Address >= this.effectiveImageSize)
             {
                 return false;
             }

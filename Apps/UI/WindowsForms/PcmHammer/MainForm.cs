@@ -648,6 +648,7 @@ namespace PcmHacking
             this.saveToolStripMenuItem.Enabled = false;
             this.exitApplicationToolStripMenuItem.Enabled = false;
             this.userDefinedKeyToolStripMenuItem.Enabled = false;
+            this.bruteForceUnlockToolStripMenuItem.Enabled = false;
 
             this.readPropertiesButton.Enabled = false;
             this.readPcmButton.Enabled = false;
@@ -681,6 +682,7 @@ namespace PcmHacking
                 this.saveToolStripMenuItem.Enabled = true;
                 this.exitApplicationToolStripMenuItem.Enabled = true;
                 this.userDefinedKeyToolStripMenuItem.Enabled = true;
+                this.bruteForceUnlockToolStripMenuItem.Enabled = true;
 
                 this.readPropertiesButton.Enabled = true;
                 this.readPcmButton.Enabled = true;
@@ -760,6 +762,23 @@ namespace PcmHacking
             else
             {
                 this.Vehicle.UserDefinedKey = -1;
+            }
+        }
+
+        /// <summary>
+        /// Brute Force - open the dialog that sweeps the known key algorithms and/or tries
+        /// numeric key values until the PCM unlocks.
+        /// </summary>
+        private void bruteForceUnlockToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (BackgroundWorker.IsAlive || this.Vehicle == null)
+            {
+                return;
+            }
+
+            using (DialogBoxes.BruteForceDialogBox dialog = new DialogBoxes.BruteForceDialogBox(this.Vehicle, this))
+            {
+                dialog.ShowDialog(this);
             }
         }
 

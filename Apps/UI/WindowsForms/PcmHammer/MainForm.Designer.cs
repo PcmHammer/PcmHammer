@@ -65,6 +65,7 @@ namespace PcmHacking
             this.writeFullToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.testFileChecksumsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator3 = new System.Windows.Forms.ToolStripSeparator();
+            this.bruteForceUnlockToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.haltRunningKernelToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.menuItemOptions = new System.Windows.Forms.ToolStripMenuItem();
             this.userDefinedKeyToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -404,6 +405,7 @@ namespace PcmHacking
             this.toolStripSeparator2,
             this.testFileChecksumsToolStripMenuItem,
             this.toolStripSeparator3,
+            this.bruteForceUnlockToolStripMenuItem,
             this.haltRunningKernelToolStripMenuItem});
             this.menuItemTools.Name = "menuItemTools";
             this.menuItemTools.Size = new System.Drawing.Size(46, 20);
@@ -462,6 +464,14 @@ namespace PcmHacking
             //
             this.toolStripSeparator3.Name = "toolStripSeparator3";
             this.toolStripSeparator3.Size = new System.Drawing.Size(222, 6);
+            //
+            // bruteForceUnlockToolStripMenuItem
+            //
+            this.bruteForceUnlockToolStripMenuItem.Name = "bruteForceUnlockToolStripMenuItem";
+            this.bruteForceUnlockToolStripMenuItem.Size = new System.Drawing.Size(225, 22);
+            this.bruteForceUnlockToolStripMenuItem.Text = "Brute Force &Unlock...";
+            this.bruteForceUnlockToolStripMenuItem.ToolTipText = "Search for the PCM security key. This can take a very long time.";
+            this.bruteForceUnlockToolStripMenuItem.Click += new System.EventHandler(this.bruteForceUnlockToolStripMenuItem_Click);
             //
             // haltRunningKernelToolStripMenuItem
             //
@@ -653,6 +663,7 @@ namespace PcmHacking
         private System.Windows.Forms.ToolStripStatusLabel kbpsToolStripStatusLabel;
         private System.Windows.Forms.ToolStripMenuItem testFileChecksumsToolStripMenuItem;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator3;
+        private System.Windows.Forms.ToolStripMenuItem bruteForceUnlockToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem haltRunningKernelToolStripMenuItem;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator1;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator2;

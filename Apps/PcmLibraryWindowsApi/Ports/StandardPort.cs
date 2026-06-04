@@ -78,7 +78,7 @@ namespace PcmHacking
             if (config.DataReceived != null)
             {
                 this.dataReceived = config.DataReceived;
-                Task.Run(this.Receiver);
+                _ = Task.Run(this.Receiver); // fire-and-forget background receive loop; intentionally not awaited
             }
         }
 
