@@ -159,7 +159,29 @@ namespace PcmHacking
                 await this.vehicle.SetDeviceTimeout(TimeoutScenario.ReadMemoryBlock);
 
                 
+                // The read length normally comes from PCM Info (which is keyed off the OSID lookup).
+                // But the OSID database can be wrong or incomplete. When the kernel actually reported
+                // a flash chip ID we trust the detected chip's size over PCM Info, so we always capture
+                // the whole chip. PCM Info stays the source for the security algorithm and as the fallback
+                // when there's no chip ID.
+                //
+                // EXCEPTION: P10/P11 carry a 1MiB chip but only the lower 512KiB is used for
+                // those we MUST keep the PCM Info size. (Mirrors the P10/P11 special-case in
+                // CKernelWriter, which deliberately writes a 512KiB image to a 1MiB chip.)
                 int imageSize = pcmInfo.ImageSize;
+                bool chipLargerThanUsableImage =
+                    pcmInfo.HardwareType == PcmType.P10 || pcmInfo.HardwareType == PcmType.P11;
+                if (this.pcmInfo.FlashIDSupport && flashChip.Size > 0 &&
+                    (int)flashChip.Size != imageSize && !chipLargerThanUsableImage)
+                {
+                    logger.AddUserMessage(
+                        string.Format(
+                            "PCM Info image size is {0}KiB but the detected flash chip is {1}KiB. Reading the full chip.",
+                            imageSize / 1024,
+                            flashChip.Size / 1024));
+                    imageSize = (int)flashChip.Size;
+                }
+
                 int retryCount = 0;
                 int startAddress = 0;
 
@@ -225,7 +247,7 @@ namespace PcmHacking
                 }
 
                 logger.AddUserMessage("Read complete.");
-                Utility.ReportRetryCount("Read", retryCount, pcmInfo.ImageSize, this.logger);
+                Utility.ReportRetryCount("Read", retryCount, imageSize, this.logger);
 
                 if (this.pcmInfo.FlashCRCSupport && this.pcmInfo.FlashIDSupport)
                 {

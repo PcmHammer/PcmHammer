@@ -105,7 +105,7 @@ namespace PcmHacking
         {
             Filters = new List<ulong>();
 
-            this.Logger.AddUserMessage("Initializing " + this.ToString());
+            this.Logger.AddUserMessage("Initializing " + this.ToString() + ": " + this.J2534Port.LoadedDevice.Name);
 
             Response<J2534Err> m; // hold returned messages for processing
             Response<bool> m2;

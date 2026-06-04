@@ -90,11 +90,68 @@ namespace PcmHacking
 
             if (forcedPcmType != PcmType.Undefined)
             {
+                // A forced PCM type ONLY overrides which kernel and key algorithm we use (for
+                // example when the OSID-to-type database is wrong for this PCM). It must NOT switch
+                // off the file-vs-PCM compatibility check: otherwise an end user could point a
+                // forced type at an unidentified PCM and flash a file for completely different
+                // hardware, bricking it. So we still query the PCM's OSID and enforce IsSameHardware
+                // whenever the PCM can be identified.
                 pcmInfo = new OSIDInfo(forcedPcmType);
                 keyAlgorithm = pcmInfo.KeyAlgorithm;
                 needUnlock = true;
                 needToCheckOperatingSystem = false;
                 logger.AddUserMessage("Using manually selected PCM type: " + pcmInfo.HardwareType);
+
+                logger.AddUserMessage("Requesting operating system ID to verify file compatibility...");
+                Response<uint> forcedOsidResponse = await this.vehicle.QueryOperatingSystemId(this.cancellationToken);
+                if (forcedOsidResponse.Status == ResponseStatus.Success)
+                {
+                    pcmOsid = forcedOsidResponse.Value;
+
+                    if (!validator.IsSameHardware(forcedOsidResponse.Value))
+                    {
+                        return false;
+                    }
+
+                    if (!validator.IsSameOperatingSystem(forcedOsidResponse.Value))
+                    {
+                        logger.AddUserMessage("PCM operating system ID: " + forcedOsidResponse.Value);
+                        logger.AddUserMessage("File operating system ID: " + validator.GetOsidFromImage());
+                        Utility.ReportOperatingSystems(validator.GetOsidFromImage(), forcedOsidResponse.Value, writeType, this.logger, out shouldHalt);
+                        if (shouldHalt)
+                        {
+                            return false;
+                        }
+                    }
+                    else
+                    {
+                        logger.AddUserMessage("PCM and file are both operating system " + forcedOsidResponse.Value);
+                    }
+                }
+                else
+                {
+                    // The PCM did not return an OSID, so we cannot verify the file matches the
+                    // connected hardware. This is the genuine recovery case (corrupt or truly
+                    // unidentified PCM), so we don't hard-block, but we must NOT proceed silently:
+                    // warn that compatibility is unverified and let the user accept the brick risk.
+                    if (this.cancellationToken.IsCancellationRequested)
+                    {
+                        return false;
+                    }
+
+                    string unverifiedMsg =
+                        "WARNING: The PCM did not return an operating system ID, so PCM Hammer cannot verify" + Environment.NewLine +
+                        "that this file is compatible with the connected hardware." + Environment.NewLine +
+                        "Writing an incompatible file can permanently brick the PCM." + Environment.NewLine +
+                        "Do you want to continue?";
+                    logger.AddUserMessage(unverifiedMsg);
+                    if (!await this.promptForYesNo(unverifiedMsg, "Brick Risk"))
+                    {
+                        logger.AddUserMessage("User chose not to proceed.");
+                        return false;
+                    }
+                    logger.AddUserMessage("User chose to proceed without a verified hardware match.");
+                }
             }
             else
             {

@@ -550,6 +550,20 @@ namespace PcmHacking
                 if (((image[0x7FFFE] == 0xA5) && (image[0x7FFFF] == 0x5A)) || // most P04 OR
                     ((image[0x7FFFC] == 0xA5) && (image[0x7FFFD] == 0x5A) && (image[0x7FFFE] == 0xFF) && (image[0x7FFFF] == 0xFF)))   // Most 1998 512Kb eg Malibu 09369193, Olds 09352676, LeSabre 09379801...
                 {
+                    // A 512KiB image with these markers is a P04 by SIZE alone. But some early P04
+                    // units (P04_Early) physically carry a 512KiB chip even though they belong to the
+                    // 1996/97 V6 family - their OSID resolves to P04_Early via the service-number
+                    // lookup. Identifying by size alone would mislabel them P04, so the file would not
+                    // match the connected P04_Early PCM at the pre-flight checks and the 512K P04_early
+                    // would be effectively unwriteable with the correct 512KiB file.
+                    UInt32 osid = (image[0x7FFFE] == 0xFF && image[0x7FFFF] == 0xFF)
+                        ? ReadUnsigned(image, 0x7FFF8)
+                        : ReadUnsigned(image, 0x7FFFA);
+                    if (osid != 0 && new OSIDInfo(osid).HardwareType == PcmType.P04_Early)
+                    {
+                        logger.AddDebugMessage("512KiB P04 image OSID resolves to P04_Early; using P04_Early.");
+                        return PcmType.P04_Early;
+                    }
                     return PcmType.P04;
                 }
 
