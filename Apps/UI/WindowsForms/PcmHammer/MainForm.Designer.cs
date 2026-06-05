@@ -404,8 +404,8 @@ namespace PcmHacking
             this.writeFullToolStripMenuItem,
             this.toolStripSeparator2,
             this.testFileChecksumsToolStripMenuItem,
-            this.toolStripSeparator3,
             this.bruteForceUnlockToolStripMenuItem,
+            this.toolStripSeparator3,
             this.haltRunningKernelToolStripMenuItem});
             this.menuItemTools.Name = "menuItemTools";
             this.menuItemTools.Size = new System.Drawing.Size(46, 20);

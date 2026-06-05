@@ -776,10 +776,18 @@ namespace PcmHacking
                 return;
             }
 
-            using (DialogBoxes.BruteForceDialogBox dialog = new DialogBoxes.BruteForceDialogBox(this.Vehicle, this))
+            // Show modeless so the user can switch between the Results and Debug Log tabs on the
+            // main window while the search runs. The brute forcer does its device I/O on a background
+            // task, so the UI thread stays responsive. We disable the operation controls (but not the
+            // log tabs) for the dialog's lifetime so nothing competes for the device.
+            this.DisableUserInput();
+            DialogBoxes.BruteForceDialogBox dialog = new DialogBoxes.BruteForceDialogBox(this.Vehicle, this);
+            dialog.FormClosed += (s, args) =>
             {
-                dialog.ShowDialog(this);
-            }
+                this.EnableUserInput();
+                dialog.Dispose();
+            };
+            dialog.Show(this);
         }
 
         /// <summary>
@@ -1285,13 +1293,6 @@ namespace PcmHacking
 
             this.AddUserMessage("Will save to " + path);
 
-            DelayDialogBox dialogBox = new DelayDialogBox();
-            DialogResult dialogResult = dialogBox.ShowDialog(this);
-            if (dialogResult == DialogResult.Cancel)
-            {
-                return Task.FromResult<string?>(null);
-            }
-
             return Task.FromResult<string?>(path);
         }
 
@@ -1352,14 +1353,6 @@ namespace PcmHacking
                         }
                         if (string.IsNullOrWhiteSpace(path))
                         {
-                            return;
-                        }
-
-                        DelayDialogBox dialogBox = new DelayDialogBox();
-                        DialogResult dialogResult = dialogBox.ShowDialog(this);
-                        if (dialogResult == DialogResult.Cancel)
-                        {
-                            path = null;
                             return;
                         }
                     });

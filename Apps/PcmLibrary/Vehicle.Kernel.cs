@@ -397,7 +397,8 @@ namespace PcmHacking
                 logger.AddUserMessage(
                     $"Permission to upload {(info.LoaderRequired ? "Loader" : "Kernel")} was denied." +
                     Environment.NewLine +
-                    "If this persists, try cutting power to the PCM, restoring power, waiting ten seconds, and trying again."
+                    "This usually means communication started before the PCM finished its power-on security delay. " +
+                    "Cut power to the PCM, restore power, wait about 10 seconds, then try again."
                     );
                 return false;
             }
