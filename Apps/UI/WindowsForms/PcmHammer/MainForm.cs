@@ -649,6 +649,8 @@ namespace PcmHacking
             this.exitApplicationToolStripMenuItem.Enabled = false;
             this.userDefinedKeyToolStripMenuItem.Enabled = false;
             this.bruteForceUnlockToolStripMenuItem.Enabled = false;
+            this.haltRunningKernelToolStripMenuItem.Enabled = false;
+            this.testFileChecksumsToolStripMenuItem.Enabled = false;
 
             this.readPropertiesButton.Enabled = false;
             this.readPcmButton.Enabled = false;
@@ -683,6 +685,8 @@ namespace PcmHacking
                 this.exitApplicationToolStripMenuItem.Enabled = true;
                 this.userDefinedKeyToolStripMenuItem.Enabled = true;
                 this.bruteForceUnlockToolStripMenuItem.Enabled = true;
+                this.haltRunningKernelToolStripMenuItem.Enabled = true;
+                this.testFileChecksumsToolStripMenuItem.Enabled = true;
 
                 this.readPropertiesButton.Enabled = true;
                 this.readPcmButton.Enabled = true;

@@ -76,7 +76,10 @@ namespace PcmHacking
 
         public override string ToString()
         {
-            return "J2534 Device";
+            string deviceName = this.J2534Port.LoadedDevice?.Name;
+            return string.IsNullOrEmpty(deviceName)
+                ? "J2534 Device"
+                : "J2534 " + deviceName;
         }
 
         public override string GetDeviceType()
@@ -105,7 +108,7 @@ namespace PcmHacking
         {
             Filters = new List<ulong>();
 
-            this.Logger.AddUserMessage("Initializing " + this.ToString() + ": " + this.J2534Port.LoadedDevice.Name);
+            this.Logger.AddUserMessage("Initializing " + this.ToString());
 
             Response<J2534Err> m; // hold returned messages for processing
             Response<bool> m2;

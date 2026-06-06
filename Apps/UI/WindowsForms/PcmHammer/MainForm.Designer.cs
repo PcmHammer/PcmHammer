@@ -124,9 +124,11 @@ namespace PcmHacking
             this.selectButton.Text = "&Select Device";
             this.selectButton.UseVisualStyleBackColor = true;
             this.selectButton.Click += new System.EventHandler(this.selectButton_Click);
-            // 
+            //
             // deviceDescription
-            // 
+            //
+            this.deviceDescription.AutoSize = false;
+            this.deviceDescription.AutoEllipsis = true;
             this.deviceDescription.Location = new System.Drawing.Point(4, 16);
             this.deviceDescription.Margin = new System.Windows.Forms.Padding(2, 0, 2, 0);
             this.deviceDescription.Name = "deviceDescription";
