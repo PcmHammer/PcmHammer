@@ -3,7 +3,6 @@ using System;
 using System.IO;
 using System.IO.Ports;
 using System.Linq;
-using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -31,6 +30,7 @@ namespace PcmHacking
             string? operation = null;
             string? filePath = null;
             string? deviceSpec = null;
+            string? kernelDirArg = null;
             bool listDevices = false;
             bool debug = false;
 
@@ -62,6 +62,9 @@ namespace PcmHacking
                         break;
                     case "--device":
                         if (i + 1 < args.Length) deviceSpec = args[++i];
+                        break;
+                    case "--kernel-dir":
+                        if (i + 1 < args.Length) kernelDirArg = args[++i];
                         break;
                     case "--list-devices":
                         listDevices = true;
@@ -97,7 +100,9 @@ namespace PcmHacking
                 return 1;
             }
 
-            string kernelDir = ExtractKernels();
+            string? kernelDir = ResolveKernelDir(kernelDirArg, logger);
+            if (kernelDir == null)
+                return 1;
 
             Device? device = ResolveDevice(deviceSpec, logger);
             if (device == null)
@@ -433,23 +438,31 @@ namespace PcmHacking
             return true;
         }
 
-        static string ExtractKernels()
+        // Resolves the directory the kernel/loader .bin files are loaded from.
+        // Kernels are external (not embedded): use --kernel-dir if given, otherwise the
+        // current working directory. Returns null (with an error printed) if an explicit
+        // --kernel-dir does not exist.
+        static string? ResolveKernelDir(string? kernelDirArg, ILogger logger)
         {
-            string dir = Path.Combine(Path.GetTempPath(), "pcmhammer-cli-kernels");
-            Directory.CreateDirectory(dir);
-            var asm = Assembly.GetExecutingAssembly();
-            foreach (string name in asm.GetManifestResourceNames())
+            string dir = string.IsNullOrWhiteSpace(kernelDirArg)
+                ? Directory.GetCurrentDirectory()
+                : Path.GetFullPath(kernelDirArg);
+
+            if (!Directory.Exists(dir))
             {
-                if (!name.EndsWith(".bin", StringComparison.OrdinalIgnoreCase)) continue;
-                string[] parts = name.Split('.');
-                string fileName = parts.Length >= 2
-                    ? parts[parts.Length - 2] + "." + parts[parts.Length - 1]
-                    : name;
-                string dest = Path.Combine(dir, fileName);
-                using (var s = asm.GetManifestResourceStream(name))
-                using (var f = File.Create(dest))
-                    s.CopyTo(f);
+                Console.Error.WriteLine($"Error: Kernel directory not found: {dir}");
+                return null;
             }
+
+            logger.AddDebugMessage("Using kernel directory: " + dir);
+
+            if (Directory.GetFiles(dir, "*.bin").Length == 0)
+            {
+                logger.AddUserMessage(
+                    $"Warning: no .bin kernel files found in {dir}. " +
+                    "Place the Kernel-*.bin / Loader-*.bin files there or pass --kernel-dir <path>.");
+            }
+
             return dir;
         }
 
@@ -491,7 +504,7 @@ namespace PcmHacking
         {
             Console.WriteLine("PCM Hammer CLI");
             Console.WriteLine();
-            Console.WriteLine("Usage:  pcmhammer-cli.exe <operation> [--device <id>] [--debug]");
+            Console.WriteLine("Usage:  pcmhammer-cli.exe <operation> [--device <id>] [--kernel-dir <path>] [--debug]");
             Console.WriteLine();
             Console.WriteLine("Operations:");
             Console.WriteLine("  --read [file]             Read entire PCM to file (auto-names if omitted)");
@@ -508,6 +521,10 @@ namespace PcmHacking
             Console.WriteLine("  --device OBDX             Select a J2534 device by partial name (case-insensitive)");
             Console.WriteLine("  (omit --device)           Auto-selects when only one device is connected");
             Console.WriteLine();
+            Console.WriteLine("Kernels:");
+            Console.WriteLine("  --kernel-dir <path>       Directory holding Kernel-*.bin / Loader-*.bin");
+            Console.WriteLine("  (omit --kernel-dir)       Defaults to the current working directory");
+            Console.WriteLine();
             Console.WriteLine("Examples:");
             Console.WriteLine("  pcmhammer-cli.exe --list-devices");
             Console.WriteLine("  pcmhammer-cli.exe --read");
@@ -516,6 +533,7 @@ namespace PcmHacking
             Console.WriteLine("  pcmhammer-cli.exe --write newcal.bin --device OBDX");
             Console.WriteLine("  pcmhammer-cli.exe --test-write newcal.bin --device Mongoose");
             Console.WriteLine("  pcmhammer-cli.exe --get-properties --device COM5");
+            Console.WriteLine("  pcmhammer-cli.exe --test-read --device COM6 --kernel-dir C:\\PcmHammer\\Kernels");
         }
     }
 }

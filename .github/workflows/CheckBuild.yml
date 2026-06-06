@@ -459,3 +459,82 @@ jobs:
       with:
         name: PCMHammer_CLI_${{ env.CLI_ARTIFACT_SUFFIX }}_${{ github.sha }}
         path: TemporaryArtifactStorage/CLI
+
+  # Builds the Windows installer (setup.exe) from the apps produced by the
+  # Applications job. Runs only after that job succeeds, and publishes setup.exe
+  # as a downloadable artifact. The Uno UI is intentionally not part of the installer.
+  Installer:
+    needs: Applications
+    runs-on: windows-2025-vs2026
+
+    env:
+      INSTALLER_APP_VERSION: '0.0.0'
+      INSTALLER_ARTIFACT_SUFFIX: ''
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v6
+
+    - name: Download WinForms artifact
+      uses: actions/download-artifact@v8
+      with:
+        pattern: PCMHammer_WinForms_*_${{ github.sha }}
+        path: installer-staging/WinForms
+        merge-multiple: true
+
+    - name: Download CLI artifact
+      uses: actions/download-artifact@v8
+      with:
+        pattern: PCMHammer_CLI_*_${{ github.sha }}
+        path: installer-staging/CLI
+        merge-multiple: true
+
+    - name: Compute installer version and artifact name
+      shell: pwsh
+      run: |
+        $assemblyInfo = Get-Content "Apps/UI/WindowsForms/PcmHammer/Properties/AssemblyInfo.cs" -Raw
+        $winFormsVersion = ([regex]::Match($assemblyInfo, 'AssemblyFileVersion\("([^"]+)"\)')).Groups[1].Value
+        if ([string]::IsNullOrWhiteSpace($winFormsVersion) -or $winFormsVersion -eq "0.0.0.0") {
+          $appVersion = "0.0.0"
+        } else {
+          $appVersion = $winFormsVersion
+        }
+
+        $timestampUtc = [DateTime]::UtcNow.ToString("yyyyMMdd_HHmmss")
+        $isReleaseTag = "${{ startsWith(github.ref, 'refs/tags/') }}" -eq "true"
+        $branchNameRaw = if ([string]::IsNullOrWhiteSpace($env:GITHUB_HEAD_REF)) { $env:GITHUB_REF_NAME } else { $env:GITHUB_HEAD_REF }
+        $branchNameSafe = ($branchNameRaw -replace '[\\/]', '-') -replace '[^A-Za-z0-9._-]', '-'
+        if ([string]::IsNullOrWhiteSpace($branchNameSafe)) { $branchNameSafe = "unknown-branch" }
+
+        if ($isReleaseTag -and $appVersion -ne "0.0.0") {
+          $suffix = "v$appVersion"
+        } else {
+          $suffix = "utc$timestampUtc" + "_" + $branchNameSafe + "_development_test_version"
+        }
+
+        "INSTALLER_APP_VERSION=$appVersion" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        "INSTALLER_ARTIFACT_SUFFIX=$suffix" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+    - name: Install Inno Setup
+      shell: pwsh
+      run: choco install innosetup --no-progress -y
+
+    - name: Build installer (setup.exe)
+      shell: pwsh
+      run: |
+        $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+        if (-not (Test-Path $iscc)) { throw "ISCC.exe not found at $iscc" }
+        $winFormsRoot = (Resolve-Path "installer-staging/WinForms").Path
+        $cliRoot = (Resolve-Path "installer-staging/CLI").Path
+        & $iscc `
+          "/DAppVersion=$env:INSTALLER_APP_VERSION" `
+          "/DWinFormsRoot=$winFormsRoot" `
+          "/DCliRoot=$cliRoot" `
+          "Apps/installer/pcmhammer-setup.iss"
+        if ($LASTEXITCODE -ne 0) { throw "ISCC failed (exit $LASTEXITCODE)" }
+
+    - name: Upload installer artifact
+      uses: actions/upload-artifact@v7
+      with:
+        name: PCMHammer_Installer_${{ env.INSTALLER_ARTIFACT_SUFFIX }}_${{ github.sha }}
+        path: Apps/installer/output/setup.exe
