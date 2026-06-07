@@ -59,8 +59,8 @@ jobs:
         }
         #
         # The following loop is the one location that needs to be updated when adding a new C kernel.
-        # Add entries as: "PCM ADDRESS" — e.g. "P12 FF2000"
-        # Empty list is intentional — all targets currently use the Assembly kernel build below.
+        # Add entries as: "PCM ADDRESS" - e.g. "P12 FF2000"
+        # Empty list is intentional - all targets currently use the Assembly kernel build below.
         #
         for p in; do
           pcm=${p%% *}
@@ -148,7 +148,7 @@ jobs:
 
     env:
       # Declared here so the linter knows these variables are valid; the empty
-      # defaults are never used — the "Read app versions" step overwrites them
+      # defaults are never used - the "Read app versions" step overwrites them
       # at runtime via $GITHUB_ENV before the upload steps reference them.
       WINFORMS_ARTIFACT_SUFFIX: ''
       UNO_ARTIFACT_SUFFIX: ''

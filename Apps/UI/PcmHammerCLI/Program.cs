@@ -121,7 +121,7 @@ namespace PcmHacking
                     {
                         e.Cancel = true;
                         if (operationInProgress)
-                            Console.Error.WriteLine("\nOperation in progress — waiting for clean shutdown. Press Ctrl+C again to force quit.");
+                            Console.Error.WriteLine("\nOperation in progress - waiting for clean shutdown. Press Ctrl+C again to force quit.");
                         else
                             Console.Error.WriteLine("\nCancellation requested.");
                         cts.Cancel();
@@ -324,11 +324,11 @@ namespace PcmHacking
                 return null;
             }
 
-            // Serial port — exact name match (case-insensitive)
+            // Serial port - exact name match (case-insensitive)
             if (deviceSpec.StartsWith("COM", StringComparison.OrdinalIgnoreCase))
                 return DeviceFactory.AutoDetectSerialDevice(deviceSpec, logger).GetAwaiter().GetResult();
 
-            // J2534 — case-insensitive substring match
+            // J2534 - case-insensitive substring match
             var matches = j2534Devices
                 .Where(d => d.Name.IndexOf(deviceSpec, StringComparison.OrdinalIgnoreCase) >= 0)
                 .ToList();

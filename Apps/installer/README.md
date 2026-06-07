@@ -17,7 +17,7 @@ Each app is a **separately selectable component**:
 | `vpwexplorer` | VPW Explorer | `{app}\VpwExplorer` | **off** |
 | `cli`         | `pcmhammer-cli.exe` + kernels | `{app}\Cli` | on |
 
-Setup types: **Standard** (pcmhammer + pcmlogger + cli — the default), **Full** (adds
+Setup types: **Standard** (pcmhammer + pcmlogger + cli - the default), **Full** (adds
 VPW Explorer), **Command-line tool only**, and **Custom**.
 
 Start Menu group **"PCM Hammer"** holds a shortcut for each installed app plus Uninstall;

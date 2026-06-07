@@ -2,7 +2,11 @@
 <head>
 <style>
     * { font-family: sans-serif; }
-    p,li { font-size: 0.875em; }
+    p, li, dd, dt { font-size: 0.875em; }
+    h3 { margin-top: 1.2em; }
+    h4 { margin-top: 1.1em; margin-bottom: 0.25em; }
+    h4 + p { margin-top: 0; }
+    .status { color: #555; font-weight: normal; font-size: 0.85em; }
 </style>
 
     <base target="_blank"/>
@@ -12,170 +16,178 @@
     <h1>PCM Hammer Development Release</h1>
 
     <ol>
-        <li><a target="_self" href="#recommended">Recommended Interface</a>
-        <li><a target="_self" href="#readfirst">Read This First</a>
-        <li><a target="_self" href="#devices">Supported Devices</a>
-        <li><a target="_self" href="#basics">Basic Operations</a>
-        <li><a target="_self" href="#online">Getting Help Online</a>
-        <li><a target="_self" href="#licensing">Licensing</a>
-        <li><a target="_self" href="#contributing">Contributing</a>
+        <li><a target="_self" href="#recommended">Recommended Interface</a></li>
+        <li><a target="_self" href="#readfirst">Read This First</a></li>
+        <li><a target="_self" href="#devices">Supported Devices</a></li>
+        <li><a target="_self" href="#pcms">Supported PCMs</a></li>
+        <li><a target="_self" href="#basics">Basic Operations</a></li>
+        <li><a target="_self" href="#online">Getting Help Online</a></li>
+        <li><a target="_self" href="#licensing">Licensing</a></li>
+        <li><a target="_self" href="#contributing">Contributing</a></li>
         <li><a target="_self" href="#related">Related Resources</a></li>
     </ol>
 
     <hr />
 
-    <p id="recommended"><h3>Recommended Device</h3>
+    <h3 id="recommended">Recommended Interface</h3>
 
-    <p>The recommended interface is one of the OBD XPro series. Usually the GT or the VX. Buying through this link helps support PCMHammer development and PCMHacking forums:
+    <p>The recommended interface is one of the OBDX Pro series - usually the GT or the VX. Buying through this link helps support PCM Hammer development and the PCMHacking forums:</p>
 
-    <p>
-        <b><a href="http://obdxpro.com/?ref=pcmhacking">OBDX Pro Store</a>
+    <p><b><a href="http://obdxpro.com/?ref=pcmhacking">OBDX Pro Store</a></b></p>
 
+    <hr />
 
-    <P id="readfirst"><h3>Read This First</h3>
-    <P>This software was written by a few people in their free time. While it has worked well for us, we can't promise that it has the reliability and trustworthiness that you would expect from a commercial product. If you require foolproof commercial-quality tools, this software is not for you.
+    <h3 id="readfirst">Read This First</h3>
 
-    <p>For several seconds after you turn the key, the PCM will be busy booting. Most operations will fail during that period. This is why the app asks you to wait before proceeding with complex operations. If you skip that waiting period, you won't do any lasting damage, but whatever you're trying to do might not work, and you might need to pull the PCM's fuse for a few seconds to reset it.
+    <p>This software was written by a few people in their free time. While it has worked well for us, we can't promise the reliability and trustworthiness that you would expect from a commercial product. If you require foolproof, commercial-quality tools, this software is not for you.</p>
 
-    <p>Many of the app's operations will require transferring custom software (a "kernel") to the PCM. While that software is running on the PCM, normal PCM functions are suspended, so you will see and hear a variety of error messages and chimes. This is normal. After the app is done, the PCM will reboot and will work normally again.
+    <p>For several seconds after you turn the key, the PCM is busy booting, and most operations will fail during that period. This is why the app asks you to wait before proceeding with complex operations. If you skip that waiting period you won't do any lasting damage, but whatever you are trying to do might not work, and you might need to pull the PCM's fuse for a few seconds to reset it.</p>
 
-    <p>
-        If you have a drive-by-wire throttle, you might find that the Check Engine light turns on after reading or writing, and a code reader will report P1518, indicating a communication error with the Throttle Actuator Control module. This can be ignored, and it will go away after you start the engine a few times. We're looking for a way to prevent this.
+    <p>Many of the app's operations transfer custom software (a "kernel") to the PCM. While that software is running, normal PCM functions are suspended, so you will see and hear a variety of error messages and chimes. This is normal. When the app is done, the PCM reboots and works normally again.</p>
 
-        <hr />
-    <p id="devices"><h3>Supported Devices</h3>
+    <p>If you have a drive-by-wire throttle, you might find that the Check Engine light turns on after a read or write, and a code reader will report P1518, indicating a communication error with the Throttle Actuator Control module. This can be ignored; it will clear after you start the engine a few times. We are looking for a way to prevent it.</p>
 
-    <p>This app currently supports the following types of devices:
+    <hr />
 
-    <p>
-        <b><a href="http://obdxpro.com/?ref=pcmhacking">OBDX Pro</a></b> - This is the best bang-for-the-buck. It supports 4x bus speeds and large data packets.
-        This is the recommended interface. Full disclosure: The guys behind this company have also helped with PCM Hammer development and testing. Buying through this link also helps with our hardware costs and future development.
+    <h3 id="devices">Supported Devices</h3>
 
-    <p>
-        <b><a href="https://www.scantool.net/obdlink-sx/">ObdLink Scantool SX</a></b> - This is inexpensive and basic interface. It is superior to ELM knock-off devices,
-        but it does not support 4x (high speed) mode, and it only supports relatively short messages. It works but it is very slow. A full read from a 512kb PCM takes a little over 20 minutes. Not recommended. No bluetooth.
+    <p>This app currently supports the following types of devices.</p>
 
-    <p><b><a href="https://www.scantool.net/obdlink-mxp/">ObdLink Scantool MX/MX+</a></b> - Similar to the SX, but with Bluetooth wireless. The connection to windows via Bluetooth can be troublesome, but when correctly configured it does work. Not recommended.
+    <h4><a href="http://obdxpro.com/?ref=pcmhacking">OBDX Pro</a> <span class="status">- recommended</span></h4>
+    <p>The best bang for the buck. It supports 4x bus speeds and large data packets, which makes it both fast and reliable. Full disclosure: the people behind this company have also helped with PCM Hammer development and testing, and buying through this link helps cover our hardware costs and fund future development.</p>
 
-    <p>
-        <b><a href="https://www.scantool.net/obdlink-lx/">ObdLink Scantool LX</a></b> - It's like an SX or MX+, but wireless. Not Recommended.
-    <p>
-        <b><a href="http://www.avt-hq.com/852_hw.htm">AVT 852</a></b> - This is and expensive option. The original company has closed down but the device is being manufacturerd again by Mobilechanix who have a web site and ebay store.
-        This was one of the first interfaces to properly support J1850 VPW high-speed mode. 
-    <p>
-        <b>Any J2534-compatible interface that supports J1850 VPW and large packets</b> - At least in theory, these should all work. There are quite a few of those on the market,
-        and we cannot test them all, but if you have one, give it a try. As time goes by we'll list the ones that are proven to work. The genuine GM MDI is one
-        device which is known to work well. Cheaper J2534 devices are generally really basic and either skip VPW protocol or cannot support large packets.
-        Over time we hope to confirm that other, less expensive devices will also work. Usually the sub $50 J2534 tools do not work.
+    <h4><a href="https://www.scantool.net/obdlink-sx/">ObdLink Scantool SX</a> <span class="status">- works, but slow; not recommended</span></h4>
+    <p>An inexpensive, basic interface. It is better than ELM knock-off devices, but it does not support 4x (high-speed) mode and only handles relatively short messages, so it is very slow - a full read of a 512&nbsp;KB PCM takes a little over 20 minutes. Wired only (no Bluetooth).</p>
 
-    <P>Note that the Tactrix OpenPort 2.0 does not support J1850 VPW despite some advertising saying that it does. VPW is required and it is not capable / supported.
+    <h4><a href="https://www.scantool.net/obdlink-mxp/">ObdLink Scantool MX / MX+</a> <span class="status">- not recommended</span></h4>
+    <p>Similar to the SX, but with Bluetooth. The Bluetooth connection to Windows can be troublesome, but it does work once it is correctly configured.</p>
 
-    <p>
-        <b><a href="http://www.obddiag.net/products.html">ObdDiag AllPro</a></b> - Only the USB and dev-board versions are supported (not bluetooth).
-        The AllPro devices were quite inexpensive, and ObdDiag was an early partner in this project, incorporating changes and responding to feedback.
-        However the man behind the company has moved on to other things, so these devices are no longer available. If you happen to have one it can be used,
-        but they are not at all common. Also note that AllPro devices purchased before early June 2018 will need a firmware update to version 1.21 or later.
-		Not recommended.
-    <p>
-        Other devices based on the Scantool STN OBD2 chip may or may not work, depending on their message size limits with the same caviets as scantool products.
-    <p>
-        Note that most ELM-based devices are <i>not</i> supported because they do not large packets and do not work. Reading and clearing OBD2 trouble codes is one thing; rewriting firmware is quite another.
+    <h4><a href="https://www.scantool.net/obdlink-lx/">ObdLink Scantool LX</a> <span class="status">- not recommended</span></h4>
+    <p>Like an SX or MX+, but wireless.</p>
 
-        <hr />
-    <p id="basics"><h3>Basic Operations</h3>
+    <h4>Scanmatik version 2 (firmware 2.21.23+ and version 3) <span class="status">- supported</span></h4>
+    <p><a href="https://scanmatik.ru/about/news/4537/">Scanmatik added official long-packet support with firmware 2.21.23</a>, after being contacted by PCM Hammer users in 2023. Reports are that this tool works well at 4x, via J2534.</p>
 
-    <p>Turn the ignition key to the "On" position. (The "Acc" position won't work.) The dashboard should light up. Do not start the engine.
+    <h4>GM or Bosch MDI and MDI2 tools <span class="status">- supported</span></h4>
+    <p>These are supported J2534 devices with the needed protocol support. They are not cheap, but they are strong performers. Tech2 with J2534 passthrough should work, but is not tested.</p>
 
-    <p>
-        <b>Select Device</b> - Before the app can communicate with your PCM, need to tell the app what kind of interface device you have, and how it is connected to your computer.
-        <ol>
-            <li>Click the "Select Device" button on the main window - a dialog box will appear.</li>
-            <li>Select "Serial Port Device" or "J2534 Device" depending on which type you have. If you don't know which, it's probably a serial port.</li>
-            <li>If you have a serial device, you'll need to select the COM port and device type from the drop-down lists. If you have a J2534 device, you'll need to select the device type.</li>
-            <li>You can use the Test button to see if you got it right, or just click OK.</li>
-            <li>Either way, check the Results tab in the main window - it will either print an error message or show some information about the selected device.</li>
-        </ol>
+    <h4><a href="http://www.avt-hq.com/852_hw.htm">AVT 852</a> <span class="status">- supported</span></h4>
+    <p>An expensive option. The original company has closed down, but the device is being manufactured again by Mobilechanix, who have a website and an eBay store. This was one of the first interfaces to properly support J1850 VPW high-speed mode.</p>
 
-    <p><b>Read Properties</b> - To read the VIN, serial number, and other properties from the PCM, just click the "Read Properties" button. You should generally do this before doing anything else, just to confirm that the device is able to communicate with the PCM.
+    <h4>Other J2534-compatible interfaces <span class="status">- work in theory, but often don't</span></h4>
+    <p>Any J2534 interface that supports J1850 VPW <i>and</i> large packets should work, at least in theory. There are quite a few on the market and we cannot test them all, but if you have one, give it a try; over time we will list the ones that are proven to work. The genuine GM MDI is one device that is known to work well. Cheaper J2534 devices are generally very basic and either skip the VPW protocol or cannot handle large packets - as a general rule, sub-$50 J2534 tools usually do not work.</p>
+    <p>Note that the Tactrix OpenPort 2.0 does <i>not</i> support J1850 VPW, despite some advertising that says it does. VPW is required, and the OpenPort cannot provide it.</p>
 
-    <p>
-        <b>Test Write</b> - This will simulate the process of updating your PCM's calibration block from a file on your computer.
-        However, the contents of your PCM will not be changed. This is useful for verifying that quality of the connection between your computer and your PCM.
+    <h4>ObdDiag AllPro <span class="status">- no longer available; not recommended</span></h4>
+    <p>Only the USB and dev-board versions are supported (not Bluetooth). The AllPro devices were quite inexpensive, and ObdDiag was an early partner in this project, incorporating changes and responding to feedback. However, the person behind the company has moved on to other things, so these devices are no longer available. If you happen to have one, it can be used, but they are uncommon. Note that AllPro devices purchased before early June 2018 need a firmware update to version 1.21 or later.</p>
 
-    <p>
-        <b>Write Calibration</b> - This will erase and reprogram the calibration section of your PCM's flash memory. This is tuning, basically.
-        It can take several minutes, and if this is interrupted your PCM may be unusable, so make sure your car battery and laptop batter are fully charged.
-        Also, once the process begins, don't do anything that might interrupt it. Don't close the app, reboot the computer, spill coffee on the keyboard, etc.
+    <h4>Other STN-based devices <span class="status">- not recommened</span></h4>
+    <p>Other devices based on the Scantool STN OBD2 chip may or may not work, depending on their message-size limits - the same caveats apply as for the ScanTool products above.</p>
 
-    <p>
-        <b>Halt Kernel</b> - You will probably never need to use this button. But, if you interupt a read or quick-compare operation by closing
-        the app, you can use this to halt the PCM Hammer kernel and reboot the PCM.
-        <b>If a write operation is interrupted, do not use this button.</b> Instead, just do another write. The app will detect that the kernel
-        is already running, and it will restart the write operation.
+    <h4>ELM-based devices <span class="status">- not supported</span></h4>
+    <p>ELM-based devices are <i>not</i> supported, because they cannot handle large packets. Reading and clearing OBD2 trouble codes is one thing; rewriting firmware is quite another.</p>
 
-    <p>Some additional operations are available in the Tools menu:
+    <hr />
 
-    <p><B>Read Entire PCM</B> - This button will save the entire contents of the PCM's read-only memory, and it will save that data to whatever new file you choose. You can open the resulting file in Tuner Pro, if you have the definition file (the "XDF") the corresponds to your PCM's operating system.
+    <h3 id="pcms">Supported PCMs</h3>
+    <p>This version of PCM Hammer supports the following PCMs:</p>
+    <p><b>P01, P04 (all variants), P05, P05b, P08, P10, P11, P12, P12b, P59, E54, and the 98/99 Vortec Black Box.</b></p>
+    <p>This is most of the <b>VPW-protocol</b> GM PCMs, from around 1996 to 2007.</p>
+    <p>PCM Hammer does <b>not currently support writing the slave CPU</b>. Some of the PCMs above have a second, dedicated CPU for electronic throttle control. If you try to change the operating system on one of these PCMs, PCM Hammer will warn you, because doing so can break electronic throttle support. After such a change you would need to reflash the slave CPU for the new operating system using Techline or other flash software, or reflash back to the original operating system with this software to restore the original function. For these PCMs it is best to change only calibration items when working with this tool.</p>
+    <p>Note that this software <b>does not support CAN-protocol PCMs</b>, such as the E38 and newer, which started appearing around 2005.</p>
+    <p>Different PCMs support different types of write in PCM Hammer. The app will tell you if you attempt an operation that is not supported, and how to work around it.</p>
 
-    <p><b>Verify Entire PCM</b> - You can use this feature to find out whether a file on your computer matches the contents of the PCM. This will takes a minute or so, but it's quicker than reading entire PCM and comparing both files on your computer.
+    <hr />
 
-    <p><b>Change VIN</b> - To use this feature, click the button and enter your vehicle's VIN, then click OK. Note that the change will not take effect until after you turn off the ignition. The PCM will still run on battery power for a few seconds while it stores the new VIN permanently. If you disconnect all power, the PCM will still have the original VIN the next time you turn it on.
+    <h3 id="basics">Basic Operations</h3>
 
-    <p>You may find this feature useful if you've purchased a used PCM from a junkyard or online retailer, for example after bricking your PCM with software written by amateurs and downloaded from the internet. (Although, honestly, zero PCMs have been harmed during the development of this app. So far.)
+    <p>Turn the ignition key to the "On" position. (The "Acc" position will not work.) The dashboard should light up. Do not start the engine.</p>
 
-    <p>
-        <b>Write Parameters</b> - This will erase and reprogram the parameter sections of your PCM's flash memory.
-        These sections contain the VIN, serial number, stored OBD2 codes, etc.
-        This is useful if you are replacing an old PCM with a new one from another vehicle.
+    <h4>Select Device</h4>
+    <p>Before the app can communicate with your PCM, you need to tell it what kind of interface you have and how it is connected to your computer.</p>
+    <ol>
+        <li>Click the "Select Device" button on the main window. A dialog box will appear.</li>
+        <li>Select "Serial Port Device" or "J2534 Device", depending on which type you have. If you don't know which, it is probably a serial port.</li>
+        <li>For a serial device, select the COM port and device type from the drop-down lists. For a J2534 device, select the device type.</li>
+        <li>Use the Test button to check that you got it right, or just click OK.</li>
+        <li>Either way, check the Results tab in the main window: it will either print an error message or show some information about the selected device.</li>
+    </ol>
 
-    <p>
-        <b>Write OS, Calibration, and Boot</b> - This will erase and reprogram everything but the parameter sections.
-        This is useful if you want to update the operating system in your vehicle.
+    <h4>Read Properties</h4>
+    <p>Reads the VIN, serial number, and other properties from the PCM. You should generally do this before anything else, to confirm that the device can communicate with the PCM.</p>
 
-    <p>
-        <b>Write Full Flash (Clone)</b> - This will erase and reprogram the entire contents of the PCM's flash memory. To the best of our knowledge this makes the target PCM
-        indistinguishable from the original PCM.
+    <h4>Test Write</h4>
+    <p>Simulates the process of updating your PCM's calibration block from a file on your computer, without changing the contents of your PCM. This is useful for verifying the quality of the connection between your computer and your PCM.</p>
 
-    <P id="online"><h3>Getting Help Online</h3>
+    <h4>Write Calibration</h4>
+    <p>Erases and reprograms the calibration section of your PCM's flash memory - the tuning, basically. It can take several minutes, and if it is interrupted your PCM may be left unusable, so make sure your car battery and laptop battery are fully charged. Once the process begins, don't do anything that might interrupt it: don't close the app, reboot the computer, spill coffee on the keyboard, and so on.</p>
 
-    <p>
-        If you have questions about the app or how to use it, please head to <a href="https://pcmhacking.net/forums/viewforum.php?f=42">this section of the pcmhacking.net forum</a> to converse with other like-minded users.
+    <h4>Halt Kernel</h4>
+    <p>You will probably never need this. But if you interrupt a read or quick-compare operation by closing the app, you can use it to halt the PCM Hammer kernel and reboot the PCM. <b>If a <i>write</i> operation is interrupted, do not use this button.</b> Instead, just start another write - the app will detect that the kernel is already running and restart the write.</p>
 
-        <hr />
-    <p id="licensing"><h3>Licensing</h3>
+    <p>Some additional operations are available in the Tools menu:</p>
 
+    <h4>Read Entire PCM</h4>
+    <p>Saves the entire contents of the PCM's read-only memory to a new file of your choice. You can open the resulting file in TunerPro if you have the definition file (the "XDF") that corresponds to your PCM's operating system.</p>
 
-    <p>
-        This software is open source, and is licensed under the terms of the GNU General Public License, Version 3.
+    <h4>Verify Entire PCM</h4>
+    <p>Checks whether a file on your computer matches the contents of the PCM. This takes a minute or so, but it is quicker than reading the entire PCM and then comparing the two files on your computer.</p>
 
-        <hr />
-    <p id="contributing"><h3>Contributing</h3>
+    <h4>Change VIN</h4>
+    <p>Click the button, enter your vehicle's VIN, and click OK. The change does not take effect until after you turn off the ignition: the PCM keeps running on battery power for a few seconds while it stores the new VIN permanently. If you disconnect all power before then, the PCM will still have the original VIN the next time you turn it on.</p>
+    <p>You may find this useful if you have bought a used PCM from a junkyard or online retailer - for example, after bricking your own PCM with amateur software downloaded from the internet. (Although, honestly, zero PCMs have been harmed during the development of this app. So far.)</p>
 
-    <p>The source code is at <a href="https://github.com/pcmHammer/PcmHammer/">https://github.com/pcmHammer/PcmHammer/</a>, and the authors welcome contributions.
+    <h4>Write Parameters</h4>
+    <p>Erases and reprograms the parameter sections of your PCM's flash memory. These sections contain the VIN, serial number, stored OBD2 codes, and so on. This is useful when you are replacing an old PCM with one from another vehicle.</p>
 
-    <p id="related"><h3>Related Resources</h3>
+    <h4>Write OS, Calibration, and Boot</h4>
+    <p>Erases and reprograms everything except the parameter sections. This is useful when you want to update the operating system in your vehicle.</p>
 
-                    <dl>
-                        <dt>TunerPro</dt>
-                        <dd>After using PCM Hammer to read the contents of your PCM, you will want to edit your new ".bin" file. <a href="http://tunerpro.net/">TunerPro</a> is the recommended tool for that job.</dd>
-                        <dd>Alternatively, look in to <a href="https://universalpatcher.net/about/">Universal Patcher</a>. It can identify tuneable items in a generic way.</dd>
+    <h4>Write Full Flash (Clone)</h4>
+    <p>Erases and reprograms the entire contents of the PCM's flash memory. To the best of our knowledge, this makes the target PCM indistinguishable from the original.</p>
 
-                        <dt>XDF Files</dt>
-                        <dd>
-                            TunerPro is a generic editing tool. It does not know anything about your PCM or your .bin file.
-                            It needs a <i>definition file</i> to tell it which bytes of the .bin file control which aspects of the PCM.
-                            PCM Hammer will tell you the operating system id (OSID) of your PCM once you are setup and click "Read Properties". You can search for that OSID and XDF to see what is out there on the internet.
-                            Note that you will need to identify quality XDFs. Generally these will come recommended online, or in posts on PCMHacking.net with lots of downloads and comments in the thread from people using them.
-                            Sometimes it is best to consider changing the operating system to a more common compatible OSID so that you can get features or one with a good XDF.
-                        </dd>
+    <hr />
 
-                        <dt>LogViewer</dt>
-                        <dd>
-                            After using PCM Logger to read data from your PCM, you will want to view the contents of your new ".csv" file.
-                            There are many tools for this.
-                            The LogViewer tool is the simplest possible thing you can use - <a href="https://github.com/LegacyNsfw/LogViewer/raw/master/bin/Debug/LogViewer.exe">Click here</a> to download it.
-                        </dd>
-                    </dl>
-    
+    <h3 id="online">Getting Help Online</h3>
+
+    <p>If you have questions about the app or how to use it, head to <a href="https://pcmhacking.net/forums/viewforum.php?f=42">this section of the pcmhacking.net forum</a> to talk with other like-minded users.</p>
+
+    <hr />
+
+    <h3 id="licensing">Licensing</h3>
+
+    <p>This software is open source and is licensed under the terms of the GNU General Public License, Version 3.</p>
+
+    <hr />
+
+    <h3 id="contributing">Contributing</h3>
+
+    <p>The source code is at <a href="https://github.com/pcmHammer/PcmHammer/">https://github.com/pcmHammer/PcmHammer/</a>, and the authors welcome contributions.</p>
+
+    <hr />
+
+    <h3 id="related">Related Resources</h3>
+
+    <dl>
+        <dt>TunerPro</dt>
+        <dd>After using PCM Hammer to read the contents of your PCM, you will want to edit your new ".bin" file. <a href="http://tunerpro.net/">TunerPro</a> is the recommended tool for that job.</dd>
+        <dd>Alternatively, look into <a href="https://universalpatcher.net/about/">Universal Patcher</a>. It can identify tuneable items in a generic way.</dd>
+
+        <dt>XDF Files</dt>
+        <dd>
+            TunerPro is a generic editing tool: it does not know anything about your PCM or your .bin file.
+            It needs a <i>definition file</i> to tell it which bytes of the .bin file control which aspects of the PCM.
+            PCM Hammer reports the operating system ID (OSID) of your PCM once you are set up and click "Read Properties". You can search for that OSID together with "XDF" to see what is available online.
+            You will need to judge which XDFs are of good quality; the better ones usually come recommended online, or appear in PCMHacking.net posts with lots of downloads and positive comments in the thread.
+            Sometimes it is best to change the operating system to a more common, compatible OSID so that you can get extra features or a better XDF.
+        </dd>
+
+        <dt>LogViewer</dt>
+        <dd>
+            After using PCM Logger to read data from your PCM, you will want to view the contents of your new ".csv" file.
+            There are many tools for this. LogViewer is the simplest possible option - <a href="https://github.com/LegacyNsfw/LogViewer/raw/master/bin/Debug/LogViewer.exe">click here</a> to download it.
+        </dd>
+    </dl>
+
 </body>
 </html>
