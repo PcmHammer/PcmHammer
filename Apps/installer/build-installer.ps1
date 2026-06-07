@@ -1,94 +1,55 @@
-# Builds the PCM Hammer installer locally.
+# Compiles the PCM Hammer installer (Inno Setup) from a pre-staged payload.
 #
-# It stages each app's build output (plus the kernels) into a temporary folder in
-# the layout the .iss expects, then runs the Inno Setup compiler (ISCC) to produce
-# Apps\installer\output\setup.exe.
+# The staging layout is produced by Apps\build\Build-Apps.ps1 and looks like:
+#   <StagingRoot>\WinForms\PcmHammer\   (PcmHammer.exe + DLLs + kernels)
+#   <StagingRoot>\WinForms\PcmLogger\
+#   <StagingRoot>\WinForms\VpwExplorer\
+#   <StagingRoot>\CLI\pcmhammer-cli.exe
 #
-# Prerequisites:
-#   - The apps are already built (default Release). Build them first, e.g.:
-#       msbuild Apps\UI\WindowsForms\PcmHammer\PcmHammer.csproj   /p:Configuration=Release
-#       msbuild Apps\UI\WindowsForms\PcmLogger\PcmLogger.csproj   /p:Configuration=Release
-#       msbuild Apps\UI\WindowsForms\VpwExplorer\VpwExplorer.csproj /p:Configuration=Release
-#       msbuild Apps\UI\PcmHammerCLI\PcmHammerCLI.csproj          /p:Configuration=Release
-#   - The kernels are built into Kernels\build\*.bin
-#   - Inno Setup 6 is installed (ISCC.exe), or pass -IsccPath.
-#
-# Usage:
-#   pwsh Apps\installer\build-installer.ps1 -Version 2026.06.06
-#   pwsh Apps\installer\build-installer.ps1 -Configuration Release -Version 2026.06.06
+# Usage (normally called by Apps\build\Build-All.ps1):
+#   pwsh Apps\installer\build-installer.ps1 -StagingRoot <repo>\dist\staging `
+#        -Version 1.0.1.0 -SetupName PCMHammer_1.0.1.0 -OutputDir <repo>\dist
 
 [CmdletBinding()]
 param(
-    [string]$Configuration = "Release",
+    [Parameter(Mandatory = $true)][string]$StagingRoot,
     [string]$Version = "0.0.0",
+    [string]$SetupName = "setup",
+    [string]$OutputDir,
     [string]$IsccPath
 )
 
 $ErrorActionPreference = "Stop"
 
 $installerDir = $PSScriptRoot
-$repoRoot     = (Resolve-Path (Join-Path $installerDir "..\..")).Path
-$appsDir      = Join-Path $repoRoot "Apps"
-$kernelDir    = Join-Path $repoRoot "Kernels\build"
-$staging      = Join-Path $installerDir "staging"
+if (-not $OutputDir) { $OutputDir = Join-Path $installerDir "output" }
 
-function Copy-AppOutput {
-    param([string]$ProjectBin, [string]$ExeName, [string]$DestName)
-    $exe = Get-ChildItem -Path $ProjectBin -Recurse -File -Filter $ExeName -ErrorAction SilentlyContinue |
-        Where-Object { $_.FullName -like "*\$Configuration\*" } |
-        Sort-Object LastWriteTime -Descending | Select-Object -First 1
-    if (-not $exe) { throw "Could not find $ExeName under $ProjectBin ($Configuration). Build it first." }
-    $dest = Join-Path $staging "WinForms\$DestName"
-    New-Item -ItemType Directory -Force -Path $dest | Out-Null
-    Copy-Item -Path (Join-Path $exe.Directory.FullName "*") -Destination $dest -Recurse -Force
-    Write-Host "Staged $DestName from $($exe.Directory.FullName)"
+$winFormsRoot = Join-Path $StagingRoot "WinForms"
+$cliRoot      = Join-Path $StagingRoot "CLI"
+foreach ($d in @($winFormsRoot, $cliRoot)) {
+    if (-not (Test-Path $d)) { throw "Staging folder not found: $d (run Build-Apps.ps1 first)" }
 }
-
-# Clean staging
-if (Test-Path $staging) { Remove-Item -Recurse -Force $staging }
-New-Item -ItemType Directory -Force -Path $staging | Out-Null
-
-# GUI apps
-Copy-AppOutput -ProjectBin (Join-Path $appsDir "UI\WindowsForms\PcmHammer\bin")   -ExeName "PcmHammer.exe"   -DestName "PcmHammer"
-Copy-AppOutput -ProjectBin (Join-Path $appsDir "UI\WindowsForms\PcmLogger\bin")   -ExeName "PcmLogger.exe"   -DestName "PcmLogger"
-Copy-AppOutput -ProjectBin (Join-Path $appsDir "UI\WindowsForms\VpwExplorer\bin") -ExeName "VpwExplorer.exe" -DestName "VpwExplorer"
-
-# Logger profiles / parameter files (read-only resources next to PcmLogger.exe)
-Get-ChildItem -Path (Join-Path $appsDir "UI\WindowsForms\PcmLogger") -Filter "*.LogProfile" -ErrorAction SilentlyContinue |
-    ForEach-Object { Copy-Item $_.FullName (Join-Path $staging "WinForms\PcmLogger") -Force }
-Get-ChildItem -Path (Join-Path $appsDir "UI\WindowsForms\PcmLogger") -Filter "Parameters.*.xml" -ErrorAction SilentlyContinue |
-    ForEach-Object { Copy-Item $_.FullName (Join-Path $staging "WinForms\PcmLogger") -Force }
-
-# Kernels next to PcmHammer (GUI loads them from its exe dir)
-if (-not (Test-Path $kernelDir)) { throw "Kernel build dir not found: $kernelDir. Build the kernels first." }
-Copy-Item -Path (Join-Path $kernelDir "*.bin") -Destination (Join-Path $staging "WinForms\PcmHammer") -Force
-
-# CLI
-$cli = Get-ChildItem -Path (Join-Path $appsDir "UI\PcmHammerCLI\bin") -Recurse -File -Filter "pcmhammer-cli.exe" -ErrorAction SilentlyContinue |
-    Where-Object { $_.FullName -like "*\$Configuration\*" } |
-    Sort-Object LastWriteTime -Descending | Select-Object -First 1
-if (-not $cli) { throw "Could not find pcmhammer-cli.exe ($Configuration). Build it first." }
-New-Item -ItemType Directory -Force -Path (Join-Path $staging "CLI") | Out-Null
-Copy-Item $cli.FullName (Join-Path $staging "CLI") -Force
+New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
 
 # Locate ISCC
 if (-not $IsccPath) {
-    $candidates = @(
+    $IsccPath = @(
         "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
         "${env:ProgramFiles}\Inno Setup 6\ISCC.exe"
-    )
-    $IsccPath = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+    ) | Where-Object { Test-Path $_ } | Select-Object -First 1
 }
 if (-not $IsccPath -or -not (Test-Path $IsccPath)) {
     throw "ISCC.exe not found. Install Inno Setup 6 or pass -IsccPath."
 }
 
-# Compile
 & $IsccPath `
     "/DAppVersion=$Version" `
-    "/DWinFormsRoot=$(Join-Path $staging 'WinForms')" `
-    "/DCliRoot=$(Join-Path $staging 'CLI')" `
+    "/DSetupName=$SetupName" `
+    "/DOutDir=$( (Resolve-Path $OutputDir).Path )" `
+    "/DWinFormsRoot=$( (Resolve-Path $winFormsRoot).Path )" `
+    "/DCliRoot=$( (Resolve-Path $cliRoot).Path )" `
     (Join-Path $installerDir "pcmhammer-setup.iss")
 if ($LASTEXITCODE -ne 0) { throw "ISCC failed (exit $LASTEXITCODE)" }
 
-Write-Host "Installer built: $(Join-Path $installerDir 'output\setup.exe')"
+$out = Join-Path $OutputDir "$SetupName.exe"
+Write-Host "Installer built: $out"
