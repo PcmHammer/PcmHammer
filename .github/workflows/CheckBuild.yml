@@ -436,71 +436,15 @@ jobs:
         New-Item -ItemType Directory -Force -Path TemporaryArtifactStorage/CLI | Out-Null
         Copy-Item -Path $cliExe.FullName -Destination "TemporaryArtifactStorage/CLI" -Force
 
-    - name: Upload WinForms artifact
-      uses: actions/upload-artifact@v7
-      with:
-        name: PCMHammer_WinForms_${{ env.WINFORMS_ARTIFACT_SUFFIX }}_${{ github.sha }}
-        path: TemporaryArtifactStorage/WinForms
-
-    - name: Upload Uno Windows artifact
-      uses: actions/upload-artifact@v7
-      with:
-        name: PCMHammer_UnoWindows_${{ env.UNO_ARTIFACT_SUFFIX }}_${{ github.sha }}
-        path: TemporaryArtifactStorage/UnoWindows
-
-    - name: Upload Uno Android artifact
-      uses: actions/upload-artifact@v7
-      with:
-        name: PCMHammer_UnoAndroid_${{ env.UNO_ARTIFACT_SUFFIX }}_${{ github.sha }}
-        path: TemporaryArtifactStorage/UnoAndroid
-
-    - name: Upload CLI artifact
-      uses: actions/upload-artifact@v7
-      with:
-        name: PCMHammer_CLI_${{ env.CLI_ARTIFACT_SUFFIX }}_${{ github.sha }}
-        path: TemporaryArtifactStorage/CLI
-
-  # Builds the Windows installer + portable from the apps produced by the Applications
-  # job, reusing the same Apps/build + Apps/installer scripts used locally. Runs only
-  # after that job succeeds. The Uno UI is intentionally not part of these packages.
-  #
-  # Naming: release tags (x.x.x.x) -> PCMHammer_x.x.x.x_Setup.exe / _Portable.zip;
-  #         otherwise              -> PCMHammer_<YYYYMMDD_HHMMSS>_Setup.exe / _Portable.zip.
-  Installer:
-    needs: Applications
-    runs-on: windows-2025-vs2026
-
-    env:
-      INSTALLER_TOKEN: ''
-      INSTALLER_APP_VERSION: '0.0.0'
-      INSTALLER_ARTIFACT_SUFFIX: ''
-
-    steps:
-    - name: Checkout Code
-      uses: actions/checkout@v6
-
-    - name: Download WinForms artifact
-      uses: actions/download-artifact@v8
-      with:
-        pattern: PCMHammer_WinForms_*_${{ github.sha }}
-        path: installer-staging/WinForms
-        merge-multiple: true
-
-    - name: Download CLI artifact
-      uses: actions/download-artifact@v8
-      with:
-        pattern: PCMHammer_CLI_*_${{ github.sha }}
-        path: installer-staging/CLI
-        merge-multiple: true
-
-    - name: Compute version token and artifact name
+    # --- Package the WinForms apps into the installer + portable, in this same job, so
+    #     no redundant intermediate (raw WinForms/CLI) artifacts are published. ---
+    - name: Compute package version token
       shell: pwsh
       run: |
         $assemblyInfo = Get-Content "Apps/UI/WindowsForms/PcmHammer/Properties/AssemblyInfo.cs" -Raw
         $winFormsVersion = ([regex]::Match($assemblyInfo, 'AssemblyFileVersion\("([^"]+)"\)')).Groups[1].Value
         $isReleaseTag = "${{ startsWith(github.ref, 'refs/tags/') }}" -eq "true"
         $stamp = [DateTime]::UtcNow.ToString("yyyyMMdd_HHmmss")
-
         if ($isReleaseTag -and -not [string]::IsNullOrWhiteSpace($winFormsVersion) -and $winFormsVersion -ne "0.0.0.0") {
           $token = $winFormsVersion          # release: PCMHammer_x.x.x.x_*
           $appVersion = $winFormsVersion
@@ -508,15 +452,8 @@ jobs:
           $token = $stamp                    # development: PCMHammer_YYYYMMDD_HHMMSS_*
           $appVersion = "0.0.0"
         }
-
-        $branchNameRaw = if ([string]::IsNullOrWhiteSpace($env:GITHUB_HEAD_REF)) { $env:GITHUB_REF_NAME } else { $env:GITHUB_HEAD_REF }
-        $branchNameSafe = ($branchNameRaw -replace '[\\/]', '-') -replace '[^A-Za-z0-9._-]', '-'
-        if ([string]::IsNullOrWhiteSpace($branchNameSafe)) { $branchNameSafe = "unknown-branch" }
-        if ($isReleaseTag) { $suffix = "v$token" } else { $suffix = "utc${stamp}_${branchNameSafe}_development_test_version" }
-
-        "INSTALLER_TOKEN=$token"             | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-        "INSTALLER_APP_VERSION=$appVersion"  | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-        "INSTALLER_ARTIFACT_SUFFIX=$suffix"  | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        "PACKAGE_TOKEN=$token"            | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        "PACKAGE_APP_VERSION=$appVersion" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
     - name: Install Inno Setup
       shell: pwsh
@@ -525,18 +462,35 @@ jobs:
     - name: Build installer + portable
       shell: pwsh
       run: |
-        $staging = (Resolve-Path "installer-staging").Path
+        $staging = (Resolve-Path "TemporaryArtifactStorage").Path   # has WinForms\ and CLI\ subfolders
         $dist = Join-Path (Get-Location).Path "dist"
         & "Apps/installer/build-installer.ps1" `
-          -StagingRoot $staging -Version $env:INSTALLER_APP_VERSION `
-          -SetupName "PCMHammer_$($env:INSTALLER_TOKEN)_Setup" -OutputDir $dist
+          -StagingRoot $staging -Version $env:PACKAGE_APP_VERSION `
+          -SetupName "PCMHammer_$($env:PACKAGE_TOKEN)_Setup" -OutputDir $dist
         & "Apps/build/Build-Portable.ps1" `
-          -StagingRoot $staging -OutputName "PCMHammer_$($env:INSTALLER_TOKEN)_Portable" -OutputDir $dist
+          -StagingRoot $staging -OutputName "PCMHammer_$($env:PACKAGE_TOKEN)_Portable" -OutputDir $dist
 
-    - name: Upload installer + portable artifact
+    # GitHub lists run artifacts alphabetically: Portable, Setup, Uno_Android, Uno_Windows.
+    - name: Upload installer artifact
       uses: actions/upload-artifact@v7
       with:
-        name: PCMHammer_Setup_${{ env.INSTALLER_ARTIFACT_SUFFIX }}_${{ github.sha }}
-        path: |
-          dist/PCMHammer_*_Setup.exe
-          dist/PCMHammer_*_Portable.zip
+        name: PCMHammer_Setup_${{ env.WINFORMS_ARTIFACT_SUFFIX }}_${{ github.sha }}
+        path: dist/PCMHammer_*_Setup.exe
+
+    - name: Upload portable artifact
+      uses: actions/upload-artifact@v7
+      with:
+        name: PCMHammer_Portable_${{ env.WINFORMS_ARTIFACT_SUFFIX }}_${{ github.sha }}
+        path: dist/PCMHammer_*_Portable.zip
+
+    - name: Upload Uno Android artifact (experimental)
+      uses: actions/upload-artifact@v7
+      with:
+        name: PCMHammer_Uno_Android_experimental_${{ env.UNO_ARTIFACT_SUFFIX }}_${{ github.sha }}
+        path: TemporaryArtifactStorage/UnoAndroid
+
+    - name: Upload Uno Windows artifact (experimental)
+      uses: actions/upload-artifact@v7
+      with:
+        name: PCMHammer_Uno_Windows_experimental_${{ env.UNO_ARTIFACT_SUFFIX }}_${{ github.sha }}
+        path: TemporaryArtifactStorage/UnoWindows

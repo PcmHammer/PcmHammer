@@ -704,6 +704,10 @@ namespace PcmHacking
             this.interfaceBox.Enabled = true;
             this.settingsToolStripMenuItem.Enabled = true;
             this.exitApplicationToolStripMenuItem.Enabled = true;
+
+            // Test File Checksums works on a file only - it needs no interface - so make it
+            // available whenever no operation is in progress, even with no device selected.
+            this.testFileChecksumsToolStripMenuItem.Enabled = true;
         }
 
         /// <summary>
