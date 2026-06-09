@@ -15,7 +15,7 @@ namespace PcmHacking
     /// </summary>
     public class PcmParameterValue
     {
-        public string ValueAsString { get; set; }
+        public string ValueAsString { get; set; } = null!;
         public double ValueAsDouble { get; set; }
 
         public override string ToString()
@@ -118,7 +118,7 @@ namespace PcmHacking
             foreach (LogColumn column in group.LogColumns)
             {
                 double value;
-                PcmParameter pcmParameter = column.Parameter as PcmParameter;
+                PcmParameter? pcmParameter = column.Parameter as PcmParameter;
                 if (pcmParameter == null)
                 {
                     continue;

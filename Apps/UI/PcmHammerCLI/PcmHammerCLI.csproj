@@ -8,6 +8,7 @@
     <OutputType>Exe</OutputType>
     <RootNamespace>PcmHacking</RootNamespace>
     <AssemblyName>pcmhammer-cli</AssemblyName>
+    <ApplicationIcon>..\WindowsForms\PcmHammer\0411_256px.ico</ApplicationIcon>
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
@@ -50,9 +51,6 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="..\..\..\Kernels\*.bin" />
-  </ItemGroup>
-  <ItemGroup>
     <ProjectReference Include="..\..\J2534DotNet\J2534DotNet\J2534DotNet.csproj">
       <Project>{d99e0de7-2f06-41e3-b33e-687e1b425a7f}</Project>
       <Name>J2534DotNet</Name>
@@ -75,7 +73,12 @@
     </PackageReference>
   </ItemGroup>
   <Target Name="Date" BeforeTargets="CoreCompile">
-    <WriteLinesToFile File="$(IntermediateOutputPath)generated.cs" Lines="static partial class Generated { public static long BuildTime = $([System.DateTime]::UtcNow.Ticks)%3B }" Overwrite="true" />
+    <!-- BuildTicks can be passed in (/p:BuildTicks=...) so every assembly in one build
+         shares the same build time; defaults to UtcNow for plain local builds. -->
+    <PropertyGroup>
+      <BuildTicks Condition="'$(BuildTicks)' == ''">$([System.DateTime]::UtcNow.Ticks)</BuildTicks>
+    </PropertyGroup>
+    <WriteLinesToFile File="$(IntermediateOutputPath)generated.cs" Lines="static partial class Generated { public static long BuildTime = $(BuildTicks)%3B }" Overwrite="true" />
     <ItemGroup>
       <Compile Include="$(IntermediateOutputPath)generated.cs" />
     </ItemGroup>

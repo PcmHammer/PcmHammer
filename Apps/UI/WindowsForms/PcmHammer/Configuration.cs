@@ -8,7 +8,7 @@ namespace PcmHacking
 {
     public class Configuration
     {
-        private static PcmHammer.Properties.Settings settings;
+        private static PcmHammer.Properties.Settings? settings;
 
         public static PcmHammer.Properties.Settings Settings
         {
@@ -50,7 +50,7 @@ namespace PcmHacking
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Error);
                     Environment.Exit(1);
-                    return null;
+                    return null!; // unreachable: Environment.Exit terminates the process
                 }
             }
         }

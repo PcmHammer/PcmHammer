@@ -123,7 +123,7 @@ public class SettingsService : ISettingsService
         }
     }
 
-    private AutoSaveDictionary _unpackagedSettingsStore { get; set; }
+    private AutoSaveDictionary _unpackagedSettingsStore { get; set; } = null!;
 
 
     public SettingsService()

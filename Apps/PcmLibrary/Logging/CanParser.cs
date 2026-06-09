@@ -87,7 +87,7 @@ namespace PcmHacking
                 }
             }
 
-            message = null;
+            message = null!;
             return false;
         }
 

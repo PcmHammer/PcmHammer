@@ -123,7 +123,7 @@ public partial record DataLoggingParametersModel
 
     public IState<bool> RecordingButtonEnabled => State<bool>.Value(this, () => false);
 
-    private string canPortName;    
+    private string canPortName = string.Empty;
     private CanLogger? canLogger;
     private ConcurrentQueue<Tuple<Logger, LogFileWriter?, IEnumerable<string>>> logRowQueue = new ConcurrentQueue<Tuple<Logger, LogFileWriter?, IEnumerable<string>>>();
     private ManualResetEvent exitWaitHandle = new ManualResetEvent(false);
@@ -162,7 +162,7 @@ public partial record DataLoggingParametersModel
         this.logBuffer = logBuffer;
         this.dispatcherQueue = dispatcherQueue;
         this.loggingContext = loggingContext;
-        this.canPortName = settingsService.GetCanSerialPortName().PortName;
+        this.canPortName = settingsService.GetCanSerialPortName().PortName ?? string.Empty;
 
         // Buffer for 2 seconds of pre-trigger data
         preTriggerBuffer = new PcmHacking.CircularBuffer<IEnumerable<string>>(PreTriggerBufferSeconds * EstimatedSamplingRate);
@@ -426,7 +426,7 @@ public partial record DataLoggingParametersModel
                         await this.DisplayErrorMessage(exception.Message);
                         await Task.Delay(100);
                         await lease.Reconnect();
-                        this.canLogger.Dispose();
+                        this.canLogger?.Dispose();
                         this.canLogger = null;
                         logger = null;
                     }

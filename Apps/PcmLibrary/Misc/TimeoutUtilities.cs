@@ -16,7 +16,7 @@ namespace PcmHacking
                 throw new TimeoutException();
             }
 
-            return default;
+            return default!;
         }
 
         public static async Task<T> TaskWithTimeoutAndException<T>(

@@ -40,8 +40,8 @@ namespace PcmHacking.UnoUI.Platforms.Android
         public static void UpdateProgress(int progress, string details) {
             System.Diagnostics.Debug.WriteLine($"Calling Android label progress {progress}");
             var notifcationManager = global::Android.App.Application.Context.GetSystemService(Context.NotificationService) as NotificationManager;
-            NotificationCompat.Builder note = BuildNotification(_actionType, progress, details);
-            notifcationManager.Notify(NOTIFICATION_ID, note.Build());
+            NotificationCompat.Builder? note = BuildNotification(_actionType, progress, details);
+            notifcationManager!.Notify(NOTIFICATION_ID, note!.Build());
         }
 
         private static NotificationCompat.Builder? BuildNotification(string actionType, int progress, string details)
@@ -63,14 +63,16 @@ namespace PcmHacking.UnoUI.Platforms.Android
 
         public static bool IsServiceRunning()
         {
-            ActivityManager manager = (ActivityManager)global::Android.App.Application.Context.GetSystemService(ActivityService);
-            foreach (var service in manager.GetRunningServices(int.MaxValue))
+            ActivityManager? manager = global::Android.App.Application.Context.GetSystemService(ActivityService) as ActivityManager;
+#pragma warning disable CA1422
+            foreach (var service in manager!.GetRunningServices(int.MaxValue)!)
             {
-                if (service.Service.ShortClassName.Contains(nameof(DataService)))
+                if (service.Service!.ShortClassName!.Contains(nameof(DataService)))
                 {
                     return true;
                 }
             }
+#pragma warning restore CA1422
             return false;
         }
 
@@ -79,13 +81,13 @@ namespace PcmHacking.UnoUI.Platforms.Android
             var notifcationManager = GetSystemService(Context.NotificationService) as NotificationManager;
 
             if (Build.VERSION.SdkInt >= BuildVersionCodes.O) {
-                CreateNotificationChannel(notifcationManager);
+                CreateNotificationChannel(notifcationManager!);
             }
             var noteBuilder = BuildNotification(_actionType, 0, string.Empty);
             if (Build.VERSION.SdkInt >= BuildVersionCodes.UpsideDownCake) {
-                StartForeground(NOTIFICATION_ID, noteBuilder.Build(), global::Android.Content.PM.ForegroundService.TypeDataSync);
+                StartForeground(NOTIFICATION_ID, noteBuilder!.Build()!, global::Android.Content.PM.ForegroundService.TypeDataSync);
             } else {
-                StartForeground(NOTIFICATION_ID, noteBuilder.Build());
+                StartForeground(NOTIFICATION_ID, noteBuilder!.Build()!);
             }
         }
 
@@ -95,7 +97,7 @@ namespace PcmHacking.UnoUI.Platforms.Android
             notificationMnaManager.CreateNotificationChannel(channel);
         }
 
-        public override IBinder OnBind(Intent intent) {
+        public override IBinder? OnBind(Intent? intent) {
             return null;
         }
 

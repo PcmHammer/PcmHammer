@@ -76,7 +76,7 @@ namespace PcmHacking
         {
             for (int count = 0; count < 6 && !row.IsComplete; count++)
             {
-                RawLogData rawData = await this.Vehicle.ReadLogData();
+                RawLogData? rawData = await this.Vehicle.ReadLogData();
                 if (rawData == null)
                 {
                     this.UILogger.AddDebugMessage("Received nothing.");

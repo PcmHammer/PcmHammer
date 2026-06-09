@@ -7,10 +7,10 @@ namespace PcmHacking
     public class ConsoleLogger : ILogger
     {
         private readonly bool debug;
-        private string lastActivity = null;
+        private string? lastActivity = null;
         private string lastPercent = string.Empty;
-        private string currentVerb = null;
-        private string currentAddress = null;
+        private string? currentVerb = null;
+        private string? currentAddress = null;
         private int spinnerIndex = 0;
         private bool progressLineActive = false;
 
@@ -56,7 +56,7 @@ namespace PcmHacking
 
         // Throttle for fallback (non-interactive) mode.
         private DateTime lastProgressTime = DateTime.MinValue;
-        private string lastFallbackPercent = null;
+        private string? lastFallbackPercent = null;
 
         public ConsoleLogger(bool debug = false)
         {

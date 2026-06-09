@@ -21,7 +21,7 @@ namespace PcmHacking
             {
                 return new ElmDevice(port, logger);
             }
-            return null;
+            return null!;
         }
     }
 }

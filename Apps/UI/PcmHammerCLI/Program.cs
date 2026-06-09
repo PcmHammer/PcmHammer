@@ -1,8 +1,8 @@
-﻿// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: GPL-3.0-only
 using System;
 using System.IO;
+using System.IO.Ports;
 using System.Linq;
-using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -10,8 +10,12 @@ namespace PcmHacking
 {
     class Program
     {
+        static Vehicle? activeVehicle;
+        static bool operationInProgress;
+
         static int Main(string[] args)
         {
+            AppDomain.CurrentDomain.ProcessExit += (s, e) => activeVehicle?.Dispose();
             return RunAsync(args).GetAwaiter().GetResult();
         }
 
@@ -23,13 +27,12 @@ namespace PcmHacking
                 return args.Length == 0 ? 1 : 0;
             }
 
-            string operation = null;
-            string filePath = null;
-            string deviceName = null;
-            string deviceCategory = null;
+            string? operation = null;
+            string? filePath = null;
+            string? deviceSpec = null;
+            string? kernelDirArg = null;
             bool listDevices = false;
             bool debug = false;
-            int crcPollDelayMs = 50;
 
             for (int i = 0; i < args.Length; i++)
             {
@@ -47,29 +50,27 @@ namespace PcmHacking
                         operation = "test-write";
                         if (i + 1 < args.Length && !args[i + 1].StartsWith("-")) filePath = args[++i];
                         break;
+                    case "--verify":
+                        operation = "verify";
+                        if (i + 1 < args.Length && !args[i + 1].StartsWith("-")) filePath = args[++i];
+                        break;
                     case "--test-read":
                         operation = "test-read";
                         break;
+                    case "--get-properties":
+                        operation = "get-properties";
+                        break;
                     case "--device":
-                        if (i + 1 < args.Length) deviceName = args[++i];
+                        if (i + 1 < args.Length) deviceSpec = args[++i];
                         break;
-                    case "--j2534":
-                        deviceCategory = DeviceConfiguration.Constants.DeviceCategoryJ2534;
-                        if (i + 1 < args.Length && !args[i + 1].StartsWith("-")) deviceName = args[++i];
-                        break;
-                    case "--serial":
-                        deviceCategory = DeviceConfiguration.Constants.DeviceCategorySerial;
-                        if (i + 1 < args.Length && !args[i + 1].StartsWith("-")) deviceName = args[++i];
+                    case "--kernel-dir":
+                        if (i + 1 < args.Length) kernelDirArg = args[++i];
                         break;
                     case "--list-devices":
                         listDevices = true;
                         break;
                     case "--debug":
                         debug = true;
-                        break;
-                    case "--crc-poll-delay":
-                        if (i + 1 < args.Length && int.TryParse(args[++i], out int parsedDelay))
-                            crcPollDelayMs = parsedDelay;
                         break;
                     case "--help":
                     case "/?":
@@ -82,7 +83,7 @@ namespace PcmHacking
 
             if (listDevices)
             {
-                ListJ2534Devices(logger);
+                ListDevices(logger);
                 return 0;
             }
 
@@ -93,35 +94,37 @@ namespace PcmHacking
                 return 1;
             }
 
-            if (filePath == null && operation != "read" && operation != "test-read")
+            if (filePath == null && operation != "read" && operation != "test-read" && operation != "get-properties")
             {
                 Console.Error.WriteLine($"Error: No file path specified for --{operation}.");
                 return 1;
             }
 
-            string kernelDir = ExtractKernels();
-
-            Device device = CreateDevice(deviceCategory, deviceName, logger);
-            if (device == null)
-            {
-                Console.Error.WriteLine("Error: No device found.");
-                Console.Error.WriteLine("Use --list-devices to see available J2534 devices, or --device to specify one.");
+            string? kernelDir = ResolveKernelDir(kernelDirArg, logger);
+            if (kernelDir == null)
                 return 1;
-            }
+
+            Device? device = ResolveDevice(deviceSpec, logger);
+            if (device == null)
+                return 1;
 
             using (new AwayMode())
             {
-                Vehicle vehicle = null;
+                Vehicle? vehicle = null;
                 try
                 {
                     vehicle = await InitializeVehicle(device, logger, kernelDir);
+                    activeVehicle = vehicle;
 
                     var cts = new CancellationTokenSource();
                     Console.CancelKeyPress += (s, e) =>
                     {
                         e.Cancel = true;
+                        if (operationInProgress)
+                            Console.Error.WriteLine("\nOperation in progress - waiting for clean shutdown. Press Ctrl+C again to force quit.");
+                        else
+                            Console.Error.WriteLine("\nCancellation requested.");
                         cts.Cancel();
-                        Console.Error.WriteLine("\nCancellation requested.");
                     };
 
                     Func<Action, Task> invoke = (action) => { action(); return Task.CompletedTask; };
@@ -137,6 +140,7 @@ namespace PcmHacking
                         return Task.FromResult(true);
                     };
 
+                    operationInProgress = true;
                     bool success = false;
                     switch (operation)
                     {
@@ -151,12 +155,11 @@ namespace PcmHacking
                                 logger,
                                 vehicle,
                                 invoke,
-                                () => Task.FromResult<string>(null),
+                                () => Task.FromResult<string?>(null),
                                 () => Task.FromResult(0u),
                                 alert,
                                 promptForYesNo,
                                 cts.Token);
-                            readManager.CrcPollingDelayMs = crcPollDelayMs;
                             success = await readManager.Read(filePath);
                             break;
                         }
@@ -166,12 +169,11 @@ namespace PcmHacking
                                 logger,
                                 vehicle,
                                 invoke,
-                                () => Task.FromResult<string>(null),
+                                () => Task.FromResult<string?>(null),
                                 () => Task.FromResult(0u),
                                 alert,
                                 promptForYesNo,
                                 cts.Token);
-                            readManager.CrcPollingDelayMs = crcPollDelayMs;
                             var stream = await readManager.Read();
                             success = stream != null;
                             if (success) logger.AddUserMessage("Test read complete. Data not saved.");
@@ -186,7 +188,7 @@ namespace PcmHacking
                                 alert,
                                 promptForYesNo,
                                 cts.Token);
-                            success = await writeManager.Write(filePath);
+                            success = await writeManager.Write(filePath!);
                             break;
                         }
                         case "test-write":
@@ -198,11 +200,32 @@ namespace PcmHacking
                                 alert,
                                 promptForYesNo,
                                 cts.Token);
-                            success = await writeManager.Write(filePath);
+                            success = await writeManager.Write(filePath!);
+                            break;
+                        }
+                        case "verify":
+                        {
+                            // CRC-compare the file against the PCM (no erase/write). Triggers the
+                            // kernel's ProcessCRC (mode 3D02) over each range, which is what we
+                            // need to exercise the RX-FIFO-during-CRC behaviour on the bench.
+                            var writeManager = new WriteManager(
+                                logger,
+                                vehicle,
+                                WriteType.Compare,
+                                alert,
+                                promptForYesNo,
+                                cts.Token);
+                            success = await writeManager.Write(filePath!);
+                            break;
+                        }
+                        case "get-properties":
+                        {
+                            success = await GetProperties(vehicle, logger, cts.Token);
                             break;
                         }
                     }
 
+                    operationInProgress = false;
                     return success ? 0 : 1;
                 }
                 catch (Exception ex)
@@ -214,81 +237,232 @@ namespace PcmHacking
                 }
                 finally
                 {
+                    operationInProgress = false;
+                    activeVehicle = null;
                     vehicle?.Dispose();
                 }
             }
         }
 
-        static void ListJ2534Devices(ILogger logger)
+        // Lists all devices with sequential indices shared across both sections.
+        // Indices from this output can be passed directly to --device.
+        static void ListDevices(ILogger logger)
         {
-            Console.WriteLine("Available J2534 devices:");
-            var devices = J2534DeviceFinder.FindInstalledJ2534DLLs(logger);
-            if (devices.Count == 0)
-            {
+            var serialPorts = SerialPort.GetPortNames();
+            var j2534Devices = J2534DeviceFinder.FindInstalledJ2534DLLs(logger);
+            int index = 1;
+
+            Console.WriteLine("Available serial devices:");
+            if (serialPorts.Length == 0)
                 Console.WriteLine("  (none found)");
-            }
             else
-            {
-                foreach (var d in devices)
-                {
-                    Console.WriteLine("  " + d.Name);
-                }
-            }
+                foreach (var port in serialPorts)
+                    Console.WriteLine($"  [{index++}] {port}");
+
+            Console.WriteLine();
+
+            Console.WriteLine("Available J2534 devices:");
+            if (j2534Devices.Count == 0)
+                Console.WriteLine("  (none found)");
+            else
+                foreach (var d in j2534Devices)
+                    Console.WriteLine($"  [{index++}] {d.Name}");
         }
 
-        static Device CreateDevice(string deviceCategory, string deviceName, ILogger logger)
+        // Resolves --device <spec> to a Device instance.
+        //
+        // Resolution order:
+        //   null          → auto-select when exactly one device is present
+        //   integer       → index from --list-devices output
+        //   COMn          → exact serial port name (case-insensitive)
+        //   anything else → case-insensitive substring match against J2534 device names
+        static Device? ResolveDevice(string? deviceSpec, ILogger logger)
         {
-            // Explicit J2534 by name
-            if (deviceCategory == DeviceConfiguration.Constants.DeviceCategoryJ2534 && deviceName != null)
-            {
-                return DeviceFactory.CreateJ2534Device(deviceName, logger);
-            }
-
-            // Explicit serial port
-            if (deviceCategory == DeviceConfiguration.Constants.DeviceCategorySerial && deviceName != null)
-            {
-                return DeviceFactory.AutoDetectSerialDevice(deviceName, logger).GetAwaiter().GetResult();
-            }
-
-            // Name given without category: try J2534 first, then serial
-            if (deviceName != null)
-            {
-                var j2534 = DeviceFactory.CreateJ2534Device(deviceName, logger);
-                if (j2534 != null) return j2534;
-                return DeviceFactory.AutoDetectSerialDevice(deviceName, logger).GetAwaiter().GetResult();
-            }
-
-            // Auto-detect: first available J2534
+            var serialPorts = SerialPort.GetPortNames();
             var j2534Devices = J2534DeviceFinder.FindInstalledJ2534DLLs(logger);
-            if (j2534Devices.Count > 0)
+
+            if (deviceSpec == null)
             {
-                logger.AddUserMessage("Auto-selected J2534 device: " + j2534Devices[0].Name);
+                int total = serialPorts.Length + j2534Devices.Count;
+                if (total == 0)
+                {
+                    Console.Error.WriteLine("Error: No devices found. Connect a device and try again.");
+                    return null;
+                }
+                if (total > 1)
+                {
+                    Console.Error.WriteLine("Error: Multiple devices found. Use --device to select one.");
+                    Console.Error.WriteLine("  Run --list-devices to see available options.");
+                    return null;
+                }
+                if (serialPorts.Length == 1)
+                {
+                    logger.AddUserMessage("Auto-selected: " + serialPorts[0]);
+                    return DeviceFactory.AutoDetectSerialDevice(serialPorts[0], logger).GetAwaiter().GetResult();
+                }
+                logger.AddUserMessage("Auto-selected: " + j2534Devices[0].Name);
                 return DeviceFactory.CreateJ2534Device(j2534Devices[0].Name, logger);
             }
 
+            // Integer index into the combined --list-devices list
+            if (int.TryParse(deviceSpec, out int index) && index >= 1)
+            {
+                if (index <= serialPorts.Length)
+                {
+                    string port = serialPorts[index - 1];
+                    logger.AddUserMessage($"Selected [{index}] {port}");
+                    return DeviceFactory.AutoDetectSerialDevice(port, logger).GetAwaiter().GetResult();
+                }
+                int j2534Index = index - serialPorts.Length - 1;
+                if (j2534Index < j2534Devices.Count)
+                {
+                    string name = j2534Devices[j2534Index].Name;
+                    logger.AddUserMessage($"Selected [{index}] {name}");
+                    return DeviceFactory.CreateJ2534Device(name, logger);
+                }
+                Console.Error.WriteLine($"Error: Index {index} is out of range. Run --list-devices to see options.");
+                return null;
+            }
+
+            // Serial port - exact name match (case-insensitive)
+            if (deviceSpec.StartsWith("COM", StringComparison.OrdinalIgnoreCase))
+                return DeviceFactory.AutoDetectSerialDevice(deviceSpec, logger).GetAwaiter().GetResult();
+
+            // J2534 - case-insensitive substring match
+            var matches = j2534Devices
+                .Where(d => d.Name.IndexOf(deviceSpec, StringComparison.OrdinalIgnoreCase) >= 0)
+                .ToList();
+
+            if (matches.Count == 1)
+            {
+                logger.AddUserMessage("Selected: " + matches[0].Name);
+                return DeviceFactory.CreateJ2534Device(matches[0].Name, logger);
+            }
+
+            if (matches.Count > 1)
+            {
+                Console.Error.WriteLine($"Error: \"{deviceSpec}\" matches multiple devices:");
+                foreach (var m in matches)
+                    Console.Error.WriteLine("  " + m.Name);
+                Console.Error.WriteLine("Use a more specific name, or run --list-devices and pick by index.");
+                return null;
+            }
+
+            Console.Error.WriteLine($"Error: No device matching \"{deviceSpec}\" found. Run --list-devices to see options.");
             return null;
         }
 
-        static string ExtractKernels()
+        // Mirrors the WinForms "Read Properties" button: queries VIN, OSID, calibration,
+        // hardware ID, serial number, BCC, MEC, and voltage. Conditional queries follow
+        // the same hardware-type rules as the WinForms implementation.
+        static async Task<bool> GetProperties(Vehicle vehicle, ILogger logger, CancellationToken token)
         {
-            string dir = Path.Combine(Path.GetTempPath(), "pcmhammer-cli-kernels");
-            Directory.CreateDirectory(dir);
-            var asm = Assembly.GetExecutingAssembly();
-            foreach (string name in asm.GetManifestResourceNames())
+            OSIDInfo? pcmInfo = null;
+
+            var vinResponse = await vehicle.QueryVin();
+            if (vinResponse.Status != ResponseStatus.Success)
             {
-                if (!name.EndsWith(".bin", StringComparison.OrdinalIgnoreCase)) continue;
-                string[] parts = name.Split('.');
-                string fileName = parts.Length >= 2
-                    ? parts[parts.Length - 2] + "." + parts[parts.Length - 1]
-                    : name;
-                string dest = Path.Combine(dir, fileName);
-                if (!File.Exists(dest))
-                {
-                    using (var s = asm.GetManifestResourceStream(name))
-                    using (var f = File.Create(dest))
-                        s.CopyTo(f);
-                }
+                logger.AddUserMessage("VIN query failed: " + vinResponse.Status);
+                return false;
             }
+            logger.AddUserMessage("VIN: " + vinResponse.Value);
+
+            var osResponse = await vehicle.QueryOperatingSystemId(token);
+            if (osResponse.Status == ResponseStatus.Success)
+            {
+                logger.AddUserMessage("OSID: " + osResponse.Value);
+                pcmInfo = new OSIDInfo(osResponse.Value);
+                logger.AddUserMessage("Description: " + pcmInfo.Description);
+            }
+            else
+            {
+                logger.AddUserMessage("OS ID query failed: " + osResponse.Status);
+            }
+
+            if (pcmInfo != null && pcmInfo.HardwareType != PcmType.BlackBox)
+            {
+                var calResponse = await vehicle.QueryCalibrationId();
+                if (calResponse.Status == ResponseStatus.Success)
+                    logger.AddUserMessage("Calibration ID: " + calResponse.Value);
+                else
+                    logger.AddUserMessage("Calibration ID query failed: " + calResponse.Status);
+            }
+
+            if (pcmInfo != null &&
+                pcmInfo.HardwareType != PcmType.P05 &&
+                pcmInfo.HardwareType != PcmType.P05b &&
+                pcmInfo.HardwareType != PcmType.P10 &&
+                pcmInfo.HardwareType != PcmType.P12 &&
+                pcmInfo.HardwareType != PcmType.E54)
+            {
+                var hwResponse = await vehicle.QueryHardwareId();
+                if (hwResponse.Status == ResponseStatus.Success)
+                    logger.AddUserMessage("Hardware ID: " + hwResponse.Value);
+                else
+                    logger.AddUserMessage("Hardware ID query failed: " + hwResponse.Status);
+            }
+
+            if (pcmInfo != null && pcmInfo.HardwareType != PcmType.BlackBox)
+            {
+                var serialResponse = await vehicle.QuerySerial();
+                if (serialResponse.Status == ResponseStatus.Success)
+                    logger.AddUserMessage("Serial Number: " + serialResponse.Value);
+                else
+                    logger.AddUserMessage("Serial Number query failed: " + serialResponse.Status);
+            }
+
+            if (pcmInfo != null &&
+                pcmInfo.HardwareType != PcmType.P04 &&
+                pcmInfo.HardwareType != PcmType.P04_Early &&
+                pcmInfo.HardwareType != PcmType.P08)
+            {
+                var bccResponse = await vehicle.QueryBCC();
+                if (bccResponse.Status == ResponseStatus.Success)
+                    logger.AddUserMessage("Broad Cast Code: " + bccResponse.Value);
+                else
+                    logger.AddUserMessage("BCC query failed: " + bccResponse.Status);
+            }
+
+            var mecResponse = await vehicle.QueryMEC();
+            if (mecResponse.Status == ResponseStatus.Success)
+                logger.AddUserMessage("MEC: " + mecResponse.Value);
+            else
+                logger.AddUserMessage("MEC query failed: " + mecResponse.Status);
+
+            var voltageResponse = await vehicle.QueryVoltage();
+            if (voltageResponse.Status == ResponseStatus.Success)
+                logger.AddUserMessage("Voltage: " + voltageResponse.Value);
+            else
+                logger.AddUserMessage("Voltage query failed: " + voltageResponse.Status);
+
+            return true;
+        }
+
+        // Resolves the directory the kernel/loader .bin files are loaded from.
+        // Kernels are external (not embedded): use --kernel-dir if given, otherwise the
+        // current working directory. Returns null (with an error printed) if an explicit
+        // --kernel-dir does not exist.
+        static string? ResolveKernelDir(string? kernelDirArg, ILogger logger)
+        {
+            string dir = string.IsNullOrWhiteSpace(kernelDirArg)
+                ? Directory.GetCurrentDirectory()
+                : Path.GetFullPath(kernelDirArg);
+
+            if (!Directory.Exists(dir))
+            {
+                Console.Error.WriteLine($"Error: Kernel directory not found: {dir}");
+                return null;
+            }
+
+            logger.AddDebugMessage("Using kernel directory: " + dir);
+
+            if (Directory.GetFiles(dir, "*.bin").Length == 0)
+            {
+                logger.AddUserMessage(
+                    $"Warning: no .bin kernel files found in {dir}. " +
+                    "Place the Kernel-*.bin / Loader-*.bin files there or pass --kernel-dir <path>.");
+            }
+
             return dir;
         }
 
@@ -328,31 +502,38 @@ namespace PcmHacking
 
         static void PrintHelp()
         {
-            Console.WriteLine("PCM Hammer CLI - Read, write, and test-write PCMs");
+            Console.WriteLine("PCM Hammer CLI");
             Console.WriteLine();
-            Console.WriteLine("Usage:");
-            Console.WriteLine("  pcmhammer-cli.exe --read [filename]       Read entire PCM to file");
-            Console.WriteLine("  pcmhammer-cli.exe --test-read             Read entire PCM without saving");
-            Console.WriteLine("  pcmhammer-cli.exe --write <filename>      Write entire PCM from file");
-            Console.WriteLine("  pcmhammer-cli.exe --test-write <filename> Test write (no permanent changes)");
-            Console.WriteLine("  pcmhammer-cli.exe --list-devices          List available J2534 devices");
-            Console.WriteLine("  pcmhammer-cli.exe --help  or  /?          Show this help");
+            Console.WriteLine("Usage:  pcmhammer-cli.exe <operation> [--device <id>] [--kernel-dir <path>] [--debug]");
             Console.WriteLine();
-            Console.WriteLine("Device options (auto-detects first J2534 if not specified):");
-            Console.WriteLine("  --device <name>           J2534 device name or serial port");
-            Console.WriteLine("  --j2534 <name>            Specify a J2534 device by name");
-            Console.WriteLine("  --serial <port>           Specify a serial port (e.g. COM3)");
+            Console.WriteLine("Operations:");
+            Console.WriteLine("  --read [file]             Read entire PCM to file (auto-names if omitted)");
+            Console.WriteLine("  --test-read               Read entire PCM without saving");
+            Console.WriteLine("  --write <file>            Write entire PCM from file");
+            Console.WriteLine("  --test-write <file>       Test write (no permanent changes)");
+            Console.WriteLine("  --verify <file>           CRC-compare file against PCM (no erase/write)");
+            Console.WriteLine("  --get-properties          Read VIN, OSID, calibration, serial, voltage");
+            Console.WriteLine("  --list-devices            List available serial and J2534 devices with index numbers");
             Console.WriteLine();
-            Console.WriteLine("Other options:");
-            Console.WriteLine("  --debug                   Show full debug log stream (includes all user messages)");
-            Console.WriteLine("  --crc-poll-delay <ms>     Delay between CRC verification polls (default: 50)");
-            Console.WriteLine("                            Increase if the PCM kernel crashes during verification");
+            Console.WriteLine("Device selection:");
+            Console.WriteLine("  --device <number>         Select by index shown in --list-devices");
+            Console.WriteLine("  --device COM3             Select a serial port by name");
+            Console.WriteLine("  --device OBDX             Select a J2534 device by partial name (case-insensitive)");
+            Console.WriteLine("  (omit --device)           Auto-selects when only one device is connected");
+            Console.WriteLine();
+            Console.WriteLine("Kernels:");
+            Console.WriteLine("  --kernel-dir <path>       Directory holding Kernel-*.bin / Loader-*.bin");
+            Console.WriteLine("  (omit --kernel-dir)       Defaults to the current working directory");
             Console.WriteLine();
             Console.WriteLine("Examples:");
-            Console.WriteLine("  pcmhammer-cli.exe --read mypcm.bin");
-            Console.WriteLine("  pcmhammer-cli.exe --read mypcm.bin --device \"OBD XPRO GT\"");
-            Console.WriteLine("  pcmhammer-cli.exe --read --crc-poll-delay 500 mypcm.bin");
-            Console.WriteLine("  pcmhammer-cli.exe --write newcal.bin --j2534 \"OBD XPRO GT\"");
+            Console.WriteLine("  pcmhammer-cli.exe --list-devices");
+            Console.WriteLine("  pcmhammer-cli.exe --read");
+            Console.WriteLine("  pcmhammer-cli.exe --read backup.bin --device COM3");
+            Console.WriteLine("  pcmhammer-cli.exe --test-read --device 3");
+            Console.WriteLine("  pcmhammer-cli.exe --write newcal.bin --device OBDX");
+            Console.WriteLine("  pcmhammer-cli.exe --test-write newcal.bin --device Mongoose");
+            Console.WriteLine("  pcmhammer-cli.exe --get-properties --device COM5");
+            Console.WriteLine("  pcmhammer-cli.exe --test-read --device COM6 --kernel-dir C:\\PcmHammer\\Kernels");
         }
     }
 }

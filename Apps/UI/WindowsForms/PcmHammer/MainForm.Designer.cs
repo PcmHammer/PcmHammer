@@ -64,6 +64,9 @@ namespace PcmHacking
             this.writeOSCalibrationBootToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.writeFullToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.testFileChecksumsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.toolStripSeparator3 = new System.Windows.Forms.ToolStripSeparator();
+            this.bruteForceUnlockToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.haltRunningKernelToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.menuItemOptions = new System.Windows.Forms.ToolStripMenuItem();
             this.userDefinedKeyToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.settingsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -121,9 +124,11 @@ namespace PcmHacking
             this.selectButton.Text = "&Select Device";
             this.selectButton.UseVisualStyleBackColor = true;
             this.selectButton.Click += new System.EventHandler(this.selectButton_Click);
-            // 
+            //
             // deviceDescription
-            // 
+            //
+            this.deviceDescription.AutoSize = false;
+            this.deviceDescription.AutoEllipsis = true;
             this.deviceDescription.Location = new System.Drawing.Point(4, 16);
             this.deviceDescription.Margin = new System.Windows.Forms.Padding(2, 0, 2, 0);
             this.deviceDescription.Name = "deviceDescription";
@@ -192,7 +197,7 @@ namespace PcmHacking
             this.exitKernelButton.Name = "exitKernelButton";
             this.exitKernelButton.Size = new System.Drawing.Size(216, 25);
             this.exitKernelButton.TabIndex = 9;
-            this.exitKernelButton.Text = "&Halt Kernel";
+            this.exitKernelButton.Text = "&Halt Running Kernel";
             this.exitKernelButton.UseVisualStyleBackColor = true;
             this.exitKernelButton.Click += new System.EventHandler(this.testKernelButton_Click);
             // 
@@ -400,7 +405,10 @@ namespace PcmHacking
             this.writeOSCalibrationBootToolStripMenuItem,
             this.writeFullToolStripMenuItem,
             this.toolStripSeparator2,
-            this.testFileChecksumsToolStripMenuItem});
+            this.testFileChecksumsToolStripMenuItem,
+            this.bruteForceUnlockToolStripMenuItem,
+            this.toolStripSeparator3,
+            this.haltRunningKernelToolStripMenuItem});
             this.menuItemTools.Name = "menuItemTools";
             this.menuItemTools.Size = new System.Drawing.Size(46, 20);
             this.menuItemTools.Text = "&Tools";
@@ -453,7 +461,27 @@ namespace PcmHacking
             this.testFileChecksumsToolStripMenuItem.Size = new System.Drawing.Size(225, 22);
             this.testFileChecksumsToolStripMenuItem.Text = "&Test File Checksums...";
             this.testFileChecksumsToolStripMenuItem.Click += new System.EventHandler(this.testFileChecksumsToolStripMenuItem_Click);
-            // 
+            //
+            // toolStripSeparator3
+            //
+            this.toolStripSeparator3.Name = "toolStripSeparator3";
+            this.toolStripSeparator3.Size = new System.Drawing.Size(222, 6);
+            //
+            // bruteForceUnlockToolStripMenuItem
+            //
+            this.bruteForceUnlockToolStripMenuItem.Name = "bruteForceUnlockToolStripMenuItem";
+            this.bruteForceUnlockToolStripMenuItem.Size = new System.Drawing.Size(225, 22);
+            this.bruteForceUnlockToolStripMenuItem.Text = "Brute Force &Unlock...";
+            this.bruteForceUnlockToolStripMenuItem.ToolTipText = "Search for the PCM security key. This can take a very long time.";
+            this.bruteForceUnlockToolStripMenuItem.Click += new System.EventHandler(this.bruteForceUnlockToolStripMenuItem_Click);
+            //
+            // haltRunningKernelToolStripMenuItem
+            //
+            this.haltRunningKernelToolStripMenuItem.Name = "haltRunningKernelToolStripMenuItem";
+            this.haltRunningKernelToolStripMenuItem.Size = new System.Drawing.Size(225, 22);
+            this.haltRunningKernelToolStripMenuItem.Text = "&Halt Running Kernel";
+            this.haltRunningKernelToolStripMenuItem.Click += new System.EventHandler(this.testKernelButton_Click);
+            //
             // menuItemOptions
             // 
             this.menuItemOptions.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
@@ -636,6 +664,9 @@ namespace PcmHacking
         private System.Windows.Forms.ToolStripProgressBar progressBarToolStripProgressBar;
         private System.Windows.Forms.ToolStripStatusLabel kbpsToolStripStatusLabel;
         private System.Windows.Forms.ToolStripMenuItem testFileChecksumsToolStripMenuItem;
+        private System.Windows.Forms.ToolStripSeparator toolStripSeparator3;
+        private System.Windows.Forms.ToolStripMenuItem bruteForceUnlockToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem haltRunningKernelToolStripMenuItem;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator1;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator2;
     }

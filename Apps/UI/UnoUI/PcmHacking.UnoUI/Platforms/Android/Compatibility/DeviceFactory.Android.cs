@@ -90,7 +90,7 @@ public static class DeviceFactory
             return new ElmDevice(port, logger);
         }
 
-        return null;
+        return null!;
     }
 
     private static async Task<byte[]> TestByteSequence(IPort port, byte[] sendBytes) // Special case use for OBDX reset.

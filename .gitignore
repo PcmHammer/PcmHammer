@@ -1,5 +1,8 @@
 LocalOnly/
 
+# Local build/packaging output (Apps/build/*, installer)
+/dist/
+
 # Kernel build side-effect
 *.map
 

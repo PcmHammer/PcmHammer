@@ -13,7 +13,7 @@ namespace PcmHacking
         /// <summary>
         /// This might not really need to be async. If the J2534 stuff doesn't need it, then this doesn't need it either. Only ised in WinForms.
         /// </summary>
-        public static Device CreateDeviceFromConfigurationSettings(ILogger logger)
+        public static Device? CreateDeviceFromConfigurationSettings(ILogger logger)
         {
             switch(DeviceConfiguration.Settings.DeviceCategory)
             {
@@ -28,7 +28,7 @@ namespace PcmHacking
             }
         }
 
-        public static Device CreateDevice(ILogger logger, string deviceCategory, string nameOrPort)
+        public static Device? CreateDevice(ILogger logger, string deviceCategory, string nameOrPort)
         {
             switch (deviceCategory)
             {
@@ -41,13 +41,13 @@ namespace PcmHacking
             }
         }
 
-        public static Device CreateSerialDevice(string serialPortName, string serialPortDeviceType, ILogger logger)
+        public static Device? CreateSerialDevice(string? serialPortName, string? serialPortDeviceType, ILogger logger)
         {
             try
             {
                 IPort port = CreatePortForDevice(serialPortName, logger);
 
-                Device device;
+                Device? device;
                 switch (serialPortDeviceType)
                 {
                     case OBDXProDevice.DeviceType:
@@ -86,7 +86,7 @@ namespace PcmHacking
             }
         }
 
-        public async static Task<Device> AutoDetectSerialDevice(string serialPortName, ILogger logger)
+        public async static Task<Device?> AutoDetectSerialDevice(string serialPortName, ILogger logger)
         {
             SerialPortConfiguration startConfig = new()
             {
@@ -94,33 +94,41 @@ namespace PcmHacking
                 Timeout = 1500
             };
             IPort port = CreatePortForDevice(serialPortName, logger);
+
+            // Track the device that ends up owning the port. On EVERY exit path that does not
+            // return a device - no match, OR an exception thrown part-way through probing - the
+            // port must be disposed. Otherwise the open COM handle leaks and the next attempt to
+            // use the same port fails with UnauthorizedAccessException (see serial-port-reopen notes).
+            Device? detected = null;
+            try
+            {
             await port.OpenAsync(startConfig);
 
             if(serialPortName == MockPort.PortName)
             {
-                return new MockDevice(port, logger);
+                return detected = new MockDevice(port, logger);
             }
 
             AvtDevice avt = new AvtDevice(port, logger);
             if ((await avt.ResetDevice()).Status == ResponseStatus.Success)
             {
-                return avt;
+                return detected = avt;
             }
-            
+
             await port.ChangeBaudRate(115200);
             await port.Send(Encoding.ASCII.GetBytes("\r")); // Send this to make sure we have readiness.
             System.Threading.Thread.Sleep(200);
             await port.Send(Encoding.ASCII.GetBytes("AT E0\r")); // Disable echo for these tests.
             System.Threading.Thread.Sleep(200);
             await port.DiscardBuffers();
-            
+
             string result = await TestIDString(port, "?\r"); // To make sure we fail a OBDX locked in a bad state.
             if (result.Contains("\u007f\u0002"))
             {
                 byte[] bytesRead = await TestByteSequence(port, [0x25, 0x00, 0xDA]);
                 if (bytesRead.Length == 3 && Utility.CompareArrays(bytesRead, [0x35, 0x00, 0xCA]))
                 {
-                    return new OBDXProDevice(port, logger);
+                    return detected = new OBDXProDevice(port, logger);
                 }
 
             }
@@ -128,28 +136,37 @@ namespace PcmHacking
             result = await TestIDString(port, "STDI\r"); // Only a scantool device will reply correctly.
             if (!result.StartsWith("?"))
             {
-                return new ElmDevice(port, logger);
+                return detected = new ElmDevice(port, logger);
             }
 
             result = await TestIDString(port, "AT #1\r"); //Unique to AllPros.
             if (!result.StartsWith("?"))
             {
-                return new ElmDevice(port, logger);
+                return detected = new ElmDevice(port, logger);
             }
 
             result = await TestIDString(port, "AT@1\r"); // Not a unique command, but a specific reply.
             if (result.StartsWith("OBDX"))
             {
-                return new OBDXProDevice(port, logger);
+                return detected = new OBDXProDevice(port, logger);
             }
 
             result = await TestIDString(port, "AT I"); // Didn't detect any specific known device; generic ELM.
             if (!result.StartsWith("?"))
             {
-                return new ElmDevice(port, logger);
+                return detected = new ElmDevice(port, logger);
             }
 
             return null;
+            }
+            finally
+            {
+                // No Device took ownership of the port (no match, or an exception was thrown).
+                if (detected == null)
+                {
+                    port.Dispose();
+                }
+            }
         }
 
         private static async Task<byte[]> TestByteSequence(IPort port, byte[] sendBytes) // Special case use for OBDX reset.
@@ -176,7 +193,7 @@ namespace PcmHacking
             return result.Trim();
         }
 
-        private static IPort CreatePortForDevice(string serialPortName, ILogger logger)
+        private static IPort CreatePortForDevice(string? serialPortName, ILogger logger)
         {
             IPort port;
             if (string.Equals(MockPort.PortName, serialPortName))
@@ -189,13 +206,13 @@ namespace PcmHacking
             }
             else
             {
-                port = new StandardPort(serialPortName);
+                port = new StandardPort(serialPortName ?? string.Empty);
             }
 
             return port;
         }
 
-        public static Device CreateJ2534Device(string deviceType, ILogger logger)
+        public static Device? CreateJ2534Device(string? deviceType, ILogger logger)
         {
             foreach(var device in J2534DeviceFinder.FindInstalledJ2534DLLs(logger))
             {

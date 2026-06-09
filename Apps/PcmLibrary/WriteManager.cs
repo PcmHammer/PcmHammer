@@ -50,7 +50,7 @@ namespace PcmHacking
                 if (bytesRead != stream.Length)
                 {
                     // If this happens too much, we should try looping rather than reading the whole file in one shot.
-                    this.logger.AddUserMessage("Unable to load file.");
+                    logger.AddUserMessage("Unable to load file.");
                     return false;
                 }
             }
@@ -72,16 +72,17 @@ namespace PcmHacking
             FileValidator validator = new FileValidator(image, this.logger, forcedFileType);
             if (!validator.IsValid())
             {
-                this.logger.AddUserMessage("This file is corrupt or its format is unknown to PCMHammer. It would render your PCM unusable.");
+                logger.AddUserMessage("This file is corrupt or its format is unknown to PCMHammer. It would render your PCM unusable.");
                 return false;
             }
-            this.logger.AddUserMessage("File is " + new OSIDInfo(validator.GetFileType()).Description + ".");
+            logger.AddUserMessage("File is " + new OSIDInfo(validator.GetFileType()).Description + ".");
 
-            UInt32 kernelVersion = 0;
+            UInt64 kernelVersion = 0;
             bool needUnlock;
             int keyAlgorithm = 1;
             bool shouldHalt;
-            OSIDInfo pcmInfo = null;
+            OSIDInfo? pcmInfo = null;
+            uint? pcmOsid = null;
             bool needToCheckOperatingSystem =
                 (writeType != WriteType.OsPlusCalibrationPlusBoot) &&
                 (writeType != WriteType.Full) &&
@@ -89,19 +90,77 @@ namespace PcmHacking
 
             if (forcedPcmType != PcmType.Undefined)
             {
+                // A forced PCM type ONLY overrides which kernel and key algorithm we use (for
+                // example when the OSID-to-type database is wrong for this PCM). It must NOT switch
+                // off the file-vs-PCM compatibility check: otherwise an end user could point a
+                // forced type at an unidentified PCM and flash a file for completely different
+                // hardware, bricking it. So we still query the PCM's OSID and enforce IsSameHardware
+                // whenever the PCM can be identified.
                 pcmInfo = new OSIDInfo(forcedPcmType);
                 keyAlgorithm = pcmInfo.KeyAlgorithm;
                 needUnlock = true;
                 needToCheckOperatingSystem = false;
-                this.logger.AddUserMessage("Using manually selected PCM type: " + pcmInfo.HardwareType);
+                logger.AddUserMessage("Using manually selected PCM type: " + pcmInfo.HardwareType);
+
+                logger.AddUserMessage("Requesting operating system ID to verify file compatibility...");
+                Response<uint> forcedOsidResponse = await this.vehicle.QueryOperatingSystemId(this.cancellationToken);
+                if (forcedOsidResponse.Status == ResponseStatus.Success)
+                {
+                    pcmOsid = forcedOsidResponse.Value;
+
+                    if (!validator.IsSameHardware(forcedOsidResponse.Value))
+                    {
+                        return false;
+                    }
+
+                    if (!validator.IsSameOperatingSystem(forcedOsidResponse.Value))
+                    {
+                        logger.AddUserMessage("PCM operating system ID: " + forcedOsidResponse.Value);
+                        logger.AddUserMessage("File operating system ID: " + validator.GetOsidFromImage());
+                        Utility.ReportOperatingSystems(validator.GetOsidFromImage(), forcedOsidResponse.Value, writeType, this.logger, out shouldHalt);
+                        if (shouldHalt)
+                        {
+                            return false;
+                        }
+                    }
+                    else
+                    {
+                        logger.AddUserMessage("PCM and file are both operating system " + forcedOsidResponse.Value);
+                    }
+                }
+                else
+                {
+                    // The PCM did not return an OSID, so we cannot verify the file matches the
+                    // connected hardware. This is the genuine recovery case (corrupt or truly
+                    // unidentified PCM), so we don't hard-block, but we must NOT proceed silently:
+                    // warn that compatibility is unverified and let the user accept the brick risk.
+                    if (this.cancellationToken.IsCancellationRequested)
+                    {
+                        return false;
+                    }
+
+                    string unverifiedMsg =
+                        "WARNING: The PCM did not return an operating system ID, so PCM Hammer cannot verify" + Environment.NewLine +
+                        "that this file is compatible with the connected hardware." + Environment.NewLine +
+                        "Writing an incompatible file can permanently brick the PCM." + Environment.NewLine +
+                        "Do you want to continue?";
+                    logger.AddUserMessage(unverifiedMsg);
+                    if (!await this.promptForYesNo(unverifiedMsg, "Brick Risk"))
+                    {
+                        logger.AddUserMessage("User chose not to proceed.");
+                        return false;
+                    }
+                    logger.AddUserMessage("User chose to proceed without a verified hardware match.");
+                }
             }
             else
             {
-                this.logger.AddUserMessage("Requesting operating system ID...");
+                logger.AddUserMessage("Requesting operating system ID...");
                 Response<uint> osidResponse = await this.vehicle.QueryOperatingSystemId(this.cancellationToken);
                 if (osidResponse.Status == ResponseStatus.Success)
                 {
                     pcmInfo = new OSIDInfo(osidResponse.Value);
+                    pcmOsid = osidResponse.Value;
                     keyAlgorithm = pcmInfo.KeyAlgorithm;
                     needUnlock = true;
 
@@ -112,11 +171,17 @@ namespace PcmHacking
 
                     if (!validator.IsSameOperatingSystem(osidResponse.Value))
                     {
+                        logger.AddUserMessage("PCM operating system ID: " + osidResponse.Value);
+                        logger.AddUserMessage("File operating system ID: " + validator.GetOsidFromImage());
                         Utility.ReportOperatingSystems(validator.GetOsidFromImage(), osidResponse.Value, writeType, this.logger, out shouldHalt);
                         if (shouldHalt)
                         {
                             return false;
                         }
+                    }
+                    else
+                    {
+                        logger.AddUserMessage("PCM and file are both operating system " + osidResponse.Value);
                     }
 
                     needToCheckOperatingSystem = false;
@@ -128,23 +193,23 @@ namespace PcmHacking
                         return false;
                     }
 
-                    this.logger.AddUserMessage("Operating system request failed, checking for a live kernel...");
+                    logger.AddUserMessage("Operating system request failed, checking for a live kernel...");
 
                     kernelVersion = await this.vehicle.GetKernelVersion();
                     if (kernelVersion == 0)
                     {
-                        this.logger.AddUserMessage("Checking for recovery mode...");
+                        logger.AddUserMessage("Checking for recovery mode...");
                         bool recoveryMode = await this.vehicle.IsInRecoveryMode();
 
                         if (recoveryMode)
                         {
-                            this.logger.AddUserMessage("PCM is in recovery mode.");
+                            logger.AddUserMessage("PCM is in recovery mode.");
                             needUnlock = true;
                         }
                         else
                         {
-                            this.logger.AddUserMessage("PCM is not responding to OSID, kernel version, or recovery mode checks.");
-                            this.logger.AddUserMessage("Unlock may not work, but we'll try...");
+                            logger.AddUserMessage("PCM is not responding to OSID, kernel version, or recovery mode checks.");
+                            logger.AddUserMessage("Unlock may not work, but we'll try...");
                             needUnlock = true;
                         }
                         pcmInfo = new OSIDInfo(validator.GetOsidFromImage()); // Prevent Null Reference Exceptions from breaking Recovery Mode
@@ -153,9 +218,9 @@ namespace PcmHacking
                     {
                         needUnlock = false;
 
-                        this.logger.AddUserMessage("Kernel version: " + kernelVersion.ToString("X8"));
+                        logger.AddUserMessage("Kernel version: " + Vehicle.FormatKernelVersion(kernelVersion));
 
-                        this.logger.AddUserMessage("Asking kernel for the PCM's operating system ID...");
+                        logger.AddUserMessage("Asking kernel for the PCM's operating system ID...");
 
                         if (needToCheckOperatingSystem)
                         {
@@ -163,7 +228,7 @@ namespace PcmHacking
                             if (osidResponse.Status != ResponseStatus.Success)
                             {
                                 // The kernel seems broken. This shouldn't happen, but if it does, halt.
-                                this.logger.AddUserMessage("The kernel did not respond to operating system ID query.");
+                                logger.AddUserMessage("The kernel did not respond to operating system ID query.");
                                 return false;
                             }
 
@@ -182,10 +247,10 @@ namespace PcmHacking
             }
 
             // Pre flight checks to block invalid write operations by PCM type.
-            if (!pcmInfo.IsSupported)
+            if (!pcmInfo!.IsSupported)
             {
                 string msg = $"Abort: The connected {pcmInfo.HardwareType.ToString()} PCM is not supported.";
-                this.logger.AddUserMessage(msg);
+                logger.AddUserMessage(msg);
                 await this.alert(msg, "Abort");
                 return false;
             }
@@ -193,7 +258,7 @@ namespace PcmHacking
             if (!pcmInfo.IsSupportedWrite)
             {
                 string msg = $"Abort: The connected {pcmInfo.HardwareType.ToString()} PCM is not supported for write operations.";
-                this.logger.AddUserMessage(msg);
+                logger.AddUserMessage(msg);
                 await this.alert(msg, "Abort");
                 return false;
             }
@@ -201,14 +266,14 @@ namespace PcmHacking
             if (pcmInfo.IsUnderDevelopment)
             {
                 string msg = $"WARNING: {pcmInfo.HardwareType.ToString()} Support is still in development.\r\nThere is additional brick risk in this operation\r\nDo you want to continue?";
-                this.logger.AddUserMessage(msg);
+                logger.AddUserMessage(msg);
                 if (await this.promptForYesNo(msg, "Brick Risk"))
                 {
-                    this.logger.AddUserMessage("User chose to proceed.");
+                    logger.AddUserMessage("User chose to proceed.");
                 }
                 else
                 {
-                    this.logger.AddUserMessage("User chose not to proceed.");
+                    logger.AddUserMessage("User chose not to proceed.");
                     return false;
                 }
             }
@@ -218,26 +283,28 @@ namespace PcmHacking
             {
                 string msg = $"Error: The connected {pcmInfo.HardwareType.ToString()} PCM binary format is not partitioned and does not support partial write." + Environment.NewLine +
                             "You will need to do a Write Full Flash (Clone) instead.";
-                this.logger.AddUserMessage(msg);
+                logger.AddUserMessage(msg);
                 await this.alert(msg, "Error");
                 return false;
             }
 
-            // If we cant write the slave, warn the user of operating system changes
-            if (pcmInfo.HardwareSlaveCPU == true && !pcmInfo.IsSupportedWriteSlaveCPU && (writeType == WriteType.Full || writeType == WriteType.OsPlusCalibrationPlusBoot))
+            // If we cant write the slave, warn the user of operating system changes, if there are any.
+            // Skip the warning if we know the file OS matches the PCM OS — no slave CPU sync needed.
+            bool osWillChange = pcmOsid == null || !validator.IsSameOperatingSystem(pcmOsid.Value);
+            if (pcmInfo.HardwareSlaveCPU == true && !pcmInfo.IsSupportedWriteSlaveCPU && (writeType == WriteType.Full || writeType == WriteType.OsPlusCalibrationPlusBoot) && osWillChange)
             {
                 string msg = $"Warning: Writes to the {pcmInfo.HardwareType.ToString()} slave CPU are not supported." + Environment.NewLine +
-                            "You must have another way to update the slave CPU to match when you change operating system, else electroncic throttle may not work." + Environment.NewLine +
-                            "Restore this PCM to its original operating system if this happens." + Environment.NewLine +
+                            "When you change the operating system you need need another way to update the slave CPU to match, else electroncic throttle may not work." + Environment.NewLine +
+                            "PCM Hammer can re-write the original OS to undo any change if kept backup." + Environment.NewLine +
                             "Do you want to continue?";
-                this.logger.AddUserMessage(msg);
+                logger.AddUserMessage(msg);
                 if (await this.promptForYesNo(msg, "Warning!"))
                 {
-                    this.logger.AddUserMessage("User chose to proceed.");
+                    logger.AddUserMessage("User chose to proceed.");
                 }
                 else
                 { 
-                    this.logger.AddUserMessage("User chose not to proceed.");
+                    logger.AddUserMessage("User chose not to proceed.");
                     return false;
                 }
             }
@@ -267,11 +334,11 @@ namespace PcmHacking
                 bool unlocked = await this.vehicle.UnlockEcu(keyAlgorithm);
                 if (!unlocked)
                 {
-                    this.logger.AddUserMessage("Unlock was not successful.");
+                    logger.AddUserMessage("Unlock was not successful.");
                     return false;
                 }
 
-                this.logger.AddUserMessage("Unlock succeeded.");
+                logger.AddUserMessage("Unlock succeeded.");
             }
 
             DateTime start = DateTime.Now;
@@ -289,7 +356,7 @@ namespace PcmHacking
                 validator,
                 needToCheckOperatingSystem,
                 this.cancellationToken);
-            this.logger.AddUserMessage("Elapsed time " + DateTime.Now.Subtract(start));
+            logger.AddUserMessage("Elapsed time " + DateTime.Now.Subtract(start));
             return true;
         }
     }

@@ -42,7 +42,7 @@ namespace PcmHacking
         /// <summary>
         /// Optionally use tool-present messages as a way of polling for slow responses.
         /// </summary>
-        private ToolPresentNotifier notifier;
+        private ToolPresentNotifier? notifier;
 
         /// <summary>
         /// Provides access to the Results and Debug panes.
@@ -54,7 +54,7 @@ namespace PcmHacking
         /// <summary>
         /// Constructor.
         /// </summary>
-        public Query(Device device, Func<Message> generator, Func<Message, Response<T>> filter, ILogger logger, CancellationToken cancellationToken, ToolPresentNotifier notifier = null)
+        public Query(Device device, Func<Message> generator, Func<Message, Response<T>> filter, ILogger logger, CancellationToken cancellationToken, ToolPresentNotifier? notifier = null)
         {
             this.device = device;
             this.generator = generator;
@@ -79,14 +79,14 @@ namespace PcmHacking
             {
                 if (this.cancellationToken.IsCancellationRequested)
                 {
-                    return Response.Create(ResponseStatus.Cancelled, default(T));
+                    return Response.Create(ResponseStatus.Cancelled, default(T)!);
                 }
 
                 success = await this.device.SendMessage(request);
 
                 if (!success)
                 {
-                    this.logger.AddDebugMessage("Send failed. Attempt #" + sendAttempt.ToString());
+                    logger.AddDebugMessage("Send failed. Attempt #" + sendAttempt.ToString());
                     continue;
                 }
 
@@ -97,7 +97,7 @@ namespace PcmHacking
                 {
                     if (this.cancellationToken.IsCancellationRequested)
                     {
-                        return Response.Create(ResponseStatus.Cancelled, default(T));
+                        return Response.Create(ResponseStatus.Cancelled, default(T)!);
                     }
 
                     Message received = await this.device.ReceiveMessage();
@@ -108,7 +108,7 @@ namespace PcmHacking
                         if (timeouts >= this.MaxTimeouts)
                         {
                             // Maybe try sending again if we haven't run out of send attempts.
-                            this.logger.AddDebugMessage(
+                            logger.AddDebugMessage(
                                 string.Format(
                                     "Receive timed out. Attempt #{0}, Timeout #{1}.",
                                     receiveAttempt,
@@ -132,10 +132,10 @@ namespace PcmHacking
 
                     if (result.Status == ResponseStatus.Error)
                     {
-                        return Response.Create(ResponseStatus.Error, default(T));
+                        return Response.Create(ResponseStatus.Error, default(T)!);
                     }
 
-                    this.logger.AddDebugMessage(
+                    logger.AddDebugMessage(
                         string.Format(
                             "Received an unexpected response. Attempt #{0}, status {1}.",
                             receiveAttempt,
@@ -143,7 +143,7 @@ namespace PcmHacking
                 }
             }
 
-            return Response.Create(ResponseStatus.Error, default(T));
+            return Response.Create(ResponseStatus.Error, default(T)!);
         }
     }
 }

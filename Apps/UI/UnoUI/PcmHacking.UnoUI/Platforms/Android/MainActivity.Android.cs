@@ -26,11 +26,11 @@ public class MainActivity : Microsoft.UI.Xaml.ApplicationActivity
     {
         try
         {
-            global::Android.Net.Uri uri = global::Android.Net.Uri.Parse("package:" + Current.PackageName);
+            global::Android.Net.Uri? uri = global::Android.Net.Uri.Parse("package:" + Current.PackageName);
             Intent intent = new Intent(Settings.ActionManageAppAllFilesAccessPermission, uri);
             Current.StartActivity(intent);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             Intent intent = new Intent();
             intent.SetAction(Settings.ActionManageAppAllFilesAccessPermission);

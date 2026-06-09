@@ -349,7 +349,7 @@ namespace PcmHacking
                 string response = await this.ReadELMLine();
                 this.ProcessResponse(response, "receive");
 
-                if (this.getRecievedMessageCount() == 0)
+                if (this.getRecievedMessageCount!() == 0)
                 {
                    // await this.ReceiveViaMonitorMode();
                 }

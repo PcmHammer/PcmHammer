@@ -21,7 +21,7 @@ namespace PcmHacking
         /// <summary>
         /// The Vehicle object is our interface to the car. It has the device, the message generator, and the message parser.
         /// </summary>
-        private Vehicle vehicle;
+        private Vehicle vehicle = null!;
         protected Vehicle Vehicle { get { return this.vehicle; } }
 
         public virtual void AddDebugMessage(string message) { }
@@ -67,6 +67,17 @@ namespace PcmHacking
         /// <returns></returns>
         public async Task<bool> HandleSelectButtonClick()
         {
+            // Release the currently-connected device before showing the picker so its port is
+            // free. Otherwise the dialog's Auto Detect / Test can't open a port that the live
+            // connection is already holding (e.g. "Access to the port 'COM3' is denied" when the
+            // picker pre-selects the device that is already in use).
+            bool hadDevice = this.vehicle != null;
+            if (this.vehicle != null)
+            {
+                this.vehicle.Dispose();
+                this.vehicle = null!;
+            }
+
             using (DevicePicker picker = new DevicePicker(this))
             {
                 DialogResult result = picker.ShowDialog();
@@ -102,6 +113,14 @@ namespace PcmHacking
                     return await this.ResetDevice();
                 }
             }
+
+            // The user cancelled. Re-open whatever device was connected before, so closing the
+            // dialog doesn't silently disconnect them.
+            if (hadDevice)
+            {
+                return await this.ResetDevice();
+            }
+
             return false;
         }
 
@@ -113,9 +132,9 @@ namespace PcmHacking
             if (this.vehicle != null)
             {
                 this.vehicle.Dispose();
-                this.vehicle = null;
+                this.vehicle = null!;
             }
-            Device device = DeviceFactory.CreateDeviceFromConfigurationSettings(this);
+            Device? device = DeviceFactory.CreateDeviceFromConfigurationSettings(this);
             if (device == null)
             {
                 this.Invoke((MethodInvoker)delegate()
@@ -143,7 +162,14 @@ namespace PcmHacking
 
             if (!await this.InitializeCurrentDevice())
             {
-                this.vehicle = null;
+                // Initialization failed (e.g. a defunct port). Dispose the vehicle so the
+                // device and its serial port are released, instead of leaking an open port
+                // and a running Receiver loop that we can never reach again.
+                if (this.vehicle != null)
+                {
+                    this.vehicle.Dispose();
+                    this.vehicle = null!;
+                }
                 return false;
             }
 
@@ -166,10 +192,14 @@ namespace PcmHacking
                 this.ResetLogs();
             });
 
-            foreach (string line in GetAppNameAndVersion().Split('\n'))
-                this.AddUserMessage(line);
-            this.AddUserMessage(AppInfo.GetRunningAtMessage());
+            // Show the app name first, then the copyright on its own line (so it doesn't clutter
+            // the app name), followed by the build/version and "Running at" lines.
+            string[] appLines = GetAppNameAndVersion().Split('\n');
+            this.AddUserMessage(appLines[0]);
             this.AddUserMessage(AppInfo.CopyrightNotice);
+            for (int i = 1; i < appLines.Length; i++)
+                this.AddUserMessage(appLines[i]);
+            this.AddUserMessage(AppInfo.GetRunningAtMessage());
 
             try
             {

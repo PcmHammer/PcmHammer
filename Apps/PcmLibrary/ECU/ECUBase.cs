@@ -6,14 +6,14 @@ using System.Text;
 
 namespace PcmHacking.ECU {
     public abstract class ECUBase {
-        public List<OSInfo> KnownOperatingSystems { get; set; }
+        public List<OSInfo> KnownOperatingSystems { get; set; } = null!;
 
-        public OSInfo CurrentOSID { get; private set; }
+        public OSInfo CurrentOSID { get; private set; } = null!;
 
         /// <summary>
         /// Descriptive text.
         /// </summary>
-        public string Description { get; set; }
+        public string Description { get; set; } = null!;
 
         /// <summary>
         /// Indicates whether this PCM is supported by the app.
@@ -67,7 +67,7 @@ namespace PcmHacking.ECU {
         /// <summary>
         /// Name of the kernel file to use.
         /// </summary>
-        public string KernelFileName { get; set; }
+        public string KernelFileName { get; set; } = null!;
 
         /// <summary>
         /// Base address to begin writing the kernel to.
@@ -77,7 +77,7 @@ namespace PcmHacking.ECU {
         /// <summary>
         /// Name of the kernel loader file to use.
         /// </summary>
-        public string LoaderFileName { get; set; }
+        public string LoaderFileName { get; set; } = null!;
 
         /// <summary>
         /// Base address to begin writing the kernel loader to.

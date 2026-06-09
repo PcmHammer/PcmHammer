@@ -7,6 +7,36 @@
 | 2026-04-09 Antus / PCMHacking.net Add P11
 | ===========================================================================
 |
+| ===========================================================================
+| WHY P04 HAS ITS OWN KERNEL SOURCE (this dedicated 68k-VPW-Asm-P04 fork)
+| ---------------------------------------------------------------------------
+| P04 flash-chip detection (ProcessFlashID) is sensitive to the kernel's
+| ABSOLUTE load address, not merely longword (mod-4) alignment. On real
+| silicon, ProcessFlashID only returns a valid manufacturer/device ID when it
+| lands at 0xFF81BE. Shifting it even ~20 bytes - alignment preserved - makes
+| detection fail ("Unable to determine which flash chip is in this PCM").
+| See the DrainRxThenResetWatchdog comment near the end of .text for the
+| matching note on the RX-FIFO-overflow CRC fix.
+|
+| The shared kernel (..\68k-VPW-Asm\Kernel.S) has diverged in layout
+| (CSBARBT enable + pipeline NOPs in ProcessFlashID, bra.w vs jmp to MainLoop,
+| a longer kernel-ID handshake field, an extra VPWSendFlush subroutine, and an
+| INLINE RX-FIFO drain in ProcessCRC). Building P04 from that shared source
+| places ProcessFlashID at 0xFF81A2 instead of 0xFF81BE, and flash-ID
+| detection fails deterministically on hardware. Empirically confirmed
+| 2026-06-03 on the AMD AM29F400BB P04: shared-built kernel uploaded and OS
+| matched, then reported "Unable to determine which flash chip is in this PCM".
+| The fork build (this file, ProcessFlashID @ 0xFF81BE) reads correctly on BOTH
+| the AMD AM29F400BB and Intel 28F400B P04s, all CRC ranges Same.
+|
+| Therefore Build.cmd routes P04 (assembly) to THIS directory and every other
+| assembly PCM to the shared 68k-VPW-Asm. Do NOT fold P04 back into the shared
+| kernel - or change anything ahead of ProcessFlashID here - without
+| re-verifying flash-ID detection on real P04 silicon (AMD and Intel).
+| The underlying CPU/errata reason for the absolute-address dependency is still
+| unknown; see the queued delay-loop study for the investigation plan.
+| ===========================================================================
+|
 | C directives will only work if the source filename is .S, yup, capital S.
 | That is the extension gnu has asscoaited the assembler with and it is case sensitive.
 | When using gcc.exe with -x assembler option and anyother extension, the C directives will fail.
@@ -213,27 +243,27 @@ WasteTime:
 ProcessKernelID:
     movea.l #KernelIDReply, %a0        | Pointer to KernelIDReply buffer
 #if defined P01
-    move.b  #0x01, 8(%a0)              | P01, P59
+    move.b  #0x01, 9(%a0)              | P01, P59
 #elif defined P04_Early
-    move.b  #0x44, 8(%a0)              | P04 256k
+    move.b  #0x44, 9(%a0)              | P04 256k
 #elif defined P04
-    move.b  #0x04, 8(%a0)              | P04
+    move.b  #0x04, 9(%a0)              | P04
 #elif defined P05
-    move.b  #0x05, 8(%a0)              | P05
+    move.b  #0x05, 9(%a0)              | P05
 #elif defined P08
-    move.b  #0x08, 8(%a0)              | P08
+    move.b  #0x08, 9(%a0)              | P08
 #elif defined P10
-    move.b  #0x0A, 8(%a0)              | P10
+    move.b  #0x0A, 9(%a0)              | P10
 #elif defined P11
-    move.b  #0x0B, 8(%a0)              | P11
+    move.b  #0x0B, 9(%a0)              | P11
 #elif defined P12
-    move.b  #0x0C, 8(%a0)              | P12
+    move.b  #0x0C, 9(%a0)              | P12
 #elif defined E54
-    move.b  #0x36, 8(%a0)              | E54
+    move.b  #0x36, 9(%a0)              | E54
 #elif defined BlackBox
-    move.b  #0x88, 8(%a0)              | BlackBox
+    move.b  #0x88, 9(%a0)              | BlackBox
 #endif
-    move.w  #9, %d0                    | It's 9 bytes long
+    move.w  #10, %d0                   | It's 10 bytes long
     bsr.w   VPWSend                    | Send it
     jmp     MainLoop                   | Return to MainLoop
 
@@ -330,7 +360,13 @@ ProcessCRCBitLoop:
     bne.s   ProcessCRCBitLoop          | Any bits left?
 
 ProcessCRCMainLoopCheck:
-    bsr.w   ResetWatchdog              | Scratch the dog
+    | RX-FIFO drain fix (2026-06-03): the original code called "bsr.w ResetWatchdog"
+    | here. We retarget that SAME 4-byte bsr.w to DrainRxThenResetWatchdog (drain one
+    | RX byte, then scratch the dog). This is a target-only change - it does not grow
+    | any code ahead of ProcessFlashID, which is absolute-address sensitive and breaks
+    | if shifted even +20 bytes. The drain body lives at the end of .text. See the
+    | full explanation at DrainRxThenResetWatchdog.
+    bsr.w   DrainRxThenResetWatchdog   | Drain one RX-FIFO byte, then scratch the dog
     cmpa.l  %a1, %a2                   | Is byte < nBytes?
     bne.s   ProcessCRCMainLoop         | If not, iterate main loop
 
@@ -1241,6 +1277,40 @@ VPWSendBlockWaitForBuffer2:
     move.b  %d1, (J1850_TX_FIFO).l     | Move the Second checksum byte  to the TX FIFO
     rts
 
+| =============== S U B R O U T I N E =======================================
+| Drain one RX-FIFO byte (if present), then reset the watchdog.
+|
+| WHY THIS EXISTS / WHY IT IS HERE:
+|   ProcessCRC's main loop used to call "bsr.w ResetWatchdog" once per byte. A long
+|   CRC (a 64KB verify range takes several seconds) therefore never serviced the DLC
+|   receive FIFO. Meanwhile the host's CompareRanges keeps sending tool-present +
+|   re-queries (~every 50ms). The small hardware RX FIFO overflows and, once
+|   overflowed, the J1850 receiver WEDGES: the CPU stays alive (we still feed the
+|   dog) but goes deaf. That is why, when verifying, the FIRST CRC range replied
+|   with the correct checksum and EVERY range after it reported "PCM stopped
+|   responding" - the first reply went out before the receiver was needed again.
+|
+|   The fix is to drain a byte each loop so the FIFO never overflows. Discarding the
+|   bytes is safe: CompareRanges re-sends each query until it gets a response.
+|
+|   CRITICAL placement note: ProcessFlashID (at 0xFF81BE) is sensitive to its
+|   ABSOLUTE address - shifting it even +20 bytes, with longword (mod-4) alignment
+|   preserved, makes flash-chip detection fail ("Unable to determine which flash
+|   chip"). So the drain MUST NOT add any bytes ahead of ProcessFlashID. We achieve
+|   that by leaving ProcessCRC's instruction stream the same size (its bsr.w now
+|   targets this routine instead of ResetWatchdog - a target-only change) and putting
+|   the drain body here at the end of .text, after all position-sensitive code.
+|
+|   Preserves d0 (the running CRC remainder); clobbers only d1 (loop scratch, which
+|   ProcessCRC reloads at the top of every iteration).
+DrainRxThenResetWatchdog:
+    move.b  (J1850_Status).l, %d1      | Read RFS (receive FIFO status, bits 7:5)
+    andi.b  #0xE0, %d1                 | Mask RFS bits
+    beq.s   DrainRxThenResetWatchdogDog | FIFO empty -> nothing to drain
+    move.b  (J1850_RX_FIFO).l, %d1     | Drain one byte to prevent FIFO overflow
+DrainRxThenResetWatchdogDog:
+    bra.w   ResetWatchdog              | Tail-call: ResetWatchdog's rts returns to ProcessCRC
+
 | ---------------------------------------------------------------------------
 
 .data
@@ -1257,8 +1327,9 @@ FlashIDReply:   .byte  0x6C, toolid, pcmid, 0x7D, 0x01, 0x00, 0x00, 0x00, 0x00, 
 | Os ID Reply, 9 bytes + 1 alignment
 OsIDReply:      .byte  0x6C, toolid, pcmid, 0x7D, 0x03, 0x00, 0x00, 0x00, 0x00, 0xAA
 
-| Kernel ID Response, 9 bytes + 1 alignment
-| 4 bytes, the first 12 bits are a static ID, next 12 bits are version, 4th byte = PCM ID
+| Kernel ID Response, 10 bytes + 1 alignment
+| Bytes 5-8: build timestamp as Unix epoch uint32 big-endian (set by Build.cmd via BUILD_EPOCH)
+| Byte 9: PCM type ID (written at runtime by ProcessKernelID)
 | P01/P59   = 01
 | P04_Early = 44
 | P04       = 04
@@ -1269,7 +1340,9 @@ OsIDReply:      .byte  0x6C, toolid, pcmid, 0x7D, 0x03, 0x00, 0x00, 0x00, 0x00, 
 | P12       = 0C
 | E54       = 36
 | BlackBox  = 88
-KernelIDReply:  .byte  0x6C, toolid, pcmid, 0x7D, 0x00, 0x82, 0x40, 0x02, 0x00, 0xAA
+KernelIDReply:  .byte  0x6C, toolid, pcmid, 0x7D, 0x00
+                .long  BUILD_EPOCH
+                .byte  0x00, 0xAA
 
 | Mode34 Reply, 6 bytes - 6C F0 10 74 00 44, Default Success
 Mode34Reply:    .byte  0x6C, toolid, pcmid, 0x74, 0x00, 0x44

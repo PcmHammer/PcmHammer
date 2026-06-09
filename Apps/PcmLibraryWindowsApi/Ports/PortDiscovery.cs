@@ -74,7 +74,7 @@ namespace PcmHacking
 
         public string Name { get; private set; }
 
-        public string PortName { get; private set; }
+        public string? PortName { get; private set; }
         public string DeviceID { get; private set; }
         public int PortNumber { get; private set; }
 
@@ -110,31 +110,33 @@ namespace PcmHacking
             this.Name = property.GetPropertyValue("Name") as string ?? string.Empty;
             this.DeviceID = property.GetPropertyValue("DeviceID") as string ?? string.Empty;
             this.PortName = GetPortName(this.DeviceID, logger);
+            string? portName = this.PortName;
 
-            if (!string.IsNullOrEmpty(this.PortName) &&
-                !this.Name.Contains("(LPT") && 
-                this.PortName.StartsWith("COM") && 
-                this.PortName.Length > 3)
+            if (portName != null &&
+                !string.IsNullOrEmpty(portName) &&
+                !this.Name.Contains("(LPT") &&
+                portName.StartsWith("COM") &&
+                portName.Length > 3)
             {
                 int number;
-                int.TryParse(this.PortName.Substring(3), out number);
+                int.TryParse(portName.Substring(3), out number);
                 this.PortNumber = number;
             }
             else
             {
-                if (!this.PortName.StartsWith("LPT"))
+                if (portName == null || !portName.StartsWith("LPT"))
                 {
                     logger.AddDebugMessage(
                         string.Format(
                             "Unable to get port number for '{0}' / '{1}' with port name '{2}'",
                             this.Name,
                             this.DeviceID,
-                            this.PortName));
+                            portName));
                 }
             }
         }
 
-        private static string GetPortName(string deviceId, ILogger logger)
+        private static string? GetPortName(string deviceId, ILogger logger)
         {
             try
             {

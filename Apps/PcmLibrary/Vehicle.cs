@@ -34,7 +34,14 @@ namespace PcmHacking
         /// in most cases when only need about 5.
         /// </remarks>
         public const int MaxReceiveAttempts = 5;
-        
+
+        /// <summary>
+        /// How long to wait for a PCM security time-delay lockout (response 0x37) to clear before
+        /// re-requesting a seed during an unlock. Sized to cover one ~10s forced-delay window plus a
+        /// small margin.
+        /// </summary>
+        private static readonly TimeSpan SecurityDelayLockout = TimeSpan.FromSeconds(11);
+
         public CancellationTokenSource ShutdownSignalSource = new CancellationTokenSource(); // Use this as a trigger to say we are ready to dispose the underlying device.
 
         /// <summary>
@@ -141,7 +148,7 @@ namespace PcmHacking
         /// </summary>
         ~Vehicle()
         {
-            this.Dispose(false);
+            _ = this.Dispose(false);
         }
 
         /// <summary>
@@ -149,7 +156,7 @@ namespace PcmHacking
         /// </summary>
         public void Dispose()
         {
-            this.Dispose(true);
+            _ = this.Dispose(true);
             GC.SuppressFinalize(this);
         }
 
@@ -161,7 +168,7 @@ namespace PcmHacking
             if (ShutdownSignalSource.IsCancellationRequested) // Prevent the disposal of the Vehicle class from disposing the device. This can then be held by ConnectionService to be passed back in.
             { 
                 this.device.Dispose();
-                this.device = null;
+                this.device = null!;
             }
         }
 
@@ -172,6 +179,16 @@ namespace PcmHacking
         {
             Task<bool> task = this.device.Initialize();
             bool completedWithoutTimeout = await task.AwaitWithTimeout(TimeSpan.FromSeconds(10));
+            if (!completedWithoutTimeout)
+            {
+                // Initialize() is still running (e.g. a defunct port that opens but never answers).
+                // Do NOT read task.Result here: on an incomplete Task that blocks the caller until
+                // the task finishes, and because Initialize()'s continuations resume on the calling
+                // (often UI) thread, that block deadlocks the whole app. Report failure and leave the
+                // orphaned task to unwind on its own. The caller disposes the device/port afterwards.
+                return false;
+            }
+
             return task.Result;
         }
 
@@ -293,69 +310,121 @@ namespace PcmHacking
 
             this.device.ClearMessageQueue();
 
-            this.logger.AddDebugMessage("Sending seed request.");
+            logger.AddDebugMessage("Sending seed request.");
             Message seedRequest = this.protocol.CreateSeedRequest();
-
-            if (!await this.TrySendMessage(seedRequest, "seed request"))
-            {
-                this.logger.AddUserMessage("Unable to send seed request.");
-                return false;
-            }
 
             bool seedReceived = false;
             UInt16 seedValue = 0;
+            bool lockoutRetried = false;
 
-            for (int attempt = 1; attempt < MaxReceiveAttempts; attempt++)
+            // (Re)send the seed request and listen for the answer, mirroring how Query<T> drives
+            // every other request: resend if the PCM doesn't reply, and use tool-present pings to
+            // keep slow PCMs (e.g. the Black Box) awake while we wait, instead of giving up on the
+            // first timeout. A one-off security time-delay lockout is also ridden out here (wait +
+            // retry once). Query<T> resends just once; allow a little more margin here, but not so
+            // much that a genuinely dead bus takes a long time to report failure.
+            const int MaxSeedRequests = 3;
+            for (int sendAttempt = 1; (sendAttempt <= MaxSeedRequests) && !seedReceived; sendAttempt++)
             {
-                Message seedResponse = await this.device.ReceiveMessage();
-                if (seedResponse == null)
+                if (!await this.TrySendMessage(seedRequest, "seed request"))
                 {
-                    this.logger.AddDebugMessage("No response to seed request.");
+                    logger.AddUserMessage("Unable to send seed request.");
                     return false;
                 }
 
-                if (this.protocol.IsUnlocked(seedResponse.GetBytes()))
+                bool lockoutDetected = false;
+                int timeouts = 0;
+
+                // Read up to 50 times (just to avoid looping forever) but only tolerate
+                // MaxReceiveAttempts timeouts before resending the request.
+                for (int receiveAttempt = 1; receiveAttempt <= 50; receiveAttempt++)
                 {
-                    this.logger.AddUserMessage("PCM is already unlocked");
-                    if (UserDefinedKey >= 0)
+                    Message seedResponse = await this.device.ReceiveMessage();
+                    if (seedResponse == null)
                     {
-                        this.logger.AddUserMessage("Continuing unlock process with user defined key");
+                        timeouts++;
+                        if (timeouts >= MaxReceiveAttempts)
+                        {
+                            logger.AddDebugMessage(
+                                $"No response to seed request. Attempt #{receiveAttempt}, Timeout #{timeouts}.");
+                            break;
+                        }
+
+                        // Keep the PCM awake and listen again rather than giving up.
+                        await this.notifier.ForceNotify();
+                        continue;
                     }
-                    else
+
+                    byte[] seedBytes = seedResponse.GetBytes();
+
+                    // 67 01 37 means the PCM is enforcing a security time delay (lockout) - NOT
+                    // "already unlocked". A genuinely unlocked PCM returns seed 0x0000, which is
+                    // handled below. Treating the lockout as "unlocked" (as the legacy IsUnlocked
+                    // did) would falsely report success while security was never granted.
+                    if (this.protocol.IsSecurityDelayActive(seedBytes))
                     {
-                        return true;
+                        lockoutDetected = true;
+                        break;
                     }
+
+                    logger.AddDebugMessage("Parsing seed value.");
+                    Response<UInt16> seedValueResponse = this.protocol.ParseSeed(seedBytes);
+                    if (seedValueResponse.Status == ResponseStatus.Success)
+                    {
+                        seedValue = seedValueResponse.Value;
+                        seedReceived = true;
+                        break;
+                    }
+
+                    logger.AddDebugMessage("Unable to parse seed response. Attempt #" + receiveAttempt.ToString());
                 }
 
-                this.logger.AddDebugMessage("Parsing seed value.");
-                Response<UInt16> seedValueResponse = this.protocol.ParseSeed(seedResponse.GetBytes());
-                if (seedValueResponse.Status == ResponseStatus.Success)
+                if (seedReceived)
                 {
-                    seedValue = seedValueResponse.Value;
-                    seedReceived = true;
                     break;
                 }
 
-                this.logger.AddDebugMessage("Unable to parse seed response. Attempt #" + attempt.ToString());
+                if (lockoutDetected)
+                {
+                    if (lockoutRetried)
+                    {
+                        logger.AddUserMessage("PCM is still in a security time-delay lockout; unable to unlock.");
+                        return false;
+                    }
+
+                    // Normal: the PCM rate-limits security access and is counting down a forced delay.
+                    // Wait it out and re-request the seed once so the unlock can still succeed. (Note:
+                    // probing security during the power-on lockout can leave some PCMs refusing the
+                    // kernel upload for the rest of the power cycle - that case is handled where the
+                    // upload-permission request is rejected, not here.) Don't charge this against the
+                    // send-attempt budget.
+                    lockoutRetried = true;
+                    sendAttempt--;
+                    logger.AddUserMessage("PCM is in a security time-delay lockout. Waiting to retry.");
+                    await Task.Delay(SecurityDelayLockout);
+                }
+
+                // No usable seed this round; clear anything stale and let the loop resend.
+                this.device.ClearMessageQueue();
             }
 
             if (!seedReceived)
             {
-                this.logger.AddUserMessage("No seed reponse received, unable to unlock PCM.");
+                logger.AddUserMessage("No seed reponse received, unable to unlock PCM.");
                 return false;
             }
 
             // If the seed is a common occurance of corrupted security data, and the user is not attempting to use a custom key, provide a useful suggestion
             if (((seedValue == 0x0000) || (seedValue == 0xFFFF)) && (UserDefinedKey == -1))
             {
-                this.logger.AddUserMessage($"***NOTICE**** Seed is 0x{seedValue.ToString("X4")}, if this process fails, try setting a user defined key of 0x{seedValue.ToString("X4")}");
+                logger.AddUserMessage($"***NOTICE**** Seed is 0x{seedValue.ToString("X4")}, if this process fails, try setting a user defined key of 0x{seedValue.ToString("X4")}");
             }
 
             // if we have a user defined key the user might be trying to recover from a corrupted param block
             // so we still let it though
             if ((seedValue == 0x0000) && (UserDefinedKey == -1))
             {
-                this.logger.AddUserMessage("PCM Unlock not required");
+                logger.AddUserMessage("PCM Unlock not required");
                 return true;
             }
 
@@ -366,15 +435,15 @@ namespace PcmHacking
             }
             else
             {
-                this.logger.AddUserMessage($"User Defined Key: 0x{UserDefinedKey.ToString("X4")}");
+                logger.AddUserMessage($"User Defined Key: 0x{UserDefinedKey.ToString("X4")}");
                 key = (UInt16)UserDefinedKey;
             }
 
-            this.logger.AddDebugMessage("Sending unlock request (" + seedValue.ToString("X4") + ", " + key.ToString("X4") + ")");
+            logger.AddDebugMessage("Sending unlock request (" + seedValue.ToString("X4") + ", " + key.ToString("X4") + ")");
             Message unlockRequest = this.protocol.CreateUnlockRequest(key);
             if (!await this.TrySendMessage(unlockRequest, "unlock request"))
             {
-                this.logger.AddDebugMessage("Unable to send unlock request.");
+                logger.AddDebugMessage("Unable to send unlock request.");
                 return false;
             }
 
@@ -383,7 +452,7 @@ namespace PcmHacking
                 Message unlockResponse = await this.device.ReceiveMessage();
                 if (unlockResponse == null)
                 {
-                    this.logger.AddDebugMessage("No response to unlock request. Attempt #" + attempt.ToString());
+                    logger.AddDebugMessage("No response to unlock request. Attempt #" + attempt.ToString());
                     continue;
                 }
 
@@ -393,7 +462,7 @@ namespace PcmHacking
                     return result.Value;
                 }
 
-                this.logger.AddUserMessage(errorMessage);
+                logger.AddUserMessage(errorMessage);
 
                 byte[] unlockBytes = unlockResponse.GetBytes();
                 bool TerminalFailure =
@@ -408,7 +477,7 @@ namespace PcmHacking
                 }
             }
 
-            this.logger.AddUserMessage("Unable to process unlock response.");
+            logger.AddUserMessage("Unable to process unlock response.");
             return false;
         }
 
@@ -424,7 +493,7 @@ namespace PcmHacking
                     return true;
                 }
 
-                this.logger.AddDebugMessage("Unable to send " + description + " message. Attempt #" + attempt.ToString());
+                logger.AddDebugMessage("Unable to send " + description + " message. Attempt #" + attempt.ToString());
             }
 
             return false;
@@ -433,9 +502,9 @@ namespace PcmHacking
         /// <summary>
         /// Wait for an incoming message.
         /// </summary>
-        private async Task<Message> ReceiveMessage(CancellationToken cancellationToken)
+        private async Task<Message?> ReceiveMessage(CancellationToken cancellationToken)
         {
-            Message response = null;
+            Message? response = null;
 
             for (int pause = 0; pause < 3; pause++)
             {
@@ -447,7 +516,7 @@ namespace PcmHacking
                 response = await this.device.ReceiveMessage();
                 if (response == null)
                 {
-                    this.logger.AddDebugMessage("No response to read request yet.");
+                    logger.AddDebugMessage("No response to read request yet.");
                     await Task.Delay(10);
                     continue;
                 }
@@ -480,11 +549,11 @@ namespace PcmHacking
                 Response<bool> response = filter(message);
                 if ((response.Status != ResponseStatus.Success) && (response.Status != ResponseStatus.Refused))
                 {
-                    this.logger.AddDebugMessage("Ignoring message: " + response.Status + "  " + message.ToString());
+                    logger.AddDebugMessage("Ignoring message: " + response.Status + "  " + message.ToString());
                     continue;
                 }
 
-                this.logger.AddDebugMessage("Found response, " + response.Status);
+                logger.AddDebugMessage("Found response, " + response.Status);
                 return response.Value;
             }
 
@@ -503,7 +572,7 @@ namespace PcmHacking
 
             if (!await this.device.SendMessage(message))
             {
-                this.logger.AddDebugMessage("Unable to send read request.");
+                logger.AddDebugMessage("Unable to send read request.");
                 return Response.Create<byte[]>(ResponseStatus.Error, new byte[0]);
             }
 
@@ -518,11 +587,11 @@ namespace PcmHacking
                 Message payloadMessage = await this.device.ReceiveMessage();
                 if (payloadMessage == null)
                 {
-                    this.logger.AddDebugMessage("No payload following read request.");
+                    logger.AddDebugMessage("No payload following read request.");
                     continue;
                 }
 
-                this.logger.AddDebugMessage("Processing message");
+                logger.AddDebugMessage("Processing message");
 
                 Response<byte[]> payloadResponse = messageParser(payloadMessage);
                 if (payloadResponse.Status == ResponseStatus.Success)
@@ -531,7 +600,7 @@ namespace PcmHacking
                 }
 
                 lastStatus = payloadResponse.Status;
-                this.logger.AddDebugMessage("Unable to process response: " + lastStatus + " " + payloadMessage.ToString());
+                logger.AddDebugMessage("Unable to process response: " + lastStatus + " " + payloadMessage.ToString());
             }
 
             return Response.Create<byte[]>(lastStatus, new byte[0]);
@@ -542,7 +611,7 @@ namespace PcmHacking
             Message request = this.protocol.CreateCrankRelearnRequest();
             if (!await this.TrySendMessage(request, "Crank relearn request"))
             {
-                this.logger.AddDebugMessage("Unable to send crank relearn request.");
+                logger.AddDebugMessage("Unable to send crank relearn request.");
                 return Response.Create(ResponseStatus.Error, 0);
             }
 

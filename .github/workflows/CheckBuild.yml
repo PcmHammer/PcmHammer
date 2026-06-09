@@ -39,56 +39,100 @@ jobs:
     - name: Build C Kernels
       run: |
         cd Kernels
+        mkdir -p build
+        BUILD_STEP_START=$(date +%s)
+        verify_bin() {
+          local file="$1"
+          if [ ! -f "$file" ]; then
+            echo "ERROR: $file was not created"
+            exit 1
+          fi
+          local hash mtime
+          hash=$(sha1sum "$file" | awk '{print $1}')
+          mtime=$(stat -c %Y "$file")
+          if [ "$mtime" -ge "$BUILD_STEP_START" ]; then
+            printf "%s  sha1:%s  OK\n" "$file" "$hash"
+          else
+            echo "ERROR: $file is stale (mtime=$mtime < start=$BUILD_STEP_START)"
+            exit 1
+          fi
+        }
         #
         # The following loop is the one location that needs to be updated when adding a new C kernel.
+        # Add entries as: "PCM ADDRESS" - e.g. "P12 FF2000"
+        # Empty list is intentional - all targets currently use the Assembly kernel build below.
         #
-        for p in "P12 FF2000"; do
+        for p in; do
           pcm=${p%% *}
           address=${p##* }
 
-          echo Building Kernel ":    ${pcm}"
+          echo "Building Kernel :    ${pcm}"
           make -f makefile PREFIX=/usr/bin/m68k-linux-gnu- pcm=${pcm} address=${address}
-          echo "    Copy-Item Kernel-${pcm}.bin to TemporaryArtifactStorage"
-          cp Kernel-${pcm}.bin ../TemporaryArtifactStorage/
+          verify_bin "build/Kernel-${pcm}.bin"
+          echo "    Copy-Item build/Kernel-${pcm}.bin to TemporaryArtifactStorage"
+          cp build/Kernel-${pcm}.bin ../TemporaryArtifactStorage/
           echo "    Cleanup after Kernel-${pcm}"
           echo
-          make clean
+          make -f makefile pcm=${pcm} clean
         done
 
     - name: Build Assembly Kernels and Loaders
       run: |
         cd Kernels
+        mkdir -p build
+        BUILD_STEP_START=$(date +%s)
+        verify_bin() {
+          local file="$1"
+          if [ ! -f "$file" ]; then
+            echo "ERROR: $file was not created"
+            exit 1
+          fi
+          local hash mtime
+          hash=$(sha1sum "$file" | awk '{print $1}')
+          mtime=$(stat -c %Y "$file")
+          if [ "$mtime" -ge "$BUILD_STEP_START" ]; then
+            printf "%s  sha1:%s  OK\n" "$file" "$hash"
+          else
+            echo "ERROR: $file is stale (mtime=$mtime < start=$BUILD_STEP_START)"
+            exit 1
+          fi
+        }
         #
-        # Each group is required to have 3 elements in the following order
+        # Each group is required to have 4 elements in the following order:
         # 1: PCM Moniker (P01 (includes P59), P04, P08, etc...)
         # 2: Kernel Base Address
         # 3: Loader Base Address or NOLOADER if a loader is not used.
+        # 4: Source directory (68k-VPW-Asm for standard, 68k-VPW-Asm-P04 for P04)
         #
-        for p in "P01 FF8000 NOLOADER" "P04 FF8000 FF9890" "P04_Early FF8000 NOLOADER" "P05 FFC100 NOLOADER" "P08 FFAC00 NOLOADER" "P10 FFB800 NOLOADER" "P11 FFC000 NOLOADER" "E54 FF9100 NOLOADER" "BlackBox FFC300 NOLOADER"; do
+        for p in "P01 FF8000 NOLOADER 68k-VPW-Asm" "P04 FF8000 FF9890 68k-VPW-Asm-P04" "P04_Early FF8000 NOLOADER 68k-VPW-Asm" "P05 FFC100 NOLOADER 68k-VPW-Asm" "P08 FFABE0 NOLOADER 68k-VPW-Asm" "P10 FFB800 NOLOADER 68k-VPW-Asm" "P11 FFC000 NOLOADER 68k-VPW-Asm" "P12 FF2000 NOLOADER 68k-VPW-Asm" "E54 FF9100 NOLOADER 68k-VPW-Asm" "BlackBox FFC300 NOLOADER 68k-VPW-Asm"; do
           pcm="${p%% *}";
           p="${p#* }"
           address="${p%% *}"
           p="${p#* }"
           loader="${p%% *}"
+          p="${p#* }"
+          srcdir="${p%% *}"
 
-          echo "Building Kernel :    ${pcm}"
-          make -f makefile-assembly PREFIX=/usr/bin/m68k-linux-gnu- pcm=${pcm} address=${address}
-          echo "    Copy-Item Kernel-${pcm}.bin to TemporaryArtifactStorage"
-          cp Kernel-${pcm}.bin ../TemporaryArtifactStorage/
+          echo "Building Kernel :    ${pcm} (srcdir=${srcdir})"
+          make -f makefile-assembly PREFIX=/usr/bin/m68k-linux-gnu- pcm=${pcm} address=${address} srcdir=${srcdir}
+          verify_bin "build/Kernel-${pcm}.bin"
+          echo "    Copy-Item build/Kernel-${pcm}.bin to TemporaryArtifactStorage"
+          cp build/Kernel-${pcm}.bin ../TemporaryArtifactStorage/
           echo "    Cleanup after Kernel-${pcm}"
           echo
-          make -f makefile-assembly clean
+          make -f makefile-assembly pcm=${pcm} srcdir=${srcdir} clean
           #
           # Build the Loader if requested
           #
           if [ ${loader} != NOLOADER ]; then
-            echo "Building Loader :    ${pcm}"
-            make -f makefile-assembly PREFIX=/usr/bin/m68k-linux-gnu- pcm=${pcm} address=${loader} name=Loader
-            echo "    Copy-Item Loader-${pcm}.bin to TemporaryArtifactStorage"
-            cp Loader-${pcm}.bin ../TemporaryArtifactStorage/
+            echo "Building Loader :    ${pcm} (srcdir=${srcdir})"
+            make -f makefile-assembly PREFIX=/usr/bin/m68k-linux-gnu- pcm=${pcm} address=${loader} name=Loader srcdir=${srcdir}
+            verify_bin "build/Loader-${pcm}.bin"
+            echo "    Copy-Item build/Loader-${pcm}.bin to TemporaryArtifactStorage"
+            cp build/Loader-${pcm}.bin ../TemporaryArtifactStorage/
             echo "    Cleanup after Loader-${pcm}"
             echo
-            make -f makefile-assembly clean
+            make -f makefile-assembly pcm=${pcm} name=Loader srcdir=${srcdir} clean
           fi
         done
 
@@ -100,11 +144,11 @@ jobs:
 
   Applications:
     needs: Kernels
-    runs-on: windows-2025
+    runs-on: windows-2025-vs2026
 
     env:
       # Declared here so the linter knows these variables are valid; the empty
-      # defaults are never used — the "Read app versions" step overwrites them
+      # defaults are never used - the "Read app versions" step overwrites them
       # at runtime via $GITHUB_ENV before the upload steps reference them.
       WINFORMS_ARTIFACT_SUFFIX: ''
       UNO_ARTIFACT_SUFFIX: ''
@@ -213,7 +257,6 @@ jobs:
         -c Release
         -f net10.0-android
         -p:AndroidPackageFormat=apk
-        -p:AndroidFastDeploymentType=None
         -p:EmbedAssembliesIntoApk=true
 
     - name: Read app versions
@@ -393,26 +436,61 @@ jobs:
         New-Item -ItemType Directory -Force -Path TemporaryArtifactStorage/CLI | Out-Null
         Copy-Item -Path $cliExe.FullName -Destination "TemporaryArtifactStorage/CLI" -Force
 
-    - name: Upload WinForms artifact
-      uses: actions/upload-artifact@v7
-      with:
-        name: PCMHammer_WinForms_${{ env.WINFORMS_ARTIFACT_SUFFIX }}_${{ github.sha }}
-        path: TemporaryArtifactStorage/WinForms
+    # --- Package the WinForms apps into the installer + portable, in this same job, so
+    #     no redundant intermediate (raw WinForms/CLI) artifacts are published. ---
+    - name: Compute package version token
+      shell: pwsh
+      run: |
+        $assemblyInfo = Get-Content "Apps/UI/WindowsForms/PcmHammer/Properties/AssemblyInfo.cs" -Raw
+        $winFormsVersion = ([regex]::Match($assemblyInfo, 'AssemblyFileVersion\("([^"]+)"\)')).Groups[1].Value
+        $isReleaseTag = "${{ startsWith(github.ref, 'refs/tags/') }}" -eq "true"
+        $stamp = [DateTime]::UtcNow.ToString("yyyyMMdd_HHmmss")
+        if ($isReleaseTag -and -not [string]::IsNullOrWhiteSpace($winFormsVersion) -and $winFormsVersion -ne "0.0.0.0") {
+          $token = $winFormsVersion          # release: PCMHammer_x.x.x.x_*
+          $appVersion = $winFormsVersion
+        } else {
+          $token = $stamp                    # development: PCMHammer_YYYYMMDD_HHMMSS_*
+          $appVersion = "0.0.0"
+        }
+        "PACKAGE_TOKEN=$token"            | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        "PACKAGE_APP_VERSION=$appVersion" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
-    - name: Upload Uno Windows artifact
-      uses: actions/upload-artifact@v7
-      with:
-        name: PCMHammer_UnoWindows_${{ env.UNO_ARTIFACT_SUFFIX }}_${{ github.sha }}
-        path: TemporaryArtifactStorage/UnoWindows
+    - name: Install Inno Setup
+      shell: pwsh
+      run: choco install innosetup --no-progress -y
 
-    - name: Upload Uno Android artifact
+    - name: Build installer + portable
+      shell: pwsh
+      run: |
+        $staging = (Resolve-Path "TemporaryArtifactStorage").Path   # has WinForms\ and CLI\ subfolders
+        $dist = Join-Path (Get-Location).Path "dist"
+        & "Apps/installer/build-installer.ps1" `
+          -StagingRoot $staging -Version $env:PACKAGE_APP_VERSION `
+          -SetupName "PCMHammer_$($env:PACKAGE_TOKEN)_Setup" -OutputDir $dist
+        & "Apps/build/Build-Portable.ps1" `
+          -StagingRoot $staging -OutputName "PCMHammer_$($env:PACKAGE_TOKEN)_Portable" -OutputDir $dist
+
+    # GitHub lists run artifacts alphabetically: Portable, Setup, Uno_Android, Uno_Windows.
+    - name: Upload installer artifact
       uses: actions/upload-artifact@v7
       with:
-        name: PCMHammer_UnoAndroid_${{ env.UNO_ARTIFACT_SUFFIX }}_${{ github.sha }}
+        name: PCMHammer_Setup_${{ env.WINFORMS_ARTIFACT_SUFFIX }}_${{ github.sha }}
+        path: dist/PCMHammer_*_Setup.exe
+
+    - name: Upload portable artifact
+      uses: actions/upload-artifact@v7
+      with:
+        name: PCMHammer_Portable_${{ env.WINFORMS_ARTIFACT_SUFFIX }}_${{ github.sha }}
+        path: dist/PCMHammer_*_Portable.zip
+
+    - name: Upload Uno Android artifact (experimental)
+      uses: actions/upload-artifact@v7
+      with:
+        name: PCMHammer_Uno_Android_experimental_${{ env.UNO_ARTIFACT_SUFFIX }}_${{ github.sha }}
         path: TemporaryArtifactStorage/UnoAndroid
 
-    - name: Upload CLI artifact
+    - name: Upload Uno Windows artifact (experimental)
       uses: actions/upload-artifact@v7
       with:
-        name: PCMHammer_CLI_${{ env.CLI_ARTIFACT_SUFFIX }}_${{ github.sha }}
-        path: TemporaryArtifactStorage/CLI
+        name: PCMHammer_Uno_Windows_experimental_${{ env.UNO_ARTIFACT_SUFFIX }}_${{ github.sha }}
+        path: TemporaryArtifactStorage/UnoWindows

@@ -14,7 +14,7 @@ namespace PcmHacking.ECU.Controllers {
             IsSupportedWriteBySegment = false;
             LoaderRequired = false;
             KernelFileName = "Kernel-P08.bin";
-            KernelBaseAddress = 0xFFAC00;
+            KernelBaseAddress = 0xFFABE0;
             LoaderFileName = string.Empty;
             LoaderBaseAddress = 0x0;
             ImageBaseAddress = 0x0;

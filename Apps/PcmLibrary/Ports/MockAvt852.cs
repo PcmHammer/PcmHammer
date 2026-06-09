@@ -17,7 +17,7 @@ namespace PcmHacking
     {
         public const string PortName = "Mock AVT 852";
 
-        private byte[] responseBuffer;
+        private byte[]? responseBuffer;
 
         private int sentSoFar;
 
@@ -57,7 +57,7 @@ namespace PcmHacking
         /// </summary>
         Task IPort.Send(byte[] buffer)
         {
-            this.logger.AddDebugMessage("MockAvt852 received: " + buffer.ToHex());
+            logger.AddDebugMessage("MockAvt852 received: " + buffer.ToHex());
 
             if (Utility.CompareArrays(buffer, AvtDevice.AVT_RESET.GetBytes()))
             {
@@ -89,12 +89,12 @@ namespace PcmHacking
             int sent = 0;
             for (int index = 0; index < count; index++)
             {
-                buffer[offset+index] = this.responseBuffer[this.sentSoFar];
+                buffer[offset+index] = this.responseBuffer![this.sentSoFar];
                 this.sentSoFar++;
                 sent++;
             }
                         
-            this.logger.AddDebugMessage("MockAvt852 sending: " + this.responseBuffer.ToHex());
+            logger.AddDebugMessage("MockAvt852 sending: " + this.responseBuffer!.ToHex());
 
             return Task.FromResult(sent);
         }

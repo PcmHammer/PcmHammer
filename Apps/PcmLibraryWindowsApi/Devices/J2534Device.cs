@@ -28,7 +28,7 @@ namespace PcmHacking
         /// variety of properties used to id channels, fitlers and status
         /// </summary>
         private J2534_Struct J2534Port;
-        public List<ulong> Filters;
+        public List<ulong> Filters = [];
         private int DeviceID;
         private int ChannelID;
         private ProtocolID Protocol;
@@ -76,7 +76,10 @@ namespace PcmHacking
 
         public override string ToString()
         {
-            return "J2534 Device";
+            string deviceName = this.J2534Port.LoadedDevice?.Name;
+            return string.IsNullOrEmpty(deviceName)
+                ? "J2534 Device"
+                : "J2534 " + deviceName;
         }
 
         public override string GetDeviceType()
@@ -235,7 +238,7 @@ namespace PcmHacking
                 await Task.Delay(100);
             }
 
-            return Response.Create(ResponseStatus.Timeout, (Message)null);
+            return Response.Create(ResponseStatus.Timeout, (Message)null!);
         }
 
         /// <summary>

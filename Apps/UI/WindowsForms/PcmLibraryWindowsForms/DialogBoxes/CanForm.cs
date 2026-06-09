@@ -17,7 +17,7 @@ namespace PcmHacking
         private ILogger logger;
         private string defaultPort;
 
-        public SerialPortInfo SelectedPort { get; private set; }
+        public SerialPortInfo? SelectedPort { get; private set; }
 
         public CanForm(ILogger logger, string defaultPort)
         {
@@ -78,7 +78,7 @@ namespace PcmHacking
                 {
                     foreach(object portInfoObject in this.serialPortList.Items)
                     {
-                        SerialPortInfo portInfo = portInfoObject as SerialPortInfo;
+                        SerialPortInfo? portInfo = portInfoObject as SerialPortInfo;
                         if (portInfo == null)
                         {
                             continue;

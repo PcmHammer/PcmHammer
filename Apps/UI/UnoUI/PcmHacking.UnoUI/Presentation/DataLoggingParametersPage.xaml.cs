@@ -336,7 +336,7 @@ public sealed partial class DataLoggingParametersPage : Page
             var metadata = this.parameterMetadata.Find(x => (rowIndex) == x?.Indices?.MainRowIndex);
             if (metadata != null && metadata.DataSource != null)
             {
-                await this.model?.EditParameter(metadata.DataSource);
+                await (this.model?.EditParameter(metadata.DataSource) ?? Task.CompletedTask);
             }
         }
 

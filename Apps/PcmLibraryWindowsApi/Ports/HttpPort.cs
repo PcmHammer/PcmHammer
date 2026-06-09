@@ -90,7 +90,7 @@ namespace PcmHacking
             HttpClient client = new HttpClient();
             Uri requestUri = new Uri(baseUri, "/pcm/send?request=" + buffer.ToHex().Replace(" ", "%20"));
             var response = await client.GetAsync(requestUri);
-            this.logger.AddDebugMessage("HttpPort.Send StatusCode: " + response.StatusCode.ToString());
+            logger.AddDebugMessage("HttpPort.Send StatusCode: " + response.StatusCode.ToString());
         }
 
         /// <summary>
@@ -98,7 +98,7 @@ namespace PcmHacking
         /// </summary>
         async Task<int> IPort.Receive(byte[] buffer, int offset, int count)
         {
-            List<byte> lastBuffer = null;
+            List<byte>? lastBuffer = null;
 
             lock (sync)
             {
@@ -140,7 +140,7 @@ namespace PcmHacking
             HttpClient client = new HttpClient();
             Uri requestUri = new Uri(baseUri, "/pcm/receive");
             var response = await client.GetAsync(requestUri);
-            this.logger.AddDebugMessage("HttpPort.DiscardBuffers StatusCode: " + response.StatusCode.ToString());
+            logger.AddDebugMessage("HttpPort.DiscardBuffers StatusCode: " + response.StatusCode.ToString());
         }
 
         /// <summary>
@@ -196,7 +196,7 @@ namespace PcmHacking
             HttpClient client = new HttpClient();
             Uri requestUri = new Uri(baseUri, "/pcm/receive");
             var response = await client.GetAsync(requestUri);
-            this.logger.AddDebugMessage("HttpPort.Receive StatusCode: " + response.StatusCode.ToString());
+            logger.AddDebugMessage("HttpPort.Receive StatusCode: " + response.StatusCode.ToString());
 
             if (response.StatusCode != HttpStatusCode.OK)
             {
@@ -206,11 +206,11 @@ namespace PcmHacking
             string body = await response.Content.ReadAsStringAsync();
             if (!body.IsHex())
             {
-                this.logger.AddDebugMessage("HttpResponse body is not in hex format.");
+                logger.AddDebugMessage("HttpResponse body is not in hex format.");
                 return;
             }
 
-            this.logger.AddDebugMessage("Response body: " + body);
+            logger.AddDebugMessage("Response body: " + body);
 
             byte[] buffer = body.ToBytes();
 

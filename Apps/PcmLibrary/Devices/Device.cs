@@ -281,7 +281,7 @@ namespace PcmHacking
                 }
                 else
                 {
-                    return null;
+                    return null!;
                 }
             }
         }
