@@ -17,6 +17,13 @@ namespace PcmHacking.DialogBoxes
         private static string lastStart = "0000";
         private static string lastEnd = "FFFF";
         private static bool lastSweepFirst = true;
+        // Remembered Speed selection: "Auto" or a whole-second value (boxed int).
+        private static object lastSpeedSelection = AutoSpeedItem;
+
+        // Dropdown text for the automatic speed (uses the built-in default); all other items are
+        // whole-second values. Labelled "Speed" rather than "Delay" so a value like 2 reads as a
+        // speed setting, not a 2-second timeout.
+        private const string AutoSpeedItem = "Auto";
 
         private readonly Vehicle vehicle;
         private readonly ILogger logger;
@@ -25,6 +32,8 @@ namespace PcmHacking.DialogBoxes
         private readonly TextBox endBox;
         private readonly TextBox currentBox;
         private readonly CheckBox sweepCheckBox;
+        private readonly Label delayLabel;
+        private readonly ComboBox delayComboBox;
         private readonly Label statusLabel;
         private readonly ProgressBar progressBar;
         private readonly Label etaLabel;
@@ -94,6 +103,32 @@ namespace PcmHacking.DialogBoxes
                 Checked = lastSweepFirst
             };
 
+            // Speed: "Auto" (the default, suits every PCM) on top, then explicit whole-second values for
+            // the rare case of hand-tuning a known PCM type. It paces the search, not a literal timeout,
+            // so it is labelled "Speed".
+            this.delayLabel = new Label
+            {
+                Text = "Speed:",
+                Location = new Point(176, 105),
+                AutoSize = true
+            };
+            this.delayComboBox = new ComboBox
+            {
+                Location = new Point(224, 101),
+                Size = new Size(60, 23),
+                DropDownStyle = ComboBoxStyle.DropDownList
+            };
+            this.delayComboBox.Items.Add(AutoSpeedItem);
+            for (int seconds = 1; seconds <= BruteForcer.MaxSecurityDelaySeconds; seconds++)
+            {
+                this.delayComboBox.Items.Add(seconds);
+            }
+            this.delayComboBox.SelectedItem = lastSpeedSelection;
+            if (this.delayComboBox.SelectedIndex < 0)
+            {
+                this.delayComboBox.SelectedItem = AutoSpeedItem;
+            }
+
             this.statusLabel = new Label
             {
                 Text = "Ready.",
@@ -151,6 +186,8 @@ namespace PcmHacking.DialogBoxes
 
             this.Controls.Add(rangeGroup);
             this.Controls.Add(this.sweepCheckBox);
+            this.Controls.Add(this.delayLabel);
+            this.Controls.Add(this.delayComboBox);
             this.Controls.Add(this.statusLabel);
             this.Controls.Add(this.progressBar);
             this.Controls.Add(this.etaLabel);
@@ -233,11 +270,15 @@ namespace PcmHacking.DialogBoxes
             this.endBox.Text = end.Value.ToString("X4");
 
             bool sweepFirst = this.sweepCheckBox.Checked;
+            // "Auto" uses the built-in default; a numeric selection is an explicit speed.
+            object speedSelection = this.delayComboBox.SelectedItem ?? AutoSpeedItem;
+            int delaySeconds = speedSelection is int s ? s : BruteForcer.DefaultSecurityDelaySeconds;
 
             // Remember for the next time the dialog opens this session.
             lastStart = this.startBox.Text;
             lastEnd = this.endBox.Text;
             lastSweepFirst = sweepFirst;
+            lastSpeedSelection = speedSelection;
 
             this.lastKey = (UInt16)start.Value;
             this.lastPhase = sweepFirst ? BruteForcePhase.Sweeping : BruteForcePhase.Trying;
@@ -257,7 +298,7 @@ namespace PcmHacking.DialogBoxes
                     // Task.Run keeps the device I/O (and the awaits inside BruteForce) off the UI
                     // thread; the Progress<T> created above still marshals updates back to the UI.
                     BruteForceResult result = await Task.Run(
-                        () => bruteForcer.BruteForce(start.Value, end.Value, sweepFirst, token));
+                        () => bruteForcer.BruteForce(start.Value, end.Value, sweepFirst, delaySeconds, token));
                     this.OnFinished(result);
                 }
             }
@@ -312,27 +353,15 @@ namespace PcmHacking.DialogBoxes
 
             this.currentBox.Text = p.Key.ToString("X4");
             this.progressBar.Value = Math.Max(0, Math.Min(1000, (int)(p.Fraction * 1000)));
-            // Until the adaptive timing model settles, the fast calibration probes give a wildly
-            // optimistic estimate, so show a placeholder instead of a number that jumps from minutes
-            // to days the moment the first lockout lands.
-            this.etaLabel.Text = !p.TimingCalibrated
-                ? "Max wait: Calibrating timing"
-                : (string.IsNullOrEmpty(p.Eta) ? string.Empty : "Max wait: " + p.Eta);
+            this.etaLabel.Text = string.IsNullOrEmpty(p.Eta) ? string.Empty : "Max wait: " + p.Eta;
 
+            // One progress update per key: show the key under test and start a single countdown sized
+            // to the expected time for that whole key. The brute forcer hides its internal seed/key
+            // retries, so the bar simply re-arms each time we move to a new key.
+            this.statusLabel.Text = (p.Phase == BruteForcePhase.Sweeping ? "Sweeping " : "Trying ") + p.Key.ToString("X4");
             if (p.WaitSeconds > 0)
             {
-                // Entering a security lockout: show the message and start the draining bar.
-                // Round the displayed seconds DOWN: a ~10.1s delay (plus a small safety margin)
-                // reads as "10s", which is calmer and more honest than rounding 10.85 up to 11
-                // over and over through a long, tedious run.
-                this.statusLabel.Text = $"Security lockout - waiting {Math.Floor(p.WaitSeconds)}s...";
                 this.StartCountdown(p.WaitSeconds);
-            }
-            else
-            {
-                // A normal attempt means any previous wait has ended; clear the bar.
-                this.statusLabel.Text = (p.Phase == BruteForcePhase.Sweeping ? "Sweeping " : "Trying ") + p.Key.ToString("X4");
-                this.StopCountdown();
             }
         }
 
@@ -424,6 +453,7 @@ namespace PcmHacking.DialogBoxes
             this.startBox.Enabled = !running;
             this.endBox.Enabled = !running;
             this.sweepCheckBox.Enabled = !running;
+            this.delayComboBox.Enabled = !running;
             // Exit stays enabled; closing while running cancels and waits (see OnFormClosing).
         }
 
