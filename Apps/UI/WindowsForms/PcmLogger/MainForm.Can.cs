@@ -1,4 +1,5 @@
-﻿using PcmHacking;
+﻿// SPDX-License-Identifier: GPL-3.0-only
+using PcmHacking;
 using System;
 using System.Collections.Generic;
 using System.Configuration;
@@ -106,10 +107,10 @@ namespace PcmHacking
                     cell.Items.Add(conversion);
                 }
 
-                Conversion selectedConversion = null;
+                Conversion? selectedConversion = null;
                 try
                 {
-                    SerializableStringDictionary dictionary = Configuration.Settings[CanConversionSettingsKey] as SerializableStringDictionary;
+                    SerializableStringDictionary? dictionary = Configuration.Settings[CanConversionSettingsKey] as SerializableStringDictionary;
                     if (dictionary == null)
                     {
                         dictionary = new SerializableStringDictionary();
@@ -162,17 +163,18 @@ namespace PcmHacking
 
             DataGridViewRow row = this.canParameterGrid.Rows[e.RowIndex];
 
-            CanParameter parameter = row.Cells[CellIndexEnable].Value as CanParameter;
+            CanParameter? parameter = row.Cells[CellIndexEnable].Value as CanParameter;
 
-            DataGridViewComboBoxCell cell = row.Cells[e.ColumnIndex] as DataGridViewComboBoxCell;
-            string conversionName = cell.Value as string;
+            DataGridViewComboBoxCell? cell = row.Cells[e.ColumnIndex] as DataGridViewComboBoxCell;
+            if (cell == null || parameter == null) return;
+            string? conversionName = cell.Value as string;
             foreach (Conversion conversion in parameter.Conversions)
             {
                 if (conversion.Units == conversionName)
                 {
                     parameter.SelectedConversion = conversion;
-                    SerializableStringDictionary dictionary = Configuration.Settings[CanConversionSettingsKey] as SerializableStringDictionary;
-                    dictionary[this.GetSettingsKey(parameter)] = conversion.Units;
+                    SerializableStringDictionary? dictionary = Configuration.Settings[CanConversionSettingsKey] as SerializableStringDictionary;
+                    if (dictionary != null) { dictionary[this.GetSettingsKey(parameter)] = conversion.Units; }
                     Configuration.Settings.Save();
                     this.AddDebugMessage($"Changed CAN parameter ${parameter.Name} units to ${conversion.Units}");
                     break;

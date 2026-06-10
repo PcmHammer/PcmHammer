@@ -1,3 +1,4 @@
+﻿// SPDX-License-Identifier: GPL-3.0-only
 //#define FAST_LOGGING
 
 using System;
@@ -138,13 +139,13 @@ namespace PcmHacking
             // The priority byte changes from 6C to 8C after the first tool-present message is sent.
             if (!TryVerifyInitialBytes(message.GetBytes(), new byte[] { Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, 0x6A }, out unused))
             {
-                rawLogData = null;
+                rawLogData = null!;
                 return false;
             }
 
             if (message.Length < 11)
             {
-                rawLogData = null;
+                rawLogData = null!;
                 return false;
             }
 

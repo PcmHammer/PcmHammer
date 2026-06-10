@@ -1,4 +1,5 @@
-﻿using System;
+﻿// SPDX-License-Identifier: GPL-3.0-only
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
@@ -27,7 +28,7 @@ namespace PcmHacking
 
     partial class MainForm
     {
-        private ConcurrentQueue<Tuple<Logger, LogFileWriter, IEnumerable<string>>> logRowQueue = new ConcurrentQueue<Tuple<Logger, LogFileWriter, IEnumerable<string>>>();
+        private ConcurrentQueue<Tuple<Logger, LogFileWriter?, IEnumerable<string>>> logRowQueue = new ConcurrentQueue<Tuple<Logger, LogFileWriter?, IEnumerable<string>>>();
 
         private AutoResetEvent endWriterThread = new AutoResetEvent(false);
         private AutoResetEvent rowAvailable = new AutoResetEvent(false);
@@ -48,7 +49,7 @@ namespace PcmHacking
 
         private LogState logState = LogState.Nothing;
 
-        CanLogger canLogger;
+        CanLogger canLogger = null!;
 
         /// <summary>
         /// Create a string that will look reasonable in the UI's main text box, and
@@ -148,7 +149,7 @@ namespace PcmHacking
             }
             else
             {
-                await this.canLogger.SetPort(new StandardPort(canPortName));
+                await this.canLogger.SetPort(new StandardPort(this.canPortName!));
 
             }
 
@@ -174,7 +175,7 @@ namespace PcmHacking
             return new Tuple<LogFileWriter, StreamWriter>(logFileWriter, streamWriter);
         }
 
-        private void StopSaving(ref StreamWriter streamWriter)
+        private void StopSaving(ref StreamWriter? streamWriter)
         {
             if (streamWriter != null)
             {
@@ -183,9 +184,9 @@ namespace PcmHacking
             }
         }
 
-        private async Task ProcessRow(Logger logger, LogFileWriter logFileWriter)
+        private async Task ProcessRow(Logger logger, LogFileWriter? logFileWriter)
         {
-            IEnumerable<string> rowValues = await logger.GetNextRow();
+            IEnumerable<string>? rowValues = await logger.GetNextRow();
             if (rowValues != null)
             {
                 this.loggerProgress.Invoke(
@@ -197,7 +198,7 @@ namespace PcmHacking
 
                 // Hand this data off to be written to disk and displayed in the UI.
                 this.logRowQueue.Enqueue(
-                    new Tuple<Logger, LogFileWriter, IEnumerable<string>>(
+                    new Tuple<Logger, LogFileWriter?, IEnumerable<string>>(
                         logger,
                         logFileWriter,
                         rowValues));
@@ -226,12 +227,12 @@ namespace PcmHacking
                     }
 #endif
 
-                    StreamWriter streamWriter = null;
+                    StreamWriter? streamWriter = null;
                     try
                     {
-                        LogProfile lastProfile = null;
-                        Logger logger = null;
-                        LogFileWriter logFileWriter = null;
+                        LogProfile? lastProfile = null;
+                        Logger? logger = null;
+                        LogFileWriter? logFileWriter = null;
 
                         while (!this.logStopRequested)
                         {
@@ -258,7 +259,7 @@ namespace PcmHacking
                                     }
                                     else
                                     {
-                                        Exception exception = null;
+                                        Exception? exception = null;
 
                                         try
                                         {
@@ -446,7 +447,7 @@ namespace PcmHacking
                         return;
                     }
 
-                    Tuple<Logger, LogFileWriter, IEnumerable<string>> row;
+                    Tuple<Logger, LogFileWriter?, IEnumerable<string>> row;
                     if (logRowQueue.TryDequeue(out row))
                     {
                         if (row.Item2 != null)

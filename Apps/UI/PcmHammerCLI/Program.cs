@@ -1,0 +1,577 @@
+// SPDX-License-Identifier: GPL-3.0-only
+using PcmHacking.ECU;
+using System;
+using System.IO;
+using System.IO.Ports;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace PcmHacking
+{
+    class Program
+    {
+        static ControllerPageObjects pageObjects;
+        static Vehicle? activeVehicle;
+        static bool operationInProgress;
+
+        static int Main(string[] args)
+        {
+            AppDomain.CurrentDomain.ProcessExit += (s, e) => activeVehicle?.Dispose();
+            return RunAsync(args).GetAwaiter().GetResult();
+        }
+
+        static async Task<int> RunAsync(string[] args)
+        {
+            if (args.Length == 0 || args.Any(a => a == "--help" || a == "/?"))
+            {
+                PrintHelp();
+                return args.Length == 0 ? 1 : 0;
+            }
+
+            string? operation = null;
+            string? filePath = null;
+            string? deviceSpec = null;
+            string? kernelDirArg = null;
+            bool listDevices = false;
+            bool debug = false;
+
+            for (int i = 0; i < args.Length; i++)
+            {
+                switch (args[i].ToLowerInvariant())
+                {
+                    case "--read":
+                        operation = "read";
+                        if (i + 1 < args.Length && !args[i + 1].StartsWith("-")) filePath = args[++i];
+                        break;
+                    case "--write":
+                        operation = "write";
+                        if (i + 1 < args.Length && !args[i + 1].StartsWith("-")) filePath = args[++i];
+                        break;
+                    case "--test-write":
+                        operation = "test-write";
+                        if (i + 1 < args.Length && !args[i + 1].StartsWith("-")) filePath = args[++i];
+                        break;
+                    case "--verify":
+                        operation = "verify";
+                        if (i + 1 < args.Length && !args[i + 1].StartsWith("-")) filePath = args[++i];
+                        break;
+                    case "--test-read":
+                        operation = "test-read";
+                        break;
+                    case "--get-properties":
+                        operation = "get-properties";
+                        break;
+                    case "--device":
+                        if (i + 1 < args.Length) deviceSpec = args[++i];
+                        break;
+                    case "--kernel-dir":
+                        if (i + 1 < args.Length) kernelDirArg = args[++i];
+                        break;
+                    case "--list-devices":
+                        listDevices = true;
+                        break;
+                    case "--debug":
+                        debug = true;
+                        break;
+                    case "--help":
+                    case "/?":
+                        PrintHelp();
+                        return 0;
+                }
+            }
+
+            var logger = new ConsoleLogger(debug);
+
+            if (listDevices)
+            {
+                ListDevices(logger);
+                return 0;
+            }
+
+            if (operation == null)
+            {
+                Console.Error.WriteLine("Error: No operation specified.");
+                PrintHelp();
+                return 1;
+            }
+
+            if (filePath == null && operation != "read" && operation != "test-read" && operation != "get-properties")
+            {
+                Console.Error.WriteLine($"Error: No file path specified for --{operation}.");
+                return 1;
+            }
+
+            string? kernelDir = ResolveKernelDir(kernelDirArg, logger);
+            if (kernelDir == null)
+                return 1;
+
+            Device? device = ResolveDevice(deviceSpec, logger);
+            if (device == null)
+                return 1;
+
+            using (new AwayMode())
+            {
+                Vehicle? vehicle = null;
+                try
+                {
+                    vehicle = await InitializeVehicle(device, logger, kernelDir);
+                    activeVehicle = vehicle;
+
+                    var cts = new CancellationTokenSource();
+                    Console.CancelKeyPress += (s, e) =>
+                    {
+                        e.Cancel = true;
+                        if (operationInProgress)
+                            Console.Error.WriteLine("\nOperation in progress - waiting for clean shutdown. Press Ctrl+C again to force quit.");
+                        else
+                            Console.Error.WriteLine("\nCancellation requested.");
+                        cts.Cancel();
+                    };
+
+                    Func<Action, Task> invoke = (action) => { action(); return Task.CompletedTask; };
+                    Func<string, string, Task> alert = (msg, title) =>
+                    {
+                        logger.AddUserMessage($"[{title}] {msg}");
+                        return Task.CompletedTask;
+                    };
+                    Func<string, string, Task<bool>> promptForYesNo = (msg, title) =>
+                    {
+                        logger.AddUserMessage($"[{title}] {msg}");
+                        logger.AddUserMessage("Auto-proceeding.");
+                        return Task.FromResult(true);
+                    };
+
+                    pageObjects = new ControllerPageObjects
+                    {
+                        Invoke = invoke,
+                        PromptYesOrNo = promptForYesNo,
+                        ShowAlert = alert
+                    };
+
+                    operationInProgress = true;
+                    bool success = false;
+                    switch (operation)
+                    {
+                        case "read":
+                        {
+                            if (filePath == null)
+                            {
+                                filePath = $"pcm_read_{DateTime.Now:yyyyMMdd_HHmmss}.bin";
+                                logger.AddUserMessage("No filename specified, saving to: " + filePath);
+                                }
+                                ECUActionArguments actionArgs = new ECUActionArguments { SelectedAction = ControllerActions.Read };
+                                var controllerManager = new ControllerManager(
+                                        vehicle,
+                                        actionArgs,
+                                        pageObjects,
+                                        cts.Token,
+                                        new Progress<ProgressUpdate>(),
+                                        logger
+                                        );
+                                var result = await controllerManager.BeginAction();
+                                success = result.Value;
+                                if (success)
+                                {
+                                    using FileStream fs = File.Create(filePath);
+                                    actionArgs.ContentStream.CopyTo(fs);
+                                    await fs.FlushAsync();
+                                    actionArgs.ContentStream.Dispose();
+                                }
+                            break;
+                        }
+                        case "test-read":
+                        {
+                                var controllerManager = new ControllerManager(
+                                    vehicle,
+                                    new ECUActionArguments { SelectedAction = ControllerActions.Read },
+                                    pageObjects,
+                                    cts.Token,
+                                    new Progress<ProgressUpdate>(),
+                                    logger
+                                    );
+
+                            var result = await controllerManager.BeginAction();
+                            success = result.Value;
+                            
+                            if (success) logger.AddUserMessage("Test read complete. Data not saved.");
+                            break;
+                        }
+                        case "write":
+                            {
+                                ECUActionArguments actionArgs = new ECUActionArguments { SelectedAction = ControllerActions.Write, WriteType = WriteType.Full };
+                                actionArgs.ContentStream = new();
+                                using FileStream fs = File.OpenRead(filePath);
+                                fs.CopyTo(actionArgs.ContentStream);
+
+                                var controllerManager = new ControllerManager(
+                                        vehicle,
+                                        actionArgs,
+                                        pageObjects,
+                                        cts.Token,
+                                        new Progress<ProgressUpdate>(),
+                                        logger
+                                        );
+                                var result = await controllerManager.BeginAction();
+                                success = result.Value;
+                            break;
+                        }
+                        case "test-write":
+                        {
+                                ECUActionArguments actionArgs = new ECUActionArguments { SelectedAction = ControllerActions.Write, WriteType = WriteType.Test };
+                                actionArgs.ContentStream = new();
+                                using FileStream fs = File.OpenRead(filePath);
+                                fs.CopyTo(actionArgs.ContentStream);
+
+                                var controllerManager = new ControllerManager(
+                                        vehicle,
+                                        actionArgs,
+                                        pageObjects,
+                                        cts.Token,
+                                        new Progress<ProgressUpdate>(),
+                                        logger
+                                        );
+                                var result = await controllerManager.BeginAction();
+                                success = result.Value;
+                            break;
+                        }
+                        case "verify":
+                        {
+                                // CRC-compare the file against the PCM (no erase/write). Triggers the
+                                // kernel's ProcessCRC (mode 3D02) over each range, which is what we
+                                // need to exercise the RX-FIFO-during-CRC behaviour on the bench.
+                                ECUActionArguments actionArgs = new ECUActionArguments { SelectedAction = ControllerActions.Write, WriteType = WriteType.Compare };
+                                actionArgs.ContentStream = new();
+                                using FileStream fs = File.OpenRead(filePath);
+                                fs.CopyTo(actionArgs.ContentStream);
+
+                                var controllerManager = new ControllerManager(
+                                        vehicle,
+                                        actionArgs,
+                                        pageObjects,
+                                        cts.Token,
+                                        new Progress<ProgressUpdate>(),
+                                        logger
+                                        );
+                                var result = await controllerManager.BeginAction();
+                                success = result.Value; break;
+                        }
+                        case "get-properties":
+                        {
+                            success = await GetProperties(vehicle, logger, cts.Token);
+                            break;
+                        }
+                    }
+
+                    operationInProgress = false;
+                    return success ? 0 : 1;
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine("Fatal error: " + ex.Message);
+                    if (debug)
+                        Console.Error.WriteLine(ex.ToString());
+                    return 1;
+                }
+                finally
+                {
+                    operationInProgress = false;
+                    activeVehicle = null;
+                    vehicle?.Dispose();
+                }
+            }
+        }
+
+        // Lists all devices with sequential indices shared across both sections.
+        // Indices from this output can be passed directly to --device.
+        static void ListDevices(ILogger logger)
+        {
+            var serialPorts = SerialPort.GetPortNames();
+            var j2534Devices = J2534DeviceFinder.FindInstalledJ2534DLLs(logger);
+            int index = 1;
+
+            Console.WriteLine("Available serial devices:");
+            if (serialPorts.Length == 0)
+                Console.WriteLine("  (none found)");
+            else
+                foreach (var port in serialPorts)
+                    Console.WriteLine($"  [{index++}] {port}");
+
+            Console.WriteLine();
+
+            Console.WriteLine("Available J2534 devices:");
+            if (j2534Devices.Count == 0)
+                Console.WriteLine("  (none found)");
+            else
+                foreach (var d in j2534Devices)
+                    Console.WriteLine($"  [{index++}] {d.Name}");
+        }
+
+        // Resolves --device <spec> to a Device instance.
+        //
+        // Resolution order:
+        //   null          → auto-select when exactly one device is present
+        //   integer       → index from --list-devices output
+        //   COMn          → exact serial port name (case-insensitive)
+        //   anything else → case-insensitive substring match against J2534 device names
+        static Device? ResolveDevice(string? deviceSpec, ILogger logger)
+        {
+            var serialPorts = SerialPort.GetPortNames();
+            var j2534Devices = J2534DeviceFinder.FindInstalledJ2534DLLs(logger);
+
+            if (deviceSpec == null)
+            {
+                int total = serialPorts.Length + j2534Devices.Count;
+                if (total == 0)
+                {
+                    Console.Error.WriteLine("Error: No devices found. Connect a device and try again.");
+                    return null;
+                }
+                if (total > 1)
+                {
+                    Console.Error.WriteLine("Error: Multiple devices found. Use --device to select one.");
+                    Console.Error.WriteLine("  Run --list-devices to see available options.");
+                    return null;
+                }
+                if (serialPorts.Length == 1)
+                {
+                    logger.AddUserMessage("Auto-selected: " + serialPorts[0]);
+                    return DeviceFactory.AutoDetectSerialDevice(serialPorts[0], logger).GetAwaiter().GetResult();
+                }
+                logger.AddUserMessage("Auto-selected: " + j2534Devices[0].Name);
+                return DeviceFactory.CreateJ2534Device(j2534Devices[0].Name, logger);
+            }
+
+            // Integer index into the combined --list-devices list
+            if (int.TryParse(deviceSpec, out int index) && index >= 1)
+            {
+                if (index <= serialPorts.Length)
+                {
+                    string port = serialPorts[index - 1];
+                    logger.AddUserMessage($"Selected [{index}] {port}");
+                    return DeviceFactory.AutoDetectSerialDevice(port, logger).GetAwaiter().GetResult();
+                }
+                int j2534Index = index - serialPorts.Length - 1;
+                if (j2534Index < j2534Devices.Count)
+                {
+                    string name = j2534Devices[j2534Index].Name;
+                    logger.AddUserMessage($"Selected [{index}] {name}");
+                    return DeviceFactory.CreateJ2534Device(name, logger);
+                }
+                Console.Error.WriteLine($"Error: Index {index} is out of range. Run --list-devices to see options.");
+                return null;
+            }
+
+            // Serial port - exact name match (case-insensitive)
+            if (deviceSpec.StartsWith("COM", StringComparison.OrdinalIgnoreCase))
+                return DeviceFactory.AutoDetectSerialDevice(deviceSpec, logger).GetAwaiter().GetResult();
+
+            // J2534 - case-insensitive substring match
+            var matches = j2534Devices
+                .Where(d => d.Name.IndexOf(deviceSpec, StringComparison.OrdinalIgnoreCase) >= 0)
+                .ToList();
+
+            if (matches.Count == 1)
+            {
+                logger.AddUserMessage("Selected: " + matches[0].Name);
+                return DeviceFactory.CreateJ2534Device(matches[0].Name, logger);
+            }
+
+            if (matches.Count > 1)
+            {
+                Console.Error.WriteLine($"Error: \"{deviceSpec}\" matches multiple devices:");
+                foreach (var m in matches)
+                    Console.Error.WriteLine("  " + m.Name);
+                Console.Error.WriteLine("Use a more specific name, or run --list-devices and pick by index.");
+                return null;
+            }
+
+            Console.Error.WriteLine($"Error: No device matching \"{deviceSpec}\" found. Run --list-devices to see options.");
+            return null;
+        }
+
+        // Mirrors the WinForms "Read Properties" button: queries VIN, OSID, calibration,
+        // hardware ID, serial number, BCC, MEC, and voltage. Conditional queries follow
+        // the same hardware-type rules as the WinForms implementation.
+        static async Task<bool> GetProperties(Vehicle vehicle, ILogger logger, CancellationToken token)
+        {
+            OSIDInfo? pcmInfo = null;
+
+            var vinResponse = await vehicle.QueryVin();
+            if (vinResponse.Status != ResponseStatus.Success)
+            {
+                logger.AddUserMessage("VIN query failed: " + vinResponse.Status);
+                return false;
+            }
+            logger.AddUserMessage("VIN: " + vinResponse.Value);
+
+            var osResponse = await vehicle.QueryOperatingSystemId(token);
+            if (osResponse.Status == ResponseStatus.Success)
+            {
+                logger.AddUserMessage("OSID: " + osResponse.Value);
+                pcmInfo = new OSIDInfo(osResponse.Value);
+                logger.AddUserMessage("Description: " + pcmInfo.Description);
+            }
+            else
+            {
+                logger.AddUserMessage("OS ID query failed: " + osResponse.Status);
+            }
+
+            if (pcmInfo != null && pcmInfo.HardwareType != PcmTypeOld.BlackBox)
+            {
+                var calResponse = await vehicle.QueryCalibrationId();
+                if (calResponse.Status == ResponseStatus.Success)
+                    logger.AddUserMessage("Calibration ID: " + calResponse.Value);
+                else
+                    logger.AddUserMessage("Calibration ID query failed: " + calResponse.Status);
+            }
+
+            if (pcmInfo != null &&
+                pcmInfo.HardwareType != PcmTypeOld.P05 &&
+                pcmInfo.HardwareType != PcmTypeOld.P05b &&
+                pcmInfo.HardwareType != PcmTypeOld.P10 &&
+                pcmInfo.HardwareType != PcmTypeOld.P12 &&
+                pcmInfo.HardwareType != PcmTypeOld.E54)
+            {
+                var hwResponse = await vehicle.QueryHardwareId();
+                if (hwResponse.Status == ResponseStatus.Success)
+                    logger.AddUserMessage("Hardware ID: " + hwResponse.Value);
+                else
+                    logger.AddUserMessage("Hardware ID query failed: " + hwResponse.Status);
+            }
+
+            if (pcmInfo != null && pcmInfo.HardwareType != PcmTypeOld.BlackBox)
+            {
+                var serialResponse = await vehicle.QuerySerial();
+                if (serialResponse.Status == ResponseStatus.Success)
+                    logger.AddUserMessage("Serial Number: " + serialResponse.Value);
+                else
+                    logger.AddUserMessage("Serial Number query failed: " + serialResponse.Status);
+            }
+
+            if (pcmInfo != null &&
+                pcmInfo.HardwareType != PcmTypeOld.P04 &&
+                pcmInfo.HardwareType != PcmTypeOld.P04_Early &&
+                pcmInfo.HardwareType != PcmTypeOld.P08)
+            {
+                var bccResponse = await vehicle.QueryBCC();
+                if (bccResponse.Status == ResponseStatus.Success)
+                    logger.AddUserMessage("Broad Cast Code: " + bccResponse.Value);
+                else
+                    logger.AddUserMessage("BCC query failed: " + bccResponse.Status);
+            }
+
+            var mecResponse = await vehicle.QueryMEC();
+            if (mecResponse.Status == ResponseStatus.Success)
+                logger.AddUserMessage("MEC: " + mecResponse.Value);
+            else
+                logger.AddUserMessage("MEC query failed: " + mecResponse.Status);
+
+            var voltageResponse = await vehicle.QueryVoltage();
+            if (voltageResponse.Status == ResponseStatus.Success)
+                logger.AddUserMessage("Voltage: " + voltageResponse.Value);
+            else
+                logger.AddUserMessage("Voltage query failed: " + voltageResponse.Status);
+
+            return true;
+        }
+
+        // Resolves the directory the kernel/loader .bin files are loaded from.
+        // Kernels are external (not embedded): use --kernel-dir if given, otherwise the
+        // current working directory. Returns null (with an error printed) if an explicit
+        // --kernel-dir does not exist.
+        static string? ResolveKernelDir(string? kernelDirArg, ILogger logger)
+        {
+            string dir = string.IsNullOrWhiteSpace(kernelDirArg)
+                ? Directory.GetCurrentDirectory()
+                : Path.GetFullPath(kernelDirArg);
+
+            if (!Directory.Exists(dir))
+            {
+                Console.Error.WriteLine($"Error: Kernel directory not found: {dir}");
+                return null;
+            }
+
+            logger.AddDebugMessage("Using kernel directory: " + dir);
+
+            if (Directory.GetFiles(dir, "*.bin").Length == 0)
+            {
+                logger.AddUserMessage(
+                    $"Warning: no .bin kernel files found in {dir}. " +
+                    "Place the Kernel-*.bin / Loader-*.bin files there or pass --kernel-dir <path>.");
+            }
+
+            return dir;
+        }
+
+        static async Task<Vehicle> InitializeVehicle(Device device, ILogger logger, string kernelDir)
+        {
+            Protocol protocol = new Protocol();
+            var vehicle = new Vehicle(
+                device,
+                protocol,
+                logger,
+                new ToolPresentNotifier(device, protocol, logger),
+                kernelDir);
+
+            logger.AddUserMessage("PCM Hammer CLI");
+            logger.AddUserMessage(AppInfo.GetVersionOrBuildLine(Generated.BuildTime));
+            logger.AddUserMessage(AppInfo.GetRunningAtMessage());
+            logger.AddUserMessage(AppInfo.CopyrightNotice);
+            logger.AddUserMessage("Initializing device: " + vehicle.DeviceDescription);
+
+            Task<bool> initTask = vehicle.ResetConnection();
+            bool completed = await initTask.AwaitWithTimeout(TimeSpan.FromSeconds(10));
+            if (!completed)
+            {
+                vehicle.Dispose();
+                throw new TimeoutException("Timeout initializing " + vehicle.DeviceDescription);
+            }
+            if (!initTask.Result)
+            {
+                vehicle.Dispose();
+                throw new Exception("Unable to initialize " + vehicle.DeviceDescription);
+            }
+
+            vehicle.Enable4xReadWrite = true;
+            logger.AddUserMessage("Device ready: " + vehicle.DeviceDescription);
+            return vehicle;
+        }
+
+        static void PrintHelp()
+        {
+            Console.WriteLine("PCM Hammer CLI");
+            Console.WriteLine();
+            Console.WriteLine("Usage:  pcmhammer-cli.exe <operation> [--device <id>] [--kernel-dir <path>] [--debug]");
+            Console.WriteLine();
+            Console.WriteLine("Operations:");
+            Console.WriteLine("  --read [file]             Read entire PCM to file (auto-names if omitted)");
+            Console.WriteLine("  --test-read               Read entire PCM without saving");
+            Console.WriteLine("  --write <file>            Write entire PCM from file");
+            Console.WriteLine("  --test-write <file>       Test write (no permanent changes)");
+            Console.WriteLine("  --verify <file>           CRC-compare file against PCM (no erase/write)");
+            Console.WriteLine("  --get-properties          Read VIN, OSID, calibration, serial, voltage");
+            Console.WriteLine("  --list-devices            List available serial and J2534 devices with index numbers");
+            Console.WriteLine();
+            Console.WriteLine("Device selection:");
+            Console.WriteLine("  --device <number>         Select by index shown in --list-devices");
+            Console.WriteLine("  --device COM3             Select a serial port by name");
+            Console.WriteLine("  --device OBDX             Select a J2534 device by partial name (case-insensitive)");
+            Console.WriteLine("  (omit --device)           Auto-selects when only one device is connected");
+            Console.WriteLine();
+            Console.WriteLine("Kernels:");
+            Console.WriteLine("  --kernel-dir <path>       Directory holding Kernel-*.bin / Loader-*.bin");
+            Console.WriteLine("  (omit --kernel-dir)       Defaults to the current working directory");
+            Console.WriteLine();
+            Console.WriteLine("Examples:");
+            Console.WriteLine("  pcmhammer-cli.exe --list-devices");
+            Console.WriteLine("  pcmhammer-cli.exe --read");
+            Console.WriteLine("  pcmhammer-cli.exe --read backup.bin --device COM3");
+            Console.WriteLine("  pcmhammer-cli.exe --test-read --device 3");
+            Console.WriteLine("  pcmhammer-cli.exe --write newcal.bin --device OBDX");
+            Console.WriteLine("  pcmhammer-cli.exe --test-write newcal.bin --device Mongoose");
+            Console.WriteLine("  pcmhammer-cli.exe --get-properties --device COM5");
+            Console.WriteLine("  pcmhammer-cli.exe --test-read --device COM6 --kernel-dir C:\\PcmHammer\\Kernels");
+        }
+    }
+}

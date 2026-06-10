@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json;
+﻿// SPDX-License-Identifier: GPL-3.0-only
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -86,7 +87,7 @@ namespace PcmHacking
                 }
             }
 
-            message = null;
+            message = null!;
             return false;
         }
 

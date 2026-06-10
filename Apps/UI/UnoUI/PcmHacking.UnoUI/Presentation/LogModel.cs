@@ -1,4 +1,5 @@
-﻿using PcmHacking.UnoUI.Services;
+﻿// SPDX-License-Identifier: GPL-3.0-only
+using PcmHacking.UnoUI.Services;
 using Microsoft.UI.Dispatching;
 using System.Text;
 using Uno.Extensions.Reactive.Commands;

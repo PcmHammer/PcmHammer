@@ -1,4 +1,5 @@
-﻿using System;
+﻿// SPDX-License-Identifier: GPL-3.0-only
+using System;
 using System.Collections.Generic;
 using System.Text;
 
@@ -9,7 +10,7 @@ namespace PcmHacking
     /// </summary>
     public class Crc
     {
-        private static UInt32[] crcTable;
+        private static UInt32[]? crcTable;
         private const int WIDTH = 8 * 4;
         private const UInt32 TOPBIT = 0x80000000;
         private const UInt32 POLYNOMIAL = 0x04C11DB7;
@@ -68,7 +69,7 @@ namespace PcmHacking
                  * Divide the message by the polynomial, a byte at a time.
                  */
                 data = (byte)(buffer[index] ^ (remainder >> (WIDTH - 8)));
-                remainder = crcTable[data] ^ (remainder << 8);
+                remainder = crcTable![data] ^ (remainder << 8);
             }
 
             /*

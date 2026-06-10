@@ -1,3 +1,4 @@
+﻿// SPDX-License-Identifier: GPL-3.0-only
 using PcmHacking.ECU;
 using System;
 using System.IO;
@@ -51,7 +52,7 @@ namespace PcmHacking
                 if (bytesRead != stream.Length)
                 {
                     // If this happens too much, we should try looping rather than reading the whole file in one shot.
-                    this.logger.AddUserMessage("Unable to load file.");
+                    logger.AddUserMessage("Unable to load file.");
                     return Response.Create(ResponseStatus.Error, false, 0);
                 }
             }
@@ -117,11 +118,17 @@ namespace PcmHacking
 
                     if (!validator.IsSameOperatingSystem(pcmInfo.GetCurrentOSID()))
                     {
+                        logger.AddUserMessage("PCM operating system ID: " + pcmInfo.GetCurrentOSID());
+                        logger.AddUserMessage("File operating system ID: " + validator.GetOsidFromImage());
                         Utility.ReportOperatingSystems(validator.GetOsidFromImage(), pcmInfo.GetCurrentOSID(), _actionArguments.WriteType, this.logger, out shouldHalt);
                         if (shouldHalt)
                         {
                             return Response.Create(ResponseStatus.Error, false, 0);
                         }
+                    }
+                    else
+                    {
+                        logger.AddUserMessage("PCM and file are both operating system " + pcmInfo.GetCurrentOSID());
                     }
                     needToCheckOperatingSystem = false;
                     break;
@@ -185,7 +192,7 @@ namespace PcmHacking
                     return Response.Create(ResponseStatus.Error, false, 0);
                 }
 
-                this.logger.AddUserMessage("Unlock succeeded.");
+                logger.AddUserMessage("Unlock succeeded.");
             }
 
             DateTime start = DateTime.Now;

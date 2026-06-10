@@ -1,3 +1,4 @@
+﻿// SPDX-License-Identifier: GPL-3.0-only
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -20,7 +21,7 @@ namespace PcmHacking.DialogBoxes
         /// When the dialog closes, if the user provided a valid VIN it will
         /// be returned via this property. If they didn't, this will be null.
         /// </summary>
-        public string Vin { get; set; }
+        public string? Vin { get; set; }
 
         /// <summary>
         /// Constructor.
@@ -67,7 +68,7 @@ namespace PcmHacking.DialogBoxes
         /// <summary>
         /// Validate the new VIN every time it changes.
         /// </summary>
-        private void vinBox_TextChanged(object sender, EventArgs e)
+        private void vinBox_TextChanged(object? sender, EventArgs? e)
         {
             this.okButton.Enabled = this.IsLegal();
         }

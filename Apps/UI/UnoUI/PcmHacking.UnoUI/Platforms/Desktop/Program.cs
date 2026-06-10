@@ -1,3 +1,4 @@
+﻿// SPDX-License-Identifier: GPL-3.0-only
 using Uno.UI.Hosting;
 
 namespace PcmHacking.UnoUI;

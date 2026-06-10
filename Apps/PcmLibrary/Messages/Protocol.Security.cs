@@ -1,4 +1,5 @@
-﻿using System;
+﻿// SPDX-License-Identifier: GPL-3.0-only
+using System;
 using System.Collections.Generic;
 using System.Text;
 
@@ -81,7 +82,7 @@ namespace PcmHacking
             switch (unlockCode)
             {
                 case Security.Allowed:
-                    errorMessage = null;
+                    errorMessage = null!;
                     return Response.Create(ResponseStatus.Success, true);
 
                 case Security.Denied:
@@ -104,6 +105,22 @@ namespace PcmHacking
                     errorMessage = $"Unknown unlock response code: 0x{unlockCode:X2}";
                     return Response.Create(ResponseStatus.UnexpectedResponse, false);
             }
+        }
+
+        /// <summary>
+        /// Indicates whether a seed response (sub-function 0x01) is actually the PCM reporting that
+        /// its security time-delay lockout has not expired (status 0x37), rather than a seed.
+        ///
+        /// This shares the exact byte pattern that <see cref="IsUnlocked"/> treats as "already
+        /// unlocked" (6C F0 10 67 01 37). That interpretation is only safe outside a lockout; during
+        /// a brute-force run we routinely request a seed while a lockout is active and must read this
+        /// as "still locked", or we would abort the search thinking we had succeeded. A genuine
+        /// 2-byte seed whose high byte happens to be 0x37 (length >= 7) is excluded.
+        /// </summary>
+        public bool IsSecurityDelayActive(byte[] response)
+        {
+            byte[] delayActive = { Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, Mode.Seed + Mode.Response, Submode.GetSeed, Security.Delay };
+            return TryVerifyInitialBytes(response, delayActive, out _) && response.Length < 7;
         }
 
         /// <summary>

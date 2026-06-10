@@ -1,3 +1,4 @@
+﻿// SPDX-License-Identifier: GPL-3.0-only
 #if ANDROID
 using System.Diagnostics;
 using System.IO.Ports;
@@ -92,7 +93,7 @@ public class StandardPort : IPort
 
     public Task ChangeBaudRate(int baudRate)
     {
-        this.port.BaudRate = baudRate;
+        this.port!.BaudRate = baudRate;
         this.port.DiscardInBuffer();
         return Task.CompletedTask;
     }

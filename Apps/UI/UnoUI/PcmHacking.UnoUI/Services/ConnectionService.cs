@@ -1,3 +1,4 @@
+﻿// SPDX-License-Identifier: GPL-3.0-only
 using PcmHacking.ECU;
 using PcmHacking.UnoUI.Utilities;
 
@@ -68,7 +69,7 @@ public class ConnectionLease : IDisposable
 
     public async Task Reconnect()
     {
-        this.vehicle = await this.connectionService.Reconnect();
+        this.vehicle = (await this.connectionService.Reconnect())!;
     }
 
     public void Dispose()
@@ -218,6 +219,15 @@ public class ConnectionService : IConnectionService
 
             if (await this.TryPollOnce(newVehicle))
             {
+                logger.AddUserMessage("PCM Hammer");
+#if !ANDROID
+                string? versionLine = AppInfo.GetVersionLine();
+                if (versionLine != null) logger.AddUserMessage(versionLine);
+                logger.AddUserMessage(AppInfo.GetRunningAtMessage());
+#else
+                logger.AddUserMessage("Running at: " + DateTime.Now.ToString("dddd, MMMM dd yyyy, HH:mm:ss"));
+#endif
+                logger.AddUserMessage("Copyright (C) 2018-2026 PcmHacking.net - GPL v3");
                 this.logger.AddUserMessage("Connection test succeeded.");
                 this.settingsService.SaveConnectionSettings(settings);
                 isConnected = true;
@@ -238,8 +248,8 @@ public class ConnectionService : IConnectionService
         {
             this.newSettings = settings;
             await DeviceState.SetAsync("Faulted");
-            this.logger.AddDebugMessage("Exception while connecting to vehicle.");
-            this.logger.AddDebugMessage(exception.ToString());
+            logger.AddDebugMessage("Exception while connecting to vehicle.");
+            logger.AddDebugMessage(exception.ToString());
             return false;
         }
         finally
@@ -308,7 +318,7 @@ public class ConnectionService : IConnectionService
             }
             catch
             {
-                this.device.Dispose();
+                this.device?.Dispose();
                 this.device = null;
             }
         }
@@ -365,7 +375,7 @@ public class ConnectionService : IConnectionService
         string basePath = string.Empty; // We will need to pass along a path to target kernel; Android won't path to a proper directory with GetExecutingAssembly().Location.
 #if WINDOWS
             string exePath = System.Reflection.Assembly.GetExecutingAssembly().Location;
-            basePath = Path.GetDirectoryName(exePath);
+            basePath = Path.GetDirectoryName(exePath) ?? string.Empty;
 #elif ANDROID
             basePath = "/storage/emulated/0/PCMHammer/Bins";
 #endif
@@ -452,7 +462,7 @@ public class ConnectionService : IConnectionService
             // acquired) the 'using' pattern won't call the Dispose method,
             // so the semaphore has to be released explicitly.
             this.stateChangeSemaphore.Release();
-            return null;
+            return null!;
         }
 
         return new ConnectionLease(this, this.vehicle, activity);
@@ -487,7 +497,7 @@ public class ConnectionService : IConnectionService
                 await this.OperatingSystemId.SetAsync(String.Empty);
                 await this.Voltage.SetAsync(String.Empty);
 
-                this.logger.AddUserMessage("Beginning activity: " + activity);
+                logger.AddUserMessage("Beginning activity: " + activity);
                 break;
 
             // Polling is triggered by a timer, and is only allowed when the
@@ -500,7 +510,7 @@ public class ConnectionService : IConnectionService
                     ConnectionStates.NotConfigured;
                 if (!this.TryTransition(allowed, ConnectionStates.Polling))
                 {
-                    this.logger.AddDebugMessage($"Skipping poll, internalState is {this.internalState}");
+                    logger.AddDebugMessage($"Skipping poll, internalState is {this.internalState}");
                     if(ResetTimeRemaining == -1)
                         throw new ConnectionUnavailableException("Unable to poll. " + errorMessage);
                 }
@@ -568,7 +578,7 @@ public class ConnectionService : IConnectionService
         }
         catch (Exception exception)
         {
-            this.logger.AddDebugMessage("Exception in ConnectionService.EndActivity: " + exception.ToString());
+            logger.AddDebugMessage("Exception in ConnectionService.EndActivity: " + exception.ToString());
             this.ForceTransition(ConnectionStates.NotConnected);
         }
         finally
@@ -620,7 +630,7 @@ public class ConnectionService : IConnectionService
             this.logBuffer.Enabled = false;
 
             // This log line made more sense before logging was disabled in this scenario...
-            this.logger.AddDebugMessage($"ConnectionService timer callback. Internal state: {this.internalState}.");
+            logger.AddDebugMessage($"ConnectionService timer callback. Internal state: {this.internalState}.");
 
 
             // Re-create the connection if the connection was lost.
@@ -628,11 +638,11 @@ public class ConnectionService : IConnectionService
             {
                 if (await this.TryConnect(this.newSettings))
                 {
-                    this.logger.AddUserMessage("Re-connected with current settings.");
+                    logger.AddUserMessage("Re-connected with current settings.");
                 }
                 else
                 {
-                    this.logger.AddUserMessage("Unable to reconnect with current settings.");
+                    logger.AddUserMessage("Unable to reconnect with current settings.");
                     return;
                 }
             }
@@ -665,12 +675,12 @@ public class ConnectionService : IConnectionService
         }
         catch (ConnectionUnavailableException)
         {
-            this.logger.AddDebugMessage("Poll skipped.");
+            logger.AddDebugMessage("Poll skipped.");
         }
         catch (Exception exception)
         {
             this.logBuffer.Enabled = true;
-            this.logger.AddDebugMessage("Error in timer callback: " + exception.ToString());
+            logger.AddDebugMessage("Error in timer callback: " + exception.ToString());
             disconnected = true;
         }
         finally
@@ -678,11 +688,11 @@ public class ConnectionService : IConnectionService
             if (acquiredVehicle != null)
             {
                 string result = disconnected ? "but disconnected" : "and still connected";
-                this.logger.AddDebugMessage($"Exiting timer callback, vehicle acquired {result}");
+                logger.AddDebugMessage($"Exiting timer callback, vehicle acquired {result}");
             }
             else
             {
-                this.logger.AddDebugMessage("Exiting timer callback, vehicle not acquired.");
+                logger.AddDebugMessage("Exiting timer callback, vehicle not acquired.");
             }
 
             this.logBuffer.Enabled = true;
@@ -709,13 +719,13 @@ public class ConnectionService : IConnectionService
                 this.logBuffer.Enabled = true;
                 source.Cancel();
                 success = false;
-                this.logger.AddUserMessage("Connection test did not get a response from the vehicle.");
+                logger.AddUserMessage("Connection test did not get a response from the vehicle.");
             }
             catch (Exception exception)
             {
                 this.logBuffer.Enabled = true;
-                this.logger.AddUserMessage("Error while testing vehicle connection.");
-                this.logger.AddDebugMessage(exception.ToString());
+                logger.AddUserMessage("Error while testing vehicle connection.");
+                logger.AddDebugMessage(exception.ToString());
                 if(this.vehicle != null)
                 {
                     this.vehicle?.Dispose();
@@ -793,7 +803,7 @@ public class ConnectionService : IConnectionService
         }
         catch (Exception exception)
         {
-            this.logger.AddUserMessage("Communications exception: " + exception.Message);
+            logger.AddUserMessage("Communications exception: " + exception.Message);
             if(exception is InvalidOperationException || exception is IOException) 
             {
                 try
@@ -828,10 +838,10 @@ public class ConnectionService : IConnectionService
     /// </remarks>
     private bool TryTransition(ConnectionStates expected, ConnectionStates newState)
     {
-        this.logger.AddDebugMessage($"Transition requested from: {this.internalState}, to: {newState}"); 
+        logger.AddDebugMessage($"Transition requested from: {this.internalState}, to: {newState}"); 
         if (ResetTimeRemaining != -1 && newState > ConnectionStates.Connected)
         {
-            this.logger.AddDebugMessage($"Transition denied due to ECM/PCM reset, staying in: {this.internalState}");
+            logger.AddDebugMessage($"Transition denied due to ECM/PCM reset, staying in: {this.internalState}");
             return false;
         }
         if (this.internalState == ConnectionStates.Active && newState == ConnectionStates.Connected)
@@ -843,13 +853,13 @@ public class ConnectionService : IConnectionService
             this.ForceTransition(newState);
             return true;
         }
-        this.logger.AddDebugMessage($"Transition denied, staying in: {this.internalState}");
+        logger.AddDebugMessage($"Transition denied, staying in: {this.internalState}");
         return false;
     }
 
     private void ForceTransition(ConnectionStates newState)
     {
         this.internalState = newState;
-        this.logger.AddDebugMessage($"Transitioned to: {newState}");
+        logger.AddDebugMessage($"Transitioned to: {newState}");
     }
 }

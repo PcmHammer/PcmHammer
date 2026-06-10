@@ -1,4 +1,5 @@
-﻿using PcmHacking.ECU;
+﻿// SPDX-License-Identifier: GPL-3.0-only
+using PcmHacking.ECU;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -23,7 +24,7 @@ namespace PcmHacking
         /// </summary>
         public async Task SuppressChatter()
         {
-            this.logger.AddDebugMessage("Suppressing VPW chatter.");
+            logger.AddDebugMessage("Suppressing VPW chatter.");
             Message suppressChatter = this.protocol.CreateDisableNormalMessageTransmission();
             await this.device.SendMessage(suppressChatter);
             await this.notifier.ForceNotify();
@@ -35,7 +36,7 @@ namespace PcmHacking
                 Message received = await this.device.ReceiveMessage();
                 if (received != null)
                 {
-                    this.logger.AddDebugMessage("Ignoring chatter: " + received.ToString());
+                    logger.AddDebugMessage("Ignoring chatter: " + received.ToString());
                     break;
                 }
                 else
@@ -95,7 +96,7 @@ namespace PcmHacking
             {
                 finalDir = _basePath;
             }
-            path = Path.Combine(_basePath, path);
+            path = Path.Combine(finalDir, path);
 
             try
             {
@@ -117,7 +118,14 @@ namespace PcmHacking
                     }
                 }
 
-                logger.AddDebugMessage("Loaded " + path);
+                using (var md5 = System.Security.Cryptography.MD5.Create())
+                {
+                    string hash = BitConverter.ToString(md5.ComputeHash(file)).Replace("-", "");
+                    string fileName = Path.GetFileName(path);
+                    string payloadType = fileName.StartsWith("Loader", StringComparison.OrdinalIgnoreCase) ? "Loader" : "Kernel";
+                    logger.AddUserMessage($"Loaded {fileName} ({file.Length} bytes)");
+                    logger.AddUserMessage($"{payloadType} MD5={hash}");
+                }
             }
             catch (ArgumentException)
             {
@@ -156,7 +164,7 @@ namespace PcmHacking
         /// </remarks>
         public async Task Cleanup()
         {
-            this.logger.AddDebugMessage("Halting the kernel.");
+            logger.AddDebugMessage("Halting the kernel.");
             await this.ExitKernel();
             await this.ClearTroubleCodes();
         }
@@ -189,7 +197,7 @@ namespace PcmHacking
         /// </summary>
         public async Task ClearTroubleCodes()
         {
-            this.logger.AddUserMessage("Clearing trouble codes.");
+            logger.AddUserMessage("Clearing trouble codes.");
             this.device.ClearMessageQueue();
 
             // No timeout because we don't care about responses to these messages.
@@ -234,13 +242,13 @@ namespace PcmHacking
         /// <summary>
         /// Ask the kernel for the ID of the flash chip.
         /// </summary>
-        public async Task<UInt32> QueryFlashChipId(CancellationToken cancellationToken)
+        public async Task<Response<UInt32>> QueryFlashChipId(CancellationToken cancellationToken)
         {
             for (int retries = 0; retries < 3; retries++)
             {
                 if (cancellationToken.IsCancellationRequested)
                 {
-                    return 0;
+                    return Response.Create(ResponseStatus.Cancelled, (UInt32)0);
                 }
 
                 await this.SetDeviceTimeout(TimeoutScenario.ReadProperty);
@@ -252,7 +260,7 @@ namespace PcmHacking
 
                 if (chipIdResponse.Status == ResponseStatus.Cancelled)
                 {
-                    return 0;
+                    return Response.Create(ResponseStatus.Cancelled, (UInt32)0);
                 }
 
                 if (chipIdResponse.Status != ResponseStatus.Success)
@@ -265,28 +273,36 @@ namespace PcmHacking
                     continue;
                 }
 
-                return chipIdResponse.Value;
+                return chipIdResponse;
             }
 
             if (cancellationToken.IsCancellationRequested)
             {
-                return 0;
+                return Response.Create(ResponseStatus.Cancelled, (UInt32)0);
             }
 
             logger.AddUserMessage("Unable to determine which flash chip is in this PCM");
-            return 0;
+            return Response.Create(ResponseStatus.Error, (UInt32)0);
         }
 
         /// <summary>
         /// Check for a running kernel.
         /// </summary>
         /// <returns></returns>
-        public async Task<UInt32> GetKernelVersion(int maxRetries = 5)
+        public static string FormatKernelVersion(UInt64 v)
+        {
+            uint epoch = (uint)((v >> 8) & 0xFFFFFFFF);
+            byte pcmType = (byte)(v & 0xFF);
+            var dt = DateTimeOffset.FromUnixTimeSeconds(epoch).UtcDateTime;
+            return $"{dt:yyyy-MM-dd HH:mm:ss} PCM=0x{pcmType:X2}";
+        }
+
+        public async Task<UInt64> GetKernelVersion(int maxRetries = 5)
         {
             return await this.GetKernelVersion(CancellationToken.None);
         }
 
-        public async Task<UInt32> GetKernelVersion(CancellationToken cancellationToken, int maxRetries = 5)
+        public async Task<UInt64> GetKernelVersion(CancellationToken cancellationToken, int maxRetries = 5)
         {
             Message query = this.protocol.CreateKernelVersionQuery();
             for (int retryCount = 0; retryCount < maxRetries; retryCount++)
@@ -309,7 +325,7 @@ namespace PcmHacking
                     continue;
                 }
 
-                Response<UInt32> response = this.protocol.ParseKernelVersion(reply);
+                Response<UInt64> response = this.protocol.ParseKernelVersion(reply);
                 if ((response.Status == ResponseStatus.Success) && (response.Value != 0))
                 {
                     return response.Value;
@@ -381,7 +397,8 @@ namespace PcmHacking
                 logger.AddUserMessage(
                     $"Permission to upload {(info.LoaderRequired ? "Loader" : "Kernel")} was denied." +
                     Environment.NewLine +
-                    "If this persists, try cutting power to the PCM, restoring power, waiting ten seconds, and trying again."
+                    "This usually means communication started before the PCM finished its power-on security delay. " +
+                    "Cut power to the PCM, restore power, wait about 10 seconds, then try again."
                     );
                 return false;
             }
@@ -428,7 +445,7 @@ namespace PcmHacking
                 int bytesSent = payload.Length - offset;
                 int percentDone = bytesSent * 100 / payload.Length;
 
-                this.logger.AddUserMessage($"{(info.LoaderRequired ? "Loader" : "Kernel")} upload {percentDone}% complete.");
+                logger.AddUserMessage($"{(info.LoaderRequired ? "Loader" : "Kernel")} upload {percentDone}% complete.");
 
                 if (cancellationToken.IsCancellationRequested)
                 {
@@ -455,7 +472,7 @@ namespace PcmHacking
                 }
             }
 
-            this.logger.AddUserMessage($"{(info.LoaderRequired ? "Loader" : "Kernel")} upload 100% complete.");
+            logger.AddUserMessage($"{(info.LoaderRequired ? "Loader" : "Kernel")} upload 100% complete.");
 
             if (cancellationToken.IsCancellationRequested)
             {
@@ -464,7 +481,7 @@ namespace PcmHacking
 
             if (ReportKernelID && info.KernelVersionSupport)
             {
-                UInt32 kernelVersion = await this.GetKernelVersion(cancellationToken);
+                UInt64 kernelVersion = await this.GetKernelVersion(cancellationToken);
                 if (cancellationToken.IsCancellationRequested)
                 {
                     return false;
@@ -472,10 +489,10 @@ namespace PcmHacking
 
                 if (kernelVersion == 0)
                 {
-                    this.logger.AddUserMessage($"{(info.LoaderRequired ? "Loader" : "Kernel")} failed to start.");
+                    logger.AddUserMessage($"{(info.LoaderRequired ? "Loader" : "Kernel")} failed to start.");
                     return false;
                 }
-                this.logger.AddUserMessage($"{(info.LoaderRequired ? "Loader" : "Kernel")} Version: {kernelVersion.ToString("X8")}");
+                logger.AddUserMessage($"{(info.LoaderRequired ? "Loader" : "Kernel")} Version: {FormatKernelVersion(kernelVersion)}");
             }
 
             if (info.LoaderRequired)
@@ -531,7 +548,7 @@ namespace PcmHacking
                 // The list of modules may not be useful after all, but 
                 // checking for an empty list indicates an uncooperative
                 // module on the VPW bus.
-                List<byte> modules = await this.RequestHighSpeedPermission(notifier);
+                List<byte>? modules = await this.RequestHighSpeedPermission(notifier);
                 if (modules == null)
                 {
                     // A device has refused the switch to high speed mode.
@@ -548,13 +565,13 @@ namespace PcmHacking
                 // These responses usually get lost, so this code might be pointless.
                 Stopwatch sw = new Stopwatch();
                 sw.Start();
-                Message response = null;
 
                 // WARNING: The AllPro stopped receiving permission-to-upload messages when this timeout period
-                // was set to 1500ms.  Reducing it to 500 seems to have fixed that problem. 
-                // 
+                // was set to 1500ms.  Reducing it to 500 seems to have fixed that problem.
+                //
                 // It would be nice to find a way to wait equally long with all devices, as refusal messages
-                // are still a potetial source of trouble. 
+                // are still a potetial source of trouble.
+                Message? response = null;
                 while (((response = await this.device.ReceiveMessage()) != null) && (sw.ElapsedMilliseconds < 500))
                 {
                     Response<bool> refused = this.protocol.ParseHighSpeedRefusal(response);
@@ -569,7 +586,7 @@ namespace PcmHacking
                     if (refused.Value == false)
                     {
                         // TODO: Add module number.
-                        this.logger.AddUserMessage("Module refused high-speed switch.");
+                        logger.AddUserMessage("Module refused high-speed switch.");
                         return false;
                     }
                 }
@@ -591,7 +608,7 @@ namespace PcmHacking
         /// <summary>
         /// Ask all of the devices on the VPW bus for permission to switch to 4X speed.
         /// </summary>
-        private async Task<List<byte>> RequestHighSpeedPermission(ToolPresentNotifier notifier)
+        private async Task<List<byte>?> RequestHighSpeedPermission(ToolPresentNotifier notifier)
         {
             Message permissionCheck = this.protocol.CreateHighSpeedPermissionRequest(DeviceId.Broadcast);
             await this.device.SendMessage(permissionCheck);
@@ -600,11 +617,11 @@ namespace PcmHacking
             // So until that gets fixed, we could miss a 'refuse' response and try to switch
             // to 4X anyhow. That just results in an aborted read attempt, with no harm done.
             List<byte> result = new List<byte>();
-            Message response = null;
+            Message? response = null;
             bool anyRefused = false;
             while ((response = await this.device.ReceiveMessage()) != null)
             {
-                this.logger.AddDebugMessage("Parsing " + response.GetBytes().ToHex());
+                logger.AddDebugMessage("Parsing " + response.GetBytes().ToHex());
                 Protocol.HighSpeedPermissionResult parsed = this.protocol.ParseHighSpeedPermissionResponse(response);
                 if (!parsed.IsValid)
                 {
@@ -616,7 +633,7 @@ namespace PcmHacking
 
                 if (parsed.PermissionGranted)
                 {
-                    this.logger.AddUserMessage(string.Format("Module 0x{0:X2} ({1}) has agreed to enter high-speed mode.", parsed.DeviceId, DeviceId.DeviceCategory(parsed.DeviceId)));
+                    logger.AddUserMessage(string.Format("Module 0x{0:X2} ({1}) has agreed to enter high-speed mode.", parsed.DeviceId, DeviceId.DeviceCategory(parsed.DeviceId)));
 
                     // Forcing a notification message should help ELM devices receive responses.
                     await notifier.ForceNotify();
@@ -624,7 +641,7 @@ namespace PcmHacking
                     continue;
                 }
 
-                this.logger.AddUserMessage(string.Format("Module 0x{0:X2} ({1}) has refused to enter high-speed mode.", parsed.DeviceId, DeviceId.DeviceCategory(parsed.DeviceId)));
+                logger.AddUserMessage(string.Format("Module 0x{0:X2} ({1}) has refused to enter high-speed mode.", parsed.DeviceId, DeviceId.DeviceCategory(parsed.DeviceId)));
                 anyRefused = true;
             }
 
@@ -655,7 +672,7 @@ namespace PcmHacking
 
                 if (!await device.SendMessage(message))
                 {
-                    this.logger.AddDebugMessage("WritePayload: Unable to send message.");
+                    logger.AddDebugMessage("WritePayload: Unable to send message.");
                     continue;
                 }
 
@@ -664,12 +681,12 @@ namespace PcmHacking
                     return Response.Create(ResponseStatus.Success, true, retryCount);
                 }
 
-                this.logger.AddDebugMessage("WritePayload: Upload request failed.");
+                logger.AddDebugMessage("WritePayload: Upload request failed.");
                 await Task.Delay(100);
                 await this.SendToolPresentNotification();
             }
 
-            this.logger.AddDebugMessage("WritePayload: Giving up.");
+            logger.AddDebugMessage("WritePayload: Giving up.");
             return Response.Create(ResponseStatus.Error, false, retryCount);
         }
     }

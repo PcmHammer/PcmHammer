@@ -1,4 +1,5 @@
-﻿using System;
+﻿// SPDX-License-Identifier: GPL-3.0-only
+using System;
 using System.IO;
 using System.Net;
 using System.Net.Http;
@@ -13,14 +14,14 @@ namespace PcmHacking
     public class ContentLoader
     {
         private readonly string fileName;
-        private readonly string appVersion;
+        private readonly string? appVersion;
         private readonly Assembly assembly;
         private readonly ILogger logger;
         
         /// <summary>
         /// Constructor.
         /// </summary>
-        public ContentLoader(string fileName, string appVersion, Assembly assembly, ILogger logger)
+        public ContentLoader(string fileName, string? appVersion, Assembly assembly, ILogger logger)
         {
             this.fileName = fileName;
             this.appVersion = appVersion;
@@ -32,9 +33,9 @@ namespace PcmHacking
         /// Get content from (in order of preference) network, local cache, or embedded resource.
         /// </summary>
         /// <returns></returns>
-        public async Task<Stream> GetContentStream()
+        public async Task<Stream?> GetContentStream()
         {
-            Stream result = await TryGetContentFromNetwork();
+            Stream? result = await TryGetContentFromNetwork();
             if (result != null)
             {
                 return result;
@@ -46,7 +47,7 @@ namespace PcmHacking
                 return result;
             }
 
-            this.logger.AddDebugMessage("Loading " + fileName + " from embedded resource.");
+            logger.AddDebugMessage("Loading " + fileName + " from embedded resource.");
             try { File.Delete(this.GetCacheFilePath()); } catch { }
             var resourceName = "PcmHammer." + fileName;
             return this.assembly.GetManifestResourceStream(resourceName);
@@ -80,9 +81,9 @@ namespace PcmHacking
         /// <summary>
         /// Try to get content from the network.
         /// </summary>
-        private async Task<Stream> TryGetContentFromNetwork()
+        private async Task<Stream?> TryGetContentFromNetwork()
         {
-            Stream stream = null;
+            Stream? stream = null;
 
             try
             {
@@ -109,7 +110,7 @@ namespace PcmHacking
                     }
                     catch (Exception saveException)
                     {
-                        this.logger.AddDebugMessage("Unable to cache " + fileName + ": " + saveException.ToString());
+                        logger.AddDebugMessage("Unable to cache " + fileName + ": " + saveException.ToString());
                     }
                     finally
                     {
@@ -118,18 +119,18 @@ namespace PcmHacking
                         stream.Position = 0;
                     }
 
-                    this.logger.AddDebugMessage("Loaded " + this.fileName + " from network.");
+                    logger.AddDebugMessage("Loaded " + this.fileName + " from network.");
                     return stream;
                 }
                 else
                 {
-                    this.logger.AddDebugMessage("Unable to retrieve " + fileName + " from network: HTTP " + response.StatusCode + ".");
+                    logger.AddDebugMessage("Unable to retrieve " + fileName + " from network: HTTP " + response.StatusCode + ".");
                     return null;
                 }
             }
             catch (Exception exception)
             {
-                this.logger.AddDebugMessage("Unable to retrieve " + fileName + " from network: " + exception.ToString());
+                logger.AddDebugMessage("Unable to retrieve " + fileName + " from network: " + exception.ToString());
                 return null;
             }
         }
@@ -137,18 +138,18 @@ namespace PcmHacking
         /// <summary>
         /// Try to get content from the local cache.
         /// </summary>
-        private Stream TryGetContentFromCache()
+        private Stream? TryGetContentFromCache()
         {
             string path = GetCacheFilePath();
             try
             {
                 Stream result = File.OpenRead(path);
-                this.logger.AddDebugMessage("Loaded " + this.fileName + " from cache.");
+                logger.AddDebugMessage("Loaded " + this.fileName + " from cache.");
                 return result;
             }
             catch (Exception exception)
             {
-                this.logger.AddDebugMessage("Unable to retrieve " + fileName + " from cache: " + exception.ToString());
+                logger.AddDebugMessage("Unable to retrieve " + fileName + " from cache: " + exception.ToString());
                 return null;
             }
         }

@@ -1,4 +1,5 @@
-﻿using System;
+﻿// SPDX-License-Identifier: GPL-3.0-only
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -26,17 +27,17 @@ namespace PcmHacking
 
         public TimeoutScenario TimeoutScenario { get; set; }
 
-        protected readonly Action<Message> enqueue;
+        protected readonly Action<Message>? enqueue;
 
-        protected readonly Func<int> getRecievedMessageCount;
+        protected readonly Func<int>? getRecievedMessageCount;
 
         /// <summary>
         /// Constructor.
         /// </summary>
         public ElmDeviceImplementation(
-            Action<Message> enqueue,
-            Func<int> getRecievedMessageCount,
-            IPort port, 
+            Action<Message>? enqueue,
+            Func<int>? getRecievedMessageCount,
+            IPort port,
             ILogger logger)
         {
             this.enqueue = enqueue;
@@ -305,7 +306,7 @@ namespace PcmHacking
                         this.Logger.AddUserMessage("RX: " + deviceResponseBytes.ToHex(), LogLevels.Trace);
 
                         Message response = new Message(deviceResponseBytes);
-                        this.enqueue(response);
+                        this.enqueue!(response);
                     }
 
                     return true;

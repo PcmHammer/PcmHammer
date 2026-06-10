@@ -1,4 +1,5 @@
-﻿using System;
+﻿// SPDX-License-Identifier: GPL-3.0-only
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -14,7 +15,7 @@ namespace PcmHacking
 {
     public partial class PcmExplorerMainForm : MainFormBase
     {
-        private TaskScheduler uiThreadScheduler;
+        private TaskScheduler uiThreadScheduler = null!;
 
         public PcmExplorerMainForm()
         {
@@ -55,7 +56,7 @@ namespace PcmHacking
 
         private string GetTimestamp()
         {
-            return DateTime.Now.ToString("hh:mm:ss:fff");
+            return DateTime.Now.ToString("HH:mm:ss.fff");
         }
 
         public override void ResetLogs()
@@ -142,7 +143,7 @@ namespace PcmHacking
         {
             string messageText = this.message.Text;
             StringReader reader = new StringReader(messageText);
-            string line = null;
+            string? line = null;
             while ((line = reader.ReadLine()) != null)
             {
                 line = line.Trim();

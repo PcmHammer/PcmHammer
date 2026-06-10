@@ -1,4 +1,5 @@
-﻿using Microsoft.UI.Dispatching;
+﻿// SPDX-License-Identifier: GPL-3.0-only
+using Microsoft.UI.Dispatching;
 using System;
 using System.Collections.Generic;
 using System.Linq;

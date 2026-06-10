@@ -1,4 +1,5 @@
-﻿using System;
+﻿// SPDX-License-Identifier: GPL-3.0-only
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -16,7 +17,7 @@ namespace PcmHacking
     // Posted at https://stackoverflow.com/questions/922047/store-dictionarystring-string-in-application-settings
     public class SerializableStringDictionary : System.Collections.Specialized.StringDictionary, System.Xml.Serialization.IXmlSerializable
     {
-        public System.Xml.Schema.XmlSchema GetSchema()
+        public System.Xml.Schema.XmlSchema? GetSchema()
         {
             return null;
         }

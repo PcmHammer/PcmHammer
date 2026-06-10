@@ -97,7 +97,6 @@
         <Grid 
             Grid.Row="3"
             Name="ParameterGrid"
-            IsDoubleTapEnabled="true"
             DoubleTapped="ParameterGrid_DoubleTapped">
             <Grid.RowDefinitions>
                 <RowDefinition Height="*" />

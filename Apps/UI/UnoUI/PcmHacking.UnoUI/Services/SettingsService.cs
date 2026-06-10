@@ -1,3 +1,4 @@
+﻿// SPDX-License-Identifier: GPL-3.0-only
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -126,7 +127,7 @@ public class SettingsService : ISettingsService
         }
     }
 
-    private AutoSaveDictionary _unpackagedSettingsStore { get; set; }
+    private AutoSaveDictionary _unpackagedSettingsStore { get; set; } = null!;
 
 
     public SettingsService()

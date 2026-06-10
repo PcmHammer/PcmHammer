@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -16,7 +16,7 @@ namespace PcmHacking.ECU.Controllers
             this.HardwareSlaveCPU = true;
             this.IsSupported = true;
             this.IsSupportedRead = true;
-            this.IsSupportedWrite = false;
+            this.IsSupportedWrite = true;
             this.IsSupportedWriteSlaveCPU = false;
             this.IsSupportedWriteBySegment = true;
             this.IsSupportedWriteBootSector = false;

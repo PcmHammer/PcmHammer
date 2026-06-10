@@ -1,4 +1,5 @@
-﻿using System;
+﻿// SPDX-License-Identifier: GPL-3.0-only
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -18,7 +19,7 @@ namespace PcmHacking
         /// <summary>
         /// Timer to drive the countdown text.
         /// </summary>
-        private Timer timer;
+        private Timer? timer;
 
         /// <summary>
         /// Number of seconds to wait. This value will count down with each timer tick.
@@ -50,7 +51,7 @@ namespace PcmHacking
         /// <summary>
         /// Decrement the countdown with each timer tick, close the form when we reach zero.
         /// </summary>
-        private void Timer_Tick(object sender, EventArgs e)
+        private void Timer_Tick(object? sender, EventArgs? e)
         {
             if (secondsRemaining > 0)
             {
@@ -67,7 +68,7 @@ namespace PcmHacking
         /// <summary>
         /// Close the form with an "OK" result.
         /// </summary>
-        private void continueButton_Click(object sender, EventArgs e)
+        private void continueButton_Click(object? sender, EventArgs? e)
         {
             this.DialogResult = DialogResult.OK;
         }
@@ -75,7 +76,7 @@ namespace PcmHacking
         /// <summary>
         /// Close the form with a "Cancel" result.
         /// </summary>
-        private void cancelButton_Click(object sender, EventArgs e)
+        private void cancelButton_Click(object? sender, EventArgs? e)
         {
             this.DialogResult = DialogResult.Cancel;
         }

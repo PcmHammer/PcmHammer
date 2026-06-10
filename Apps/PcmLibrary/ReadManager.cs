@@ -1,3 +1,4 @@
+﻿// SPDX-License-Identifier: GPL-3.0-only
 using PcmHacking.ECU;
 using System;
 using System.Collections.Generic;
@@ -13,12 +14,14 @@ namespace PcmHacking
     /// </summary>
     public class ReadManager : IControllerManager
     {
-        private ILogger _logger;
-        private Vehicle _vehicle;
+        private ILogger logger;
+        private Vehicle vehicle;
         private ControllerPageObjects _pageObjects;
         private ECUActionArguments _actionArguments;
-        private CancellationToken _cancellationToken;
+        private CancellationToken cancellationToken;
         private IProgress<ProgressUpdate>? _progress;
+
+        public int CrcPollingDelayMs { get; set; } = 50;
 
         public ReadManager(
             ILogger logger,
@@ -29,11 +32,11 @@ namespace PcmHacking
             IProgress<ProgressUpdate>? progress
             )
         {
-            _logger = logger;
-            _vehicle = vehicle;
+            this.logger = logger;
+            this.vehicle = vehicle;
             _actionArguments = actionArguments;
             _pageObjects = pageObjects;
-            _cancellationToken = cancellationToken;
+            this.cancellationToken = cancellationToken;
             _progress = progress;
         }
 
@@ -51,10 +54,10 @@ namespace PcmHacking
             if (readResponse.Status == ResponseStatus.Unverified)
             {
                 path = GetBadReadPath(path);
-                _logger.AddUserMessage("##############################################################################");
-                _logger.AddUserMessage("WARNING: Verification timed out. File could not be validated and may be corrupt.");
-                _logger.AddUserMessage("Saved to " + path + " for debugging only. Do not use this file without validation.");
-                _logger.AddUserMessage("##############################################################################");
+                logger.AddUserMessage("##############################################################################");
+                logger.AddUserMessage("WARNING: Verification timed out. File could not be validated and may be corrupt.");
+                logger.AddUserMessage("Saved to " + path + " for debugging only. Do not use this file without validation.");
+                logger.AddUserMessage("##############################################################################");
             }
 
             // Save the contents to the path that the user provided.
@@ -62,7 +65,7 @@ namespace PcmHacking
             {
                 try
                 {
-                    _logger.AddUserMessage("Saving contents to " + path);
+                    this.logger.AddUserMessage("Saving contents to " + path);
 
                     readContents.Position = 0;
 
@@ -74,13 +77,13 @@ namespace PcmHacking
                 }
                 catch (IOException exception)
                 {
-                    _logger.AddUserMessage("Unable to save file: " + exception.Message);
-                    _logger.AddDebugMessage(exception.ToString());
+                    logger.AddUserMessage("Unable to save file: " + exception.Message);
+                    logger.AddDebugMessage(exception.ToString());
 
                     await _pageObjects.Invoke(async () => path = await _pageObjects.PromptForSavePath());
                     if (path == null)
                     {
-                        _logger.AddUserMessage("Save canceled.");
+                        logger.AddUserMessage("Save canceled.");
 
                         // Returning true to indicate that the read worked. It doesn't
                         // really matter that the user chose not to keep the file.
@@ -99,7 +102,7 @@ namespace PcmHacking
         /// <returns>True if the read was successful, fales if failed or aborted.</returns>
         public async Task<Response<bool>> Begin()
         {
-            if(_vehicle.ConnectedECU == null)
+            if(vehicle.ConnectedECU == null)
             {
                 throw new NullReferenceException("vehicle.ConnectedECU was null!");
             }
@@ -107,14 +110,14 @@ namespace PcmHacking
             {
                 throw new NullReferenceException($"{nameof(_actionArguments)} was null.");
             }
-            ECUBase? pcmInfo = _vehicle.ConnectedECU;
-                switch (_vehicle.ConnectedECU.ECUState)
+            ECUBase? pcmInfo = vehicle.ConnectedECU;
+                switch (vehicle.ConnectedECU.ECUState)
                 {
                     case ECUStates.Invalid: 
                     break;
                     case ECUStates.Programmed:
-                        _logger.AddUserMessage("OSID: " + pcmInfo.GetCurrentOSID());
-                        _logger.AddUserMessage("Description: " + pcmInfo.ToString());
+                        logger.AddUserMessage("OSID: " + pcmInfo.GetCurrentOSID());
+                        logger.AddUserMessage("Description: " + pcmInfo.ToString());
                         break;
                     case ECUStates.Kernel: // What should we be doing for a PCM already in kernel mode?
                         break;
@@ -127,9 +130,9 @@ namespace PcmHacking
             }
             if (!pcmInfo.IsSupported && _actionArguments.HardwareType != PcmType.Undefined)
             {
-                _logger.AddUserMessage("Detected hardware type override on undefined ECU. Please be sure to post results!");
+                logger.AddUserMessage("Detected hardware type override on undefined ECU. Please be sure to post results!");
                 pcmInfo = ECUFactory.GetControllerOverride(_actionArguments.HardwareType);
-                _logger.AddUserMessage($"Continuing read with hardware type of {_actionArguments.HardwareType}");
+                logger.AddUserMessage($"Continuing read with hardware type of {_actionArguments.HardwareType}");
             }
 
                 // These tests are retired here, left only for reference at the moment. We can now call ECUBase.GetPreCheckResults() to determine whether to display a prompt.
@@ -139,7 +142,7 @@ namespace PcmHacking
                 if (!pcmInfo.IsSupported)
                 {
                     string msg = $"Abort: The connected {pcmInfo.HardwareType.ToString()} PCM is not supported.";
-                    _logger.AddUserMessage(msg);
+                    logger.AddUserMessage(msg);
                     await _pageObjects.Invoke(async () => await _pageObjects.ShowAlert(msg, "Abort"));
                     return Response.Create(ResponseStatus.Refused, false, 0);
                 }
@@ -147,7 +150,7 @@ namespace PcmHacking
                 if (!pcmInfo.IsSupportedRead)
                 {
                     string msg = $"Abort: The connected {pcmInfo.HardwareType.ToString()} PCM is not supported for read operations.";
-                    _logger.AddUserMessage(msg);
+                    logger.AddUserMessage(msg);
                     await _pageObjects.Invoke(async () => await _pageObjects.ShowAlert(msg, "Abort"));
                     return Response.Create(ResponseStatus.Refused, false, 0);
                 }
@@ -155,29 +158,29 @@ namespace PcmHacking
                 if (pcmInfo.IsUnderDevelopment)
                 {
                     string msg = $"WARNING: {pcmInfo.HardwareType.ToString()} Support is still in development.";
-                    _logger.AddUserMessage(msg);
+                    logger.AddUserMessage(msg);
                     bool shouldContinue = false;
                     await _pageObjects.Invoke(async () => { shouldContinue = await _pageObjects.PromptYesOrNo(msg, "Continue?"); });
                     if (!shouldContinue)
                     {
-                        _logger.AddUserMessage("User chose not to proceed.");
+                        logger.AddUserMessage("User chose not to proceed.");
                         return Response.Create(ResponseStatus.Refused, false, 0);
                     }
                 }
             }
 
-            await _vehicle.SuppressChatter();
+            await vehicle.SuppressChatter();
 
-            bool unlocked = await _vehicle.UnlockEcu(pcmInfo.KeyAlgorithm);
+            bool unlocked = await vehicle.UnlockEcu(pcmInfo.KeyAlgorithm);
             if (!unlocked)
             {
-                _logger.AddUserMessage("Unlock was not successful.");
+                logger.AddUserMessage("Unlock was not successful.");
                 return Response.Create(ResponseStatus.Error, false, 0);
             }
 
-            _logger.AddUserMessage("Unlock succeeded.");
+            logger.AddUserMessage("Unlock succeeded.");
 
-            if (_cancellationToken.IsCancellationRequested)
+            if (cancellationToken.IsCancellationRequested)
             {
                 return Response.Create(ResponseStatus.Cancelled, false, 0);
             }
@@ -185,20 +188,23 @@ namespace PcmHacking
             DateTime start = DateTime.Now;
 
             CKernelReader reader = new CKernelReader(
-                _vehicle,
+                vehicle,
                 pcmInfo,
-                _logger,
-                _progress ?? new Progress<ProgressUpdate>());
+                this.logger,
+                _progress ?? new Progress<ProgressUpdate>())
+            {
+                CrcPollingDelayMs = this.CrcPollingDelayMs,
+            };
 
-            _vehicle.Enable4xReadWrite = _actionArguments.UseHighSpeed || _vehicle.Enable4xReadWrite;
+            vehicle.Enable4xReadWrite = _actionArguments.UseHighSpeed || vehicle.Enable4xReadWrite;
 
-            Response<Stream?> readResponse = await reader.ReadContents(_cancellationToken);
+            Response<Stream?> readResponse = await reader.ReadContents(cancellationToken);
 
-            _logger.AddUserMessage("Elapsed time " + DateTime.Now.Subtract(start));
+            logger.AddUserMessage("Elapsed time " + DateTime.Now.Subtract(start));
 
             if (readResponse.Status != ResponseStatus.Success && readResponse.Status != ResponseStatus.Unverified)
             {
-                _logger.AddUserMessage("Read failed, " + readResponse.Status.ToString());
+                logger.AddUserMessage("Read failed, " + readResponse.Status.ToString());
             }
             return Response.Create(readResponse.Status, readResponse.Status == ResponseStatus.Success, readResponse.RetryCount); // Hybrid compromise: I see the usefulness of a returned status flag, returning the stream this way however makes things funky with WriteManager's Begin() method.
         }

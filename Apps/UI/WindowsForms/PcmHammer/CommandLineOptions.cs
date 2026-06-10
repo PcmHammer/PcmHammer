@@ -1,3 +1,4 @@
+﻿// SPDX-License-Identifier: GPL-3.0-only
 using CommandLine;
 using System;
 using System.Collections.Generic;
@@ -13,7 +14,7 @@ namespace PcmHacking
     public class CommandLineOptions
     {
         [Option("writecalibration", Required = false, HelpText = "Write calibration from file")]
-        public string BinFilePath { get; set; }
+        public string? BinFilePath { get; set; }
         [Option("version", Required = false, HelpText = "Display version information")]
         public bool ShowVersion { get; set; }
         [Option('r', Required = false, HelpText = "Reset device configuration")]

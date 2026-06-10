@@ -1,4 +1,5 @@
-﻿using CommandLine;
+﻿// SPDX-License-Identifier: GPL-3.0-only
+using CommandLine;
 using Microsoft.Win32;
 using PcmHacking.ECU;
 using System;
@@ -67,17 +68,6 @@ namespace PcmHacking
         private const string AppName = "PCM Hammer";
 
         /// <summary>
-        /// This becomes the second half of the window caption, is printed
-        /// when devices are initialized, and is used to create links to the
-        /// help.html and start.txt files.
-        /// 
-        /// If null, the build timestamp will be used.
-        /// 
-        /// If not null, use a number like "004" that matches a release branch.
-        /// </summary>
-        private const string AppVersion = null;
-
-        /// <summary>
         /// We had to move some operations to a background thread for the J2534 code as the DLL functions do not have an awaiter.
         /// </summary>
         private System.Threading.Thread BackgroundWorker = new System.Threading.Thread(delegate () { return; });
@@ -87,7 +77,7 @@ namespace PcmHacking
         /// It will be toggled if the user clicks the cancel button.
         /// Long-running operations can abort when this flag changes.
         /// </summary>
-        private CancellationTokenSource cancellationTokenSource;
+        private CancellationTokenSource? cancellationTokenSource;
 
         /// <summary>
         /// Indicates what type of write, if any, is in progress.
@@ -107,7 +97,7 @@ namespace PcmHacking
         /// </summary>
         public override void AddUserMessage(string message, LogLevels level = 0)
         {
-            string timestamp = DateTime.Now.ToString("hh:mm:ss:fff");
+            string timestamp = DateTime.Now.ToString("HH:mm:ss.fff");
 
             this.userLog.Invoke(
                 (MethodInvoker)delegate ()
@@ -128,7 +118,7 @@ namespace PcmHacking
         /// </summary>
         public override void AddDebugMessage(string message)
         {
-            string timestamp = DateTime.Now.ToString("hh:mm:ss:fff");
+            string timestamp = DateTime.Now.ToString("HH:mm:ss.fff");
 
             this.debugLog.Invoke(
                 (MethodInvoker)delegate ()
@@ -245,9 +235,9 @@ namespace PcmHacking
         /// <summary>
         /// Show the save-as dialog box (after a full read has completed).
         /// </summary>
-        private string ShowSaveAsDialog()
+        private string? ShowSaveAsDialog()
         {
-            string fileName = null;
+            string? fileName = null;
 
             using (SaveFileDialog dialog = new SaveFileDialog())
             {
@@ -275,9 +265,9 @@ namespace PcmHacking
         /// <summary>
         /// Show the file-open dialog box, so the user can choose the file to write to the flash.
         /// </summary>
-        private string ShowOpenDialog()
+        private string? ShowOpenDialog()
         {
-            string fileName = null;
+            string? fileName = null;
 
             using (OpenFileDialog dialog = new OpenFileDialog())
             {
@@ -353,17 +343,7 @@ namespace PcmHacking
         /// </summary>
         public override string GetAppNameAndVersion()
         {
-            string versionString = AppVersion;
-            if (versionString == null)
-            {
-                DateTime localTime = new DateTime(Generated.BuildTime).ToLocalTime();
-                versionString = String.Format(
-                    "({0}, {1})",
-                    localTime.ToShortDateString(),
-                    localTime.ToShortTimeString());
-            }
-
-            return AppName + " " + versionString;
+            return AppInfo.GetNameAndVersion(AppName, Generated.BuildTime);
         }
 
         /// <summary>
@@ -405,7 +385,7 @@ namespace PcmHacking
         {
             try
             {
-                this.Text = GetAppNameAndVersion();
+                this.Text = GetAppNameAndVersion().Replace('\n', ' ');
                 this.interfaceBox.Enabled = true;
                 this.operationsBox.Enabled = true;
 
@@ -531,8 +511,8 @@ namespace PcmHacking
         /// </summary>
         private async void LoadStartMessage(object unused)
         {
-            ContentLoader loader = new ContentLoader("start.txt", AppVersion, Assembly.GetExecutingAssembly(), this);
-            using (Stream content = await loader.GetContentStream())
+            ContentLoader loader = new ContentLoader("start.txt", null, Assembly.GetExecutingAssembly(), this);
+            using (Stream? content = await loader.GetContentStream())
             {
                 try
                 {
@@ -552,8 +532,8 @@ namespace PcmHacking
         /// </summary>
         private async void LoadHelp(object unused)
         {
-            ContentLoader loader = new ContentLoader("help.html", AppVersion, Assembly.GetExecutingAssembly(), this);
-            Stream content = await loader.GetContentStream();
+            ContentLoader loader = new ContentLoader("help.html", null, Assembly.GetExecutingAssembly(), this);
+            Stream? content = await loader.GetContentStream();
             this.helpWebBrowser.Invoke(
                 (MethodInvoker)delegate ()
                 {
@@ -573,8 +553,8 @@ namespace PcmHacking
         /// </summary>
         private async void LoadCredits(object unused)
         {
-            ContentLoader loader = new ContentLoader("credits.html", AppVersion, Assembly.GetExecutingAssembly(), this);
-            Stream content = await loader.GetContentStream();
+            ContentLoader loader = new ContentLoader("credits.html", null, Assembly.GetExecutingAssembly(), this);
+            Stream? content = await loader.GetContentStream();
             this.helpWebBrowser.Invoke(
                 (MethodInvoker)delegate ()
                 {
@@ -594,6 +574,17 @@ namespace PcmHacking
         /// </summary>
         private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
         {
+            if (this.cancellationTokenSource != null)
+            {
+                MessageBox.Show(
+                    this,
+                    "There is an operation in progress. End this before exiting the app.",
+                    "PCM Hammer",
+                    MessageBoxButtons.OK);
+                e.Cancel = true;
+                return;
+            }
+
             switch (this.currentWriteType)
             {
                 case WriteType.None:
@@ -643,6 +634,8 @@ namespace PcmHacking
                 string fileName = Configuration.Settings.LogDirectory + "\\" + GetLogFilename(debugLog.Name);
                 SaveLog(this.debugLog, fileName);
             }
+
+            this.Vehicle?.Dispose();
         }
 
         /// <summary>
@@ -665,6 +658,9 @@ namespace PcmHacking
             this.saveToolStripMenuItem.Enabled = false;
             this.exitApplicationToolStripMenuItem.Enabled = false;
             this.userDefinedKeyToolStripMenuItem.Enabled = false;
+            this.bruteForceUnlockToolStripMenuItem.Enabled = false;
+            this.haltRunningKernelToolStripMenuItem.Enabled = false;
+            this.testFileChecksumsToolStripMenuItem.Enabled = false;
 
             this.readPropertiesButton.Enabled = false;
             this.readPcmButton.Enabled = false;
@@ -698,6 +694,9 @@ namespace PcmHacking
                 this.saveToolStripMenuItem.Enabled = true;
                 this.exitApplicationToolStripMenuItem.Enabled = true;
                 this.userDefinedKeyToolStripMenuItem.Enabled = true;
+                this.bruteForceUnlockToolStripMenuItem.Enabled = true;
+                this.haltRunningKernelToolStripMenuItem.Enabled = true;
+                this.testFileChecksumsToolStripMenuItem.Enabled = true;
 
                 this.readPropertiesButton.Enabled = true;
                 this.readPcmButton.Enabled = true;
@@ -715,6 +714,10 @@ namespace PcmHacking
             this.interfaceBox.Enabled = true;
             this.settingsToolStripMenuItem.Enabled = true;
             this.exitApplicationToolStripMenuItem.Enabled = true;
+
+            // Test File Checksums works on a file only - it needs no interface - so make it
+            // available whenever no operation is in progress, even with no device selected.
+            this.testFileChecksumsToolStripMenuItem.Enabled = true;
         }
 
         /// <summary>
@@ -778,6 +781,31 @@ namespace PcmHacking
             {
                 this.Vehicle.UserDefinedKey = -1;
             }
+        }
+
+        /// <summary>
+        /// Brute Force - open the dialog that sweeps the known key algorithms and/or tries
+        /// numeric key values until the PCM unlocks.
+        /// </summary>
+        private void bruteForceUnlockToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (BackgroundWorker.IsAlive || this.Vehicle == null)
+            {
+                return;
+            }
+
+            // Show modeless so the user can switch between the Results and Debug Log tabs on the
+            // main window while the search runs. The brute forcer does its device I/O on a background
+            // task, so the UI thread stays responsive. We disable the operation controls (but not the
+            // log tabs) for the dialog's lifetime so nothing competes for the device.
+            this.DisableUserInput();
+            DialogBoxes.BruteForceDialogBox dialog = new DialogBoxes.BruteForceDialogBox(this.Vehicle, this);
+            dialog.FormClosed += (s, args) =>
+            {
+                this.EnableUserInput();
+                dialog.Dispose();
+            };
+            dialog.Show(this);
         }
 
         /// <summary>
@@ -1235,7 +1263,7 @@ namespace PcmHacking
                     }
 
                     // Get the path to save the image to.
-                    string path = "";
+                    string? path = null;
                     await this.InvokeWrapper(async () => path = await this.PromptForFileSavePath());
 
                     if (string.IsNullOrWhiteSpace(path))
@@ -1352,7 +1380,6 @@ namespace PcmHacking
                 this.cancellationTokenSource.Token,
                 progress,
                 this);
-            manager.Initialize();
             Response<bool> actionResponse = Response.Create(ResponseStatus.Error, false);
             try
             {
@@ -1433,7 +1460,7 @@ namespace PcmHacking
         /// <summary>
         /// Write changes to the PCM's flash memory.
         /// </summary>
-        private async void write_BackgroundThread(WriteType writeType, string path = null, bool useAutoPcmType = true, PcmType selectedPcmType = PcmType.Undefined)
+        private async void write_BackgroundThread(WriteType writeType, string? path = null, bool useAutoPcmType = true, PcmType selectedPcmType = PcmType.Undefined)
         {
             using (new AwayMode())
             {
@@ -1461,14 +1488,6 @@ namespace PcmHacking
                         }
                         if (string.IsNullOrWhiteSpace(path))
                         {
-                            return;
-                        }
-
-                        DelayDialogBox dialogBox = new DelayDialogBox();
-                        DialogResult dialogResult = dialogBox.ShowDialog(this);
-                        if (dialogResult == DialogResult.Cancel)
-                        {
-                            path = null;
                             return;
                         }
                     });
@@ -1576,7 +1595,7 @@ namespace PcmHacking
 
         private async void testFileChecksumsToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            string path = this.ShowOpenDialog();
+            string? path = this.ShowOpenDialog();
             if (path == null)
             {
                 return;

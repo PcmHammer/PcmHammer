@@ -59,6 +59,7 @@ namespace Tests
             {
                 ECUBase a = ECUFactory.GetControllerByOSID(s);
                 OSIDInfo b = new OSIDInfo(s);
+                Debug.WriteLine($"Beginning test - New: {a}; old: {b.HardwareType}");
 
                 Assert.IsNotNull(a);
                 Assert.IsNotNull(b);

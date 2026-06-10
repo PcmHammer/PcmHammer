@@ -1,4 +1,5 @@
-﻿using System;
+﻿// SPDX-License-Identifier: GPL-3.0-only
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -39,8 +40,8 @@ namespace PcmHacking
             }
             catch(Exception exception)
             {
-                this.logger.AddUserMessage("Unable to load profile " + Path.GetFileName(path));
-                this.logger.AddDebugMessage(exception.ToString());
+                logger.AddUserMessage("Unable to load profile " + Path.GetFileName(path));
+                logger.AddDebugMessage(exception.ToString());
                 this.profile = new LogProfile();
             }
 
@@ -51,7 +52,7 @@ namespace PcmHacking
         {
             string parameterType = typeof(T).Name;
 
-            XElement container = xml.Root.Elements(string.Format("{0}s", parameterType)).FirstOrDefault();
+            XElement? container = xml.Root?.Elements(string.Format("{0}s", parameterType)).FirstOrDefault();
 
             if (container != null)
             {
@@ -59,7 +60,7 @@ namespace PcmHacking
                 {
                     string id = parameterElement.Attribute("id").Value;
                     string units = parameterElement.Attribute("units").Value;
-                    string zoomAttributeValue = parameterElement.Attribute("zoom")?.Value;
+                    string? zoomAttributeValue = parameterElement.Attribute("zoom")?.Value;
                     bool zoom = string.Equals(zoomAttributeValue, "true", StringComparison.OrdinalIgnoreCase);
                     this.AddParameterToProfile<T>(id, units, zoom);
                 }
@@ -71,13 +72,13 @@ namespace PcmHacking
             T parameter;
             if (!this.database.TryGetParameter<T>(id, out parameter))
             {
-                this.logger.AddUserMessage($"Parameter {id} is not supported by this version of PCM Hammer.");
+                logger.AddUserMessage($"Parameter {id} is not supported by this version of PCM Hammer.");
                 return;
             }
 
             if (!parameter.IsSupported(this.osid))
             {
-                this.logger.AddUserMessage($"Parameter {id} is not supported by this operating system.");
+                logger.AddUserMessage($"Parameter {id} is not supported by this operating system.");
                 return;
             }
 

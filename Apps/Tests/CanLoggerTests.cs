@@ -1,4 +1,5 @@
-﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
+﻿// SPDX-License-Identifier: GPL-3.0-only
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 using PcmHacking;
 using System;
 using System.Collections.Generic;

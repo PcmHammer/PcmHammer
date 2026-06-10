@@ -1,4 +1,5 @@
-﻿using System;
+﻿// SPDX-License-Identifier: GPL-3.0-only
+using System;
 using System.Collections.Generic;
 using System.Text;
 
@@ -15,7 +16,7 @@ namespace PcmHacking
                 throw new TimeoutException();
             }
 
-            return default;
+            return default!;
         }
 
         public static async Task<T> TaskWithTimeoutAndException<T>(

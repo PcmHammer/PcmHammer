@@ -38,20 +38,11 @@ namespace PcmHacking
         public ECUActionArguments ActionArgs = actionArgs;
         public ControllerPageObjects ControllerPageObjects = pageObjects;
         public bool ActionActive = false;
-        private Dictionary<ControllerActions, IControllerManager> _controllerActionLookup = [];
-        private readonly Vehicle _vehicle = vehicle;
-        private readonly CancellationToken _cancellationToken = cancellationToken;
-        private readonly ILogger logger = logger;
-        private readonly IProgress<ProgressUpdate> progress = progress;
-
-
-        public void Initialize()
+        private Dictionary<ControllerActions, IControllerManager> _controllerActionLookup = new()
         {
-            _controllerActionLookup = new Dictionary<ControllerActions, IControllerManager> {
-                { ControllerActions.Read, new ReadManager(logger, _vehicle, ActionArgs, ControllerPageObjects, _cancellationToken, progress) },
-                { ControllerActions.Write, new WriteManager(logger, _vehicle, ActionArgs, ControllerPageObjects, _cancellationToken, progress) }
-            };                
-        }
+            { ControllerActions.Read, new ReadManager(logger, vehicle, actionArgs, pageObjects, cancellationToken, progress) },
+            { ControllerActions.Write, new WriteManager(logger, vehicle, actionArgs, pageObjects, cancellationToken, progress) }
+        };
 
         public async Task<Response<bool>> BeginAction()
         {

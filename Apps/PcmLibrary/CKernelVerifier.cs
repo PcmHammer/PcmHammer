@@ -1,4 +1,5 @@
-﻿using PcmHacking.ECU;
+﻿// SPDX-License-Identifier: GPL-3.0-only
+using PcmHacking.ECU;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -24,15 +25,26 @@ namespace PcmHacking
         private readonly Vehicle vehicle;
         private readonly Protocol protocol;
         private readonly ECUBase pcmInfo;
+        private readonly UInt32 effectiveImageSize;
         private readonly ILogger logger;
         private readonly IProgress<ProgressUpdate> progress;
 
+        public int PollingDelayMs { get; set; } = 50;
+
+        /// <param name="effectiveImageSize">
+        /// How much of the flash chip is actually in use and should be verified. This is normally
+        /// the detected flash chip size, not the PCM-type default size (which can be smaller, e.g.
+        /// a P04_Early carrying a 512KiB chip but defaulting to 256KiB). The P10/P11 are the
+        /// intentional exception, where the chip is larger than the usable image and the caller
+        /// passes the smaller PCM-type size. The callers compute this; see CKernelReader/CKernelWriter.
+        /// </param>
         public CKernelVerifier(
             byte[] image, 
             IEnumerable<MemoryRange> ranges, 
             Vehicle vehicle, 
             Protocol protocol, 
             ECUBase pcmInfo,
+            UInt32 effectiveImageSize,
             ILogger logger,
             IProgress<ProgressUpdate> progress)
         {
@@ -41,6 +53,7 @@ namespace PcmHacking
             this.vehicle = vehicle;
             this.protocol = protocol;
             this.pcmInfo = pcmInfo;
+            this.effectiveImageSize = effectiveImageSize;
             this.logger = logger;
             this.progress = progress;
         }
@@ -53,7 +66,7 @@ namespace PcmHacking
             Crc crc = new Crc();
             foreach (MemoryRange range in this.ranges)
             {
-                if (range.Address < pcmInfo.ImageSize) // P10 does not use the whole chip
+                if (range.Address < this.effectiveImageSize) // P10/P11 do not use the whole chip
                 {
                     range.DesiredCrc = crc.GetCrc(this.image, range.Address, range.Size);
                 }
@@ -83,9 +96,9 @@ namespace PcmHacking
                 string formatString = "{0:X6}-{1:X6}\t{2:X8}\t{3:X8}\t{4}\t{5}";
                 string range_type = pcmInfo.IsSupportedWriteBySegment ? range.Type.ToString() : "General";
 
-                if (((range.Type & blockTypes) == 0) || (range.Address >= this.pcmInfo.ImageSize))
+                if (((range.Type & blockTypes) == 0) || (range.Address >= this.effectiveImageSize))
                 {
-                    this.logger.AddUserMessage(string.Format(formatString, range.Address, range.Address + (range.Size - 1), "not needed", "not needed", "n/a", range_type));
+                    logger.AddUserMessage(string.Format(formatString, range.Address, range.Address + (range.Size - 1), "not needed", "not needed", "n/a", range_type));
                     continue;
                 }
 
@@ -96,7 +109,7 @@ namespace PcmHacking
 
                 // For C Kernels each poll of the PCM causes it to CRC 16kb of segment data.
                 // When the segment sum is available it is returned. Logged highs of 38 polls on a 1m P12.
-                int retryDelay = 50;
+                int retryDelay = this.PollingDelayMs;
                 bool success = false;
                 int consecutiveTimeouts = 0;
                 UInt32 crc = 0;
@@ -113,29 +126,24 @@ namespace PcmHacking
 
                     if (!await this.vehicle.SendMessage(query))
                     {
-                        this.logger.AddUserMessage($"CRC query failed reading range {range.Address.ToString("X8")} / {range.Size.ToString("X8")}");
+                        logger.AddUserMessage($"CRC query failed reading range {range.Address.ToString("X8")} / {range.Size.ToString("X8")}");
                         continue;
                     }
 
-                    Message? response = null;
-                    while (true)
+                    Message response = await this.vehicle.ReceiveMessage();
+                    if (response == null)
                     {
-                        response = await this.vehicle.ReceiveMessage();
-                        if (response == null)
+                        consecutiveTimeouts++;
+                        if (consecutiveTimeouts >= 6)
                         {
-                            consecutiveTimeouts++;
-                            if (consecutiveTimeouts >= 6)
-                            {
-                                string detail = anyTimeout ? "" : " Kernel may have crashed.";
-                                this.logger.AddUserMessage($"PCM stopped responding during CRC check at {range.Address:X8} / {range.Size:X8}.{detail}");
-                                anyTimeout = true;
-                                break;
-                            }
-                            this.logger.AddDebugMessage($"CRC no response, re-querying {range.Address.ToString("X8")} / {range.Size.ToString("X8")}");
-                            await Task.Delay(retryDelay);
-                            continue;
+                            string detail = anyTimeout ? "" : " Kernel may have crashed.";
+                            logger.AddUserMessage($"PCM stopped responding during CRC check at {range.Address:X8} / {range.Size:X8}.{detail}");
+                            anyTimeout = true;
+                            break;
                         }
-                        break;
+                        logger.AddDebugMessage($"CRC no response, re-querying {range.Address.ToString("X8")} / {range.Size.ToString("X8")}");
+                        await Task.Delay(retryDelay);
+                        continue;
                     }
 
                     consecutiveTimeouts = 0;
@@ -157,7 +165,7 @@ namespace PcmHacking
                 {
                     if (!anyTimeout)
                     {
-                        this.logger.AddUserMessage("Unable to get CRC for memory range " + range.Address.ToString("X8") + " / " + range.Size.ToString("X8"));
+                        logger.AddUserMessage("Unable to get CRC for memory range " + range.Address.ToString("X8") + " / " + range.Size.ToString("X8"));
                     }
                     anyMismatch = true;
                     continue;
@@ -170,7 +178,7 @@ namespace PcmHacking
                 bool match = range.DesiredCrc == range.ActualCrc;
                 if (!match) anyMismatch = true;
 
-                this.logger.AddUserMessage(string.Format(formatString, range.Address, range.Address + (range.Size - 1), range.DesiredCrc, range.ActualCrc, match ? "Same" : "Different", range_type));
+                logger.AddUserMessage(string.Format(formatString, range.Address, range.Address + (range.Size - 1), range.DesiredCrc, range.ActualCrc, match ? "Same" : "Different", range_type));
             }
 
             await this.vehicle.SendToolPresentNotification();

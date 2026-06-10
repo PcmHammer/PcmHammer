@@ -1,4 +1,5 @@
-﻿using System;
+﻿// SPDX-License-Identifier: GPL-3.0-only
+using System;
 using System.Collections.Specialized;
 using System.IO;
 using System.Threading;
@@ -10,7 +11,7 @@ namespace PcmHacking
     public partial class MainForm
     {
         private LogProfile currentProfile = new LogProfile();
-        private string currentProfilePath = null;
+        private string? currentProfilePath = null;
         private bool currentProfileIsDirty = false;
 
         private const string fileFilter = "Log Profiles (*.LogProfile)|*.LogProfile|All Files|*.*";

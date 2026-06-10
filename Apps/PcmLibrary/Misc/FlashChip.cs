@@ -1,4 +1,5 @@
-﻿using System;
+﻿// SPDX-License-Identifier: GPL-3.0-only
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
@@ -51,7 +52,7 @@ namespace PcmHacking
         /// </summary>
         public static FlashChip Create(UInt32 chipId, ILogger logger)
         {
-            IList<MemoryRange> memoryRanges = null;
+            IList<MemoryRange>? memoryRanges = null;
             string description;
             UInt32 size;
 

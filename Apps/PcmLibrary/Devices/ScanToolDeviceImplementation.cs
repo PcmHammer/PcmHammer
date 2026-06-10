@@ -1,4 +1,5 @@
-﻿using System;
+﻿// SPDX-License-Identifier: GPL-3.0-only
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -348,7 +349,7 @@ namespace PcmHacking
                 string response = await this.ReadELMLine();
                 this.ProcessResponse(response, "receive");
 
-                if (this.getRecievedMessageCount() == 0)
+                if (this.getRecievedMessageCount!() == 0)
                 {
                    // await this.ReceiveViaMonitorMode();
                 }

@@ -1,3 +1,4 @@
+﻿// SPDX-License-Identifier: GPL-3.0-only
 using PcmHacking.ECU;
 using System;
 using System.Drawing;
@@ -26,7 +27,7 @@ namespace PcmHacking
         private readonly Button okButton;
         private readonly Button cancelButton;
 
-        public OperationSelection Selection { get; private set; }
+        public OperationSelection? Selection { get; private set; }
 
         public OperationSelectionDialogBox(bool defaultIsWrite, WriteType defaultWriteType)
         {

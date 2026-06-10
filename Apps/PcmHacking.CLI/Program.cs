@@ -393,7 +393,6 @@ if (result == 0)
     }
 
     controllerManager = new ControllerManager(vehicle, actionArgs, pageObjects, cancellationSource.Token, progress, logger);
-    controllerManager.Initialize();
 
     PreFlightCheckResult checkResult = vehicle.ConnectedECU.GetPreCheckResults(actionArgs.SelectedAction, actionArgs.WriteType);
     if(skipChecks && checkResult.ShouldPrompt)

@@ -1,3 +1,4 @@
+﻿// SPDX-License-Identifier: GPL-3.0-only
 using System.Data;
 using System.Data.Common;
 using System.Drawing.Drawing2D;
@@ -335,7 +336,7 @@ public sealed partial class DataLoggingParametersPage : Page
             var metadata = this.parameterMetadata.Find(x => (rowIndex) == x?.Indices?.MainRowIndex);
             if (metadata != null && metadata.DataSource != null)
             {
-                await this.model?.EditParameter(metadata.DataSource);
+                await (this.model?.EditParameter(metadata.DataSource) ?? Task.CompletedTask);
             }
         }
 

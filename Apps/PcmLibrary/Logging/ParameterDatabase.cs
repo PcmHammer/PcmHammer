@@ -1,4 +1,5 @@
-﻿using System;
+﻿// SPDX-License-Identifier: GPL-3.0-only
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Globalization;
@@ -12,7 +13,7 @@ namespace PcmHacking
     /// </summary>
     public class ParameterDatabase
     {
-        private string pathToXmlDirectory;
+        private string pathToXmlDirectory = null!;
 
         private List<Parameter> parameters = new List<Parameter>();
         private Dictionary<UInt32, IEnumerable<CanParameter>> canParameters = new Dictionary<UInt32, IEnumerable<CanParameter>>();
@@ -57,7 +58,7 @@ namespace PcmHacking
         {
             try
             {
-                result = this.parameters.First(p => p is T && p.Id == id) as T;
+                result = (this.parameters.First(p => p is T && p.Id == id) as T)!;
                 return true;
             }
             catch(InvalidOperationException)
@@ -66,14 +67,14 @@ namespace PcmHacking
                 if (typeof(T) == typeof(PidParameter) &&
                     uint.TryParse(id, System.Globalization.NumberStyles.HexNumber, CultureInfo.InvariantCulture, out pid))
                 {
-                    result = (T) this.parameters.FirstOrDefault(p => (p as PidParameter)?.PID == pid);
+                    result = (this.parameters.FirstOrDefault(p => (p as PidParameter)?.PID == pid) as T)!;
                     if (result != null)
                     {
                         return true;
                     }                    
                 }
 
-                result = null;
+                result = null!;
                 return false;
             }
         }
@@ -126,7 +127,7 @@ namespace PcmHacking
             string pathToXml = Path.Combine(this.pathToXmlDirectory, "Parameters.Standard.xml");
             XDocument xml = XDocument.Load(pathToXml);
 
-            foreach (XElement parameterElement in xml.Root.Elements("Parameter"))
+            foreach (XElement parameterElement in xml.Root!.Elements("Parameter"))
             {
                 var osElements = parameterElement.Elements("OS");
                 List<uint> osids = new List<uint>();
@@ -170,7 +171,7 @@ namespace PcmHacking
             string pathToXml = Path.Combine(this.pathToXmlDirectory, "Parameters.RAM.xml");
             XDocument xml = XDocument.Load(pathToXml);
 
-            foreach (XElement parameterElement in xml.Root.Elements("RamParameter"))
+            foreach (XElement parameterElement in xml.Root!.Elements("RamParameter"))
             {
                 Dictionary<uint, uint> addresses = new Dictionary<uint, uint>();
                 foreach (XElement location in parameterElement.Elements("Location"))
@@ -206,7 +207,7 @@ namespace PcmHacking
         {
             string pathToXml = Path.Combine(this.pathToXmlDirectory, "Parameters.Math.xml");
             XDocument xml = XDocument.Load(pathToXml);
-            foreach (XElement parameterElement in xml.Root.Elements("MathParameter"))
+            foreach (XElement parameterElement in xml.Root!.Elements("MathParameter"))
             {
                 string parameterName = parameterElement.Attribute("name").Value;
 
@@ -236,7 +237,7 @@ namespace PcmHacking
         {
             string pathToXml = Path.Combine(this.pathToXmlDirectory, "Parameters.CAN.xml");
             XDocument xml = XDocument.Load (pathToXml);
-            foreach (XElement messageElement in xml.Root.Elements("Message"))
+            foreach (XElement messageElement in xml.Root!.Elements("Message"))
             {
                 string messageIdString = messageElement.Attribute("id").Value;
                 UInt32 messageId = UInt32.Parse(messageIdString, NumberStyles.HexNumber);
@@ -277,14 +278,14 @@ namespace PcmHacking
 
         private LogColumn BuildLogColumnForMathParameter(string id, string units, string parameterName)
         {
-            Parameter xParameter = this.parameters.Where(x => (x.Id == id)).FirstOrDefault();
+            Parameter? xParameter = this.parameters.Where(x => (x.Id == id)).FirstOrDefault();
 
             if (xParameter == null)
             {
                 throw new Exception(String.Format("No parameter found for {0} in {1}", id, parameterName));
             }
 
-            Conversion xConversion = xParameter.Conversions.Where(x => x.Units == units).FirstOrDefault();
+            Conversion? xConversion = xParameter.Conversions.Where(x => x.Units == units).FirstOrDefault();
 
             if (xConversion == null)
             {
@@ -316,7 +317,7 @@ namespace PcmHacking
 
         private bool IsBitmapped(XElement parameterElement)
         {
-            string bitMappedAttributeValue = parameterElement.Attribute("bitMapped")?.Value;
+            string? bitMappedAttributeValue = parameterElement.Attribute("bitMapped")?.Value;
             if (string.IsNullOrEmpty(bitMappedAttributeValue))
             {
                 return false;

@@ -1,4 +1,5 @@
-﻿using System;
+﻿// SPDX-License-Identifier: GPL-3.0-only
+using System;
 using System.Collections.Generic;
 using System.Text;
 
@@ -18,9 +19,28 @@ namespace PcmHacking
             return new Message(new byte[] { Priority.Physical0, DeviceId.Pcm, DeviceId.Tool, 0x3D, 0x00 });
         }
 
-        internal Response<UInt32> ParseKernelVersion(Message responseMessage)
+        internal Response<UInt64> ParseKernelVersion(Message responseMessage)
         {
-            return ParseUInt32(responseMessage, 0x3D, 0x00);
+            ResponseStatus status;
+            byte[] expected = { Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, 0x7D, 0x00 };
+            if (!TryVerifyInitialBytes(responseMessage, expected, out status))
+            {
+                byte[] refused = { Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, Mode.NegativeResponse, 0x3D, 0x00 };
+                if (TryVerifyInitialBytes(responseMessage, refused, out status))
+                    return Response.Create(ResponseStatus.Refused, (UInt64)0);
+                return Response.Create(status, (UInt64)0);
+            }
+            byte[] responseBytes = responseMessage.GetBytes();
+            if (responseBytes.Length < 9)
+                return Response.Create(ResponseStatus.Truncated, (UInt64)0);
+            UInt64 epoch =
+                ((UInt64)responseBytes[5] << 24) |
+                ((UInt64)responseBytes[6] << 16) |
+                ((UInt64)responseBytes[7] <<  8) |
+                responseBytes[8];
+            byte pcmType = responseBytes.Length >= 10 ? responseBytes[9] : (byte)0x00;
+            UInt64 value = (epoch << 8) | pcmType;
+            return Response.Create(ResponseStatus.Success, value);
         }
 
         /// <summary>

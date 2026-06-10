@@ -1,3 +1,4 @@
+﻿// SPDX-License-Identifier: GPL-3.0-only
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -41,7 +42,7 @@ namespace PcmHacking
         /// <summary>
         /// Descriptive text.
         /// </summary>
-        public string Description { get; private set; }
+        public string Description { get; private set; } = string.Empty;
 
         /// <summary>
         /// Indicates whether this PCM is supported by the app.
@@ -95,7 +96,7 @@ namespace PcmHacking
         /// <summary>
         /// Name of the kernel file to use.
         /// </summary>
-        public string KernelFileName { get; private set; }
+        public string KernelFileName { get; private set; } = string.Empty;
 
         /// <summary>
         /// Base address to begin writing the kernel to.
@@ -105,7 +106,7 @@ namespace PcmHacking
         /// <summary>
         /// Name of the kernel loader file to use.
         /// </summary>
-        public string LoaderFileName { get; private set; }
+        public string LoaderFileName { get; private set; } = string.Empty;
 
         /// <summary>
         /// Base address to begin writing the kernel loader to.
@@ -362,7 +363,7 @@ namespace PcmHacking
                     this.IsSupportedWriteBySegment = false;
                     this.LoaderRequired = false;
                     this.KernelFileName = "Kernel-P08.bin";
-                    this.KernelBaseAddress = 0xFFAC00;
+                    this.KernelBaseAddress = 0xFFABE0;
                     this.LoaderFileName = string.Empty;
                     this.LoaderBaseAddress = 0x0;
                     this.ImageBaseAddress = 0x0;
@@ -429,7 +430,7 @@ namespace PcmHacking
                     this.HardwareSlaveCPU = true;
                     this.IsSupported = true;
                     this.IsSupportedRead = true;
-                    this.IsSupportedWrite = false;
+                    this.IsSupportedWrite = true;
                     this.IsSupportedWriteSlaveCPU = false;
                     this.IsSupportedWriteBySegment = true;
                     this.IsSupportedWriteBootSector = false;

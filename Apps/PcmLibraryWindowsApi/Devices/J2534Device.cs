@@ -1,4 +1,5 @@
-﻿using System;
+﻿// SPDX-License-Identifier: GPL-3.0-only
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -27,7 +28,7 @@ namespace PcmHacking
         /// variety of properties used to id channels, fitlers and status
         /// </summary>
         private J2534_Struct J2534Port;
-        public List<ulong> Filters;
+        public List<ulong> Filters = [];
         private int DeviceID;
         private int ChannelID;
         private ProtocolID Protocol;
@@ -75,7 +76,10 @@ namespace PcmHacking
 
         public override string ToString()
         {
-            return "J2534 Device";
+            string deviceName = this.J2534Port.LoadedDevice?.Name;
+            return string.IsNullOrEmpty(deviceName)
+                ? "J2534 Device"
+                : "J2534 " + deviceName;
         }
 
         public override string GetDeviceType()
@@ -116,7 +120,7 @@ namespace PcmHacking
             // Check not already loaded
             if (IsLoaded == true)
             {
-                // Only disconnect protocol if it was actually opened — a failed previous
+                // Only disconnect protocol if it was actually opened - a failed previous
                 // init may have left IsLoaded true but never reached ConnectToProtocol.
                 if (IsProtocolOpen)
                 {
@@ -151,7 +155,7 @@ namespace PcmHacking
                 }
                 else
                 {
-                    // DLL is loaded but tool was never opened — just unload the DLL.
+                    // DLL is loaded but tool was never opened - just unload the DLL.
                     CloseLibrary();
                 }
             }
@@ -234,7 +238,7 @@ namespace PcmHacking
                 await Task.Delay(100);
             }
 
-            return Response.Create(ResponseStatus.Timeout, (Message)null);
+            return Response.Create(ResponseStatus.Timeout, (Message)null!);
         }
 
         /// <summary>

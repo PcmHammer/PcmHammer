@@ -1,3 +1,4 @@
+﻿// SPDX-License-Identifier: GPL-3.0-only
 using Microsoft.Extensions.Logging;
 using Microsoft.UI.Dispatching;
 using PcmHacking.UnoUI.Services;
@@ -231,7 +232,7 @@ public partial record DumpRamModel : IAsyncLogger
         try
         {
             await this.StartEnabled.SetAsync(false);
-            string path = await this.PromptForFileSavePath();
+            string? path = await this.PromptForFileSavePath();
             await this.Path.SetAsync(path);
         }
         finally
@@ -258,7 +259,7 @@ public partial record DumpRamModel : IAsyncLogger
         await tcs.Task;
     }
 
-    private async Task<string> PromptForFileSavePath()
+    private async Task<string?> PromptForFileSavePath()
     {
         // Open a Save-As dialog to get the file path
         FileSavePicker savePicker = new FileSavePicker();

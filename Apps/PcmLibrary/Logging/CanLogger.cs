@@ -1,4 +1,5 @@
-﻿using DynamicExpresso;
+﻿// SPDX-License-Identifier: GPL-3.0-only
+using DynamicExpresso;
 using PcmHacking;
 using System;
 using System.Collections.Generic;
@@ -68,7 +69,7 @@ namespace PcmHacking
             }
         }
 
-        public async Task SetPort(IPort port)
+        public async Task SetPort(IPort? port)
         {
             this.canPort?.Dispose();
             this.canPort = port;

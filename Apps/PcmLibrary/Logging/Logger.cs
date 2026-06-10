@@ -1,4 +1,5 @@
-﻿using System;
+﻿// SPDX-License-Identifier: GPL-3.0-only
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
@@ -59,9 +60,9 @@ namespace PcmHacking
         private readonly uint osid;
         private readonly DpidConfiguration dpidConfiguration;
         private readonly MathValueProcessor mathValueProcessor;
-        private DpidCollection dpids;
-        private CanLogger canLogger;
-        private ILogger uiLogger;
+        private DpidCollection dpids = null!;
+        private CanLogger canLogger = null!;
+        private ILogger uiLogger = null!;
 
         public DpidConfiguration DpidConfiguration {  get { return this.dpidConfiguration; } }
 
@@ -116,14 +117,14 @@ namespace PcmHacking
             // Separate PCM columns from Math columns
             foreach (LogColumn column in columns)
             {
-                PcmParameter pcmParameter = column.Parameter as PcmParameter;
+                PcmParameter? pcmParameter = column.Parameter as PcmParameter;
                 if (pcmParameter != null)
                 {
                     pcmColumns.Add(column);
                     continue;
                 }
 
-                MathParameter mathParameter = column.Parameter as MathParameter;
+                MathParameter? mathParameter = column.Parameter as MathParameter;
                 if (mathParameter != null)
                 {
                     mathColumns.Add(column);
@@ -157,10 +158,10 @@ namespace PcmHacking
 
             // Populate DPIDs with two-byte values
             byte groupId = 0xFE;
-            ParameterGroup group = new ParameterGroup(groupId);
+            ParameterGroup? group = new ParameterGroup(groupId);
             foreach (LogColumn column in pcmColumns)
             {
-                PcmParameter pcmParameter = column.Parameter as PcmParameter;
+                PcmParameter? pcmParameter = column.Parameter as PcmParameter;
                 if (pcmParameter == null)
                 {
                     continue;
@@ -301,7 +302,7 @@ namespace PcmHacking
         /// Invoke this repeatedly to get each row of data from the PCM.
         /// </summary>
         /// <returns></returns>
-        public async Task<IEnumerable<string>> GetNextRow()
+        public async Task<IEnumerable<string>?> GetNextRow()
         {
             LogRowParser row = new LogRowParser(this.dpidConfiguration);
 

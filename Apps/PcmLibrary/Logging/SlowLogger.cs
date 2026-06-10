@@ -1,4 +1,5 @@
-﻿//#define FAST_LOGGING
+﻿// SPDX-License-Identifier: GPL-3.0-only
+//#define FAST_LOGGING
 
 using System;
 using System.Collections.Generic;
@@ -65,7 +66,7 @@ namespace PcmHacking
 
                 while (!row.IsComplete)
                 {
-                    RawLogData rawData = await this.Vehicle.ReadLogData();
+                    RawLogData? rawData = await this.Vehicle.ReadLogData();
                     if (rawData == null)
                     {
                         return;

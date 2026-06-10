@@ -1,4 +1,5 @@
-﻿using System;
+﻿// SPDX-License-Identifier: GPL-3.0-only
+using System;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -16,7 +17,7 @@ namespace Tests
             // Create the object we're going to test.
             TestLogger logger = new TestLogger();
             TestPort port = new TestPort(logger);
-            Message response = null;
+            Message? response = null;
             int receivedMessageCount = 0;
             ScanToolDeviceImplementation device = new ScanToolDeviceImplementation(
                 x => response = x, 
@@ -42,7 +43,7 @@ namespace Tests
             // Confirm that the device interpreted the response as expected.
             await device.Receive();
             Assert.IsNotNull(response, "Response should not be null.");
-            Assert.AreEqual("6C F0 10 7C 01 00 31 47 31 59 59", response.GetBytes().ToHex(), "Response message");
+            Assert.AreEqual("6C F0 10 7C 01 00 31 47 31 59 59", response!.GetBytes().ToHex(), "Response message");
         }
     }
 }

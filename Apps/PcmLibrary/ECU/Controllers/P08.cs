@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -19,7 +19,7 @@ namespace PcmHacking.ECU.Controllers
             IsSupportedWriteSlaveCPU = true;
             IsSupportedWriteBySegment = false;
             LoaderRequired = false;
-            KernelBaseAddress = 0xFFAC00;
+            KernelBaseAddress = 0xFFABE0;
             LoaderBaseAddress = 0x0;
             ImageBaseAddress = 0x0;
             ImageSize = 512 * 1024;

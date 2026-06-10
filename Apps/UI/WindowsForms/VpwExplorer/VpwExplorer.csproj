@@ -8,6 +8,7 @@
     <OutputType>WinExe</OutputType>
     <RootNamespace>VpwExplorer</RootNamespace>
     <AssemblyName>VpwExplorer</AssemblyName>
+    <ApplicationIcon>..\PcmHammer\0411_256px.ico</ApplicationIcon>
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>

@@ -1,4 +1,5 @@
-﻿using System;
+﻿// SPDX-License-Identifier: GPL-3.0-only
+using System;
 using System.Collections.Generic;
 using System.Text;
 using DynamicExpresso;
@@ -21,7 +22,7 @@ namespace PcmHacking
                 bool flag = (bits & 1) != 0;
 
                 convertedValue = value;
-                formattedValue = flag ? conversion.TrueValue : conversion.FalseValue;
+                formattedValue = (flag ? conversion.TrueValue : conversion.FalseValue) ?? string.Empty;
             }
             else
             {

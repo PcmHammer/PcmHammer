@@ -1,4 +1,4 @@
-﻿using InTheHand.Net;
+﻿// SPDX-License-Identifier: GPL-3.0-only
 using InTheHand.Net.Sockets;
 using System;
 using System.Collections.Generic;
@@ -21,7 +21,7 @@ namespace PcmHacking
             {
                 return new ElmDevice(port, logger);
             }
-            return null;
+            return null!;
         }
     }
 }

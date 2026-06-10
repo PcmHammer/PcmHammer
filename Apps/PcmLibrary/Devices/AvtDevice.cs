@@ -1,3 +1,4 @@
+﻿// SPDX-License-Identifier: GPL-3.0-only
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -136,13 +137,13 @@ namespace PcmHacking
                         break;
                     default:
                         this.Logger.AddUserMessage("Unknown and unsupported AVT device detected. Please add support and submit a patch!");
-                        return Response.Create(ResponseStatus.Error, (Message)null);
+                        return Response.Create(ResponseStatus.Error, (Message)null!);
                 }
             }
             else
             {
                 this.Logger.AddUserMessage("AVT device not found or failed reset");
-                return Response.Create(ResponseStatus.Error, (Message)null);
+                return Response.Create(ResponseStatus.Error, (Message)null!);
             }
 
             return Response.Create(ResponseStatus.Success, m.Value);
@@ -175,7 +176,7 @@ namespace PcmHacking
                 await Task.Delay(100);
             }
 
-            return Response.Create(ResponseStatus.Timeout, (Message) null);
+            return Response.Create(ResponseStatus.Timeout, (Message) null!);
         }
 
         /// <summary>
@@ -205,13 +206,13 @@ namespace PcmHacking
                 else
                 {
                     this.Logger.AddDebugMessage("Waited 2seconds.. no data present");
-                    return Response.Create(ResponseStatus.Timeout, (Message)null);
+                    return Response.Create(ResponseStatus.Timeout, (Message)null!);
                 }
             }
             catch (Exception) // timeout exception - log no data, return error.
             {
                 this.Logger.AddDebugMessage("No Data");
-                return Response.Create(ResponseStatus.Timeout, (Message)null);
+                return Response.Create(ResponseStatus.Timeout, (Message)null!);
             }
 
             // read an AVT format length
@@ -280,7 +281,7 @@ namespace PcmHacking
 
             if (length <= 0) {
                 this.Logger.AddDebugMessage("Not reading " + length + " byte packet");
-                return Response.Create(ResponseStatus.Error, (Message)null);
+                return Response.Create(ResponseStatus.Error, (Message)null!);
             }
 
             // build a complete packet
@@ -291,7 +292,7 @@ namespace PcmHacking
             DateTime stop = start + TimeSpan.FromSeconds(2);
             for (int i = 0; i < length; )
             {
-                if (DateTime.Now > stop) return Response.Create(ResponseStatus.Timeout, (Message)null);
+                if (DateTime.Now > stop) return Response.Create(ResponseStatus.Timeout, (Message)null!);
                 bytes = await this.Port.Receive(receive, 0, length);
                 Buffer.BlockCopy(receive, 0, packet, i, bytes);
                 i += bytes;

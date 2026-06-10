@@ -1,4 +1,5 @@
-﻿using System;
+﻿// SPDX-License-Identifier: GPL-3.0-only
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -165,24 +166,24 @@ namespace PcmHacking
 
             if (vin.Length != 17) // should never happen, but....
             {
-                this.logger.AddUserMessage("VIN " + vin + " is not 17 characters long!");
+                logger.AddUserMessage("VIN " + vin + " is not 17 characters long!");
                 return Response.Create(ResponseStatus.Error, false);
             }
 
-            this.logger.AddUserMessage("Changing VIN to " + vin);
+            logger.AddUserMessage("Changing VIN to " + vin);
 
             byte[] bvin = Encoding.ASCII.GetBytes(vin);
             byte[] vin1 = new byte[6] { 0x00, bvin[0], bvin[1], bvin[2], bvin[3], bvin[4] };
             byte[] vin2 = new byte[6] { bvin[5], bvin[6], bvin[7], bvin[8], bvin[9], bvin[10] };
             byte[] vin3 = new byte[6] { bvin[11], bvin[12], bvin[13], bvin[14], bvin[15], bvin[16] };
 
-            this.logger.AddUserMessage("Block 1");
+            logger.AddUserMessage("Block 1");
             Response<bool> block1 = await WriteBlock(BlockId.Vin1, vin1);
             if (block1.Status != ResponseStatus.Success) return Response.Create(ResponseStatus.Error, false);
-            this.logger.AddUserMessage("Block 2");
+            logger.AddUserMessage("Block 2");
             Response<bool> block2 = await WriteBlock(BlockId.Vin2, vin2);
             if (block2.Status != ResponseStatus.Success) return Response.Create(ResponseStatus.Error, false);
-            this.logger.AddUserMessage("Block 3");
+            logger.AddUserMessage("Block 3");
             Response<bool> block3 = await WriteBlock(BlockId.Vin3, vin3);
             if (block3.Status != ResponseStatus.Success) return Response.Create(ResponseStatus.Error, false);
 
@@ -203,7 +204,7 @@ namespace PcmHacking
                 return response;
             }
 
-            this.logger.AddDebugMessage("OSID query returned 0xFFFFFFFF for 3C 0A. Retrying 3C 0B.");
+            logger.AddDebugMessage("OSID query returned 0xFFFFFFFF for 3C 0A. Retrying 3C 0B.");
 
             var fallbackQuery = this.CreateQuery(
                 this.protocol.CreateEngineCalIDReadRequest,

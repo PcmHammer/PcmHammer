@@ -1,3 +1,4 @@
+﻿// SPDX-License-Identifier: GPL-3.0-only
 using InTheHand.Net.Sockets;
 using Microsoft.UI.Dispatching;
 using PcmHacking.UnoUI.Services;
@@ -111,8 +112,9 @@ public partial record SettingsModel
         {
 #if WINDOWS
             return true;
-#endif
+#else
             return false;
+#endif
         }
     }
 
@@ -133,9 +135,7 @@ public partial record SettingsModel
         IList<SerialPortListing> portList = new List<SerialPortListing>();
 #if WINDOWS
         IEnumerable<SerialPortInfo> portNames = PortDiscovery.GetPorts(progressLogger);
-        portList = [.. portNames.Where(p => !p.Name.Contains("Standard Serial over Bluetooth link")).Select(x => { return new SerialPortListing { DisplayName = x.ToString(), PortName = x.PortName }; })];
-
-#endif
+        portList = [.. portNames.Where(p => !p.Name.Contains("Standard Serial over Bluetooth link")).Select(x => { return new SerialPortListing { DisplayName = x.ToString(), PortName = x.PortName }; })];#endif
         portList.Add(new SerialPortListing { DisplayName = MockPort.PortName, PortName = MockPort.PortName });
         IImmutableList<SerialPortListing> result = ImmutableList.CreateRange(portList);
         return ValueTask.FromResult(result);
@@ -215,7 +215,7 @@ public partial record SettingsModel
 
         CurrentSettings currentSettings = new CurrentSettings(
             deviceCategory,
-            portName,
+            portName ?? string.Empty,
             await this.UseCanDevice.Value(),
             (await this.SelectedCanPort.Value() ?? new()).PortName ?? "");
 

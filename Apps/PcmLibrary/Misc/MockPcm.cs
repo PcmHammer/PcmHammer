@@ -1,3 +1,4 @@
+﻿// SPDX-License-Identifier: GPL-3.0-only
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -22,18 +23,18 @@ namespace PcmHacking
         private byte firstByte;
         private bool physical;
         private byte modeByte;
-        private string modeName;
+        private string modeName = null!;
         private byte readWriteBlockId;
-        private string readWriteBlockName;
-        private string header;
-        private string destination;
-        private string sender;
-        private string crcMessage;
+        private string readWriteBlockName = null!;
+        private string header = null!;
+        private string destination = null!;
+        private string sender = null!;
+        private string crcMessage = null!;
         private bool switchedToKernel = false;
         ILogger logger;
 
         private byte[] pcmData;
-        private byte[] responseBuffer;
+        private byte[]? responseBuffer;
 
         public MockPcm(ILogger logger)
         {
@@ -132,7 +133,7 @@ namespace PcmHacking
             }
 
             // TODO: re-order the placeholders and parameters.
-            this.logger.AddDebugMessage(
+            logger.AddDebugMessage(
                 string.Format(
                     "Mock PCM Received: {4} ({0}), {1,-40} {5,-50} {2}  {3}",
                     this.header, // 0
