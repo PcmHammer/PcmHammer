@@ -1241,69 +1241,14 @@ namespace PcmHacking
         }
 
         /// <summary>
-        /// Read the entire contents of the flash.
-        /// </summary>
-        private async void readFullContents_BackgroundThread(bool useAutoPcmType = true, PcmType selectedPcmType = PcmType.Undefined)
-        {
-            using (new AwayMode())
-            {
-                try
-                {
-                    this.Invoke((MethodInvoker)delegate ()
-                    {
-                        this.DisableUserInput();
-                        this.cancelButton.Enabled = true;
-                    });
-
-                    if (this.Vehicle == null)
-                    {
-                        // This shouldn't be possible - it would mean the buttons
-                        // were enabled when they shouldn't be.
-                        return;
-                    }
-
-                    // Get the path to save the image to.
-                    string? path = null;
-                    await this.InvokeWrapper(async () => path = await this.PromptForFileSavePath());
-
-                    if (string.IsNullOrWhiteSpace(path))
-                    {
-                        this.AddUserMessage("Read canceled.");
-                        return;
-                    }
-
-                    ECUActionArguments actionArgs = new ECUActionArguments { SelectedAction = ControllerActions.Read };
-                    Response<bool> response = await BeginActionAsync(actionArgs);
-                    if (response.Value)
-                    {
-
-                    }
-                }
-                catch (Exception exception)
-                {
-                    this.AddUserMessage("Read failed: " + exception.ToString());
-                }
-                finally
-                {
-                    this.Invoke((MethodInvoker)delegate ()
-                    {
-                        this.EnableUserInput();
-                        this.cancelButton.Enabled = false;
-                    });
-
-                    // The token / token-source can only be cancelled once, so we need to make sure they won't be re-used.
-                    this.cancellationTokenSource = null;
-                }
-            }
-        }
-
-        /// <summary>
         /// Provides a central call location for all read/write operations.
         /// </summary>
         /// <param name="arguments"></param>
         /// <returns>A response bool where the status flag returns the operations state. The bool is a reflection of Status == Success.</returns>
         private async Task<Response<bool>> BeginActionAsync(ECUActionArguments arguments)
         {
+            try
+            {
             if (this.Vehicle == null)
             {
                 // This shouldn't be possible - it would mean the buttons 
@@ -1380,10 +1325,7 @@ namespace PcmHacking
                 this.cancellationTokenSource.Token,
                 progress,
                 this);
-            Response<bool> actionResponse = Response.Create(ResponseStatus.Error, false);
-            try
-            {
-                actionResponse = await manager.BeginAction();
+            Response<bool> actionResponse = await manager.BeginAction();
              
                 if (actionResponse.Status == ResponseStatus.Success && actionResponse.Value && arguments.SelectedAction == ControllerActions.Read)
                 {
@@ -1431,6 +1373,7 @@ namespace PcmHacking
                     this.EnableUserInput();
                     this.cancelButton.Enabled = false;
                 });
+                this.cancellationTokenSource = null;
             }
         }
 
