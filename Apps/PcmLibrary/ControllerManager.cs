@@ -1,0 +1,81 @@
+﻿using PcmHacking.ECU;
+using System;
+using System.Collections.Generic;
+using System.Net;
+using System.Text;
+
+namespace PcmHacking
+{
+    public enum ControllerActions
+    {
+        Undefined = 0,
+        Read,
+        Write
+    }
+
+    /// <summary>
+    /// How much of the PCM to erase and rewrite.
+    /// </summary>
+    public enum WriteType
+    {
+        None = 0,
+        Compare,
+        Test,
+        Calibration,
+        Parameters,
+        OsPlusCalibrationPlusBoot,
+        Full,
+    }
+
+    public interface IControllerManager
+    {
+        Task<Response<bool>> Begin();
+        Task<Response<bool>> Begin(string path);
+    }
+
+    public class ControllerManager(Vehicle vehicle, ECUActionArguments actionArgs, ControllerPageObjects pageObjects, CancellationToken cancellationToken, IProgress<ProgressUpdate> progress, ILogger logger)
+    {
+        public ECUActionArguments ActionArgs = actionArgs;
+        public ControllerPageObjects ControllerPageObjects = pageObjects;
+        public bool ActionActive = false;
+        private Dictionary<ControllerActions, IControllerManager> _controllerActionLookup = [];
+        private readonly Vehicle _vehicle = vehicle;
+        private readonly CancellationToken _cancellationToken = cancellationToken;
+        private readonly ILogger logger = logger;
+        private readonly IProgress<ProgressUpdate> progress = progress;
+
+
+        public void Initialize()
+        {
+            _controllerActionLookup = new Dictionary<ControllerActions, IControllerManager> {
+                { ControllerActions.Read, new ReadManager(logger, _vehicle, ActionArgs, ControllerPageObjects, _cancellationToken, progress) },
+                { ControllerActions.Write, new WriteManager(logger, _vehicle, ActionArgs, ControllerPageObjects, _cancellationToken, progress) }
+            };                
+        }
+
+        public async Task<Response<bool>> BeginAction()
+        {
+            if (ActionArgs.PreFlightChecksRequired)
+            {
+                throw new Exception("Caller should use GetPreFlightCheckResult to prompt users before starting action!");
+            }
+            IControllerManager? selectedManager = null;
+            if (_controllerActionLookup.TryGetValue(ActionArgs.SelectedAction, out selectedManager))
+            {
+                if (ActionArgs.SelectedAction == ControllerActions.Read && ActionArgs.ContentStream == null)
+                {
+                    ActionArgs.ContentStream = new MemoryStream(1208800); // This is a bit hacky - but if we intend to pass this as a parameter and get data back, we can't re-create it outside of this scope. Give a large buffer to clear anything we can throw at it.
+                }
+                ActionActive = true;
+                try
+                {
+                    return await selectedManager.Begin();
+                } finally
+                { 
+                    ActionActive = false; 
+                }
+            }
+            return Response.Create(ResponseStatus.Error, false, 0);
+        }
+    }
+}

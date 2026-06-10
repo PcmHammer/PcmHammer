@@ -1,4 +1,5 @@
-﻿using System;
+﻿using PcmHacking.ECU;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -14,14 +15,16 @@ namespace PcmHacking
     public class CKernelReader
     {
         private readonly Vehicle vehicle;
-        private readonly OSIDInfo pcmInfo;
+        private readonly ECUBase pcmInfo;
         private readonly Protocol protocol;
         private readonly ILogger logger;
+        private readonly IProgress<ProgressUpdate> progress;
 
-        public CKernelReader(Vehicle vehicle, OSIDInfo pcmInfo, ILogger logger)
+        public CKernelReader(Vehicle vehicle, ECUBase pcmInfo, ILogger logger, IProgress<ProgressUpdate> progress)
         {
             this.vehicle = vehicle;
             this.pcmInfo = pcmInfo;
+            this.progress = progress;
 
             // This seems wrong... Some alternatives:
             // a) Have the caller pass in the message factory and message-parser methods
@@ -37,7 +40,7 @@ namespace PcmHacking
         /// Read the full contents of the PCM.
         /// Assumes the PCM is unlocked and we're ready to go.
         /// </summary>
-        public async Task<Response<Stream>> ReadContents(CancellationToken cancellationToken, IProgress<ProgressUpdate> progress = null)
+        public async Task<Response<Stream?>> ReadContents(CancellationToken cancellationToken)
         {
             try
             {
@@ -52,7 +55,7 @@ namespace PcmHacking
                     if (!await this.vehicle.VehicleSetVPW4x(this.pcmInfo, VpwSpeed.FourX))
                     {
                         this.logger.AddUserMessage("Stopping here because we were unable to switch to 4X.");
-                        return Response.Create(ResponseStatus.Error, (Stream)null);
+                        return Response.Create(ResponseStatus.Refused, (Stream)null);
                     }
                 }
                 else
@@ -86,7 +89,7 @@ namespace PcmHacking
                         logger.AddUserMessage("Failed to upload loader to PCM");
 
                         return new Response<Stream>(
-                            cancellationToken.IsCancellationRequested ? ResponseStatus.Cancelled : ResponseStatus.Error,
+                            cancellationToken.IsCancellationRequested ? ResponseStatus.Cancelled : ResponseStatus.Refused,
                             null);
                     }
 
@@ -117,7 +120,7 @@ namespace PcmHacking
 
                     logger.AddUserMessage("Failed to upload kernel to PCM");
 
-                    return Response.Create(ResponseStatus.Error, (Stream)null);
+                    return Response.Create(ResponseStatus.Refused, (Stream)null);
                 }
 
                 logger.AddUserMessage("Kernel uploaded to PCM successfully. Requesting data...");
@@ -207,7 +210,7 @@ namespace PcmHacking
                                 "Unable to read block from {0} to {1}",
                                 startAddress,
                                 (startAddress + blockSize) - 1));
-                        return new Response<Stream>(ResponseStatus.Error, null);
+                        return new Response<Stream>(ResponseStatus.Refused, null);
                     }
 
                     startAddress += blockSize;
@@ -229,7 +232,8 @@ namespace PcmHacking
                         this.vehicle,
                         this.protocol,
                         this.pcmInfo,
-                        this.logger);
+                        this.logger,
+                        progress);
 
                     logger.StatusUpdateReset();
 
@@ -262,7 +266,7 @@ namespace PcmHacking
             {
                 this.logger.AddUserMessage("Something went wrong. " + exception.Message);
                 this.logger.AddDebugMessage(exception.ToString());
-                return new Response<Stream>(ResponseStatus.Error, null);
+                return new Response<Stream>(ResponseStatus.Refused, null);
             }
             finally
             {
@@ -332,32 +336,22 @@ namespace PcmHacking
                     UInt32 secondsRemaining = (UInt32)(bytesRemaining / bytesPerSecond);
                     timeRemaining = TimeSpan.FromSeconds(secondsRemaining).ToString("mm\\:ss");
                 }
-                if (progress != null)
-                {
                     ProgressUpdate update = new ProgressUpdate
                     {
                         Address = startAddress.ToString("X6"),
                         PayloadLength = payload.Length,
                         TotalLength = image.Length,
                         Percentage = ((double)startAddress + (double)payload.Length) / (double)image.Length,
+                        ProgressBarVisible = true,
                         Rate = bytesPerSecond > 0 ? (double)bytesPerSecond * 8.00 / 1000.00 : 0.00,
                         TimeRemaining = timeRemaining
                     };
                     progress.Report(update);
-                }
-                else
-                {
-                    logger.StatusUpdateActivity($"Reading {payload.Length} bytes from 0x{startAddress:X6}");
-                    logger.StatusUpdatePercentDone((startAddress * 100 / image.Length > 0) ? $"{startAddress * 100 / image.Length}%" : string.Empty);
-                    logger.StatusUpdateTimeRemaining($"T-{timeRemaining}");
-                    logger.StatusUpdateKbps((bytesPerSecond > 0) ? $"{(double)bytesPerSecond * 8.00 / 1000.00:0.00} Kbps" : string.Empty);
-                    logger.StatusUpdateProgressBar((double)(startAddress + payload.Length) / image.Length, true);
-                }
-
+                
                 return Response.Create(ResponseStatus.Success, true, retryCount);
             }
 
-            return Response.Create(ResponseStatus.Error, false, retryCount);
+            return Response.Create(ResponseStatus.Refused, false, retryCount);
         }
     }
 }

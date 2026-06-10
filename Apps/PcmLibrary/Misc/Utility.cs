@@ -191,7 +191,7 @@ namespace PcmHacking
                 {
                     logger.AddUserMessage("Changing PCM to operating system " + fileOs);
                 }
-                else if (writeType == WriteType.TestWrite)
+                else if (writeType == WriteType.Test)
                 {
                     logger.AddUserMessage("PCM and image file are different operating systems.");
                     logger.AddUserMessage("But we'll ignore that because this is just a test write.");

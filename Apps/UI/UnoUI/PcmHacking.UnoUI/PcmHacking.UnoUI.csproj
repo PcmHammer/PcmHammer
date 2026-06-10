@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Uno.Sdk">
   <PropertyGroup>
-    <TargetFrameworks>net10.0-desktop;net10.0-android;net10.0;</TargetFrameworks>
+    <TargetFrameworks>net10.0-desktop;net10.0-android;net10.0</TargetFrameworks>
 
     <OutputType>Exe</OutputType>
     <UnoSingleProject>true</UnoSingleProject>
@@ -46,10 +46,11 @@
     </UnoFeatures>
     <PackageCertificateThumbprint>E9055ABE166B5A0901A78706D44BBCA8573A5143</PackageCertificateThumbprint>
     <AppxPackageSigningEnabled>True</AppxPackageSigningEnabled>
-    <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">34.0</SupportedOSPlatformVersion>
+    <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">30.0</SupportedOSPlatformVersion>
     <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.19041.1</SupportedOSPlatformVersion>
     <TargetPlatformMinVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.19041.1</TargetPlatformMinVersion>
     <RuntimeIdentifiers Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">win-x86</RuntimeIdentifiers>
+    <RuntimeIdentifiers Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">android-arm;android-arm64;android-x86;android-x64</RuntimeIdentifiers>
     <Platforms>x64;x86</Platforms>
   </PropertyGroup>
   
@@ -115,7 +116,7 @@
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|net10.0-android|x86'">
-    <EmbedAssembliesIntoApk>True</EmbedAssembliesIntoApk>
+    <EmbedAssembliesIntoApk>False</EmbedAssembliesIntoApk>
   </PropertyGroup>
   
   <ItemGroup>
@@ -149,17 +150,20 @@
     <Compile Update="Presentation\MainPage.xaml.cs">
       <DependentUpon>MainPage.xaml</DependentUpon>
     </Compile>
+    <Compile Update="Presentation\ControllerActionPage.xaml.cs">
+      <DependentUpon>ControllerActionPage.xaml</DependentUpon>
+    </Compile>
     <Compile Update="Presentation\VinChangePage.xaml.cs">
       <DependentUpon>VinChangePage.xaml</DependentUpon>
     </Compile>
-    <Compile Update="Presentation\DelayPage.xaml.cs">
-      <DependentUpon>DelayPage.xaml</DependentUpon>
+    <Compile Update="Presentation\PromptDialog.xaml.cs">
+      <DependentUpon>PromptDialog.xaml</DependentUpon>
     </Compile>
     <Compile Update="Presentation\VinChange.xaml.cs">
       <DependentUpon>VinChange.xaml</DependentUpon>
     </Compile>
-    <Compile Update="Presentation\OtherFunctionsPage.xaml.cs">
-      <DependentUpon>OtherFunctionsPage.xaml</DependentUpon>
+    <Compile Update="Presentation\ControllerFunctionsPage.xaml.cs">
+      <DependentUpon>ControllerFunctionsPage.xaml</DependentUpon>
     </Compile>
     <Compile Update="Presentation\MenuPage.xaml.cs">
       <DependentUpon>MenuPage.xaml</DependentUpon>
@@ -173,6 +177,9 @@
     <Compile Update="Presentation\DataLoggingPage.xaml.cs">
       <DependentUpon>DataLoggingPage.xaml</DependentUpon>
     </Compile>
+    <Compile Update="Presentation\ControllerActionSetupDialog.xaml.cs">
+      <DependentUpon>ControllerActionSetupDialog.xaml</DependentUpon>
+    </Compile>
   </ItemGroup>
 
   <ItemGroup>
@@ -182,19 +189,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Page Update="Presentation\ReadPage.xaml">
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-  </ItemGroup>
-
-  <ItemGroup>
     <Page Update="Presentation\SettingsPage.xaml">
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-  </ItemGroup>
-
-  <ItemGroup>
-    <Page Update="Presentation\WritePage.xaml">
       <Generator>MSBuild:Compile</Generator>
     </Page>
   </ItemGroup>
@@ -215,13 +210,6 @@
 
   <ItemGroup>
     <Page Update="Presentation\CrankRelearnPage.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-  </ItemGroup>
-
-  <ItemGroup>
-    <Page Update="Presentation\OtherFunctionsPage.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -250,12 +238,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Page Update="Presentation\DelayPage.xaml">
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-  </ItemGroup>
-
-  <ItemGroup>
     <Page Update="Presentation\VinChangePage.xaml">
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -275,6 +257,31 @@
 
   <ItemGroup>
     <Page Update="Presentation\MainPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Page Update="Presentation\ControllerFunctionsPage.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Page Update="Presentation\ControllerActionPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Page Update="Presentation\PromptDialog.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Page Update="Presentation\ControllerActionSetupDialog.xaml">
       <Generator>MSBuild:Compile</Generator>
     </Page>
   </ItemGroup>

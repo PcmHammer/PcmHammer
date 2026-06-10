@@ -56,6 +56,6 @@ namespace PcmHacking
 
         public int Timeout { get; set; }
 
-        public Action<byte[], int> DataReceived { get; set; }
+        public Action<byte[], int>? DataReceived { get; set; }
     }
 }

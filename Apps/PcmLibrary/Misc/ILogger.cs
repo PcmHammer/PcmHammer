@@ -6,6 +6,13 @@ using System.Threading.Tasks;
 
 namespace PcmHacking
 {
+    public enum LogLevels
+    {
+        Info,
+        Debug,
+        Trace
+    }
+
     /// <summary>
     /// This interface allows other classes to send user-friendly status messages and
     /// developer-oriented debug messages to the UI.
@@ -19,7 +26,7 @@ namespace PcmHacking
         /// These messages should be things that end users will understand.
         /// They should describe major operations, not sequences of bytes.
         /// </remarks>
-        void AddUserMessage(string message);
+        void AddUserMessage(string message, LogLevels level = 0);
 
         /// <summary>
         /// Add a message to the 'debug' pane of the UI.

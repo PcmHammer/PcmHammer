@@ -1,0 +1,86 @@
+﻿<ContentDialog
+    x:Class="PcmHacking.UnoUI.Presentation.ControllerActionSetupDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:PcmHacking.UnoUI.Presentation"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+
+    <Grid VerticalAlignment="Stretch">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="2*" x:Name="PathRow"/>
+            <RowDefinition Height=".5*" x:Name="CheckBoxRowA"/>
+            <RowDefinition Height="2*" x:Name="CheckBoxRowB"/>
+            <RowDefinition Height="2*" x:Name="HardwareRow"/>
+            <RowDefinition Height="2*" x:Name="WriteMethodRow"/>
+            <RowDefinition Height="1*" x:Name="ButtonsRow"/>
+        </Grid.RowDefinitions>
+
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="1*" />
+            <ColumnDefinition Width="1*" />
+        </Grid.ColumnDefinitions>
+
+        <StackPanel Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal">
+            <Button Content="Choose File" Margin="10" Command="{Binding ChooseFile}"/>
+            <TextBlock Text="{Binding Path}" Margin="10" HorizontalTextAlignment="Right" VerticalAlignment="Center"/>
+        </StackPanel>
+
+        <StackPanel Grid.Row="1" Grid.Column="0"
+            Orientation="Horizontal">
+            <CheckBox IsChecked="{Binding UseCustomKey, Mode=TwoWay}"
+                      IsEnabled="{Binding UseCustomKeyEnabled}"
+                      Margin="10,0,10,0"
+                      Content="Use Custom Key:" />
+            <TextBox Name="CustomKey"
+                     Text="{Binding CustomKey}" 
+                     Width="50"
+                     IsEnabled="{Binding CustomKeyEnabled, Mode=TwoWay}"/>
+        </StackPanel>
+
+        <CheckBox Grid.Row="2" Grid.Column="0" 
+                  IsChecked="{Binding UseHighSpeed, Mode=TwoWay}"
+                  Margin="10,0,0,0"
+                  Content="Use High Speed" />
+
+        <CheckBox Grid.Row="2" Grid.Column="1" 
+                  IsChecked="{Binding ShowDebug, Mode=TwoWay}"
+                  Margin="10,0,0,0"
+                  Content="Show Debug" />
+
+        <StackPanel Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2"
+            Orientation="Vertical">
+            <TextBlock Text="Select Hardware Type:" Margin="10,0,10,0" HorizontalAlignment="Center"/>
+            <ComboBox Margin="10,0,10,10" 
+                      HorizontalAlignment="Stretch"
+                      HorizontalContentAlignment="Center"
+                      IsEnabled="{Binding IsHardwareSelectable}"
+                      SelectedValue="{Binding SelectedHardwareType, Mode=TwoWay}" 
+                      ItemsSource="{Binding HardwareTypes}" />
+        </StackPanel>
+
+        <StackPanel Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2"
+                    Visibility="{Binding IsWriteMode}"
+            Orientation="Vertical">
+            <TextBlock Text="Select write Type:" Margin="10,0,10,0" HorizontalAlignment="Center"/>
+            <ComboBox Margin="10,0,10,10" 
+                      HorizontalAlignment="Stretch"
+                      HorizontalContentAlignment="Center"
+                      SelectedValue="{Binding SelectedWriteMethod, Mode=TwoWay}" 
+                      ItemsSource="{Binding WriteTypes}" />
+        </StackPanel>
+
+        <Button Grid.Row="5" Grid.Column="0" Content="{Binding StartButtonText}" Margin="10"
+              HorizontalAlignment="Stretch"
+              VerticalAlignment="Stretch"
+              Command="{Binding Start}"
+              IsEnabled="{Binding StartEnabled}" />
+        
+        <Button Grid.Row="5" Grid.Column="1" Content="Cancel" Margin="10"
+              HorizontalAlignment="Stretch"
+              VerticalAlignment="Stretch"
+              Command="{Binding Cancel}" />
+    </Grid>
+</ContentDialog>

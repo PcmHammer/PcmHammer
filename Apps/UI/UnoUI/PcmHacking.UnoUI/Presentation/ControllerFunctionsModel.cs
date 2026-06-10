@@ -1,4 +1,5 @@
 using Microsoft.UI.Dispatching;
+using PcmHacking.ECU;
 using PcmHacking.UnoUI.Services;
 using PcmHacking.UnoUI.Utilities;
 using System;
@@ -19,15 +20,15 @@ namespace PcmHacking.UnoUI.Presentation;
 /// - add a "verify PCM" button
 /// - add a link to an XDF repository?
 /// </remarks>
-public partial record OtherFunctionsModel
+public partial record ControllerFunctionsModel
 {
     private const string defaultClearCodesButtonText = "Clear Trouble Codes";
     private const string defaultValue = "---";
-    private readonly DispatcherQueue dispatcherQueue;
+    private readonly IDispatcher dispatcherQueue;
     private readonly INavigator navigator;
     private readonly IConnectionService connectionService;
     private readonly LoggerAdapter progressLogger;
-    private readonly CancellationTokenSource cancellation = new CancellationTokenSource();
+    private CancellationTokenSource cancellationSource = new CancellationTokenSource();
 
     public IState<string> ResetCodesButtonText => State<string>.Value(this, () => defaultClearCodesButtonText);
     public IState<string> Description => State<string>.Value(this, () => defaultValue);
@@ -37,18 +38,19 @@ public partial record OtherFunctionsModel
     public IState<string> SerialNumber => State<string>.Value(this, () => defaultValue);
     public IState<string> BroadcastCode => State<string>.Value(this, () => defaultValue);
     public IState<string> Mec => State<string>.Value(this, () => defaultValue);
+    public IState<bool> ActionButtonsEnabled => State<bool>.Value(this, () => false);
 
-    public OtherFunctionsModel(
+    public ControllerFunctionsModel(
         INavigator navigator, 
         IConnectionService vehicleService,
         LoggerAdapter logger,
-        DispatcherQueue dispatcherQueue)
+        IDispatcher dispatcherQueue)
     {
         this.navigator = navigator;
         this.connectionService = vehicleService;
         this.progressLogger = logger;
         this.dispatcherQueue = dispatcherQueue;
-
+        connectionService.ConnectionState.ForEach(async (state, ct) => await UpdateActionButtonStates(ct));
         // Loaded="{Binding ReadProperties}"
         this.dispatcherQueue.TryEnqueue(async () => {
             await this.MainLoop();
@@ -57,16 +59,23 @@ public partial record OtherFunctionsModel
 
     public void NavigatedAway()
     {
-        cancellation.Cancel();
+        cancellationSource.Cancel();
+    }
+
+    private async Task UpdateActionButtonStates(CancellationToken ct)
+    {
+        ConnectionStates currentState = await this.connectionService.ConnectionState.Value(ct);
+        bool resetting = connectionService.ResetTimeRemaining > 0;
+        await ActionButtonsEnabled.SetAsync(!resetting && currentState >= ConnectionStates.Connected);
     }
 
     private async Task MainLoop()
     {
         await this.ClearDetails();
 
-        while (!cancellation.Token.IsCancellationRequested)
+        while (!cancellationSource.Token.IsCancellationRequested)
         {
-            if (await this.ReadProperties(cancellation.Token))
+            if (await this.ReadProperties(cancellationSource.Token))
             {
                 break;
             }
@@ -85,6 +94,19 @@ public partial record OtherFunctionsModel
             {
                 Vehicle vehicle = lease.Vehicle;
 
+                switch (vehicle.ConnectedECU.ECUState)
+                {
+                    case ECUStates.Invalid:
+                    case ECUStates.Programmed: // Both of these states should pool data below - assuming said invalid ECU is compatible.
+                        break;
+                    case ECUStates.Kernel:
+                        await this.Description.SetAsync($"Controller: Kernel mode (Version: {vehicle.ConnectedECU.LoadedKernelVersion})");
+                        return true;
+                    case ECUStates.Recovery:
+                        await this.Description.SetAsync($"Controller: Recovery mode (Write-only)");
+                        return true;
+                }
+
                 // All VPW PCMs support the VIN query.
                 await this.Vin.SetAsync(await this.GetVin(vehicle, cancellationToken));
                 await Task.Delay(delay);
@@ -97,7 +119,7 @@ public partial record OtherFunctionsModel
                 uint osId = (uint)0;
                 if (uint.TryParse(osIdString ?? "", out osId))
                 {
-                    OSIDInfo pcmInfo = new OSIDInfo(osId);
+                    ECUBase pcmInfo = ECUFactory.GetControllerByOSID(osId);
                     await this.Description.SetAsync(pcmInfo.Description);
                     await Task.Delay(delay);
 
@@ -162,7 +184,7 @@ public partial record OtherFunctionsModel
             this.progressLogger.AddDebugMessage("Other Functions: Exception while reading properties.");
             this.progressLogger.AddDebugMessage(exception.Message);
             return false;
-        }        
+        }
     }
 
     private async Task ClearDetails()
@@ -250,20 +272,35 @@ public partial record OtherFunctionsModel
 
     public async Task GoToRead()
     {
-        await this.navigator.NavigateViewModelAsync<ReadModel>(this);
+        await PerformControllerAction(ControllerActions.Read);
+    }
+
+    public async Task GoToWrite()
+    {
+        await PerformControllerAction(ControllerActions.Write);
+    }
+
+    private async Task PerformControllerAction(ControllerActions selectedAction)
+    {
+        cancellationSource = new CancellationTokenSource();
+        ControllerActionSetupModel.SelectedAction = selectedAction;
+        var navResult = await this.navigator.NavigateViewModelForResultAsync<ControllerActionSetupModel, ActionResult>(this, data: selectedAction, cancellation: cancellationSource.Token).AsResult();
+        ActionResult? result = navResult.SomeOrDefault();
+        if (result != null && result.Proceed)
+        {
+            var controllerResult = await this.navigator.GetDataAsync<ControllerActionModel, ControllerActionResult>(this, data: result.Arguments, cancellation: cancellationSource.Token);
+            if (controllerResult != null && controllerResult.Succeeded)
+            {
+                // TODO: Alert? We should really already know why failure happened in the logs...
+            }
+           // await this.navigator.GoBack(this); // There was an issue re-opening the ControllerActionSetup dialog after closing the page. This hack sends us back to a refreshed state.
+        }
+        cancellationSource.Cancel();
     }
 
     public async Task GoToDumpRam()
     {
         await this.navigator.NavigateViewModelAsync<DumpRamModel>(this);
-    }
-
-    public async Task GoToVerify()
-    {
-        // See comments in MenuModel.GoToWrite()
-        WriteModel.WriteType = WriteType.Compare;
-        await this.navigator.NavigateViewModelAsync<WriteModel>(this);
-
     }
 
     public async Task GoToChangeVin()

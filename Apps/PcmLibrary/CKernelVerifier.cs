@@ -1,4 +1,5 @@
-﻿using System;
+﻿using PcmHacking.ECU;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -22,16 +23,18 @@ namespace PcmHacking
         private readonly IEnumerable<MemoryRange> ranges;
         private readonly Vehicle vehicle;
         private readonly Protocol protocol;
-        private readonly OSIDInfo pcmInfo;
+        private readonly ECUBase pcmInfo;
         private readonly ILogger logger;
+        private readonly IProgress<ProgressUpdate> progress;
 
         public CKernelVerifier(
             byte[] image, 
             IEnumerable<MemoryRange> ranges, 
             Vehicle vehicle, 
             Protocol protocol, 
-            OSIDInfo pcmInfo,
-            ILogger logger)
+            ECUBase pcmInfo,
+            ILogger logger,
+            IProgress<ProgressUpdate> progress)
         {
             this.image = image;
             this.ranges = ranges;
@@ -39,6 +42,7 @@ namespace PcmHacking
             this.protocol = protocol;
             this.pcmInfo = pcmInfo;
             this.logger = logger;
+            this.progress = progress;
         }
 
         /// <summary>
@@ -87,7 +91,8 @@ namespace PcmHacking
 
                 await this.vehicle.SendToolPresentNotification();
                 this.vehicle.ClearDeviceMessageQueue();
-                logger.StatusUpdateActivity($"Processing CRC for range {range.Address:X6}-{range.Address + (range.Size - 1):X6}");
+                progress.Report(new ProgressUpdate { Activity = $"Processing CRC: range {range.Address:X6}-{range.Address + (range.Size - 1):X6}" });
+                //logger.StatusUpdateActivity($"Processing CRC: range {range.Address:X6}-{range.Address + (range.Size - 1):X6}");
 
                 // For C Kernels each poll of the PCM causes it to CRC 16kb of segment data.
                 // When the segment sum is available it is returned. Logged highs of 38 polls on a 1m P12.
@@ -104,8 +109,6 @@ namespace PcmHacking
                         return CrcVerificationResult.Cancelled;
                     }
 
-                    logger.StatusUpdateActivity($"Processing CRC for range {range.Address:X6}-{range.Address + (range.Size - 1):X6}");
-
                     await this.vehicle.SendToolPresentNotification();
 
                     if (!await this.vehicle.SendMessage(query))
@@ -114,20 +117,25 @@ namespace PcmHacking
                         continue;
                     }
 
-                    Message response = await this.vehicle.ReceiveMessage();
-                    if (response == null)
+                    Message? response = null;
+                    while (true)
                     {
-                        consecutiveTimeouts++;
-                        if (consecutiveTimeouts >= 6)
+                        response = await this.vehicle.ReceiveMessage();
+                        if (response == null)
                         {
-                            string detail = anyTimeout ? "" : " Kernel may have crashed.";
-                            this.logger.AddUserMessage($"PCM stopped responding during CRC check at {range.Address:X8} / {range.Size:X8}.{detail}");
-                            anyTimeout = true;
-                            break;
+                            consecutiveTimeouts++;
+                            if (consecutiveTimeouts >= 6)
+                            {
+                                string detail = anyTimeout ? "" : " Kernel may have crashed.";
+                                this.logger.AddUserMessage($"PCM stopped responding during CRC check at {range.Address:X8} / {range.Size:X8}.{detail}");
+                                anyTimeout = true;
+                                break;
+                            }
+                            this.logger.AddDebugMessage($"CRC no response, re-querying {range.Address.ToString("X8")} / {range.Size.ToString("X8")}");
+                            await Task.Delay(retryDelay);
+                            continue;
                         }
-                        this.logger.AddDebugMessage($"CRC no response, re-querying {range.Address.ToString("X8")} / {range.Size.ToString("X8")}");
-                        await Task.Delay(retryDelay);
-                        continue;
+                        break;
                     }
 
                     consecutiveTimeouts = 0;
@@ -142,7 +150,7 @@ namespace PcmHacking
                     crc = crcResponse.Value;
                     break;
                 }
-
+                progress.Report(new ProgressUpdate { Activity = $"Finished CRC calulations.", Percentage = 0, ProgressBarVisible = true });
                 logger.StatusUpdateProgressBar(0, false);
 
                 if (!success)

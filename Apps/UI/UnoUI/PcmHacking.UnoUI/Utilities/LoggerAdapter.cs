@@ -27,7 +27,7 @@ namespace PcmHacking.UnoUI.Utilities
     /// </remarks>
     public interface IAsyncLogger
     {
-        Task AddUserMessage(string message);
+        Task AddUserMessage(string message, LogLevels level = 0);
         Task AddDebugMessage(string message);
         Task StatusUpdateActivity(string activity);
         Task StatusUpdateTimeRemaining(string remaining);
@@ -74,7 +74,7 @@ namespace PcmHacking.UnoUI.Utilities
             return builder.ToString();
         }
 
-        public void AddUserMessage(string message)
+        public void AddUserMessage(string message, LogLevels level = 0)
         {
             if (!this.buffer.Enabled)
             {
@@ -87,7 +87,7 @@ namespace PcmHacking.UnoUI.Utilities
 
             if (this.Logger != null)
             {
-                this.Logger.AddUserMessage(message);
+                this.Logger.AddUserMessage(message, level);
             }
             else
             {

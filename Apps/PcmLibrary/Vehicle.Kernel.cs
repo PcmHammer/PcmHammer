@@ -1,4 +1,5 @@
-﻿using System;
+﻿using PcmHacking.ECU;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -79,7 +80,7 @@ namespace PcmHacking
         public async Task<Response<byte[]>> LoadKernelFromFile(string path)
         {
             byte[] file = { 0x00 }; // dummy value
-
+            string kernelName = $"Kernel-{this.ConnectedECU.BaseHardwareType}.bin";
             if (path == "")
             {
                 return Response.Create(ResponseStatus.Error, file);
@@ -333,15 +334,14 @@ namespace PcmHacking
         /// <summary>
         /// Load the executable payload on the PCM at the supplied address, and execute it.
         /// </summary>
-        public async Task<bool> PCMExecute(OSIDInfo info, byte[] payload, CancellationToken cancellationToken)
+        public async Task<bool> PCMExecute(ECUBase info, byte[] payload, CancellationToken cancellationToken)
         {
             // Note that we request an upload of 4k maximum, because the PCM will reject anything bigger.
             // But you can request a 4k upload and then send up to 16k if you want, and the PCM will not object.
             int claimedSize = Math.Min(4096, payload.Length);
 
             // Since we're going to lie about the size, we need to check for overflow ourselves.
-            // TODO: Can we just use the real size?
-            if (info.HardwareType == PcmType.P01 || info.HardwareType == PcmType.P59)
+            if (info.HardwareType == PcmType.P01)
             {
                 if (info.KernelBaseAddress + payload.Length > 0xFFCDFF)
                 {
@@ -365,16 +365,16 @@ namespace PcmHacking
             logger.AddDebugMessage($"Sending upload request for {(info.LoaderRequired ? "loader" : "kernel")} size {payload.Length}, loadaddress {loadAddress.ToString("X6")}");
             logger.AddUserMessage("Requesting upload permission.");
 
-            Query<bool> uploadPermissionQuery = new Query<bool>(
-                this.device,
-                () => protocol.CreateUploadRequest(info, claimedSize),
-                (message) => protocol.ParseUploadPermissionResponse(info, message),
-                this.logger,
-                cancellationToken,
-                this.notifier);
+                Query<bool> uploadPermissionQuery = new Query<bool>(
+                    this.device,
+                    () => protocol.CreateUploadRequest(info, claimedSize),
+                    (message) => protocol.ParseUploadPermissionResponse(info, message),
+                    this.logger,
+                    cancellationToken,
+                    this.notifier);
 
-            Response<bool> permissionResponse = await uploadPermissionQuery.Execute();
-            bool uploadAllowed = permissionResponse.Status == ResponseStatus.Success && permissionResponse.Value;
+                Response<bool> permissionResponse = await uploadPermissionQuery.Execute();
+                bool uploadAllowed = permissionResponse.Status == ResponseStatus.Success && permissionResponse.Value;
 
             if (!uploadAllowed)
             {
@@ -491,7 +491,7 @@ namespace PcmHacking
         /// <summary>
         /// Does everything required to switch to VPW 4x
         /// </summary>
-        public async Task<bool> VehicleSetVPW4x(OSIDInfo pcmInfo, VpwSpeed newSpeed)
+        public async Task<bool> VehicleSetVPW4x(ECUBase pcmInfo, VpwSpeed newSpeed)
         {
             if (!device.Supports4X) 
             {

@@ -29,13 +29,21 @@ namespace PcmHacking
         private string destination;
         private string sender;
         private string crcMessage;
+        private bool switchedToKernel = false;
         ILogger logger;
 
+        private byte[] pcmData;
         private byte[] responseBuffer;
 
         public MockPcm(ILogger logger)
         {
             this.logger = logger;
+            pcmData = new byte[512 * 1024];
+            int index = 0;
+            while(index < pcmData.Length)
+            {
+                pcmData[index++] = 0xEE;
+            }
         }
 
         /// <summary>
@@ -133,7 +141,10 @@ namespace PcmHacking
                     string.Empty, // 3
                     this.firstByte.ToString("X2"), // 4
                     this.modeName)); // 5
-
+            if(this.modeByte == 0x20)
+            {
+                switchedToKernel = false;
+            }
             if (this.modeByte == 0x27)
             {
                 if (this.payload[0] == 0x01)
@@ -145,6 +156,84 @@ namespace PcmHacking
                     // TODO: validate the key.
                     // For now we'll just return a 'success' response every time.
                     this.responseBuffer = new byte[] { Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, 0x67, 0x02, 0x34 };
+                }
+            }
+            else if (this.modeByte == 0x34)
+            {
+                if (Utility.CompareArrays(this.payload.ToArray(), [00, 07, 0xA2, 0xFF, 0x80, 0x00]))
+                {
+                    responseBuffer = [Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, 0x74, 0x00, 0x44];
+                }
+                System.Diagnostics.Debug.WriteLine($"Byte 34 payload: {this.payload.ToArray().ToHex()}");
+            }
+            else if (this.modeByte == 0x35)
+            {
+                if(payload[0] == 0x01)
+                {
+                    byte[] header = [Priority.Block, DeviceId.Tool, DeviceId.Pcm, 0x36];
+                    int len = payload[1] << 8 | payload[2]; 
+                    responseBuffer = new byte[header.Length + payload.Count + len + 2];
+                    Buffer.BlockCopy(header, 0, responseBuffer, 0, header.Length);
+                    Buffer.BlockCopy(payload.ToArray(), 0, responseBuffer, header.Length, payload.Count);
+                    Buffer.BlockCopy(pcmData, 0, responseBuffer, header.Length + payload.Count, len);
+                    UInt16 ValidSum = VpwUtilities.CalcBlockChecksum(responseBuffer);
+                    byte[] footer = [0x00, 0x00];
+                    footer[0] = (byte) (ValidSum >> 8);
+                    footer[1] = (byte) (ValidSum & 0xff);
+                    Buffer.BlockCopy(footer, 0, responseBuffer, responseBuffer.Length - footer.Length, footer.Length);
+                }
+            }
+            else if (this.modeByte == 0x36)
+            {
+                if (payload[0] == 0x00 || payload[0] == 0x80)
+                {
+                    int len = 0;
+                    len = payload[1] << 8 | payload[2];
+                    if((payload.Count - 8) == len)
+                    {
+                        responseBuffer = [Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, 0x76, 0x00, 0x73];
+                        switchedToKernel = payload[0] == 0x80;
+                    }
+                }
+            }
+            else if (this.modeByte == 0x3D)
+            {
+                if (payload[0] == 0x00)
+                {
+                    if (switchedToKernel)
+                    {
+                        responseBuffer = [Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, 0x7D, 0x00, 0x82, 0x40, 0x02, 0x01];
+                    }
+                }
+                if (payload[0] == 0x01)
+                {
+                    responseBuffer = [Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, 0x7D, 0x01, 0x00, 0x89, 0x44, 0x71];
+                }
+                if (payload[0] == 0x02) // I realize - there is a better way. I send a stream of 0xEE's, so outcome should be predictable. In a way, this is a test feature.
+                {
+                    if(payload[4] == 0x02) responseBuffer = [Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, 0x7D, 0x02, 0x02, 0x00, 0x00, 0x02, 0x00, 0x00, 0x56, 0x49, 0x3F, 0x28];
+
+                    if(payload[4] == 0x04) responseBuffer = [Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, 0x7D, 0x02, 0x02, 0x00, 0x00, 0x04, 0x00, 0x00, 0x56, 0x49, 0x3F, 0x28];
+
+                    if(payload[4] == 0x06) responseBuffer = [Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, 0x7D, 0x02, 0x02, 0x00, 0x00, 0x06, 0x00, 0x00, 0x56, 0x49, 0x3F, 0x28];
+
+                    if(payload[4] == 0x08) responseBuffer = [Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, 0x7D, 0x02, 0x02, 0x00, 0x00, 0x08, 0x00, 0x00, 0x11, 0xE2, 0xA1, 0x8B];
+
+                    if(payload[5] == 0x80) responseBuffer = [Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, 0x7D, 0x02, 0x01, 0x80, 0x00, 0x00, 0x80, 0x00, 0x11, 0xE2, 0xA1, 0x8B];
+
+                    if(payload[5] == 0x60) responseBuffer = [Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, 0x7D, 0x02, 0x00, 0x20, 0x00, 0x00, 0x60, 0x00, 0xC8, 0xF0, 0x5F, 0X17];
+
+                    if(payload[5] == 0x40) responseBuffer = [Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, 0x7D, 0x02, 0x00, 0x20, 0x00, 0x00, 0x40, 0x00, 0xC8, 0xF0, 0x5F, 0X17];
+
+                    if(payload[2] == 0x40) responseBuffer = [Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, 0x7D, 0x02, 0x00, 0x40, 0x00, 0x00, 0x00, 0x00, 0xB4, 0xB8, 0x8D, 0xD6];
+                }
+                if (payload[0] == 0x03)
+                {
+                    responseBuffer = [Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, 0x7D, 0x03, 0x00, 0xBA, 0x57, 0xBC];
+                }
+                if (payload[0] == 0x05)
+                {
+                    responseBuffer = [Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, 0x7D, 0x05, 0x00, 0x00];
                 }
             }
             else if (this.modeByte == 0x3C)
@@ -186,7 +275,7 @@ namespace PcmHacking
                         break;
 
                     case BlockId.OperatingSystemID:
-                        responseData = UnsignedToByteArray(12593358);
+                        responseData = UnsignedToByteArray(12212156);
                         break;
 
                     case BlockId.CalibrationID:

@@ -1,8 +1,10 @@
+using PcmHacking.ECU;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Net.NetworkInformation;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
@@ -10,6 +12,15 @@ using System.Threading.Tasks;
 
 namespace PcmHacking
 {
+
+    public enum ECUStates
+    {
+        Invalid,
+        Programmed,
+        Kernel,
+        Recovery
+    }
+
     /// <summary>
     /// From the application's perspective, this class is the API to the vehicle.
     /// </summary>
@@ -59,6 +70,22 @@ namespace PcmHacking
         /// with whatever the application is doing.
         /// </summary>
         private ToolPresentNotifier notifier;
+
+        /// <summary>
+        /// Holds a reference to the detected controller info.
+        /// </summary>
+        public ECUBase ConnectedECU
+        {
+            get
+            {
+                return detectedECU;
+            }
+            set
+            {
+                detectedECU = value;
+            }
+        }
+        private ECUBase detectedECU;
 
         /// <summary>
         /// Gets a string that describes the device this instance is using.
@@ -165,6 +192,60 @@ namespace PcmHacking
         }
 
         /// <summary>
+        /// This method is used universally to detect a connected controller's current state.
+        /// </summary>
+        /// <param name="ct"></param>
+        /// <returns></returns>
+        public async Task<ECUBase> DiscoverConnectedECU(CancellationToken ct)
+        {
+            Response<uint> osidResponse = new(ResponseStatus.Error, 0); 
+
+            this.logger.AddUserMessage("Checking for recovery mode...");
+            Response<bool> recoveryModeResponse = await CheckForRecoveryMode(ct);
+
+            if (recoveryModeResponse.Status == ResponseStatus.Success && recoveryModeResponse.Value)
+            {
+                this.logger.AddUserMessage("PCM is in recovery mode.");
+                ConnectedECU = ECUFactory.GetControllerByOSID(0);
+                ConnectedECU.ECUState = ECUStates.Recovery;
+                return ConnectedECU;
+            }
+
+            this.logger.AddUserMessage("No Recovery message detected. Checking for a live kernel...");
+            uint kernelVersion = await GetKernelVersion(1); //Try once for kernel version. If this fails
+            if (kernelVersion != 0)
+            {
+                this.logger.AddUserMessage("Kernel version: " + kernelVersion.ToString("X8"));
+                this.logger.AddUserMessage("Asking kernel for the PCM's operating system ID...");
+
+                osidResponse = await QueryOperatingSystemIdFromKernel(ct);
+                if (osidResponse.Status != ResponseStatus.Success)
+                {
+                    // The kernel seems broken. This shouldn't happen, but if it does, halt.
+                    this.logger.AddUserMessage("The kernel did not respond to operating system ID query.");
+                    ConnectedECU = ECUFactory.GetControllerByOSID(0);
+                    ConnectedECU.ECUState = ECUStates.Invalid;
+                    return ConnectedECU;
+                }
+                ConnectedECU = ECUFactory.GetControllerByOSID(osidResponse.Value);
+                ConnectedECU.ECUState = ECUStates.Kernel;
+                ConnectedECU.LoadedKernelVersion = kernelVersion;
+                return ConnectedECU;
+            }
+            this.logger.AddUserMessage("Requesting operating system ID...");
+            osidResponse = await QueryOperatingSystemId(ct);
+            if (osidResponse.Status == ResponseStatus.Success)
+            {
+                ConnectedECU = ECUFactory.GetControllerByOSID(osidResponse.Value);
+                ConnectedECU.ECUState = ECUStates.Programmed;
+                return ConnectedECU;
+            }
+            ConnectedECU = ECUFactory.GetControllerByOSID(0);
+            ConnectedECU.ECUState = ECUStates.Invalid;
+            return ConnectedECU;
+        }
+
+        /// <summary>
         /// Re-initialize the device.
         /// </summary>
         public async Task<bool> ResetConnection()
@@ -253,34 +334,6 @@ namespace PcmHacking
                 return Response.Create(ResponseStatus.Success, result);
             }
             return Response.Create(ResponseStatus.Success, false);
-        }
-
-
-        /// <summary>
-        /// Note that this has only been confirmed to work with ObdLink ScanTool devices.
-        /// AllPro doesn't get the reply for some reason.
-        /// Might work with AVT or J-tool, that hasn't been tested.
-        /// </summary>
-        public async Task<bool> IsInRecoveryMode()
-        {
-            this.device.ClearMessageQueue();
-
-            for (int iterations = 0; iterations < 10; iterations++)
-            {
-                await this.TrySendMessage(new Message(new byte[] { Priority.Physical0, DeviceId.Pcm, DeviceId.Tool, 0x62 }), "recovery query", 2);
-                Message response = await this.device.ReceiveMessage();
-                if (response == null)
-                {
-                    continue;
-                }
-
-                if (this.protocol.ParseRecoveryModeBroadcast(response).Value == true)
-                {
-                    return true;
-                }
-            }
-
-            return false;
         }
 
         /// <summary>

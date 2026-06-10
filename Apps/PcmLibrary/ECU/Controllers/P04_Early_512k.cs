@@ -1,0 +1,269 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+
+namespace PcmHacking.ECU.Controllers
+{
+    public class P04_Early_512k : P04_Early
+    {
+        public P04_Early_512k()
+        {
+            this.Description = "P04(Early 512K)";
+            this.BaseHardwareType = PcmType.P04_Early;
+            this.HardwareType = PcmType.P04_Early_512k;
+            this.ImageSize = 512 * 1024;
+
+            KnownOperatingSystems = new List<OSInfo>() {
+                { new OSInfo("GM", 16257963, 16217058, 6) },
+                { new OSInfo("GM", 16257965, 16217058, 6) },
+                { new OSInfo("GM", 16257966, 16217058, 6) },
+                { new OSInfo("GM", 16259008, 16217058, 6) },
+                { new OSInfo("GM", 16259012, 16217058, 6) },
+                { new OSInfo("GM", 16259016, 16217058, 6) },
+                { new OSInfo("GM", 16259018, 16217058, 6) },
+                { new OSInfo("GM", 16259195, 16217058, 6) },
+                { new OSInfo("GM", 16259652, 16217058, 6) },
+                { new OSInfo("GM", 16259654, 16217058, 6) },
+                { new OSInfo("GM", 16259659, 16217058, 6) },
+                { new OSInfo("GM", 16259660, 16217058, 6) },
+                { new OSInfo("GM", 16259664, 16217058, 6) },
+                { new OSInfo("GM", 16259666, 16217058, 6) },
+                { new OSInfo("GM", 16259667, 16217058, 6) },
+                { new OSInfo("GM", 16259669, 16217058, 6) },
+                { new OSInfo("GM", 16259670, 16217058, 6) },
+                { new OSInfo("GM", 16259672, 16217058, 6) },
+                { new OSInfo("GM", 16259676, 16217058, 6) },
+                { new OSInfo("GM", 16259677, 16217058, 6) },
+                { new OSInfo("GM", 16259682, 16217058, 6) },
+                { new OSInfo("GM", 16259686, 16217058, 6) },
+                { new OSInfo("GM", 16259687, 16217058, 6) },
+                { new OSInfo("GM", 16259688, 16217058, 6) },
+                { new OSInfo("GM", 16259694, 16217058, 6) },
+                { new OSInfo("GM", 16259696, 16217058, 6) },
+                { new OSInfo("GM", 16259697, 16217058, 6) },
+                { new OSInfo("GM", 16259698, 16217058, 6) },
+                { new OSInfo("GM", 16259702, 16217058, 6) },
+                { new OSInfo("GM", 16259704, 16217058, 6) },
+                { new OSInfo("GM", 16259705, 16217058, 6) },
+                { new OSInfo("GM", 16259708, 16217058, 6) },
+                { new OSInfo("GM", 16259710, 16217058, 6) },
+                { new OSInfo("GM", 16259712, 16217058, 6) },
+                { new OSInfo("GM", 16259714, 16217058, 6) },
+                { new OSInfo("GM", 16259715, 16217058, 6) },
+                { new OSInfo("GM", 16259716, 16217058, 6) },
+                { new OSInfo("GM", 16259717, 16217058, 6) },
+                { new OSInfo("GM", 16259720, 16217058, 6) },
+                { new OSInfo("GM", 16259906, 16217058, 6) },
+                { new OSInfo("GM", 16265837, 16217058, 6) },
+                { new OSInfo("GM", 16266038, 16217058, 6) },
+                { new OSInfo("GM", 16266902, 16217058, 6) },
+                { new OSInfo("GM", 16268480, 16217058, 6) },
+                { new OSInfo("GM", 16268483, 16217058, 6) },
+                { new OSInfo("GM", 16268485, 16217058, 6) },
+                { new OSInfo("GM", 16268488, 16217058, 6) },
+                { new OSInfo("GM", 24233869, 16217058, 6) },
+                { new OSInfo("GM", 24233870, 16217058, 6) },
+                { new OSInfo("GM", 24234035, 16217058, 6) },
+                { new OSInfo("GM", 24234036, 16217058, 6) },
+                { new OSInfo("GM", 24234037, 16217058, 6) },
+                { new OSInfo("GM", 24234038, 16217058, 6) },
+                { new OSInfo("GM", 28004945, 16217058, 6) },
+                { new OSInfo("GM", 28029988, 16217058, 6) },
+                { new OSInfo("GM", 93802333, 16217058, 6) },
+                { new OSInfo("GM", 93802334, 16217058, 6) },
+
+                { new OSInfo("GM", 9350560, 16227797, 6) },
+                { new OSInfo("GM", 9355202, 16227797, 6) },
+                { new OSInfo("GM", 9355203, 16227797, 6) },
+                { new OSInfo("GM", 9355205, 16227797, 6) },
+                { new OSInfo("GM", 9355206, 16227797, 6) },
+                { new OSInfo("GM", 9355207, 16227797, 6) },
+                { new OSInfo("GM", 9355208, 16227797, 6) },
+                { new OSInfo("GM", 9355440, 16227797, 6) },
+                { new OSInfo("GM", 9355441, 16227797, 6) },
+                { new OSInfo("GM", 9355443, 16227797, 6) },
+                { new OSInfo("GM", 9355445, 16227797, 6) },
+                { new OSInfo("GM", 9355488, 16227797, 6) },
+                { new OSInfo("GM", 9355496, 16227797, 6) },
+                { new OSInfo("GM", 9355497, 16227797, 6) },
+                { new OSInfo("GM", 9355498, 16227797, 6) },
+                { new OSInfo("GM", 9355503, 16227797, 6) },
+                { new OSInfo("GM", 9355506, 16227797, 6) },
+                { new OSInfo("GM", 9359551, 16227797, 6) },
+                { new OSInfo("GM", 9359552, 16227797, 6) },
+                { new OSInfo("GM", 9359553, 16227797, 6) },
+                { new OSInfo("GM", 9359555, 16227797, 6) },
+                { new OSInfo("GM", 9359556, 16227797, 6) },
+                { new OSInfo("GM", 9359557, 16227797, 6) },
+                { new OSInfo("GM", 9359635, 16227797, 6) },
+                { new OSInfo("GM", 9359636, 16227797, 6) },
+                { new OSInfo("GM", 9359757, 16227797, 6) },
+                { new OSInfo("GM", 9359758, 16227797, 6) },
+                { new OSInfo("GM", 9359760, 16227797, 6) },
+                { new OSInfo("GM", 9359762, 16227797, 6) },
+                { new OSInfo("GM", 9362998, 16227797, 6) },
+                { new OSInfo("GM", 9363007, 16227797, 6) },
+                { new OSInfo("GM", 9363080, 16227797, 6) },
+                { new OSInfo("GM", 9363082, 16227797, 6) },
+                { new OSInfo("GM", 9363090, 16227797, 6) },
+                { new OSInfo("GM", 9363091, 16227797, 6) },
+                { new OSInfo("GM", 9363101, 16227797, 6) },
+                { new OSInfo("GM", 9363102, 16227797, 6) },
+                { new OSInfo("GM", 9363104, 16227797, 6) },
+                { new OSInfo("GM", 9363106, 16227797, 6) },
+                { new OSInfo("GM", 9363107, 16227797, 6) },
+                { new OSInfo("GM", 9363108, 16227797, 6) },
+                { new OSInfo("GM", 9363110, 16227797, 6) },
+                { new OSInfo("GM", 9363381, 16227797, 6) },
+                { new OSInfo("GM", 9364942, 16227797, 6) },
+                { new OSInfo("GM", 9364943, 16227797, 6) },
+                { new OSInfo("GM", 9364945, 16227797, 6) },
+                { new OSInfo("GM", 9364967, 16227797, 6) },
+                { new OSInfo("GM", 9364968, 16227797, 6) },
+                { new OSInfo("GM", 9364972, 16227797, 6) },
+                { new OSInfo("GM", 9364975, 16227797, 6) },
+                { new OSInfo("GM", 9364977, 16227797, 6) },
+                { new OSInfo("GM", 9364978, 16227797, 6) },
+                { new OSInfo("GM", 9365041, 16227797, 6) },
+                { new OSInfo("GM", 9365077, 16227797, 6) },
+                { new OSInfo("GM", 9365078, 16227797, 6) },
+                { new OSInfo("GM", 9365081, 16227797, 6) },
+                { new OSInfo("GM", 9365088, 16227797, 6) },
+                { new OSInfo("GM", 9365091, 16227797, 6) },
+                { new OSInfo("GM", 9365092, 16227797, 6) },
+                { new OSInfo("GM", 9365093, 16227797, 6) },
+                { new OSInfo("GM", 9365096, 16227797, 6) },
+                { new OSInfo("GM", 9365097, 16227797, 6) },
+                { new OSInfo("GM", 9365281, 16227797, 6) },
+                { new OSInfo("GM", 9365282, 16227797, 6) },
+                { new OSInfo("GM", 9365287, 16227797, 6) },
+                { new OSInfo("GM", 9365302, 16227797, 6) },
+                { new OSInfo("GM", 9365304, 16227797, 6) },
+                { new OSInfo("GM", 9365311, 16227797, 6) },
+                { new OSInfo("GM", 9365314, 16227797, 6) },
+                { new OSInfo("GM", 9365316, 16227797, 6) },
+                { new OSInfo("GM", 9365340, 16227797, 6) },
+                { new OSInfo("GM", 9365341, 16227797, 6) },
+                { new OSInfo("GM", 9365342, 16227797, 6) },
+                { new OSInfo("GM", 9365346, 16227797, 6) },
+                { new OSInfo("GM", 9365347, 16227797, 6) },
+                { new OSInfo("GM", 9365348, 16227797, 6) },
+                { new OSInfo("GM", 9365350, 16227797, 6) },
+                { new OSInfo("GM", 9365351, 16227797, 6) },
+                { new OSInfo("GM", 9365355, 16227797, 6) },
+                { new OSInfo("GM", 9365356, 16227797, 6) },
+                { new OSInfo("GM", 9365357, 16227797, 6) },
+                { new OSInfo("GM", 9365358, 16227797, 6) },
+                { new OSInfo("GM", 9365360, 16227797, 6) },
+                { new OSInfo("GM", 9383352, 16227797, 6) },
+                { new OSInfo("GM", 12201561, 16227797, 6) },
+                { new OSInfo("GM", 16221445, 16227797, 6) },
+                { new OSInfo("GM", 16231196, 16227797, 6) },
+                { new OSInfo("GM", 16231303, 16227797, 6) },
+                { new OSInfo("GM", 16231321, 16227797, 6) },
+                { new OSInfo("GM", 16234305, 16227797, 6) },
+                { new OSInfo("GM", 16235290, 16227797, 6) },
+                { new OSInfo("GM", 16242720, 16227797, 6) },
+                { new OSInfo("GM", 16243381, 16227797, 6) },
+                { new OSInfo("GM", 16243385, 16227797, 6) },
+                { new OSInfo("GM", 16243643, 16227797, 6) },
+                { new OSInfo("GM", 16243648, 16227797, 6) },
+                { new OSInfo("GM", 16243817, 16227797, 6) },
+                { new OSInfo("GM", 16243821, 16227797, 6) },
+                { new OSInfo("GM", 16243822, 16227797, 6) },
+                { new OSInfo("GM", 16243823, 16227797, 6) },
+                { new OSInfo("GM", 16243826, 16227797, 6) },
+                { new OSInfo("GM", 16243827, 16227797, 6) },
+                { new OSInfo("GM", 16244313, 16227797, 6) },
+                { new OSInfo("GM", 16244314, 16227797, 6) },
+                { new OSInfo("GM", 16244316, 16227797, 6) },
+                { new OSInfo("GM", 16244317, 16227797, 6) },
+                { new OSInfo("GM", 16244318, 16227797, 6) },
+                { new OSInfo("GM", 16244323, 16227797, 6) },
+                { new OSInfo("GM", 16244324, 16227797, 6) },
+                { new OSInfo("GM", 16244906, 16227797, 6) },
+                { new OSInfo("GM", 16245158, 16227797, 6) },
+                { new OSInfo("GM", 16245167, 16227797, 6) },
+                { new OSInfo("GM", 16245315, 16227797, 6) },
+                { new OSInfo("GM", 16245318, 16227797, 6) },
+                { new OSInfo("GM", 16245478, 16227797, 6) },
+                { new OSInfo("GM", 16245480, 16227797, 6) },
+                { new OSInfo("GM", 16245670, 16227797, 6) },
+                { new OSInfo("GM", 16248316, 16227797, 6) },
+                { new OSInfo("GM", 16248320, 16227797, 6) },
+                { new OSInfo("GM", 16251789, 16227797, 6) },
+                { new OSInfo("GM", 16252225, 16227797, 6) },
+                { new OSInfo("GM", 16252227, 16227797, 6) },
+                { new OSInfo("GM", 16252720, 16227797, 6) },
+                { new OSInfo("GM", 16252943, 16227797, 6) },
+                { new OSInfo("GM", 16252946, 16227797, 6) },
+                { new OSInfo("GM", 16252951, 16227797, 6) },
+                { new OSInfo("GM", 16252952, 16227797, 6) },
+                { new OSInfo("GM", 16252955, 16227797, 6) },
+                { new OSInfo("GM", 16252956, 16227797, 6) },
+                { new OSInfo("GM", 16252957, 16227797, 6) },
+                { new OSInfo("GM", 16252958, 16227797, 6) },
+                { new OSInfo("GM", 16252960, 16227797, 6) },
+                { new OSInfo("GM", 16252961, 16227797, 6) },
+                { new OSInfo("GM", 16252962, 16227797, 6) },
+                { new OSInfo("GM", 16252963, 16227797, 6) },
+                { new OSInfo("GM", 16252965, 16227797, 6) },
+                { new OSInfo("GM", 16252966, 16227797, 6) },
+                { new OSInfo("GM", 16253035, 16227797, 6) },
+                { new OSInfo("GM", 16254062, 16227797, 6) },
+                { new OSInfo("GM", 16254063, 16227797, 6) },
+                { new OSInfo("GM", 16254333, 16227797, 6) },
+                { new OSInfo("GM", 16254337, 16227797, 6) },
+                { new OSInfo("GM", 16254467, 16227797, 6) },
+                { new OSInfo("GM", 16254468, 16227797, 6) },
+                { new OSInfo("GM", 16254712, 16227797, 6) },
+                { new OSInfo("GM", 16254718, 16227797, 6) },
+                { new OSInfo("GM", 16254720, 16227797, 6) },
+                { new OSInfo("GM", 16255967, 16227797, 6) },
+                { new OSInfo("GM", 16257407, 16227797, 6) },
+                { new OSInfo("GM", 16257531, 16227797, 6) },
+                { new OSInfo("GM", 16257532, 16227797, 6) },
+                { new OSInfo("GM", 16257533, 16227797, 6) },
+                { new OSInfo("GM", 16257536, 16227797, 6) },
+                { new OSInfo("GM", 16257537, 16227797, 6) },
+                { new OSInfo("GM", 16257725, 16227797, 6) },
+                { new OSInfo("GM", 16257726, 16227797, 6) },
+            };
+        }
+
+        public P04_Early_512k(P04_Early_512k original)
+        {
+            BaseHardwareType = original.BaseHardwareType;
+            ChecksumSupport = original.ChecksumSupport;
+            Description = original.Description;
+            FlashCRCSupport = original.FlashCRCSupport;
+            FlashIDSupport = original.FlashIDSupport;
+            HardwareSlaveCPU = original.HardwareSlaveCPU;
+            HardwareType = original.HardwareType;
+            HardwareTypeOverridden = original.HardwareTypeOverridden;
+            ImageBaseAddress = original.ImageBaseAddress;
+            ImageSize = original.ImageSize;
+            IsSupported = original.IsSupported;
+            IsSupportedRead = original.IsSupportedRead;
+            IsSupportedWrite = original.IsSupportedWrite;
+            IsSupportedWriteBootSector = original.IsSupportedWriteBootSector;
+            IsSupportedWriteBySegment = original.IsSupportedWriteBySegment;
+            IsSupportedWriteSlaveCPU = original.IsSupportedWriteSlaveCPU;
+            IsUnderDevelopment = original.IsUnderDevelopment;
+            KernelBaseAddress = original.KernelBaseAddress;
+            KernelMaxBlockSize = original.KernelMaxBlockSize;
+            KernelVersionSupport = original.KernelVersionSupport;
+            KeyAlgorithm = original.KeyAlgorithm;
+            KnownOperatingSystems = original.KnownOperatingSystems;
+            LoaderBaseAddress = original.LoaderBaseAddress;
+            LoaderRequired = original.LoaderRequired;
+            Manufacturer = original.Manufacturer;
+        }
+
+        public override ECUBase Clone()
+        {
+            return new P04_Early_512k(this);
+        }
+    }
+}

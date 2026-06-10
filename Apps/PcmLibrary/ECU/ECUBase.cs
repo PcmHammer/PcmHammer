@@ -1,18 +1,77 @@
-﻿using System;
+﻿using PcmHacking.ECU.Controllers;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
 namespace PcmHacking.ECU {
+    public enum PcmType
+    {
+        Undefined = 0, // required for failed osid test on binary file
+        Unsupported, // required for failed osid test on binary file
+        P01,
+        P59,
+        P04_Early,
+        P04_Early_512k,
+        P04,
+        P05,
+        P05b,
+        P05c,
+        P08,
+        P10,
+        P11,
+        P12,
+        P12_2M,
+        E54, //E54 (01-04 LB7 Duramax) 
+        E60, //E60 (04-05 LLY Duramax)
+        BlackBox
+    }
+
+    public class PreFlightCheckResult
+    {
+        public string? PromptMessage;
+        public bool ShouldPrompt;
+        public bool CanProceed;
+    }
+
     public abstract class ECUBase {
+
+        /// <summary>
+        /// This enum allows us to hold a reference to the current state of the connected controller.
+        /// </summary>
+        public ECUStates ECUState
+        {
+            get
+            {
+                return _ecuState;
+            }
+            set
+            {
+                _ecuState = value;
+            }
+        }
+        private ECUStates _ecuState;
+
+        /// <summary>
+        /// Keep a reference to the loaded kernel version, if one is detected.
+        /// </summary>
+        public uint LoadedKernelVersion { get; set; }
+
         public List<OSInfo> KnownOperatingSystems { get; set; }
 
-        public OSInfo CurrentOSID { get; private set; }
+        private OSInfo currentOS { get; set; } // Rename to CurrentOSID.
+
+        public bool HardwareTypeOverridden { get; set; }
+
+        /// <summary>
+        /// Define a manufacturer name for this PCM. Used mostly for display purposes.
+        /// </summary>
+        public string? Manufacturer { get; set; }
 
         /// <summary>
         /// Descriptive text.
         /// </summary>
-        public string Description { get; set; }
+        public string? Description { get; set; }
 
         /// <summary>
         /// Indicates whether this PCM is supported by the app.
@@ -56,7 +115,15 @@ namespace PcmHacking.ECU {
         /// <summary>
         /// What service number is it (0/false for unknown)
         /// </summary>
-        public uint ServiceNumber { get; private set; }
+        /// 
+
+        public uint ServiceNumber
+        {
+            get
+            {
+                return (uint)currentOS.ServiceNumber;
+            }
+        }
 
         /// <summary>
         /// Does it have a slave CPU?
@@ -66,7 +133,18 @@ namespace PcmHacking.ECU {
         /// <summary>
         /// Name of the kernel file to use.
         /// </summary>
-        public string KernelFileName { get; set; }
+        public string KernelFileName
+        {
+            get
+            {
+                if(BaseHardwareType == PcmType.E60 || HardwareType <= PcmType.Unsupported)
+                {
+                    return "";
+                }
+                return $"Kernel-{BaseHardwareType}.bin";
+            }
+
+        }
 
         /// <summary>
         /// Base address to begin writing the kernel to.
@@ -76,7 +154,21 @@ namespace PcmHacking.ECU {
         /// <summary>
         /// Name of the kernel loader file to use.
         /// </summary>
-        public string LoaderFileName { get; set; }
+        public string LoaderFileName
+        {
+            get
+            {
+                if (LoaderRequired)
+                {
+                    if (BaseHardwareType == PcmType.P04_Early) 
+                    {
+                        return $"Loader-{PcmType.P04}.bin";
+                    }
+                    return $"Loader-{BaseHardwareType}.bin";
+                }
+                return "";
+            }
+        }
 
         /// <summary>
         /// Base address to begin writing the kernel loader to.
@@ -94,9 +186,21 @@ namespace PcmHacking.ECU {
         public int ImageSize { get; set; }
 
         /// <summary>
-        /// Which key algorithm to use to unlock the PCM.
+        /// Which key algorithm to use to unlock the PCM. Local variable allows for overriding values.
         /// </summary>
-        public int KeyAlgorithm { get; set; }
+
+        private int _keyAlgorithm = 0;
+ 
+        public int KeyAlgorithm { 
+            get
+            {
+                return currentOS?.KeyAlgorithm ?? _keyAlgorithm;
+            }
+            set
+            {
+                _keyAlgorithm = value;
+            }
+        }
 
         /// <summary>
         /// Supports file validation checksums?
@@ -133,12 +237,35 @@ namespace PcmHacking.ECU {
         /// </summary>
         public bool IsUnderDevelopment { get; protected set; }
 
+        /// <summary>
+        /// This holds a reference to a base PCM/ECU profile, for variants that differ but share the same loader/Kernel.
+        /// </summary>
+        public PcmType BaseHardwareType { get; set; }
 
-        public ECUBase() {
+        /// <summary>
+        /// Provides a boolean value to verify if the OS is original or custom.
+        /// </summary>
+        public bool IsCustomOS
+        {
+            get
+            {
+                if (currentOS == null) return false; // TODO: Throw an exeception here?
+                return currentOS.Manufacturer != Manufacturer;
+            }
+        }
+
+
+        public ECUBase()
+        {
+            KnownOperatingSystems = [];
+            currentOS = new();
             Initialize();
         }
 
-        public ECUBase(int osid) {
+        public ECUBase(int osid)
+        {
+            KnownOperatingSystems = [];
+            currentOS = new();
             Initialize();
         }
 
@@ -153,11 +280,8 @@ namespace PcmHacking.ECU {
             Description = "Not Set";
             LoaderRequired = false;
             HardwareType = PcmType.Undefined;
-            ServiceNumber = 0;
             HardwareSlaveCPU = false;
-            KernelFileName = string.Empty;
             KernelBaseAddress = 0x0;
-            LoaderFileName = string.Empty;
             LoaderBaseAddress = 0x0;
             ImageBaseAddress = 0x0;
             KeyAlgorithm = 0;
@@ -169,15 +293,131 @@ namespace PcmHacking.ECU {
             IsUnderDevelopment = false;
         }
 
-        public virtual bool ECUSupportsOSID(uint osid) {
-            return KnownOperatingSystems.Any(x => x.OSID == osid);
+
+        public virtual bool ECUSupportsOSID(uint osid) => KnownOperatingSystems.Any(x => x.OSID == osid);
+
+        public virtual void SetCurrentOSID(uint osid)
+        {
+            currentOS = KnownOperatingSystems.FirstOrDefault(x => x.OSID == osid);
+            if (currentOS == null)
+            {
+                currentOS = new OSInfo("Undefined ECU", osid, 0, 0);
+            }
         }
 
-        public void SetCurrentOSID(uint osid) {
-            CurrentOSID = KnownOperatingSystems.FirstOrDefault(x => x.OSID == osid);
-            if (CurrentOSID == null) {
-                CurrentOSID = new OSInfo(osid, 0, "Unknown OS", KeyAlgorithm);
+        public void SetOverrideOSID(OSInfo osidObj)
+        {
+            currentOS = osidObj;
+        }
+
+        public PreFlightCheckResult GetPreCheckResults(ControllerActions selectedAction, WriteType writeType = WriteType.None)
+        {
+            PreFlightCheckResult result = new();
+            result.CanProceed = true;
+            result.ShouldPrompt = false;
+            StringBuilder builder = new();
+            builder.AppendLine();
+            if((currentOS == null || currentOS.ServiceNumber == -1) && !(currentOS?.IdOverridePresent ?? false))
+            {
+                result.CanProceed = false;
+                builder.AppendLine("An unsupported OSID was detected.\r\n");
             }
+            while (true)
+            {
+                if (ECUState == ECUStates.Recovery)
+                {
+                    builder.AppendLine("This controller is in Recovery mode!");
+                    if(selectedAction == ControllerActions.Write)
+                    {
+                        builder.AppendLine("PCM Hammer will attempt to recover the controller\r\n" +
+                        "with the supplied file. If this file is not a valid\r\n" +
+                        "match to this hardware type, the unit may brick!\r\n");
+                    }
+                    else
+                    {
+                        builder.AppendLine("Reading from a controller in recovery mode\r\n" +
+                            "is currently an unsupported operation. Abort!\r\n");
+                        result.CanProceed = false;
+                    }
+                    break;
+                }
+                if (HardwareType == PcmType.Undefined)
+                {
+                    result.CanProceed = false;
+                    builder.AppendLine(
+                        "Unable to determine PCM hardware type.\r\n" +
+                        "If you know the hardware type, please specify it\r\n" +
+                        "manually with the -hw flag and try again!");
+                    break;
+                }
+                if (!IsSupported)
+                {
+                    result.CanProceed = false;
+                    builder.AppendLine("An unsupported controller was detected.\r\n");
+                    break;
+                }
+                if (!IsSupportedRead && selectedAction == ControllerActions.Read)
+                {
+                    builder.AppendLine("This controller currently does not support reading.\r\n");
+                    result.CanProceed = false;
+                }
+                if (IsUnderDevelopment)
+                {
+                    builder.AppendLine($"WARNING: {HardwareType.ToString()} Support is still in development.\r\nThere is additional brick risk in this operation\r\n");
+                }
+                if (selectedAction == ControllerActions.Write)
+                {
+                    if (!IsSupportedWrite)
+                    {
+                        builder.AppendLine("This controller currently does not support writing.\r\n");
+                        result.CanProceed = false;
+                    }
+                    if (HardwareSlaveCPU && !IsSupportedWriteSlaveCPU && writeType >= WriteType.OsPlusCalibrationPlusBoot)
+                    {
+                        builder.AppendLine("This controller currently does not support slave CPU writing.\r\n" +
+                            "Flashing an incompatible OS can leave ETC inoperable!\r\n" +
+                            "Before you proceed, a backup is highly recommended!\r\n" +
+                            "Flashing the original OS will likely restore functionality.\r\n");
+                    }
+                    if (!IsSupportedWriteBySegment && writeType < WriteType.Full)
+                    {
+                        builder.AppendLine("This controller does not support section writes. Full flash only!\r\n");
+                        result.CanProceed = false;
+                    }
+                }
+                break;
+            }
+            if (!string.IsNullOrWhiteSpace(builder.ToString()))
+            {
+                builder.AppendLine();
+                builder.AppendLine("**********************\r\n");
+                builder.AppendLine(result.CanProceed ? "Considering the message(s) above, do you wish to proceed?" : "Due to the above conditions, the requested operation cannot be performed!");
+                builder.Insert(0, "\r\n**********************\r\n");
+                result.PromptMessage = builder.ToString();
+                result.ShouldPrompt = true;
+            }
+            return result;
+        }
+
+        public int GetCurrentKeyAlgorithm() => currentOS.KeyAlgorithm;
+
+        public uint GetCurrentOSID() => currentOS.OSID;
+
+        public void SetOverriddenState() => currentOS.SetOverridePresent();
+
+        public abstract ECUBase Clone();
+
+        public override string ToString()
+        {
+            string suffix = IsCustomOS ? "COS" : "OEM";
+            string servNo = ServiceNumber != 0 ? $"{ServiceNumber}." : string.Empty;
+            string servString = $"{servNo}{suffix}";
+            if (currentOS == null || currentOS.ServiceNumber == -1)
+            {
+                return "Undefined ECU";
+            }
+            string format = "{0}_{1} - {2} {3}K; {4}";
+            return string.Format(format, Manufacturer, HardwareType, servString, ImageSize / 1024, Description);
         }
     }
 }

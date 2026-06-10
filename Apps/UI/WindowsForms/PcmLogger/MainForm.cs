@@ -37,7 +37,7 @@ namespace PcmHacking
         /// Not used.
         /// </summary>
         /// <param name="message"></param>
-        public override void AddUserMessage(string message)
+        public override void AddUserMessage(string message, LogLevels level = 0)
         {
             // The logger app doesn't have a good place for this kind of thing,
             // so messages are only sent to the debug pane. Important messages

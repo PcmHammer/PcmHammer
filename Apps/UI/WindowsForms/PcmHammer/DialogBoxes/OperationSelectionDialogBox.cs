@@ -1,3 +1,4 @@
+using PcmHacking.ECU;
 using System;
 using System.Drawing;
 using System.Linq;
@@ -115,7 +116,7 @@ namespace PcmHacking
                     continue;
                 }
 
-                OSIDInfo info = new OSIDInfo(type);
+                ECUBase info = ECUFactory.GetControllerOverride(type, 0);
                 if (!info.IsSupported)
                 {
                     continue;

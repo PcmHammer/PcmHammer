@@ -150,7 +150,7 @@ namespace PcmHacking
         /// </remarks>
         public async Task<string> SendRequest(string request)
         {
-            this.Logger.AddDebugMessage("TX: " + request);
+            this.Logger.AddUserMessage("TX: " + request, LogLevels.Trace);
             
             try
             {
@@ -302,7 +302,7 @@ namespace PcmHacking
                             Array.Resize(ref deviceResponseBytes, deviceResponseBytes.Length - 1); // remove checksum byte
                         }
 
-                        this.Logger.AddDebugMessage("RX: " + deviceResponseBytes.ToHex());
+                        this.Logger.AddUserMessage("RX: " + deviceResponseBytes.ToHex(), LogLevels.Trace);
 
                         Message response = new Message(deviceResponseBytes);
                         this.enqueue(response);

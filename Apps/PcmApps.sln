@@ -51,6 +51,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PcmHacking.UnoUI.UITests", 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BluetoothLib", "BluetoothLib\BluetoothLib.csproj", "{F6CF5FB5-EEEC-4055-BBC1-7F982D39C47C}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PcmHacking.CLI", "PcmHacking.CLI\PcmHacking.CLI.csproj", "{65A648AA-646B-4135-A711-BEF947199428}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -208,6 +210,18 @@ Global
 		{F6CF5FB5-EEEC-4055-BBC1-7F982D39C47C}.Release|x64.Build.0 = Release|Any CPU
 		{F6CF5FB5-EEEC-4055-BBC1-7F982D39C47C}.Release|x86.ActiveCfg = Release|Any CPU
 		{F6CF5FB5-EEEC-4055-BBC1-7F982D39C47C}.Release|x86.Build.0 = Release|Any CPU
+		{65A648AA-646B-4135-A711-BEF947199428}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{65A648AA-646B-4135-A711-BEF947199428}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{65A648AA-646B-4135-A711-BEF947199428}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{65A648AA-646B-4135-A711-BEF947199428}.Debug|x64.Build.0 = Debug|Any CPU
+		{65A648AA-646B-4135-A711-BEF947199428}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{65A648AA-646B-4135-A711-BEF947199428}.Debug|x86.Build.0 = Debug|Any CPU
+		{65A648AA-646B-4135-A711-BEF947199428}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{65A648AA-646B-4135-A711-BEF947199428}.Release|Any CPU.Build.0 = Release|Any CPU
+		{65A648AA-646B-4135-A711-BEF947199428}.Release|x64.ActiveCfg = Release|Any CPU
+		{65A648AA-646B-4135-A711-BEF947199428}.Release|x64.Build.0 = Release|Any CPU
+		{65A648AA-646B-4135-A711-BEF947199428}.Release|x86.ActiveCfg = Release|Any CPU
+		{65A648AA-646B-4135-A711-BEF947199428}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
