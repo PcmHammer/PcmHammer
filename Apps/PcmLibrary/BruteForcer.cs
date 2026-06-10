@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -103,15 +102,15 @@ namespace PcmHacking
         public string Eta { get; set; } = string.Empty;
 
         /// <summary>
-        /// False until the adaptive timing model has settled on a baseline. While false there is no
-        /// meaningful time estimate yet (the fast calibration probes would badly under-estimate it),
-        /// so the UI should show a "calibrating" placeholder instead of <see cref="Eta"/>.
+        /// False until the adaptive timing has locked in a security delay. While false the wait is
+        /// still being stepped down, so the estimate is provisional; the UI shows a "calibrating"
+        /// placeholder instead of <see cref="Eta"/>.
         /// </summary>
         public bool TimingCalibrated { get; set; }
 
         /// <summary>
         /// When greater than zero, the brute forcer is about to pause for roughly this many seconds
-        /// (a security-access lockout). The UI can drive a countdown from this; the other fields stay
+        /// (the security-access delay). The UI can drive a countdown from this; the other fields stay
         /// as they were for the attempt that triggered the wait. Zero on a normal attempt update.
         /// </summary>
         public double WaitSeconds { get; set; }
@@ -164,10 +163,11 @@ namespace PcmHacking
     /// "Brute Force Algorithm" tries each of the 256 GM key algorithms, computing the matching key
     /// for the live seed via <see cref="KeyAlgorithm.GetKey"/>, until the PCM accepts one.
     ///
-    /// GM PCMs rate-limit security access: after a couple of bad keys they refuse further attempts
-    /// for a few seconds (response codes 0x36 / 0x37). To avoid ever tripping a hard lockout we
-    /// pace one attempt per cycle and back off when the PCM reports a lockout, mirroring the E38
-    /// tool's timing model.
+    /// GM PCMs enforce a security-access time delay between failed key attempts (10s by the GM spec,
+    /// though some units are shorter). We deliberately do NOT probe the lockout to measure it:
+    /// probing resets the PCM's delay timer and roughly doubles the effective wait. Instead we wait,
+    /// make one attempt, and adapt the wait by stepping it down until the PCM pushes back. See
+    /// <see cref="BruteForce"/>.
     /// </summary>
     public class BruteForcer
     {
@@ -178,51 +178,24 @@ namespace PcmHacking
         private readonly ILogger logger;
         private readonly IProgress<BruteForceProgress>? progress;
 
-        // The ETA is measured only from steady-state attempts. The fast calibration probes (and the
-        // very first lockout) would otherwise average into elapsed/done and make the estimate lurch
-        // from "minutes" to "days" the moment a real lockout lands. These capture the elapsed time and
-        // step count at the instant the timing model settled, so the estimate is built from the
-        // steady run alone.
-        private bool timingCalibrated;
-        private TimeSpan calibratedAtElapsed;
-        private int calibratedAtDone;
-
-        // Adaptive pacing. Rather than assume a fixed period, we learn the PCM's real security-access
-        // timing at run time. These constants bound and seed that process:
-        //   - MinAttemptInterval: hard ceiling on attempt rate (10/sec), so even a PCM with no forced
-        //     delay is not flooded; it also paces bursts within a window.
-        //   - DelayProbeInterval: how often we re-poke the PCM while measuring a lockout delay.
-        //   - DefaultLockoutDelay: fallback wait when we cannot measure the real delay.
-        //   - MaxDelayMeasurement: give up measuring (and use the fallback) after this long.
-        //   - DelaySafetyMargin: padding added to a measured delay so we never knock while still locked.
-        private static readonly TimeSpan MinAttemptInterval = TimeSpan.FromMilliseconds(100); // 10 attempts/sec
-        private static readonly TimeSpan DelayProbeInterval = TimeSpan.FromSeconds(1.0);
-        private static readonly TimeSpan DefaultLockoutDelay = TimeSpan.FromSeconds(10.5);
-        private static readonly TimeSpan MaxDelayMeasurement = TimeSpan.FromSeconds(20.0);
-        private static readonly TimeSpan DelaySafetyMargin = TimeSpan.FromSeconds(0.75);
-        private const int CalibrationProbeLimit = 12;
+        // How many consecutive non-answers before we give up on the PCM.
         private const int MaxConsecutiveNoResponse = 20;
 
-        /// <summary>
-        /// How the brute forcer currently believes the PCM gates security access, learned at run time.
-        /// </summary>
-        private enum TimingMode
-        {
-            /// <summary>Firing real keys back-to-back to learn how many are allowed per window (K).</summary>
-            Calibrating,
+        // The security-access delay (whole seconds) between attempts, plus a small margin. The PCM
+        // forces a time delay between key attempts and releases its seed (cheaply, as a "delay active"
+        // response that is NOT a failed key attempt) before it will evaluate another key. So the
+        // fastest approach is a SHORT delay: we poll the seed and fire the key the moment the lockout
+        // clears, settling at roughly the PCM's own delay per key. A longer value is measurably slower
+        // - it just spaces the attempts farther apart - so a small default suits every PCM. The user
+        // can still raise it.
+        public const int DefaultSecurityDelaySeconds = 2;
+        public const int MaxSecurityDelaySeconds = 12;
+        private static readonly TimeSpan SecurityDelaySafetyMargin = TimeSpan.FromMilliseconds(500);
 
-            /// <summary>Hit a lockout; timing how long until the PCM evaluates a key again (T).</summary>
-            MeasuringDelay,
-
-            /// <summary>The PCM never locked out during calibration: run at the rate cap on one seed.</summary>
-            SteadyNoLimit,
-
-            /// <summary>Requesting a fresh seed clears the lockout: reseed every attempt.</summary>
-            SteadyModelA,
-
-            /// <summary>Fixed K attempts then a forced delay T: burst K keys, wait T, repeat.</summary>
-            SteadyModelB,
-        }
+        // If a single candidate stays locked out for longer than this, warn that the PCM may be stuck
+        // or need a longer delay. Time-based (not poll-count based) so it does not cry wolf for a PCM
+        // with a naturally long delay just because a short poll interval produced many polls.
+        private static readonly TimeSpan LockoutWarnAfter = TimeSpan.FromSeconds(30);
 
         public BruteForcer(Vehicle vehicle, ILogger logger, IProgress<BruteForceProgress>? progress = null)
         {
@@ -237,12 +210,14 @@ namespace PcmHacking
         /// <paramref name="start"/>..<paramref name="end"/> is swept, skipping any value already
         /// tried during the algorithm sweep. The first key the PCM accepts wins.
         ///
-        /// Timing is learned at run time rather than fixed: we fire candidates as fast as the rate
-        /// cap allows to discover how many keys the PCM evaluates before it locks out (K) and how
-        /// long the lockout lasts (T), then settle into the fastest cadence that stays within those
-        /// limits. See <see cref="TimingMode"/>.
+        /// The PCM forces a time delay between key attempts. We pace one seed+key attempt per
+        /// caller-supplied delay (<paramref name="securityDelaySeconds"/> plus a small safety margin).
+        /// While the PCM is counting down, a seed request answers "delay active" (cheap, and not a
+        /// failed key attempt), so a short delay simply polls the seed and fires the key the moment the
+        /// lockout clears - settling at roughly the PCM's own delay per key. A longer delay only spaces
+        /// the attempts farther apart and is slower; the PCM's delay, not ours, sets the floor.
         /// </summary>
-        public async Task<BruteForceResult> BruteForce(int start, int end, bool algoSweepFirst, CancellationToken cancellationToken)
+        public async Task<BruteForceResult> BruteForce(int start, int end, bool algoSweepFirst, int securityDelaySeconds, CancellationToken cancellationToken)
         {
             start &= 0xFFFF;
             end &= 0xFFFF;
@@ -254,34 +229,54 @@ namespace PcmHacking
             CandidateCursor cursor = new CandidateCursor(start, end, algoSweepFirst);
             UInt16 lastSeed = 0;
 
+            // Clamp to the offered range, then add the safety margin (e.g. 10s -> 10.5s).
+            securityDelaySeconds = Math.Max(0, Math.Min(MaxSecurityDelaySeconds, securityDelaySeconds));
+            TimeSpan securityDelay = TimeSpan.FromSeconds(securityDelaySeconds) + SecurityDelaySafetyMargin;
+
             this.logger.AddUserMessage(
-                $"Brute force started. Range 0x{start:X4}-0x{end:X4}. Algo sweep {(algoSweepFirst ? "on" : "off")}.");
-            this.logger.AddUserMessage("Calibrating PCM security timing...");
+                $"Brute force started. Range 0x{start:X4}-0x{end:X4}. Algo sweep {(algoSweepFirst ? "on" : "off")}. " +
+                $"Security delay {securityDelay.TotalSeconds:F1}s.");
 
-            // Learned-timing state.
-            TimingMode mode = TimingMode.Calibrating;
-            int evaluatedSinceReset = 0;                  // keys the PCM has evaluated since the last reset
-            int attemptsPerWindow = 0;                    // K: attempts allowed before a forced delay
-            int attemptsThisWindow = 0;                   // model B: evaluated keys in the in-progress window
-            TimeSpan measuredDelay = DefaultLockoutDelay; // T
-            DateTime lockoutStart = DateTime.UtcNow;
-            bool firstProbe = false;                      // first measurement probe tests "does reseed reset?"
             int noResponseStreak = 0;
+            DateTime? lockoutStart = null; // when the current candidate first hit a lockout, or null
+            bool lockoutWarned = false;
 
-            // Cached seed. GM seeds are static within a session, so we avoid re-requesting it on every
-            // attempt; we refresh it only when the timing model calls for it or after a link glitch.
-            UInt16 cachedSeed = 0;
-            bool haveSeed = false;
+            // Wait the delay before the first attempt too: the PCM may already be partway through a
+            // lockout from an earlier session, and waiting first is always safe.
+            DateTime nextAttemptTime = DateTime.UtcNow + securityDelay;
 
-            Stopwatch operationTimer = Stopwatch.StartNew();
-            DateTime nextAttemptTime = DateTime.UtcNow;
-            DateTime lastAttemptLog = DateTime.MinValue;
+            // Carried so the last presented candidate can be reported again if needed.
+            BruteForcePhase lastPhase = algoSweepFirst ? BruteForcePhase.Sweeping : BruteForcePhase.Trying;
+            UInt16 lastKey = 0;
+            int lastAlgorithm = -1;
 
-            // Carried so a pacing wait can be reported (with a countdown) before the next candidate
-            // is computed; the wait belongs to the attempt that just ran.
-            BruteForcePhase lastReportedPhase = algoSweepFirst ? BruteForcePhase.Sweeping : BruteForcePhase.Trying;
-            UInt16 lastReportedKey = 0;
-            int lastReportedAlgorithm = -1;
+            // Each candidate is presented to the user once - one log line and one countdown - even
+            // though unlocking it takes several seed/key exchanges behind the scenes. keyPresented
+            // stays true across those internal retries and is cleared when we move to the next
+            // candidate. perKeyEstimate is the expected wall-clock time for one key, learned from the
+            // previous key, and drives both the countdown and the ETA so they reflect whole keys.
+            bool keyPresented = false;
+            DateTime keyPresentedAt = DateTime.UtcNow;
+            TimeSpan perKeyEstimate = TimeSpan.FromSeconds(10);
+
+            // Track how long the current candidate has been locked out (the PCM counting down its
+            // forced delay), and warn once if that runs unusually long - a sign the PCM is stuck or
+            // wants a longer delay, rather than a normal countdown.
+            void NoteLockout()
+            {
+                DateTime stamp = DateTime.UtcNow;
+                if (lockoutStart == null)
+                {
+                    lockoutStart = stamp;
+                }
+                else if (!lockoutWarned && stamp - lockoutStart.Value > LockoutWarnAfter)
+                {
+                    this.logger.AddUserMessage(
+                        $"The PCM has held a security lockout for over {LockoutWarnAfter.TotalSeconds:F0}s; " +
+                        "it may be stuck or need a longer security delay.");
+                    lockoutWarned = true;
+                }
+            }
 
             try
             {
@@ -289,125 +284,76 @@ namespace PcmHacking
                 {
                     cancellationToken.ThrowIfCancellationRequested();
 
-                    // Find the next untried candidate (and detect exhaustion).
                     if (!cursor.TryAdvanceToValid())
                     {
                         this.logger.AddUserMessage("Key not found.");
                         return new BruteForceResult(BruteForceOutcome.Exhausted, lastSeed);
                     }
 
-                    // Pace this attempt.
+                    // Wait out the security delay before touching the PCM. Nothing else talks to the
+                    // PCM during this wait - that is what keeps its delay timer from being re-armed.
+                    // We deliberately do not report these internal waits; the per-key countdown
+                    // (started when the candidate is first presented) already covers them.
                     DateTime now = DateTime.UtcNow;
                     if (now < nextAttemptTime)
                     {
-                        TimeSpan wait = nextAttemptTime - now;
-
-                        // A long pause is a security lockout. Report it here - right as the sleep
-                        // starts and with the REAL remaining time - so the UI countdown matches the
-                        // actual wait. (Reporting it earlier, before the seed I/O that can take several
-                        // seconds, made the bar drain against a stale duration and finish early.)
-                        if (wait >= TimeSpan.FromSeconds(2))
-                        {
-                            this.Report(lastReportedPhase, lastReportedKey, lastReportedAlgorithm, cursor.Done, cursor.Total, operationTimer, mode, wait.TotalSeconds);
-                        }
-
-                        await Task.Delay(wait, cancellationToken);
+                        await Task.Delay(nextAttemptTime - now, cancellationToken);
                     }
-                    DateTime attemptStart = DateTime.UtcNow;
 
-                    // Seed policy depends on the timing mode: reseed every attempt in model A, once per
-                    // window in model B, once when first measuring (to test model A), else reuse cache.
-                    bool freshSeed =
-                        (mode == TimingMode.SteadyModelA) ||
-                        (mode == TimingMode.SteadyModelB && attemptsThisWindow == 0) ||
-                        (mode == TimingMode.MeasuringDelay && firstProbe) ||
-                        !haveSeed;
-
-                    if (freshSeed)
+                    // One attempt: request a seed, then send one key. The security delay is paced from
+                    // after the key response (DateTime.UtcNow at each branch below), because the PCM's
+                    // delay timer starts when it evaluates the key - not when we began the attempt.
+                    BruteForceSeedResult seedResult = await this.vehicle.RequestSeedForBruteForce(cancellationToken);
+                    if (seedResult.AlreadyUnlocked)
                     {
-                        BruteForceSeedResult seedResult = await this.vehicle.RequestSeedForBruteForce(cancellationToken);
-                        if (seedResult.AlreadyUnlocked)
+                        this.logger.AddUserMessage("The PCM is already unlocked.");
+                        return new BruteForceResult(BruteForceOutcome.AlreadyUnlocked, lastSeed);
+                    }
+                    if (seedResult.DelayActive)
+                    {
+                        // The PCM refused the seed because it is still counting down its forced delay.
+                        // Wait the same delay again and retry the same candidate (no key was consumed).
+                        noResponseStreak = 0;
+                        NoteLockout();
+                        nextAttemptTime = DateTime.UtcNow + securityDelay;
+                        continue;
+                    }
+                    if (!seedResult.Success)
+                    {
+                        this.logger.AddDebugMessage("Brute force: no seed response; retrying.");
+                        if (++noResponseStreak >= MaxConsecutiveNoResponse)
                         {
-                            this.logger.AddUserMessage("The PCM is already unlocked.");
-                            return new BruteForceResult(BruteForceOutcome.AlreadyUnlocked, lastSeed);
+                            this.logger.AddUserMessage("Brute force stopped: the PCM stopped responding.");
+                            return new BruteForceResult(BruteForceOutcome.CommunicationError, lastSeed);
                         }
-                        if (seedResult.DelayActive)
-                        {
-                            // The PCM refuses to issue a seed while its security time delay is still
-                            // running: the lockout has not cleared. A fresh seed therefore does NOT
-                            // clear the lockout, so we are not in model A - measure the real delay by
-                            // re-probing the seed until the PCM serves one again.
-                            noResponseStreak = 0;
-                            haveSeed = false;
-
-                            if (mode != TimingMode.MeasuringDelay)
-                            {
-                                attemptsPerWindow = Math.Max(1, attemptsThisWindow > 0 ? attemptsThisWindow : evaluatedSinceReset);
-                                this.logger.AddDebugMessage(
-                                    $"Brute force: seed request reports the lockout is still active; measuring delay ({attemptsPerWindow} key(s)/window).");
-                                mode = TimingMode.MeasuringDelay;
-                                lockoutStart = attemptStart;
-                            }
-                            firstProbe = false; // a fresh seed was refused, so model A is already disproven
-
-                            if (attemptStart - lockoutStart > MaxDelayMeasurement)
-                            {
-                                measuredDelay = DefaultLockoutDelay;
-                                mode = TimingMode.SteadyModelB;
-                                attemptsThisWindow = 0;
-                                evaluatedSinceReset = 0;
-                                this.logger.AddUserMessage(
-                                    $"Calibrated: {attemptsPerWindow} keys/window; delay exceeded {MaxDelayMeasurement.TotalSeconds:F0}s, using {measuredDelay.TotalSeconds:F1}s fallback.");
-                                nextAttemptTime = attemptStart + measuredDelay + DelaySafetyMargin;
-                            }
-                            else
-                            {
-                                nextAttemptTime = attemptStart + DelayProbeInterval; // keep polling the seed
-                            }
-                            continue;
-                        }
-                        if (!seedResult.Success)
-                        {
-                            this.logger.AddDebugMessage("Brute force: no seed response; retrying.");
-                            haveSeed = false;
-                            nextAttemptTime = attemptStart + MinAttemptInterval;
-                            continue;
-                        }
-                        if (seedResult.Seed == 0x0000)
-                        {
-                            this.logger.AddUserMessage("The PCM returned a seed of 0x0000; no unlock is required.");
-                            return new BruteForceResult(BruteForceOutcome.UnlockNotRequired, 0);
-                        }
-                        cachedSeed = seedResult.Seed;
-                        haveSeed = true;
+                        nextAttemptTime = DateTime.UtcNow + securityDelay;
+                        continue;
+                    }
+                    if (seedResult.Seed == 0x0000)
+                    {
+                        this.logger.AddUserMessage("The PCM returned a seed of 0x0000; no unlock is required.");
+                        return new BruteForceResult(BruteForceOutcome.UnlockNotRequired, 0);
                     }
 
-                    UInt16 seed = cachedSeed;
+                    UInt16 seed = seedResult.Seed;
                     lastSeed = seed;
-
                     (UInt16 key, BruteForcePhase phase, int algorithm) = cursor.Compute(seed);
 
-                    this.Report(phase, key, algorithm, cursor.Done, cursor.Total, operationTimer, mode);
-                    lastReportedPhase = phase;
-                    lastReportedKey = key;
-                    lastReportedAlgorithm = algorithm;
-                    this.logger.AddDebugMessage(phase == BruteForcePhase.Sweeping
-                        ? $"Brute force: algo {algorithm}, seed 0x{seed:X4}, key 0x{key:X4}."
-                        : $"Brute force: seed 0x{seed:X4}, trying key 0x{key:X4}.");
-                    // Throttle the user-log line: at up to 10 attempts/sec the per-attempt detail would
-                    // flood the results log, so cap it to ~1/sec there. The dialog status (via Report)
-                    // and the debug log still update on every attempt.
-                    if (attemptStart - lastAttemptLog >= TimeSpan.FromSeconds(1))
+                    // Present this candidate once: log it and start a single countdown for the whole
+                    // key. Subsequent seed/key exchanges for the same candidate reuse this and stay
+                    // silent, so the user sees one line and one timer per key.
+                    if (!keyPresented)
                     {
+                        keyPresented = true;
+                        keyPresentedAt = DateTime.UtcNow;
+                        lastPhase = phase;
+                        lastKey = key;
+                        lastAlgorithm = algorithm;
                         this.logger.AddUserMessage((phase == BruteForcePhase.Sweeping ? "Sweeping " : "Trying ") + key.ToString("X4"));
-                        lastAttemptLog = attemptStart;
+                        this.Report(phase, key, algorithm, cursor.Done, cursor.Total, perKeyEstimate, perKeyEstimate.TotalSeconds);
                     }
 
                     SecurityUnlockResult attempt = await this.vehicle.SendKeyForBruteForce(key, cancellationToken);
-
-                    // Default cadence; specific outcomes override below.
-                    TimeSpan delayAfter = MinAttemptInterval;
-
                     switch (attempt)
                     {
                         case SecurityUnlockResult.Unlocked:
@@ -420,132 +366,47 @@ namespace PcmHacking
                         case SecurityUnlockResult.InvalidKey:
                         case SecurityUnlockResult.Denied:
                         case SecurityUnlockResult.Unexpected:
-                            // The PCM evaluated the key (and it was wrong). We are inside the attempt
-                            // window with no delay active, so the next candidate can go immediately.
+                            // The PCM evaluated the key (and it was wrong), so the delay had elapsed.
+                            // Learn how long this key actually took so the next key's countdown/ETA is
+                            // about right, then move on - the next candidate will be presented afresh.
+                            // The countdown runs from presenting one key until presenting the next, so
+                            // the estimate must include BOTH the time to evaluate this key and the
+                            // pacing delay we wait afterwards before the next key; without that trailing
+                            // delay the bar finished early and sat idle. This scales with any delay.
                             noResponseStreak = 0;
-                            evaluatedSinceReset++;
-                            attemptsThisWindow++;
-
-                            if (mode == TimingMode.MeasuringDelay)
+                            lockoutStart = null;
+                            lockoutWarned = false;
+                            TimeSpan took = DateTime.UtcNow - keyPresentedAt;
+                            if (took >= TimeSpan.FromSeconds(2) && took <= TimeSpan.FromSeconds(60))
                             {
-                                // A probe was finally evaluated: the lockout has ended.
-                                this.ConcludeDelayMeasurement(ref mode, ref measuredDelay, ref attemptsThisWindow,
-                                    ref evaluatedSinceReset, firstProbe, attemptStart - lockoutStart, attemptsPerWindow);
+                                perKeyEstimate = took + securityDelay;
                             }
-                            else if (mode == TimingMode.Calibrating && evaluatedSinceReset >= CalibrationProbeLimit)
-                            {
-                                mode = TimingMode.SteadyNoLimit;
-                                this.logger.AddUserMessage(
-                                    $"Calibrated: no lockout after {evaluatedSinceReset} keys; running at up to 10/sec.");
-                            }
-
+                            keyPresented = false;
                             cursor.Advance(key);
-
-                            if (mode == TimingMode.SteadyModelB && attemptsThisWindow >= attemptsPerWindow)
-                            {
-                                // Window complete: wait out the forced delay before the next burst.
-                                attemptsThisWindow = 0;
-                                delayAfter = measuredDelay + DelaySafetyMargin;
-                            }
-                            else
-                            {
-                                delayAfter = MinAttemptInterval;
-                            }
+                            nextAttemptTime = DateTime.UtcNow + securityDelay;
                             break;
 
                         case SecurityUnlockResult.TooManyAttempts:
-                            // 0x36: the PCM started a forced delay and did NOT evaluate this key, so we
-                            // keep the candidate and retry it once the delay clears.
-                            noResponseStreak = 0;
-                            if (mode == TimingMode.Calibrating || mode == TimingMode.SteadyNoLimit)
-                            {
-                                attemptsPerWindow = Math.Max(1, evaluatedSinceReset);
-                                this.logger.AddDebugMessage($"Brute force: lockout after {attemptsPerWindow} keys; measuring delay.");
-                                mode = TimingMode.MeasuringDelay;
-                                lockoutStart = attemptStart;
-                                firstProbe = true;
-                                delayAfter = MinAttemptInterval; // probe soon; the probe reseeds to test model A
-                            }
-                            else if (mode == TimingMode.SteadyModelB)
-                            {
-                                // Locked out earlier than expected: tighten K and start a fresh wait.
-                                attemptsPerWindow = Math.Max(1, attemptsThisWindow);
-                                attemptsThisWindow = 0;
-                                delayAfter = measuredDelay + DelaySafetyMargin;
-                            }
-                            else
-                            {
-                                // We are in SteadyModelA, which assumes a fresh seed clears the lockout -
-                                // yet this reseeded attempt still tripped it. In true model A the counter
-                                // resets every attempt and 0x36 can never occur, so a single one disproves
-                                // the model (the lone calibration probe was a false positive). Demote:
-                                // measure the real time delay and settle into model B.
-                                attemptsPerWindow = Math.Max(1, attemptsThisWindow);
-                                this.logger.AddUserMessage(
-                                    $"A new seed did not clear the lockout after all; measuring the real delay ({attemptsPerWindow} key(s)/window).");
-                                mode = TimingMode.MeasuringDelay;
-                                lockoutStart = attemptStart;
-                                firstProbe = false; // reseed is already disproven; measure the time delay directly
-                                delayAfter = DelayProbeInterval;
-                            }
-                            break;
-
                         case SecurityUnlockResult.TimeDelayActive:
-                            // 0x37: still locked out; key not evaluated. Keep the candidate.
+                            // The PCM hit its attempt limit and is forcing a delay; the key was not
+                            // evaluated. Keep the candidate and retry after another full delay - we do
+                            // not poke it sooner, because a mid-lockout attempt only restarts the timer.
                             noResponseStreak = 0;
-                            if (mode == TimingMode.MeasuringDelay)
-                            {
-                                firstProbe = false;
-                                if (attemptStart - lockoutStart > MaxDelayMeasurement)
-                                {
-                                    measuredDelay = DefaultLockoutDelay;
-                                    mode = TimingMode.SteadyModelB;
-                                    attemptsThisWindow = 0;
-                                    evaluatedSinceReset = 0;
-                                    this.logger.AddUserMessage(
-                                        $"Calibrated: {attemptsPerWindow} keys/window; delay exceeded {MaxDelayMeasurement.TotalSeconds:F0}s, using {measuredDelay.TotalSeconds:F1}s fallback.");
-                                    delayAfter = measuredDelay + DelaySafetyMargin;
-                                }
-                                else
-                                {
-                                    delayAfter = DelayProbeInterval; // keep probing the same key
-                                }
-                            }
-                            else if (mode == TimingMode.SteadyModelA)
-                            {
-                                // 0x37 in model A also disproves "a fresh seed clears the lockout" (see the
-                                // 0x36 handler). Measure the real delay and switch to model B.
-                                attemptsPerWindow = Math.Max(1, attemptsThisWindow);
-                                this.logger.AddUserMessage(
-                                    $"A new seed did not clear the lockout after all; measuring the real delay ({attemptsPerWindow} key(s)/window).");
-                                mode = TimingMode.MeasuringDelay;
-                                lockoutStart = attemptStart;
-                                firstProbe = false;
-                                delayAfter = DelayProbeInterval;
-                            }
-                            else
-                            {
-                                // Mistimed in steady state: wait a full delay and restart the window.
-                                attemptsThisWindow = 0;
-                                delayAfter = (measuredDelay > TimeSpan.Zero ? measuredDelay : DefaultLockoutDelay) + DelaySafetyMargin;
-                            }
+                            NoteLockout();
+                            nextAttemptTime = DateTime.UtcNow + securityDelay;
                             break;
 
                         case SecurityUnlockResult.NoResponse:
                         default:
-                            noResponseStreak++;
-                            if (noResponseStreak >= MaxConsecutiveNoResponse)
+                            if (++noResponseStreak >= MaxConsecutiveNoResponse)
                             {
                                 this.logger.AddUserMessage("Brute force stopped: the PCM stopped responding.");
                                 return new BruteForceResult(BruteForceOutcome.CommunicationError, lastSeed);
                             }
                             this.logger.AddDebugMessage("Brute force: no response; retrying same candidate.");
-                            haveSeed = false; // re-establish the seed in case the link glitched
-                            delayAfter = MinAttemptInterval;
+                            nextAttemptTime = DateTime.UtcNow + securityDelay;
                             break;
                     }
-
-                    nextAttemptTime = attemptStart + (delayAfter > MinAttemptInterval ? delayAfter : MinAttemptInterval);
                 }
             }
             catch (OperationCanceledException)
@@ -553,34 +414,6 @@ namespace PcmHacking
                 this.logger.AddUserMessage("Brute force stopped.");
                 return new BruteForceResult(BruteForceOutcome.Canceled, lastSeed);
             }
-        }
-
-        /// <summary>
-        /// A measurement probe was just evaluated, so the lockout has ended. Decide whether requesting
-        /// a fresh seed cleared it (model A) or a genuine time delay elapsed (model B), record the
-        /// learned values, and open a fresh window for the attempt that just succeeded.
-        /// </summary>
-        private void ConcludeDelayMeasurement(ref TimingMode mode, ref TimeSpan measuredDelay,
-            ref int attemptsThisWindow, ref int evaluatedSinceReset, bool firstProbe, TimeSpan elapsed, int attemptsPerWindow)
-        {
-            if (firstProbe)
-            {
-                // We reseeded immediately after the lockout and the key was evaluated at once:
-                // requesting a seed clears the attempt counter (model A).
-                mode = TimingMode.SteadyModelA;
-                measuredDelay = TimeSpan.Zero;
-                this.logger.AddUserMessage("Calibrated: a new seed clears the lockout; reseeding each attempt at up to 10/sec.");
-            }
-            else
-            {
-                mode = TimingMode.SteadyModelB;
-                measuredDelay = elapsed;
-                this.logger.AddUserMessage($"Calibrated: {attemptsPerWindow} keys/window, ~{elapsed.TotalSeconds:F1}s delay.");
-            }
-
-            // The attempt that just evaluated opens the new window.
-            attemptsThisWindow = 1;
-            evaluatedSinceReset = 1;
         }
 
         /// <summary>
@@ -599,7 +432,7 @@ namespace PcmHacking
             return -1;
         }
 
-        private void Report(BruteForcePhase phase, UInt16 key, int algorithm, int done, int total, Stopwatch operationTimer, TimingMode mode, double waitSeconds = 0)
+        private void Report(BruteForcePhase phase, UInt16 key, int algorithm, int done, int total, TimeSpan perKeyEstimate, double waitSeconds = 0)
         {
             if (this.progress == null)
             {
@@ -608,34 +441,11 @@ namespace PcmHacking
 
             double fraction = total > 0 ? Math.Min(1.0, (double)done / total) : 0.0;
 
-            // Capture the baseline the first time the timing model settles into a steady mode, so the
-            // estimate ignores the fast calibration probes that came before it.
-            bool steady = mode == TimingMode.SteadyNoLimit
-                || mode == TimingMode.SteadyModelA
-                || mode == TimingMode.SteadyModelB;
-            if (steady && !this.timingCalibrated)
-            {
-                this.timingCalibrated = true;
-                this.calibratedAtElapsed = operationTimer.Elapsed;
-                this.calibratedAtDone = done;
-            }
-
-            // Build the estimate only from steady-state attempts. Until at least one of those has
-            // completed there is no honest number to show, so leave Eta empty and flag it as not
-            // yet calibrated; the UI shows a "calibrating" placeholder instead.
-            string eta = string.Empty;
-            bool calibrated = false;
-            if (this.timingCalibrated)
-            {
-                int stepsSince = done - this.calibratedAtDone;
-                if (stepsSince > 0)
-                {
-                    double secondsPerStep = (operationTimer.Elapsed - this.calibratedAtElapsed).TotalSeconds / stepsSince;
-                    int remaining = Math.Max(0, total - done);
-                    eta = FormatEta(TimeSpan.FromSeconds(secondsPerStep * remaining));
-                    calibrated = true;
-                }
-            }
+            // The estimate is the measured time for one key times the remaining candidates - whole keys,
+            // not the internal sub-operations. waitSeconds is that same per-key time, so the UI shows a
+            // single countdown sized to one key.
+            int remaining = Math.Max(0, total - done);
+            string eta = FormatEta(TimeSpan.FromSeconds(perKeyEstimate.TotalSeconds * remaining));
 
             this.progress.Report(new BruteForceProgress
             {
@@ -644,7 +454,7 @@ namespace PcmHacking
                 Algorithm = algorithm,
                 Fraction = fraction,
                 Eta = eta,
-                TimingCalibrated = calibrated,
+                TimingCalibrated = true,
                 WaitSeconds = waitSeconds,
             });
         }
