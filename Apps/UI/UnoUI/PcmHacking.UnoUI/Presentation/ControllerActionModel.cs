@@ -159,8 +159,6 @@ public partial record ControllerActionModel : IAsyncLogger
                 actionCancellationToken,
                 progress,
                 this.loggerAdapter);
-
-            manager.Initialize();
 #if WINDOWS
                 using (new AwayMode())
                 {
