@@ -44,38 +44,61 @@ $projects = [ordered]@{
     VpwExplorer = "UI\WindowsForms\VpwExplorer\VpwExplorer.csproj"
     Cli         = "UI\PcmHammerCLI\PcmHammerCLI.csproj"
 }
+# The same set Release.ps1 stamps (minus Tests, which isn't shipped, and the Uno app,
+# which isn't built here) so a local release-style build versions every shipped binary
+# - apps, the CLI, and the libraries - exactly like the CI release does.
 $assemblyInfos = @(
     "UI\WindowsForms\PcmHammer\Properties\AssemblyInfo.cs",
     "UI\WindowsForms\PcmLogger\Properties\AssemblyInfo.cs",
     "UI\WindowsForms\VpwExplorer\Properties\AssemblyInfo.cs",
-    "UI\PcmHammerCLI\Properties\AssemblyInfo.cs"
+    "UI\PcmHammerCLI\Properties\AssemblyInfo.cs",
+    "PcmLibraryWindowsApi\Properties\AssemblyInfo.cs",
+    "UI\WindowsForms\PcmLibraryWindowsForms\Properties\AssemblyInfo.cs"
 ) | ForEach-Object { Join-Path $apps $_ }
 
+# SDK-style projects carry the version in <Version> instead of AssemblyInfo.cs.
+$versionedProjects = @(
+    "PcmLibrary\PcmLibrary.csproj"
+) | ForEach-Object { Join-Path $apps $_ }
+
+# Stamps file-version properties (4-part) and the user-visible InformationalVersion
+# (the display string, e.g. 2.0.0); appends InformationalVersion if the file lacks it.
 function Set-AssemblyVersion {
-    param([string]$File, [string]$Ver)
+    param([string]$File, [string]$FileVer, [string]$DisplayVer)
     $lines = Get-Content -LiteralPath $File
+    $sawInfo = $false
     $out = foreach ($line in $lines) {
-        if     ($line -match '^\[assembly:\s*AssemblyVersion\(')              { "[assembly: AssemblyVersion(""$Ver"")]" }
-        elseif ($line -match '^\[assembly:\s*AssemblyFileVersion\(')          { "[assembly: AssemblyFileVersion(""$Ver"")]" }
-        elseif ($line -match '^\[assembly:\s*AssemblyInformationalVersion\(') { "[assembly: AssemblyInformationalVersion(""$Ver"")]" }
+        if     ($line -match '^\[assembly:\s*AssemblyVersion\(')              { "[assembly: AssemblyVersion(""$FileVer"")]" }
+        elseif ($line -match '^\[assembly:\s*AssemblyFileVersion\(')          { "[assembly: AssemblyFileVersion(""$FileVer"")]" }
+        elseif ($line -match '^\[assembly:\s*AssemblyInformationalVersion\(') { $sawInfo = $true; "[assembly: AssemblyInformationalVersion(""$DisplayVer"")]" }
         else { $line }
     }
+    if (-not $sawInfo) { $out = @($out) + "[assembly: AssemblyInformationalVersion(""$DisplayVer"")]" }
     Set-Content -LiteralPath $File -Value $out -Encoding UTF8
+}
+
+function Set-ProjectVersion {
+    param([string]$File, [string]$Ver)
+    $c = Get-Content -LiteralPath $File -Raw
+    $c = $c -replace '<Version>[^<]*</Version>', "<Version>$Ver</Version>"
+    Set-Content -LiteralPath $File -Value $c -NoNewline -Encoding UTF8
 }
 
 # Stop running instances so build output isn't locked.
 Get-Process PcmHammer,pcmhammer-cli,PcmLogger,VpwExplorer -ErrorAction SilentlyContinue | Stop-Process -Force
 
-# Back up AssemblyInfo as raw bytes so we can restore exactly.
+# Back up the versioned files as raw bytes so we can restore them exactly afterwards.
+$versionedFiles = $assemblyInfos + $versionedProjects
 $backups = @{}
-foreach ($f in $assemblyInfos) { $backups[$f] = [System.IO.File]::ReadAllBytes($f) }
+foreach ($f in $versionedFiles) { $backups[$f] = [System.IO.File]::ReadAllBytes($f) }
 
 $staging = Join-Path $repoRoot "dist\staging"
 
 try {
     if ($info.IsRelease) {
-        foreach ($f in $assemblyInfos) { Set-AssemblyVersion -File $f -Ver $info.Version }
-        Write-Host "Stamped version $($info.Version) into AssemblyInfo (temporary)."
+        foreach ($f in $assemblyInfos)     { Set-AssemblyVersion -File $f -FileVer $info.Version -DisplayVer $info.Display }
+        foreach ($f in $versionedProjects) { Set-ProjectVersion  -File $f -Ver $info.Version }
+        Write-Host "Stamped version $($info.Version) (display $($info.Display)) into AssemblyInfo + csproj (temporary)."
     }
 
     if (Test-Path $staging) { Remove-Item -Recurse -Force $staging }
@@ -122,6 +145,7 @@ try {
     New-Item -ItemType Directory -Force -Path $distDir | Out-Null
     [pscustomobject]@{
         Version       = $info.Version
+        Display       = $info.Display
         NameToken     = $info.NameToken
         IsRelease     = $info.IsRelease
         Stamp         = $info.Stamp
@@ -132,6 +156,6 @@ try {
     Write-Host "Apps built and staged at $staging"
 }
 finally {
-    foreach ($f in $assemblyInfos) { [System.IO.File]::WriteAllBytes($f, $backups[$f]) }
-    Write-Host "Restored AssemblyInfo files."
+    foreach ($f in $versionedFiles) { [System.IO.File]::WriteAllBytes($f, $backups[$f]) }
+    Write-Host "Restored versioned files (AssemblyInfo + csproj)."
 }
