@@ -27,11 +27,13 @@ Write-Host "=== Build-Apps ===" -ForegroundColor Cyan
 
 $bi = Get-Content (Join-Path $distDir "build-info.json") -Raw | ConvertFrom-Json
 # Consistent scheme: PCMHammer_<version>_<kind> so versions sort/cluster together.
+# NameToken is the display version (e.g. 2.0.0) for a release, or a date stamp for dev.
 $base = "PCMHammer_$($bi.NameToken)"
 
 Write-Host "=== Build-Installer ===" -ForegroundColor Cyan
+# Installer AppVersion (shown in Add/Remove Programs) uses the display version, matching CI.
 & (Join-Path $repoRoot "Apps\installer\build-installer.ps1") `
-    -StagingRoot $bi.StagingRoot -Version $bi.Version -SetupName "$($base)_Setup" -OutputDir $distDir
+    -StagingRoot $bi.StagingRoot -Version $bi.Display -SetupName "$($base)_Setup" -OutputDir $distDir
 
 Write-Host "=== Build-Portable ===" -ForegroundColor Cyan
 & (Join-Path $scriptDir "Build-Portable.ps1") `
