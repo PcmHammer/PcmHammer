@@ -15,7 +15,7 @@ name: CheckBuild
 on: [ pull_request, push ]
 
 permissions:
-  contents: read
+  contents: write   # needed to create a GitHub Release on x.x.x.x / x.x.x tags
   actions: write
 
 jobs:
@@ -199,6 +199,7 @@ jobs:
           }
 
     - name: Inject kernels into Uno assets
+      if: ${{ !startsWith(github.ref, 'refs/tags/') }}
       shell: pwsh
       run: |
         $unoSharedAssetKernelPath = "Apps/UI/UnoUI/PcmHacking.UnoUI/Assets/Kernels"
@@ -228,13 +229,35 @@ jobs:
         Invoke-WebRequest https://go.microsoft.com/fwlink/?linkid=2099466 -OutFile .\NDP462-DevPack-KB3151934-ENU.exe
         .\NDP462-DevPack-KB3151934-ENU.exe /passive /norestart
 
-    - name: Build WinForms applications (Debug)
+    - name: Determine build configuration and version
+      shell: pwsh
+      run: |
+        # A tag push (refs/tags/*) is a release: build Release, and name everything
+        # after the tag (e.g. 2.0.0 or 2.0.0.1). Any other push/PR is a development
+        # build: Debug, with a UTC date-stamped name. The binaries themselves carry
+        # the version committed into AssemblyInfo by Release.ps1 (CI does not stamp).
+        $isReleaseTag = "${{ startsWith(github.ref, 'refs/tags/') }}" -eq "true"
+        $tag   = "${{ github.ref_name }}"
+        $stamp = [DateTime]::UtcNow.ToString("yyyyMMdd_HHmmss")
+        if ($isReleaseTag) {
+          $config = "Release"; $token = $tag; $appVersion = $tag
+        } else {
+          $config = "Debug";   $token = $stamp; $appVersion = "0.0.0"
+        }
+        "IS_RELEASE_TAG=$isReleaseTag"    | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        "RELEASE_TAG=$tag"                | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        "BUILD_CONFIG=$config"            | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        "PACKAGE_TOKEN=$token"            | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        "PACKAGE_APP_VERSION=$appVersion" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        Write-Host "Release tag: $isReleaseTag  config: $config  token: $token"
+
+    - name: Build WinForms applications
       shell: pwsh
       run: |
         function Invoke-Build {
           param([Parameter(Mandatory = $true)][string]$Project)
-          Write-Host "Building $Project"
-          dotnet build $Project -c Debug -p:GenerateResourceUsePreserializedResources=true
+          Write-Host "Building $Project ($env:BUILD_CONFIG)"
+          dotnet build $Project -c $env:BUILD_CONFIG -p:GenerateResourceUsePreserializedResources=true
           if ($LASTEXITCODE -ne 0) {
             throw "Build failed for $Project (exit code $LASTEXITCODE)"
           }
@@ -248,10 +271,16 @@ jobs:
         Invoke-Build "Apps/UI/WindowsForms/VpwExplorer/VpwExplorer.csproj"
         Invoke-Build "Apps/UI/PcmHammerCLI/PcmHammerCLI.csproj"
 
+    # Uno is experimental and dev-only. On a release tag it is skipped entirely so it
+    # cannot be attached to (or block) the release; on normal pushes/PRs it still builds
+    # and is published as experimental workflow artifacts. The same gate is applied to
+    # every Uno build/stage/upload step below.
     - name: Build Uno Windows (Debug)
+      if: ${{ !startsWith(github.ref, 'refs/tags/') }}
       run: dotnet build Apps/UI/UnoUI/PcmHacking.UnoUI/PcmHacking.UnoUI.csproj -c Debug -f net10.0-windows10.0.26100.0
 
     - name: Publish Uno Android (Release APK)
+      if: ${{ !startsWith(github.ref, 'refs/tags/') }}
       run: >
         dotnet publish Apps/UI/UnoUI/PcmHacking.UnoUI/PcmHacking.UnoUI.csproj
         -c Release
@@ -259,35 +288,35 @@ jobs:
         -p:AndroidPackageFormat=apk
         -p:EmbedAssembliesIntoApk=true
 
-    - name: Read app versions
+    - name: Compute artifact names
       shell: pwsh
       run: |
+        # WinForms + CLI artifacts are named after the git tag on a release (e.g. v2.0.0);
+        # development builds use a UTC stamp + branch name. The Uno (experimental) artifacts
+        # take their version from the Uno csproj (set by Release.ps1).
         [xml]$uno = Get-Content "Apps/UI/UnoUI/PcmHacking.UnoUI/PcmHacking.UnoUI.csproj"
         $unoDisplay = ($uno.Project.PropertyGroup | Where-Object { $_.ApplicationDisplayVersion } | Select-Object -First 1).ApplicationDisplayVersion
         $unoVersion = ($uno.Project.PropertyGroup | Where-Object { $_.ApplicationVersion } | Select-Object -First 1).ApplicationVersion
 
-        $assemblyInfo = Get-Content "Apps/UI/WindowsForms/PcmHammer/Properties/AssemblyInfo.cs" -Raw
-        $winFormsVersion = ([regex]::Match($assemblyInfo, 'AssemblyFileVersion\\(\"([^\"]+)\"\\)')).Groups[1].Value
-        if ([string]::IsNullOrWhiteSpace($winFormsVersion)) { $winFormsVersion = "unknown" }
-
+        $isReleaseTag = ($env:IS_RELEASE_TAG -eq "True")
         $timestampUtc = [DateTime]::UtcNow.ToString("yyyyMMdd_HHmmss")
-        $isReleaseTag = "${{ startsWith(github.ref, 'refs/tags/') }}" -eq "true"
         $unoLooksUnversioned = ($unoDisplay -eq "0.0.0.0")
         $branchNameRaw = if ([string]::IsNullOrWhiteSpace($env:GITHUB_HEAD_REF)) { $env:GITHUB_REF_NAME } else { $env:GITHUB_HEAD_REF }
         $branchNameSafe = $branchNameRaw -replace '[\\/]', '-'
         $branchNameSafe = $branchNameSafe -replace '[^A-Za-z0-9._-]', '-'
         if ([string]::IsNullOrWhiteSpace($branchNameSafe)) { $branchNameSafe = "unknown-branch" }
+        $devSuffix = "utc$timestampUtc" + "_" + $branchNameSafe + "_development_test_version"
 
-        if ($isReleaseTag -and $winFormsVersion -ne "unknown") {
-          $winFormsArtifactSuffix = "v$winFormsVersion"
+        if ($isReleaseTag) {
+          $winFormsArtifactSuffix = "v$env:RELEASE_TAG"
         } else {
-          $winFormsArtifactSuffix = "utc$timestampUtc" + "_" + $branchNameSafe + "_development_test_version"
+          $winFormsArtifactSuffix = $devSuffix
         }
 
         if ($isReleaseTag -and -not $unoLooksUnversioned -and -not [string]::IsNullOrWhiteSpace($unoDisplay) -and -not [string]::IsNullOrWhiteSpace($unoVersion)) {
           $unoArtifactSuffix = "v$unoDisplay.$unoVersion"
         } else {
-          $unoArtifactSuffix = "utc$timestampUtc" + "_" + $branchNameSafe + "_development_test_version"
+          $unoArtifactSuffix = $devSuffix
         }
 
         # CLI shares the same version as WinForms since they are built from the same codebase.
@@ -295,7 +324,6 @@ jobs:
 
         "UNO_DISPLAY_VERSION=$unoDisplay" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         "UNO_APP_VERSION=$unoVersion" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-        "WINFORMS_VERSION=$winFormsVersion" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         "WINFORMS_ARTIFACT_SUFFIX=$winFormsArtifactSuffix" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         "UNO_ARTIFACT_SUFFIX=$unoArtifactSuffix" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         "CLI_ARTIFACT_SUFFIX=$cliArtifactSuffix" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
@@ -338,6 +366,7 @@ jobs:
         Copy-Item -Path "$vpwExplorerOutput/*" -Destination "TemporaryArtifactStorage/WinForms/VpwExplorer" -Recurse -Force
 
     - name: Stage Uno Windows artifact payload
+      if: ${{ !startsWith(github.ref, 'refs/tags/') }}
       shell: pwsh
       run: |
         $unoWindowsOutput = Get-ChildItem -Path "Apps/UI/UnoUI/PcmHacking.UnoUI/bin" -Recurse -File -ErrorAction SilentlyContinue `
@@ -359,6 +388,7 @@ jobs:
         Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/Parameters.*.xml" -Destination "TemporaryArtifactStorage/UnoWindows" -Force
 
     - name: Stage Uno Android artifact payload
+      if: ${{ !startsWith(github.ref, 'refs/tags/') }}
       shell: pwsh
       run: |
         $androidBinRoot = (Resolve-Path "Apps/UI/UnoUI/PcmHacking.UnoUI/bin").Path
@@ -437,24 +467,9 @@ jobs:
         Copy-Item -Path $cliExe.FullName -Destination "TemporaryArtifactStorage/CLI" -Force
 
     # --- Package the WinForms apps into the installer + portable, in this same job, so
-    #     no redundant intermediate (raw WinForms/CLI) artifacts are published. ---
-    - name: Compute package version token
-      shell: pwsh
-      run: |
-        $assemblyInfo = Get-Content "Apps/UI/WindowsForms/PcmHammer/Properties/AssemblyInfo.cs" -Raw
-        $winFormsVersion = ([regex]::Match($assemblyInfo, 'AssemblyFileVersion\("([^"]+)"\)')).Groups[1].Value
-        $isReleaseTag = "${{ startsWith(github.ref, 'refs/tags/') }}" -eq "true"
-        $stamp = [DateTime]::UtcNow.ToString("yyyyMMdd_HHmmss")
-        if ($isReleaseTag -and -not [string]::IsNullOrWhiteSpace($winFormsVersion) -and $winFormsVersion -ne "0.0.0.0") {
-          $token = $winFormsVersion          # release: PCMHammer_x.x.x.x_*
-          $appVersion = $winFormsVersion
-        } else {
-          $token = $stamp                    # development: PCMHammer_YYYYMMDD_HHMMSS_*
-          $appVersion = "0.0.0"
-        }
-        "PACKAGE_TOKEN=$token"            | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-        "PACKAGE_APP_VERSION=$appVersion" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-
+    #     no redundant intermediate (raw WinForms/CLI) artifacts are published.
+    #     PACKAGE_TOKEN / PACKAGE_APP_VERSION are set by the
+    #     "Determine build configuration and version" step above. ---
     - name: Install Inno Setup
       shell: pwsh
       run: choco install innosetup --no-progress -y
@@ -484,13 +499,45 @@ jobs:
         path: dist/PCMHammer_*_Portable.zip
 
     - name: Upload Uno Android artifact (experimental)
+      if: ${{ !startsWith(github.ref, 'refs/tags/') }}
       uses: actions/upload-artifact@v7
       with:
         name: PCMHammer_Uno_Android_experimental_${{ env.UNO_ARTIFACT_SUFFIX }}_${{ github.sha }}
         path: TemporaryArtifactStorage/UnoAndroid
 
     - name: Upload Uno Windows artifact (experimental)
+      if: ${{ !startsWith(github.ref, 'refs/tags/') }}
       uses: actions/upload-artifact@v7
       with:
         name: PCMHammer_Uno_Windows_experimental_${{ env.UNO_ARTIFACT_SUFFIX }}_${{ github.sha }}
         path: TemporaryArtifactStorage/UnoWindows
+
+    # On an x.x.x / x.x.x.x tag push, publish a GitHub Release and attach the WinForms
+    # installer + portable zip (the public, supported downloads). The Uno targets are
+    # experimental and are intentionally NOT attached - they remain only as workflow
+    # run-artifacts above. Re-running on an existing tag updates the assets in place.
+    - name: Publish GitHub Release
+      if: ${{ startsWith(github.ref, 'refs/tags/') }}
+      shell: pwsh
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        $assets = Get-ChildItem dist -File |
+          Where-Object { $_.Name -match 'PCMHammer_.*_(Setup\.exe|Portable\.zip)$' } |
+          ForEach-Object { $_.FullName }
+        if (-not $assets) { throw "No release assets (Setup.exe / Portable.zip) found in dist/" }
+        Write-Host "Releasing tag '$env:RELEASE_TAG' with assets:"
+        $assets | ForEach-Object { Write-Host "  $_" }
+
+        gh release view "$env:RELEASE_TAG" --repo $env:GITHUB_REPOSITORY 1>$null 2>$null
+        if ($LASTEXITCODE -eq 0) {
+          Write-Host "Release exists - uploading/replacing assets."
+          gh release upload "$env:RELEASE_TAG" $assets --clobber --repo $env:GITHUB_REPOSITORY
+        } else {
+          Write-Host "Creating new release."
+          gh release create "$env:RELEASE_TAG" $assets `
+            --repo $env:GITHUB_REPOSITORY `
+            --title "PCM Hammer $env:RELEASE_TAG" `
+            --generate-notes
+        }
+        if ($LASTEXITCODE -ne 0) { throw "gh release step failed (exit $LASTEXITCODE)" }
