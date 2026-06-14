@@ -1,5 +1,4 @@
 ﻿// SPDX-License-Identifier: GPL-3.0-only
-using PcmHacking.ECU;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -110,13 +109,13 @@ namespace PcmHacking
             {
                 throw new NullReferenceException($"{nameof(_actionArguments)} was null.");
             }
-            ECUBase? pcmInfo = vehicle.ConnectedECU;
+            OSIDInfo? pcmInfo = vehicle.ConnectedECU;
                 switch (vehicle.ConnectedECU.ECUState)
                 {
                     case ECUStates.Invalid: 
                     break;
                     case ECUStates.Programmed:
-                        logger.AddUserMessage("OSID: " + pcmInfo.GetCurrentOSID());
+                        logger.AddUserMessage("OSID: " + pcmInfo.OSID);
                         logger.AddUserMessage("Description: " + pcmInfo.ToString());
                         break;
                     case ECUStates.Kernel: // What should we be doing for a PCM already in kernel mode?
@@ -131,7 +130,7 @@ namespace PcmHacking
             if (!pcmInfo.IsSupported && _actionArguments.HardwareType != PcmType.Undefined)
             {
                 logger.AddUserMessage("Detected hardware type override on undefined ECU. Please be sure to post results!");
-                pcmInfo = ECUFactory.GetControllerOverride(_actionArguments.HardwareType);
+                pcmInfo = new OSIDInfo(_actionArguments.HardwareType);
                 logger.AddUserMessage($"Continuing read with hardware type of {_actionArguments.HardwareType}");
             }
 
@@ -205,6 +204,10 @@ namespace PcmHacking
             if (readResponse.Status != ResponseStatus.Success && readResponse.Status != ResponseStatus.Unverified)
             {
                 logger.AddUserMessage("Read failed, " + readResponse.Status.ToString());
+            }
+            if (readResponse.Value != null && _actionArguments.ContentStream != null)
+            {
+                readResponse.Value.CopyTo(_actionArguments.ContentStream);
             }
             return Response.Create(readResponse.Status, readResponse.Status == ResponseStatus.Success, readResponse.RetryCount); // Hybrid compromise: I see the usefulness of a returned status flag, returning the stream this way however makes things funky with WriteManager's Begin() method.
         }

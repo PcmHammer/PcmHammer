@@ -1,5 +1,4 @@
 ﻿// SPDX-License-Identifier: GPL-3.0-only
-using PcmHacking.ECU;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -57,7 +56,7 @@ namespace PcmHacking
         /// <remarks>
         /// Note that mode 0x34 is only a request. The actual payload is sent as a mode 0x36.
         /// </remarks>
-        public Message CreateUploadRequest(ECUBase info, int Size)
+        public Message CreateUploadRequest(OSIDInfo info, int Size)
         {
             switch (info.HardwareType)
             {
@@ -90,7 +89,7 @@ namespace PcmHacking
         /// <summary>
         /// Parse the response to a request for permission to upload a RAM kernel (or part of a kernel).
         /// </summary>
-        public Response<bool> ParseUploadPermissionResponse(ECUBase info, Message message)
+        public Response<bool> ParseUploadPermissionResponse(OSIDInfo info, Message message)
         {
             switch (info.HardwareType)
             {

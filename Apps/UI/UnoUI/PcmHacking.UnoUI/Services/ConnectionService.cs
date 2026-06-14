@@ -1,5 +1,4 @@
 ﻿// SPDX-License-Identifier: GPL-3.0-only
-using PcmHacking.ECU;
 using PcmHacking.UnoUI.Utilities;
 
 namespace PcmHacking.UnoUI.Services;
@@ -107,7 +106,7 @@ public interface IConnectionService
 
     Task<bool> TryConnect(CurrentSettings settings);
     Task<ConnectionLease> BeginActivity(string activity, bool canInterrupt = false);
-    ECUBase GetConnectedECU();
+    OSIDInfo GetConnectedECU();
     Task AwaitConnectionShutdown();
 }
 
@@ -172,7 +171,7 @@ public class ConnectionService : IConnectionService
         }
     }
 
-    public ECUBase GetConnectedECU()
+    public OSIDInfo GetConnectedECU()
     {
         if(vehicle?.ConnectedECU == null)
         {
@@ -182,7 +181,7 @@ public class ConnectionService : IConnectionService
         {
             return vehicle.ConnectedECU;
         }
-        return ECUFactory.GetControllerByOSID(0);
+        return new(PcmType.Undefined);
     }
 
     /// <summary>
@@ -757,7 +756,7 @@ public class ConnectionService : IConnectionService
 
         try
         {
-            ECUBase pcm = null;
+            OSIDInfo pcm = null;
             await this.OperatingSystemId.SetAsync(string.Empty);
             try
             {
@@ -777,7 +776,7 @@ public class ConnectionService : IConnectionService
                     await this.ResetVehicleInfo(vehicle);
                     return false;
                 case ECUStates.Programmed:
-                    await this.OperatingSystemId.SetAsync(pcm.GetCurrentOSID().ToString());
+                    await this.OperatingSystemId.SetAsync(pcm.OSID.ToString());
                     break;
                 case ECUStates.Kernel:
                     await this.OperatingSystemId.SetAsync(_kernelString);
@@ -825,7 +824,7 @@ public class ConnectionService : IConnectionService
         await this.Voltage.SetAsync(String.Empty);
         if (vehicle != null)
         {
-            vehicle.ConnectedECU = ECUFactory.GetControllerByOSID(0); // This will set it to a default ECU with no capabilities, which is important to avoid errors in the UI.
+            vehicle.ConnectedECU = new(PcmType.Undefined); // This will set it to a default ECU with no capabilities, which is important to avoid errors in the UI.
         }
     }
 

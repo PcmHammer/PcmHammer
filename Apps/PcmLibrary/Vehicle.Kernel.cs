@@ -1,5 +1,4 @@
 ﻿// SPDX-License-Identifier: GPL-3.0-only
-using PcmHacking.ECU;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -81,7 +80,6 @@ namespace PcmHacking
         public async Task<Response<byte[]>> LoadKernelFromFile(string path)
         {
             byte[] file = { 0x00 }; // dummy value
-            string kernelName = $"Kernel-{this.ConnectedECU.BaseHardwareType}.bin";
             if (path == "")
             {
                 return Response.Create(ResponseStatus.Error, file);
@@ -350,7 +348,7 @@ namespace PcmHacking
         /// <summary>
         /// Load the executable payload on the PCM at the supplied address, and execute it.
         /// </summary>
-        public async Task<bool> PCMExecute(ECUBase info, byte[] payload, CancellationToken cancellationToken)
+        public async Task<bool> PCMExecute(OSIDInfo info, byte[] payload, CancellationToken cancellationToken)
         {
             // Note that we request an upload of 4k maximum, because the PCM will reject anything bigger.
             // But you can request a 4k upload and then send up to 16k if you want, and the PCM will not object.
@@ -508,7 +506,7 @@ namespace PcmHacking
         /// <summary>
         /// Does everything required to switch to VPW 4x
         /// </summary>
-        public async Task<bool> VehicleSetVPW4x(ECUBase pcmInfo, VpwSpeed newSpeed)
+        public async Task<bool> VehicleSetVPW4x(OSIDInfo pcmInfo, VpwSpeed newSpeed)
         {
             if (!device.Supports4X) 
             {

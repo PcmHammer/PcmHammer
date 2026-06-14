@@ -1,5 +1,4 @@
 ﻿// SPDX-License-Identifier: GPL-3.0-only
-using PcmHacking.ECU;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -179,10 +178,10 @@ namespace PcmHacking
         {
             UInt32 fileOsid = this.GetOsidFromImage();
 
-            ECUBase pcmInfo = ECUFactory.GetControllerByOSID(pcmOsid);
-            ECUBase fileInfo = ECUFactory.GetControllerByOSID(fileOsid);
+            OSIDInfo pcmInfo = new(pcmOsid);
+            OSIDInfo fileInfo = new(fileOsid);
 
-            if (pcmInfo.BaseHardwareType == fileInfo.HardwareType)
+            if (pcmInfo.HardwareType == fileInfo.HardwareType)
             {
                 logger.AddUserMessage("PCM and file match hardware " + fileInfo.HardwareType.ToString());
                 return true;
@@ -558,7 +557,7 @@ namespace PcmHacking
                     UInt32 osid = (image[0x7FFFE] == 0xFF && image[0x7FFFF] == 0xFF)
                         ? ReadUnsigned(image, 0x7FFF8)
                         : ReadUnsigned(image, 0x7FFFA);
-                    if (osid != 0 && ECUFactory.GetControllerByOSID(osid).HardwareType == PcmType.P04_Early)
+                    if (osid != 0 && new OSIDInfo(osid).HardwareType == PcmType.P04_Early)
                     {
                         logger.AddDebugMessage("512KiB P04 image OSID resolves to P04_Early; using P04_Early.");
                         return PcmType.P04_Early;
@@ -617,7 +616,7 @@ namespace PcmHacking
                     }
 
                     UInt32 osid = ReadUnsigned(image, 0xFFFFA);
-                    if (osid != 0 && ECUFactory.GetControllerByOSID(osid).HardwareType == PcmType.P05b)
+                    if (osid != 0 && new OSIDInfo(osid).HardwareType == PcmType.P05b)
                     {
                         return PcmType.P05b;
                     }

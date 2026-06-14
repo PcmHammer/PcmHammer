@@ -1,5 +1,4 @@
 ﻿// SPDX-License-Identifier: GPL-3.0-only
-using PcmHacking.ECU;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -15,7 +14,7 @@ namespace PcmHacking
     public class CKernelWriter
     {
         private readonly Vehicle vehicle;
-        private readonly ECUBase pcmInfo;
+        private readonly OSIDInfo pcmInfo;
         private readonly Protocol protocol;
         private readonly ECUActionArguments _ecuActionArguments;
         private readonly ILogger logger;
@@ -25,7 +24,7 @@ namespace PcmHacking
         // in Write(). Normally the detected chip size, not the (possibly smaller) PCM-type default.
         private UInt32 effectiveImageSize;
 
-        public CKernelWriter(Vehicle vehicle, ECUBase pcmInfo, Protocol protocol, ECUActionArguments arguments, ILogger logger, IProgress<ProgressUpdate> progress)
+        public CKernelWriter(Vehicle vehicle, OSIDInfo pcmInfo, Protocol protocol, ECUActionArguments arguments, ILogger logger, IProgress<ProgressUpdate> progress)
         {
             this.vehicle = vehicle;
             this.pcmInfo = pcmInfo;
@@ -142,7 +141,7 @@ namespace PcmHacking
                 }
 
                 Utility.ReportOperatingSystems(validator.GetOsidFromImage(), osidResponse.Value, _ecuActionArguments.WriteType, this.logger, out bool shouldHalt);
-                if (needToCheckOperatingSystem && shouldHalt && !(this.vehicle?.ConnectedECU?.HardwareTypeOverridden ?? false))
+                if (needToCheckOperatingSystem && shouldHalt)
                 {
                     return false;
                 }

@@ -1,6 +1,4 @@
-﻿using PcmHacking.ECU;
-
-namespace PcmHacking;
+﻿namespace PcmHacking;
 
 public class ECUActionArguments
 {
@@ -54,4 +52,11 @@ public class ECUActionArguments
     /// Use of the 'object' type allows proper handling into and out of the .NetStandard lib.
     /// </summary>
     public object? StorageFileObject;
+}
+
+public class PreFlightCheckResult
+{
+    public string? PromptMessage;
+    public bool ShouldPrompt;
+    public bool CanProceed;
 }

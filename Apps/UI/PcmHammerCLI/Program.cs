@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: GPL-3.0-only
-using PcmHacking.ECU;
 using System;
 using System.IO;
 using System.IO.Ports;
@@ -417,7 +416,7 @@ namespace PcmHacking
                 logger.AddUserMessage("OS ID query failed: " + osResponse.Status);
             }
 
-            if (pcmInfo != null && pcmInfo.HardwareType != PcmTypeOld.BlackBox)
+            if (pcmInfo != null && pcmInfo.HardwareType != PcmType.BlackBox)
             {
                 var calResponse = await vehicle.QueryCalibrationId();
                 if (calResponse.Status == ResponseStatus.Success)
@@ -427,11 +426,11 @@ namespace PcmHacking
             }
 
             if (pcmInfo != null &&
-                pcmInfo.HardwareType != PcmTypeOld.P05 &&
-                pcmInfo.HardwareType != PcmTypeOld.P05b &&
-                pcmInfo.HardwareType != PcmTypeOld.P10 &&
-                pcmInfo.HardwareType != PcmTypeOld.P12 &&
-                pcmInfo.HardwareType != PcmTypeOld.E54)
+                pcmInfo.HardwareType != PcmType.P05 &&
+                pcmInfo.HardwareType != PcmType.P05b &&
+                pcmInfo.HardwareType != PcmType.P10 &&
+                pcmInfo.HardwareType != PcmType.P12 &&
+                pcmInfo.HardwareType != PcmType.E54)
             {
                 var hwResponse = await vehicle.QueryHardwareId();
                 if (hwResponse.Status == ResponseStatus.Success)
@@ -440,7 +439,7 @@ namespace PcmHacking
                     logger.AddUserMessage("Hardware ID query failed: " + hwResponse.Status);
             }
 
-            if (pcmInfo != null && pcmInfo.HardwareType != PcmTypeOld.BlackBox)
+            if (pcmInfo != null && pcmInfo.HardwareType != PcmType.BlackBox)
             {
                 var serialResponse = await vehicle.QuerySerial();
                 if (serialResponse.Status == ResponseStatus.Success)
@@ -450,9 +449,9 @@ namespace PcmHacking
             }
 
             if (pcmInfo != null &&
-                pcmInfo.HardwareType != PcmTypeOld.P04 &&
-                pcmInfo.HardwareType != PcmTypeOld.P04_Early &&
-                pcmInfo.HardwareType != PcmTypeOld.P08)
+                pcmInfo.HardwareType != PcmType.P04 &&
+                pcmInfo.HardwareType != PcmType.P04_Early &&
+                pcmInfo.HardwareType != PcmType.P08)
             {
                 var bccResponse = await vehicle.QueryBCC();
                 if (bccResponse.Status == ResponseStatus.Success)

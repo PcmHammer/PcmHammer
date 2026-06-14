@@ -1,5 +1,4 @@
 using Microsoft.Extensions.Logging;
-using PcmHacking.ECU;
 using PcmHacking.UnoUI.Services;
 using PcmHacking.UnoUI.Utilities;
 using System;
@@ -103,7 +102,7 @@ public partial record ControllerActionSetupModel
 
     private async Task<string> GetCurrentHardwareType()
     {
-        ECUBase ecu = this.connectionService.GetConnectedECU();
+        OSIDInfo ecu = this.connectionService.GetConnectedECU();
         if(ecu != null)
         {
             if (ecu.HardwareType != PcmType.Undefined)
@@ -131,7 +130,7 @@ public partial record ControllerActionSetupModel
     private ValueTask<IImmutableList<string>> GetHardwareTypes(CancellationToken ct)
     {
         List<string> hardwareTypes = [.. Enum.GetNames<PcmType>()];
-        hardwareTypes.Remove(Enum.GetName<PcmType>(PcmType.Unsupported) ?? ""); // Leave `Undefined` as a placeholder, remove this as it should never be a selection.
+        hardwareTypes.Remove(Enum.GetName<PcmType>(PcmType.Undefined) ?? ""); // Leave `Undefined` as a placeholder, remove this as it should never be a selection.
         IImmutableList<string> res = ImmutableList.CreateRange(hardwareTypes);
         return ValueTask.FromResult(res);
 

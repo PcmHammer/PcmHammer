@@ -1,5 +1,4 @@
 using Microsoft.UI.Dispatching;
-using PcmHacking.ECU;
 using PcmHacking.UnoUI.Services;
 using PcmHacking.UnoUI.Utilities;
 using System.Globalization;
@@ -112,10 +111,10 @@ public partial record ControllerActionModel : IAsyncLogger
 
             lease.Vehicle.Enable4xReadWrite = _actionArguments?.UseHighSpeed ?? false;
             lease.Vehicle.UserDefinedKey = (_actionArguments?.CustomKey ?? 0) == 0 ? -1 : (int)(_actionArguments?.CustomKey ?? 0);
-            ECUBase pcm = this.connectionService.GetConnectedECU();
+            OSIDInfo pcm = this.connectionService.GetConnectedECU();
             if (pcm != null && _actionArguments != null)
             {
-                PreFlightCheckResult checkResult = pcm.GetPreCheckResults(_actionArguments.SelectedAction, _actionArguments.WriteType);
+                PreFlightCheckResult checkResult = lease.Vehicle.GetPreCheckResults(_actionArguments.SelectedAction, _actionArguments.WriteType);
                 string promptTitle = "Precheck prompt";
                 if (checkResult.ShouldPrompt)
                 {

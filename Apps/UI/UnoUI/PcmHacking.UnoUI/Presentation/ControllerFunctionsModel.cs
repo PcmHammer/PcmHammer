@@ -1,6 +1,5 @@
 ﻿// SPDX-License-Identifier: GPL-3.0-only
 using Microsoft.UI.Dispatching;
-using PcmHacking.ECU;
 using PcmHacking.UnoUI.Services;
 using PcmHacking.UnoUI.Utilities;
 using System;
@@ -120,7 +119,8 @@ public partial record ControllerFunctionsModel
                 uint osId = (uint)0;
                 if (uint.TryParse(osIdString ?? "", out osId))
                 {
-                    ECUBase pcmInfo = ECUFactory.GetControllerByOSID(osId);
+                    //ECUBase pcmInfo = ECUFactory.GetControllerByOSID(osId);
+                    OSIDInfo pcmInfo = new(osId);
                     await this.Description.SetAsync(pcmInfo.Description);
                     await Task.Delay(delay);
 

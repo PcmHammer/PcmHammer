@@ -1,7 +1,6 @@
 ﻿// SPDX-License-Identifier: GPL-3.0-only
 using CommandLine;
 using Microsoft.Win32;
-using PcmHacking.ECU;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -839,11 +838,11 @@ namespace PcmHacking
             try
             {
                 // We can now check for Recovery/Kernel states and be able to provide this instead of failing.
-                ECUBase pcmInfo = await this.Vehicle.DiscoverConnectedECU(CancellationToken.None);
+                OSIDInfo pcmInfo = await this.Vehicle.DiscoverConnectedECU(CancellationToken.None);
 
                 this.DisableUserInput();
 
-                var osResponse = pcmInfo.GetCurrentOSID();
+                var osResponse = pcmInfo.OSID;
                 switch (pcmInfo.ECUState)
                 {
                     case ECUStates.Invalid:
@@ -1270,7 +1269,7 @@ namespace PcmHacking
             await this.Vehicle.DiscoverConnectedECU(cancellationTokenSource.Token);
 
             bool shouldHalt = false;
-            PreFlightCheckResult checkResult = this.Vehicle.ConnectedECU.GetPreCheckResults(arguments.SelectedAction, arguments.WriteType);
+            PreFlightCheckResult checkResult = this.Vehicle.GetPreCheckResults(arguments.SelectedAction, arguments.WriteType);
             if (checkResult.ShouldPrompt)
             {
                 await this.InvokeWrapper(async () =>
@@ -1348,6 +1347,7 @@ namespace PcmHacking
 
                             using Stream output = File.Open(path, FileMode.Create);
                             await arguments.ContentStream.CopyToAsync(output);
+                            await output.FlushAsync();
                             AddUserMessage("File saved successfully!");
                             break;
                         }
@@ -1571,7 +1571,7 @@ namespace PcmHacking
             FileValidator validator = new FileValidator(image, this);
             if (validator.IsValid())
             {
-                this.AddUserMessage("File is " + ECUFactory.GetControllerOverride(validator.GetFileType()) + ".");
+                this.AddUserMessage("File is " + new OSIDInfo(validator.GetFileType()) + ".");
                 this.AddUserMessage("All checksums are valid.");
             }
             else

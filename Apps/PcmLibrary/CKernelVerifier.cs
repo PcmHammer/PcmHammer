@@ -1,5 +1,4 @@
 ﻿// SPDX-License-Identifier: GPL-3.0-only
-using PcmHacking.ECU;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -24,7 +23,7 @@ namespace PcmHacking
         private readonly IEnumerable<MemoryRange> ranges;
         private readonly Vehicle vehicle;
         private readonly Protocol protocol;
-        private readonly ECUBase pcmInfo;
+        private readonly OSIDInfo pcmInfo;
         private readonly UInt32 effectiveImageSize;
         private readonly ILogger logger;
         private readonly IProgress<ProgressUpdate> progress;
@@ -43,7 +42,7 @@ namespace PcmHacking
             IEnumerable<MemoryRange> ranges, 
             Vehicle vehicle, 
             Protocol protocol, 
-            ECUBase pcmInfo,
+            OSIDInfo pcmInfo,
             UInt32 effectiveImageSize,
             ILogger logger,
             IProgress<ProgressUpdate> progress)

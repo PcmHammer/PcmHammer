@@ -3,7 +3,6 @@ using System.ComponentModel;
 using System.Text;
 using PcmHacking;
 using PcmHacking.CLI;
-using PcmHacking.ECU;
 
 CancellationTokenSource cancellationSource = new CancellationTokenSource();
 ControllerManager? controllerManager = null;
@@ -381,7 +380,7 @@ if (result == 0)
 
     if (actionArgs.HardwareType != PcmType.Undefined)
     {
-        vehicle.ConnectedECU = ECUFactory.GetControllerOverride(actionArgs.HardwareType);
+        vehicle.ConnectedECU = new(actionArgs.HardwareType);
     }
     else
     {
@@ -394,7 +393,7 @@ if (result == 0)
 
     controllerManager = new ControllerManager(vehicle, actionArgs, pageObjects, cancellationSource.Token, progress, logger);
 
-    PreFlightCheckResult checkResult = vehicle.ConnectedECU.GetPreCheckResults(actionArgs.SelectedAction, actionArgs.WriteType);
+    PreFlightCheckResult checkResult = vehicle.GetPreCheckResults(actionArgs.SelectedAction, actionArgs.WriteType);
     if(skipChecks && checkResult.ShouldPrompt)
     {
         logger.AddUserMessage("Warning! Precheck conditions present were skipped due to flag -(Y)ES present in command.\r\n!! This can lead to bricking your ECU if this hardware is not compatible !!");

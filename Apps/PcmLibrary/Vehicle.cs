@@ -1,5 +1,4 @@
 ﻿// SPDX-License-Identifier: GPL-3.0-only
-using PcmHacking.ECU;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -82,7 +81,7 @@ namespace PcmHacking
         /// <summary>
         /// Holds a reference to the detected controller info.
         /// </summary>
-        public ECUBase ConnectedECU
+        public OSIDInfo ConnectedECU
         {
             get
             {
@@ -93,7 +92,7 @@ namespace PcmHacking
                 detectedECU = value;
             }
         }
-        private ECUBase detectedECU;
+        private OSIDInfo detectedECU;
 
         /// <summary>
         /// Gets a string that describes the device this instance is using.
@@ -204,7 +203,7 @@ namespace PcmHacking
         /// </summary>
         /// <param name="ct"></param>
         /// <returns></returns>
-        public async Task<ECUBase> DiscoverConnectedECU(CancellationToken ct)
+        public async Task<OSIDInfo> DiscoverConnectedECU(CancellationToken ct)
         {
             Response<uint> osidResponse = new(ResponseStatus.Error, 0); 
 
@@ -214,8 +213,10 @@ namespace PcmHacking
             if (recoveryModeResponse.Status == ResponseStatus.Success && recoveryModeResponse.Value)
             {
                 this.logger.AddUserMessage("PCM is in recovery mode.");
-                ConnectedECU = ECUFactory.GetControllerByOSID(0);
-                ConnectedECU.ECUState = ECUStates.Recovery;
+                ConnectedECU = new(PcmType.Undefined)
+                {
+                    ECUState = ECUStates.Recovery
+                };
                 return ConnectedECU;
             }
 
@@ -231,26 +232,119 @@ namespace PcmHacking
                 {
                     // The kernel seems broken. This shouldn't happen, but if it does, halt.
                     this.logger.AddUserMessage("The kernel did not respond to operating system ID query.");
-                    ConnectedECU = ECUFactory.GetControllerByOSID(0);
-                    ConnectedECU.ECUState = ECUStates.Invalid;
+                    ConnectedECU = new(PcmType.Undefined)
+                    {
+                        ECUState = ECUStates.Invalid
+                    };
                     return ConnectedECU;
                 }
-                ConnectedECU = ECUFactory.GetControllerByOSID(osidResponse.Value);
-                ConnectedECU.ECUState = ECUStates.Kernel;
-                ConnectedECU.LoadedKernelVersion = kernelVersion;
+                ConnectedECU = new(osidResponse.Value)
+                {
+                    ECUState = ECUStates.Kernel,
+                    LoadedKernelVersion = kernelVersion
+                };
                 return ConnectedECU;
             }
             this.logger.AddUserMessage("Requesting operating system ID...");
             osidResponse = await QueryOperatingSystemId(ct);
             if (osidResponse.Status == ResponseStatus.Success)
             {
-                ConnectedECU = ECUFactory.GetControllerByOSID(osidResponse.Value);
-                ConnectedECU.ECUState = ECUStates.Programmed;
+                ConnectedECU = new(osidResponse.Value)
+                {
+                    ECUState = ECUStates.Programmed
+                };
                 return ConnectedECU;
             }
-            ConnectedECU = ECUFactory.GetControllerByOSID(0);
-            ConnectedECU.ECUState = ECUStates.Invalid;
+            ConnectedECU = new(PcmType.Undefined)
+            {
+                ECUState = ECUStates.Invalid
+            };
             return ConnectedECU;
+        }
+
+        public PreFlightCheckResult GetPreCheckResults(ControllerActions selectedAction, WriteType writeType = WriteType.None)
+        {
+            PreFlightCheckResult result = new();
+            result.CanProceed = true;
+            result.ShouldPrompt = false;
+            StringBuilder builder = new();
+            builder.AppendLine();
+
+            while (true)
+            {
+                if (ConnectedECU.ECUState == ECUStates.Recovery)
+                {
+                    builder.AppendLine("This controller is in Recovery mode!");
+                    if (selectedAction == ControllerActions.Write)
+                    {
+                        builder.AppendLine("PCM Hammer will attempt to recover the controller\r\n" +
+                        "with the supplied file. If this file is not a valid\r\n" +
+                        "match to this hardware type, the unit may brick!\r\n");
+                    }
+                    else
+                    {
+                        builder.AppendLine("Reading from a controller in recovery mode\r\n" +
+                            "is currently an unsupported operation. Abort!\r\n");
+                        result.CanProceed = false;
+                    }
+                    break;
+                }
+                if (ConnectedECU.HardwareType == PcmType.Undefined)
+                {
+                    result.CanProceed = false;
+                    builder.AppendLine(
+                        "Unable to determine PCM hardware type.\r\n" +
+                        "If you know the hardware type, please specify it\r\n" +
+                        "manually and try again!");
+                    break;
+                }
+                if (!ConnectedECU.IsSupported)
+                {
+                    result.CanProceed = false;
+                    builder.AppendLine("An unsupported controller was detected.\r\n");
+                    break;
+                }
+                if (!ConnectedECU.IsSupportedRead && selectedAction == ControllerActions.Read)
+                {
+                    builder.AppendLine("This controller currently does not support reading.\r\n");
+                    result.CanProceed = false;
+                }
+                if (ConnectedECU.IsUnderDevelopment)
+                {
+                    builder.AppendLine($"WARNING: {ConnectedECU.HardwareType.ToString()} Support is still in development.\r\nThere is additional brick risk in this operation\r\n");
+                }
+                if (selectedAction == ControllerActions.Write)
+                {
+                    if (!ConnectedECU.IsSupportedWrite)
+                    {
+                        builder.AppendLine("This controller currently does not support writing.\r\n");
+                        result.CanProceed = false;
+                    }
+                    if (ConnectedECU.HardwareSlaveCPU && !ConnectedECU.IsSupportedWriteSlaveCPU && writeType >= WriteType.OsPlusCalibrationPlusBoot)
+                    {
+                        builder.AppendLine("This controller currently does not support slave CPU writing.\r\n" +
+                            "Flashing an incompatible OS can leave ETC inoperable!\r\n" +
+                            "Before you proceed, a backup is highly recommended!\r\n" +
+                            "Flashing the original OS will likely restore functionality.\r\n");
+                    }
+                    if (!ConnectedECU.IsSupportedWriteBySegment && writeType < WriteType.Full)
+                    {
+                        builder.AppendLine("This controller does not support section writes. Full flash only!\r\n");
+                        result.CanProceed = false;
+                    }
+                }
+                break;
+            }
+            if (!string.IsNullOrWhiteSpace(builder.ToString()))
+            {
+                builder.AppendLine();
+                builder.AppendLine("**********************\r\n");
+                builder.AppendLine(result.CanProceed ? "Considering the message(s) above, do you wish to proceed?" : "Due to the above conditions, the requested operation cannot be performed!");
+                builder.Insert(0, "\r\n**********************\r\n");
+                result.PromptMessage = builder.ToString();
+                result.ShouldPrompt = true;
+            }
+            return result;
         }
 
         /// <summary>

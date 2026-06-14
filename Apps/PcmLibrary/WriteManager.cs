@@ -1,5 +1,4 @@
 ﻿// SPDX-License-Identifier: GPL-3.0-only
-using PcmHacking.ECU;
 using System;
 using System.IO;
 using System.Threading;
@@ -88,9 +87,9 @@ namespace PcmHacking
                 this.logger.AddUserMessage("This file is corrupt or its format is unknown to PCMHammer. It would render your PCM unusable.");
                 return Response.Create(ResponseStatus.Error, false, 0);
             }
-            this.logger.AddUserMessage("File is " + ECUFactory.GetControllerOverride(validator.GetFileType()).ToString() + ".");
+            this.logger.AddUserMessage("File is " + new OSIDInfo(validator.GetFileType()).ToString() + ".");
 
-            ECUBase? pcmInfo = vehicle.ConnectedECU;
+            OSIDInfo? pcmInfo = vehicle.ConnectedECU;
             UInt32 kernelVersion = 0;
             bool needUnlock = true;
             int keyAlgorithm = pcmInfo?.KeyAlgorithm ?? 1;
@@ -105,22 +104,22 @@ namespace PcmHacking
             switch (vehicle.ConnectedECU.ECUState)
             {
                 case ECUStates.Invalid:
-                    pcmInfo = ECUFactory.GetControllerByOSID(validator.GetOsidFromImage());
+                    pcmInfo = new(validator.GetOsidFromImage());
                     break;
 
                 case ECUStates.Programmed:
                     if (pcmInfo == null)
                         return Response.Create(ResponseStatus.Error, false, 0);
-                    if (!validator.IsSameHardware(pcmInfo.GetCurrentOSID()))
+                    if (!validator.IsSameHardware(pcmInfo.OSID))
                     {
                         return Response.Create(ResponseStatus.Error, false, 0);
                     }
 
-                    if (!validator.IsSameOperatingSystem(pcmInfo.GetCurrentOSID()))
+                    if (!validator.IsSameOperatingSystem(pcmInfo.OSID))
                     {
-                        logger.AddUserMessage("PCM operating system ID: " + pcmInfo.GetCurrentOSID());
+                        logger.AddUserMessage("PCM operating system ID: " + pcmInfo.OSID);
                         logger.AddUserMessage("File operating system ID: " + validator.GetOsidFromImage());
-                        Utility.ReportOperatingSystems(validator.GetOsidFromImage(), pcmInfo.GetCurrentOSID(), _actionArguments.WriteType, this.logger, out shouldHalt);
+                        Utility.ReportOperatingSystems(validator.GetOsidFromImage(), pcmInfo.OSID, _actionArguments.WriteType, this.logger, out shouldHalt);
                         if (shouldHalt)
                         {
                             return Response.Create(ResponseStatus.Error, false, 0);
@@ -128,13 +127,13 @@ namespace PcmHacking
                     }
                     else
                     {
-                        logger.AddUserMessage("PCM and file are both operating system " + pcmInfo.GetCurrentOSID());
+                        logger.AddUserMessage("PCM and file are both operating system " + pcmInfo.OSID);
                     }
                     needToCheckOperatingSystem = false;
                     break;
 
                 case ECUStates.Recovery:
-                    pcmInfo = ECUFactory.GetControllerByOSID(validator.GetOsidFromImage());
+                    pcmInfo = new(validator.GetOsidFromImage());
                     needUnlock = false;
                     break;
 
@@ -142,7 +141,7 @@ namespace PcmHacking
                     if (pcmInfo == null)
                         return Response.Create(ResponseStatus.Error, false, 0);
                     needUnlock = false;
-                    Utility.ReportOperatingSystems(validator.GetOsidFromImage(), pcmInfo.GetCurrentOSID(), _actionArguments.WriteType, this.logger, out shouldHalt);
+                    Utility.ReportOperatingSystems(validator.GetOsidFromImage(), pcmInfo.OSID, _actionArguments.WriteType, this.logger, out shouldHalt);
                     if (shouldHalt)
                     {
                         return Response.Create(ResponseStatus.Error, false, 0);
@@ -158,8 +157,7 @@ namespace PcmHacking
             if (!pcmInfo.IsSupported && _actionArguments.HardwareType != PcmType.Undefined)
             {
                 this.logger.AddUserMessage("Detected hardware type override on undefined ECU. Please be sure to post results!");
-                pcmInfo = ECUFactory.GetControllerOverride(_actionArguments.HardwareType);
-                pcmInfo.HardwareTypeOverridden = true;
+                pcmInfo = new(_actionArguments.HardwareType);
                 this.logger.AddUserMessage($"Continuing read with hardware type of {_actionArguments.HardwareType}");
             }
 

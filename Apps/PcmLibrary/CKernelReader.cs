@@ -1,5 +1,4 @@
 ﻿// SPDX-License-Identifier: GPL-3.0-only
-using PcmHacking.ECU;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -16,14 +15,14 @@ namespace PcmHacking
     public class CKernelReader
     {
         private readonly Vehicle vehicle;
-        private readonly ECUBase pcmInfo;
+        private readonly OSIDInfo pcmInfo;
         private readonly Protocol protocol;
         private readonly ILogger logger;
         private readonly IProgress<ProgressUpdate> progress;
 
         public int CrcPollingDelayMs { get; set; } = 50;
 
-        public CKernelReader(Vehicle vehicle, ECUBase pcmInfo, ILogger logger, IProgress<ProgressUpdate> progress)
+        public CKernelReader(Vehicle vehicle, OSIDInfo pcmInfo, ILogger logger, IProgress<ProgressUpdate> progress)
         {
             this.vehicle = vehicle;
             this.pcmInfo = pcmInfo;

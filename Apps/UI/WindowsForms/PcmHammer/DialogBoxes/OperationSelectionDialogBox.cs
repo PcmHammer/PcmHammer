@@ -1,5 +1,4 @@
 ﻿// SPDX-License-Identifier: GPL-3.0-only
-using PcmHacking.ECU;
 using System;
 using System.Drawing;
 using System.Linq;
@@ -117,7 +116,7 @@ namespace PcmHacking
                     continue;
                 }
 
-                ECUBase info = ECUFactory.GetControllerOverride(type, 0);
+                OSIDInfo info = new(type);
                 if (!info.IsSupported)
                 {
                     continue;

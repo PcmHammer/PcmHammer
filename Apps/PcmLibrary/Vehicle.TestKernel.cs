@@ -1,5 +1,4 @@
 ﻿// SPDX-License-Identifier: GPL-3.0-only
-using PcmHacking.ECU;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -83,7 +82,7 @@ namespace PcmHacking
                     }
                     else
                     {
-                        ECUBase pi = ECUFactory.GetControllerByOSID(osidResponse.Value);
+                        OSIDInfo pi = new OSIDInfo(osidResponse.Value);
                         keyAlgorithm = pi.KeyAlgorithm;
                     }
 
@@ -102,7 +101,7 @@ namespace PcmHacking
                         return false;
                     }
 
-                    ECUBase info = ECUFactory.GetControllerByOSID(12202088); // todo, make selectable
+                    OSIDInfo info = new OSIDInfo(12202088); // todo, make selectable
                     if (!await PCMExecute(info, response.Value, cancellationToken))
                     {
                         logger.AddUserMessage("Failed to upload kernel to PCM");
