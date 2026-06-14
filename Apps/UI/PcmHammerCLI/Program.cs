@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 using System;
+using System.Globalization;
 using System.IO;
 using System.IO.Ports;
 using System.Linq;
@@ -32,6 +33,9 @@ namespace PcmHacking
             string? filePath = null;
             string? deviceSpec = null;
             string? kernelDirArg = null;
+            string? rangeSpec = null;
+            bool algoSweep = true;
+            int delaySeconds = BruteForcer.DefaultSecurityDelaySeconds;
             bool listDevices = false;
             bool debug = false;
 
@@ -60,6 +64,22 @@ namespace PcmHacking
                         break;
                     case "--get-properties":
                         operation = "get-properties";
+                        break;
+                    case "--brute-force":
+                        operation = "brute-force";
+                        break;
+                    case "--range":
+                        if (i + 1 < args.Length) rangeSpec = args[++i];
+                        break;
+                    case "--no-algo-sweep":
+                        algoSweep = false;
+                        break;
+                    case "--delay":
+                        if (i + 1 < args.Length && int.TryParse(args[i + 1], out int parsedDelay))
+                        {
+                            delaySeconds = parsedDelay;
+                            i++;
+                        }
                         break;
                     case "--device":
                         if (i + 1 < args.Length) deviceSpec = args[++i];
@@ -95,7 +115,7 @@ namespace PcmHacking
                 return 1;
             }
 
-            if (filePath == null && operation != "read" && operation != "test-read" && operation != "get-properties")
+            if (filePath == null && operation != "read" && operation != "test-read" && operation != "get-properties" && operation != "brute-force")
             {
                 Console.Error.WriteLine($"Error: No file path specified for --{operation}.");
                 return 1;
@@ -105,7 +125,21 @@ namespace PcmHacking
             if (kernelDir == null)
                 return 1;
 
-            Device? device = ResolveDevice(deviceSpec, logger);
+            // Resolving a serial device probes the port, which throws (e.g. TimeoutException) when the
+            // port exists but nothing is connected. Catch it so a dead port reports cleanly instead of
+            // crashing the process with an unhandled exception.
+            Device? device;
+            try
+            {
+                device = ResolveDevice(deviceSpec, logger);
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"Error: could not open the selected device: {ex.Message}");
+                if (debug)
+                    Console.Error.WriteLine(ex.ToString());
+                return 1;
+            }
             if (device == null)
                 return 1;
 
@@ -258,6 +292,11 @@ namespace PcmHacking
                         case "get-properties":
                         {
                             success = await GetProperties(vehicle, logger, cts.Token);
+                            break;
+                        }
+                        case "brute-force":
+                        {
+                            success = await BruteForceUnlock(vehicle, logger, rangeSpec, algoSweep, delaySeconds, cts.Token);
                             break;
                         }
                     }
@@ -475,6 +514,68 @@ namespace PcmHacking
             return true;
         }
 
+        // Brute-forces the PCM's security access. Mirrors the WinForms "Brute Force Unlock"
+        // dialog: optionally sweeps the 256 known GM key algorithms first, then tries the numeric
+        // key range. All the search/timing logic lives in PcmLibrary's BruteForcer; this just
+        // parses the CLI options and surfaces the outcome.
+        static async Task<bool> BruteForceUnlock(Vehicle vehicle, ILogger logger, string? rangeSpec, bool algoSweep, int delaySeconds, CancellationToken token)
+        {
+            int start = 0x0000;
+            int end = 0xFFFF;
+            if (!string.IsNullOrWhiteSpace(rangeSpec) && !TryParseHexRange(rangeSpec!, out start, out end))
+            {
+                Console.Error.WriteLine("Error: --range must be START-END in hex (1-4 digits each), e.g. 0000-FFFF.");
+                return false;
+            }
+
+            // The brute forcer logs one "Sweeping/Trying <key>" line per key (about one every ~10s),
+            // which is enough to show progress on the console. The countdown timer is a GUI affordance,
+            // so the CLI needs no progress callback.
+            var bruteForcer = new BruteForcer(vehicle, logger);
+            BruteForceResult result = await bruteForcer.BruteForce(start, end, algoSweep, delaySeconds, token);
+
+            // BruteForce logs the detailed outcome itself; map it to a process success result.
+            switch (result.Outcome)
+            {
+                case BruteForceOutcome.Found:
+                case BruteForceOutcome.AlreadyUnlocked:
+                case BruteForceOutcome.UnlockNotRequired:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        // Parses a "START-END" hex range into two 16-bit values. Hex parsing stays in the front
+        // end (PcmLibrary is not called to parse UI input), using the same UInt16.TryParse +
+        // NumberStyles.HexNumber idiom as the WinForms dialogs.
+        static bool TryParseHexRange(string spec, out int start, out int end)
+        {
+            start = 0x0000;
+            end = 0xFFFF;
+
+            string[] parts = spec.Split('-');
+            if (parts.Length != 2)
+                return false;
+
+            if (!TryParseHex16(parts[0], out start) || !TryParseHex16(parts[1], out end))
+                return false;
+
+            return end >= start;
+        }
+
+        static bool TryParseHex16(string text, out int value)
+        {
+            if (UInt16.TryParse(text.Trim(), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out UInt16 parsed))
+            {
+                value = parsed;
+                return true;
+            }
+
+            value = 0;
+            return false;
+        }
+
         // Resolves the directory the kernel/loader .bin files are loaded from.
         // Kernels are external (not embedded): use --kernel-dir if given, otherwise the
         // current working directory. Returns null (with an error printed) if an explicit
@@ -550,7 +651,13 @@ namespace PcmHacking
             Console.WriteLine("  --test-write <file>       Test write (no permanent changes)");
             Console.WriteLine("  --verify <file>           CRC-compare file against PCM (no erase/write)");
             Console.WriteLine("  --get-properties          Read VIN, OSID, calibration, serial, voltage");
+            Console.WriteLine("  --brute-force             Search the PCM security key (algo sweep, then numeric range)");
             Console.WriteLine("  --list-devices            List available serial and J2534 devices with index numbers");
+            Console.WriteLine();
+            Console.WriteLine("Brute force options:");
+            Console.WriteLine("  --range <START-END>       Numeric key range in hex (default 0000-FFFF)");
+            Console.WriteLine("  --no-algo-sweep           Skip the 256-algorithm sweep; try the numeric range only");
+            Console.WriteLine("  --delay <1-12>            Search speed in seconds per attempt (default 2; omit for Auto)");
             Console.WriteLine();
             Console.WriteLine("Device selection:");
             Console.WriteLine("  --device <number>         Select by index shown in --list-devices");
@@ -570,6 +677,8 @@ namespace PcmHacking
             Console.WriteLine("  pcmhammer-cli.exe --write newcal.bin --device OBDX");
             Console.WriteLine("  pcmhammer-cli.exe --test-write newcal.bin --device Mongoose");
             Console.WriteLine("  pcmhammer-cli.exe --get-properties --device COM5");
+            Console.WriteLine("  pcmhammer-cli.exe --brute-force --device COM3");
+            Console.WriteLine("  pcmhammer-cli.exe --brute-force --range 0000-00FF --no-algo-sweep --device OBDX");
             Console.WriteLine("  pcmhammer-cli.exe --test-read --device COM6 --kernel-dir C:\\PcmHammer\\Kernels");
         }
     }

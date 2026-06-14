@@ -519,21 +519,35 @@ namespace PcmHacking
             //Send frame
             await this.Port.Send(SendPacket);
 
-            // Wait for confirmation of successful send
+            // Wait for confirmation of successful send (the 0x20/0x21 TX acknowledgment).
+            //
+            // Received bus frames (0x08/0x09) arrive asynchronously on the same stream, so one
+            // can land between our send and its acknowledgment. ReadDVIPacket has already
+            // enqueued such a frame for the normal receive path and returned UnexpectedResponse;
+            // that is not a send failure, so we keep reading until the real ack (or a fault)
+            // arrives. Only genuine silence (Timeout) counts against the give-up budget.
             Response<Message>? m = null;
+            int timeouts = 0;
 
-            for (int attempt = 0; attempt < 10; attempt++)
+            for (int reads = 0; reads < 64 && timeouts < 10; reads++)
             {
                 m = await ReadDVIPacket(500);
-                if (m != null)
+                if (m == null)
                 {
-                    if (m.Status == ResponseStatus.Timeout)
-                    {
-                        continue;
-                    }
-                    break;
+                    continue;
                 }
-            }            
+                if (m.Status == ResponseStatus.Timeout)
+                {
+                    timeouts++;
+                    continue;
+                }
+                if (m.Status == ResponseStatus.UnexpectedResponse)
+                {
+                    // Unsolicited inbound bus frame, already enqueued; keep waiting for the ack.
+                    continue;
+                }
+                break;
+            }
 
             if (m == null)
             {

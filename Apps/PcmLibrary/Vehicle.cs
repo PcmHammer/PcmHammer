@@ -455,83 +455,123 @@ namespace PcmHacking
         {
             await this.device.SetTimeout(TimeoutScenario.ReadProperty);
 
-            this.device.ClearMessageQueue();
-
-            logger.AddDebugMessage("Sending seed request.");
             Message seedRequest = this.protocol.CreateSeedRequest();
 
-            bool seedReceived = false;
-            UInt16 seedValue = 0;
-            bool lockoutRetried = false;
-
-            // (Re)send the seed request and listen for the answer, mirroring how Query<T> drives
-            // every other request: resend if the PCM doesn't reply, and use tool-present pings to
-            // keep slow PCMs (e.g. the Black Box) awake while we wait, instead of giving up on the
-            // first timeout. A one-off security time-delay lockout is also ridden out here (wait +
-            // retry once). Query<T> resends just once; allow a little more margin here, but not so
-            // much that a genuinely dead bus takes a long time to report failure.
-            const int MaxSeedRequests = 3;
-            for (int sendAttempt = 1; (sendAttempt <= MaxSeedRequests) && !seedReceived; sendAttempt++)
+            // The PCM permits a couple of key attempts and then forces a time delay before each
+            // further attempt. A wrong key or an outright denial will never succeed, so we fail fast on
+            // those; "too many attempts / time delay not expired" is recoverable, but the PCM requires
+            // us to wait and start the whole exchange over from a fresh seed. Bound how many times we
+            // start over so a permanently locked PCM still reports failure.
+            const int MaxUnlockAttempts = 3;
+            for (int unlockAttempt = 1; unlockAttempt <= MaxUnlockAttempts; unlockAttempt++)
             {
-                if (!await this.TrySendMessage(seedRequest, "seed request"))
-                {
-                    logger.AddUserMessage("Unable to send seed request.");
-                    return false;
-                }
+                this.device.ClearMessageQueue();
 
-                bool lockoutDetected = false;
-                int timeouts = 0;
+                logger.AddDebugMessage("Sending seed request.");
 
-                // Read up to 50 times (just to avoid looping forever) but only tolerate
-                // MaxReceiveAttempts timeouts before resending the request.
-                for (int receiveAttempt = 1; receiveAttempt <= 50; receiveAttempt++)
+                bool seedReceived = false;
+                UInt16 seedValue = 0;
+                bool lockoutRetried = false;
+
+                // (Re)send the seed request and listen for the answer, mirroring how Query<T> drives
+                // every other request: resend if the PCM doesn't reply, and use tool-present pings to
+                // keep slow PCMs (e.g. the Black Box) awake while we wait, instead of giving up on the
+                // first timeout. A one-off security time-delay lockout is also ridden out here (wait +
+                // retry once). Query<T> resends just once; allow a little more margin here, but not so
+                // much that a genuinely dead bus takes a long time to report failure.
+                const int MaxSeedRequests = 3;
+                for (int sendAttempt = 1; (sendAttempt <= MaxSeedRequests) && !seedReceived; sendAttempt++)
                 {
-                    Message seedResponse = await this.device.ReceiveMessage();
-                    if (seedResponse == null)
+                    if (!await this.TrySendMessage(seedRequest, "seed request"))
                     {
-                        timeouts++;
-                        if (timeouts >= MaxReceiveAttempts)
+                        logger.AddUserMessage("Unable to send seed request.");
+                        return false;
+                    }
+
+                    bool lockoutDetected = false;
+                    int timeouts = 0;
+
+                    // Read up to 50 times (just to avoid looping forever) but only tolerate
+                    // MaxReceiveAttempts timeouts before resending the request.
+                    for (int receiveAttempt = 1; receiveAttempt <= 50; receiveAttempt++)
+                    {
+                        Message seedResponse = await this.device.ReceiveMessage();
+                        if (seedResponse == null)
                         {
-                            logger.AddDebugMessage(
-                                $"No response to seed request. Attempt #{receiveAttempt}, Timeout #{timeouts}.");
+                            timeouts++;
+                            if (timeouts >= MaxReceiveAttempts)
+                            {
+                                logger.AddDebugMessage(
+                                    $"No response to seed request. Attempt #{receiveAttempt}, Timeout #{timeouts}.");
+                                break;
+                            }
+
+                            // Keep the PCM awake and listen again rather than giving up.
+                            await this.notifier.ForceNotify();
+                            continue;
+                        }
+
+                        byte[] seedBytes = seedResponse.GetBytes();
+
+                        // 67 01 37 means the PCM is enforcing a security time delay (lockout) - NOT
+                        // "already unlocked". A genuinely unlocked PCM returns seed 0x0000, which is
+                        // handled below. Treating the lockout as "unlocked" (as the legacy IsUnlocked
+                        // did) would falsely report success while security was never granted.
+                        if (this.protocol.IsSecurityDelayActive(seedBytes))
+                        {
+                            lockoutDetected = true;
                             break;
                         }
 
-                        // Keep the PCM awake and listen again rather than giving up.
-                        await this.notifier.ForceNotify();
-                        continue;
+                        logger.AddDebugMessage("Parsing seed value.");
+                        Response<UInt16> seedValueResponse = this.protocol.ParseSeed(seedBytes);
+                        if (seedValueResponse.Status == ResponseStatus.Success)
+                        {
+                            seedValue = seedValueResponse.Value;
+                            seedReceived = true;
+                            break;
+                        }
+
+                        logger.AddDebugMessage("Unable to parse seed response. Attempt #" + receiveAttempt.ToString());
                     }
 
-                    byte[] seedBytes = seedResponse.GetBytes();
-
-                    // 67 01 37 means the PCM is enforcing a security time delay (lockout) - NOT
-                    // "already unlocked". A genuinely unlocked PCM returns seed 0x0000, which is
-                    // handled below. Treating the lockout as "unlocked" (as the legacy IsUnlocked
-                    // did) would falsely report success while security was never granted.
-                    if (this.protocol.IsSecurityDelayActive(seedBytes))
+                    if (seedReceived)
                     {
-                        lockoutDetected = true;
                         break;
                     }
 
-                    logger.AddDebugMessage("Parsing seed value.");
-                    Response<UInt16> seedValueResponse = this.protocol.ParseSeed(seedBytes);
-                    if (seedValueResponse.Status == ResponseStatus.Success)
+                    if (lockoutDetected)
                     {
-                        seedValue = seedValueResponse.Value;
-                        seedReceived = true;
-                        break;
+                        if (lockoutRetried)
+                        {
+                            logger.AddUserMessage("PCM is still in a security time-delay lockout; unable to unlock.");
+                            return false;
+                        }
+
+                        // Normal: the PCM rate-limits security access and is counting down a forced delay.
+                        // Wait it out and re-request the seed once so the unlock can still succeed. (Note:
+                        // probing security during the power-on lockout can leave some PCMs refusing the
+                        // kernel upload for the rest of the power cycle - that case is handled where the
+                        // upload-permission request is rejected, not here.) Don't charge this against the
+                        // send-attempt budget.
+                        lockoutRetried = true;
+                        sendAttempt--;
+                        logger.AddUserMessage("PCM is in a security time-delay lockout. Waiting to retry.");
+                        await Task.Delay(SecurityDelayLockout);
                     }
 
-                    logger.AddDebugMessage("Unable to parse seed response. Attempt #" + receiveAttempt.ToString());
+                    // No usable seed this round; clear anything stale and let the loop resend.
+                    this.device.ClearMessageQueue();
                 }
 
-                if (seedReceived)
+                if (!seedReceived)
                 {
-                    break;
+                    logger.AddUserMessage("No seed reponse received, unable to unlock PCM.");
+                    return false;
                 }
 
-                if (lockoutDetected)
+                // If the seed is a common occurance of corrupted security data, and the user is not attempting to use a custom key, provide a useful suggestion
+                if (((seedValue == 0x0000) || (seedValue == 0xFFFF)) && (UserDefinedKey == -1))
                 {
                     if (lockoutRetried)
                     {
@@ -555,79 +595,88 @@ namespace PcmHacking
                         await Task.Delay(1000);
                         secondsLeft--;
                     }
+                    logger.AddUserMessage($"***NOTICE**** Seed is 0x{seedValue.ToString("X4")}, if this process fails, try setting a user defined key of 0x{seedValue.ToString("X4")}");
                 }
 
-                // No usable seed this round; clear anything stale and let the loop resend.
-                this.device.ClearMessageQueue();
-            }
-
-            if (!seedReceived)
-            {
-                logger.AddUserMessage("No seed reponse received, unable to unlock PCM.");
-                return false;
-            }
-
-            // If the seed is a common occurance of corrupted security data, and the user is not attempting to use a custom key, provide a useful suggestion
-            if (((seedValue == 0x0000) || (seedValue == 0xFFFF)) && (UserDefinedKey == -1))
-            {
-                logger.AddUserMessage($"***NOTICE**** Seed is 0x{seedValue.ToString("X4")}, if this process fails, try setting a user defined key of 0x{seedValue.ToString("X4")}");
-            }
-
-            // if we have a user defined key the user might be trying to recover from a corrupted param block
-            // so we still let it though
-            if ((seedValue == 0x0000) && (UserDefinedKey == -1))
-            {
-                logger.AddUserMessage("PCM Unlock not required");
-                return true;
-            }
-
-            UInt16 key;
-            if (UserDefinedKey == -1)
-            {
-                key = KeyAlgorithm.GetKey(keyAlgorithm, seedValue);
-            }
-            else
-            {
-                logger.AddUserMessage($"User Defined Key: 0x{UserDefinedKey.ToString("X4")}");
-                key = (UInt16)UserDefinedKey;
-            }
-
-            logger.AddDebugMessage("Sending unlock request (" + seedValue.ToString("X4") + ", " + key.ToString("X4") + ")");
-            Message unlockRequest = this.protocol.CreateUnlockRequest(key);
-            if (!await this.TrySendMessage(unlockRequest, "unlock request"))
-            {
-                logger.AddDebugMessage("Unable to send unlock request.");
-                return false;
-            }
-
-            for (int attempt = 1; attempt < MaxReceiveAttempts; attempt++)
-            {
-                Message unlockResponse = await this.device.ReceiveMessage();
-                if (unlockResponse == null)
+                // if we have a user defined key the user might be trying to recover from a corrupted param block
+                // so we still let it though
+                if ((seedValue == 0x0000) && (UserDefinedKey == -1))
                 {
-                    logger.AddDebugMessage("No response to unlock request. Attempt #" + attempt.ToString());
-                    continue;
+                    logger.AddUserMessage("PCM Unlock not required");
+                    return true;
                 }
 
-                Response<bool> result = this.protocol.ParseUnlockResponse(unlockResponse.GetBytes(), out string errorMessage);
-                if (errorMessage == null)
+                UInt16 key;
+                if (UserDefinedKey == -1)
                 {
-                    return result.Value;
+                    key = KeyAlgorithm.GetKey(keyAlgorithm, seedValue);
+                }
+                else
+                {
+                    logger.AddUserMessage($"User Defined Key: 0x{UserDefinedKey.ToString("X4")}");
+                    key = (UInt16)UserDefinedKey;
                 }
 
-                logger.AddUserMessage(errorMessage);
-
-                byte[] unlockBytes = unlockResponse.GetBytes();
-                bool TerminalFailure =
-                    unlockBytes.Length >= 6 &&
-                    unlockBytes[3] == (Mode.Seed + Mode.Response) &&
-                    unlockBytes[4] == Submode.SendKey &&
-                    unlockBytes[5] == 0x35 || unlockBytes[5] == 0x36;
-
-                if (TerminalFailure)
+                logger.AddDebugMessage("Sending unlock request (" + seedValue.ToString("X4") + ", " + key.ToString("X4") + ")");
+                Message unlockRequest = this.protocol.CreateUnlockRequest(key);
+                if (!await this.TrySendMessage(unlockRequest, "unlock request"))
                 {
+                    logger.AddDebugMessage("Unable to send unlock request.");
                     return false;
                 }
+
+                bool retryAfterDelay = false;
+                for (int attempt = 1; attempt < MaxReceiveAttempts; attempt++)
+                {
+                    Message unlockResponse = await this.device.ReceiveMessage();
+                    if (unlockResponse == null)
+                    {
+                        logger.AddDebugMessage("No response to unlock request. Attempt #" + attempt.ToString());
+                        continue;
+                    }
+
+                    byte[] unlockBytes = unlockResponse.GetBytes();
+                    Response<bool> result = this.protocol.ParseUnlockResponse(unlockBytes, out string errorMessage);
+                    if (errorMessage == null)
+                    {
+                        return result.Value;
+                    }
+
+                    logger.AddUserMessage(errorMessage);
+
+                    // Classify the response, but only when it is a well-formed sendKey reply (so a short
+                    // or unrelated message can neither be misread nor index past the end of the array).
+                    byte unlockCode =
+                        (unlockBytes.Length >= 6 &&
+                         unlockBytes[3] == (Mode.Seed + Mode.Response) &&
+                         unlockBytes[4] == Submode.SendKey)
+                        ? unlockBytes[5]
+                        : (byte)0x00;
+
+                    // A wrong key (0x35) or an outright denial (0x33) will never unlock - stop now.
+                    if (unlockCode == 0x35 || unlockCode == 0x33)
+                    {
+                        return false;
+                    }
+
+                    // Too many attempts (0x36) or time-delay-not-expired (0x37): the key was not
+                    // evaluated. Wait the forced delay and start the exchange over with a fresh seed.
+                    if (unlockCode == 0x36 || unlockCode == 0x37)
+                    {
+                        retryAfterDelay = true;
+                        break;
+                    }
+
+                    // Anything else: keep listening for the real reply.
+                }
+
+                if (!retryAfterDelay || unlockAttempt >= MaxUnlockAttempts)
+                {
+                    break;
+                }
+
+                logger.AddUserMessage("PCM is enforcing a security time delay. Waiting to retry.");
+                await Task.Delay(SecurityDelayLockout);
             }
 
             logger.AddUserMessage("Unable to process unlock response.");

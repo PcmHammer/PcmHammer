@@ -5,6 +5,9 @@
     <RootNamespace>PcmHacking</RootNamespace>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <Version>0.0.0.0</Version>
+    <!-- Keep the informational/product version clean (e.g. 2.0.0.0) instead of
+         "2.0.0.0+<gitsha>", which the SDK adds by default for SDK-style projects. -->
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <Title>PCM Library</Title>
     <Authors>PCM Hacking</Authors>
     <Company>PcmHacking.net</Company>

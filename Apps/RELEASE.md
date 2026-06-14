@@ -20,9 +20,9 @@ release checklist.
 | Trigger | Any commit/PR with **no** git tag | Commit with an **`x.x.x.x` git tag** (created by the release scripting) |
 | Version source | Shared **date stamp** `YYYYMMDD_HHMMSS` (UTC) | The **tag** `x.x.x.x` |
 | In-app line | `Build: <date time>` | `Version: x.x.x.x` |
-| Configuration | Release | Release |
-| Uno targets | **Built** (experimental) | **Not built** (Uno is experimental, dev-only) |
-| Published to | Workflow artifacts | GitHub Release page (+ workflow artifacts) |
+| Configuration | Debug in CI (check build); Release locally | **Release** |
+| Uno targets | **Built** (experimental) | **Built** (experimental) but **not attached** to the GitHub Release |
+| Published to | Workflow artifacts | **GitHub Release page** (installer + portable) + workflow artifacts |
 
 The date stamp is computed **once per build** and used for every filename *and*
 embedded into the executables, so the in-app build date matches the download name
@@ -38,8 +38,8 @@ Example stamp `20260606_143052`, example release version `1.2.3.4`.
 |--------|-------------------------|------------------|-------------------|
 | **WinForms installer** | `PCMHammer_20260606_143052_Setup.exe` | `PCMHammer_1.2.3.4_Setup.exe` | ✅ |
 | **WinForms portable** | `PCMHammer_20260606_143052_Portable.zip` | `PCMHammer_1.2.3.4_Portable.zip` | ✅ |
-| **Uno Windows installer** | `PCMHammer_UNO_experimental_20260606_143052.exe` | *not built* | ❌ dev-only |
-| **Uno Android APK** | `PCMHammer_UNO_experimental_20260606_143052.apk` | *not built* | ❌ dev-only |
+| **Uno Windows** (experimental) | `PCMHammer_Uno_Windows_experimental_…` | built, **workflow artifact only** (not on Release page) | ⚠️ experimental |
+| **Uno Android APK** (experimental) | `PCMHammer_Uno_Android_experimental_…` | built, **workflow artifact only** (not on Release page) | ⚠️ experimental |
 
 ### Contents
 
@@ -82,16 +82,26 @@ the app prints:
 - `AssemblyFileVersion` is `0.0.0.0`/empty → `Build: <date time>` (development).
 - `AssemblyFileVersion` is set → `Version: <AssemblyInformationalVersion>` (release).
 
-So:
-- **Release**: the release scripting sets the version in the entry assemblies'
-  `AssemblyInfo.cs` to the tag value, then tags `x.x.x.x`:
+**Two version forms, by design** (driven by `Release.ps1`):
+- **File properties** (`AssemblyVersion` / `AssemblyFileVersion`, and the SDK-style
+  `<Version>`) follow the Microsoft `w.x.y.z` convention and are always **4-part**
+  (a 3-part tag like `2.0.0` is padded to `2.0.0.0`). This is what right-click >
+  Properties shows on the exe/dll.
+- **User-visible string** (`AssemblyInformationalVersion`, shown in-app, and the Uno
+  `ApplicationDisplayVersion`, and `help.html`) matches the **git tag verbatim** -
+  so a `2.0.0` tag shows `Version: 2.0.0`, while a `2.0.0.1` tag shows `2.0.0.1`.
+
+So for a release `Release.ps1 2.0.0` produces, e.g.:
   ```csharp
-  [assembly: AssemblyVersion("1.2.3.4")]
-  [assembly: AssemblyFileVersion("1.2.3.4")]
-  [assembly: AssemblyInformationalVersion("1.2.3.4")]   // add "-Preview" for pre-releases
+  [assembly: AssemblyVersion("2.0.0.0")]               // file properties (w.x.y.z)
+  [assembly: AssemblyFileVersion("2.0.0.0")]           // file properties (w.x.y.z)
+  [assembly: AssemblyInformationalVersion("2.0.0")]    // user-visible (matches tag)
   ```
-  Files: `Apps/UI/WindowsForms/PcmHammer/Properties/AssemblyInfo.cs` and
-  `Apps/UI/PcmHammerCLI/Properties/AssemblyInfo.cs`.
+  `Release.ps1` updates every shipped assembly: the four entry apps
+  (`PcmHammer`, `PcmLogger`, `VpwExplorer`, and the **CLI** at
+  `Apps/UI/PcmHammerCLI/Properties/AssemblyInfo.cs`), the libraries
+  (`PcmLibraryWindowsApi`, `PcmLibraryWindowsForms`, `PcmLibrary.csproj <Version>`),
+  the Uno app, and `help.html`.
 - **Development**: `AssemblyFileVersion` stays `0.0.0.0`; the app shows `Build: <date>`.
 
 ### Consistent build date across all files
@@ -170,12 +180,16 @@ These produce the **same** files CI does, because CI runs the same scripts.
 ### 6c. CI (GitHub Actions)
 `CheckBuild.yml` runs on every push/PR and on tags:
 1. **Kernels** (Ubuntu) - build the m68k kernels, publish as a temp artifact.
-2. **Applications** (Windows) - download kernels, compute the version/stamp, build
-   **Release**, and call the packaging scripts.
-3. **Installer/Packaging** - produce `PCMHammer_<ver>.exe`, the portable zip, and
-   (dev only) the Uno installer + APK; upload each as a downloadable artifact.
-   On an `x.x.x.x` tag it additionally attaches the version-named artifacts to a
-   GitHub Release and skips the Uno targets.
+2. **Applications** (Windows) - download kernels, decide config + version (tag →
+   **Release** named after the tag; otherwise **Debug** with a date stamp), build,
+   and call the packaging scripts.
+3. **Installer/Packaging** - produce `PCMHammer_<token>_Setup.exe`, the portable zip,
+   and the Uno installer + APK; upload each as a workflow artifact. `<token>` is the
+   git tag on a release (e.g. `2.0.0`) or `YYYYMMDD_HHMMSS` otherwise.
+4. **GitHub Release** - on a tag push (`x.x.x` or `x.x.x.x`) the workflow creates a
+   GitHub Release named after the tag and attaches the **WinForms installer +
+   portable zip**. The Uno targets are still built but remain workflow artifacts only
+   (experimental, not attached to the Release).
 
 > Running the workflow YAML itself locally (e.g. `act`) is **not** supported - it is
 > Linux/Docker-based and can't run the Windows + WinUI/Uno toolchain. Use the scripts
@@ -185,21 +199,27 @@ These produce the **same** files CI does, because CI runs the same scripts.
 
 ## 7. Branching & tagging
 
-- **Tags** are `x.x.x.x`, created by the release scripting on the release commit.
-  (The older date-style tags in history - e.g. `2025.02.04` - are legacy; new
-  releases use `x.x.x.x`.)
-- **Release branches** follow the existing `Release/NNN` convention on `origin`
-  (`Release/001` … `Release/021`; next is `Release/022`). A release branch exists so
-  a hotfix can be applied and re-tagged independently of `develop`, even though in
-  practice we usually cut a new release rather than hotfix an old one.
+- **Tags** are `x.x.x` or `x.x.x.x` (both valid), created by `Release.ps1` on the
+  release commit. The user-visible version matches the tag exactly; the binaries'
+  file-version properties are always padded to 4-part. (The older date-style tags in
+  history - e.g. `2025.02.04` - are legacy.)
+- **Release branches** are named `Release/<version>` using the dotted version, e.g.
+  `Release/2.0.0`. (Legacy 1.x releases used an opaque counter - `Release/001` …
+  `Release/021` - which is retained in history but **not** continued; the 2.x line
+  starts the version-named convention. Old numeric tags also remain as-is - they are
+  real versions in the wild.) A release branch exists so a hotfix can be applied and
+  re-tagged independently of `develop`, even though in practice we usually cut a new
+  release rather than hotfix an old one.
 
-```sh
+```powershell
 # from the git root (the PcmHammer/ directory)
-git checkout develop && git pull
-git checkout -b Release/022
-# release scripting sets AssemblyInfo versions to x.x.x.x and commits
-git tag -a 1.2.3.4 -m "PcmHammer 1.2.3.4"
-git push origin Release/022 1.2.3.4
+git checkout develop; git pull
+git checkout -b Release/2.0.0
+# Release.ps1 stamps every assembly + the Uno app + help.html, commits "Release x.x.x",
+# and creates the git tag. Pass the user-visible version; file versions are padded to 4-part.
+pwsh .\Release.ps1 2.0.0
+# push the branch and the tag - the tag push is what triggers the release build + GitHub Release
+git push origin Release/2.0.0 2.0.0
 ```
 > Do **not** commit/push on a maintainer's behalf without explicit approval - these
 > commands are the recipe; a human runs them.
@@ -244,7 +264,8 @@ Local build machine:
 
 - [ ] `develop` builds clean and is what you intend to ship.
 - [ ] Kernels current (`Kernels/build/*.bin`).
-- [ ] `Release/NNN` branch created; release scripting sets `AssemblyInfo` to `x.x.x.x`.
+- [ ] `Release/<version>` branch created (e.g. `Release/2.0.0`); `Release.ps1` sets the
+      versions, commits, and tags.
 - [ ] Tag `x.x.x.x` created on the release commit.
 - [ ] CI release build is green; `PCMHammer_x.x.x.x.exe` + `_Portable.zip` produced
       (Uno targets correctly **absent**).
@@ -274,15 +295,20 @@ end state):
 - Verified locally: `Build-All.ps1 -Version 1.0.1.0` builds the apps (FileVersion
   1.0.1.0 baked in, AssemblyInfo restored clean) and the portable. Installer compile
   pending a local Inno Setup install (see note).
+- `Release.ps1` stamps all shipped assemblies (incl. the CLI), libraries, the Uno app,
+  and `help.html`; commits and tags. File versions are 4-part `w.x.y.z`; the
+  user-visible string matches the tag.
+- CI (`CheckBuild.yml`): builds **Release** on tag pushes (Debug otherwise), names
+  artifacts after the tag, and **auto-creates a GitHub Release** with the WinForms
+  installer + portable attached.
 
 **Pending**
-- Rework the CI `Installer`/packaging job to call `Apps/build/*` (replacing the initial
-  Debug `setup.exe` job): Release build, final naming, release-vs-dev version logic.
 - **Uno Windows installer** (`uno-setup.iss`), self-contained single-exe publish, and
   the `AppContext.BaseDirectory` fix in `ConnectionService.cs` (needed so external
   kernels load under single-file).
-- **Uno gating** (skip on release tags) and APK renaming.
-- Auto-create a GitHub Release on `x.x.x.x` tags and attach artifacts.
+- **Uno** is currently built on every run (including release tags) and attached only as
+  experimental workflow artifacts. A formal gate to skip it on releases is **not**
+  implemented (by decision - Uno will be promoted later).
 
 > Local installer build needs **Inno Setup 6** installed (its installer requires
 > elevation, so it must be run interactively once). After that,
