@@ -383,7 +383,7 @@ namespace PcmHacking
         public override async Task<bool> SendMessage(Message message)
         {
             //this.Logger.AddDebugMessage("Sendrequest called");
-            this.Logger.AddDebugMessage("TX: " + message.GetBytes().ToHex());
+            this.Logger.AddUserMessage("TX: " + message.GetBytes().ToHex(), LogLevels.Trace);
             await SendAVTPacket(message);
             return true;
         }
@@ -394,7 +394,7 @@ namespace PcmHacking
             Response<Message> response = await ReadAVTPacket();
             if (response.Status == ResponseStatus.Success)
             {
-                this.Logger.AddDebugMessage("RX: " + response.Value.GetBytes().ToHex());
+                this.Logger.AddUserMessage("RX: " + response.Value.GetBytes().ToHex(), LogLevels.Trace);
                 this.Enqueue(response.Value);
                 return;
             }

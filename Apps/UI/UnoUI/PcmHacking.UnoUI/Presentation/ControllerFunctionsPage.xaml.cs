@@ -1,17 +1,17 @@
 ﻿// SPDX-License-Identifier: GPL-3.0-only
 namespace PcmHacking.UnoUI.Presentation;
 
-public sealed partial class OtherFunctionsPage : Page
+public sealed partial class ControllerFunctionsPage : Page
 {
-    private OtherFunctionsModel? model;
+    private ControllerFunctionsModel? model;
 
-    public OtherFunctionsPage()
+    public ControllerFunctionsPage()
     {
         this.InitializeComponent();
 
         this.DataContextChanged += (sender, e) =>
         {
-            this.model = (this.DataContext as OtherFunctionsViewModel)?.Model as OtherFunctionsModel ?? this.model;
+            this.model = (this.DataContext as ControllerFunctionsViewModel)?.Model as ControllerFunctionsModel ?? this.model;
         };
     }
 

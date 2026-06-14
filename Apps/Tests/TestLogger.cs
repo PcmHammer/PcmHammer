@@ -1,11 +1,11 @@
 ﻿// SPDX-License-Identifier: GPL-3.0-only
+using PcmHacking;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection.Emit;
 using System.Text;
 using System.Threading.Tasks;
-
-using PcmHacking;
 
 namespace Tests
 {
@@ -25,7 +25,7 @@ namespace Tests
             this.DebugMessages.AppendLine(message);
         }
 
-        public void AddUserMessage(string message)
+        public void AddUserMessage(string message, LogLevels level = 0)
         {
             this.UserMessages.AppendLine(message);
         }

@@ -11,7 +11,7 @@ namespace PcmHacking
     public class DeviceFactory
     {
         /// <summary>
-        /// This might not really need to be async. If the J2534 stuff doesn't need it, then this doesn't need it either. Only ised in WinForms.
+        /// This might not really need to be async. If the J2534 stuff doesn't need it, then this doesn't need it either. Only used in WinForms.
         /// </summary>
         public static Device? CreateDeviceFromConfigurationSettings(ILogger logger)
         {
@@ -123,7 +123,7 @@ namespace PcmHacking
             await port.DiscardBuffers();
 
             string result = await TestIDString(port, "?\r"); // To make sure we fail a OBDX locked in a bad state.
-            if (result.Contains("\u007f\u0002"))
+            if (result[0] < 0x20 || result[0] == '\u007F')
             {
                 byte[] bytesRead = await TestByteSequence(port, [0x25, 0x00, 0xDA]);
                 if (bytesRead.Length == 3 && Utility.CompareArrays(bytesRead, [0x35, 0x00, 0xCA]))

@@ -26,7 +26,7 @@ namespace PcmHacking
         /// Not used.
         /// </summary>
         /// <param name="message"></param>
-        public override void AddUserMessage(string message)
+        public override void AddUserMessage(string message, LogLevels level = 0)
         {
             Task foreground = Task.Factory.StartNew(
                 delegate ()

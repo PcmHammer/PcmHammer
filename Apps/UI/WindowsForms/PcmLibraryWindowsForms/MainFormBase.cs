@@ -25,7 +25,7 @@ namespace PcmHacking
         protected Vehicle Vehicle { get { return this.vehicle; } }
 
         public virtual void AddDebugMessage(string message) { }
-        public virtual void AddUserMessage(string message) { }
+        public virtual void AddUserMessage(string message, LogLevels level = 0) { }
         public virtual void StatusUpdateActivity(string activity) { }
         public virtual void StatusUpdateTimeRemaining(string remaining) { }
         public virtual void StatusUpdatePercentDone(string percent) { }

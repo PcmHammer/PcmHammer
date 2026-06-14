@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Net.NetworkInformation;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
@@ -11,6 +12,15 @@ using System.Threading.Tasks;
 
 namespace PcmHacking
 {
+
+    public enum ECUStates
+    {
+        Invalid,
+        Programmed,
+        Kernel,
+        Recovery
+    }
+
     /// <summary>
     /// From the application's perspective, this class is the API to the vehicle.
     /// </summary>
@@ -37,10 +47,10 @@ namespace PcmHacking
 
         /// <summary>
         /// How long to wait for a PCM security time-delay lockout (response 0x37) to clear before
-        /// re-requesting a seed during an unlock. Sized to cover one ~10s forced-delay window plus a
-        /// small margin.
+        /// re-requesting a seed during an unlock. Sized to cover one ~15s forced-delay window plus a
+        /// small margin. Testing shows a P01 in lockout requires at least 15 seconds from power on time.
         /// </summary>
-        private static readonly TimeSpan SecurityDelayLockout = TimeSpan.FromSeconds(11);
+        private static readonly TimeSpan SecurityDelayLockout = TimeSpan.FromSeconds(16);
 
         public CancellationTokenSource ShutdownSignalSource = new CancellationTokenSource(); // Use this as a trigger to say we are ready to dispose the underlying device.
 
@@ -67,6 +77,22 @@ namespace PcmHacking
         /// with whatever the application is doing.
         /// </summary>
         private ToolPresentNotifier notifier;
+
+        /// <summary>
+        /// Holds a reference to the detected controller info.
+        /// </summary>
+        public OSIDInfo ConnectedECU
+        {
+            get
+            {
+                return detectedECU;
+            }
+            set
+            {
+                detectedECU = value;
+            }
+        }
+        private OSIDInfo detectedECU;
 
         /// <summary>
         /// Gets a string that describes the device this instance is using.
@@ -173,6 +199,155 @@ namespace PcmHacking
         }
 
         /// <summary>
+        /// This method is used universally to detect a connected controller's current state.
+        /// </summary>
+        /// <param name="ct"></param>
+        /// <returns></returns>
+        public async Task<OSIDInfo> DiscoverConnectedECU(CancellationToken ct)
+        {
+            Response<uint> osidResponse = new(ResponseStatus.Error, 0); 
+
+            this.logger.AddUserMessage("Checking for recovery mode...");
+            Response<bool> recoveryModeResponse = await CheckForRecoveryMode(ct);
+
+            if (recoveryModeResponse.Status == ResponseStatus.Success && recoveryModeResponse.Value)
+            {
+                this.logger.AddUserMessage("PCM is in recovery mode.");
+                ConnectedECU = new(PcmType.Undefined)
+                {
+                    ECUState = ECUStates.Recovery
+                };
+                return ConnectedECU;
+            }
+
+            this.logger.AddUserMessage("No Recovery message detected. Checking for a live kernel...");
+            ulong kernelVersion = await GetKernelVersion(1); //Try once for kernel version. If this fails
+            if (kernelVersion != 0)
+            {
+                this.logger.AddUserMessage("Kernel version: " + kernelVersion.ToString("X8"));
+                this.logger.AddUserMessage("Asking kernel for the PCM's operating system ID...");
+
+                osidResponse = await QueryOperatingSystemIdFromKernel(ct);
+                if (osidResponse.Status != ResponseStatus.Success)
+                {
+                    // The kernel seems broken. This shouldn't happen, but if it does, halt.
+                    this.logger.AddUserMessage("The kernel did not respond to operating system ID query.");
+                    ConnectedECU = new(PcmType.Undefined)
+                    {
+                        ECUState = ECUStates.Invalid
+                    };
+                    return ConnectedECU;
+                }
+                ConnectedECU = new(osidResponse.Value)
+                {
+                    ECUState = ECUStates.Kernel,
+                    LoadedKernelVersion = kernelVersion
+                };
+                return ConnectedECU;
+            }
+            this.logger.AddUserMessage("Requesting operating system ID...");
+            osidResponse = await QueryOperatingSystemId(ct);
+            if (osidResponse.Status == ResponseStatus.Success)
+            {
+                ConnectedECU = new(osidResponse.Value)
+                {
+                    ECUState = ECUStates.Programmed
+                };
+                return ConnectedECU;
+            }
+            ConnectedECU = new(PcmType.Undefined)
+            {
+                ECUState = ECUStates.Invalid
+            };
+            return ConnectedECU;
+        }
+
+        public PreFlightCheckResult GetPreCheckResults(ControllerActions selectedAction, WriteType writeType = WriteType.None)
+        {
+            PreFlightCheckResult result = new();
+            result.CanProceed = true;
+            result.ShouldPrompt = false;
+            StringBuilder builder = new();
+            builder.AppendLine();
+
+            while (true)
+            {
+                if (ConnectedECU.ECUState == ECUStates.Recovery)
+                {
+                    builder.AppendLine("This controller is in Recovery mode!");
+                    if (selectedAction == ControllerActions.Write)
+                    {
+                        builder.AppendLine("PCM Hammer will attempt to recover the controller\r\n" +
+                        "with the supplied file. If this file is not a valid\r\n" +
+                        "match to this hardware type, the unit may brick!\r\n");
+                    }
+                    else
+                    {
+                        builder.AppendLine("Reading from a controller in recovery mode\r\n" +
+                            "is currently an unsupported operation. Abort!\r\n");
+                        result.CanProceed = false;
+                    }
+                    break;
+                }
+                if (ConnectedECU.HardwareType == PcmType.Undefined)
+                {
+                    result.CanProceed = false;
+                    builder.AppendLine(
+                        "Unable to determine PCM hardware type.\r\n" +
+                        "If you know the hardware type, please specify it\r\n" +
+                        "manually and try again!");
+                    break;
+                }
+                if (!ConnectedECU.IsSupported)
+                {
+                    result.CanProceed = false;
+                    builder.AppendLine("An unsupported controller was detected.\r\n");
+                    break;
+                }
+                if (!ConnectedECU.IsSupportedRead && selectedAction == ControllerActions.Read)
+                {
+                    builder.AppendLine("This controller currently does not support reading.\r\n");
+                    result.CanProceed = false;
+                }
+                if (ConnectedECU.IsUnderDevelopment)
+                {
+                    builder.AppendLine($"WARNING: {ConnectedECU.HardwareType.ToString()} Support is still in development.\r\nThere is additional brick risk in this operation\r\n");
+                }
+                if (selectedAction == ControllerActions.Write)
+                {
+                    if (!ConnectedECU.IsSupportedWrite)
+                    {
+                        builder.AppendLine("This controller currently does not support writing.\r\n");
+                        result.CanProceed = false;
+                    }
+                    if (ConnectedECU.HardwareSlaveCPU && !ConnectedECU.IsSupportedWriteSlaveCPU && writeType >= WriteType.OsPlusCalibrationPlusBoot)
+                    {
+                        builder.AppendLine("This controller currently does not support slave CPU writing.\r\n" +
+                            "Flashing an incompatible OS can leave ETC inoperable!\r\n" +
+                            "Before you proceed, a backup is highly recommended!\r\n" +
+                            "Flashing the original OS will likely restore functionality.\r\n");
+                    }
+                    if (!ConnectedECU.IsSupportedWriteBySegment && writeType < WriteType.Full)
+                    {
+                        builder.AppendLine("This controller does not support section writes. Full flash only!\r\n");
+                        result.CanProceed = false;
+                    }
+                }
+                break;
+            }
+            if (!string.IsNullOrWhiteSpace(builder.ToString()))
+            {
+                builder.AppendLine();
+                builder.AppendLine("**********************\r\n");
+                builder.AppendLine(result.CanProceed ? "Considering the message(s) above, do you wish to proceed?" : "Due to the above conditions, the requested operation cannot be performed!");
+                builder.Insert(0, "\r\n**********************\r\n");
+                result.PromptMessage = builder.ToString();
+                result.ShouldPrompt = true;
+            }
+            return result;
+        }
+
+        /// <summary>
         /// Re-initialize the device.
         /// </summary>
         public async Task<bool> ResetConnection()
@@ -271,34 +446,6 @@ namespace PcmHacking
                 return Response.Create(ResponseStatus.Success, result);
             }
             return Response.Create(ResponseStatus.Success, false);
-        }
-
-
-        /// <summary>
-        /// Note that this has only been confirmed to work with ObdLink ScanTool devices.
-        /// AllPro doesn't get the reply for some reason.
-        /// Might work with AVT or J-tool, that hasn't been tested.
-        /// </summary>
-        public async Task<bool> IsInRecoveryMode()
-        {
-            this.device.ClearMessageQueue();
-
-            for (int iterations = 0; iterations < 10; iterations++)
-            {
-                await this.TrySendMessage(new Message(new byte[] { Priority.Physical0, DeviceId.Pcm, DeviceId.Tool, 0x62 }), "recovery query", 2);
-                Message response = await this.device.ReceiveMessage();
-                if (response == null)
-                {
-                    continue;
-                }
-
-                if (this.protocol.ParseRecoveryModeBroadcast(response).Value == true)
-                {
-                    return true;
-                }
-            }
-
-            return false;
         }
 
         /// <summary>
@@ -426,6 +573,28 @@ namespace PcmHacking
                 // If the seed is a common occurance of corrupted security data, and the user is not attempting to use a custom key, provide a useful suggestion
                 if (((seedValue == 0x0000) || (seedValue == 0xFFFF)) && (UserDefinedKey == -1))
                 {
+                    if (lockoutRetried)
+                    {
+                        logger.AddUserMessage("PCM is still in a security time-delay lockout; unable to unlock.");
+                        return false;
+                    }
+
+                    // Normal: the PCM rate-limits security access and is counting down a forced delay.
+                    // Wait it out and re-request the seed once so the unlock can still succeed. (Note:
+                    // probing security during the power-on lockout can leave some PCMs refusing the
+                    // kernel upload for the rest of the power cycle - that case is handled where the
+                    // upload-permission request is rejected, not here.) Don't charge this against the
+                    // send-attempt budget.
+                    lockoutRetried = true;
+                    sendAttempt--;
+                    int secondsLeft = (int)SecurityDelayLockout.TotalSeconds;
+                    logger.AddUserMessage($"PCM is in a security time-delay lockout. Waiting {secondsLeft} seconds before re-attempting unlock.");
+                    while(secondsLeft > 0)
+                    {
+                        logger.AddUserMessage($"{secondsLeft}...");
+                        await Task.Delay(1000);
+                        secondsLeft--;
+                    }
                     logger.AddUserMessage($"***NOTICE**** Seed is 0x{seedValue.ToString("X4")}, if this process fails, try setting a user defined key of 0x{seedValue.ToString("X4")}");
                 }
 

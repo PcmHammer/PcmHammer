@@ -1,5 +1,4 @@
 ﻿// SPDX-License-Identifier: GPL-3.0-only
-using PcmHacking;
 using PcmHacking.UnoUI.Utilities;
 
 namespace PcmHacking.UnoUI.Services;
@@ -107,6 +106,8 @@ public interface IConnectionService
 
     Task<bool> TryConnect(CurrentSettings settings);
     Task<ConnectionLease> BeginActivity(string activity, bool canInterrupt = false);
+    OSIDInfo GetConnectedECU();
+    Task AwaitConnectionShutdown();
 }
 
 public class ConnectionService : IConnectionService
@@ -132,7 +133,6 @@ public class ConnectionService : IConnectionService
     private ConnectionStates internalState = ConnectionStates.NotConfigured;
     private SemaphoreSlim stateChangeSemaphore = new SemaphoreSlim(1, 1);
     private CurrentSettings? newSettings;
-    private CurrentSettings? lastSettings;
     private int retryPeriod = SlowRetryPeriod;
     private DateTime _leftActiveState = DateTime.MinValue;
     private const string _recoveryString = "** RECOVERY **";
@@ -171,6 +171,19 @@ public class ConnectionService : IConnectionService
         }
     }
 
+    public OSIDInfo GetConnectedECU()
+    {
+        if(vehicle?.ConnectedECU == null)
+        {
+            throw new NullReferenceException(nameof(vehicle.ConnectedECU));
+        }
+        if(this.internalState >= ConnectionStates.Connected || vehicle.ConnectedECU != null)
+        {
+            return vehicle.ConnectedECU;
+        }
+        return new(PcmType.Undefined);
+    }
+
     /// <summary>
     /// This should only be used when connection settings change. Callers should generally use BeginActivity instead.
     /// </summary>
@@ -187,8 +200,12 @@ public class ConnectionService : IConnectionService
             await this.BeginActivityInternal(TestingActivity, ConnectionStates.Connecting);
 
             // Clear the settings shown in the UI, and allow time for the UI to update.
-            await this.ResetVehicleInfo();
+            await this.ResetVehicleInfo(null);
             await Task.Delay(100);
+            if (string.IsNullOrEmpty(settings.DeviceCategory) || string.IsNullOrEmpty(settings.DeviceNameOrPort))
+            {
+                return false;
+            }
 
             (Device? newDevice, Vehicle? newVehicle) = await TryReconnect(settings);
 
@@ -210,9 +227,7 @@ public class ConnectionService : IConnectionService
                 logger.AddUserMessage("Running at: " + DateTime.Now.ToString("dddd, MMMM dd yyyy, HH:mm:ss"));
 #endif
                 logger.AddUserMessage("Copyright (C) 2018-2026 PcmHacking.net - GPL v3");
-                logger.AddUserMessage("Connection test succeeded.");
-                this.newSettings = settings;
-                this.lastSettings = settings;
+                this.logger.AddUserMessage("Connection test succeeded.");
                 this.settingsService.SaveConnectionSettings(settings);
                 isConnected = true;
                 this.device = newDevice;
@@ -220,12 +235,7 @@ public class ConnectionService : IConnectionService
             }
             else
             {
-                logger.AddUserMessage("Connection test failed.");
-                this.newSettings = settings;
-                if(this.lastSettings == null)
-                {
-                    this.lastSettings = newSettings; // This avoids inactivity if device/PCM fails first try, unless this was intended.
-                }
+                this.logger.AddUserMessage("Connection test failed.");
                 newVehicle.Dispose();
                 newVehicle = null;
                 newDevice.Dispose();
@@ -250,6 +260,23 @@ public class ConnectionService : IConnectionService
         return isConnected;
     }
 
+    public async Task AwaitConnectionShutdown()
+    {
+        if (!App.ApplicationShutdownSource.IsCancellationRequested)
+        {
+            App.ApplicationShutdownSource.Cancel();
+        }
+        if (this.vehicle != null)
+        {
+            this.vehicle.ShutdownSignalSource.Cancel(); // Calling this shutdown signal source will also dispose the device.
+            this.vehicle.Dispose();
+        }
+        while (this.internalState >= ConnectionStates.Connected)
+        {
+            await Task.Delay(10);
+        }
+    }
+
     /// <summary>
     /// Reconnect after a connection loss.
     /// </summary>
@@ -259,7 +286,7 @@ public class ConnectionService : IConnectionService
     /// </remarks>
     public async Task<Vehicle?> Reconnect()
     {
-        (Device? newDevice, Vehicle? newVehicle) = await TryReconnect(this.lastSettings!);
+        (Device? newDevice, Vehicle? newVehicle) = await TryReconnect(this.newSettings);
         this.device = newDevice;
         this.vehicle = newVehicle;
         return this.vehicle;
@@ -269,8 +296,8 @@ public class ConnectionService : IConnectionService
     {
         if (App.ApplicationShutdownSource.IsCancellationRequested && this.vehicle != null)
         {
-            this.vehicle.ShutdownSignalSource.Cancel();
             this.vehicle?.Dispose();
+            this.device?.Dispose();
             return (null, null);
         }
         if (this.vehicle != null)
@@ -282,7 +309,7 @@ public class ConnectionService : IConnectionService
         {
             try
             {
-                if (!await this.device.CheckDeviceConnection())
+                if (this.newSettings != settings || !await this.device.CheckDeviceConnection())
                 {
                     this.device.Dispose();
                     this.device = null;
@@ -303,6 +330,7 @@ public class ConnectionService : IConnectionService
         }
         if (this.device == null || settings != this.newSettings)
         {
+            this.newSettings = settings;
             if (string.IsNullOrEmpty(portDesc))
             {
                 await this.DeviceName.SetAsync("Select a device.");
@@ -315,7 +343,7 @@ public class ConnectionService : IConnectionService
 
             try
             {
-                if (settings.DeviceCategory == DeviceConstants.DeviceCategoryBT) // Bluetooth on multi-platform requires the use of a separtate library written in .NET core, so we have to special case it here.
+                if (settings.DeviceCategory == DeviceConstants.DeviceCategoryBT) // Bluetooth on multi-platform requires the use of a separate library written in .NET core, so we have to special case it here.
                 {
                     newDevice = await BluetoothDeviceFactory.CreateBluetoothDevice(settings.DeviceNameOrPort, this.logger);
                 }
@@ -603,26 +631,11 @@ public class ConnectionService : IConnectionService
             // This log line made more sense before logging was disabled in this scenario...
             logger.AddDebugMessage($"ConnectionService timer callback. Internal state: {this.internalState}.");
 
-            // Re-create the connection if the settings have changed.
-            if (this.newSettings != null && this.newSettings != this.lastSettings)
-            {
-                // This will call TryPollOnce, and will return true if that succeeds.
-                // It will also update this.lastSettings when it succeeds.
-                if (await this.TryConnect(this.newSettings))
-                {
-                    logger.AddUserMessage("Connected with new settings.");
-                }
-                else
-                {
-                    logger.AddUserMessage("Unable to connect with new settings.");
-                    return;
-                }
-            }
 
             // Re-create the connection if the connection was lost.
-            if (this.internalState == ConnectionStates.NotConnected && this.lastSettings != null)
+            if (this.internalState == ConnectionStates.NotConnected && this.newSettings != null)
             {
-                if (await this.TryConnect(this.lastSettings))
+                if (await this.TryConnect(this.newSettings))
                 {
                     logger.AddUserMessage("Re-connected with current settings.");
                 }
@@ -688,7 +701,6 @@ public class ConnectionService : IConnectionService
     private async Task<bool> TryPollOnce(Vehicle vehicle)
     {
         bool success = false;
-
         using (var source = new CancellationTokenSource())
         {
             try
@@ -744,36 +756,36 @@ public class ConnectionService : IConnectionService
 
         try
         {
-            if(await this.OperatingSystemId.Value() == _recoveryString || await this.OperatingSystemId.Value() == _kernelString)
-            {
-                await this.OperatingSystemId.SetAsync(string.Empty);
-            }
-            logger.AddUserMessage("Checking for a recovery message...");
-            Response<bool> recoveryResponse = await vehicle.CheckForRecoveryMode(cancellationToken);
-            if (recoveryResponse.Status == ResponseStatus.Success && recoveryResponse.Value == true)
-            {
-                logger.AddUserMessage("PCM/ECM recovery mode detected!");
-                await this.OperatingSystemId.SetAsync(_recoveryString);
-                return true;
-            }
-            logger.AddUserMessage("No recovery message detected. Checking for live kernel...");
-            ulong ver = await vehicle.GetKernelVersion(maxRetries: 1);
-            if (ver != 0)
-            {
-                logger.AddUserMessage($"Detected kernel version: {Vehicle.FormatKernelVersion(ver)}");
-                await this.OperatingSystemId.SetAsync(_kernelString);
-                return true;
-            }
+            OSIDInfo pcm = null;
             await this.OperatingSystemId.SetAsync(string.Empty);
-            Response<uint> osidResponse = await vehicle.QueryOperatingSystemId(cancellationToken);
-            if (osidResponse.Status == ResponseStatus.Success)
+            try
             {
-                await this.OperatingSystemId.SetAsync(osidResponse.Value.ToString());
+                pcm = await vehicle.DiscoverConnectedECU(cancellationToken);
             }
-            else
+            catch
             {
-                await this.ResetVehicleInfo();
+                throw new IOException();
+            }
+            if (pcm == null)
+            {
                 return false;
+            }
+            switch (pcm.ECUState)
+            {
+                case ECUStates.Invalid:
+                    await this.ResetVehicleInfo(vehicle);
+                    return false;
+                case ECUStates.Programmed:
+                    await this.OperatingSystemId.SetAsync(pcm.OSID.ToString());
+                    break;
+                case ECUStates.Kernel:
+                    await this.OperatingSystemId.SetAsync(_kernelString);
+                    return true;
+                case ECUStates.Recovery:
+                    await this.OperatingSystemId.SetAsync(_recoveryString);
+                    return true;
+                default:
+                    break;
             }
 
             await this.Voltage.SetAsync(String.Empty);
@@ -784,7 +796,7 @@ public class ConnectionService : IConnectionService
             }
             else
             {
-                await this.ResetVehicleInfo();
+                await this.ResetVehicleInfo(vehicle);
                 return false;
             }
         }
@@ -802,15 +814,18 @@ public class ConnectionService : IConnectionService
             }
             return false;
         }
-
         return true;
     }
 
-    private async Task ResetVehicleInfo()
+    private async Task ResetVehicleInfo(Vehicle? vehicle)
     {
         await this.ConnectionState.SetAsync(ConnectionStates.NotConnected);
         await this.OperatingSystemId.SetAsync(String.Empty);
         await this.Voltage.SetAsync(String.Empty);
+        if (vehicle != null)
+        {
+            vehicle.ConnectedECU = new(PcmType.Undefined); // This will set it to a default ECU with no capabilities, which is important to avoid errors in the UI.
+        }
     }
 
     /// <summary>
@@ -830,8 +845,6 @@ public class ConnectionService : IConnectionService
         }
         if (this.internalState == ConnectionStates.Active && newState == ConnectionStates.Connected)
         {
-            this.vehicle?.ExitKernel().Wait();
-            this.vehicle?.ClearTroubleCodes().Wait();
             _leftActiveState = DateTime.Now;
         }
         if (((this.internalState & expected) > 0) || this.internalState == newState && ResetTimeRemaining == -1)

@@ -18,13 +18,15 @@ namespace PcmHacking
         private readonly OSIDInfo pcmInfo;
         private readonly Protocol protocol;
         private readonly ILogger logger;
+        private readonly IProgress<ProgressUpdate> progress;
 
         public int CrcPollingDelayMs { get; set; } = 50;
 
-        public CKernelReader(Vehicle vehicle, OSIDInfo pcmInfo, ILogger logger)
+        public CKernelReader(Vehicle vehicle, OSIDInfo pcmInfo, ILogger logger, IProgress<ProgressUpdate> progress)
         {
             this.vehicle = vehicle;
             this.pcmInfo = pcmInfo;
+            this.progress = progress;
 
             // This seems wrong... Some alternatives:
             // a) Have the caller pass in the message factory and message-parser methods
@@ -40,7 +42,7 @@ namespace PcmHacking
         /// Read the full contents of the PCM.
         /// Assumes the PCM is unlocked and we're ready to go.
         /// </summary>
-        public async Task<Response<Stream>> ReadContents(CancellationToken cancellationToken, IProgress<ProgressUpdate>? progress = null)
+        public async Task<Response<Stream?>> ReadContents(CancellationToken cancellationToken)
         {
             try
             {
@@ -260,7 +262,8 @@ namespace PcmHacking
                         this.protocol,
                         this.pcmInfo,
                         (UInt32)imageSize,
-                        this.logger)
+                        this.logger,
+                        progress)
                     {
                         PollingDelayMs = this.CrcPollingDelayMs,
                     };
@@ -366,32 +369,22 @@ namespace PcmHacking
                     UInt32 secondsRemaining = (UInt32)(bytesRemaining / bytesPerSecond);
                     timeRemaining = TimeSpan.FromSeconds(secondsRemaining).ToString("mm\\:ss");
                 }
-                if (progress != null)
-                {
                     ProgressUpdate update = new ProgressUpdate
                     {
                         Address = startAddress.ToString("X6"),
                         PayloadLength = payload.Length,
                         TotalLength = image.Length,
                         Percentage = ((double)startAddress + (double)payload.Length) / (double)image.Length,
+                        ProgressBarVisible = true,
                         Rate = bytesPerSecond > 0 ? (double)bytesPerSecond * 8.00 / 1000.00 : 0.00,
                         TimeRemaining = timeRemaining
                     };
                     progress.Report(update);
-                }
-                else
-                {
-                    logger.StatusUpdateActivity($"Reading {payload.Length} bytes from 0x{startAddress:X6}");
-                    logger.StatusUpdatePercentDone((startAddress * 100 / image.Length > 0) ? $"{startAddress * 100 / image.Length}%" : string.Empty);
-                    logger.StatusUpdateTimeRemaining($"T-{timeRemaining}");
-                    logger.StatusUpdateKbps((bytesPerSecond > 0) ? $"{(double)bytesPerSecond * 8.00 / 1000.00:0.00} Kbps" : string.Empty);
-                    logger.StatusUpdateProgressBar((double)(startAddress + payload.Length) / image.Length, true);
-                }
-
+                
                 return Response.Create(ResponseStatus.Success, true, retryCount);
             }
 
-            return Response.Create(ResponseStatus.Error, false, retryCount);
+            return Response.Create(ResponseStatus.Refused, false, retryCount);
         }
     }
 }

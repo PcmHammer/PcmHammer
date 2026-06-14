@@ -11,6 +11,7 @@ namespace PcmHacking
 {
     class Program
     {
+        static ControllerPageObjects pageObjects;
         static Vehicle? activeVehicle;
         static bool operationInProgress;
 
@@ -174,6 +175,13 @@ namespace PcmHacking
                         return Task.FromResult(true);
                     };
 
+                    pageObjects = new ControllerPageObjects
+                    {
+                        Invoke = invoke,
+                        PromptYesOrNo = promptForYesNo,
+                        ShowAlert = alert
+                    };
+
                     operationInProgress = true;
                     bool success = false;
                     switch (operation)
@@ -184,73 +192,102 @@ namespace PcmHacking
                             {
                                 filePath = $"pcm_read_{DateTime.Now:yyyyMMdd_HHmmss}.bin";
                                 logger.AddUserMessage("No filename specified, saving to: " + filePath);
-                            }
-                            var readManager = new ReadManager(
-                                logger,
-                                vehicle,
-                                invoke,
-                                () => Task.FromResult<string?>(null),
-                                () => Task.FromResult(0u),
-                                alert,
-                                promptForYesNo,
-                                cts.Token);
-                            success = await readManager.Read(filePath);
+                                }
+                                ECUActionArguments actionArgs = new ECUActionArguments { SelectedAction = ControllerActions.Read };
+                                var controllerManager = new ControllerManager(
+                                        vehicle,
+                                        actionArgs,
+                                        pageObjects,
+                                        cts.Token,
+                                        new Progress<ProgressUpdate>(),
+                                        logger
+                                        );
+                                var result = await controllerManager.BeginAction();
+                                success = result.Value;
+                                if (success)
+                                {
+                                    using FileStream fs = File.Create(filePath);
+                                    actionArgs.ContentStream.CopyTo(fs);
+                                    await fs.FlushAsync();
+                                    actionArgs.ContentStream.Dispose();
+                                }
                             break;
                         }
                         case "test-read":
                         {
-                            var readManager = new ReadManager(
-                                logger,
-                                vehicle,
-                                invoke,
-                                () => Task.FromResult<string?>(null),
-                                () => Task.FromResult(0u),
-                                alert,
-                                promptForYesNo,
-                                cts.Token);
-                            var stream = await readManager.Read();
-                            success = stream != null;
+                                var controllerManager = new ControllerManager(
+                                    vehicle,
+                                    new ECUActionArguments { SelectedAction = ControllerActions.Read },
+                                    pageObjects,
+                                    cts.Token,
+                                    new Progress<ProgressUpdate>(),
+                                    logger
+                                    );
+
+                            var result = await controllerManager.BeginAction();
+                            success = result.Value;
+                            
                             if (success) logger.AddUserMessage("Test read complete. Data not saved.");
                             break;
                         }
                         case "write":
-                        {
-                            var writeManager = new WriteManager(
-                                logger,
-                                vehicle,
-                                WriteType.Full,
-                                alert,
-                                promptForYesNo,
-                                cts.Token);
-                            success = await writeManager.Write(filePath!);
+                            {
+                                ECUActionArguments actionArgs = new ECUActionArguments { SelectedAction = ControllerActions.Write, WriteType = WriteType.Full };
+                                actionArgs.ContentStream = new();
+                                using FileStream fs = File.OpenRead(filePath);
+                                fs.CopyTo(actionArgs.ContentStream);
+
+                                var controllerManager = new ControllerManager(
+                                        vehicle,
+                                        actionArgs,
+                                        pageObjects,
+                                        cts.Token,
+                                        new Progress<ProgressUpdate>(),
+                                        logger
+                                        );
+                                var result = await controllerManager.BeginAction();
+                                success = result.Value;
                             break;
                         }
                         case "test-write":
                         {
-                            var writeManager = new WriteManager(
-                                logger,
-                                vehicle,
-                                WriteType.TestWrite,
-                                alert,
-                                promptForYesNo,
-                                cts.Token);
-                            success = await writeManager.Write(filePath!);
+                                ECUActionArguments actionArgs = new ECUActionArguments { SelectedAction = ControllerActions.Write, WriteType = WriteType.Test };
+                                actionArgs.ContentStream = new();
+                                using FileStream fs = File.OpenRead(filePath);
+                                fs.CopyTo(actionArgs.ContentStream);
+
+                                var controllerManager = new ControllerManager(
+                                        vehicle,
+                                        actionArgs,
+                                        pageObjects,
+                                        cts.Token,
+                                        new Progress<ProgressUpdate>(),
+                                        logger
+                                        );
+                                var result = await controllerManager.BeginAction();
+                                success = result.Value;
                             break;
                         }
                         case "verify":
                         {
-                            // CRC-compare the file against the PCM (no erase/write). Triggers the
-                            // kernel's ProcessCRC (mode 3D02) over each range, which is what we
-                            // need to exercise the RX-FIFO-during-CRC behaviour on the bench.
-                            var writeManager = new WriteManager(
-                                logger,
-                                vehicle,
-                                WriteType.Compare,
-                                alert,
-                                promptForYesNo,
-                                cts.Token);
-                            success = await writeManager.Write(filePath!);
-                            break;
+                                // CRC-compare the file against the PCM (no erase/write). Triggers the
+                                // kernel's ProcessCRC (mode 3D02) over each range, which is what we
+                                // need to exercise the RX-FIFO-during-CRC behaviour on the bench.
+                                ECUActionArguments actionArgs = new ECUActionArguments { SelectedAction = ControllerActions.Write, WriteType = WriteType.Compare };
+                                actionArgs.ContentStream = new();
+                                using FileStream fs = File.OpenRead(filePath);
+                                fs.CopyTo(actionArgs.ContentStream);
+
+                                var controllerManager = new ControllerManager(
+                                        vehicle,
+                                        actionArgs,
+                                        pageObjects,
+                                        cts.Token,
+                                        new Progress<ProgressUpdate>(),
+                                        logger
+                                        );
+                                var result = await controllerManager.BeginAction();
+                                success = result.Value; break;
                         }
                         case "get-properties":
                         {

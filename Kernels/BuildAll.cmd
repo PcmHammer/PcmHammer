@@ -112,6 +112,25 @@ for /r "%UNO_BIN_ROOT%" %%F in (pcm*.dll) do (
   call :CopyBinsToTarget "%%~dpF"
 )
 
+:CopyToDetectedCLITargets
+set "CLI_BIN_ROOT=..\Apps\PcmHacking.CLI\bin"
+if not exist "%CLI_BIN_ROOT%" (
+  echo CLI bin root not found: "%CLI_BIN_ROOT%"
+  goto :EOF
+)
+
+echo Scanning Uno bin output targets for app executables...
+for /r "%CLI_BIN_ROOT%" %%F in (pcm*.exe) do (
+  echo   Found app executable: "%%~fF"
+  mkdir "%%~dpFKernels"
+  call :CopyBinsToTarget "%%~dpFKernels"
+)
+for /r "%CLI_BIN_ROOT%" %%F in (pcm*.dll) do (
+  echo   Found app assembly: "%%~fF"
+  mkdir "%%~dpFKernels"
+  call :CopyBinsToTarget "%%~dpFKernels"
+)
+
 goto :EOF
 
 :CopyBinsToTarget

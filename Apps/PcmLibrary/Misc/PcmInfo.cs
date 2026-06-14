@@ -35,6 +35,11 @@ namespace PcmHacking
     public class OSIDInfo
     {
         /// <summary>
+        /// Keep a reference to the loaded kernel version, if one is detected.
+        /// </summary>
+        public ulong LoadedKernelVersion { get; set; }
+
+        /// <summary>
         /// Operating system ID.
         /// </summary>
         public uint OSID { get; private set; }
@@ -519,6 +524,22 @@ namespace PcmHacking
             this.OSID = 0;
             this.PCMInfo(pcmType);
         }
+
+        /// <summary>
+        /// This enum allows us to hold a reference to the current state of the connected controller.
+        /// </summary>
+        public ECUStates ECUState
+        {
+            get
+            {
+                return _ecuState;
+            }
+            set
+            {
+                _ecuState = value;
+            }
+        }
+        private ECUStates _ecuState;
 
         /// <summary>
         /// Populate this object based on the given OSID.
@@ -3411,6 +3432,17 @@ namespace PcmHacking
                     this.ServiceNumber = 0;
                     break;
             }
+        }
+
+        public override string ToString()
+        {
+            string servNo = ServiceNumber != 0 ? $"{ServiceNumber}" : string.Empty;
+            if (OSID == 0 && HardwareType == PcmType.Undefined)
+            {
+                return "Undefined ECU";
+            }
+            string format = "{0} - Svc#: {1} {2}K; {3}";
+            return string.Format(format, HardwareType, servNo, ImageSize / 1024, Description);
         }
     }
 }

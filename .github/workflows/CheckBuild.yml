@@ -8,7 +8,8 @@
 # 2025-11-16 - Antus <pcmhacking.net> Add P11
 # 2026-04-07 - Antus <pcmhacking.net> Update dependencies
 # 2026-04-10 - Antus <pcmhacking.net> Update for WinForms + Uno Windows + Uno Android
-#
+# 2026-05-02 - Crowbarmaster <pcmhacking.net> Update to add CLI build
+# 
 
 name: CheckBuild
 
@@ -279,6 +280,9 @@ jobs:
       if: ${{ !startsWith(github.ref, 'refs/tags/') }}
       run: dotnet build Apps/UI/UnoUI/PcmHacking.UnoUI/PcmHacking.UnoUI.csproj -c Debug -f net10.0-windows10.0.26100.0
 
+    - name: Build CLI (Debug)
+      run: dotnet build Apps/PcmHacking.CLI/PcmHacking.CLI.csproj -c Debug -f net10.0-windows10.0.19041.0
+
     - name: Publish Uno Android (Release APK)
       if: ${{ !startsWith(github.ref, 'refs/tags/') }}
       run: >
@@ -297,7 +301,6 @@ jobs:
         [xml]$uno = Get-Content "Apps/UI/UnoUI/PcmHacking.UnoUI/PcmHacking.UnoUI.csproj"
         $unoDisplay = ($uno.Project.PropertyGroup | Where-Object { $_.ApplicationDisplayVersion } | Select-Object -First 1).ApplicationDisplayVersion
         $unoVersion = ($uno.Project.PropertyGroup | Where-Object { $_.ApplicationVersion } | Select-Object -First 1).ApplicationVersion
-
         $isReleaseTag = ($env:IS_RELEASE_TAG -eq "True")
         $timestampUtc = [DateTime]::UtcNow.ToString("yyyyMMdd_HHmmss")
         $unoLooksUnversioned = ($unoDisplay -eq "0.0.0.0")
@@ -386,6 +389,26 @@ jobs:
         Copy-Item -Path "$($unoWindowsOutput.Directory.FullName)/*" -Destination "TemporaryArtifactStorage/UnoWindows" -Recurse -Force
         Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/*.LogProfile" -Destination "TemporaryArtifactStorage/UnoWindows" -Force
         Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/Parameters.*.xml" -Destination "TemporaryArtifactStorage/UnoWindows" -Force
+
+    - name: Stage CLI artifact payload
+      shell: pwsh
+      run: |
+        $cliOutput = Get-ChildItem -Path "Apps/PcmHacking.CLI/bin" -Recurse -File -ErrorAction SilentlyContinue `
+          | Where-Object {
+              ($_.Name -like "pcm*.exe" -or $_.Name -like "*.dll") -and
+              $_.FullName -like "*net10.0-windows10.0.19041.0*"
+            } `
+          | Sort-Object FullName `
+          | Select-Object -First 1
+
+        if (!$cliOutput) {
+          throw "CLI output file (pcm*.exe or *.dll) not found under Apps/PcmHacking.CLI/bin"
+        }
+
+        New-Item -ItemType Directory -Force -Path TemporaryArtifactStorage/CLI | Out-Null
+        New-Item -ItemType Directory -Force -Path TemporaryArtifactStorage/CLI/Kernels | Out-Null
+        Copy-Item -Path "TemporaryArtifactStorage/Kernels/*.bin" -Destination "TemporaryArtifactStorage/CLI/Kernels" -Force
+        Copy-Item -Path "$($cliOutput.Directory.FullName)/*" -Destination "TemporaryArtifactStorage/CLI" -Recurse -Force
 
     - name: Stage Uno Android artifact payload
       if: ${{ !startsWith(github.ref, 'refs/tags/') }}

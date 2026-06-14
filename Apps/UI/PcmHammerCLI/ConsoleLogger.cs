@@ -63,7 +63,7 @@ namespace PcmHacking
             this.debug = debug;
         }
 
-        public void AddUserMessage(string message)
+        public void AddUserMessage(string message, LogLevels level = LogLevels.Info)
         {
             FinishProgressLine();
             Console.WriteLine(message);

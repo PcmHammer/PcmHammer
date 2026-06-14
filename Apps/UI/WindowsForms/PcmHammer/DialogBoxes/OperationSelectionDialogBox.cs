@@ -116,7 +116,7 @@ namespace PcmHacking
                     continue;
                 }
 
-                OSIDInfo info = new OSIDInfo(type);
+                OSIDInfo info = new(type);
                 if (!info.IsSupported)
                 {
                     continue;

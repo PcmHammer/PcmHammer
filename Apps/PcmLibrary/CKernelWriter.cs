@@ -1,7 +1,9 @@
 ﻿// SPDX-License-Identifier: GPL-3.0-only
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
+using System.IO.Ports;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -9,39 +11,27 @@ using System.Threading.Tasks;
 
 namespace PcmHacking
 {
-    /// <summary>
-    /// How much of the PCM to erase and rewrite.
-    /// </summary>
-    public enum WriteType
-    {
-        None = 0,
-        Compare,
-        TestWrite,
-        Calibration,
-        Parameters,
-        OsPlusCalibrationPlusBoot,
-        Full,
-    }
-
     public class CKernelWriter
     {
         private readonly Vehicle vehicle;
         private readonly OSIDInfo pcmInfo;
         private readonly Protocol protocol;
-        private readonly WriteType writeType;
+        private readonly ECUActionArguments _ecuActionArguments;
         private readonly ILogger logger;
+        private readonly IProgress<ProgressUpdate> progress;
 
         // How much of the flash chip we will verify and (re)write. Set once the chip is identified
         // in Write(). Normally the detected chip size, not the (possibly smaller) PCM-type default.
         private UInt32 effectiveImageSize;
 
-        public CKernelWriter(Vehicle vehicle, OSIDInfo pcmInfo, Protocol protocol, WriteType writeType, ILogger logger)
+        public CKernelWriter(Vehicle vehicle, OSIDInfo pcmInfo, Protocol protocol, ECUActionArguments arguments, ILogger logger, IProgress<ProgressUpdate> progress)
         {
             this.vehicle = vehicle;
             this.pcmInfo = pcmInfo;
             this.protocol = protocol;
-            this.writeType = writeType;
+            _ecuActionArguments = arguments;
             this.logger = logger;
+            this.progress = progress;
         }
 
         /// <summary>
@@ -64,7 +54,7 @@ namespace PcmHacking
                 this.vehicle.ClearDeviceMessageQueue();
 
                 // TODO: install newer version if available.
-                if (kernelVersion == 0)
+                if (this.pcmInfo.ECUState != ECUStates.Kernel)
                 {
                     // Switch to 4x, if possible. But continue either way.
                     if (this.vehicle.Enable4xReadWrite)
@@ -135,7 +125,10 @@ namespace PcmHacking
 
                     logger.AddUserMessage("Kernel uploaded to PCM successfully.");
                 }
-
+                else
+                {
+                    logger.AddUserMessage("Controller is already running a loaded kernel! Proceed.");
+                }
                 // Confirm operating system match
                 await this.vehicle.SendToolPresentNotification();
                 await this.vehicle.SetDeviceTimeout(TimeoutScenario.ReadProperty);
@@ -147,13 +140,13 @@ namespace PcmHacking
                     return false;
                 }
 
-                Utility.ReportOperatingSystems(validator.GetOsidFromImage(), osidResponse.Value, this.writeType, this.logger, out bool shouldHalt);
+                Utility.ReportOperatingSystems(validator.GetOsidFromImage(), osidResponse.Value, _ecuActionArguments.WriteType, this.logger, out bool shouldHalt);
                 if (needToCheckOperatingSystem && shouldHalt)
                 {
                     return false;
                 }
 
-                success = await this.Write(cancellationToken, image);
+                success = await this.Write(cancellationToken, image, _ecuActionArguments.FlashChipId);
 
                 // We only do cleanup after a successful write.
                 // If the kernel remains running, the user can try to flash again without rebooting and reloading.
@@ -170,11 +163,11 @@ namespace PcmHacking
             {
                 if (!success)
                 {
-                    switch (this.writeType)
+                    switch (_ecuActionArguments.WriteType)
                     {
                         case WriteType.None:
                         case WriteType.Compare:
-                        case WriteType.TestWrite:
+                        case WriteType.Test:
                             await this.vehicle.Cleanup();
                             logger.AddUserMessage("Something has gone wrong. Please report this error.");
                             logger.AddUserMessage("Errors during comparisons or test writes indicate a");
@@ -206,18 +199,18 @@ namespace PcmHacking
         /// <summary>
         /// Write the calibration blocks.
         /// </summary>
-        private async Task<bool> Write(CancellationToken cancellationToken, byte[] image)
+        private async Task<bool> Write(CancellationToken cancellationToken, byte[] image, uint flashChipIdOverride = 0)
         {
             await this.vehicle.SendToolPresentNotification();
 
             BlockType relevantBlocks;
-            switch (this.writeType)
+            switch (_ecuActionArguments.WriteType)
             {
                 case WriteType.Compare:
                     relevantBlocks = BlockType.All;
                     break;
 
-                case WriteType.TestWrite:
+                case WriteType.Test:
                     relevantBlocks = BlockType.Calibration;
                     break;
 
@@ -244,20 +237,29 @@ namespace PcmHacking
                     break;
 
                 default:
-                    throw new InvalidDataException("Unsuppported operation type: " + this.writeType.ToString());
+                    throw new InvalidDataException("Unsupported operation type: " + _ecuActionArguments.WriteType.ToString());
             }
 
             // Which flash chip?
             await this.vehicle.SendToolPresentNotification();
-            Response<UInt32> chipIdResponse = await this.vehicle.QueryFlashChipId(cancellationToken);
-            if (chipIdResponse.Status != ResponseStatus.Success)
-            {
-                await this.vehicle.Cleanup();
-                return false;
-            }
 
-            FlashChip flashChip = FlashChip.Create(chipIdResponse.Value, this.logger);
-            logger.AddUserMessage("Flash chip: " + flashChip.ToString());
+            UInt32 chipId = 0;
+            if (flashChipIdOverride == 0)
+            {
+                Response<UInt32> chipIdResponse = await this.vehicle.QueryFlashChipId(cancellationToken);
+                if (chipIdResponse.Status != ResponseStatus.Success)
+                {
+                    await this.vehicle.Cleanup();
+                    return false;
+                }
+                chipId = chipIdResponse.Value;
+            }
+            else
+            {
+                chipId = flashChipIdOverride;
+            }
+            FlashChip flashChip = FlashChip.Create(chipId, this.logger);
+                logger.AddUserMessage("Flash chip: " + flashChip.ToString());
 
             // A P10/P11 can have a 1Mb chip while using 512KiB images, so that can be allowed
             // This originally was to prevent cross flashing between P01 and P59 but we have now split those types
@@ -299,7 +301,8 @@ namespace PcmHacking
                 this.protocol,
                 this.pcmInfo,
                 this.effectiveImageSize,
-                this.logger);
+                this.logger,
+                progress);
 
             bool allRangesMatch = false;
             int messageRetryCount = 0;
@@ -324,7 +327,7 @@ namespace PcmHacking
                     allRangesMatch = true;
 
                     // Don't stop here if the user just wants to test their cable.
-                    if (this.writeType == WriteType.TestWrite)
+                    if (_ecuActionArguments.WriteType == WriteType.Test)
                     {
                         if (attempt == 1)
                         {
@@ -341,9 +344,15 @@ namespace PcmHacking
                         break;
                     }
                 }
+                else if (_ecuActionArguments.WriteType != WriteType.Test && attempt > 1)
+                {
+                    this.logger.AddUserMessage("=============================================");
+                    this.logger.AddUserMessage($"THE PREVIOUS WRITE ATTEMPT FAILED. ATTEMPT {attempt}/5");
+                    this.logger.AddUserMessage("=============================================");
+                }
 
                 // For test writes, report results after the first iteration, then we're done.
-                if ((this.writeType == WriteType.TestWrite) && (attempt > 1))
+                if ((_ecuActionArguments.WriteType == WriteType.Test) && (attempt > 1))
                 {
                     logger.AddUserMessage("Test write complete.");
                     Utility.ReportRetryCount("Write", messageRetryCount, pcmInfo.ImageSize, this.logger);
@@ -351,7 +360,7 @@ namespace PcmHacking
                 }
 
                 // Stop now if the user only requested a comparison.
-                if (this.writeType == WriteType.Compare)
+                if (_ecuActionArguments.WriteType == WriteType.Compare)
                 {
                     logger.AddUserMessage("Note that mismatched Parameter blocks are to be expected.");
                     logger.AddUserMessage("Parameter data can change every time the PCM is used.");
@@ -392,7 +401,7 @@ namespace PcmHacking
                         return false;
                     }
 
-                    if (this.writeType == WriteType.TestWrite)
+                    if (_ecuActionArguments.WriteType == WriteType.Test)
                     {
                         logger.AddUserMessage("Pretending to erase.");
                     }
@@ -404,7 +413,7 @@ namespace PcmHacking
                         }
                     }
 
-                    if (this.writeType == WriteType.TestWrite)
+                    if (_ecuActionArguments.WriteType == WriteType.Test)
                     {
                         logger.AddUserMessage("Pretending to write...");
                     }
@@ -416,7 +425,7 @@ namespace PcmHacking
                     Response<bool> writeResponse = await WriteMemoryRange(
                         range,
                         image,
-                        this.writeType == WriteType.TestWrite,
+                        _ecuActionArguments.WriteType == WriteType.Test,
                         startTime,
                         totalSize,
                         bytesRemaining,
@@ -439,7 +448,7 @@ namespace PcmHacking
 
             if (allRangesMatch)
             {
-                if (this.writeType != WriteType.Compare && this.writeType != WriteType.TestWrite)
+                if (_ecuActionArguments.WriteType != WriteType.Compare && _ecuActionArguments.WriteType != WriteType.Test)
                 {
                     logger.AddUserMessage("Flash successful!");
                 }
@@ -452,7 +461,7 @@ namespace PcmHacking
             logger.AddUserMessage("THE CHANGES WERE -NOT- WRITTEN SUCCESSFULLY");
             logger.AddUserMessage("===============================================");
 
-            if (this.writeType == WriteType.Calibration)
+            if (_ecuActionArguments.WriteType == WriteType.Calibration)
             {
                 logger.AddUserMessage("Erasing Calibration to force recovery mode.");
                 logger.AddUserMessage("");
@@ -502,7 +511,7 @@ namespace PcmHacking
 
         private bool ShouldProcess(MemoryRange range, BlockType relevantBlocks)
         {
-            if ((range.ActualCrc == range.DesiredCrc) && (this.writeType != WriteType.TestWrite))
+            if ((range.ActualCrc == range.DesiredCrc) && (_ecuActionArguments.WriteType != WriteType.Test))
             {
                 return false;
             }
@@ -531,7 +540,7 @@ namespace PcmHacking
         private bool IsWritePlanAllowedByPcmInfo(FlashChip flashChip, BlockType relevantBlocks)
         {
             // Compare and test-write are non-destructive.
-            if (this.writeType == WriteType.Compare || this.writeType == WriteType.TestWrite)
+            if (_ecuActionArguments.WriteType == WriteType.Compare || _ecuActionArguments.WriteType == WriteType.Test)
             {
                 return true;
             }
@@ -648,11 +657,17 @@ namespace PcmHacking
                     timeRemaining = TimeSpan.FromSeconds(secondsRemaining).ToString("mm\\:ss");
                 }
 
-                logger.StatusUpdateActivity($"Writing {thisPayloadSize} bytes to 0x{startAddress:X6}");
-                logger.StatusUpdatePercentDone((totalWritten * 100 / totalSize > 0) ? $"{totalWritten * 100 / totalSize}%" : string.Empty);
-                logger.StatusUpdateTimeRemaining($"T-{timeRemaining}");
-                logger.StatusUpdateKbps((bytesPerSecond > 0) ? $"{(double)bytesPerSecond * 8.00 / 1000.00:0.00} Kbps" : string.Empty);
-                logger.StatusUpdateProgressBar((double)(totalWritten + thisPayloadSize) / totalSize, true);
+                ProgressUpdate update = new()
+                {
+                    Percentage = (double)totalWritten / (double)totalSize,
+                    TimeRemaining = timeRemaining,
+                    Rate = bytesPerSecond * 8.00 / 1000.00,
+                    ProgressBarVisible = true,
+                    Address = $"{startAddress:X6}",
+                    PayloadLength = (int)thisPayloadSize,
+                    TotalLength = (int)totalSize
+                };
+                progress.Report(update);
 
                 await this.vehicle.SetDeviceTimeout(TimeoutScenario.WriteMemoryBlock);
 

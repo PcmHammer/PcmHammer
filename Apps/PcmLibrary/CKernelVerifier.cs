@@ -26,6 +26,7 @@ namespace PcmHacking
         private readonly OSIDInfo pcmInfo;
         private readonly UInt32 effectiveImageSize;
         private readonly ILogger logger;
+        private readonly IProgress<ProgressUpdate> progress;
 
         public int PollingDelayMs { get; set; } = 50;
 
@@ -37,13 +38,14 @@ namespace PcmHacking
         /// passes the smaller PCM-type size. The callers compute this; see CKernelReader/CKernelWriter.
         /// </param>
         public CKernelVerifier(
-            byte[] image,
-            IEnumerable<MemoryRange> ranges,
-            Vehicle vehicle,
-            Protocol protocol,
+            byte[] image, 
+            IEnumerable<MemoryRange> ranges, 
+            Vehicle vehicle, 
+            Protocol protocol, 
             OSIDInfo pcmInfo,
             UInt32 effectiveImageSize,
-            ILogger logger)
+            ILogger logger,
+            IProgress<ProgressUpdate> progress)
         {
             this.image = image;
             this.ranges = ranges;
@@ -52,6 +54,7 @@ namespace PcmHacking
             this.pcmInfo = pcmInfo;
             this.effectiveImageSize = effectiveImageSize;
             this.logger = logger;
+            this.progress = progress;
         }
 
         /// <summary>
@@ -100,7 +103,8 @@ namespace PcmHacking
 
                 await this.vehicle.SendToolPresentNotification();
                 this.vehicle.ClearDeviceMessageQueue();
-                logger.StatusUpdateActivity($"Processing CRC for range {range.Address:X6}-{range.Address + (range.Size - 1):X6}");
+                progress.Report(new ProgressUpdate { Activity = $"Processing CRC: range {range.Address:X6}-{range.Address + (range.Size - 1):X6}" });
+                //logger.StatusUpdateActivity($"Processing CRC: range {range.Address:X6}-{range.Address + (range.Size - 1):X6}");
 
                 // For C Kernels each poll of the PCM causes it to CRC 16kb of segment data.
                 // When the segment sum is available it is returned. Logged highs of 38 polls on a 1m P12.
@@ -116,8 +120,6 @@ namespace PcmHacking
                     {
                         return CrcVerificationResult.Cancelled;
                     }
-
-                    logger.StatusUpdateActivity($"Processing CRC for range {range.Address:X6}-{range.Address + (range.Size - 1):X6}");
 
                     await this.vehicle.SendToolPresentNotification();
 
@@ -155,7 +157,7 @@ namespace PcmHacking
                     crc = crcResponse.Value;
                     break;
                 }
-
+                progress.Report(new ProgressUpdate { Activity = $"Finished CRC calulations.", Percentage = 0, ProgressBarVisible = true });
                 logger.StatusUpdateProgressBar(0, false);
 
                 if (!success)

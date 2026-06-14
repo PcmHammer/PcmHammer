@@ -1,12 +1,4 @@
-﻿// SPDX-License-Identifier: GPL-3.0-only
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Runtime.InteropServices.WindowsRuntime;
-using Windows.Foundation;
-using Windows.Foundation.Collections;
-using Microsoft.UI.Xaml;
+﻿using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Data;
@@ -14,6 +6,14 @@ using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
 using PcmHacking.UnoUI.Utilities;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Runtime.InteropServices.WindowsRuntime;
+using Windows.Foundation;
+using Windows.Foundation.Collections;
+using Windows.UI.Core;
 
 namespace PcmHacking.UnoUI.Presentation
 {
@@ -24,11 +24,11 @@ namespace PcmHacking.UnoUI.Presentation
     /// This is mostly duplicated in WritePage.xaml.cs, but Uno didn't like it when I used a shared base class for both pages.
     /// TODO: try creating a single ReadWritePage/ReadWriteModel to eliminate the duplicated code.
     /// </remarks>
-    public sealed partial class ReadPage : Page
+    public sealed partial class ControllerActionPage : Page
 	{
-        private ReadModel? model;
+        private ControllerActionModel? model;
 
-        public ReadPage()
+        public ControllerActionPage()
 		{
 			this.InitializeComponent();
             this.DataContextChanged += this.OnDataContextChanged;
@@ -36,7 +36,7 @@ namespace PcmHacking.UnoUI.Presentation
 
         private void OnDataContextChanged(FrameworkElement sender, DataContextChangedEventArgs args)
         {
-            var newModel = (this.DataContext as ReadViewModel)?.Model as ReadModel;
+            var newModel = (this.DataContext as ControllerActionViewModel)?.Model as ControllerActionModel;
             if (newModel == null)
             {
                 return;
@@ -48,32 +48,10 @@ namespace PcmHacking.UnoUI.Presentation
             }
 
             this.model = newModel;
-
             bool darkMode = this.XamlRoot == null ? false : SystemThemeHelper.IsRootInDarkMode(this.XamlRoot);
             ColorUtilities.Initialize(darkMode);
             this.ProgressBar.Background = ColorUtilities.Instance.AccentBackgroundBrush;
-
-            this.model.UserLog.ForEach(async (value, cancellationToken) => await this.OnUserLogChanged(value ?? string.Empty, cancellationToken));
         }
 
-        private Task OnUserLogChanged(string value, CancellationToken cancellationToken)
-        {
-            this.DispatcherQueue.TryEnqueue(() =>
-            {
-                this.UserLogScrollViewer.ScrollToVerticalOffset(this.UserLogScrollViewer.ScrollableHeight);
-            });
-
-            return Task.CompletedTask;
-        }
-
-        public async void CustomKey_TextChanged(object sender, TextChangedEventArgs e)
-        {
-            string newKey = this.CustomKey.Text ?? string.Empty;
-            var model = (this.DataContext as ReadViewModel)?.Model;
-            if (model != null)
-            {
-                await model.CustomKeyChanged(newKey);
-            }
-        }
     }
 }

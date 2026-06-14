@@ -8,16 +8,16 @@ namespace PcmHacking
 {
     public class BluetoothDeviceFactory
     {
-        public async static Task<Device> CreateBluetoothDevice(string deviceName, ILogger logger)
+        public async static Task<Device> CreateBluetoothDevice(string deviceAddress, ILogger logger)
         {
-            BluetoothDeviceInfo bluetoothDeviceInfo = SerialBluetoothDiscovery.GatherPairedDevices().Where(d => d.DeviceName == deviceName).First();
+            BluetoothDeviceInfo bluetoothDeviceInfo = SerialBluetoothDiscovery.GatherPairedDevices().Where(d => d.DeviceAddress.ToString() == deviceAddress).First();
             BluetoothPort port = new(bluetoothDeviceInfo);
             await port.OpenAsync(new BluetoothPortConfiguration(bluetoothDeviceInfo));
-            if (deviceName.StartsWith("OBDX"))
+            if (bluetoothDeviceInfo.DeviceName.StartsWith("OBDX"))
             {
                 return new OBDXProDevice(port, logger);
             }
-            if (deviceName.StartsWith("OBDLink"))
+            if (bluetoothDeviceInfo.DeviceName.StartsWith("OBDLink"))
             {
                 return new ElmDevice(port, logger);
             }

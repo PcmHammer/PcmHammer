@@ -1,0 +1,13 @@
+{
+  "profiles": {
+    "PcmHacking.CLI": {
+      "commandName": "Project",
+      "commandLineArgs": "-dt Serial -da \"Mock Port\" -a Read -o F:\\CLI_Tests.bin -hs"
+    },
+    "WSL": {
+      "commandName": "WSL2",
+      "commandLineArgs": "{ProjectDir}/bin/Debug/net10.0-windows10.0.19041.0/PcmHacking.CLI.dll -dt Serial -da /dev/ttyS9 -a Read -o E:/untitled.bin -v -hs",
+      "distributionName": "Ubuntu"
+    }
+  }
+}

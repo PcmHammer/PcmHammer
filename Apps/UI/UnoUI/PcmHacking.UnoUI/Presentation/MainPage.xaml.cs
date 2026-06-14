@@ -24,6 +24,14 @@ public sealed partial class MainPage : Page
 #if ANDROID
         _displayRequest.RequestActive();
 #endif
+        AlertPrompt prompt = new AlertPrompt("Disclaimer!", 
+            "This version of PCM Hammer is an experimental build!\r\n\r\n" +
+            "Operations performed offer no guarantee of success,\r\n" +
+            "and as a result this software should be used with great care.\r\n" +
+            "Always have a backup ECU ready for any in vehicle work!\r\n" +
+            "The developers hold no responsibilty for any damaged hardware!");
+
+        _ = prompt.ShowAsync();
     }
 
     private void MainPage_BackRequested(object? sender, BackRequestedEventArgs e)

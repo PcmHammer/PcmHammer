@@ -322,7 +322,7 @@ namespace PcmHacking
         {
             lock (this.queue)
             {
-                this.Logger.AddDebugMessage("Received: " + message.ToString());
+                this.Logger.AddUserMessage("Received: " + message.ToString(), LogLevels.Trace); // TRACE
                 this.queue.Enqueue(message);
             }
         }

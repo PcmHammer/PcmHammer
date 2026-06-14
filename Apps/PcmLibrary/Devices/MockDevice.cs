@@ -44,6 +44,8 @@ namespace PcmHacking
         /// </summary>
         public override Task<bool> Initialize()
         {
+            this.MaxSendSize = 4096 + 12;
+            this.MaxReceiveSize = 4096 + 12;
             return Task.FromResult(true);
         }
 
@@ -62,8 +64,7 @@ namespace PcmHacking
         {
             Thread.Sleep(100);
 
-            StringBuilder builder = new StringBuilder();
-            this.Logger.AddDebugMessage("Sending message " + message.GetBytes().ToHex());
+            this.Logger.AddUserMessage("Sending message " + message.GetBytes().ToHex(), LogLevels.Trace);
             if (this.port is MockPort)
             {
                 this.port.Send(message.GetBytes());

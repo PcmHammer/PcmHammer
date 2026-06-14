@@ -3,10 +3,7 @@ using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.UI.Dispatching;
 using PcmHacking.UnoUI.Services;
 using System.Diagnostics;
-using System.Runtime.InteropServices;
 using System.Text;
-using Uno.Resizetizer;
-using Windows.System.Display;
 
 namespace PcmHacking.UnoUI;
 public partial class App : Application
@@ -155,9 +152,6 @@ public partial class App : Application
 
     protected async override void OnLaunched(LaunchActivatedEventArgs args)
     {
-#if ANDROID
-        await Platforms.Android.PermissionMethods.RequestAndroidPermissions();
-#endif
         var builder = this.CreateBuilder(args)
             // Add navigation support for toolkit controls such as TabBar and NavigationView
             .UseToolkitNavigation()
@@ -228,10 +222,17 @@ public partial class App : Application
             );
         MainWindow = builder.Window;
         StaticMainWindow = builder.Window;
-        MainWindow.AppWindow.Closing += (s, e) =>
+        MainWindow.AppWindow.Closing += async (s, e) =>
         {
-            App.ApplicationShutdownSource.Cancel();
+            if (!App.ApplicationShutdownSource.IsCancellationRequested)
+            {
+                App.ApplicationShutdownSource.Cancel();
+            }
+            await App.GetService<IConnectionService>().AwaitConnectionShutdown();
         };
+#if !WINDOWS
+        App.Current.Suspending += Current_Suspending;
+#endif
 
 #if WINDOWS
         StaticMainWindow.Title = "PCM Hammer";
@@ -241,12 +242,16 @@ public partial class App : Application
         Windows.Win32.PInvoke.ShowWindow((Windows.Win32.Foundation.HWND)_hwnd, Windows.Win32.UI.WindowsAndMessaging.SHOW_WINDOW_CMD.SW_MAXIMIZE);
 #endif
 
-#if DEBUG
-        MainWindow.UseStudio();
-#endif
         MainWindow.SetWindowIcon();
-
         Host = await builder.NavigateAsync<Shell>();
+    }
+
+    private async void Current_Suspending(object sender, SuspendingEventArgs e)
+    {
+        if (App.ApplicationShutdownSource.IsCancellationRequested)
+        {
+            await App.GetService<IConnectionService>().AwaitConnectionShutdown();
+        }
     }
 
     private static void RegisterRoutes(IViewRegistry views, IRouteRegistry routes)
@@ -259,14 +264,16 @@ public partial class App : Application
             new ViewMap<MenuPage, MenuModel>(),
 
             // Features on the main menu ("Test Write" is implemented with WritePage)
-            new ViewMap<SettingsPage, SettingsModel>(),
-            new ViewMap<WritePage, WriteModel>(),
-            new ViewMap<OtherFunctionsPage, OtherFunctionsModel>(),
-            new ViewMap<HelpPage, HelpModel>(),
+            new ViewMap<ControllerFunctionsPage, ControllerFunctionsModel>(),
             new ViewMap<DataLoggingPage, DataLoggingModel>(),
+            new ViewMap<HelpPage, HelpModel>(),
+            new ViewMap<SettingsPage, SettingsModel>(),
 
-            // "Other functions" pages
-            new ViewMap<ReadPage, ReadModel>(),
+            // Controller action pages/dialog found in "Read/Write functions"
+            new DataViewMap<ControllerActionSetupDialog, ControllerActionSetupModel, ActionResult>(),
+            new DataViewMap<ControllerActionPage, ControllerActionModel, ECUActionArguments>(),
+
+            // "Read/Write functions"'s other pages
             new ViewMap<DumpRamPage, DumpRamModel>(),
             new ViewMap<VinChangePage, VinChangeModel>(),
             new ViewMap<CrankRelearnPage, CrankRelearnModel>(),
@@ -276,10 +283,7 @@ public partial class App : Application
             
             // Data logging pages
             new DataViewMap<DataLoggingEditPage, DataLoggingEditModel, ParameterEditContext>(),
-            new DataViewMap<DataLoggingParametersPage, DataLoggingParametersModel, LoggingContext>(),
-
-            // This implements the delay before a read or write operation
-            new ResultDataViewMap<DelayPage, DelayModel, DelayResult>()
+            new DataViewMap<DataLoggingParametersPage, DataLoggingParametersModel, LoggingContext>()
         );
 
         routes.Register(

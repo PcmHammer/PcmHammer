@@ -17,6 +17,7 @@
     <PackageVersion Include="NUnit3TestAdapter" Version="4.5.0" />
     <PackageVersion Include="GitHubActionsTestLogger" Version="2.3.3" />
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageVersion Include="System.CommandLine" Version="2.0.7" />
     <PackageVersion Include="System.IO.Ports" Version="10.0.5" />
     <PackageVersion Include="System.Text.RegularExpressions" Version="4.3.1" />
     <PackageVersion Include="Tmds.DBus" Version="0.92.0" />
@@ -26,7 +27,7 @@
     <PackageVersion Include="Microsoft.Bcl.HashCode" Version="1.1.1" />
     <PackageVersion Include="System.Collections.Immutable" Version="7.0.0" />
     <PackageVersion Include="System.Xml.XmlSerializer" Version="4.3.0" />
-    <PackageVersion Include="Tmds.DBus.Protocol" Version="0.21.3" />
+    <PackageVersion Include="Tmds.DBus.Protocol" Version="0.92.0" />
     <PackageVersion Include="System.Management" Version="8.0.0" />
     <PackageVersion Include="Fody" Version="6.8.0" />
     <PackageVersion Include="Costura.Fody" Version="5.7.0" />

@@ -381,13 +381,13 @@ namespace PcmHacking
             {
                 // Error from the device
                 Message result = new Message(receive);
-                this.Logger.AddDebugMessage("XPro Error: " + result.ToString());
+                this.Logger.AddUserMessage("XPro Error: " + result.ToString(), LogLevels.Trace);
                 return Response.Create(ResponseStatus.Error, result);
             }
             else
             {
                 // Valid message from the device
-                this.Logger.AddDebugMessage("XPro: " + receive.ToHex());
+                this.Logger.AddUserMessage("XPro: " + receive.ToHex(), LogLevels.Trace); // TRACE
                 return Response.Create(ResponseStatus.Success, new Message(receive));
             }
         }
@@ -423,7 +423,7 @@ namespace PcmHacking
                         StrResp = "";
                         continue;
                     }
-                    else if (rx[0] == 0xA) continue;//newline
+                    else if (rx[0] == 0xA) continue; //newline
                     StrResp += Convert.ToChar(rx[0]);
                 }
 
@@ -458,17 +458,18 @@ namespace PcmHacking
         public override async Task<bool> IsCommandBroadcasting(byte command)
         {
             this.ClearMessageQueue();
-            byte[] expectedMsg = [Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, command, 0x00];
-            await this.ReadDVIPacket(200);
+            byte[] expectedMsg = [Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, command];
+            try
+            {
+                await this.ReadDVIPacket(200);
+            } catch
+            {
+                throw new IOException();
+            }
             Message incoming = await ReceiveMessage();
             if (incoming != null)
             {
-                byte[] recv = incoming.GetBytes();
-                if(recv.Length >= 5)
-                {
-                    expectedMsg[4] = recv[4];
-                }
-                if (Utility.CompareArrays(recv, expectedMsg))
+                if (Utility.CompareArraysPart(incoming.GetBytes(), expectedMsg))
                     return true;
             }
             return false;
@@ -560,12 +561,12 @@ namespace PcmHacking
                 byte[] Val = m.Value.GetBytes();
                 if (Val[0] == 0x20 && Val[2] == 0x00)
                 {
-                    this.Logger.AddDebugMessage("TX: " + message.ToString());
+                    this.Logger.AddUserMessage("TX: " + message.ToString(), LogLevels.Trace); // TRACE
                     return Response.Create(ResponseStatus.Success, message);
                 }
                 else if (Val[0] == 0x21 && Val[2] == 0x00)
                 {
-                    this.Logger.AddDebugMessage("TX: " + message.ToString());
+                    this.Logger.AddUserMessage("TX: " + message.ToString(), LogLevels.Trace); // TRACE
                     return Response.Create(ResponseStatus.Success, message);
                 }
                 else

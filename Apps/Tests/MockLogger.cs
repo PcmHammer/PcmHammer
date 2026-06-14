@@ -14,7 +14,7 @@ namespace Tests
         {            
         }
 
-        public void AddUserMessage(string message)
+        public void AddUserMessage(string message, LogLevels level = 0)
         {
         }
 

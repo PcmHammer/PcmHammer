@@ -80,7 +80,6 @@ namespace PcmHacking
         public async Task<Response<byte[]>> LoadKernelFromFile(string path)
         {
             byte[] file = { 0x00 }; // dummy value
-
             if (path == "")
             {
                 return Response.Create(ResponseStatus.Error, file);
@@ -356,8 +355,7 @@ namespace PcmHacking
             int claimedSize = Math.Min(4096, payload.Length);
 
             // Since we're going to lie about the size, we need to check for overflow ourselves.
-            // TODO: Can we just use the real size?
-            if (info.HardwareType == PcmType.P01 || info.HardwareType == PcmType.P59)
+            if (info.HardwareType == PcmType.P01)
             {
                 if (info.KernelBaseAddress + payload.Length > 0xFFCDFF)
                 {
@@ -381,16 +379,16 @@ namespace PcmHacking
             logger.AddDebugMessage($"Sending upload request for {(info.LoaderRequired ? "loader" : "kernel")} size {payload.Length}, loadaddress {loadAddress.ToString("X6")}");
             logger.AddUserMessage("Requesting upload permission.");
 
-            Query<bool> uploadPermissionQuery = new Query<bool>(
-                this.device,
-                () => protocol.CreateUploadRequest(info, claimedSize),
-                (message) => protocol.ParseUploadPermissionResponse(info, message),
-                this.logger,
-                cancellationToken,
-                this.notifier);
+                Query<bool> uploadPermissionQuery = new Query<bool>(
+                    this.device,
+                    () => protocol.CreateUploadRequest(info, claimedSize),
+                    (message) => protocol.ParseUploadPermissionResponse(info, message),
+                    this.logger,
+                    cancellationToken,
+                    this.notifier);
 
-            Response<bool> permissionResponse = await uploadPermissionQuery.Execute();
-            bool uploadAllowed = permissionResponse.Status == ResponseStatus.Success && permissionResponse.Value;
+                Response<bool> permissionResponse = await uploadPermissionQuery.Execute();
+                bool uploadAllowed = permissionResponse.Status == ResponseStatus.Success && permissionResponse.Value;
 
             if (!uploadAllowed)
             {

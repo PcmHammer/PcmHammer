@@ -27,7 +27,7 @@ namespace PcmHacking
         private CancellationTokenSource _cancellationTokenSource = new();
         private Task? _ReceiverTask = null;
         private int _packetTimeout = 3000;
-        private int _connectionFailTimeout = 2000;
+        private int _connectionFailTimeout = 6000;
         private bool _localDebug = false;
 
         public async Task DiscardBuffers()
@@ -54,11 +54,8 @@ namespace PcmHacking
             _connectedDevice = new BluetoothClient();
             try
             {
-                if (!_connectedDevice.Connected)
-                {
-                    Debug.WriteLine($"Attempting to connect to Bluetooth device {_deviceInfo.DeviceName} at address {_deviceInfo.DeviceAddress}...");
+                Debug.WriteLine($"Attempting to connect to Bluetooth device {_deviceInfo.DeviceName} at address {_deviceInfo.DeviceAddress}...");
                     await _connectedDevice.ConnectAsync(_deviceInfo.DeviceAddress, BluetoothService.SerialPort).AwaitWithTimeout(TimeSpan.FromMilliseconds(_connectionFailTimeout));
-                }
                 if (_connectedDevice != null && _connectedDevice.Connected)
                 {
                     _deviceStream = _connectedDevice.GetStream();
@@ -69,7 +66,8 @@ namespace PcmHacking
                 }
                 _connectedDevice?.Dispose();
             }
-            catch (Exception ex) {
+            catch (Exception ex)
+            {
                 Debug.WriteLine($"Error connecting to Bluetooth device {_deviceInfo.DeviceName}: {ex.Message}");
             }
             throw new IOException($"Connection attempt to Bluetooth device {_deviceInfo.DeviceName} failed!");
@@ -80,7 +78,7 @@ namespace PcmHacking
             DateTime startTime = DateTime.Now;
             while (await GetReceiveQueueSize() == 0)
             {
-                await Task.Delay(10);
+                Thread.Sleep(1);
                 if ((DateTime.Now - startTime).TotalMilliseconds > _packetTimeout)
                 {
                     throw new TimeoutException();
@@ -106,7 +104,7 @@ namespace PcmHacking
             if(_deviceStream == null) {
                 throw new IOException("Bluetooth device stream is null.");
             }
-            await _deviceStream.WriteAsync(buffer);
+            await _deviceStream.WriteAsync(buffer, 0, buffer.Length);
             await _deviceStream.FlushAsync().AwaitWithTimeout(TimeSpan.FromMilliseconds(_packetTimeout));
         }
 
@@ -134,7 +132,7 @@ namespace PcmHacking
                     int bytesRead = 0;
                     try
                     {
-                        bytesRead = await _deviceStream.ReadAsync(incomingData); // Read all available bytes.
+                        bytesRead = await _deviceStream.ReadAsync(incomingData, 0, incomingData.Length); // Read all available bytes.
                     }
                     catch (Exception ex)
                     {

@@ -18,7 +18,7 @@ public interface ISettingsService
 {
     string GetObd2DeviceCategory();
     string GetJ2534DeviceName();
-    string GetBluetoothDeviceName();
+    SerialPortListing GetBluetoothDeviceAddress();
     SerialPortListing GetObd2SerialPortName();
     string GetObd2SerialDeviceName();
     bool IsCanEnabled();
@@ -39,6 +39,9 @@ public interface ISettingsService
 
     bool Is4xReadWriteEnabled();
     void Is4xReadWriteEnabled(bool enabled);
+
+    bool IsDebugMode();
+    void SetDebugMode(bool enabled);
 
     bool IsCalibrationWritePreferred();
     void ShouldPreferCalibrationWrite(bool preferCalibrationWrite);
@@ -81,6 +84,7 @@ public class SettingsService : ISettingsService
     private const string UseAcceleratorToSaveLogsKey = "UseAcceleratorToSaveLogs";
     private const string UseCruiseButtonToSaveLogsKey = "UseCruiseButtonToSaveLogs";
     private const string UseKnockRetardToSaveLogsKey = "UseKnockRetardToSaveLogs";
+    private const string IsDebugModeKey = "IsDebugMode";
 
 
 
@@ -150,9 +154,13 @@ public class SettingsService : ISettingsService
         return _settingsListInterface[Obd2SerialDeviceNameKey] as string ?? string.Empty;
     }
 
-    public string GetBluetoothDeviceName()
+    public SerialPortListing GetBluetoothDeviceAddress()
     {
-        return _settingsListInterface[BluetoothDeviceNameKey] as string ?? string.Empty;
+        string result = _settingsListInterface[BluetoothDeviceNameKey] as string ?? string.Empty;
+        return new SerialPortListing
+        {
+            PortName = result
+        };
     }
 
     public string GetJ2534DeviceName()
@@ -368,5 +376,15 @@ public class SettingsService : ISettingsService
     public void SetUseKnockRetardToSaveLogs(bool value)
     {
         _settingsListInterface[UseKnockRetardToSaveLogsKey] = value;
+    }
+
+    public bool IsDebugMode()
+    {
+        return (bool)(_settingsListInterface[IsDebugModeKey] ?? false);
+    }
+
+    public void SetDebugMode(bool enabled)
+    {
+        _settingsListInterface[IsDebugModeKey] = enabled;
     }
 }
