@@ -47,10 +47,10 @@ namespace PcmHacking
 
         /// <summary>
         /// How long to wait for a PCM security time-delay lockout (response 0x37) to clear before
-        /// re-requesting a seed during an unlock. Sized to cover one ~10s forced-delay window plus a
-        /// small margin.
+        /// re-requesting a seed during an unlock. Sized to cover one ~15s forced-delay window plus a
+        /// small margin. Testing shows a P01 in lockout requires at least 15 seconds from power on time.
         /// </summary>
-        private static readonly TimeSpan SecurityDelayLockout = TimeSpan.FromSeconds(11);
+        private static readonly TimeSpan SecurityDelayLockout = TimeSpan.FromSeconds(16);
 
         public CancellationTokenSource ShutdownSignalSource = new CancellationTokenSource(); // Use this as a trigger to say we are ready to dispose the underlying device.
 
@@ -547,8 +547,14 @@ namespace PcmHacking
                     // send-attempt budget.
                     lockoutRetried = true;
                     sendAttempt--;
-                    logger.AddUserMessage("PCM is in a security time-delay lockout. Waiting to retry.");
-                    await Task.Delay(SecurityDelayLockout);
+                    int secondsLeft = (int)SecurityDelayLockout.TotalSeconds;
+                    logger.AddUserMessage($"PCM is in a security time-delay lockout. Waiting {secondsLeft} seconds before re-attempting unlock.");
+                    while(secondsLeft > 0)
+                    {
+                        logger.AddUserMessage($"{secondsLeft}...");
+                        await Task.Delay(1000);
+                        secondsLeft--;
+                    }
                 }
 
                 // No usable seed this round; clear anything stale and let the loop resend.
