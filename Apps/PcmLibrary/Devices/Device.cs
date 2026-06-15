@@ -67,6 +67,20 @@ namespace PcmHacking
         private Queue<Message> queue = new Queue<Message>();
 
         /// <summary>
+        /// Optional predicate deciding which received messages are "on-conversation"
+        /// for the request/response exchange currently in progress. Null (the default,
+        /// outside of a Query) means accept every message, preserving legacy behavior.
+        /// </summary>
+        /// <remarks>
+        /// Installed and removed via <see cref="FilterInbound"/> so that the filter's
+        /// lifetime is exactly the exchange that set it: when the owning code stops
+        /// trying (success, error, retry exhaustion, cancellation, or an exception) the
+        /// scope is disposed and the filter is gone. A failed or aborted operation can
+        /// never leave a stale filter behind to block the next one.
+        /// </remarks>
+        private Predicate<Message>? inboundFilter;
+
+        /// <summary>
         /// For the AllPro, we need to tell the interface how long to listen for incoming messages.
         /// For other devices this is not so critical, however I suspect it might still be useful to set serial-port timeouts.
         /// </summary>
@@ -166,6 +180,13 @@ namespace PcmHacking
         /// Number of messages recevied so far.
         /// </summary>
         public int ReceivedMessageCount { get { return this.queue.Count; } }
+
+        /// <summary>
+        /// Count of received messages dropped by an active inbound filter. Useful as a
+        /// diagnostic of how much off-conversation bus traffic is being rejected
+        /// (expected to be 0 on a quiet bench, non-zero in-car).
+        /// </summary>
+        public long DroppedMessageCount { get; private set; }
 
         /// <summary>
         /// Gets the number of messages waiting in the receive queue.
@@ -316,14 +337,71 @@ namespace PcmHacking
         protected abstract void Dispose(bool disposing);
 
         /// <summary>
-        /// Add a received message to the queue.
+        /// Install an inbound message filter for the duration of one request/response
+        /// exchange. While active, received messages that the predicate rejects are
+        /// dropped (and counted) instead of being queued. Disposing the returned scope
+        /// removes the filter and restores any previously-active one.
+        /// </summary>
+        /// <remarks>
+        /// The intended owner is the request/response primitive (the Query class): it opens
+        /// the scope around its send/receive loop with a <c>using</c>, so the filter is
+        /// active exactly while that exchange is still trying and is guaranteed to be
+        /// released on every exit path. Nesting is supported; the innermost (most recent)
+        /// scope is the active one.
+        /// </remarks>
+        public InboundFilterScope FilterInbound(Predicate<Message> accept)
+        {
+            return new InboundFilterScope(this, accept);
+        }
+
+        /// <summary>
+        /// Add a received message to the queue, unless an active inbound filter rejects it.
         /// </summary>
         protected void Enqueue(Message message)
         {
+            Predicate<Message>? filter = this.inboundFilter;
+            if (filter != null && !filter(message))
+            {
+                // Off-conversation bus traffic: count it (see DroppedMessageCount) but don't
+                // log each one — in-car that would be extremely chatty.
+                this.DroppedMessageCount++;
+                return;
+            }
+
             lock (this.queue)
             {
                 this.Logger.AddDebugMessage("Received: " + message.ToString());
                 this.queue.Enqueue(message);
+            }
+        }
+
+        /// <summary>
+        /// Disposable scope that keeps an inbound filter installed on a Device for the
+        /// lifetime of one request/response exchange. Created via
+        /// <see cref="Device.FilterInbound"/>; disposing restores the prior filter.
+        /// </summary>
+        public sealed class InboundFilterScope : IDisposable
+        {
+            private readonly Device device;
+            private readonly Predicate<Message>? previous;
+            private bool disposed;
+
+            internal InboundFilterScope(Device device, Predicate<Message> accept)
+            {
+                this.device = device;
+                this.previous = device.inboundFilter;   // remember for restore (nesting)
+                device.inboundFilter = accept;           // innermost scope wins
+            }
+
+            public void Dispose()
+            {
+                if (this.disposed)
+                {
+                    return;
+                }
+
+                this.disposed = true;
+                this.device.inboundFilter = this.previous;
             }
         }
 

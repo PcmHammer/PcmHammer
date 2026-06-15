@@ -263,6 +263,11 @@ namespace PcmHacking
         }
 
 
+        // TODO (message filtering, 1c): verify recovery-mode detection still works with
+        // inbound filtering active. These listens have no preceding request to derive a
+        // filter from and run directly on the device (not via Query<T>), so they should be
+        // unaffected — but confirm on hardware that an unsolicited recovery broadcast is
+        // still seen once the filter feature is in use.
         public async Task<Response<bool>> CheckForRecoveryMode(CancellationToken cancellationToken)
         {
             bool result = await this.device.IsCommandBroadcasting(0xA2);
@@ -309,6 +314,15 @@ namespace PcmHacking
             await this.device.SetTimeout(TimeoutScenario.ReadProperty);
 
             Message seedRequest = this.protocol.CreateSeedRequest();
+
+            // Seed and key are both Tool<->PCM exchanges, so one inbound filter (replies from
+            // the PCM, addressed to the tool) covers the whole unlock. The scope spans every
+            // seed re-request and security-delay wait, and is released the moment this method
+            // returns (success, denial, or give-up) so a failed/aborted unlock leaves no filter
+            // behind. The brute-force tool has its own bespoke seed/key loop in BruteForcer and
+            // is intentionally left unfiltered.
+            using (this.device.FilterInbound(MessageFilters.RepliesFrom(seedRequest)))
+            {
 
             // The PCM permits a couple of key attempts and then forces a time delay before each
             // further attempt. A wrong key or an outright denial will never succeed, so we fail fast on
@@ -512,6 +526,7 @@ namespace PcmHacking
 
             logger.AddUserMessage("Unable to process unlock response.");
             return false;
+            } // using (FilterInbound)
         }
 
         /// <summary>
