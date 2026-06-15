@@ -22,44 +22,14 @@ namespace PcmHacking
         /// </summary>
         public async Task<Response<string>> QueryVin()
         {
-            await this.device.SetTimeout(TimeoutScenario.ReadProperty);
-
-            this.device.ClearMessageQueue();
-
-            if (!await this.device.SendMessage(this.protocol.CreateVinRequest1()))
-            {
-                return Response.Create(ResponseStatus.Timeout, "Unknown. Request for block 1 failed.");
-            }
-
-            Message response1 = await this.device.ReceiveMessage();
-            if (response1 == null)
-            {
-                return Response.Create(ResponseStatus.Timeout, "Unknown. No response to request for block 1.");
-            }
-
-            if (!await this.device.SendMessage(this.protocol.CreateVinRequest2()))
-            {
-                return Response.Create(ResponseStatus.Timeout, "Unknown. Request for block 2 failed.");
-            }
-
-            Message response2 = await this.device.ReceiveMessage();
-            if (response2 == null)
-            {
-                return Response.Create(ResponseStatus.Timeout, "Unknown. No response to request for block 2.");
-            }
-
-            if (!await this.device.SendMessage(this.protocol.CreateVinRequest3()))
-            {
-                return Response.Create(ResponseStatus.Timeout, "Unknown. Request for block 3 failed.");
-            }
-
-            Message response3 = await this.device.ReceiveMessage();
-            if (response3 == null)
-            {
-                return Response.Create(ResponseStatus.Timeout, "Unknown. No response to request for block 3.");
-            }
-
-            return this.protocol.ParseVinResponses(response1.GetBytes(), response2.GetBytes(), response3.GetBytes());
+            return await this.ReadBlockSequence(
+                new Func<Message>[]
+                {
+                    this.protocol.CreateVinRequest1,
+                    this.protocol.CreateVinRequest2,
+                    this.protocol.CreateVinRequest3,
+                },
+                r => this.protocol.ParseVinResponses(r[0].GetBytes(), r[1].GetBytes(), r[2].GetBytes()));
         }
 
         /// <summary>
@@ -67,44 +37,14 @@ namespace PcmHacking
         /// </summary>
         public async Task<Response<string>> QuerySerial()
         {
-            await this.device.SetTimeout(TimeoutScenario.ReadProperty);
-
-            this.device.ClearMessageQueue();
-
-            if (!await this.device.SendMessage(this.protocol.CreateSerialRequest1()))
-            {
-                return Response.Create(ResponseStatus.Timeout, "Unknown. Request for block 1 failed.");
-            }
-
-            Message response1 = await this.device.ReceiveMessage();
-            if (response1 == null)
-            {
-                return Response.Create(ResponseStatus.Timeout, "Unknown. No response to request for block 1.");
-            }
-
-            if (!await this.device.SendMessage(this.protocol.CreateSerialRequest2()))
-            {
-                return Response.Create(ResponseStatus.Timeout, "Unknown. Request for block 2 failed.");
-            }
-
-            Message response2 = await this.device.ReceiveMessage();
-            if (response2 == null)
-            {
-                return Response.Create(ResponseStatus.Timeout, "Unknown. No response to request for block 2.");
-            }
-
-            if (!await this.device.SendMessage(this.protocol.CreateSerialRequest3()))
-            {
-                return Response.Create(ResponseStatus.Timeout, "Unknown. Request for block 3 failed.");
-            }
-
-            Message response3 = await this.device.ReceiveMessage();
-            if (response3 == null)
-            {
-                return Response.Create(ResponseStatus.Timeout, "Unknown. No response to request for block 3.");
-            }
-
-            return this.protocol.ParseSerialResponses(response1, response2, response3);
+            return await this.ReadBlockSequence(
+                new Func<Message>[]
+                {
+                    this.protocol.CreateSerialRequest1,
+                    this.protocol.CreateSerialRequest2,
+                    this.protocol.CreateSerialRequest3,
+                },
+                r => this.protocol.ParseSerialResponses(r[0], r[1], r[2]));
         }
 
         /// <summary>
@@ -253,6 +193,51 @@ namespace PcmHacking
 
             var query = this.CreateQuery(generator, this.protocol.ParseUInt32FromBlockReadResponse, cancellationToken);
             return await query.Execute();
+        }
+
+        /// <summary>
+        /// Helper for properties the PCM returns as a fixed sequence of VPW blocks (VIN and
+        /// serial are each three blocks). Sends each block request in turn, collects the
+        /// replies under a single inbound-filter scope, then hands the raw responses to the
+        /// caller's parser.
+        /// </summary>
+        /// <remarks>
+        /// This multi-block shape is VPW-specific: on CAN the same data is a single
+        /// ReadDataByIdentifier, so this stays a VPW-local helper rather than a cross-protocol
+        /// abstraction. The CAN path fans out separately at the command layer.
+        /// </remarks>
+        private async Task<Response<string>> ReadBlockSequence(
+            Func<Message>[] requestFactories,
+            Func<Message[], Response<string>> parse)
+        {
+            await this.device.SetTimeout(TimeoutScenario.ReadProperty);
+            this.device.ClearMessageQueue();
+
+            Message[] responses = new Message[requestFactories.Length];
+            Message first = requestFactories[0]();
+
+            // The whole sequence is one logical read from the PCM, so filter to its replies
+            // for the duration. All blocks target the same module, so the first request's
+            // predicate covers them all.
+            using (this.device.FilterInbound(MessageFilters.RepliesFrom(first)))
+            {
+                for (int i = 0; i < requestFactories.Length; i++)
+                {
+                    Message request = (i == 0) ? first : requestFactories[i]();
+                    if (!await this.device.SendMessage(request))
+                    {
+                        return Response.Create(ResponseStatus.Timeout, $"Unknown. Request for block {i + 1} failed.");
+                    }
+
+                    responses[i] = await this.device.ReceiveMessage();
+                    if (responses[i] == null)
+                    {
+                        return Response.Create(ResponseStatus.Timeout, $"Unknown. No response to request for block {i + 1}.");
+                    }
+                }
+            }
+
+            return parse(responses);
         }
     }
 }

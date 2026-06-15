@@ -184,6 +184,8 @@ namespace PcmHacking
                 // its time caculating CRCs rather than responding to messages.
                 int retryDelay = 1500;
                 Message query = this.protocol.CreateCrcQuery(range.Address, range.Size);
+                using (this.device.FilterInbound(MessageFilters.RepliesFrom(query)))
+                {
                 for (int attempts = 0; attempts < 100; attempts++)
                 {
                     if (cancellationToken.IsCancellationRequested)
@@ -215,6 +217,7 @@ namespace PcmHacking
                     crc = crcResponse.Value;
                     break;
                 }
+                } // using (FilterInbound)
 
                 this.device.ClearMessageQueue();
 
@@ -340,7 +343,7 @@ namespace PcmHacking
                         continue;
                     }
 
-                    if (await this.WaitForSuccess(this.protocol.ParseUploadResponse, cancellationToken))
+                    if (await this.WaitForSuccess(this.protocol.ParseUploadResponse, cancellationToken, request: blockMessage))
                     {
                         break;
                     }

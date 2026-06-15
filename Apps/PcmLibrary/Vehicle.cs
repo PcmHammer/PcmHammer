@@ -252,6 +252,18 @@ namespace PcmHacking
                 this.notifier);
         }
 
+        /// <summary>
+        /// Open an inbound message-filter scope for a request/response exchange driven
+        /// through this Vehicle (e.g. the CKernel* read/verify loops, which don't hold a
+        /// direct Device reference). While the returned scope is held, bus traffic that
+        /// isn't a reply to the given request is dropped; dispose it when the exchange is
+        /// done. Mirrors how the Query class filters its own exchanges.
+        /// </summary>
+        public IDisposable FilterRepliesTo(Message request)
+        {
+            return this.device.FilterInbound(MessageFilters.RepliesFrom(request));
+        }
+
         public async Task<bool> SendMessage(Message message)
         {
             return await this.device.SendMessage(message);
@@ -578,31 +590,40 @@ namespace PcmHacking
         /// <summary>
         /// Read messages from the device, ignoring irrelevant messages.
         /// </summary>
-        private async Task<bool> WaitForSuccess(Func<Message, Response<bool>> filter, CancellationToken cancellationToken, int attempts = MaxReceiveAttempts)
+        private async Task<bool> WaitForSuccess(Func<Message, Response<bool>> filter, CancellationToken cancellationToken, int attempts = MaxReceiveAttempts, Message? request = null)
         {
-            for (int attempt = 1; attempt <= attempts; attempt++)
+            // When the caller passes the request it just sent (e.g. a flash-write block), filter
+            // inbound traffic to replies from that module for the duration of this wait. Callers
+            // that don't (legacy) get the previous unfiltered behavior.
+            IDisposable? filterScope = request != null
+                ? this.device.FilterInbound(MessageFilters.RepliesFrom(request))
+                : null;
+            using (filterScope)
             {
-                if (cancellationToken.IsCancellationRequested)
+                for (int attempt = 1; attempt <= attempts; attempt++)
                 {
-                    break;
-                }
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        break;
+                    }
 
-                Message message = await this.device.ReceiveMessage();
-                if (message == null)
-                {
-                    await this.SendToolPresentNotification();
-                    continue;
-                }
+                    Message message = await this.device.ReceiveMessage();
+                    if (message == null)
+                    {
+                        await this.SendToolPresentNotification();
+                        continue;
+                    }
 
-                Response<bool> response = filter(message);
-                if ((response.Status != ResponseStatus.Success) && (response.Status != ResponseStatus.Refused))
-                {
-                    logger.AddDebugMessage("Ignoring message: " + response.Status + "  " + message.ToString());
-                    continue;
-                }
+                    Response<bool> response = filter(message);
+                    if ((response.Status != ResponseStatus.Success) && (response.Status != ResponseStatus.Refused))
+                    {
+                        logger.AddDebugMessage("Ignoring message: " + response.Status + "  " + message.ToString());
+                        continue;
+                    }
 
-                logger.AddDebugMessage("Found response, " + response.Status);
-                return response.Value;
+                    logger.AddDebugMessage("Found response, " + response.Status);
+                    return response.Value;
+                }
             }
 
             return false;
@@ -625,30 +646,36 @@ namespace PcmHacking
             }
 
             ResponseStatus lastStatus = ResponseStatus.Error;
-            for (int receiveAttempt = 1; receiveAttempt <= MaxReceiveAttempts; receiveAttempt++)
+            // Filter the read payload to replies from the PCM we addressed. This is the bulk,
+            // highest-volume loop, so on an in-car (noisy) bus it benefits most from dropping
+            // off-conversation traffic before it eats into the receive budget.
+            using (this.device.FilterInbound(MessageFilters.RepliesFrom(message)))
             {
-                if (cancellationToken.IsCancellationRequested)
+                for (int receiveAttempt = 1; receiveAttempt <= MaxReceiveAttempts; receiveAttempt++)
                 {
-                    return Response.Create<byte[]>(ResponseStatus.Cancelled, new byte[0]);
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        return Response.Create<byte[]>(ResponseStatus.Cancelled, new byte[0]);
+                    }
+
+                    Message payloadMessage = await this.device.ReceiveMessage();
+                    if (payloadMessage == null)
+                    {
+                        logger.AddDebugMessage("No payload following read request.");
+                        continue;
+                    }
+
+                    logger.AddDebugMessage("Processing message");
+
+                    Response<byte[]> payloadResponse = messageParser(payloadMessage);
+                    if (payloadResponse.Status == ResponseStatus.Success)
+                    {
+                        return payloadResponse;
+                    }
+
+                    lastStatus = payloadResponse.Status;
+                    logger.AddDebugMessage("Unable to process response: " + lastStatus + " " + payloadMessage.ToString());
                 }
-
-                Message payloadMessage = await this.device.ReceiveMessage();
-                if (payloadMessage == null)
-                {
-                    logger.AddDebugMessage("No payload following read request.");
-                    continue;
-                }
-
-                logger.AddDebugMessage("Processing message");
-
-                Response<byte[]> payloadResponse = messageParser(payloadMessage);
-                if (payloadResponse.Status == ResponseStatus.Success)
-                {
-                    return payloadResponse;
-                }
-
-                lastStatus = payloadResponse.Status;
-                logger.AddDebugMessage("Unable to process response: " + lastStatus + " " + payloadMessage.ToString());
             }
 
             return Response.Create<byte[]>(lastStatus, new byte[0]);

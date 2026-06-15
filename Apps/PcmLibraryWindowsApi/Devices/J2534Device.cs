@@ -76,7 +76,7 @@ namespace PcmHacking
 
         public override string ToString()
         {
-            string deviceName = this.J2534Port.LoadedDevice?.Name;
+            string? deviceName = this.J2534Port.LoadedDevice?.Name;
             return string.IsNullOrEmpty(deviceName)
                 ? "J2534 Device"
                 : "J2534 " + deviceName;

@@ -685,7 +685,7 @@ namespace PcmHacking
                     continue;
                 }
 
-                if (await WaitForSuccess(this.protocol.ParseUploadResponse, cancellationToken))
+                if (await WaitForSuccess(this.protocol.ParseUploadResponse, cancellationToken, request: message))
                 {
                     return Response.Create(ResponseStatus.Success, true, retryCount);
                 }
