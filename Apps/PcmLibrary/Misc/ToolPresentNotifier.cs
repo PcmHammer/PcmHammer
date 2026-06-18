@@ -74,6 +74,12 @@ namespace PcmHacking
         /// <summary>
         /// Send a tool-present message.
         /// </summary>
+        /// <remarks>
+        /// This is a fire-and-forget broadcast with no expected reply, so it sends directly
+        /// on the device rather than through a Query. That keeps it outside the Query
+        /// inbound-filter scope — there is no response to filter for, and it must not disturb
+        /// the filter belonging to whatever exchange is currently in progress.
+        /// </remarks>
         private async Task SendNotification()
         {
             logger.AddDebugMessage("Sending 'test device present' notification.");

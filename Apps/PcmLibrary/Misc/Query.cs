@@ -49,12 +49,27 @@ namespace PcmHacking
         /// </summary>
         private ILogger logger;
 
+        /// <summary>
+        /// Optional inbound address filter, installed on the device for the duration of
+        /// Execute(). Decides which received messages are on-conversation for this
+        /// exchange; unrelated bus traffic is dropped before it reaches the response
+        /// selector. Null means "derive a default from the outgoing request".
+        /// </summary>
+        private Func<Message, Predicate<Message>>? acceptInbound;
+
         public int MaxTimeouts { get; set; }
 
         /// <summary>
         /// Constructor.
         /// </summary>
-        public Query(Device device, Func<Message> generator, Func<Message, Response<T>> filter, ILogger logger, CancellationToken cancellationToken, ToolPresentNotifier? notifier = null)
+        /// <param name="acceptInbound">
+        /// Optional factory that, given the outgoing request, returns the predicate used
+        /// to filter inbound traffic for this exchange. When null,
+        /// <see cref="MessageFilters.RepliesFrom"/> is used: it keeps only messages addressed
+        /// to the tool from the module we queried. Pass a predicate that accepts everything
+        /// for broadcast / multi-module exchanges.
+        /// </param>
+        public Query(Device device, Func<Message> generator, Func<Message, Response<T>> filter, ILogger logger, CancellationToken cancellationToken, ToolPresentNotifier? notifier = null, Func<Message, Predicate<Message>>? acceptInbound = null)
         {
             this.device = device;
             this.generator = generator;
@@ -62,6 +77,7 @@ namespace PcmHacking
             this.logger = logger;
             this.notifier = notifier;
             this.cancellationToken = cancellationToken;
+            this.acceptInbound = acceptInbound;
             this.MaxTimeouts = 5;
         }
 
@@ -74,6 +90,13 @@ namespace PcmHacking
 
             Message request = this.generator();
 
+            // Filter inbound traffic to this conversation for as long as this exchange is
+            // trying. The 'using' guarantees the filter is removed on every exit path below
+            // (success, error, retry exhaustion, cancellation, or exception), so the filter
+            // never outlives the attempt.
+            Predicate<Message> accept = this.acceptInbound != null ? this.acceptInbound(request) : MessageFilters.RepliesFrom(request);
+            using (this.device.FilterInbound(accept))
+            {
             bool success = false;
             for (int sendAttempt = 1; sendAttempt <= 2; sendAttempt++)
             {
@@ -144,6 +167,7 @@ namespace PcmHacking
             }
 
             return Response.Create(ResponseStatus.Error, default(T)!);
+            } // using (FilterInbound)
         }
     }
 }

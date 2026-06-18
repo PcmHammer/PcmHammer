@@ -110,6 +110,9 @@ namespace PcmHacking
                 UInt32 crc = 0;
 
                 Message query = this.protocol.CreateCrcQuery(range.Address, range.Size);
+                // Filter inbound traffic to CRC replies from the PCM for this range's poll loop.
+                using (this.vehicle.FilterRepliesTo(query))
+                {
                 while (true)
                 {
                     if (cancellationToken.IsCancellationRequested)
@@ -155,6 +158,7 @@ namespace PcmHacking
                     crc = crcResponse.Value;
                     break;
                 }
+                } // using (FilterRepliesTo)
 
                 logger.StatusUpdateProgressBar(0, false);
 

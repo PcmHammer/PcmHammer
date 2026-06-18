@@ -563,6 +563,10 @@ namespace PcmHacking
 
                 // Check for any devices that refused to switch to 4X speed.
                 // These responses usually get lost, so this code might be pointless.
+                // Like RequestHighSpeedPermission above, this listens directly on the device
+                // rather than via Query<T>: the refusals can come from any module on the bus,
+                // and Query<T>'s inbound filter would drop everything except replies from a
+                // single addressed module.
                 Stopwatch sw = new Stopwatch();
                 sw.Start();
 
@@ -610,6 +614,11 @@ namespace PcmHacking
         /// </summary>
         private async Task<List<byte>?> RequestHighSpeedPermission(ToolPresentNotifier notifier)
         {
+            // This is a broadcast exchange: every module on the bus may answer, and a single
+            // refusal must abort the switch. It deliberately drives the device directly rather
+            // than through Query<T>, because Query<T> installs an inbound filter that keeps only
+            // replies from the one module it addressed. That filter would discard the other
+            // modules' grant/refuse responses we specifically need to collect here.
             Message permissionCheck = this.protocol.CreateHighSpeedPermissionRequest(DeviceId.Broadcast);
             await this.device.SendMessage(permissionCheck);
 
@@ -676,7 +685,7 @@ namespace PcmHacking
                     continue;
                 }
 
-                if (await WaitForSuccess(this.protocol.ParseUploadResponse, cancellationToken))
+                if (await WaitForSuccess(this.protocol.ParseUploadResponse, cancellationToken, request: message))
                 {
                     return Response.Create(ResponseStatus.Success, true, retryCount);
                 }

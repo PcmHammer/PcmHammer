@@ -215,6 +215,12 @@ namespace PcmHacking
         /// <summary>
         /// Read a dpid response from the PCM.
         /// </summary>
+        /// <remarks>
+        /// Intentionally not wrapped in an inbound filter: this consumes a continuous DPID
+        /// data stream that an earlier RequestDpids set running, so there is no paired request
+        /// here to derive a filter from, and filtering a stream could drop log rows. Like the
+        /// recovery-mode listens, it stays unfiltered.
+        /// </remarks>
         public async Task<RawLogData?> ReadLogData()
         {
             Message message;
@@ -259,13 +265,19 @@ namespace PcmHacking
                 return Response.Create(ResponseStatus.Error, 0);
             }
 
-            Message responseMessage = await this.ReceiveMessage();
-            if (responseMessage == null)
+            // Single-target request/response, so filter to the PCM's reply: only one receive
+            // happens here, so dropping off-conversation traffic at the device keeps that one
+            // read from grabbing unrelated bus noise.
+            using (this.device.FilterInbound(MessageFilters.RepliesFrom(request)))
             {
-                return Response.Create(ResponseStatus.Error, 0);
-            }
+                Message responseMessage = await this.ReceiveMessage();
+                if (responseMessage == null)
+                {
+                    return Response.Create(ResponseStatus.Error, 0);
+                }
 
-            return this.protocol.ParsePidResponse(responseMessage);
+                return this.protocol.ParsePidResponse(responseMessage);
+            }
         }
 
         public async Task<Response<uint>> GetRam(int address)
