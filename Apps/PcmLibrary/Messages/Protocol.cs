@@ -20,6 +20,19 @@ namespace PcmHacking
     public partial class Protocol
     {
         /// <summary>
+        /// VPW device id of the module we are addressing (the message destination in requests, and
+        /// the expected source in responses). Defaults to the PCM; set from the selected Target so
+        /// the same builders/parsers can address a different module (e.g. a transmission controller).
+        /// </summary>
+        public byte TargetVpwId { get; set; } = DeviceId.Pcm;
+
+        /// <summary>
+        /// VPW device id of this tool (the message source in requests, and the expected destination
+        /// in responses). Defaults to 0xF0; settable in case the tool address must change.
+        /// </summary>
+        public byte ToolId { get; set; } = DeviceId.Tool;
+
+        /// <summary>
         /// Initialize a new instance of the Protocol class.
         /// </summary>
         public Protocol()

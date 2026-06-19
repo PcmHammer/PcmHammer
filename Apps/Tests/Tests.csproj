@@ -73,6 +73,10 @@
     <Compile Include="AvtTests.cs" />
     <Compile Include="CanLoggerTests.cs" />
     <Compile Include="CanParserTests.cs" />
+    <Compile Include="FlashChipTests.cs" />
+    <Compile Include="GmlanTests.cs" />
+    <Compile Include="IsoTpCodecTests.cs" />
+    <Compile Include="IsoTpTransportTests.cs" />
     <Compile Include="LoggingTests.cs" />
     <Compile Include="MockLogger.cs" />
     <Compile Include="TestLogger.cs" />

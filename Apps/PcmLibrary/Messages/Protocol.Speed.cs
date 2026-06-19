@@ -19,7 +19,7 @@ namespace PcmHacking
         /// </summary>
         public Message CreateHighSpeedPermissionRequest(byte deviceId)
         {
-            return new Message(new byte[] { Priority.Physical0, deviceId, DeviceId.Tool, Mode.HighSpeedPrepare });
+            return new Message(new byte[] { Priority.Physical0, deviceId, ToolId, Mode.HighSpeedPrepare });
         }
 
         /// <summary>
@@ -27,7 +27,7 @@ namespace PcmHacking
         /// </summary>
         public Message CreateBeginHighSpeed(byte deviceId)
         {
-            return new Message(new byte[] { Priority.Physical0, deviceId, DeviceId.Tool, Mode.HighSpeed });
+            return new Message(new byte[] { Priority.Physical0, deviceId, ToolId, Mode.HighSpeed });
         }
 
         /// <summary>
@@ -36,7 +36,7 @@ namespace PcmHacking
         public HighSpeedPermissionResult ParseHighSpeedPermissionResponse(Message message)
         {
             byte[] actual = message.GetBytes();
-            byte[] granted = new byte[] { Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, Mode.HighSpeedPrepare + Mode.Response };
+            byte[] granted = new byte[] { Priority.Physical0, ToolId, TargetVpwId, Mode.HighSpeedPrepare + Mode.Response };
 
             // Priority
             if (actual[0] != granted[0])
@@ -70,7 +70,7 @@ namespace PcmHacking
         public Response<bool> ParseHighSpeedRefusal(Message message)
         {
             byte[] actual = message.GetBytes();
-            byte[] refusal = new byte[] { Priority.Physical0, DeviceId.Tool, DeviceId.Broadcast, Mode.HighSpeedPrepare + Mode.Response };
+            byte[] refusal = new byte[] { Priority.Physical0, ToolId, DeviceId.Broadcast, Mode.HighSpeedPrepare + Mode.Response };
 
             // Priority
             if (actual[0] != refusal[0])

@@ -209,6 +209,7 @@ namespace PcmHacking
             this.serialDeviceList.Items.Add(ElmDevice.DeviceType);
             this.serialDeviceList.Items.Add(AvtDevice.DeviceType);
             this.serialDeviceList.Items.Add(OBDXProDevice.DeviceType);
+            this.serialDeviceList.Items.Add(SlcanDevice.DeviceType);
 
             // This is useful for testing without an actual PCM.
             // You'll need to uncomment a line in FillPortList as well as this one.

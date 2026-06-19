@@ -12,7 +12,7 @@ namespace PcmHacking
         /// </summary>
         public Message CreateReadRequest(byte Block)
         {
-            byte[] Bytes = new byte[] { Priority.Physical0, DeviceId.Pcm, DeviceId.Tool, Mode.ReadBlock, Block };
+            byte[] Bytes = new byte[] { Priority.Physical0, TargetVpwId, ToolId, Mode.ReadBlock, Block };
             return new Message(Bytes);
         }
 
@@ -60,7 +60,7 @@ namespace PcmHacking
             byte[] bytes = message.GetBytes();
             int result = 0;
 
-            byte[] expected = new byte[] { Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, responseMode };
+            byte[] expected = new byte[] { Priority.Physical0, ToolId, TargetVpwId, responseMode };
             if (!TryVerifyInitialBytes(bytes, expected, out ResponseStatus status))
             {
                 return Response.Create(ResponseStatus.Error, (UInt32)result);
@@ -127,19 +127,19 @@ namespace PcmHacking
         {
             string result = "Unknown";
 
-            byte[] expected = new byte[] { Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, Mode.ReadBlock + Mode.Response, BlockId.Vin1 };
+            byte[] expected = new byte[] { Priority.Physical0, ToolId, TargetVpwId, Mode.ReadBlock + Mode.Response, BlockId.Vin1 };
             if (!TryVerifyInitialBytes(response1, expected, out ResponseStatus status))
             {
                 return Response.Create(status, result);
             }
 
-            expected = new byte[] { Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, Mode.ReadBlock + Mode.Response, BlockId.Vin2 };
+            expected = new byte[] { Priority.Physical0, ToolId, TargetVpwId, Mode.ReadBlock + Mode.Response, BlockId.Vin2 };
             if (!TryVerifyInitialBytes(response2, expected, out status))
             {
                 return Response.Create(status, result);
             }
 
-            expected = new byte[] { Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, Mode.ReadBlock + Mode.Response, BlockId.Vin3 };
+            expected = new byte[] { Priority.Physical0, ToolId, TargetVpwId, Mode.ReadBlock + Mode.Response, BlockId.Vin3 };
             if (!TryVerifyInitialBytes(response3, expected, out status))
             {
                 return Response.Create(status, result);
@@ -188,19 +188,19 @@ namespace PcmHacking
         {
             string result = "Unknown";
 
-            byte[] expected = new byte[] { Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, Mode.ReadBlock + Mode.Response, BlockId.Serial1 };
+            byte[] expected = new byte[] { Priority.Physical0, ToolId, TargetVpwId, Mode.ReadBlock + Mode.Response, BlockId.Serial1 };
             if (!TryVerifyInitialBytes(response1, expected, out ResponseStatus status))
             {
                 return Response.Create(status, result);
             }
 
-            expected = new byte[] { Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, Mode.ReadBlock + Mode.Response, BlockId.Serial2 };
+            expected = new byte[] { Priority.Physical0, ToolId, TargetVpwId, Mode.ReadBlock + Mode.Response, BlockId.Serial2 };
             if (!TryVerifyInitialBytes(response2, expected, out status))
             {
                 return Response.Create(status, result);
             }
 
-            expected = new byte[] { Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, Mode.ReadBlock + Mode.Response, BlockId.Serial3 };
+            expected = new byte[] { Priority.Physical0, ToolId, TargetVpwId, Mode.ReadBlock + Mode.Response, BlockId.Serial3 };
             if (!TryVerifyInitialBytes(response3, expected, out status))
             {
                 return Response.Create(status, result);
@@ -236,7 +236,7 @@ namespace PcmHacking
             string result = "Unknown";
             byte[] response = responseMessage.GetBytes();
 
-            byte[] expected = new byte[] { Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, Mode.ReadBlock + Mode.Response, BlockId.BCC };
+            byte[] expected = new byte[] { Priority.Physical0, ToolId, TargetVpwId, Mode.ReadBlock + Mode.Response, BlockId.BCC };
             if (!TryVerifyInitialBytes(response, expected, out ResponseStatus status))
             {
                 return Response.Create(status, result);
@@ -268,7 +268,7 @@ namespace PcmHacking
             string result = "Unknown";
             byte[] response = responseMessage.GetBytes();
 
-            byte[] expected = new byte[] { Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, Mode.ReadBlock + Mode.Response, BlockId.MEC };
+            byte[] expected = new byte[] { Priority.Physical0, ToolId, TargetVpwId, Mode.ReadBlock + Mode.Response, BlockId.MEC };
             if (!TryVerifyInitialBytes(response, expected, out ResponseStatus status))
             {
                 return Response.Create(status, result);

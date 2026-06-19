@@ -13,13 +13,23 @@ namespace PcmHacking
     /// This class encapsulates all code that is unique to the AVT 852 interface.
     /// </summary>
     /// 
-    public class AvtDevice : SerialDevice
+    public class AvtDevice : SerialDevice, ICanChannel, ICanTarget
     {
         public const string DeviceType = "AVT (838/842/852)";
         public short Model = 0; // 0 = unknown or 838, 842, 852
 
         public static readonly Message AVT_RESET                = new Message(new byte[] { 0xF1, 0xA5 });
         public static readonly Message AVT_ENTER_VPW_MODE       = new Message(new byte[] { 0xE1, 0x33 });
+        public static readonly Message AVT_ENTER_CAN_MODE       = new Message(new byte[] { 0xE1, 0x99 });
+        // CAN0 setup (AVT-85x manual 7.10). The acceptance-ID command is built at runtime from
+        // RxCanId; these are the fixed steps. We run the firmware in raw-frame mode and do ISO-TP
+        // in software (IsoTpTransport), since the firmware ISO-15765 mode only delivered the first
+        // frame of a multi-frame response.
+        public static readonly Message AVT_CAN0_500K            = new Message(new byte[] { 0x73, 0x0A, 0x00, 0x02 }); // CAN0 baud = 500 kbaud
+        public static readonly Message AVT_CAN0_IDMASK_MODE4    = new Message(new byte[] { 0x73, 0x2B, 0x00, 0x04 }); // CAN0 ID/Mask mode 4 (16-bit IDs)
+        public static readonly Message AVT_CAN0_MASK0_EXACT     = new Message(new byte[] { 0x75, 0x2C, 0x00, 0x00, 0x00, 0x00 }); // CAN0 Mask0 = must-match all bits
+        public static readonly Message AVT_CAN0_ISO15765_OFF    = new Message(new byte[] { 0x73, 0x26, 0x00, 0x00 }); // CAN0 ISO 15765 off (raw frames)
+        public static readonly Message AVT_ENABLE_CAN0          = new Message(new byte[] { 0x73, 0x11, 0x00, 0x01 }); // CAN0 normal mode
         public static readonly Message AVT_REQUEST_MODEL        = new Message(new byte[] { 0xF0 });
         public static readonly Message AVT_REQUEST_FIRMWARE     = new Message(new byte[] { 0xB0 });
         public static readonly Message AVT_DISABLE_TX_ACK       = new Message(new byte[] { 0x52, 0x40, 0x00 });
@@ -37,6 +47,22 @@ namespace PcmHacking
         public static readonly Message AVT_DISABLE_TX_ACK_OK    = new Message(new byte[] { 0x40, 0x00 }); // 62 40 00
         public static readonly Message AVT_BLOCK_TX_ACK         = new Message(new byte[] { 0xF3, 0x60 }); // F3 60
 
+        /// <summary>Current bus protocol; drives the send/receive format in this class.</summary>
+        protected BusProtocol CurrentProtocol { get; private set; } = BusProtocol.Vpw;
+
+        // CAN target addresses. Default to the standard OBD2 PCM IDs (from the shared CanId
+        // constants), but are settable so the command layer can address a different module or ID.
+        /// <summary>CAN ID to transmit on (tool to target).</summary>
+        public uint TxCanId { get; set; } = CanId.PcmPhysicalRequest;
+
+        /// <summary>CAN ID to accept (target to tool).</summary>
+        public uint RxCanId { get; set; } = CanId.PcmPhysicalResponse;
+
+        // Software ISO-TP over this device's raw CAN frames. The AVT firmware can do ISO-TP itself
+        // (ISO-15765 mode) but only delivered the first frame of a multi-frame response, so we run
+        // it in raw-frame mode and reassemble here, presenting whole payloads like every device.
+        private readonly IsoTpTransport isoTp;
+
         public AvtDevice(IPort port, ILogger logger) : base(port, logger)
         {
             this.MaxSendSize = 4096+10+2;    // packets up to 4112 but we want 4096 byte data blocks
@@ -44,6 +70,7 @@ namespace PcmHacking
             this.Supports4X = true;
             this.SupportsSingleDpidLogging = true;
             this.SupportsStreamLogging = true;
+            this.isoTp = new IsoTpTransport(this);
         }
 
         public override string GetDeviceType()
@@ -149,12 +176,20 @@ namespace PcmHacking
             return Response.Create(ResponseStatus.Success, m.Value);
         }
 
+        /// <summary>How long ReadAVTPacket waits for the first byte of a packet, in milliseconds.</summary>
+        private int receiveTimeoutMs = 1000;
+
         /// <summary>
-        /// Not yet implemented.
+        /// Set the receive timeout for the given scenario. Bounds ReadAVTPacket's first-byte wait;
+        /// only the scan-probe budget (Detect) differs from the existing 1000 ms default, so normal
+        /// operations are unchanged.
         /// </summary>
         public override Task<TimeoutScenario> SetTimeout(TimeoutScenario scenario)
         {
-            return Task.FromResult(this.currentTimeoutScenario);
+            TimeoutScenario previous = this.currentTimeoutScenario;
+            this.currentTimeoutScenario = scenario;
+            this.receiveTimeoutMs = (scenario == TimeoutScenario.Detect) ? 500 : 1000;
+            return Task.FromResult(previous);
         }
 
         /// <summary>
@@ -195,7 +230,7 @@ namespace PcmHacking
             {
                 Stopwatch sw = new Stopwatch();
                 sw.Start();
-                while (sw.ElapsedMilliseconds < 1000)
+                while (sw.ElapsedMilliseconds < this.receiveTimeoutMs)
                 {
                     if (await this.Port.GetReceiveQueueSize() > 0) { break;}
                 }
@@ -269,6 +304,13 @@ namespace PcmHacking
                             break;
                     }
                     break;
+            }
+
+            // CAN receive frames carry no VPW-style status byte: the byte after the length is the
+            // flags/channel byte. Never strip a status byte in CAN mode or the ID and payload shift.
+            if (this.CurrentProtocol == BusProtocol.Can500k)
+            {
+                status = false;
             }
 
             // if we need to get check and discard the status byte
@@ -382,7 +424,11 @@ namespace PcmHacking
         /// </summary>
         public override async Task<bool> SendMessage(Message message)
         {
-            //this.Logger.AddDebugMessage("Sendrequest called");
+            if (this.CurrentProtocol == BusProtocol.Can500k)
+            {
+                return await this.isoTp.SendMessage(message);
+            }
+
             this.Logger.AddDebugMessage("TX: " + message.GetBytes().ToHex());
             await SendAVTPacket(message);
             return true;
@@ -390,7 +436,26 @@ namespace PcmHacking
 
         protected async override Task Receive()
         {
-           
+            if (this.CurrentProtocol == BusProtocol.Can500k)
+            {
+                // Keep reassembling until the active inbound filter accepts one (the reply we are
+                // waiting for) or the bus goes quiet, so a burst of off-conversation traffic is
+                // filtered out without being mistaken for silence.
+                while (true)
+                {
+                    Message? assembled = await this.isoTp.ReceiveMessage();
+                    if (assembled == null)
+                    {
+                        return;
+                    }
+
+                    if (this.Enqueue(assembled))
+                    {
+                        return;
+                    }
+                }
+            }
+
             Response<Message> response = await ReadAVTPacket();
             if (response.Status == ResponseStatus.Success)
             {
@@ -399,7 +464,7 @@ namespace PcmHacking
                 return;
             }
 
-            this.Logger.AddDebugMessage("AVT: no message waiting.");            
+            this.Logger.AddDebugMessage("AVT: no message waiting.");
         }
         
         /// <summary>
@@ -463,5 +528,139 @@ namespace PcmHacking
             }
             return true;
         }
-    }    
+
+        /// <summary>
+        /// Select the bus protocol the device communicates on. For CAN the AVT enters CAN mode and
+        /// is configured for 500 kbaud raw frames; software ISO-TP (IsoTpTransport) does the
+        /// segmentation and reassembly.
+        /// </summary>
+        public override async Task<bool> SetProtocol(BusProtocol protocol)
+        {
+            if (protocol == this.CurrentProtocol)
+            {
+                return true;
+            }
+
+            if (protocol == BusProtocol.Can500k)
+            {
+                await this.Port.DiscardBuffers();
+                await this.Port.Send(AVT_ENTER_CAN_MODE.GetBytes());
+                Response<Message> m = await ReadAVTPacket();
+                if (m.Status != ResponseStatus.Success)
+                {
+                    this.Logger.AddUserMessage("AVT: unable to enter CAN mode.");
+                    return false;
+                }
+
+                this.CurrentProtocol = BusProtocol.Can500k;
+
+                // The config-command acknowledgements (8x ...) don't match the VPW packet shapes
+                // ReadAVTPacket parses, so SendCanConfig drains them rather than parsing.
+                await SendCanConfig(AVT_CAN0_500K.GetBytes(),            "CAN0 500 kbaud");
+                await SendCanConfig(AVT_CAN0_IDMASK_MODE4.GetBytes(),    "CAN0 ID/Mask mode 4");
+                await SendCanConfig(BuildAcceptIdCommand(this.RxCanId),  $"CAN0 accept ID 0x{this.RxCanId:X3}");
+                await SendCanConfig(AVT_CAN0_MASK0_EXACT.GetBytes(),     "CAN0 mask0 exact-match");
+                await SendCanConfig(AVT_CAN0_ISO15765_OFF.GetBytes(),    "CAN0 ISO 15765 off (raw frames)");
+                await SendCanConfig(AVT_ENABLE_CAN0.GetBytes(),          "CAN0 enable");
+
+                this.Supports4X = false;
+                this.Logger.AddDebugMessage($"AVT CAN0 ready: 500k, tx 0x{this.TxCanId:X3}, rx 0x{this.RxCanId:X3}, software ISO-TP.");
+                return true;
+            }
+
+            if (protocol == BusProtocol.Vpw)
+            {
+                if (this.Model != 838)
+                {
+                    await this.Port.Send(AVT_ENTER_VPW_MODE.GetBytes());
+                    Response<Message> m = await FindResponse(AVT_VPW);
+                    if (m.Status != ResponseStatus.Success)
+                    {
+                        this.Logger.AddUserMessage("AVT: unable to re-enter VPW mode.");
+                        return false;
+                    }
+                }
+
+                // Restore the VPW flag before AVTSetup so its packet reads use VPW framing.
+                this.CurrentProtocol = BusProtocol.Vpw;
+                await AVTSetup();
+                this.Supports4X = true;
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Build the AVT "set CAN0 acceptance ID0" command (75 2A 00 00 idHi idLo) for an 11-bit ID,
+        /// right-justified in 16 bits (e.g. 0x7E8 -> 07 E8).
+        /// </summary>
+        private static byte[] BuildAcceptIdCommand(uint canId)
+        {
+            ushort id = (ushort)(canId & 0x7FF);
+            return new byte[] { 0x75, 0x2A, 0x00, 0x00, (byte)(id >> 8), (byte)id };
+        }
+
+        /// <summary>
+        /// Send an AVT CAN configuration command and drain its acknowledgement (an 8x echo that
+        /// doesn't fit the VPW packet shapes ReadAVTPacket parses), consuming bytes until the line
+        /// goes quiet so the receive stream stays aligned.
+        /// </summary>
+        private async Task SendCanConfig(byte[] command, string description)
+        {
+            await this.Port.Send(command);
+
+            byte[] scratch = new byte[1];
+            Stopwatch idle = new Stopwatch();
+            idle.Start();
+            while (idle.ElapsedMilliseconds < 150)
+            {
+                if (await this.Port.GetReceiveQueueSize() > 0)
+                {
+                    await this.Port.Receive(scratch, 0, 1);
+                    idle.Restart();
+                }
+            }
+
+            this.Logger.AddDebugMessage("AVT CAN config: " + description);
+        }
+
+        /// <summary>
+        /// Transmit one raw CAN frame via the AVT. Command content is [channel][id_hi][id_lo][data];
+        /// channel 0x00 selects CAN0 raw-frame mode. SendAVTPacket prepends the AVT length prefix.
+        /// </summary>
+        public async Task SendCanFrame(uint canId, byte[] framePayload)
+        {
+            byte[] packet = new byte[3 + framePayload.Length];
+            packet[0] = 0x00;
+            packet[1] = (byte)(canId >> 8);
+            packet[2] = (byte)canId;
+            Buffer.BlockCopy(framePayload, 0, packet, 3, framePayload.Length);
+            await SendAVTPacket(new Message(packet));
+        }
+
+        /// <summary>
+        /// Read one raw CAN frame from the AVT. Receive format (timestamps off) is
+        /// [flags|channel][id_hi][id_lo][data]. Returns (0, empty) on timeout or a too-short packet.
+        /// </summary>
+        public async Task<(uint id, byte[] frame)> ReceiveCanFrame()
+        {
+            Response<Message> response = await ReadAVTPacket();
+            if (response.Status != ResponseStatus.Success)
+            {
+                return (0, Array.Empty<byte>());
+            }
+
+            byte[] data = response.Value.GetBytes();
+            if (data.Length < 3)
+            {
+                return (0, Array.Empty<byte>());
+            }
+
+            uint id = (uint)(((data[1] << 8) | data[2]) & 0x7FF);
+            byte[] frame = new byte[data.Length - 3];
+            Buffer.BlockCopy(data, 3, frame, 0, frame.Length);
+            return (id, frame);
+        }
+    }
 }

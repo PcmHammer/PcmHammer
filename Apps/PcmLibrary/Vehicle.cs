@@ -264,6 +264,31 @@ namespace PcmHacking
             return this.device.FilterInbound(MessageFilters.RepliesFrom(request));
         }
 
+        /// <summary>
+        /// Point the protocol and device at a target module (PCM, transmission controller, ...).
+        /// Sets the VPW destination on the protocol and, for a CAN-capable device, its CAN
+        /// request/response ids. Call before talking to a module, or before probing for it in a scan.
+        /// </summary>
+        public void SetTarget(Target target)
+        {
+            this.protocol.TargetVpwId = target.VpwId;
+            if (this.device is ICanTarget canDevice)
+            {
+                canDevice.TxCanId = target.CanRequestId;
+                canDevice.RxCanId = target.CanResponseId;
+            }
+        }
+
+        /// <summary>
+        /// The VPW source id this tool uses (the message source byte), default 0xF0. On CAN the
+        /// tool's address is carried in the target's request id (e.g. 0x7E0), not this value.
+        /// </summary>
+        public byte ToolId
+        {
+            get => this.protocol.ToolId;
+            set => this.protocol.ToolId = value;
+        }
+
         public async Task<bool> SendMessage(Message message)
         {
             return await this.device.SendMessage(message);
@@ -278,7 +303,7 @@ namespace PcmHacking
         // TODO (message filtering, 1c): verify recovery-mode detection still works with
         // inbound filtering active. These listens have no preceding request to derive a
         // filter from and run directly on the device (not via Query<T>), so they should be
-        // unaffected — but confirm on hardware that an unsolicited recovery broadcast is
+        // unaffected - but confirm on hardware that an unsolicited recovery broadcast is
         // still seen once the filter feature is in use.
         public async Task<Response<bool>> CheckForRecoveryMode(CancellationToken cancellationToken)
         {
@@ -445,7 +470,7 @@ namespace PcmHacking
 
                 if (!seedReceived)
                 {
-                    logger.AddUserMessage("No seed reponse received, unable to unlock PCM.");
+                    logger.AddUserMessage("No seed reponse received, PCM not communicating.");
                     return false;
                 }
 

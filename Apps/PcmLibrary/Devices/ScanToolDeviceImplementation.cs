@@ -52,6 +52,36 @@ namespace PcmHacking
         }
 
         /// <summary>
+        /// Current bus protocol. The STN performs ISO 15765 (ISO-TP) in firmware, so CAN here is
+        /// native ISO-TP: whole GMLAN/UDS payloads go in and out, and the device does the
+        /// segmentation and flow-control handshake (the same model as the OBDX native path).
+        /// </summary>
+        protected BusProtocol CurrentProtocol { get; private set; } = BusProtocol.Vpw;
+
+        // CAN target addresses. Default to the standard OBD2 PCM ids (from the shared CanId
+        // constants), but are settable so the command layer can address a different module.
+        /// <summary>CAN id used when transmitting (tool to module).</summary>
+        public uint TxCanId { get; set; } = CanId.PcmPhysicalRequest;
+
+        /// <summary>CAN id accepted when receiving (module to tool).</summary>
+        public uint RxCanId { get; set; } = CanId.PcmPhysicalResponse;
+
+        // The CAN id currently programmed as the AT SH transmit header, or -1 if not yet set.
+        // Tracked so we only re-issue AT SH when the target id actually changes.
+        private long currentCanHeader = -1;
+
+        // Largest CAN ISO-TP message this device transmits, and the unit the kernel upload is divided
+        // into (the command layer splits by MaxKernelSendSize, mirroring the VPW PCMExecute upload).
+        // The GM CAN boot loader expects the kernel as a small number of large transfer blocks - a
+        // low-address executing block carrying the entry, preceded by a high-address copy block - so
+        // this needs to be large enough to keep a ~2 KB kernel to two blocks (one block can't exceed
+        // half the kernel plus a header). Measured limits on a small OBDLink: 1024 is accepted, 2048
+        // returns OUT OF MEMORY, so 1536 sits in between and still yields two blocks. Adjust to the
+        // largest size a given model accepts; if it can't reach ~1100 the kernel won't fit in two
+        // blocks.
+        public const int CanMaxMessageSize = 512;
+
+        /// <summary>
         /// This string is what will appear in the drop-down list in the UI.
         /// </summary>
         public override string GetDeviceType()
@@ -129,6 +159,11 @@ namespace PcmHacking
 
                     case TimeoutScenario.ReadProperty:
                         milliseconds = 25;
+                        break;
+
+                    case TimeoutScenario.Detect:
+                        // Short, fixed probe timeout so an empty bus is ruled out quickly during a scan.
+                        milliseconds = 500;
                         break;
 
                     case TimeoutScenario.ReadCrc:
@@ -220,6 +255,11 @@ namespace PcmHacking
         /// </remarks>
         public override async Task<bool> SendMessage(Message message)
         {
+            if (this.CurrentProtocol == BusProtocol.Can500k)
+            {
+                return await this.SendCanMessage(message);
+            }
+
             byte[] messageBytes = message.GetBytes();
 
             StringBuilder builder = new StringBuilder();
@@ -344,6 +384,23 @@ namespace PcmHacking
         /// </summary>
         public override async Task Receive()
         {
+            if (this.CurrentProtocol == BusProtocol.Can500k)
+            {
+                // CAN responses are normally captured inline by SendCanMessage (an STPX returns the
+                // module's reply before its prompt). If the caller reads again after the queue is
+                // drained there is nothing pending on the wire, so a read that times out is expected.
+                try
+                {
+                    string canResponse = await this.ReadELMLine();
+                    this.ProcessCanResponse(canResponse);
+                }
+                catch (TimeoutException)
+                {
+                    this.Logger.AddDebugMessage("Timeout during CAN receive.");
+                }
+                return;
+            }
+
             try
             {
                 string response = await this.ReadELMLine();
@@ -358,6 +415,194 @@ namespace PcmHacking
             {
                 this.Logger.AddDebugMessage("Timeout during receive.");
                 // await this.ReceiveViaMonitorMode();
+            }
+        }
+
+        /// <summary>
+        /// Select the bus this device communicates on. VPW is the default; Can500k switches the STN
+        /// to native ISO 15765 at 500 kbaud. Called by the owning <see cref="ElmDevice"/> facade.
+        /// </summary>
+        public async Task<bool> SetBusProtocol(BusProtocol protocol)
+        {
+            if (protocol == this.CurrentProtocol)
+            {
+                return true;
+            }
+
+            if (protocol == BusProtocol.Can500k)
+            {
+                // STP 33 = ISO 15765, 11-bit Tx, 500 kbps, DLC=8. The STN runs the full ISO-TP
+                // handshake (First Frame / Flow Control / Consecutive Frames) and reassembly in
+                // firmware, so we exchange whole GMLAN payloads - native ISO-TP, no IsoTpTransport.
+                if (!await this.SendAndVerify("STP 33", "OK"))
+                {
+                    this.Logger.AddUserMessage("ScanTool: unable to select ISO 15765 (CAN) protocol.");
+                    return false;
+                }
+
+                // Auto-formatting on: the device strips/adds the ISO-TP PCI and reassembles multi-frame
+                // messages for us. With the GM 11-bit convention (response id = request id + 8) the
+                // default flow-control pair and the default receive filter (7E8/7F8) already match the
+                // PCM, so no STCFCPA/filter is needed for the standard 7E0/7E8 ids.
+                this.Logger.AddDebugMessage(await this.SendRequest("AT CAF1"));
+
+                // Keep adaptive timing OFF (AT AT0, set during initialization) for CAN. The send path
+                // doesn't bound the response count, so the device waits the full request timeout for
+                // responses. That is what we want: some replies arrive well after a fast exchange would
+                // have (the kernel's 0x99 "running" ack comes only once it has booted), and adaptive
+                // timing learns the fast timing and stops listening too early - the STN only listens
+                // during an STPX, so a reply that lands after it returns is lost. The per-operation
+                // timeout (and R:2 for the two-message block read) keep this from being slow where it
+                // matters.
+
+                this.currentCanHeader = -1;
+                await this.EnsureCanHeader();
+
+                // The CAN send limit is small (see CanMaxMessageSize); the kernel upload divides the
+                // image into this many bytes per block, so a small interface still uploads, just in
+                // more blocks. Receive needs headroom to reassemble a kernel read block (~1 KB).
+                this.MaxSendSize = CanMaxMessageSize;
+                this.MaxReceiveSize = 2048 + 12;
+                this.Supports4X = false;
+                this.CurrentProtocol = BusProtocol.Can500k;
+                this.Logger.AddDebugMessage($"ScanTool CAN ready: ISO 15765 500k, tx 0x{this.TxCanId:X3}, rx 0x{this.RxCanId:X3}, native ISO-TP.");
+                return true;
+            }
+
+            if (protocol == BusProtocol.Vpw)
+            {
+                // Restore the VPW configuration applied during initialization.
+                if (!await this.SendAndVerify("AT SP2", "OK") ||
+                    !await this.SendAndVerify("AT DP", "SAE J1850 VPW") ||
+                    !await this.SendAndVerify("AT AL", "OK") ||
+                    !await this.SendAndVerify("AT H1", "OK") ||
+                    !await this.SendAndVerify("AT SR " + DeviceId.Tool.ToString("X2"), "OK"))
+                {
+                    this.Logger.AddUserMessage("ScanTool: unable to restore VPW protocol.");
+                    return false;
+                }
+
+                this.MaxSendSize = 1024 + 12;
+                this.MaxReceiveSize = 1024 + 12;
+                this.CurrentProtocol = BusProtocol.Vpw;
+                this.Logger.AddDebugMessage("ScanTool VPW mode restored.");
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Program the transmit CAN id as the message header (AT SH), but only when it has changed
+        /// since the last send, so retargeting a different module takes effect without re-issuing the
+        /// command on every frame.
+        /// </summary>
+        private async Task EnsureCanHeader()
+        {
+            if (this.currentCanHeader == this.TxCanId)
+            {
+                return;
+            }
+
+            // 11-bit CAN ids use the 3-nibble shorthand form (e.g. 7E0).
+            await this.SendRequest("AT SH " + this.TxCanId.ToString("X3"));
+            this.currentCanHeader = this.TxCanId;
+        }
+
+        /// <summary>
+        /// Send a whole GMLAN/UDS payload over CAN. The STN segments it into ISO-TP frames and
+        /// drives the flow-control handshake; the reassembled reply (one logical message) is captured
+        /// inline and queued for the receive path.
+        /// </summary>
+        private async Task<bool> SendCanMessage(Message message)
+        {
+            await this.EnsureCanHeader();
+
+            byte[] bytes = message.GetBytes();
+            StringBuilder data = new StringBuilder(bytes.Length * 2);
+            foreach (byte b in bytes)
+            {
+                data.Append(b.ToString("X2"));
+            }
+
+            // The STN only listens to the bus while an STPX is in flight, so the number of responses
+            // it is told to collect matters. A kernel block read answers with TWO messages - the 0x75
+            // read-ack then the 0x36 data block - so that scenario asks for both (R:2). Every other
+            // exchange can answer with a 0x7F..0x78 "response pending" before the real reply, an
+            // unpredictable count, so those omit R entirely and let the device collect every response
+            // up to the timeout (adaptive timing, enabled for CAN, returns as soon as the bus goes
+            // quiet). Bounding those with R:1 was the bug: the STN stopped after the pending frame and
+            // never delivered the real answer.
+            string responseField = this.TimeoutScenario == TimeoutScenario.ReadMemoryBlock ? ", R:2" : string.Empty;
+
+            string response;
+            if (bytes.Length <= 200)
+            {
+                response = await this.SendRequest("STPX D:" + data + responseField);
+            }
+            else
+            {
+                // Long payloads (a kernel upload block) are sent in two steps: the STPX header with a
+                // length, then the data after the device prompts "DATA". The device answers the header
+                // with "OUT OF MEMORY" (and stays at the prompt) when the message exceeds its CAN
+                // buffer, so treat anything but "DATA" as a failed send rather than pushing the payload
+                // into a device that isn't expecting it.
+                string headerResponse = await this.SendRequest("STPX L:" + bytes.Length + responseField);
+                if (headerResponse != "DATA")
+                {
+                    this.Logger.AddUserMessage(string.Format(
+                        "ScanTool CAN: device rejected a {0}-byte message ({1}). It exceeds the interface's CAN buffer.",
+                        bytes.Length, string.IsNullOrEmpty(headerResponse) ? "no response" : headerResponse));
+                    return false;
+                }
+
+                response = await this.SendRequest(data.ToString());
+            }
+
+            this.ProcessCanResponse(response);
+            return true;
+        }
+
+        /// <summary>
+        /// Parse the reassembled CAN response blob from the STN into queued messages. With headers on
+        /// (AT H1) and spaces off (AT S0), each frame token is the 3-nibble 11-bit id followed by the
+        /// reassembled payload (the device has already removed the ISO-TP PCI). The leading id is
+        /// stripped so the rest of the stack sees the bare GMLAN payload, like every other CAN device.
+        /// </summary>
+        private void ProcessCanResponse(string rawResponse)
+        {
+            if (string.IsNullOrWhiteSpace(rawResponse))
+            {
+                return;
+            }
+
+            // ReadELMLine turns each response line's carriage return into a space, so multiple frames
+            // arrive as space-separated tokens in one blob.
+            string[] tokens = rawResponse.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            foreach (string token in tokens)
+            {
+                // Need at least a 3-nibble id plus one data byte, and the token must be pure hex
+                // (skips device chatter like "NO DATA", "STOPPED" or "?").
+                if (token.Length < 5 || !token.IsHex())
+                {
+                    continue;
+                }
+
+                uint id = (uint)Convert.ToInt32(token.Substring(0, 3), 16);
+                if (id != this.RxCanId)
+                {
+                    // Not from the target (e.g. a transmit echo on the request id); ignore it.
+                    continue;
+                }
+
+                byte[] payload = token.Substring(3).ToBytes();
+                if (payload.Length == 0)
+                {
+                    continue;
+                }
+
+                this.Logger.AddDebugMessage("RX: " + payload.ToHex());
+                this.enqueue!(new Message(payload));
             }
         }
 

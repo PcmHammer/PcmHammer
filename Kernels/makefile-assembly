@@ -17,7 +17,11 @@ RM = rm -f
 
 BUILD_EPOCH := $(shell date +%s)
 BUILD_DIR = build
-CCFLAGS = -c -fomit-frame-pointer -std=gnu99 -mcpu=68332 -D$(pcm) -DBUILD_EPOCH=$(BUILD_EPOCH)
+# Architecture-specific compiler flags (default: 68k). Override ARCHFLAGS for a
+# different CPU (e.g. PowerPC E38) while keeping the common -D$(pcm)/-DBUILD_EPOCH
+# so the kernel version is injected the same way for every architecture.
+ARCHFLAGS ?= -fomit-frame-pointer -std=gnu99 -mcpu=68332
+CCFLAGS = -c $(ARCHFLAGS) -D$(pcm) -DBUILD_EPOCH=$(BUILD_EPOCH)
 LDFLAGS = --section-start .text=0x${address} -T $(srcdir)/${name}.ld
 COPYFLAGS = -O binary --only-section=.text --only-section=.data
 

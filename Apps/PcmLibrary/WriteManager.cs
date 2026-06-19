@@ -58,6 +58,77 @@ namespace PcmHacking
         }
 
         /// <summary>
+        /// Write a CAN-bus PCM. Mirrors the VPW write process but goes through the CAN kernel
+        /// writer: identify, run the brick-risk gates, unlock, then hand off to <see cref="CanKernelWriter"/>
+        /// for the upload + compare/erase/write/verify loop. Assumes the device is already selected on
+        /// CAN. A test write is non-destructive and is always allowed.
+        /// </summary>
+        private async Task<bool> RunCanWrite(byte[] image, FileValidator validator)
+        {
+            OSIDInfo pcmInfo = new OSIDInfo(PcmType.E38);
+            logger.AddUserMessage("CAN PCM detected. Using the " + pcmInfo.Description + " write process.");
+
+            if (!pcmInfo.IsSupported)
+            {
+                string msg = $"Abort: The connected {pcmInfo.HardwareType.ToString()} PCM is not supported.";
+                logger.AddUserMessage(msg);
+                await this.alert(msg, "Abort");
+                return false;
+            }
+
+            // Comparisons and test writes are non-destructive, so they are allowed even where a real
+            // write is not. A real write is gated on the PCM's write support like the VPW path.
+            bool destructive = this.writeType != WriteType.Compare && this.writeType != WriteType.TestWrite;
+            if (destructive && !pcmInfo.IsSupportedWrite)
+            {
+                string msg = $"Abort: The connected {pcmInfo.HardwareType.ToString()} PCM is not supported for write operations.";
+                logger.AddUserMessage(msg);
+                await this.alert(msg, "Abort");
+                return false;
+            }
+
+            if (destructive && pcmInfo.IsUnderDevelopment)
+            {
+                string msg = $"WARNING: {pcmInfo.HardwareType.ToString()} Support is still in development.\r\nThere is additional brick risk in this operation\r\nDo you want to continue?";
+                logger.AddUserMessage(msg);
+                if (await this.promptForYesNo(msg, "Brick Risk"))
+                {
+                    logger.AddUserMessage("User chose to proceed.");
+                }
+                else
+                {
+                    logger.AddUserMessage("User chose not to proceed.");
+                    return false;
+                }
+            }
+
+            CanCommands commands = this.vehicle.CreateCanCommands();
+
+            logger.StatusUpdateActivity("Unlocking PCM...");
+            if (!await commands.Unlock(pcmInfo, this.cancellationToken))
+            {
+                // On a user-requested abort the unlock simply stops; don't report it as a failure.
+                if (!this.cancellationToken.IsCancellationRequested)
+                {
+                    logger.AddUserMessage("Unlock was not successful.");
+                }
+                return false;
+            }
+            logger.AddUserMessage("Unlock succeeded.");
+
+            if (this.cancellationToken.IsCancellationRequested)
+            {
+                return false;
+            }
+
+            DateTime start = DateTime.Now;
+            CanKernelWriter writer = new CanKernelWriter(this.vehicle, commands, pcmInfo, this.writeType, this.logger);
+            bool success = await writer.Write(image, validator, this.cancellationToken);
+            logger.AddUserMessage("Elapsed time " + DateTime.Now.Subtract(start));
+            return success;
+        }
+
+        /// <summary>
         /// Contains cross-platform code to handle user interactions to write the PCM's flash memory.
         /// Accepts a byte array directly for OSes that don't support direct file handling.
         /// </summary>
@@ -77,6 +148,24 @@ namespace PcmHacking
             }
             logger.AddUserMessage("File is " + new OSIDInfo(validator.GetFileType()).Description + ".");
 
+            // Detect what is on the bus first (the shared first step, as in ReadManager). A CAN PCM is
+            // written by a separate path that mirrors this one; the only user-visible difference is the
+            // programming-mode setup. When a PCM type is forced we keep the VPW flow below.
+            if (forcedPcmType == PcmType.Undefined)
+            {
+                DetectedModule? detected = await this.vehicle.DetectAndSelectPcm(this.cancellationToken);
+                if (detected != null && detected.Bus == BusProtocol.Can500k)
+                {
+                    return await this.RunCanWrite(image, validator);
+                }
+                if (detected == null)
+                {
+                    // The quick probe found nothing; the device may have been left on CAN, so return it
+                    // to VPW for the full VPW detection below (which has its own retries).
+                    await this.vehicle.SelectBus(BusProtocol.Vpw);
+                }
+            }
+
             UInt64 kernelVersion = 0;
             bool needUnlock;
             int keyAlgorithm = 1;
@@ -90,67 +179,43 @@ namespace PcmHacking
 
             if (forcedPcmType != PcmType.Undefined)
             {
-                // A forced PCM type ONLY overrides which kernel and key algorithm we use (for
-                // example when the OSID-to-type database is wrong for this PCM). It must NOT switch
-                // off the file-vs-PCM compatibility check: otherwise an end user could point a
-                // forced type at an unidentified PCM and flash a file for completely different
-                // hardware, bricking it. So we still query the PCM's OSID and enforce IsSameHardware
-                // whenever the PCM can be identified.
+                // A forced PCM type overrides which kernel and key algorithm we use (for example when
+                // the OSID-to-type database is wrong for this PCM). It must NOT switch off the
+                // file-vs-type compatibility check: otherwise an end user could force a type and flash
+                // a file for completely different hardware, bricking it.
                 pcmInfo = new OSIDInfo(forcedPcmType);
                 keyAlgorithm = pcmInfo.KeyAlgorithm;
                 needUnlock = true;
                 needToCheckOperatingSystem = false;
-                logger.AddUserMessage("Using manually selected PCM type: " + pcmInfo.HardwareType);
+                logger.AddUserMessage("Writing " + pcmInfo.HardwareType + " PCM.");
 
-                logger.AddUserMessage("Requesting operating system ID to verify file compatibility...");
-                Response<uint> forcedOsidResponse = await this.vehicle.QueryOperatingSystemId(this.cancellationToken);
-                if (forcedOsidResponse.Status == ResponseStatus.Success)
+                // Confirm the file is for the PCM type the user selected. The manual selection IS the
+                // declared PCM type, so we verify the file's own content matches it - we do NOT query
+                // the PCM for an OSID here.
+                PcmType fileType = validator.DetectFileType();
+                if (fileType != forcedPcmType)
                 {
-                    pcmOsid = forcedOsidResponse.Value;
-
-                    if (!validator.IsSameHardware(forcedOsidResponse.Value))
-                    {
-                        return false;
-                    }
-
-                    if (!validator.IsSameOperatingSystem(forcedOsidResponse.Value))
-                    {
-                        logger.AddUserMessage("PCM operating system ID: " + forcedOsidResponse.Value);
-                        logger.AddUserMessage("File operating system ID: " + validator.GetOsidFromImage());
-                        Utility.ReportOperatingSystems(validator.GetOsidFromImage(), forcedOsidResponse.Value, writeType, this.logger, out shouldHalt);
-                        if (shouldHalt)
-                        {
-                            return false;
-                        }
-                    }
-                    else
-                    {
-                        logger.AddUserMessage("PCM and file are both operating system " + forcedOsidResponse.Value);
-                    }
+                    string msg = $"Abort: this file is for a {fileType} PCM, but {forcedPcmType} was selected.";
+                    logger.AddUserMessage(msg);
+                    await this.alert(msg, "Abort");
+                    return false;
                 }
-                else
+
+                // A forced CAN PCM (e.g. E38) is written by the CAN path, not the VPW flow below.
+                // Put the device on CAN, point it at the PCM, and hand off - mirroring the auto-detected
+                // CAN route above (RunCanWrite assumes the device is already selected on CAN).
+                if (pcmInfo.BusProtocol == BusProtocol.Can500k)
                 {
-                    // The PCM did not return an OSID, so we cannot verify the file matches the
-                    // connected hardware. This is the genuine recovery case (corrupt or truly
-                    // unidentified PCM), so we don't hard-block, but we must NOT proceed silently:
-                    // warn that compatibility is unverified and let the user accept the brick risk.
-                    if (this.cancellationToken.IsCancellationRequested)
+                    this.vehicle.SetTarget(Target.Pcm);
+                    if (!await this.vehicle.SelectBus(BusProtocol.Can500k))
                     {
+                        string msg = $"Abort: this device cannot use the CAN bus required by the {pcmInfo.HardwareType} PCM.";
+                        logger.AddUserMessage(msg);
+                        await this.alert(msg, "Abort");
                         return false;
                     }
 
-                    string unverifiedMsg =
-                        "WARNING: The PCM did not return an operating system ID, so PCM Hammer cannot verify" + Environment.NewLine +
-                        "that this file is compatible with the connected hardware." + Environment.NewLine +
-                        "Writing an incompatible file can permanently brick the PCM." + Environment.NewLine +
-                        "Do you want to continue?";
-                    logger.AddUserMessage(unverifiedMsg);
-                    if (!await this.promptForYesNo(unverifiedMsg, "Brick Risk"))
-                    {
-                        logger.AddUserMessage("User chose not to proceed.");
-                        return false;
-                    }
-                    logger.AddUserMessage("User chose to proceed without a verified hardware match.");
+                    return await this.RunCanWrite(image, validator);
                 }
             }
             else
@@ -289,7 +354,7 @@ namespace PcmHacking
             }
 
             // If we cant write the slave, warn the user of operating system changes, if there are any.
-            // Skip the warning if we know the file OS matches the PCM OS — no slave CPU sync needed.
+            // Skip the warning if we know the file OS matches the PCM OS - no slave CPU sync needed.
             bool osWillChange = pcmOsid == null || !validator.IsSameOperatingSystem(pcmOsid.Value);
             if (pcmInfo.HardwareSlaveCPU == true && !pcmInfo.IsSupportedWriteSlaveCPU && (writeType == WriteType.Full || writeType == WriteType.OsPlusCalibrationPlusBoot) && osWillChange)
             {

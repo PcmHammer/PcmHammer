@@ -21,8 +21,9 @@ namespace PcmHacking
         P10,
         P11,
         P12,
-        E54, //E54 (01-04 LB7 Duramax) 
-        E60, //E60 (04-05 LLY Duramax)
+        E38,
+        E54, // 01-04 LB7 Duramax
+        E60, // 4-05 LLY Duramax
         BlackBox
     }
 
@@ -104,6 +105,11 @@ namespace PcmHacking
         public int KernelBaseAddress { get; private set; }
 
         /// <summary>
+        /// Address at which the uploaded kernel begins executing. Usually the kernel base, but some
+        /// </summary>
+        public int KernelRunAddress { get; private set; }
+
+        /// <summary>
         /// Name of the kernel loader file to use.
         /// </summary>
         public string LoaderFileName { get; private set; } = string.Empty;
@@ -164,6 +170,11 @@ namespace PcmHacking
         public bool IsUnderDevelopment { get; private set; }
 
         /// <summary>
+        /// The bus this PCM communicates on.
+        /// </summary>
+        public BusProtocol BusProtocol { get; private set; }
+
+        /// <summary>
         /// Populate this object based on the given PcmType.
         /// </summary>
         public bool PCMInfo(PcmType pcmType)
@@ -181,6 +192,8 @@ namespace PcmHacking
             this.HardwareSlaveCPU = false;
             this.KernelFileName = string.Empty;
             this.KernelBaseAddress = 0x0;
+            this.KernelRunAddress = 0x0;
+            this.BusProtocol = BusProtocol.Vpw;
             this.LoaderFileName = string.Empty;
             this.LoaderBaseAddress = 0x0;
             this.ImageBaseAddress = 0x0;
@@ -496,6 +509,27 @@ namespace PcmHacking
                     this.FlashIDSupport = true;
                     this.KernelVersionSupport = true;
                     this.KernelMaxBlockSize = 4096;
+                    break;
+
+                case PcmType.E38:
+                    this.Description = "E38";
+                    this.HardwareType = PcmType.E38;
+                    this.HardwareSlaveCPU = true;
+                    this.IsSupported = true;
+                    this.IsSupportedRead = true;
+                    this.IsSupportedWrite = true;
+                    this.BusProtocol = BusProtocol.Can500k;
+                    this.KernelFileName = "Kernel-E38.bin";
+                    this.KernelBaseAddress = 0x003FC430;
+                    this.KernelRunAddress = 0x003FC434;
+                    this.ImageBaseAddress = 0x0;
+                    this.ImageSize = 2048 * 1024;
+                    this.KeyAlgorithm = 0x92;
+                    this.ChecksumSupport = true;
+                    this.FlashCRCSupport = true;
+                    this.FlashIDSupport = true;
+                    this.KernelVersionSupport = true;
+                    this.IsUnderDevelopment = false;
                     break;
 
                 case PcmType.E60:
@@ -3404,6 +3438,62 @@ namespace PcmHacking
                     PCMInfo(PcmType.P12);
                     this.Description = "P12";
                     this.ServiceNumber = 0;
+                    break;
+
+                // E38
+                case 12602922:
+                case 12605732:
+                case 12605898:
+                case 12607218:
+                case 12608677:
+                case 12609099:
+                case 12611833:
+                case 12612281:
+                case 12612291:
+                case 12612381:
+                case 12612739:
+                case 12613889:
+                case 12614088:
+                case 12614676:
+                case 12614682:
+                case 12615493:
+                case 12616478:
+                case 12617175:
+                case 12617569:
+                case 12617631:
+                case 12617980: // 2008 Impala Part No 12617174 Service No 12612384 OSID 12617980
+                case 12618277:
+                case 12619078:
+                case 12622139:
+                case 12622142:
+                case 12622161:
+                case 12624402:
+                case 12628981:
+                case 12628982:
+                case 12628983:
+                case 12628988:
+                case 12628990:
+                case 12630501:
+                case 12633016:
+                case 12633056:
+                case 12635859:
+                case 12635863:
+                case 12636005:
+                case 12636008:
+                case 12637084:
+                case 12639270:
+                case 12639835:
+                case 12644905:
+                case 12647991:
+                case 12649046:
+                case 12653249:
+                case 12653252:
+                case 12653674:
+                case 12654075:
+                case 12656198:
+                case 12656930:
+                case 12658778:
+                    PCMInfo(PcmType.E38);
                     break;
 
                 default:

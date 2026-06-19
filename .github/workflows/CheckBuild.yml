@@ -8,6 +8,7 @@
 # 2025-11-16 - Antus <pcmhacking.net> Add P11
 # 2026-04-07 - Antus <pcmhacking.net> Update dependencies
 # 2026-04-10 - Antus <pcmhacking.net> Update for WinForms + Uno Windows + Uno Android
+# 2026-06-18 - Antus <pcmhacking.net> E38 PPC Kernel, via source or binary distribution
 #
 
 name: CheckBuild
@@ -30,8 +31,8 @@ jobs:
     - name: Update Package Repository
       run: sudo apt-get update
 
-    - name: Install GNU m68k Compiler and Make tool
-      run: sudo apt-get install -y gcc-m68k-linux-gnu make
+    - name: Install compilers and make
+      run: sudo apt-get install -y gcc-m68k-linux-gnu gcc-powerpc-linux-gnu make
 
     - name: Create temporary artifact storage
       run: mkdir TemporaryArtifactStorage
@@ -134,6 +135,59 @@ jobs:
             echo
             make -f makefile-assembly pcm=${pcm} name=Loader srcdir=${srcdir} clean
           fi
+        done
+
+    - name: Build remaining kernels
+      run: |
+        cd Kernels
+        mkdir -p build
+        BUILD_STEP_START=$(date +%s)
+        verify_bin() {
+          local file="$1"
+          if [ ! -f "$file" ]; then
+            echo "ERROR: $file was not created"
+            exit 1
+          fi
+          local hash mtime
+          hash=$(sha1sum "$file" | awk '{print $1}')
+          mtime=$(stat -c %Y "$file")
+          if [ "$mtime" -ge "$BUILD_STEP_START" ]; then
+            printf "%s  sha1:%s  OK\n" "$file" "$hash"
+          else
+            echo "ERROR: $file is stale (mtime=$mtime < start=$BUILD_STEP_START)"
+            exit 1
+          fi
+        }
+        #
+        # Some kernels are maintained in their own source directory and build with a
+        # per-directory build script; when that source is not in this tree, the directory
+        # carries a committed binary instead. Run any build scripts present, then fall
+        # back to a committed Kernel-*.bin / Loader-*.bin left in a kernel directory that
+        # has no build script (a freshly built binary always wins), then stage results.
+        #
+        for script in */ci-build.sh; do
+          [ -e "$script" ] || continue
+          echo "Building kernel(s) in $(dirname "$script")"
+          bash "$script"
+        done
+        for dir in */; do
+          dir=${dir%/}
+          [ "$dir" = build ] && continue
+          [ -f "$dir/ci-build.sh" ] && continue
+          [ -f "$dir/BuildKernel.cmd" ] && continue
+          for bin in "$dir"/Kernel-*.bin "$dir"/Loader-*.bin; do
+            [ -e "$bin" ] || continue
+            base=$(basename "$bin")
+            if [ ! -f "build/$base" ]; then
+              echo "Using committed $base from $dir"
+              cp "$bin" "build/$base"
+            fi
+          done
+        done
+        for bin in build/Kernel-*.bin build/Loader-*.bin; do
+          [ -e "$bin" ] || continue
+          verify_bin "$bin"
+          cp "$bin" ../TemporaryArtifactStorage/
         done
 
     - name: Upload kernels artifact

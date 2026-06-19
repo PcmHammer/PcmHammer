@@ -36,7 +36,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="DynamicExpresso.Core, Version=2.19.1.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\..\..\..\..\packages\DynamicExpresso.Core.2.19.1\lib\netstandard2.0\DynamicExpresso.Core.dll</HintPath>
+      <HintPath>..\..\..\packages\DynamicExpresso.Core.2.19.1\lib\netstandard2.0\DynamicExpresso.Core.dll</HintPath>
     </Reference>
     <Reference Include="Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
       <HintPath>..\..\..\packages\Newtonsoft.Json.13.0.1\lib\net45\Newtonsoft.Json.dll</HintPath>

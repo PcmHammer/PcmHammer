@@ -42,7 +42,7 @@ namespace PcmHacking
 
                 if (received[1] != DeviceId.Tool)
                 {
-                    return false; // addressed to some other module — not our conversation
+                    return false; // addressed to some other module - not our conversation
                 }
 
                 return broadcast || received[2] == target;

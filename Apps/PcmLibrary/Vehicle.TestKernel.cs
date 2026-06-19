@@ -128,7 +128,7 @@ namespace PcmHacking
             finally
             {
                 logger.AddUserMessage("Halting kernel.");
-                await this.Cleanup();
+                await this.HaltKernel(cancellationToken);
             }
         }
 

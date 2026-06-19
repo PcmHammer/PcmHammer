@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.IO.Ports;
@@ -64,6 +65,9 @@ namespace PcmHacking
                     case "--get-properties":
                         operation = "get-properties";
                         break;
+                    case "--detect":
+                        operation = "detect";
+                        break;
                     case "--brute-force":
                         operation = "brute-force";
                         break;
@@ -114,7 +118,7 @@ namespace PcmHacking
                 return 1;
             }
 
-            if (filePath == null && operation != "read" && operation != "test-read" && operation != "get-properties" && operation != "brute-force")
+            if (filePath == null && operation != "read" && operation != "test-read" && operation != "get-properties" && operation != "brute-force" && operation != "detect")
             {
                 Console.Error.WriteLine($"Error: No file path specified for --{operation}.");
                 return 1;
@@ -190,7 +194,7 @@ namespace PcmHacking
                                 vehicle,
                                 invoke,
                                 () => Task.FromResult<string?>(null),
-                                () => Task.FromResult(0u),
+                                () => Task.FromResult(PcmType.Undefined),
                                 alert,
                                 promptForYesNo,
                                 cts.Token);
@@ -204,7 +208,7 @@ namespace PcmHacking
                                 vehicle,
                                 invoke,
                                 () => Task.FromResult<string?>(null),
-                                () => Task.FromResult(0u),
+                                () => Task.FromResult(PcmType.Undefined),
                                 alert,
                                 promptForYesNo,
                                 cts.Token);
@@ -255,6 +259,11 @@ namespace PcmHacking
                         case "get-properties":
                         {
                             success = await GetProperties(vehicle, logger, cts.Token);
+                            break;
+                        }
+                        case "detect":
+                        {
+                            success = await vehicle.DetectAndReportModules(cts.Token);
                             break;
                         }
                         case "brute-force":
@@ -363,9 +372,28 @@ namespace PcmHacking
                 return null;
             }
 
-            // Serial port - exact name match (case-insensitive)
+            // Serial port - exact name match (case-insensitive). An optional ":<type>" suffix forces
+            // a specific serial device type and skips auto-detect (e.g. "COM24:slcan"), which is the
+            // way to select a CAN-only adapter that does not answer the auto-detect probes.
             if (deviceSpec.StartsWith("COM", StringComparison.OrdinalIgnoreCase))
+            {
+                int separator = deviceSpec.IndexOf(':');
+                if (separator > 0)
+                {
+                    string portName = deviceSpec.Substring(0, separator);
+                    string typeHint = deviceSpec.Substring(separator + 1);
+                    string? serialType = ResolveSerialDeviceType(typeHint);
+                    if (serialType == null)
+                    {
+                        Console.Error.WriteLine($"Error: unknown serial device type \"{typeHint}\". Known: avt, obdx, elm, slcan.");
+                        return null;
+                    }
+                    logger.AddUserMessage($"Selected {serialType} on {portName}");
+                    return DeviceFactory.CreateSerialDevice(portName, serialType, logger);
+                }
+
                 return DeviceFactory.AutoDetectSerialDevice(deviceSpec, logger).GetAwaiter().GetResult();
+            }
 
             // J2534 - case-insensitive substring match
             var matches = j2534Devices
@@ -391,34 +419,68 @@ namespace PcmHacking
             return null;
         }
 
-        // Mirrors the WinForms "Read Properties" button: queries VIN, OSID, calibration,
-        // hardware ID, serial number, BCC, MEC, and voltage. Conditional queries follow
-        // the same hardware-type rules as the WinForms implementation.
+        // Map a short serial-device-type hint (from a "COMx:<type>" spec) to a known device type,
+        // by exact or unique case-insensitive substring match. Returns null if unknown/ambiguous.
+        static string? ResolveSerialDeviceType(string hint)
+        {
+            string[] knownTypes =
+            {
+                SlcanDevice.DeviceType,
+                AvtDevice.DeviceType,
+                OBDXProDevice.DeviceType,
+                ElmDevice.DeviceType,
+            };
+
+            foreach (string type in knownTypes)
+            {
+                if (string.Equals(type, hint, StringComparison.OrdinalIgnoreCase))
+                    return type;
+            }
+
+            var matches = knownTypes
+                .Where(t => t.IndexOf(hint, StringComparison.OrdinalIgnoreCase) >= 0)
+                .ToList();
+            return matches.Count == 1 ? matches[0] : null;
+        }
+
+        // Mirrors the WinForms "Read Properties" button. First detects what is on the bus and
+        // selects its protocol (the shared first step of every operation), then reads the rest of
+        // the properties on the selected bus. The OSID comes from detection; VIN, calibration,
+        // hardware ID, serial number, BCC, MEC, and voltage follow over VPW, with the same
+        // hardware-type rules as the WinForms implementation. On CAN the GMLAN DID set is read and
+        // formatted via CanProperties (VIN, traceability code, OSID, module ids).
         static async Task<bool> GetProperties(Vehicle vehicle, ILogger logger, CancellationToken token)
         {
-            OSIDInfo? pcmInfo = null;
-
-            var vinResponse = await vehicle.QueryVin();
-            if (vinResponse.Status != ResponseStatus.Success)
+            DetectedModule? pcm = await vehicle.DetectAndSelectPcm(token);
+            if (pcm == null)
             {
-                logger.AddUserMessage("VIN query failed: " + vinResponse.Status);
+                logger.AddUserMessage("No PCM detected on VPW or CAN.");
                 return false;
             }
-            logger.AddUserMessage("VIN: " + vinResponse.Value);
 
-            var osResponse = await vehicle.QueryOperatingSystemId(token);
-            if (osResponse.Status == ResponseStatus.Success)
+            logger.AddUserMessage("Detected PCM on " + pcm.Bus);
+
+            if (pcm.Bus != BusProtocol.Vpw)
             {
-                logger.AddUserMessage("OSID: " + osResponse.Value);
-                pcmInfo = new OSIDInfo(osResponse.Value);
-                logger.AddUserMessage("Description: " + pcmInfo.Description);
+                logger.AddUserMessage("Parameters:");
+                foreach (string line in await CanProperties.Read(vehicle.CreateCanCommands(), token))
+                {
+                    logger.AddUserMessage(line);
+                }
+                return true;
             }
+
+            OSIDInfo pcmInfo = new OSIDInfo(pcm.Osid);
+            logger.AddUserMessage("OSID: " + pcm.Osid);
+            logger.AddUserMessage("Description: " + pcmInfo.Description);
+
+            var vinResponse = await vehicle.QueryVin();
+            if (vinResponse.Status == ResponseStatus.Success)
+                logger.AddUserMessage("VIN: " + vinResponse.Value);
             else
-            {
-                logger.AddUserMessage("OS ID query failed: " + osResponse.Status);
-            }
+                logger.AddUserMessage("VIN query failed: " + vinResponse.Status);
 
-            if (pcmInfo != null && pcmInfo.HardwareType != PcmType.BlackBox)
+            if (pcmInfo.HardwareType != PcmType.BlackBox)
             {
                 var calResponse = await vehicle.QueryCalibrationId();
                 if (calResponse.Status == ResponseStatus.Success)
@@ -427,8 +489,7 @@ namespace PcmHacking
                     logger.AddUserMessage("Calibration ID query failed: " + calResponse.Status);
             }
 
-            if (pcmInfo != null &&
-                pcmInfo.HardwareType != PcmType.P05 &&
+            if (pcmInfo.HardwareType != PcmType.P05 &&
                 pcmInfo.HardwareType != PcmType.P05b &&
                 pcmInfo.HardwareType != PcmType.P10 &&
                 pcmInfo.HardwareType != PcmType.P12 &&
@@ -441,7 +502,7 @@ namespace PcmHacking
                     logger.AddUserMessage("Hardware ID query failed: " + hwResponse.Status);
             }
 
-            if (pcmInfo != null && pcmInfo.HardwareType != PcmType.BlackBox)
+            if (pcmInfo.HardwareType != PcmType.BlackBox)
             {
                 var serialResponse = await vehicle.QuerySerial();
                 if (serialResponse.Status == ResponseStatus.Success)
@@ -450,8 +511,7 @@ namespace PcmHacking
                     logger.AddUserMessage("Serial Number query failed: " + serialResponse.Status);
             }
 
-            if (pcmInfo != null &&
-                pcmInfo.HardwareType != PcmType.P04 &&
+            if (pcmInfo.HardwareType != PcmType.P04 &&
                 pcmInfo.HardwareType != PcmType.P04_Early &&
                 pcmInfo.HardwareType != PcmType.P08)
             {
@@ -477,10 +537,9 @@ namespace PcmHacking
             return true;
         }
 
-        // Brute-forces the PCM's security access. Mirrors the WinForms "Brute Force Unlock"
-        // dialog: optionally sweeps the 256 known GM key algorithms first, then tries the numeric
-        // key range. All the search/timing logic lives in PcmLibrary's BruteForcer; this just
-        // parses the CLI options and surfaces the outcome.
+        // Brute-forces the PCM's security access: optionally sweeps the 256 known GM key algorithms
+        // first, then tries the numeric key range. All the search/timing logic lives in PcmLibrary's
+        // BruteForcer; this just parses the CLI options, selects the bus, and surfaces the outcome.
         static async Task<bool> BruteForceUnlock(Vehicle vehicle, ILogger logger, string? rangeSpec, bool algoSweep, int delaySeconds, CancellationToken token)
         {
             int start = 0x0000;
@@ -491,10 +550,19 @@ namespace PcmHacking
                 return false;
             }
 
-            // The brute forcer logs one "Sweeping/Trying <key>" line per key (about one every ~10s),
-            // which is enough to show progress on the console. The countdown timer is a GUI affordance,
-            // so the CLI needs no progress callback.
-            var bruteForcer = new BruteForcer(vehicle, logger);
+            // Detect the bus and pick the matching security-access provider (the brute forcer and its
+            // timing are shared; only the seed/key transport and key table differ by bus).
+            DetectedModule? pcm = await vehicle.DetectAndSelectPcm(token);
+            if (pcm == null)
+            {
+                logger.AddUserMessage("No PCM detected on VPW or CAN.");
+                return false;
+            }
+            ISecurityAccess access = pcm.Bus == BusProtocol.Can500k ? vehicle.CreateCanCommands() : (ISecurityAccess)vehicle;
+
+            // The brute forcer logs one "Sweeping/Trying <key>" line per key, which is enough to show
+            // progress on the console. The countdown timer is a GUI affordance, so the CLI needs none.
+            var bruteForcer = new BruteForcer(access, logger);
             BruteForceResult result = await bruteForcer.BruteForce(start, end, algoSweep, delaySeconds, token);
 
             // BruteForce logs the detailed outcome itself; map it to a process success result.
@@ -609,11 +677,12 @@ namespace PcmHacking
             Console.WriteLine();
             Console.WriteLine("Operations:");
             Console.WriteLine("  --read [file]             Read entire PCM to file (auto-names if omitted)");
-            Console.WriteLine("  --test-read               Read entire PCM without saving");
+            Console.WriteLine("  --test-read               Read entire PCM (auto-detects VPW or CAN) without saving");
             Console.WriteLine("  --write <file>            Write entire PCM from file");
             Console.WriteLine("  --test-write <file>       Test write (no permanent changes)");
             Console.WriteLine("  --verify <file>           CRC-compare file against PCM (no erase/write)");
             Console.WriteLine("  --get-properties          Read VIN, OSID, calibration, serial, voltage");
+            Console.WriteLine("  --detect                  Scan the buses (VPW, CAN) and list the modules that respond");
             Console.WriteLine("  --brute-force             Search the PCM security key (algo sweep, then numeric range)");
             Console.WriteLine("  --list-devices            List available serial and J2534 devices with index numbers");
             Console.WriteLine();

@@ -289,7 +289,6 @@ namespace PcmHacking.DialogBoxes
             this.cancellationTokenSource = new CancellationTokenSource();
             CancellationToken token = this.cancellationTokenSource.Token;
             Progress<BruteForceProgress> progress = new Progress<BruteForceProgress>(this.OnProgress);
-            BruteForcer bruteForcer = new BruteForcer(this.vehicle, this.logger, progress);
 
             try
             {
@@ -297,8 +296,23 @@ namespace PcmHacking.DialogBoxes
                 {
                     // Task.Run keeps the device I/O (and the awaits inside BruteForce) off the UI
                     // thread; the Progress<T> created above still marshals updates back to the UI.
-                    BruteForceResult result = await Task.Run(
-                        () => bruteForcer.BruteForce(start.Value, end.Value, sweepFirst, delaySeconds, token));
+                    BruteForceResult result = await Task.Run(async () =>
+                    {
+                        // Detect the bus and pick the matching security-access provider: VPW via the
+                        // Vehicle, CAN via CanCommands. The brute-force loop, timing and progress are
+                        // shared; only the seed/key transport and key table differ by bus.
+                        DetectedModule? pcm = await this.vehicle.DetectAndSelectPcm(token);
+                        if (pcm == null)
+                        {
+                            this.logger.AddUserMessage("No PCM detected on VPW or CAN.");
+                            return new BruteForceResult(BruteForceOutcome.CommunicationError);
+                        }
+                        ISecurityAccess access = pcm.Bus == BusProtocol.Can500k
+                            ? this.vehicle.CreateCanCommands()
+                            : (ISecurityAccess)this.vehicle;
+                        BruteForcer bruteForcer = new BruteForcer(access, this.logger, progress);
+                        return await bruteForcer.BruteForce(start.Value, end.Value, sweepFirst, delaySeconds, token);
+                    });
                     this.OnFinished(result);
                 }
             }
@@ -413,7 +427,7 @@ namespace PcmHacking.DialogBoxes
             {
                 case BruteForceOutcome.Found:
                     status = result.Algorithm >= 0
-                        ? $"Key found! {result.Key:X4} (match Algo {result.Algorithm})"
+                        ? $"Key found! {result.Key:X4} (match Algo 0x{result.Algorithm:X2})"
                         : $"Key found! {result.Key:X4}";
                     this.currentBox.Text = result.Key.ToString("X4");
                     this.progressBar.Value = this.progressBar.Maximum;

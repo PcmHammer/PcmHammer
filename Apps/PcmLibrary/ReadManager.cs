@@ -17,7 +17,7 @@ namespace PcmHacking
         private Vehicle vehicle;
         private Func<Action, Task> invoke;
         private Func<Task<string?>> promptForFilePath;
-        private Func<Task<UInt32>> promptForOperatingSystemId;
+        private Func<Task<PcmType>> promptForPcmType;
         private Func<string, string, Task> alert;
         private Func<string, string, Task<bool>> promptForYesNo;
         private CancellationToken cancellationToken;
@@ -29,7 +29,7 @@ namespace PcmHacking
             Vehicle vehicle,
             Func<Action, Task> invoke, 
             Func<Task<string?>> promptForFilePath,
-            Func<Task<UInt32>> promptForOperatingSystemId,
+            Func<Task<PcmType>> promptForPcmType,
             Func<string, string, Task> alert,
             Func<string, string, Task<bool>> promptForYesNo,
             CancellationToken cancellationToken
@@ -39,7 +39,7 @@ namespace PcmHacking
             this.vehicle = vehicle;
             this.invoke = invoke;
             this.promptForFilePath = promptForFilePath;
-            this.promptForOperatingSystemId = promptForOperatingSystemId;
+            this.promptForPcmType = promptForPcmType;
             this.alert = alert;
             this.promptForYesNo = promptForYesNo;
             this.cancellationToken = cancellationToken;
@@ -126,6 +126,55 @@ namespace PcmHacking
             return Path.Combine(dir, name + "_badread" + ext);
         }
 
+        /// <summary>
+        /// Read a CAN-bus PCM (E38). The VPW OSID table doesn't describe these, so we use the E38
+        /// profile for the key algorithm, kernel file and image size. Mirrors the VPW path: unlock,
+        /// then hand off to the CAN kernel reader for the upload + block read. Assumes the device is
+        /// already selected on CAN.
+        /// </summary>
+        private async Task<Response<Stream>?> RunCanRead(IProgress<ProgressUpdate>? progress)
+        {
+            OSIDInfo pcmInfo = new OSIDInfo(PcmType.E38);
+            logger.AddUserMessage("CAN PCM detected. Using the " + pcmInfo.Description + " read process.");
+
+            if (!pcmInfo.IsSupportedRead)
+            {
+                string msg = "Abort: this CAN PCM is not supported for read operations.";
+                logger.AddUserMessage(msg);
+                await this.invoke(async () => await this.alert(msg, "Abort"));
+                return null;
+            }
+
+            CanCommands commands = this.vehicle.CreateCanCommands();
+
+            logger.StatusUpdateActivity("Unlocking PCM...");
+            if (!await commands.Unlock(pcmInfo, this.cancellationToken))
+            {
+                logger.AddUserMessage("Unlock was not successful.");
+                return null;
+            }
+            logger.AddUserMessage("Unlock succeeded.");
+
+            if (this.cancellationToken.IsCancellationRequested)
+            {
+                return null;
+            }
+
+            DateTime start = DateTime.Now;
+            CanKernelReader reader = new CanKernelReader(this.vehicle, commands, pcmInfo, this.logger);
+            Response<Stream> readResponse = await reader.ReadContents(this.cancellationToken, progress);
+
+            logger.AddUserMessage("Elapsed time " + DateTime.Now.Subtract(start));
+
+            if (readResponse.Status != ResponseStatus.Success && readResponse.Status != ResponseStatus.Unverified)
+            {
+                logger.AddUserMessage("Read failed, " + readResponse.Status.ToString());
+                return null;
+            }
+
+            return readResponse;
+        }
+
         private async Task<Response<Stream>?> RunRead(IProgress<ProgressUpdate>? progress, PcmType forcedPcmType)
         {
             OSIDInfo pcmInfo;
@@ -136,6 +185,20 @@ namespace PcmHacking
             }
             else
             {
+                // Detect what is on the bus first (the shared first step). A CAN PCM is read by a
+                // separate path; otherwise make sure we are on VPW and use the VPW flow below.
+                DetectedModule? detected = await this.vehicle.DetectAndSelectPcm(this.cancellationToken);
+                if (detected != null && detected.Bus == BusProtocol.Can500k)
+                {
+                    return await this.RunCanRead(progress);
+                }
+                if (detected == null)
+                {
+                    // The quick probe found nothing; the device may have been left on CAN, so return
+                    // it to VPW for the full VPW detection below (which has its own retries).
+                    await this.vehicle.SelectBus(BusProtocol.Vpw);
+                }
+
                 logger.AddUserMessage("Querying operating system of current PCM.");
                 Response<uint> osidResponse = await this.vehicle.QueryOperatingSystemId(this.cancellationToken);
                 if (osidResponse.Status != ResponseStatus.Success)
@@ -158,17 +221,23 @@ namespace PcmHacking
                 }
                 else
                 {
-                    logger.AddUserMessage("Unable to get operating system ID. Will assume this can be unlocked with the default seed/key algorithm.");
+                    logger.AddUserMessage("Unable to get operating system ID. Asking the user to select the PCM type.");
 
-                    UInt32 OperatingSystemId = 0;
+                    PcmType selectedType = PcmType.Undefined;
 
                     await this.vehicle.ForceSendToolPresentNotification();
-                    await this.invoke(async () => OperatingSystemId = await this.promptForOperatingSystemId());
+                    await this.invoke(async () => selectedType = await this.promptForPcmType());
                     await this.vehicle.ForceSendToolPresentNotification();
 
-                    pcmInfo = new OSIDInfo(OperatingSystemId);
+                    if (selectedType == PcmType.Undefined)
+                    {
+                        logger.AddUserMessage("No PCM type was selected.");
+                        return null;
+                    }
 
-                    logger.AddUserMessage($"Using OsID: {pcmInfo.OSID}");
+                    pcmInfo = new OSIDInfo(selectedType);
+
+                    logger.AddUserMessage($"Using manually selected PCM type: {pcmInfo.HardwareType}");
                 }
             }
 

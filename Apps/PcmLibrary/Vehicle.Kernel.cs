@@ -169,6 +169,32 @@ namespace PcmHacking
         }
 
         /// <summary>
+        /// Return the PCM to normal operation when the running kernel's bus is not known. The manual
+        /// "Halt Running Kernel" button can be pressed at any time, so the kernel may be running on
+        /// either bus. This sends mode 0x20 and then clears trouble codes on every bus the device can
+        /// reach: CAN 500k first (if supported), then VPW at 4X (if supported) and 1X. A bus the
+        /// device cannot use is simply skipped. Operations that already know the protocol use the
+        /// protocol-specific cleanup instead (this.Cleanup for VPW, the CAN writer/reader for CAN).
+        /// </summary>
+        public async Task HaltKernel(CancellationToken cancellationToken)
+        {
+            if (await this.device.SetProtocol(BusProtocol.Can500k))
+            {
+                this.SetTarget(Target.Pcm);
+                CanCommands can = this.CreateCanCommands();
+                await can.Reboot(cancellationToken);
+                await can.ClearDiagnosticCodes(cancellationToken);
+            }
+
+            if (await this.device.SetProtocol(BusProtocol.Vpw))
+            {
+                this.SetTarget(Target.Pcm);
+                await this.ExitKernel();
+                await this.ClearTroubleCodes();
+            }
+        }
+
+        /// <summary>
         /// Exits the kernel at 4x, then at 1x. Once this function has been called the bus will be back at 1x.
         /// </summary>
         /// <remarks>

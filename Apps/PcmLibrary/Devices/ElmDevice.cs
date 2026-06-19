@@ -13,7 +13,7 @@ namespace PcmHacking
     /// specific ELM device that is attached. After detecting the device is acts as a facade, with
     /// a device-specific class implementing device-specific functionality.
     /// </summary>
-    public class ElmDevice : SerialDevice
+    public class ElmDevice : SerialDevice, ICanTarget
     {
         /// <summary>
         /// Device type for use in the Device Picker dialog box, and for internal comparisons.
@@ -32,6 +32,56 @@ namespace PcmHacking
         {
             // So far, no ELM devices support this.
             this.SupportsSingleDpidLogging = false;
+        }
+
+        // ICanTarget: forwarded to the connected implementation. Only the ScanTool (STN) family is
+        // supprted for CAN in this application.
+        /// <summary>CAN id used when transmitting (tool to module).</summary>
+        public uint TxCanId
+        {
+            get => (this.implementation as ScanToolDeviceImplementation)?.TxCanId ?? CanId.PcmPhysicalRequest;
+            set { if (this.implementation is ScanToolDeviceImplementation scanTool) scanTool.TxCanId = value; }
+        }
+
+        /// <summary>CAN id accepted when receiving (module to tool).</summary>
+        public uint RxCanId
+        {
+            get => (this.implementation as ScanToolDeviceImplementation)?.RxCanId ?? CanId.PcmPhysicalResponse;
+            set { if (this.implementation is ScanToolDeviceImplementation scanTool) scanTool.RxCanId = value; }
+        }
+
+        /// <summary>
+        /// The ScanTool (STN) family has a small CAN message buffer, so a kernel must be uploaded in
+        /// blocks of that size; other ELM-based devices use the default.
+        /// </summary>
+        public override int MaxCanKernelBlockSize =>
+            this.implementation is ScanToolDeviceImplementation ? ScanToolDeviceImplementation.CanMaxMessageSize : base.MaxCanKernelBlockSize;
+
+        /// <summary>
+        /// Select the bus the device communicates on. The ScanTool (STN) family also supports CAN
+        /// (native ISO 15765); other ELM-based devices (AllPro) are supported for VPW only.
+        /// </summary>
+        public override async Task<bool> SetProtocol(BusProtocol protocol)
+        {
+            if (this.implementation is ScanToolDeviceImplementation scanTool)
+            {
+                bool ok = await scanTool.SetBusProtocol(protocol);
+                if (ok)
+                {
+                    // The per-bus send/receive limits differ; keep the facade in step with the implementation.
+                    this.MaxSendSize = scanTool.MaxSendSize;
+                    this.MaxReceiveSize = scanTool.MaxReceiveSize;
+                    this.Supports4X = scanTool.Supports4X;
+
+                    // Selecting a protocol (STP) resets the STN's request timeout to that bus's
+                    // default, so force the next SetTimeout to re-apply our value rather than skip it
+                    // as unchanged.
+                    this.currentTimeoutScenario = TimeoutScenario.Undefined;
+                }
+                return ok;
+            }
+
+            return protocol == BusProtocol.Vpw;
         }
 
         /// <summary>
@@ -69,7 +119,7 @@ namespace PcmHacking
                 }
 
                 AllProDeviceImplementation allProDevice = new AllProDeviceImplementation(
-                    this.Enqueue, 
+                    message => this.Enqueue(message),
                     () => this.ReceivedMessageCount,
                     this.Port, 
                     this.Logger);
@@ -81,7 +131,7 @@ namespace PcmHacking
                 else
                 {
                     ScanToolDeviceImplementation scanToolDevice = new ScanToolDeviceImplementation(
-                        this.Enqueue,
+                        message => this.Enqueue(message),
                         () => this.ReceivedMessageCount,
                         this.Port,
                         this.Logger);

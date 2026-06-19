@@ -16,7 +16,7 @@ namespace PcmHacking
     /// This class encapsulates all code that is unique to the AVT 852 interface.
     /// </summary>
     ///
-    class J2534Device : Device
+    class J2534Device : Device, ICanTarget
     {
         /// <summary>
         /// Configuration settings
@@ -37,6 +37,17 @@ namespace PcmHacking
         private const string PortName = "J2534";
         private const uint MessageFilter = 0x6CF010;
         public string ToolName = "";
+
+        /// <summary>Current bus protocol; drives send/receive formatting for this device.</summary>
+        private BusProtocol CurrentProtocol = BusProtocol.Vpw;
+
+        // CAN target addresses; default from the shared CanId constants, settable so the command
+        // layer can address a different module or id.
+        /// <summary>CAN ID to transmit to (tool to target).</summary>
+        public uint TxCanId { get; set; } = CanId.PcmPhysicalRequest;
+
+        /// <summary>CAN ID to accept (target to tool).</summary>
+        public uint RxCanId { get; set; } = CanId.PcmPhysicalResponse;
 
         /// <summary>
         /// global error variable for reading/writing. (Could be done on the fly)
@@ -215,11 +226,17 @@ namespace PcmHacking
         }
 
         /// <summary>
-        /// Not yet implemented.
+        /// Set the receive timeout for the given scenario. Previously a no-op, which left every
+        /// J2534 ReadMsgs blocking for the full 3000 ms even when probing - far too slow for a
+        /// multi-bus scan. Now the scan-probe budget (Detect) is honored; all other scenarios keep
+        /// the existing 3000 ms so normal operations are unchanged.
         /// </summary>
         public override Task<TimeoutScenario> SetTimeout(TimeoutScenario scenario)
         {
-            return Task.FromResult(this.currentTimeoutScenario);
+            TimeoutScenario previous = this.currentTimeoutScenario;
+            this.currentTimeoutScenario = scenario;
+            this.ReadTimeout = (scenario == TimeoutScenario.Detect) ? 500 : 3000;
+            return Task.FromResult(previous);
         }
 
         /// <summary>
@@ -249,20 +266,26 @@ namespace PcmHacking
             //this.Logger.AddDebugMessage("Trace: Read Network Packet");
 
             int NumMessages = 1;
-            //IntPtr rxMsgs = Marshal.AllocHGlobal((int)(Marshal.SizeOf(typeof(PassThruMsg)) * NumMessages));
             List<PassThruMsg> rxMsgs = new List<PassThruMsg>();
             PassThruMsg PassMess;
             OBDError = 0; // Clear any previous faults
 
+            // Read until we deliver a frame the active inbound filter accepts (the response this
+            // exchange is waiting for) or the device read times out. Frames the filter rejects - the
+            // interface's own transmit echo (e.g. 00 00 07 E0) or a stray ack left from a previous
+            // exchange - are skipped here and kept out of the queue, so a burst of them can never be
+            // mistaken for silence and time the exchange out. Bounded by ReadTimeout so a continuously
+            // busy bus cannot wedge the read.
             Stopwatch sw = new Stopwatch();
             sw.Start();
 
-            do
+            while (sw.ElapsedMilliseconds <= (long)ReadTimeout)
             {
                 NumMessages = 1;
                 OBDError = J2534Port.Functions.ReadMsgs((int)ChannelID, ref rxMsgs, ref NumMessages, ReadTimeout);
                 if (OBDError != J2534Err.STATUS_NOERROR)
                 {
+                    // No (more) frames within the read window: a genuine transport timeout.
                     this.Logger.AddDebugMessage("ReadMsgs OBDError: " + OBDError);
                     return Task.FromResult(0);
                 }
@@ -270,26 +293,29 @@ namespace PcmHacking
                 PassMess = rxMsgs.Last();
                 if ((int)PassMess.RxStatus == (((int)RxStatus.NONE) + ((int)RxStatus.TX_MSG_TYPE)) || (PassMess.RxStatus == RxStatus.START_OF_MESSAGE))
                 {
+                    // Transmit echo / start-of-message marker, not a response: read again.
                     continue;
                 }
-                else
+
+                byte[] rxData = PassMess.Data;
+                if (this.CurrentProtocol == BusProtocol.Can500k && rxData.Length > 4)
                 {
-                    byte[] TempBytes = PassMess.Data;
-                    // Perform additional filter check if required here... or show to debug
-                    break; // Exit loop
+                    // ISO15765 frames are prefixed with the 4-byte CAN ID; strip it so the upper layers
+                    // see the bare UDS payload (J2534 already reassembled any multi-frame message).
+                    byte[] stripped = new byte[rxData.Length - 4];
+                    Array.Copy(rxData, 4, stripped, 0, stripped.Length);
+                    rxData = stripped;
                 }
-            } while (OBDError == J2534Err.STATUS_NOERROR || sw.ElapsedMilliseconds > (long)ReadTimeout);
-            sw.Stop();
 
-
-            if (OBDError != J2534Err.STATUS_NOERROR || sw.ElapsedMilliseconds > (long)ReadTimeout)
-            {
-                this.Logger.AddDebugMessage("ReadMsgs OBDError: " + OBDError);
-                return Task.FromResult(0);
+                this.Logger.AddDebugMessage("RX: " + rxData.ToHex());
+                if (this.Enqueue(new Message(rxData, (ulong)PassMess.Timestamp, (ulong)OBDError)))
+                {
+                    // On-conversation response queued for this exchange.
+                    return Task.FromResult(0);
+                }
+                // Off-conversation frame, dropped by the inbound filter: keep reading for the response.
             }
 
-            this.Logger.AddDebugMessage("RX: " + PassMess.Data.ToHex());
-            this.Enqueue(new Message(PassMess.Data, (ulong)PassMess.Timestamp, (ulong)OBDError));
             return Task.FromResult(0);
         }
 
@@ -319,8 +345,25 @@ namespace PcmHacking
         public override Task<bool> SendMessage(Message message)
         {
             //this.Logger.AddDebugMessage("Send request called");
-            this.Logger.AddDebugMessage("TX: " + message.GetBytes().ToHex());
-            Response<J2534Err> MyError = SendNetworkMessage(message, TxFlag.NONE);
+            Response<J2534Err> MyError;
+
+            if (this.CurrentProtocol == BusProtocol.Can500k)
+            {
+                // Prepend the 4-byte destination CAN ID; J2534 ISO15765 adds the ISO-TP framing.
+                byte[] uds = message.GetBytes();
+                byte[] data = new byte[4 + uds.Length];
+                byte[] idBytes = CanIdToBytes(this.TxCanId);
+                Array.Copy(idBytes, 0, data, 0, 4);
+                Array.Copy(uds, 0, data, 4, uds.Length);
+                this.Logger.AddDebugMessage("CAN TX: " + uds.ToHex());
+                MyError = SendNetworkMessage(new Message(data), TxFlag.ISO15765_FRAME_PAD);
+            }
+            else
+            {
+                this.Logger.AddDebugMessage("TX: " + message.GetBytes().ToHex());
+                MyError = SendNetworkMessage(message, TxFlag.NONE);
+            }
+
             if (MyError.Status != ResponseStatus.Success)
             {
                 return Task.FromResult(false);
@@ -468,6 +511,112 @@ namespace PcmHacking
             IsProtocolOpen = false;
             return Response.Create(ResponseStatus.Success, OBDError);
         }
+
+        /// <summary>
+        /// Select the bus protocol the device communicates on. Reconnects the J2534 channel to
+        /// J1850VPW or ISO15765 (500k CAN) and installs the matching filter. ISO15765 makes the
+        /// device handle ISO-TP segmentation, reassembly and flow control internally (native
+        /// ISO-TP, like the OBDX), so no software transport is used. No async work, so this wraps
+        /// a synchronous helper for readability.
+        /// </summary>
+        public override Task<bool> SetProtocol(BusProtocol protocol)
+        {
+            try
+            {
+                return Task.FromResult(SetProtocolInternal(protocol));
+            }
+            catch (Exception ex)
+            {
+                this.Logger.AddDebugMessage("J2534 SetProtocol error: " + ex.Message);
+                return Task.FromResult(false);
+            }
+        }
+
+        private bool SetProtocolInternal(BusProtocol protocol)
+        {
+            if (protocol == this.CurrentProtocol)
+            {
+                return true;
+            }
+
+            if (protocol == BusProtocol.Can500k)
+            {
+                DisconnectFromProtocol();
+                Filters.Clear();
+
+                Response<J2534Err> c = ConnectToProtocol(ProtocolID.ISO15765, BaudRate.ISO15765, ConnectFlag.NONE);
+                if (c.Status != ResponseStatus.Success)
+                {
+                    this.Logger.AddUserMessage("J2534: failed to open ISO15765 (CAN) channel, error 0x" + c.Value.ToString("X"));
+                    return false;
+                }
+
+                // A flow-control filter lets J2534 auto-handle multi-frame ISO-TP and send FC frames.
+                Response<J2534Err> f = SetCanFlowControlFilter();
+                if (f.Status != ResponseStatus.Success)
+                {
+                    this.Logger.AddDebugMessage("J2534: CAN flow-control filter warning 0x" + f.Value.ToString("X") + " (may still work).");
+                }
+
+                this.Supports4X = false;
+                this.CurrentProtocol = BusProtocol.Can500k;
+                this.Logger.AddDebugMessage($"J2534 CAN ready: 500k ISO15765, tx 0x{this.TxCanId:X3}, rx 0x{this.RxCanId:X3}.");
+                return true;
+            }
+
+            if (protocol == BusProtocol.Vpw)
+            {
+                DisconnectFromProtocol();
+                Filters.Clear();
+
+                Response<J2534Err> c = ConnectToProtocol(ProtocolID.J1850VPW, BaudRate.J1850VPW_10400, ConnectFlag.NONE);
+                if (c.Status != ResponseStatus.Success)
+                {
+                    this.Logger.AddUserMessage("J2534: failed to re-open J1850VPW channel, error 0x" + c.Value.ToString("X"));
+                    return false;
+                }
+
+                SetFilter(0xFEFFFF, J2534Device.MessageFilter, 0, TxFlag.NONE, FilterType.PASS_FILTER);
+
+                this.Supports4X = true;
+                this.CurrentProtocol = BusProtocol.Vpw;
+                this.Logger.AddDebugMessage("J2534 VPW mode restored.");
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Install an ISO15765 flow-control filter: pass frames with the ECU response id (RxCanId)
+        /// and auto-send flow control using the request id (TxCanId).
+        /// </summary>
+        private Response<J2534Err> SetCanFlowControlFilter()
+        {
+            byte[] mask    = CanIdToBytes(0xFFFFFFFF);
+            byte[] pattern = CanIdToBytes(this.RxCanId);
+            byte[] fc      = CanIdToBytes(this.TxCanId);
+
+            PassThruMsg maskMsg    = new PassThruMsg(ProtocolID.ISO15765, TxFlag.NONE, mask);
+            PassThruMsg patternMsg = new PassThruMsg(ProtocolID.ISO15765, TxFlag.NONE, pattern);
+            PassThruMsg fcMsg      = new PassThruMsg(ProtocolID.ISO15765, TxFlag.NONE, fc);
+            int filterId = 0;
+
+            OBDError = J2534Port.Functions.StartMsgFilter(ChannelID, FilterType.FLOW_CONTROL_FILTER,
+                ref maskMsg, ref patternMsg, ref fcMsg, ref filterId);
+            if (OBDError != J2534Err.STATUS_NOERROR)
+            {
+                return Response.Create(ResponseStatus.Error, OBDError);
+            }
+
+            Filters.Add((ulong)filterId);
+            return Response.Create(ResponseStatus.Success, OBDError);
+        }
+
+        private static byte[] CanIdToBytes(uint id) => new byte[]
+        {
+            (byte)(id >> 24), (byte)(id >> 16), (byte)(id >> 8), (byte)id
+        };
 
         /// <summary>
         /// Read battery voltage

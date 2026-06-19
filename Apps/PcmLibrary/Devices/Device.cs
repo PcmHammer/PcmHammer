@@ -23,7 +23,27 @@ namespace PcmHacking
         DataLogging3,
         DataLogging4,
         DataLoggingStreaming,
+
+        /// <summary>
+        /// Short, fixed receive timeout (~500 ms) for probing whether a module is present on a
+        /// bus during a scan. Long enough for a real ECU to answer, short enough that an empty
+        /// bus is ruled out quickly. Devices must honor this so a multi-bus scan stays fast.
+        /// </summary>
+        Detect,
+
         Maximum,
+    }
+
+    /// <summary>
+    /// Physical bus protocol the device communicates on.
+    /// </summary>
+    public enum BusProtocol
+    {
+        /// <summary>J1850 VPW (10.4 kbps standard, 41.6 kbps 4X).</summary>
+        Vpw,
+
+        /// <summary>CAN at 500 kbaud on the standard OBD2 pins (ISO 15765-4).</summary>
+        Can500k,
     }
 
     /// <summary>
@@ -147,6 +167,17 @@ namespace PcmHacking
         /// Maximum size of received messages.
         /// </summary>
         public int MaxReceiveSize { get; protected set; }
+
+        /// <summary>
+        /// Largest CAN payload (a single GMLAN/ISO-TP message) this device can transmit when uploading
+        /// a kernel block. J2534 has no way to report a device's real buffer size, and known devices
+        /// differ (e.g. some adapters cap at 2 KiB), so this defaults to a safe 2 KiB - a small kernel
+        /// still uploads in one or two blocks. A device known to handle more can override it upward, and
+        /// an interface with a smaller CAN buffer overrides it downward. Kept separate from
+        /// <see cref="MaxSendSize"/>, which some devices set conservatively for other reasons (e.g. VPW /
+        /// specific adapters) and does not reflect the real CAN ISO-TP capacity.
+        /// </summary>
+        public virtual int MaxCanKernelBlockSize => 2048;
 
         /// <summary>
         /// Indicates whether or not the device supports 4X speed.
@@ -327,6 +358,16 @@ namespace PcmHacking
         }
 
         /// <summary>
+        /// Select the physical bus the device should communicate on. The default supports VPW
+        /// only; a CAN-capable device overrides this to also accept <see cref="BusProtocol.Can500k"/>,
+        /// choosing native or software ISO-TP per device.
+        /// </summary>
+        public virtual Task<bool> SetProtocol(BusProtocol protocol)
+        {
+            return Task.FromResult(protocol == BusProtocol.Vpw);
+        }
+
+        /// <summary>
         /// Set the interface to low (false) or high (true) speed
         /// </summary>
         protected abstract Task<bool> SetVpwSpeedInternal(VpwSpeed newSpeed);
@@ -356,16 +397,19 @@ namespace PcmHacking
 
         /// <summary>
         /// Add a received message to the queue, unless an active inbound filter rejects it.
+        /// Returns true when the message was queued (on-conversation), false when an active
+        /// filter rejected it. A receive loop can use the result to keep reading until the
+        /// message it is waiting for arrives, rather than treating filtered traffic as silence.
         /// </summary>
-        protected void Enqueue(Message message)
+        protected bool Enqueue(Message message)
         {
             Predicate<Message>? filter = this.inboundFilter;
             if (filter != null && !filter(message))
             {
                 // Off-conversation bus traffic: count it (see DroppedMessageCount) but don't
-                // log each one — in-car that would be extremely chatty.
+                // log each one - in-car that would be extremely chatty.
                 this.DroppedMessageCount++;
-                return;
+                return false;
             }
 
             lock (this.queue)
@@ -373,6 +417,8 @@ namespace PcmHacking
                 this.Logger.AddDebugMessage("Received: " + message.ToString());
                 this.queue.Enqueue(message);
             }
+
+            return true;
         }
 
         /// <summary>

@@ -33,7 +33,7 @@
   .equ SIM_CSOR8,            (SIM_BASE + 0x6E) | 0xFA6E
   .equ SIM_CSBAR0,           (SIM_BASE + 0x7C) | 0xFA7C
   .equ SIM_CSOR0,            (SIM_BASE + 0x7E) | 0xFA7E
-#elif defined P05
+#elif defined P05 || defined E60
   .equ SIM_BASE,             0xFA00
   .equ SIM_20,               (SIM_BASE + 0x20) | Lock functions
   .equ SIM_CSBARBT,          (SIM_BASE + 0x48) | 0xFA48

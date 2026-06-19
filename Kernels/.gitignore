@@ -1,9 +1,15 @@
 a.out
 *.o
 *.bin
-*.log 
+*.log
 *.disassembly
 *.elf
 *.exe
 *.map
 IDA
+
+# A kernel whose source is kept out of the tree ships its finished binary committed
+# in its own source directory; re-include those. The build/ outputs stay ignored.
+!*/Kernel-*.bin
+!*/Loader-*.bin
+/build/
