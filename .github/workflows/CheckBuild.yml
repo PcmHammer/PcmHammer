@@ -207,6 +207,7 @@ jobs:
       WINFORMS_ARTIFACT_SUFFIX: ''
       UNO_ARTIFACT_SUFFIX: ''
       CLI_ARTIFACT_SUFFIX: ''
+      PACKAGE_TOKEN: ''
 
     steps:
     - name: Checkout Code
@@ -546,11 +547,16 @@ jobs:
         name: PCMHammer_Setup_${{ env.WINFORMS_ARTIFACT_SUFFIX }}_${{ github.sha }}
         path: dist/PCMHammer_*_Setup.exe
 
+    # Upload the unzipped portable tree (the folder, not the .zip). upload-artifact always
+    # zips its input, so handing it the pre-made .zip would produce a zip-inside-a-zip;
+    # handing it the folder yields a single wrapping zip whose root is PCMHammer\ (the same
+    # way the Setup artifact is a single zip around the .exe). The .zip Build-Portable also
+    # produced is reserved for the GitHub Release asset below.
     - name: Upload portable artifact
       uses: actions/upload-artifact@v7
       with:
         name: PCMHammer_Portable_${{ env.WINFORMS_ARTIFACT_SUFFIX }}_${{ github.sha }}
-        path: dist/PCMHammer_*_Portable.zip
+        path: dist/PCMHammer_${{ env.PACKAGE_TOKEN }}_Portable
 
     - name: Upload Uno Android artifact (experimental)
       if: ${{ !startsWith(github.ref, 'refs/tags/') }}
