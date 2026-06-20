@@ -17,8 +17,10 @@ To build all supported Kernels simple run: BuildAll.cmd
 
 --
 
-The Kernels can also be built on Unix/Linux using the gcc-m68k toolchain that can be built on most Unix/Linux
+The 68k CPU Kernels can also be built on Unix/Linux using the gcc-m68k toolchain that can be built on most Unix/Linux
 systems using: https://github.com/haarer/toolchain68k.
+
+The E38 PPC CPU Kernel is currently closed source. That may change in the future, but for now it is included in binary only format.
 
 There are pre-built binaries for some distros available as gcc-m68k-linux-gnu.
 
@@ -52,7 +54,7 @@ $ make clean
 $ make -x pcm=P11 address=FFC100
 $ make clean
 
-$ make pcm=P12 address=FF2000
+$ make -x pcm=P12 address=FF2000
 $ make clean
 
 $ make -x pcm=E54 address=FF9100

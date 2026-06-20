@@ -306,25 +306,22 @@ jobs:
         "PACKAGE_APP_VERSION=$appVersion" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         Write-Host "Release tag: $isReleaseTag  config: $config  token: $token"
 
-    - name: Build WinForms applications
+    # Build the WinForms apps + CLI with msbuild (via Build-Apps.ps1) and stage them into
+    # dist\staging. msbuild is required so Costura embeds the full transitive dependency closure
+    # into each single exe; dotnet build does not flow transitive package deps for these legacy
+    # (non-SDK) projects, which would produce runtime-incomplete single exes. Build-Apps also
+    # copies the kernels next to PcmHammer and the logger profiles/parameters next to PcmLogger.
+    - name: Build and stage WinForms apps + CLI
       shell: pwsh
       run: |
-        function Invoke-Build {
-          param([Parameter(Mandatory = $true)][string]$Project)
-          Write-Host "Building $Project ($env:BUILD_CONFIG)"
-          dotnet build $Project -c $env:BUILD_CONFIG -p:GenerateResourceUsePreserializedResources=true
-          if ($LASTEXITCODE -ne 0) {
-            throw "Build failed for $Project (exit code $LASTEXITCODE)"
-          }
-        }
-
-        Invoke-Build "Apps/PcmLibrary/PcmLibrary.csproj"
-        Invoke-Build "Apps/PcmLibraryWindowsApi/PcmLibraryWindowsApi.csproj"
-        Invoke-Build "Apps/UI/WindowsForms/PcmLibraryWindowsForms/PcmLibraryWindowsForms.csproj"
-        Invoke-Build "Apps/UI/WindowsForms/PcmHammer/PcmHammer.csproj"
-        Invoke-Build "Apps/UI/WindowsForms/PcmLogger/PcmLogger.csproj"
-        Invoke-Build "Apps/UI/WindowsForms/VpwExplorer/VpwExplorer.csproj"
-        Invoke-Build "Apps/UI/PcmHammerCLI/PcmHammerCLI.csproj"
+        # Build-Apps reads the kernels from Kernels\build; the CI kernels artifact was
+        # downloaded to TemporaryArtifactStorage\Kernels, so place them where it expects.
+        New-Item -ItemType Directory -Force -Path Kernels/build | Out-Null
+        Copy-Item -Path "TemporaryArtifactStorage/Kernels/*.bin" -Destination "Kernels/build" -Force
+        # Release tag -> stamp the tag version into the binaries; dev push -> date-stamped build.
+        $versionArgs = @()
+        if ($env:IS_RELEASE_TAG -eq 'True') { $versionArgs += @('-Version', $env:RELEASE_TAG) }
+        & "Apps/build/Build-Apps.ps1" -Configuration $env:BUILD_CONFIG @versionArgs
 
     # Uno is experimental and dev-only. On a release tag it is skipped entirely so it
     # cannot be attached to (or block) the release; on normal pushes/PRs it still builds
@@ -382,43 +379,6 @@ jobs:
         "WINFORMS_ARTIFACT_SUFFIX=$winFormsArtifactSuffix" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         "UNO_ARTIFACT_SUFFIX=$unoArtifactSuffix" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         "CLI_ARTIFACT_SUFFIX=$cliArtifactSuffix" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-
-    - name: Stage WinForms artifact payload
-      shell: pwsh
-      run: |
-        function Get-AppOutputDir {
-          param(
-            [Parameter(Mandatory = $true)][string]$SearchRoot,
-            [Parameter(Mandatory = $true)][string]$ExeName
-          )
-
-          $exe = Get-ChildItem -Path $SearchRoot -Recurse -File -Filter $ExeName -ErrorAction SilentlyContinue |
-            Sort-Object LastWriteTime -Descending |
-            Select-Object -First 1
-
-          if (!$exe) {
-            throw "Unable to find $ExeName under $SearchRoot"
-          }
-
-          Write-Host "Detected $ExeName at $($exe.FullName)"
-          return $exe.Directory.FullName
-        }
-
-        $pcmHammerOutput = Get-AppOutputDir -SearchRoot "Apps/UI/WindowsForms/PcmHammer/bin" -ExeName "PcmHammer.exe"
-        $pcmLoggerOutput = Get-AppOutputDir -SearchRoot "Apps/UI/WindowsForms/PcmLogger/bin" -ExeName "PcmLogger.exe"
-        $vpwExplorerOutput = Get-AppOutputDir -SearchRoot "Apps/UI/WindowsForms/VpwExplorer/bin" -ExeName "VpwExplorer.exe"
-
-        New-Item -ItemType Directory -Force -Path TemporaryArtifactStorage/WinForms/PcmHammer | Out-Null
-        New-Item -ItemType Directory -Force -Path TemporaryArtifactStorage/WinForms/PcmLogger | Out-Null
-        New-Item -ItemType Directory -Force -Path TemporaryArtifactStorage/WinForms/VpwExplorer | Out-Null
-
-        Copy-Item -Path "TemporaryArtifactStorage/Kernels/*.bin" -Destination "TemporaryArtifactStorage/WinForms/PcmHammer" -Force
-
-        Copy-Item -Path "$pcmHammerOutput/*" -Destination "TemporaryArtifactStorage/WinForms/PcmHammer" -Recurse -Force
-        Copy-Item -Path "$pcmLoggerOutput/*" -Destination "TemporaryArtifactStorage/WinForms/PcmLogger" -Recurse -Force
-        Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/*.LogProfile" -Destination "TemporaryArtifactStorage/WinForms/PcmLogger" -Force
-        Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/Parameters.*.xml" -Destination "TemporaryArtifactStorage/WinForms/PcmLogger" -Force
-        Copy-Item -Path "$vpwExplorerOutput/*" -Destination "TemporaryArtifactStorage/WinForms/VpwExplorer" -Recurse -Force
 
     - name: Stage Uno Windows artifact payload
       if: ${{ !startsWith(github.ref, 'refs/tags/') }}
@@ -506,21 +466,6 @@ jobs:
           Copy-Item -Path $apk.FullName -Destination "TemporaryArtifactStorage/UnoAndroid" -Force
         }
 
-    - name: Stage CLI artifact payload
-      shell: pwsh
-      run: |
-        $cliExe = Get-ChildItem -Path "Apps/UI/PcmHammerCLI/bin" -Recurse -File -Filter "pcmhammer-cli.exe" -ErrorAction SilentlyContinue |
-          Sort-Object LastWriteTime -Descending |
-          Select-Object -First 1
-
-        if (!$cliExe) {
-          throw "Unable to find pcmhammer-cli.exe under Apps/UI/PcmHammerCLI/bin"
-        }
-
-        Write-Host "Detected CLI exe at $($cliExe.FullName)"
-        New-Item -ItemType Directory -Force -Path TemporaryArtifactStorage/CLI | Out-Null
-        Copy-Item -Path $cliExe.FullName -Destination "TemporaryArtifactStorage/CLI" -Force
-
     # --- Package the WinForms apps into the installer + portable, in this same job, so
     #     no redundant intermediate (raw WinForms/CLI) artifacts are published.
     #     PACKAGE_TOKEN / PACKAGE_APP_VERSION are set by the
@@ -532,7 +477,7 @@ jobs:
     - name: Build installer + portable
       shell: pwsh
       run: |
-        $staging = (Resolve-Path "TemporaryArtifactStorage").Path   # has WinForms\ and CLI\ subfolders
+        $staging = (Resolve-Path "dist/staging").Path   # produced by Build-Apps.ps1; has WinForms\ and CLI\
         $dist = Join-Path (Get-Location).Path "dist"
         & "Apps/installer/build-installer.ps1" `
           -StagingRoot $staging -Version $env:PACKAGE_APP_VERSION `

@@ -12,6 +12,11 @@
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <Deterministic>true</Deterministic>
+    <!-- Some PackageReferences (e.g. System.Management) carry runtime-specific assets; VS
+         msbuild's NuGet asset resolver requires a RuntimeIdentifier to pick them, otherwise
+         it errors. net48 only ever runs on Windows, so pin 'win'. (dotnet build does not
+         require this, but the release build uses msbuild so Costura embeds the full closure.) -->
+    <RuntimeIdentifiers>win</RuntimeIdentifiers>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>

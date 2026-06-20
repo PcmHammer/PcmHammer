@@ -276,6 +276,16 @@ namespace PcmHacking
                     operationInProgress = false;
                     return success ? 0 : 1;
                 }
+                catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is TimeoutException)
+                {
+                    // A missing, in-use, or unresponsive port (e.g. the selected COM port is gone)
+                    // is an expected condition, not a crash - report it concisely. The full detail
+                    // is available with --debug.
+                    Console.Error.WriteLine($"Error: could not connect to the selected device: {ex.Message}");
+                    if (debug)
+                        Console.Error.WriteLine(ex.ToString());
+                    return 1;
+                }
                 catch (Exception ex)
                 {
                     Console.Error.WriteLine("Fatal error: " + ex.Message);

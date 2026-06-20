@@ -9,10 +9,17 @@
     <RootNamespace>PcmHammer</RootNamespace>
     <AssemblyName>PcmHammer</AssemblyName>
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <!-- Required for the msbuild release build: a transitive PackageReference (System.Management
+         via PcmLibraryWindowsApi) carries runtime-specific assets that VS msbuild's NuGet
+         resolver only picks with a RuntimeIdentifier. net48 is Windows-only, so pin 'win'. -->
+    <RuntimeIdentifiers>win</RuntimeIdentifiers>
     <LangVersion>latest</LangVersion>
     <Nullable>annotations</Nullable>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <!-- Inline package versions (not central) so these are pinned exactly as before the
+         packages.config -> PackageReference move, independent of Directory.Packages.props. -->
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
     <IsWebBootstrapper>false</IsWebBootstrapper>
     <PublishUrl>publish\</PublishUrl>
     <Install>true</Install>
@@ -64,15 +71,9 @@
     </ItemGroup>
   </Target>
   <ItemGroup>
-    <Reference Include="CommandLine">
-      <HintPath>..\..\..\packages\CommandLineParser.2.8.0\lib\netstandard2.0\CommandLine.dll</HintPath>
-    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Configuration" />
     <Reference Include="System.Core" />
-    <Reference Include="System.IO.Ports, Version=10.0.0.5, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
-      <HintPath>..\..\..\packages\System.IO.Ports.10.0.5\lib\net462\System.IO.Ports.dll</HintPath>
-    </Reference>
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
@@ -80,24 +81,44 @@
     <Reference Include="System.Deployment" />
     <Reference Include="System.Drawing" />
     <Reference Include="System.Net.Http" />
-    <Reference Include="System.Resources.Extensions">
-      <HintPath>..\..\..\packages\System.Resources.Extensions.8.0.0\lib\net462\System.Resources.Extensions.dll</HintPath>
-    </Reference>
-    <Reference Include="System.Memory">
-      <HintPath>..\..\..\packages\System.Memory.4.5.5\lib\net461\System.Memory.dll</HintPath>
-    </Reference>
-    <Reference Include="System.Buffers">
-      <HintPath>..\..\..\packages\System.Buffers.4.5.1\lib\net461\System.Buffers.dll</HintPath>
-    </Reference>
-    <Reference Include="System.Numerics.Vectors">
-      <HintPath>..\..\..\packages\System.Numerics.Vectors.4.5.0\lib\net46\System.Numerics.Vectors.dll</HintPath>
-    </Reference>
-    <Reference Include="System.Runtime.CompilerServices.Unsafe">
-      <HintPath>..\..\..\packages\System.Runtime.CompilerServices.Unsafe.6.0.0\lib\net461\System.Runtime.CompilerServices.Unsafe.dll</HintPath>
-    </Reference>
     <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xml" />
     <Reference Include="netstandard" />
+    <!-- These legacy (non-SDK) projects do not flow direct PackageReference compile
+         assemblies into the build under "dotnet build" (only assemblies coming transitively
+         through ProjectReferences do). PcmHammer's own code/resources compile directly against
+         CommandLineParser and System.Resources.Extensions, so reference them explicitly via the
+         restored package path (GeneratePathProperty). They remain PackageReferences below so
+         restore still downloads and version-pins them, and Costura embeds the copied assembly. -->
+    <Reference Include="CommandLine">
+      <HintPath>$(PkgCommandLineParser)\lib\netstandard2.0\CommandLine.dll</HintPath>
+    </Reference>
+    <!-- Binary .resx resources are written with PreserializedResourceWriter (CI sets
+         GenerateResourceUsePreserializedResources=true), which needs System.Resources.Extensions
+         at build and run time. On net48 the SDK's conflict resolution strips the package's copy
+         from references (it is on the framework-provided list, but net48 does not actually ship
+         it), so reference the restored package assembly explicitly via its GeneratePathProperty
+         path - an explicit primary reference survives conflict resolution and is copied/embedded. -->
+    <Reference Include="System.Resources.Extensions">
+      <HintPath>$(PkgSystem_Resources_Extensions)\lib\net462\System.Resources.Extensions.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="CommandLineParser" Version="2.8.0" GeneratePathProperty="true" />
+    <PackageReference Include="System.IO.Ports" Version="10.0.5" />
+    <PackageReference Include="System.Resources.Extensions" Version="8.0.0" GeneratePathProperty="true" />
+    <PackageReference Include="System.Memory" Version="4.5.5" />
+    <PackageReference Include="System.Buffers" Version="4.5.1" />
+    <PackageReference Include="System.Numerics.Vectors" Version="4.5.0" />
+    <PackageReference Include="System.Runtime.CompilerServices.Unsafe" Version="6.0.0" />
+    <!-- Costura embeds all dependency assemblies into the single exe at build time and
+         removes the loose copies from the output (kernels stay external). -->
+    <PackageReference Include="Fody" Version="6.8.0">
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Costura.Fody" Version="5.7.0">
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="CommandLineOptions.cs" />
@@ -166,7 +187,6 @@
       <DependentUpon>Resources.resx</DependentUpon>
       <DesignTime>True</DesignTime>
     </Compile>
-    <None Include="packages.config" />
     <None Include="Properties\Settings.settings">
       <Generator>PublicSettingsSingleFileGenerator</Generator>
       <LastGenOutput>Settings.Designer.cs</LastGenOutput>
