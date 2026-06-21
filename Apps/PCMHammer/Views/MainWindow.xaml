@@ -53,15 +53,15 @@
             <StackPanel>
                 <GroupBox Header="Device">
                     <StackPanel>
-                        <Button Content="_Select Device"        
-                                Command="{Binding ReadPCMCommand}"
+                        <Button Content="_Select Device"   
+                                Command="{Binding SelectDeviceCommand}"
+                                CommandParameter="{Binding RelativeSource={RelativeSource AncestorType=Window}}"
                                 Margin="5"/>
                         <Button Content="Re-_Initialize Device" 
                                 Command="{Binding ReInitializeDeviceCommand}" 
                                 Margin="5"/>
                     </StackPanel>
                 </GroupBox>
-                <Separator Margin="0,16" Height="0"/>
                 <GroupBox Header="Operations" Grid.Row="1" VerticalAlignment="Center">
                     <StackPanel>
                         <Button Content="Read _Properties"      Command="{Binding ReadPropertiesCommand}" 
@@ -76,7 +76,6 @@
                                 Margin="5"/>
                     </StackPanel>
                 </GroupBox>
-                <Separator Margin="0,16" Height="0"/>
                 <GroupBox Header="Kernel" Grid.Row="2">
                     <StackPanel>
                         <Button Content="_Halt Running Kernel"  Command="{Binding HaltRunningKernelCommand}" 
