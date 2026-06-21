@@ -19,11 +19,9 @@ if exist build (
   popd
 )
 
-rem Clean intermediate object files from source subdirectories
-for %%D in (68k-VPW-C 68k-VPW-Asm 68k-VPW-Asm-P04) do (
-  if exist %%D (
-    pushd %%D
-    for %%A in (*.o *.tmp) do if exist %%A echo   Deleting %%D\%%A & del "%%A"
-    popd
-  )
+rem Clean intermediate object files from every kernel source subdirectory.
+for /d %%D in (*) do (
+  pushd %%D
+  for %%A in (*.o *.tmp) do if exist %%A echo   Deleting %%D\%%A & del "%%A"
+  popd
 )

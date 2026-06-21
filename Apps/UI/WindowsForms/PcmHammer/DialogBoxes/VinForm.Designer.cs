@@ -33,6 +33,7 @@ namespace PcmHacking.DialogBoxes
             this.prompt = new System.Windows.Forms.Label();
             this.cancelButton = new System.Windows.Forms.Button();
             this.okButton = new System.Windows.Forms.Button();
+            this.fixVinButton = new System.Windows.Forms.Button();
             this.SuspendLayout();
             // 
             // label1
@@ -87,14 +88,28 @@ namespace PcmHacking.DialogBoxes
             this.okButton.Text = "&OK";
             this.okButton.UseVisualStyleBackColor = true;
             this.okButton.Click += new System.EventHandler(this.okButton_Click);
-            // 
+            //
+            // fixVinButton
+            //
+            this.fixVinButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
+            this.fixVinButton.Enabled = false;
+            this.fixVinButton.Location = new System.Drawing.Point(106, 75);
+            this.fixVinButton.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.fixVinButton.Name = "fixVinButton";
+            this.fixVinButton.Size = new System.Drawing.Size(75, 24);
+            this.fixVinButton.TabIndex = 5;
+            this.fixVinButton.Text = "&Fix VIN";
+            this.fixVinButton.UseVisualStyleBackColor = true;
+            this.fixVinButton.Click += new System.EventHandler(this.fixVinButton_Click);
+            //
             // VinForm
-            // 
+            //
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(350, 109);
             this.Controls.Add(this.okButton);
             this.Controls.Add(this.cancelButton);
+            this.Controls.Add(this.fixVinButton);
             this.Controls.Add(this.prompt);
             this.Controls.Add(this.vinBox);
             this.Controls.Add(this.label1);
@@ -115,5 +130,6 @@ namespace PcmHacking.DialogBoxes
         private System.Windows.Forms.Label prompt;
         private System.Windows.Forms.Button cancelButton;
         private System.Windows.Forms.Button okButton;
+        private System.Windows.Forms.Button fixVinButton;
     }
 }

@@ -34,8 +34,8 @@ namespace PcmHacking
             byte Addr3 = unchecked((byte)(Address & 0xFF));
 
             Header[0] = Priority.Block;
-            Header[1] = DeviceId.Pcm;
-            Header[2] = DeviceId.Tool;
+            Header[1] = TargetVpwId;
+            Header[2] = ToolId;
             Header[3] = Mode.PCMUpload;
             Header[4] = (byte)copyType;
             Header[5] = Size1;
@@ -63,11 +63,11 @@ namespace PcmHacking
                 case PcmType.P10:
                 case PcmType.P11:
                 case PcmType.P12:
-                    byte[] requestBytesP12 = { Priority.Physical0, DeviceId.Pcm, DeviceId.Tool, Mode.PCMUploadRequest };
+                    byte[] requestBytesP12 = { Priority.Physical0, TargetVpwId, ToolId, Mode.PCMUploadRequest };
                     return new Message(requestBytesP12);
 
                 default:
-                    byte[] requestBytes = { Priority.Physical0, DeviceId.Pcm, DeviceId.Tool, Mode.PCMUploadRequest, Submode.Null, 0x00, 0x00, 0x00, 0x00, 0x00 };
+                    byte[] requestBytes = { Priority.Physical0, TargetVpwId, ToolId, Mode.PCMUploadRequest, Submode.Null, 0x00, 0x00, 0x00, 0x00, 0x00 };
                     requestBytes[5] = unchecked((byte)(Size >> 8));
                     requestBytes[6] = unchecked((byte)(Size & 0xFF));
                     if (info.LoaderRequired)
@@ -96,7 +96,7 @@ namespace PcmHacking
                 // TODO: Both of these appear the same. Do we need a switch here at all? Remove and re-test against all platforms.
                 case PcmType.P10:
                 case PcmType.P12:
-                    Response<bool> response = this.DoSimpleValidation(message, Priority.Physical0, Mode.PCMUploadRequest);
+                    Response<bool> response = DoSimpleValidation(message, Priority.Physical0, Mode.PCMUploadRequest);
                     if (response.Status == ResponseStatus.Success || response.Status == ResponseStatus.Refused)
                     {
                         return response;
@@ -104,7 +104,7 @@ namespace PcmHacking
                     break;
 
                 default:
-                    response = this.DoSimpleValidation(message, Priority.Physical0, Mode.PCMUploadRequest);
+                    response = DoSimpleValidation(message, Priority.Physical0, Mode.PCMUploadRequest);
                     if (response.Status == ResponseStatus.Success || response.Status == ResponseStatus.Refused)
                     {
                         return response;
@@ -113,7 +113,7 @@ namespace PcmHacking
             }
 
             // In case the PCM sends back a 7F message with an 8C priority byte...
-            return this.DoSimpleValidation(message, Priority.Physical0High, Mode.PCMUploadRequest);
+            return DoSimpleValidation(message, Priority.Physical0High, Mode.PCMUploadRequest);
         }
 
         /// <summary>
@@ -122,14 +122,14 @@ namespace PcmHacking
         public Response<bool> ParseUploadResponse(Message message)
         {
             // P12
-            Response<bool> response = this.DoSimpleValidation(message, Priority.Physical0, Mode.PCMUpload);
+            Response<bool> response = DoSimpleValidation(message, Priority.Physical0, Mode.PCMUpload);
             if (response.Status == ResponseStatus.Success || response.Status == ResponseStatus.Refused)
             {
                 return response;
             }
 
             // P01, P10, P59
-            response = this.DoSimpleValidation(message, Priority.Block, Mode.PCMUpload);
+            response = DoSimpleValidation(message, Priority.Block, Mode.PCMUpload);
             return response;
         }
 
@@ -144,8 +144,8 @@ namespace PcmHacking
         /// <returns></returns>
         public Message CreateReadRequest(int startAddress, int length)
         {
-            byte[] request = { Priority.Block, DeviceId.Pcm, DeviceId.Tool, 0x35, 0x01, (byte)(length >> 8), (byte)(length & 0xFF), (byte)(startAddress >> 16), (byte)((startAddress >> 8) & 0xFF), (byte)(startAddress & 0xFF) };
-            byte[] request2 = { Priority.Block, DeviceId.Pcm, DeviceId.Tool, 0x37, 0x01, (byte)(length >> 8), (byte)(length & 0xFF), (byte)(startAddress >> 24), (byte)(startAddress >> 16), (byte)((startAddress >> 8) & 0xFF), (byte)(startAddress & 0xFF) };
+            byte[] request = { Priority.Block, TargetVpwId, ToolId, 0x35, 0x01, (byte)(length >> 8), (byte)(length & 0xFF), (byte)(startAddress >> 16), (byte)((startAddress >> 8) & 0xFF), (byte)(startAddress & 0xFF) };
+            byte[] request2 = { Priority.Block, TargetVpwId, ToolId, 0x37, 0x01, (byte)(length >> 8), (byte)(length & 0xFF), (byte)(startAddress >> 24), (byte)(startAddress >> 16), (byte)((startAddress >> 8) & 0xFF), (byte)(startAddress & 0xFF) };
 
             if (startAddress > 0xFFFFFF)
             {
@@ -166,7 +166,7 @@ namespace PcmHacking
         public Response<byte[]> ParsePayload(Message message, int length, int expectedAddress)
         {
             byte[] actual = message.GetBytes();
-            byte[] expected = new byte[] { Priority.Block, DeviceId.Tool, DeviceId.Pcm, Mode.PCMUpload };
+            byte[] expected = new byte[] { Priority.Block, ToolId, TargetVpwId, Mode.PCMUpload };
             if (!TryVerifyInitialBytes(actual, expected, out ResponseStatus status))
             {
                 return Response.Create(status, new byte[0]);

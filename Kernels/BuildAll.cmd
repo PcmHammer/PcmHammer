@@ -13,6 +13,7 @@ goto beginning
 * Revision Date: 2023-03-25 - Gampy <pcmhacking.net> Updated for new Assembly Kernels and Loaders.
 * Revision Date: 2023-05-23 - Antus <pcmhacking.net> Update P04 loader address.
 * Revision Date: 2026-06-01 - Antus <pcmhacking.net> Restructure: 68k-VPW-C, 68k-VPW-Asm, 68k-VPW-Asm-P04; build/ for outputs.
+* Revision Date: 2026-06-18 - Use BuildKernel.cmd scripts in kernel dirs, or binary only artifact
 *
 * Authors disclaimer
 *   It is what it is, you can do with it as you please. (with respect)
@@ -55,36 +56,55 @@ rem * They would need to be changed below.
   setlocal disabledelayedexpansion
 )
 
-rem P04_Early uses the P04 loader; P04 uses 68k-VPW-Asm-P04, all others use 68k-VPW-Asm or 68k-VPW-C.
-for %%A in (
-  "-pP01 -aFF8000 -x",
-  "-pP04 -aFF8000 -lFF9890 -x",
-  "-pP04_Early -aFF8000 -x",
-  "-pP05 -aFFC100 -x",
-  "-pP08 -aFFABE0 -x",
-  "-pP10 -aFFB800 -x",
-  "-pP11 -aFFC000 -x",
-  "-pP12 -aFF2000 -x",
-  "-pE54 -aFF9100 -x",
-  "-pBlackBox -aFFC300 -x"
-  ) do call "%BUILD_CMD%" %%~A %*
+rem * Build kernels with a BuildKernel.cmd.
+echo Scanning kernel directories for build scripts...
+for /d %%D in (*) do (
+  if exist "%%D\BuildKernel.cmd" (
+    echo Building kernel^(s^) in %%D ...
+    call "%%D\BuildKernel.cmd" %*
+  )
+)
+
+rem * Fall back to a binary artifact when a kernel directory  has no BuildKernel.cmd
+call :CopyKernelDirBins
 
 if not defined DISABLE_COPY call :CopyToDetectedTargets
 
 popd
 goto :EOF
 
+:CopyKernelDirBins
+for /d %%D in (*) do (
+  if /i not "%%~nxD" == "build" (
+    if not exist "%%D\BuildKernel.cmd" (
+      for %%F in ("%%D\Kernel-*.bin" "%%D\Loader-*.bin") do (
+        if exist "%%F" (
+          if not exist "build\%%~nxF" (
+            echo Using committed %%~nxF from %%D ^(no source built it^)
+            if not exist build mkdir build
+            copy /Y "%%F" "build\%%~nxF" 1>nul
+          )
+        )
+      )
+    )
+  )
+)
+goto :EOF
+
 :CopyToDetectedTargets
 set COPY_TARGET_COUNT=0
 
-rem Windows Forms targets (stable locations)
-call :CopyBinsToTarget "..\Apps\UI\WindowsForms\PcmHammer\bin\Debug"
+rem Windows Forms targets. The Debug path is created if missing so a fresh checkout
+rem (not yet built locally) still receives the kernels. The Release path is left to the
+rem release scripting, so it is only populated when it already exists.
+call :CopyBinsToTarget "..\Apps\UI\WindowsForms\PcmHammer\bin\Debug" create
 call :CopyBinsToTarget "..\Apps\UI\WindowsForms\PcmHammer\bin\Release"
 
 rem CLI targets (kernels are embedded at CLI build time from build\ dir,
-rem but we copy here so the bin dir can be inspected to verify the right kernels were built)
+rem but we copy here so the bin dir can be inspected to verify the right kernels were built).
+rem Same policy: create Debug if missing, leave Release to the release scripting.
 call :CopyBinsToTarget "..\Apps\UI\PcmHammerCLI\bin\Release"
-call :CopyBinsToTarget "..\Apps\UI\PcmHammerCLI\bin\Debug"
+call :CopyBinsToTarget "..\Apps\UI\PcmHammerCLI\bin\Debug" create
 
 rem Uno targets (detected by output folder patterns)
 call :CopyToDetectedUnoTargets
@@ -116,9 +136,17 @@ goto :EOF
 
 :CopyBinsToTarget
 set "TARGET=%~1"
+set "CREATE=%~2"
 if not exist "%TARGET%" (
-  echo Target not found: "%TARGET%"
-  goto :EOF
+  if /i "%CREATE%"=="create" (
+    echo Creating target: "%TARGET%"
+    mkdir "%TARGET%"
+  ) else (
+    rem Release paths are made by the release scripting, and the Uno paths are deep and
+    rem numerous, so we do not create those - only copy when they already exist.
+    echo Target not found, skipping: "%TARGET%"
+    goto :EOF
+  )
 )
 
 echo Detected target: "%TARGET%"

@@ -154,6 +154,30 @@ namespace PcmHacking
     }
 
     /// <summary>
+    /// Security-access transport for the brute forcer: a single seed request and a single key
+    /// attempt, plus the bus (which selects the key table). Implemented for VPW and CAN so the
+    /// brute-force loop, its timing and its UI are shared across both buses.
+    /// </summary>
+    public interface ISecurityAccess
+    {
+        /// <summary>The bus this provider talks on; selects the security key table.</summary>
+        BusProtocol Bus { get; }
+
+        /// <summary>Request a single security-access seed.</summary>
+        Task<BruteForceSeedResult> RequestSeedForBruteForce(CancellationToken cancellationToken);
+
+        /// <summary>Send a single candidate key and classify the PCM's response.</summary>
+        Task<SecurityUnlockResult> SendKeyForBruteForce(UInt16 key, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Keep the diagnostic session alive between attempts (best effort, no response expected).
+        /// Some modules drop out of the security state if the session lapses during a long sweep.
+        /// A no-op on buses that do not need it.
+        /// </summary>
+        Task SendKeepAlive(CancellationToken cancellationToken);
+    }
+
+    /// <summary>
     /// Brute-forces the PCM's security access. This is the VPW equivalent of the "Brute Force
     /// Unlock" and "Brute Force Algo" tools in the CAN-bus E38 logger tool: it drives the existing
     /// PcmHammer security-access protocol in a loop instead of using a single configured key or
@@ -174,7 +198,7 @@ namespace PcmHacking
         /// <summary>The number of GM key algorithms (indices 0x00..0xFF).</summary>
         public const int AlgorithmCount = 256;
 
-        private readonly Vehicle vehicle;
+        private readonly ISecurityAccess access;
         private readonly ILogger logger;
         private readonly IProgress<BruteForceProgress>? progress;
 
@@ -197,9 +221,9 @@ namespace PcmHacking
         // with a naturally long delay just because a short poll interval produced many polls.
         private static readonly TimeSpan LockoutWarnAfter = TimeSpan.FromSeconds(30);
 
-        public BruteForcer(Vehicle vehicle, ILogger logger, IProgress<BruteForceProgress>? progress = null)
+        public BruteForcer(ISecurityAccess access, ILogger logger, IProgress<BruteForceProgress>? progress = null)
         {
-            this.vehicle = vehicle;
+            this.access = access;
             this.logger = logger;
             this.progress = progress;
         }
@@ -226,7 +250,15 @@ namespace PcmHacking
                 end = start;
             }
 
-            CandidateCursor cursor = new CandidateCursor(start, end, algoSweepFirst);
+            // GM CAN security access latches a "too many attempts" lockout after the first couple of
+            // key tries and does not release it on a timed basis at short intervals, so the VPW
+            // poll-and-fire model below stalls on it. CAN uses a dedicated fixed-cadence loop instead.
+            if (this.access.Bus == BusProtocol.Can500k)
+            {
+                return await this.BruteForceCan(start, end, algoSweepFirst, securityDelaySeconds, cancellationToken);
+            }
+
+            CandidateCursor cursor = new CandidateCursor(start, end, algoSweepFirst, this.access.Bus);
             UInt16 lastSeed = 0;
 
             // Clamp to the offered range, then add the safety margin (e.g. 10s -> 10.5s).
@@ -303,7 +335,12 @@ namespace PcmHacking
                     // One attempt: request a seed, then send one key. The security delay is paced from
                     // after the key response (DateTime.UtcNow at each branch below), because the PCM's
                     // delay timer starts when it evaluates the key - not when we began the attempt.
-                    BruteForceSeedResult seedResult = await this.vehicle.RequestSeedForBruteForce(cancellationToken);
+                    BruteForceSeedResult seedResult = await this.access.RequestSeedForBruteForce(cancellationToken);
+                    this.logger.AddDebugMessage(
+                        seedResult.AlreadyUnlocked ? "seed: already unlocked"
+                        : seedResult.DelayActive ? "seed: lockout active (delay not expired)"
+                        : !seedResult.Success ? "seed: no/bad response"
+                        : $"seed: 0x{seedResult.Seed:X4}");
                     if (seedResult.AlreadyUnlocked)
                     {
                         this.logger.AddUserMessage("The PCM is already unlocked.");
@@ -313,9 +350,16 @@ namespace PcmHacking
                     {
                         // The PCM refused the seed because it is still counting down its forced delay.
                         // Wait the same delay again and retry the same candidate (no key was consumed).
+                        // Do NOT restart the countdown bar here. It was armed once for the whole key at
+                        // presentation; these short seed polls (several per lockout) only re-check the
+                        // same key, so re-arming the bar to the poll interval would make it stutter -
+                        // draining and refilling every couple of seconds instead of counting the key
+                        // down once. Report with no wait, which refreshes progress/ETA but leaves the
+                        // running per-key countdown alone.
                         noResponseStreak = 0;
                         NoteLockout();
                         nextAttemptTime = DateTime.UtcNow + securityDelay;
+                        this.Report(lastPhase, lastKey, lastAlgorithm, cursor.Done, cursor.Total, perKeyEstimate);
                         continue;
                     }
                     if (!seedResult.Success)
@@ -353,13 +397,14 @@ namespace PcmHacking
                         this.Report(phase, key, algorithm, cursor.Done, cursor.Total, perKeyEstimate, perKeyEstimate.TotalSeconds);
                     }
 
-                    SecurityUnlockResult attempt = await this.vehicle.SendKeyForBruteForce(key, cancellationToken);
+                    SecurityUnlockResult attempt = await this.access.SendKeyForBruteForce(key, cancellationToken);
+                    this.logger.AddDebugMessage($"key 0x{key:X4} (seed 0x{seed:X4}) -> {attempt}");
                     switch (attempt)
                     {
                         case SecurityUnlockResult.Unlocked:
-                            int foundAlgo = phase == BruteForcePhase.Sweeping ? algorithm : IdentifyAlgorithm(seed, key);
+                            int foundAlgo = phase == BruteForcePhase.Sweeping ? algorithm : IdentifyAlgorithm(seed, key, this.access.Bus);
                             this.logger.AddUserMessage(foundAlgo >= 0
-                                ? $"Key found! {key:X4} (match Algo {foundAlgo}). Seed 0x{seed:X4}."
+                                ? $"Key found! {key:X4} (match Algo 0x{foundAlgo:X2}). Seed 0x{seed:X4}."
                                 : $"Key found! {key:X4}. Seed 0x{seed:X4}.");
                             return new BruteForceResult(BruteForceOutcome.Found, seed, key, foundAlgo);
 
@@ -391,9 +436,12 @@ namespace PcmHacking
                             // The PCM hit its attempt limit and is forcing a delay; the key was not
                             // evaluated. Keep the candidate and retry after another full delay - we do
                             // not poke it sooner, because a mid-lockout attempt only restarts the timer.
+                            // Leave the per-key countdown running (armed at presentation); do not restart
+                            // it for this internal wait, which would make the bar stutter.
                             noResponseStreak = 0;
                             NoteLockout();
                             nextAttemptTime = DateTime.UtcNow + securityDelay;
+                            this.Report(lastPhase, lastKey, lastAlgorithm, cursor.Done, cursor.Total, perKeyEstimate);
                             break;
 
                         case SecurityUnlockResult.NoResponse:
@@ -416,15 +464,231 @@ namespace PcmHacking
             }
         }
 
+        // The proven cadence for GM CAN security access. One key attempt per cycle keeps the module
+        // evaluating keys (invalid-key responses) instead of latching its attempt limit; a "too many
+        // attempts" (0x36) response means the key was not evaluated, but advancing past it after a
+        // short reseed delay is the only way to avoid an infinite loop - at this cadence 0x36 is rare,
+        // and a periodic tester-present keeps the session from lapsing during a long sweep.
+        private static readonly TimeSpan CanCyclePeriod = TimeSpan.FromSeconds(10.25);
+        private static readonly TimeSpan CanReseedBackoff = TimeSpan.FromSeconds(3.33);   // after 0x36
+        private static readonly TimeSpan CanTimeDelayBackoff = TimeSpan.FromSeconds(10.5); // after 0x37
+        private static readonly TimeSpan CanKeepAliveInterval = TimeSpan.FromSeconds(3);
+
+        /// <summary>
+        /// CAN-bus brute force. Paces one seed+key attempt per <see cref="CanCyclePeriod"/> (or the
+        /// caller's delay, whichever is larger), keeps the session alive with periodic tester-present,
+        /// advances past a "too many attempts" lockout after a short reseed delay, and holds off on a
+        /// time-delay lockout. The candidate cursor, reporting, ETA and UI are shared with the VPW path.
+        /// </summary>
+        private async Task<BruteForceResult> BruteForceCan(int start, int end, bool algoSweepFirst, int securityDelaySeconds, CancellationToken cancellationToken)
+        {
+            // The module enforces its own time delay (~10s) after a rejected attempt: the next seed
+            // request answers "delay not expired" until it elapses. So this is a hardware floor - a
+            // shorter software cadence gains nothing - and the proven period matches it. A larger
+            // caller delay is still honored.
+            TimeSpan cyclePeriod = TimeSpan.FromSeconds(Math.Max(CanCyclePeriod.TotalSeconds, securityDelaySeconds));
+
+            CandidateCursor cursor = new CandidateCursor(start, end, algoSweepFirst, this.access.Bus);
+            UInt16 lastSeed = 0;
+
+            this.logger.AddUserMessage(
+                $"Brute force started. Range 0x{start:X4}-0x{end:X4}. Algo sweep {(algoSweepFirst ? "on" : "off")}. " +
+                $"CAN cadence {cyclePeriod.TotalSeconds:F1}s per key.");
+
+            int noResponseStreak = 0;
+            DateTime nextCycle = DateTime.UtcNow;
+            DateTime lockoutUntil = DateTime.UtcNow;
+            DateTime lastKeepAlive = DateTime.MinValue;
+            DateTime? lockoutStart = null;
+            bool lockoutWarned = false;
+
+            bool keyPresented = false;
+            BruteForcePhase lastPhase = algoSweepFirst ? BruteForcePhase.Sweeping : BruteForcePhase.Trying;
+            UInt16 lastKey = 0;
+            int lastAlgorithm = -1;
+
+            // Per-key wall time drives both the countdown bar and the ETA. The FIRST key is evaluated
+            // before the module arms its lockout, so it costs about one cycle; every key after it also
+            // pays a re-lock wait, roughly doubling the time. So the countdown is a single cycle for the
+            // first attempt and twice that for the rest; the ETA uses the steady (post-first) cost.
+            TimeSpan perKeyEstimate = TimeSpan.FromSeconds(cyclePeriod.TotalSeconds * 2);
+            bool firstKeyPresented = true;
+
+            void NoteLockout()
+            {
+                DateTime stamp = DateTime.UtcNow;
+                if (lockoutStart == null)
+                {
+                    lockoutStart = stamp;
+                }
+                else if (!lockoutWarned && stamp - lockoutStart.Value > LockoutWarnAfter)
+                {
+                    this.logger.AddUserMessage(
+                        $"The PCM has held a security lockout for over {LockoutWarnAfter.TotalSeconds:F0}s; " +
+                        "it may be stuck or need a longer security delay.");
+                    lockoutWarned = true;
+                }
+            }
+
+            try
+            {
+                while (true)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    if (!cursor.TryAdvanceToValid())
+                    {
+                        this.logger.AddUserMessage("Key not found.");
+                        return new BruteForceResult(BruteForceOutcome.Exhausted, lastSeed);
+                    }
+
+                    // Hold until both the per-key cycle and any active lockout have elapsed.
+                    DateTime waitUntil = nextCycle > lockoutUntil ? nextCycle : lockoutUntil;
+                    DateTime now = DateTime.UtcNow;
+                    if (now < waitUntil)
+                    {
+                        await Task.Delay(waitUntil - now, cancellationToken);
+                    }
+                    DateTime cycleStart = DateTime.UtcNow;
+                    nextCycle = cycleStart + cyclePeriod;
+
+                    // Keep the diagnostic session alive so the module stays in its security state.
+                    if (DateTime.UtcNow - lastKeepAlive > CanKeepAliveInterval)
+                    {
+                        await this.access.SendKeepAlive(cancellationToken);
+                        lastKeepAlive = DateTime.UtcNow;
+                    }
+
+                    BruteForceSeedResult seedResult = await this.access.RequestSeedForBruteForce(cancellationToken);
+                    this.logger.AddDebugMessage(
+                        seedResult.AlreadyUnlocked ? "seed: already unlocked"
+                        : seedResult.DelayActive ? "seed: lockout active (delay not expired)"
+                        : !seedResult.Success ? "seed: no/bad response"
+                        : $"seed: 0x{seedResult.Seed:X4}");
+
+                    if (seedResult.AlreadyUnlocked)
+                    {
+                        this.logger.AddUserMessage("The PCM is already unlocked.");
+                        return new BruteForceResult(BruteForceOutcome.AlreadyUnlocked, lastSeed);
+                    }
+                    if (seedResult.DelayActive)
+                    {
+                        // The module refused the seed because its time-delay lockout is still running.
+                        // Hold off and retry the same candidate (no key was consumed).
+                        noResponseStreak = 0;
+                        NoteLockout();
+                        lockoutUntil = DateTime.UtcNow + CanTimeDelayBackoff;
+                        this.Report(lastPhase, lastKey, lastAlgorithm, cursor.Done, cursor.Total, perKeyEstimate, CanTimeDelayBackoff.TotalSeconds);
+                        continue;
+                    }
+                    if (!seedResult.Success)
+                    {
+                        this.logger.AddDebugMessage("Brute force: no seed response; retrying.");
+                        if (++noResponseStreak >= MaxConsecutiveNoResponse)
+                        {
+                            this.logger.AddUserMessage("Brute force stopped: the PCM stopped responding.");
+                            return new BruteForceResult(BruteForceOutcome.CommunicationError, lastSeed);
+                        }
+                        continue;
+                    }
+                    if (seedResult.Seed == 0x0000)
+                    {
+                        this.logger.AddUserMessage("The PCM returned a seed of 0x0000; no unlock is required.");
+                        return new BruteForceResult(BruteForceOutcome.UnlockNotRequired, 0);
+                    }
+
+                    UInt16 seed = seedResult.Seed;
+                    lastSeed = seed;
+                    (UInt16 key, BruteForcePhase phase, int algorithm) = cursor.Compute(seed);
+
+                    if (!keyPresented)
+                    {
+                        keyPresented = true;
+                        // The first attempt runs before the lockout, so its countdown is a single cycle;
+                        // every later attempt also waits out a re-lock, so the bar is sized to twice that.
+                        TimeSpan barEstimate = firstKeyPresented ? cyclePeriod : perKeyEstimate;
+                        firstKeyPresented = false;
+                        lastPhase = phase;
+                        lastKey = key;
+                        lastAlgorithm = algorithm;
+                        this.logger.AddUserMessage((phase == BruteForcePhase.Sweeping ? "Sweeping " : "Trying ") + key.ToString("X4"));
+                        this.Report(phase, key, algorithm, cursor.Done, cursor.Total, perKeyEstimate, barEstimate.TotalSeconds);
+                    }
+
+                    SecurityUnlockResult attempt = await this.access.SendKeyForBruteForce(key, cancellationToken);
+                    this.logger.AddDebugMessage($"key 0x{key:X4} (seed 0x{seed:X4}) -> {attempt}");
+                    switch (attempt)
+                    {
+                        case SecurityUnlockResult.Unlocked:
+                            int foundAlgo = phase == BruteForcePhase.Sweeping ? algorithm : IdentifyAlgorithm(seed, key, this.access.Bus);
+                            this.logger.AddUserMessage(foundAlgo >= 0
+                                ? $"Key found! {key:X4} (match Algo 0x{foundAlgo:X2}). Seed 0x{seed:X4}."
+                                : $"Key found! {key:X4}. Seed 0x{seed:X4}.");
+                            return new BruteForceResult(BruteForceOutcome.Found, seed, key, foundAlgo);
+
+                        case SecurityUnlockResult.InvalidKey:
+                        case SecurityUnlockResult.Denied:
+                        case SecurityUnlockResult.Unexpected:
+                            // The key was evaluated and rejected; move on to the next candidate.
+                            noResponseStreak = 0;
+                            lockoutStart = null;
+                            lockoutWarned = false;
+                            keyPresented = false;
+                            cursor.Advance(key);
+                            break;
+
+                        case SecurityUnlockResult.TooManyAttempts:
+                            // The module declined to evaluate the key (attempt limit). Advancing past it
+                            // after a short reseed delay is the only way to keep moving; the correct key
+                            // still unlocks regardless, so the small chance of skipping the real key is
+                            // acceptable. Advancing IS forward progress, so clear the stuck tracker - a
+                            // long run of these is normal on a module that latches after the first try.
+                            noResponseStreak = 0;
+                            lockoutStart = null;
+                            lockoutWarned = false;
+                            lockoutUntil = DateTime.UtcNow + CanReseedBackoff;
+                            keyPresented = false;
+                            cursor.Advance(key);
+                            // Keep the bar sized to a whole key; the next presentation re-arms it.
+                            this.Report(lastPhase, lastKey, lastAlgorithm, cursor.Done, cursor.Total, perKeyEstimate, perKeyEstimate.TotalSeconds);
+                            break;
+
+                        case SecurityUnlockResult.TimeDelayActive:
+                            // Time-delay lockout on the key; hold off and retry the same candidate.
+                            noResponseStreak = 0;
+                            NoteLockout();
+                            lockoutUntil = DateTime.UtcNow + CanTimeDelayBackoff;
+                            this.Report(lastPhase, lastKey, lastAlgorithm, cursor.Done, cursor.Total, perKeyEstimate, CanTimeDelayBackoff.TotalSeconds);
+                            break;
+
+                        case SecurityUnlockResult.NoResponse:
+                        default:
+                            if (++noResponseStreak >= MaxConsecutiveNoResponse)
+                            {
+                                this.logger.AddUserMessage("Brute force stopped: the PCM stopped responding.");
+                                return new BruteForceResult(BruteForceOutcome.CommunicationError, lastSeed);
+                            }
+                            this.logger.AddDebugMessage("Brute force: no response; retrying same candidate.");
+                            break;
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                this.logger.AddUserMessage("Brute force stopped.");
+                return new BruteForceResult(BruteForceOutcome.Canceled, lastSeed);
+            }
+        }
+
         /// <summary>
         /// Find a GM algorithm that produces <paramref name="key"/> from <paramref name="seed"/>,
         /// or -1 if none does.
         /// </summary>
-        private static int IdentifyAlgorithm(UInt16 seed, UInt16 key)
+        private static int IdentifyAlgorithm(UInt16 seed, UInt16 key, BusProtocol bus)
         {
             for (int algo = 0; algo < AlgorithmCount; algo++)
             {
-                if (KeyAlgorithm.GetKey(algo, seed) == key)
+                if (KeyAlgorithm.GetKey(bus, algo, seed) == key)
                 {
                     return algo;
                 }
@@ -498,6 +762,7 @@ namespace PcmHacking
         private sealed class CandidateCursor
         {
             private readonly int end;
+            private readonly BusProtocol bus;
             private readonly HashSet<int> triedKeys = new HashSet<int>();
             private int algoIndex;
             private int current;
@@ -506,9 +771,10 @@ namespace PcmHacking
             public int Done { get; private set; }
             public int Total { get; }
 
-            public CandidateCursor(int start, int end, bool sweepFirst)
+            public CandidateCursor(int start, int end, bool sweepFirst, BusProtocol bus)
             {
                 this.end = end;
+                this.bus = bus;
                 this.current = start;
                 this.Sweeping = sweepFirst;
                 this.Total = (sweepFirst ? AlgorithmCount : 0) + (end - start + 1);
@@ -545,7 +811,7 @@ namespace PcmHacking
             {
                 if (this.Sweeping)
                 {
-                    return (KeyAlgorithm.GetKey(this.algoIndex, seed), BruteForcePhase.Sweeping, this.algoIndex);
+                    return (KeyAlgorithm.GetKey(this.bus, this.algoIndex, seed), BruteForcePhase.Sweeping, this.algoIndex);
                 }
                 return ((UInt16)this.current, BruteForcePhase.Trying, -1);
             }
@@ -572,8 +838,14 @@ namespace PcmHacking
     /// seed request / single key attempt and report the raw outcome, so the BruteForcer can drive
     /// the loop and its own timing. They reuse the same Protocol building blocks as UnlockEcu.
     /// </summary>
-    public partial class Vehicle
+    public partial class Vehicle : ISecurityAccess
     {
+        /// <summary>The VPW bus; selects the VPW security key table.</summary>
+        public BusProtocol Bus => BusProtocol.Vpw;
+
+        /// <summary>The VPW brute-force model does not need a keep-alive between attempts.</summary>
+        public Task SendKeepAlive(CancellationToken cancellationToken) => Task.CompletedTask;
+
         /// <summary>
         /// Request a single security-access seed.
         /// </summary>

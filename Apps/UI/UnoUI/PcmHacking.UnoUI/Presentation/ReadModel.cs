@@ -149,7 +149,7 @@ public partial record ReadModel : IAsyncLogger
                     lease.Vehicle,
                     this.Invoke,
                     this.PromptForFileSavePath,
-                    this.PromptForOperatingSystemId,
+                    this.PromptForPcmType,
                     this.Alert,
                     this.PromptForYesNo,
                     readCancellationToken);
@@ -305,10 +305,10 @@ public partial record ReadModel : IAsyncLogger
         return file.Name;
     }
 
-    private Task<uint> PromptForOperatingSystemId()
+    private Task<PcmType> PromptForPcmType()
     {
-        // TODO: OS ID dialog box
-        return Task.FromResult(12587603u);
+        // TODO: PCM type selection dialog box
+        return Task.FromResult(PcmType.P01);
     }
 
     private Task<bool> PromptForYesNo(string message, string title)

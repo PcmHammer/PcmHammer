@@ -342,6 +342,10 @@ namespace PcmHacking
             // us to wait and start the whole exchange over from a fresh seed. Bound how many times we
             // start over so a permanently locked PCM still reports failure.
             const int MaxUnlockAttempts = 3;
+
+            // Disambiguates the 67 01 37 seed response below; must persist across unlock attempts.
+            bool keyAttempted = false;
+
             for (int unlockAttempt = 1; unlockAttempt <= MaxUnlockAttempts; unlockAttempt++)
             {
                 this.device.ClearMessageQueue();
@@ -392,12 +396,20 @@ namespace PcmHacking
 
                         byte[] seedBytes = seedResponse.GetBytes();
 
-                        // 67 01 37 means the PCM is enforcing a security time delay (lockout) - NOT
-                        // "already unlocked". A genuinely unlocked PCM returns seed 0x0000, which is
-                        // handled below. Treating the lockout as "unlocked" (as the legacy IsUnlocked
-                        // did) would falsely report success while security was never granted.
+                        // 67 01 37 means both "already unlocked" and "seed refused, delay still
+                        // active" - same bytes, only context tells them apart. A delay can only exist
+                        // after a rejected key, so before any key this is "already unlocked". A truly
+                        // locked first request is still caught later when upload permission is refused.
+			// TODO: This works, but does not sound right. Investigate more deeply and update
+			// comment and/or logic.
                         if (this.protocol.IsSecurityDelayActive(seedBytes))
                         {
+                            if (!keyAttempted)
+                            {
+                                logger.AddUserMessage("PCM is already unlocked.");
+                                return true;
+                            }
+
                             lockoutDetected = true;
                             break;
                         }
@@ -445,7 +457,7 @@ namespace PcmHacking
 
                 if (!seedReceived)
                 {
-                    logger.AddUserMessage("No seed reponse received, unable to unlock PCM.");
+                    logger.AddUserMessage("No seed reponse received, PCM not communicating.");
                     return false;
                 }
 
@@ -475,6 +487,7 @@ namespace PcmHacking
                 }
 
                 logger.AddDebugMessage("Sending unlock request (" + seedValue.ToString("X4") + ", " + key.ToString("X4") + ")");
+                keyAttempted = true;
                 Message unlockRequest = this.protocol.CreateUnlockRequest(key);
                 if (!await this.TrySendMessage(unlockRequest, "unlock request"))
                 {

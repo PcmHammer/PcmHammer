@@ -1,4 +1,9 @@
 ﻿// SPDX-License-Identifier: GPL-3.0-only
+// Enable the nullable annotation context for this file so the '?' reference-type
+// annotations below are valid. The project build sets this via MSBuild, but the
+// legacy (non-SDK) project's IntelliSense engine does not reliably apply that
+// setting, so the directive keeps the editor and the compiler in agreement.
+#nullable enable annotations
 using CommandLine;
 using Microsoft.Win32;
 using System;
@@ -95,16 +100,13 @@ namespace PcmHacking
         /// </summary>
         public override void AddUserMessage(string message)
         {
-            string timestamp = DateTime.Now.ToString("HH:mm:ss.fff");
+            string line = "[" + DateTime.Now.ToString("HH:mm:ss.fff") + "]  " + message;
 
-            this.userLog.Invoke(
-                (MethodInvoker)delegate ()
-                {
-                    this.userLog.AppendText("[" + timestamp + "]  " + message + Environment.NewLine);
+            // AppendLine is thread-safe and does no UI work, so the worker thread is never blocked.
+            this.userLog.AppendLine(line);
 
-                    // User messages are added to the debug log as well, so that the debug log has everything.
-                    this.debugLog.AppendText("[" + timestamp + "]  " + message + Environment.NewLine);
-                });
+            // User messages go to the debug log too, so the debug log has everything.
+            this.debugLog.AppendLine(line);
         }
 
         /// <summary>
@@ -112,13 +114,7 @@ namespace PcmHacking
         /// </summary>
         public override void AddDebugMessage(string message)
         {
-            string timestamp = DateTime.Now.ToString("HH:mm:ss.fff");
-
-            this.debugLog.Invoke(
-                (MethodInvoker)delegate ()
-                {
-                    this.debugLog.AppendText("[" + timestamp + "]  " + message + Environment.NewLine);
-                });
+            this.debugLog.AppendLine("[" + DateTime.Now.ToString("HH:mm:ss.fff") + "]  " + message);
         }
 
         public override void StatusUpdateActivity(string activity)
@@ -202,9 +198,83 @@ namespace PcmHacking
             this.userLog.Invoke(
                 (MethodInvoker)delegate ()
                 {
-                    this.userLog.Text = string.Empty;
-                    this.debugLog.Text = string.Empty;
+                    this.userLog.ClearLog();
+                    this.debugLog.ClearLog();
                 });
+        }
+
+        private LogSearchBar searchBar;
+
+        // The log shown on the active tab (Debug Log, else Results) is the one Ctrl+F searches.
+        private LogListView ActiveLog() => this.tabs.SelectedTab == this.debugTab ? this.debugLog : this.userLog;
+
+        protected override bool ProcessCmdKey(ref System.Windows.Forms.Message msg, Keys keyData)
+        {
+            if (keyData == (Keys.Control | Keys.F))
+            {
+                this.ShowSearchBar();
+                return true;
+            }
+
+            if (keyData == Keys.Escape && this.searchBar != null && this.searchBar.Visible)
+            {
+                this.HideSearchBar();
+                return true;
+            }
+
+            return base.ProcessCmdKey(ref msg, keyData);
+        }
+
+        private void ShowSearchBar()
+        {
+            if (this.searchBar == null)
+            {
+                this.searchBar = new LogSearchBar { Anchor = AnchorStyles.Top | AnchorStyles.Right };
+                this.searchBar.QueryChanged += _ => this.RunSearch();
+                this.searchBar.FindNext += () => this.StepSearch(+1);
+                this.searchBar.FindPrevious += () => this.StepSearch(-1);
+                this.searchBar.CloseRequested += this.HideSearchBar;
+                this.Controls.Add(this.searchBar);
+                this.tabs.SelectedIndexChanged += (s, e) => { if (this.searchBar != null && this.searchBar.Visible) { this.RunSearch(); } };
+            }
+
+            this.searchBar.Location = new Point(this.tabs.Right - this.searchBar.Width - 6, this.tabs.Top + 6);
+            this.searchBar.Visible = true;
+            this.searchBar.BringToFront();
+            this.searchBar.FocusInput();
+            this.RunSearch();
+        }
+
+        private void HideSearchBar()
+        {
+            if (this.searchBar != null)
+            {
+                this.searchBar.Visible = false;
+            }
+
+            this.userLog.ClearSearch();
+            this.debugLog.ClearSearch();
+            this.ActiveLog().Focus();
+        }
+
+        // Run the current query against the active log and jump to the first match.
+        private void RunSearch()
+        {
+            LogListView log = this.ActiveLog();
+            int total = log.FindAll(this.searchBar.Query);
+            if (total > 0)
+            {
+                log.MoveToMatch(+1);
+            }
+
+            this.searchBar.SetStatus(log.CurrentMatchNumber, total);
+        }
+
+        private void StepSearch(int direction)
+        {
+            LogListView log = this.ActiveLog();
+            log.MoveToMatch(direction);
+            this.searchBar.SetStatus(log.CurrentMatchNumber, log.MatchCount);
         }
 
         /// <summary>
@@ -350,14 +420,14 @@ namespace PcmHacking
         /// <summary>
         /// Save the selected log
         /// </summary>
-        protected void SaveLog(TextBox logBox, string fileName)
+        protected void SaveLog(LogListView logBox, string fileName)
         {
             if (string.IsNullOrWhiteSpace(fileName))
             {
                 return;
             }
 
-            if (string.IsNullOrWhiteSpace(logBox.Text))
+            if (logBox.IsEmpty)
             {
                 return;
             }
@@ -366,7 +436,7 @@ namespace PcmHacking
             {
                 using (System.IO.StreamWriter file = new System.IO.StreamWriter(fileName))
                 {
-                    file.WriteLine(logBox.Text);
+                    file.WriteLine(logBox.GetAllText());
                 }
             }
             catch (Exception e)
@@ -828,33 +898,42 @@ namespace PcmHacking
 
             try
             {
-                OSIDInfo? pcmInfo = null;
-
                 this.DisableUserInput();
-
-                var vinResponse = await this.Vehicle.QueryVin();
-                if (vinResponse.Status != ResponseStatus.Success)
+                DetectedModule? pcm = await this.Vehicle.DetectAndSelectPcm(CancellationToken.None);
+                if (pcm == null)
                 {
-                    this.AddUserMessage("VIN query failed: " + vinResponse.Status.ToString());
-                    await this.Vehicle.ExitKernel();
+                    this.AddUserMessage("No PCM detected.");
                     return;
                 }
-                this.AddUserMessage("VIN: " + vinResponse.Value);
 
-                var osResponse = await this.Vehicle.QueryOperatingSystemId(CancellationToken.None);
-                if (osResponse.Status == ResponseStatus.Success)
+                this.AddUserMessage("Detected PCM on " + pcm.Bus.ToString());
+
+                if (pcm.Bus != BusProtocol.Vpw)
                 {
-                    this.AddUserMessage("OSID: " + osResponse.Value.ToString());
-                    pcmInfo = new OSIDInfo(osResponse.Value);
-                    this.AddUserMessage("Description: " + pcmInfo.Description);
+                    this.AddUserMessage("Parameters:");
+                    foreach (string line in await CanProperties.Read(this.Vehicle.CreateCanCommands(), CancellationToken.None))
+                    {
+                        this.AddUserMessage(line);
+                    }
+                    return;
+                }
+
+                OSIDInfo pcmInfo = new OSIDInfo(pcm.Osid);
+                this.AddUserMessage("OSID: " + pcm.Osid.ToString());
+                this.AddUserMessage("Description: " + pcmInfo.Description);
+
+                var vinResponse = await this.Vehicle.QueryVin();
+                if (vinResponse.Status == ResponseStatus.Success)
+                {
+                    this.AddUserMessage("VIN: " + vinResponse.Value);
                 }
                 else
                 {
-                    this.AddUserMessage("OS ID query failed: " + osResponse.Status.ToString());
+                    this.AddUserMessage("VIN query failed: " + vinResponse.Status.ToString());
                 }
 
                 // Disable Calibration ID lookup for those that do not provide it
-                if (pcmInfo != null && pcmInfo.HardwareType != PcmType.BlackBox)
+                if (pcmInfo.HardwareType != PcmType.BlackBox)
                 {
 
                     var calResponse = await this.Vehicle.QueryCalibrationId();
@@ -869,7 +948,7 @@ namespace PcmHacking
                 }
 
                 // Disable HardwareID lookup for the P05, P10, P12 and E54.
-                if (pcmInfo != null && pcmInfo.HardwareType != PcmType.P05 && pcmInfo.HardwareType != PcmType.P05b && pcmInfo.HardwareType != PcmType.P10 && pcmInfo.HardwareType != PcmType.P12 && pcmInfo.HardwareType != PcmType.E54)
+                if (pcmInfo.HardwareType != PcmType.P05 && pcmInfo.HardwareType != PcmType.P05b && pcmInfo.HardwareType != PcmType.P10 && pcmInfo.HardwareType != PcmType.P12 && pcmInfo.HardwareType != PcmType.E54)
                 {
                     var hardwareResponse = await this.Vehicle.QueryHardwareId();
                     if (hardwareResponse.Status == ResponseStatus.Success)
@@ -883,7 +962,7 @@ namespace PcmHacking
                 }
 
                 // Disable Serial Number lookup for those that do not provide it
-                if (pcmInfo != null && pcmInfo.HardwareType != PcmType.BlackBox)
+                if (pcmInfo.HardwareType != PcmType.BlackBox)
                 {
                     var serialResponse = await this.Vehicle.QuerySerial();
 
@@ -898,7 +977,7 @@ namespace PcmHacking
                 }
 
                 // Disable BCC lookup for those that do not provide it
-                if (pcmInfo != null && pcmInfo.HardwareType != PcmType.P04 && pcmInfo.HardwareType != PcmType.P04_Early && pcmInfo.HardwareType != PcmType.P08)
+                if (pcmInfo.HardwareType != PcmType.P04 && pcmInfo.HardwareType != PcmType.P04_Early && pcmInfo.HardwareType != PcmType.P08)
                 {
                     var bccResponse = await this.Vehicle.QueryBCC();
                     if (bccResponse.Status == ResponseStatus.Success)
@@ -949,6 +1028,21 @@ namespace PcmHacking
         {
             try
             {
+                // Detect the bus and select its protocol first (parity with Read Properties); CAN
+                // PCMs use the GMLAN VIN write path.
+                DetectedModule? pcm = await this.Vehicle.DetectAndSelectPcm(CancellationToken.None);
+                if (pcm == null)
+                {
+                    this.AddUserMessage("No PCM detected.");
+                    return;
+                }
+
+                if (pcm.Bus == BusProtocol.Can500k)
+                {
+                    await this.ModifyVinCan();
+                    return;
+                }
+
                 Response<uint> osidResponse = await this.Vehicle.QueryOperatingSystemId(CancellationToken.None);
                 if (osidResponse.Status != ResponseStatus.Success)
                 {
@@ -982,7 +1076,10 @@ namespace PcmHacking
                     if (vinmodified.Value)
                     {
                         this.AddUserMessage("VIN successfully updated to " + vinForm.Vin);
-                        MessageBox.Show("VIN updated to " + vinForm.Vin + " successfully.", "Good news.", MessageBoxButtons.OK);
+                        MessageBox.Show(
+                            "VIN updated to " + vinForm.Vin + " successfully.\n\n" +
+                            "Turn ignition off while leaving power connected for a few seconds to finish the save to flash.",
+                            "Good news.", MessageBoxButtons.OK);
                     }
                     else
                     {
@@ -997,6 +1094,82 @@ namespace PcmHacking
         }
 
         /// <summary>
+        /// Change the VIN on a CAN PCM (E38): read the current VIN (1A 90), prompt for the new one,
+        /// unlock the PCM (seed/key), then write it (3B 90 + 17 ASCII bytes).
+        /// </summary>
+        private async Task ModifyVinCan()
+        {
+            OSIDInfo pcmInfo = new OSIDInfo(PcmType.E38);
+            CanCommands commands = this.Vehicle.CreateCanCommands();
+
+            Response<byte[]> vinResponse = await commands.ReadDataByIdentifier(Gmlan.VinDataIdentifier, CancellationToken.None);
+            string? currentVin = DecodeCanVin(vinResponse);
+            if (currentVin == null)
+            {
+                this.AddUserMessage("VIN query failed: " + vinResponse.Status.ToString());
+                return;
+            }
+            this.AddUserMessage("VIN: " + currentVin);
+
+            DialogBoxes.VinForm vinForm = new DialogBoxes.VinForm();
+            vinForm.Vin = currentVin;
+            if (vinForm.ShowDialog() != DialogResult.OK)
+            {
+                return;
+            }
+
+            string newVin = vinForm.Vin.Trim().ToUpperInvariant();
+            if (newVin.Length != 17)
+            {
+                MessageBox.Show("The VIN must be 17 characters.", "VIN", MessageBoxButtons.OK);
+                return;
+            }
+
+            this.AddUserMessage("Unlocking PCM...");
+            if (!await commands.Unlock(pcmInfo, CancellationToken.None))
+            {
+                this.AddUserMessage("Unable to unlock PCM.");
+                return;
+            }
+
+            byte[] vinBytes = Encoding.ASCII.GetBytes(newVin);
+            if (await commands.WriteDataByIdentifier(Gmlan.VinDataIdentifier, vinBytes, CancellationToken.None))
+            {
+                this.AddUserMessage("VIN successfully updated to " + newVin);
+                MessageBox.Show(
+                    "VIN updated to " + newVin + " successfully.\n\n" +
+                    "Now turn the ignition off and leave the power connected for\n" +
+                    "5 seconds to complete the process and save the change to flash.",
+                    "Good news.", MessageBoxButtons.OK);
+            }
+            else
+            {
+                MessageBox.Show("Unable to change the VIN to " + newVin + ".", "Bad news.", MessageBoxButtons.OK);
+            }
+        }
+
+        /// <summary>Decode the VIN from a GMLAN 1A 90 response [5A 90 ...]; null if it is not one.</summary>
+        private static string? DecodeCanVin(Response<byte[]> response)
+        {
+            if (response.Status != ResponseStatus.Success)
+            {
+                return null;
+            }
+            byte[] bytes = response.Value;
+            if (bytes == null || bytes.Length < 3 || bytes[0] != Gmlan.ReadDataByIdentifierResponse || bytes[1] != Gmlan.VinDataIdentifier)
+            {
+                return null;
+            }
+            string text = Encoding.ASCII.GetString(bytes.Skip(2).ToArray());
+            text = new string(text.ToUpperInvariant().Where(ch => char.IsLetterOrDigit(ch)).ToArray());
+            if (text.Length > 17)
+            {
+                text = text.Substring(0, 17);
+            }
+            return text;
+        }
+
+        /// <summary>
         /// Read the entire contents of the flash.
         /// </summary>
         private void readFullContentsButton_Click(object sender, EventArgs e)
@@ -1007,9 +1180,41 @@ namespace PcmHacking
             }
         }
 
-        private void StartOperationFromDialog(bool defaultIsWrite, WriteType defaultWriteType)
+        private async void StartOperationFromDialog(bool defaultIsWrite, WriteType defaultWriteType)
         {
-            using (OperationSelectionDialogBox dialog = new OperationSelectionDialogBox(defaultIsWrite, defaultWriteType))
+            // Probe the bus first so the dialog can offer only the write types this PCM supports and
+            // default to calibration (by-segment PCMs) or clone (the rest). Mirrors the Read Properties
+            // detect-first flow; on failure the dialog falls back to a manual choice.
+            OSIDInfo? detected = null;
+            if (this.Vehicle != null)
+            {
+                try
+                {
+                    this.DisableUserInput();
+                    this.AddUserMessage("Detecting PCM...");
+                    DetectedModule? pcm = await this.Vehicle.DetectAndSelectPcm(CancellationToken.None);
+                    if (pcm != null)
+                    {
+                        detected = new OSIDInfo(pcm.Osid);
+                        this.AddUserMessage(string.Format(
+                            "Detected {0} on {1}: {2}", detected.HardwareType, pcm.Bus, detected.Description));
+                    }
+                    else
+                    {
+                        this.AddUserMessage("No PCM detected. Choose the options manually.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    this.AddUserMessage("Could not detect the PCM. Choose the options manually. " + ex.Message);
+                }
+                finally
+                {
+                    this.EnableUserInput();
+                }
+            }
+
+            using (OperationSelectionDialogBox dialog = new OperationSelectionDialogBox(defaultIsWrite, defaultWriteType, detected))
             {
                 DialogResult result = dialog.ShowDialog(this);
                 if (result != DialogResult.OK || dialog.Selection == null)
@@ -1049,6 +1254,9 @@ namespace PcmHacking
 
                 case WriteType.OsPlusCalibrationPlusBoot:
                     return "This will replace the operating system and calibration on your PCM.";
+
+                case WriteType.Calibration:
+                    return "This will replace the calibration on your PCM.";
 
                 case WriteType.Full:
                     return "This will replace the contents of the flash memory on your PCM.";
@@ -1110,7 +1318,7 @@ namespace PcmHacking
         {
             if (!BackgroundWorker.IsAlive)
             {
-                this.StartOperationFromDialog(true, WriteType.OsPlusCalibrationPlusBoot);
+                this.StartOperationFromDialog(true, WriteType.Calibration);
             }
         }
 
@@ -1261,7 +1469,7 @@ namespace PcmHacking
                         this.Vehicle,
                         (action) => { this.Invoke(action); return Task.CompletedTask; },
                         this.PromptForFileSavePath,
-                        this.PromptForOperatingSystemId,
+                        this.PromptForPcmType,
                         this.Alert,
                         this.PromptForYesNo,
                         this.cancellationTokenSource.Token);
@@ -1304,17 +1512,17 @@ namespace PcmHacking
             return Task.FromResult<string?>(path);
         }
 
-        private Task<UInt32> PromptForOperatingSystemId()
+        private Task<PcmType> PromptForPcmType()
         {
-            OperatingSystemIDDialogBox osDialog = new OperatingSystemIDDialogBox();
-            DialogResult dialogResult = osDialog.ShowDialog();
+            PcmTypeSelectorDialogBox pcmTypeDialog = new PcmTypeSelectorDialogBox();
+            DialogResult dialogResult = pcmTypeDialog.ShowDialog();
             if (dialogResult == DialogResult.OK)
             {
-                return Task.FromResult(osDialog.OperatingSystemId);
+                return Task.FromResult(pcmTypeDialog.SelectedPcmType);
             }
             else
             {
-                return Task.FromResult((UInt32)0);
+                return Task.FromResult(PcmType.Undefined);
             }
         }
 

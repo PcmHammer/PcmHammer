@@ -23,8 +23,9 @@ namespace PcmHacking
             // First, empty the grid.
             this.parameterGrid.Rows.Clear();
 
-            string appPath = System.Reflection.Assembly.GetExecutingAssembly().Location;
-            string appDirectory = Path.GetDirectoryName(appPath);
+            // Not GetExecutingAssembly().Location: that is empty in the single-exe build, which
+            // would make Path.GetDirectoryName throw.
+            string appDirectory = AppContext.BaseDirectory;
 
             this.database = new ParameterDatabase(appDirectory);
 

@@ -16,16 +16,16 @@ namespace PcmHacking
         /// </summary>
         public Message CreateKernelVersionQuery()
         {
-            return new Message(new byte[] { Priority.Physical0, DeviceId.Pcm, DeviceId.Tool, 0x3D, 0x00 });
+            return new Message(new byte[] { Priority.Physical0, TargetVpwId, ToolId, 0x3D, 0x00 });
         }
 
         internal Response<UInt64> ParseKernelVersion(Message responseMessage)
         {
             ResponseStatus status;
-            byte[] expected = { Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, 0x7D, 0x00 };
+            byte[] expected = { Priority.Physical0, ToolId, TargetVpwId, 0x7D, 0x00 };
             if (!TryVerifyInitialBytes(responseMessage, expected, out status))
             {
-                byte[] refused = { Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, Mode.NegativeResponse, 0x3D, 0x00 };
+                byte[] refused = { Priority.Physical0, ToolId, TargetVpwId, Mode.NegativeResponse, 0x3D, 0x00 };
                 if (TryVerifyInitialBytes(responseMessage, refused, out status))
                     return Response.Create(ResponseStatus.Refused, (UInt64)0);
                 return Response.Create(status, (UInt64)0);
@@ -61,7 +61,7 @@ namespace PcmHacking
         /// </remarks>
         public Message CreateOperatingSystemIdKernelRequest()
         {
-            return new Message(new byte[] { Priority.Physical0, DeviceId.Pcm, DeviceId.Tool, 0x3D, 0x03 });
+            return new Message(new byte[] { Priority.Physical0, TargetVpwId, ToolId, 0x3D, 0x03 });
         }
 
         /// <summary>
@@ -77,7 +77,7 @@ namespace PcmHacking
         /// </summary>
         public Message CreateFlashMemoryTypeQuery()
         {
-            return new Message(new byte[] { Priority.Physical0, DeviceId.Pcm, DeviceId.Tool, 0x3D, 0x01 });
+            return new Message(new byte[] { Priority.Physical0, TargetVpwId, ToolId, 0x3D, 0x01 });
         }
 
         internal Response<UInt32> ParseFlashMemoryType(Message responseMessage)
@@ -90,7 +90,7 @@ namespace PcmHacking
         /// </summary>
         public Message CreateCrcQuery(UInt32 address, UInt32 size)
         {
-            byte[] requestBytes = new byte[] { Priority.Physical0, DeviceId.Pcm, DeviceId.Tool, 0x3D, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+            byte[] requestBytes = new byte[] { Priority.Physical0, TargetVpwId, ToolId, 0x3D, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
             requestBytes[5] = unchecked((byte)(size >> 16));
             requestBytes[6] = unchecked((byte)(size >> 8));
             requestBytes[7] = unchecked((byte)size);
@@ -109,8 +109,8 @@ namespace PcmHacking
             byte[] expected = new byte[]
             {
                 Priority.Physical0,
-                DeviceId.Tool,
-                DeviceId.Pcm,
+                ToolId,
+                TargetVpwId,
                 0x7D,
                 0x02,
                 unchecked((byte)(size >> 16)),
@@ -123,7 +123,7 @@ namespace PcmHacking
 
             if (!TryVerifyInitialBytes(responseMessage, expected, out status))
             {
-                byte[] refused = {  Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, Mode.NegativeResponse, 0x3D, 0x02 };
+                byte[] refused = {  Priority.Physical0, ToolId, TargetVpwId, Mode.NegativeResponse, 0x3D, 0x02 };
                 if (TryVerifyInitialBytes(responseMessage, refused, out status))
                 {
                     return Response.Create(ResponseStatus.Refused, (UInt32)0);
@@ -155,8 +155,8 @@ namespace PcmHacking
             return new Message(new byte[]
             {
                 Priority.Physical0,
-                DeviceId.Pcm,
-                DeviceId.Tool,
+                TargetVpwId,
+                ToolId,
                 0x3D,
                 0x05,
                 (byte)(baseAddress >> 16),
@@ -178,7 +178,7 @@ namespace PcmHacking
         /// </summary>
         public Message CreateDebugQuery()
         {
-            return new Message(new byte[] { Priority.Physical0, DeviceId.Pcm, DeviceId.Tool, 0x3D, 0xFF });
+            return new Message(new byte[] { Priority.Physical0, TargetVpwId, ToolId, 0x3D, 0xFF });
         }
 
         /// <summary>
@@ -186,7 +186,7 @@ namespace PcmHacking
         /// </summary>
         public Message CreateExitKernel()
         {
-            byte[] bytes = new byte[] { Priority.Physical0, DeviceId.Pcm, DeviceId.Tool, 0x20 };
+            byte[] bytes = new byte[] { Priority.Physical0, TargetVpwId, ToolId, 0x20 };
             return new Message(bytes);
         }
     }

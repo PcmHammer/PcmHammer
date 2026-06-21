@@ -10,9 +10,16 @@
     <AssemblyName>VpwExplorer</AssemblyName>
     <ApplicationIcon>..\PcmHammer\0411_256px.ico</ApplicationIcon>
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <!-- Required for the msbuild release build: a transitive PackageReference (System.Management
+         via PcmLibraryWindowsApi) carries runtime-specific assets that VS msbuild's NuGet
+         resolver only picks with a RuntimeIdentifier. net48 is Windows-only, so pin 'win'. -->
+    <RuntimeIdentifiers>win</RuntimeIdentifiers>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <Deterministic>true</Deterministic>
+    <!-- Inline package versions (not central) so Costura/Fody and any future package
+         versions are pinned per app, independent of Directory.Packages.props. -->
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
     <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
@@ -97,6 +104,16 @@
       <Project>{c8dcf646-486d-4343-9fee-4ac36deacacf}</Project>
       <Name>PcmLibraryWindowsForms</Name>
     </ProjectReference>
+  </ItemGroup>
+  <!-- Costura embeds all dependency assemblies into the single exe at build time and
+       removes the loose copies from the output (kernels stay external). -->
+  <ItemGroup>
+    <PackageReference Include="Fody" Version="6.8.0">
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Costura.Fody" Version="5.7.0">
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

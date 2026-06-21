@@ -88,8 +88,9 @@ namespace PcmHacking
             string finalDir = string.Empty;
             if(_basePath == string.Empty)
             {
-                string exePath = System.Reflection.Assembly.GetExecutingAssembly().Location;
-                finalDir = Path.GetDirectoryName(exePath);
+                // Not GetExecutingAssembly().Location: that is empty for the memory-loaded
+                // PcmLibrary in the single-exe build, and Path.GetDirectoryName would then throw.
+                finalDir = AppContext.BaseDirectory;
             }
             else
             {
@@ -169,6 +170,49 @@ namespace PcmHacking
         }
 
         /// <summary>
+        /// Return the PCM to normal operation when the running kernel's bus is not known. The manual
+        /// "Halt Running Kernel" button can be pressed at any time, so the kernel may be running on
+        /// either bus. This sends mode 0x20 and then clears trouble codes on every bus the device can
+        /// reach: CAN 500k first (if supported), then VPW at 4X (if supported) and 1X. A bus the
+        /// device cannot use is simply skipped. Operations that already know the protocol use the
+        /// protocol-specific cleanup instead (this.Cleanup for VPW, the CAN writer/reader for CAN).
+        /// </summary>
+        public async Task HaltKernel(CancellationToken cancellationToken)
+        {
+            // The kernel may be running on either bus, so halt and then clear codes on every bus the
+            // device can reach. Each step logs once here; the per-bus calls below stay silent.
+            logger.AddUserMessage("Halting kernel.");
+
+            bool can = await this.device.SetProtocol(BusProtocol.Can500k);
+            if (can)
+            {
+                this.SetTarget(Target.Pcm);
+                await this.CreateCanCommands().Reboot(cancellationToken, announce: false);
+            }
+
+            bool vpw = await this.device.SetProtocol(BusProtocol.Vpw);
+            if (vpw)
+            {
+                this.SetTarget(Target.Pcm);
+                await this.ExitKernel();
+            }
+
+            logger.AddUserMessage("Clearing trouble codes.");
+
+            if (can && await this.device.SetProtocol(BusProtocol.Can500k))
+            {
+                this.SetTarget(Target.Pcm);
+                await this.CreateCanCommands().ClearDiagnosticCodes(cancellationToken, announce: false);
+            }
+
+            if (vpw && await this.device.SetProtocol(BusProtocol.Vpw))
+            {
+                this.SetTarget(Target.Pcm);
+                await this.ClearTroubleCodes(announce: false);
+            }
+        }
+
+        /// <summary>
         /// Exits the kernel at 4x, then at 1x. Once this function has been called the bus will be back at 1x.
         /// </summary>
         /// <remarks>
@@ -194,9 +238,12 @@ namespace PcmHacking
         /// In theory this should only run 10 seconds after rebooting, to ensure that the operating system is running again.
         /// In practice, that hasn't been an issue. It's the other modules (TAC especially) that really need to be reset.
         /// </summary>
-        public async Task ClearTroubleCodes()
+        public async Task ClearTroubleCodes(bool announce = true)
         {
-            logger.AddUserMessage("Clearing trouble codes.");
+            if (announce)
+            {
+                logger.AddUserMessage("Clearing trouble codes.");
+            }
             this.device.ClearMessageQueue();
 
             // No timeout because we don't care about responses to these messages.

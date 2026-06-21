@@ -90,6 +90,11 @@ goto beginning
   echo       Set path to GNU m68k bin directory. (no space)
   echo       Value: %GCC_LOCATION%
   echo.
+  echo     -cpu^<value^>
+  echo       Set the target CPU, given as the gcc -mcpu value (no space). Required, no default.
+  echo       68332 = Motorola 68k (m68k-elf, all VPW PCMs); 505 = PowerPC MPC5xx (powerpc-eabi, E38 CAN).
+  echo       Value: %CPU%
+  echo.
   echo     -l^<address^>
   echo       Set base address for the Loader. (no space, in hex, no 0x)
   echo       Value: 0x%LOADER_ADDRESS%
@@ -199,6 +204,19 @@ set BIN_LOCATION=..\Apps\UI\WindowsForms\PcmHammer\bin\Debug\
 rem * -x Set flag to build an Assembly Kernel (and or Loader) versus C Kernel.
 set ASSEMBLY_KERNEL=
 
+rem * -cpu Target CPU, given as the actual gcc -mcpu value so the same value is used
+rem *      end to end (command line -> -mcpu flag). Required: there is no default, so
+rem *      every build states its CPU explicitly. The CPU selects the cross toolchain,
+rem *      assembler flags and (for non-68k) source dir, in the CPU block below.
+rem *      Supported CPUs and the PCMs that use them:
+rem *        68332 - Motorola 68k (MC68332), m68k-elf toolchain.
+rem *                P01, P04, P04_Early, P05, P08, P10, P11, P12, E54, BlackBox.
+rem *        505   - PowerPC. This is the gcc -mcpu name for the classic 32-bit
+rem *                PowerPC 5xx core family, NOT a chip part number; gcc has no
+rem *                555/561/565 option, so 505 is what targets the E38's MPC56x.
+rem *                powerpc-eabi toolchain. Used by: E38 (CAN).
+set CPU=
+
 
 rem * Handle command line options.
 (
@@ -209,6 +227,7 @@ rem * Handle command line options.
     if /i "!VAR!" == "-c"      set COPY_BIN=
     if /i "!VAR!" == "-d"      set DUMP_ELF=True
     if /i "!VAR:~0,2!" == "-g" set "GCC_LOCATION=!VAR:~2!"
+    if /i "!VAR:~0,4!" == "-cpu" set "CPU=!VAR:~4!"
     if /i "!VAR:~0,2!" == "-l" set "LOADER_ADDRESS=!VAR:~2!"
     if /i "!VAR!" == "-m"      set DUMP_MAP=True
     if /i "!VAR:~0,2!" == "-p" set "PCM=!VAR:~2!"
@@ -233,6 +252,27 @@ rem *   C kernels use 68k-VPW-C.
 set "SOURCE_DIR=68k-VPW-Asm"
 if not defined ASSEMBLY_KERNEL set "SOURCE_DIR=68k-VPW-C"
 if /i "%PCM%"=="P04" if defined ASSEMBLY_KERNEL set "SOURCE_DIR=68k-VPW-Asm-P04"
+
+rem * Target CPU selection. Maps the required -cpu value to the cross toolchain,
+rem * assembler flags and (for non-68k) source dir. 68k uses the m68k toolchain and the
+rem * source dirs chosen above; PowerPC kernels live in their own PPC-CAN-Asm-<PCM> dir,
+rem * and the PowerPC tools install as a sibling of the m68k tools under SysGCC, so derive
+rem * their bin dir from GCC_LOCATION (m68k-elf -> powerpc-eabi) rather than hardcoding a
+rem * path, which keeps -g working. The -mcpu flag reuses %CPU% so the value is the same
+rem * end to end. Add new CPU families here.
+if /i "%CPU%"=="68332" (
+  set "TOOL_PREFIX=m68k-elf-"
+  set "ASM_CC_FLAGS=-fomit-frame-pointer -std=gnu99 -mcpu=%CPU% -O0"
+) else if /i "%CPU%"=="505" (
+  set ASSEMBLY_KERNEL=True
+  set "SOURCE_DIR=PPC-CAN-Asm-%PCM%"
+  set "GCC_LOCATION=%GCC_LOCATION:m68k-elf=powerpc-eabi%"
+  set "TOOL_PREFIX=powerpc-eabi-"
+  set "ASM_CC_FLAGS=-mregnames -mcpu=%CPU% -mbig-endian -mstrict-align"
+) else (
+  echo ERROR: -cpu^<value^> is required. Supported: 68332 ^(m68k VPW PCMs^), 505 ^(PowerPC E38^).
+  exit /b 1
+)
 
 rem * Ensure build directory exists.
 if not exist build mkdir build
@@ -293,19 +333,29 @@ if not defined ASSEMBLY_KERNEL (
   rem *** Assembly Kernel
   rem ***
   echo Building Kernel-%PCM%.bin [Assembly, %SOURCE_DIR%]...
-  "%GCC_LOCATION%\m68k-elf-gcc.exe" -c -D=%PCM% %BUILD_DEFS% -fomit-frame-pointer -std=gnu99 -mcpu=68332 -O0 Kernel.S
+  "%GCC_LOCATION%\%TOOL_PREFIX%gcc.exe" -c -D=%PCM% %BUILD_DEFS% %ASM_CC_FLAGS% Kernel.S
   if %errorlevel% neq 0 (popd & goto :EOF)
 
-  "%GCC_LOCATION%\m68k-elf-ld.exe" --section-start .text=0x%BASE_ADDRESS% -T Kernel.ld %DUMPMAP% -o ..\build\Kernel-%PCM%.elf Kernel.o
+  "%GCC_LOCATION%\%TOOL_PREFIX%ld.exe" --section-start .text=0x%BASE_ADDRESS% -T Kernel.ld %DUMPMAP% -o ..\build\Kernel-%PCM%.elf Kernel.o
   if %errorlevel% neq 0 (popd & goto :EOF)
 
-  "%GCC_LOCATION%\m68k-elf-objcopy.exe" -O binary --only-section=.text --only-section=.data ..\build\Kernel-%PCM%.elf ..\build\Kernel-%PCM%.bin
+  "%GCC_LOCATION%\%TOOL_PREFIX%objcopy.exe" -O binary --only-section=.text --only-section=.data ..\build\Kernel-%PCM%.elf ..\build\Kernel-%PCM%.bin
   if %errorlevel% neq 0 (popd & goto :EOF)
+
+  rem *** Optional per-kernel post-build step. If the source directory provides a
+  rem *** PostBuild.cmd, run it on the finished .bin before verification so the
+  rem *** verified artifact is the final one, and so any kernel-specific
+  rem *** post-processing stays within that kernel's own directory.
+  if exist PostBuild.cmd (
+    call ".\PostBuild.cmd" "..\build\Kernel-%PCM%.elf" "..\build\Kernel-%PCM%.bin" "%BASE_ADDRESS%" "%GCC_LOCATION%" "%TOOL_PREFIX%"
+    if errorlevel 1 (popd & exit /b 1)
+  )
+
   call :VerifyBin "..\build\Kernel-%PCM%.bin"
   if %errorlevel% neq 0 (popd & exit /b 1)
 
   if defined DUMP_ELF (
-    "%GCC_LOCATION%\m68k-elf-objdump.exe" -d -S ..\build\Kernel-%PCM%.elf > ..\build\Kernel-%PCM%.disassembly
+    "%GCC_LOCATION%\%TOOL_PREFIX%objdump.exe" -d -S ..\build\Kernel-%PCM%.elf > ..\build\Kernel-%PCM%.disassembly
     if %errorlevel% neq 0 (popd & goto :EOF)
   )
 

@@ -76,11 +76,6 @@ namespace PcmHacking
         private readonly PcmType? forcedType;
 
         /// <summary>
-        /// Prevent repeating forced-type user message for each signature pass.
-        /// </summary>
-        private bool forcedTypeLogged;
-
-        /// <summary>
         /// For reporting progress and success/fail.
         /// </summary>
         private readonly ILogger logger;
@@ -93,7 +88,6 @@ namespace PcmHacking
             this.image = image;
             this.logger = logger;
             this.forcedType = forcedType;
-            this.forcedTypeLogged = false;
         }
 
         /// <summary>
@@ -268,6 +262,12 @@ namespace PcmHacking
                 case PcmType.BlackBox:
                     osid = ReadUnsigned(image, 0x20004);
                     break;
+
+                case PcmType.E38:
+                    // The operating-system part number is stored as ASCII in the checksum table header
+                    // at 0x1000E (e.g. "12628990"); that part number is the OSID.
+                    osid = ReadAsciiUInt32(image, 0x1000E);
+                    break;
             }
 
             return osid;
@@ -284,6 +284,11 @@ namespace PcmHacking
 
             switch (type)
             {
+                // The E38 uses its own checksum table (a per-segment Sum and CVN), validated below
+                // by ValidateSumAndCvn() rather than the generic segment-table path.
+                case PcmType.E38:
+                    break;
+
                 // have a segment table
                 case PcmType.P01:
                 case PcmType.P59:
@@ -364,6 +369,11 @@ namespace PcmHacking
                     success &= ValidateRangeP12(0x805E, 0, 0x807E, 2, "Speedometer");
                     success &= ValidateRangeP12(0x8091, 0, 0x80B1, 2, "System");
                     break;
+                case PcmType.E38:
+                    // The E38 has its own per-segment Sum and CVN scheme. A bad sum means the image is
+                    // corrupt; a bad CVN is only a warning, so it does not fail validation here.
+                    return this.ValidateSumAndCvn() != SumCvnVerdict.SumError;
+
                 case PcmType.E54:
                     logger.AddUserMessage("\tStart\tEnd\tStored\tNeeded\tVerdict\tSegment Name");
                     success &= ValidateRangeWordSum(type, 0x20002, 0x6FFFF, 0x20000, "Operating System");
@@ -470,21 +480,26 @@ namespace PcmHacking
         }
 
         /// <summary>
-        /// Validate signatures
+        /// Resolve the PCM type this file will be treated as: the caller's forced type when one was
+        /// supplied (manual selection), otherwise the type detected from the file's own content.
         /// </summary>
-        private PcmType ValidateSignatures()
+        private PcmType ResolvePcmType()
         {
             if (this.forcedType.HasValue && this.forcedType.Value != PcmType.Undefined)
             {
-                if (!this.forcedTypeLogged)
-                {
-                    logger.AddUserMessage("File type forced to " + this.forcedType.Value + " (manual selection).");
-                    this.forcedTypeLogged = true;
-                }
-
                 return this.forcedType.Value;
             }
 
+            return this.DetectFileType();
+        }
+
+        /// <summary>
+        /// Identify the PCM type from the file's content signatures alone, ignoring any forced type.
+        /// Returns Undefined if the content matches no known PCM. Use this to confirm a file matches a
+        /// manually selected type without trusting (or querying) anything else.
+        /// </summary>
+        public PcmType DetectFileType()
+        {
             // All currently supported bins are 256KiB, 512KiB, 1024KiB or 20248KiB
             if ((image.Length != 256 * 1024) && (image.Length != 512 * 1024) && (image.Length != 1024 * 1024) && (image.Length != 2048 * 1024))
             {
@@ -641,11 +656,18 @@ namespace PcmHacking
             // 2024KiB types
             if (image.Length == 2048 * 1024)
             {
+                logger.AddDebugMessage("Trying E38 2048KiB");
+                if (this.LooksLikeE38())
+                {
+                    return PcmType.E38;
+                }
+
                 logger.AddDebugMessage("Trying P12 2048KiB");
                 if ((image[0x17FFF8] == 0xAA) && (image[0x17FFF9] == 0x55))
                 {
                     return PcmType.P12;
                 }
+
             }
 
             logger.AddDebugMessage("Unable to identify or validate bin image content");
@@ -1050,7 +1072,7 @@ namespace PcmHacking
         /// </summary>
         private bool TryPrepareValidation(out PcmType type)
         {
-            type = this.ValidateSignatures();
+            type = this.ResolvePcmType();
             if (type == PcmType.Undefined)
             {
                 return false;
@@ -1111,6 +1133,9 @@ namespace PcmHacking
                     return this.HasSize(1024 * 1024, 2048 * 1024) &&
                         this.HasRange(0x8004, 4, "P12 OSID") &&
                         this.ValidateP12Layout();
+
+                case PcmType.E38:
+                    return this.HasSize(2048 * 1024) && this.LooksLikeE38();
 
                 case PcmType.E54:
                     return this.HasSize(512 * 1024) &&
@@ -1275,6 +1300,208 @@ namespace PcmHacking
 
                 return builder.ToString();
             }
+        }
+
+        // GM E38 PCM 2 MiB images carry a checksum table at 0x10000 describing six segments, each with
+        // a 16-bit two's-complement word sum and a 16-bit CRC (the CVN). A bad sum means the image is
+        // corrupt and would brick the PCM (error); a bad CVN only means the calibration-verification
+        // number will not match (warning).
+
+        /// <summary>Outcome of <see cref="ValidateSumAndCvn"/>.</summary>
+        public enum SumCvnVerdict
+        {
+            /// <summary>Not a 2 MB image with a readable checksum table.</summary>
+            NotApplicable,
+
+            /// <summary>All sums and CVNs are valid.</summary>
+            Good,
+
+            /// <summary>Sums are valid but one or more CVNs are bad - usable, but warn the user.</summary>
+            CvnWarning,
+
+            /// <summary>One or more sums are bad - the image is corrupt and must not be flashed.</summary>
+            SumError,
+        }
+
+        /// <summary>
+        /// Validate a 2 MiB E38 PCM image and log the per-segment Sum and CVN tables. A bad sum is
+        /// an error; a bad CVN is only a warning.
+        /// </summary>
+        public SumCvnVerdict ValidateSumAndCvn()
+        {
+            if (this.image.Length != 0x200000)
+            {
+                logger.AddUserMessage(string.Format(
+                    "File must be 0x200000 bytes; this file is 0x{0:X} bytes.", this.image.Length));
+                return SumCvnVerdict.NotApplicable;
+            }
+
+            List<Tuple<string, int, int>> segments;
+            try
+            {
+                segments = this.CollectSumCvnSegments();
+            }
+            catch (Exception exception)
+            {
+                logger.AddUserMessage("Checksum table is invalid: " + exception.Message);
+                return SumCvnVerdict.NotApplicable;
+            }
+
+            logger.AddUserMessage("Validating 2MB file.");
+
+            logger.AddUserMessage("Checksum validation:");
+            logger.AddUserMessage("\tStart\tEnd\tStored\tNeeded\tVerdict\tSegment Name");
+            bool anySumBad = false;
+            foreach (Tuple<string, int, int> segment in segments)
+            {
+                UInt16 stored = this.GetU16BE(segment.Item2);
+                UInt16 needed = this.CalcSegmentSum(segment.Item2, segment.Item3);
+                bool good = stored == needed;
+                anySumBad |= !good;
+                logger.AddUserMessage(string.Format("\t{0:X6}\t{1:X6}\t{2:X4}\t{3:X4}\t{4}\t{5}",
+                    segment.Item2, segment.Item3, stored, needed, good ? "Good" : "BAD", segment.Item1));
+            }
+
+            logger.AddUserMessage("CVN validation:");
+            logger.AddUserMessage("\tStart\tEnd\tStored\tNeeded\tVerdict\tSegment Name");
+            bool anyCvnBad = false;
+            foreach (Tuple<string, int, int> segment in segments)
+            {
+                UInt16 stored = this.GetU16BE(segment.Item2 + 0x1E);
+                UInt16 needed = this.CalcSegmentCvn(segment.Item2, segment.Item3);
+                bool good = stored == needed;
+                anyCvnBad |= !good;
+                logger.AddUserMessage(string.Format("\t{0:X6}\t{1:X6}\t{2:X4}\t{3:X4}\t{4}\t{5}",
+                    segment.Item2, segment.Item3, stored, needed, good ? "Good" : "BAD", segment.Item1));
+            }
+
+            if (anySumBad)
+            {
+                // A bad sum means the image is corrupt; flashing it would brick the PCM.
+                logger.AddUserMessage("This file is corrupt. It would render your PCM unusable.");
+                return SumCvnVerdict.SumError;
+            }
+
+            logger.AddUserMessage("All checksums are valid.");
+            if (anyCvnBad)
+            {
+                // A bad CVN does not stop the file from being used; surface it as a warning only.
+                logger.AddUserMessage("Warning: One or more CVNs are bad.");
+                return SumCvnVerdict.CvnWarning;
+            }
+
+            return SumCvnVerdict.Good;
+        }
+
+        private List<Tuple<string, int, int>> CollectSumCvnSegments()
+        {
+            const int index = 0x10000;
+            Tuple<int, int, string>[] layout =
+            {
+                Tuple.Create(0x24, 0x28, "Operating System"),
+                Tuple.Create(0x48, 0x4C, "Engine Operations"),
+                Tuple.Create(0x6B, 0x6F, "Engine Diagnostics"),
+                Tuple.Create(0x8E, 0x92, "Fuel System"),
+                Tuple.Create(0xB1, 0xB5, "System"),
+                Tuple.Create(0xD4, 0xD8, "Speedometer"),
+            };
+
+            List<Tuple<string, int, int>> segments = new List<Tuple<string, int, int>>();
+            for (int i = 0; i < layout.Length; i++)
+            {
+                int startAddr = unchecked((int)this.GetU32BE(index + layout[i].Item1));
+                int endAddr = unchecked((int)this.GetU32BE(index + layout[i].Item2));
+                int segNum = i + 1;
+
+                if (startAddr >= this.image.Length)
+                    throw new InvalidOperationException(string.Format("Segment {0} start out of range: 0x{1:X6}", segNum, startAddr));
+                if (endAddr >= this.image.Length)
+                    throw new InvalidOperationException(string.Format("Segment {0} end out of range: 0x{1:X6}", segNum, endAddr));
+                if ((startAddr & 0x1) != 0)
+                    throw new InvalidOperationException(string.Format("Segment {0} start not word-aligned: 0x{1:X6}", segNum, startAddr));
+                if ((endAddr & 0x1) == 0)
+                    throw new InvalidOperationException(string.Format("Segment {0} end not word-aligned: 0x{1:X6}", segNum, endAddr));
+                if (endAddr <= startAddr)
+                    throw new InvalidOperationException(string.Format("Segment {0} range invalid: 0x{1:X6}-0x{2:X6}", segNum, startAddr, endAddr));
+                if ((endAddr - startAddr) < 0x24)
+                    throw new InvalidOperationException(string.Format("Segment {0} range too short: 0x{1:X6}-0x{2:X6}", segNum, startAddr, endAddr));
+
+                segments.Add(Tuple.Create(layout[i].Item3, startAddr, endAddr));
+            }
+
+            return segments;
+        }
+
+        /// <summary>
+        /// Identify an E38 image by structure: a 2 MiB file whose checksum table at 0x10000 parses
+        /// into the expected six well-formed segments. Reuses the same table reader the checksum
+        /// validation uses, so detection and validation never diverge.
+        /// </summary>
+        private bool LooksLikeE38()
+        {
+            if (this.image.Length != 0x200000)
+            {
+                return false;
+            }
+
+            try
+            {
+                this.CollectSumCvnSegments();
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private UInt16 GetU16BE(int offset)
+        {
+            if (offset < 0 || offset + 1 >= this.image.Length)
+                throw new InvalidOperationException(string.Format("u16 read out of range at 0x{0:X6}", offset));
+            return (UInt16)((this.image[offset] << 8) | this.image[offset + 1]);
+        }
+
+        private UInt32 GetU32BE(int offset)
+        {
+            if (offset < 0 || offset + 3 >= this.image.Length)
+                throw new InvalidOperationException(string.Format("u32 read out of range at 0x{0:X6}", offset));
+            return (UInt32)((this.image[offset] << 24) | (this.image[offset + 1] << 16) | (this.image[offset + 2] << 8) | this.image[offset + 3]);
+        }
+
+        // 16-bit two's-complement sum of the words from start+2..end (the stored sum sits at start).
+        private UInt16 CalcSegmentSum(int startAddr, int endAddr)
+        {
+            int total = 0;
+            for (int idx = startAddr + 2; idx <= endAddr; idx += 2)
+            {
+                total += this.GetU16BE(idx);
+            }
+            return (UInt16)((((total & 0xFFFF) ^ 0xFFFF) + 1) & 0xFFFF);
+        }
+
+        // GM CRC-16 (reflected, poly 0xA001) used for the CVN.
+        private UInt16 Crc16Gm(int initCrc, int startAddr, int endAddr)
+        {
+            int crc = initCrc & 0xFFFF;
+            for (int idx = startAddr; idx <= endAddr; idx++)
+            {
+                crc ^= this.image[idx] & 0xFF;
+                for (int bit = 0; bit < 8; bit++)
+                {
+                    crc = ((crc & 0x0001) != 0) ? ((crc >> 1) ^ 0xA001) & 0xFFFF : (crc >> 1) & 0xFFFF;
+                }
+            }
+            return (UInt16)(crc & 0xFFFF);
+        }
+
+        // CVN: CRC over [start+2 .. start+0x1D] then [start+0x20 .. end], with the result byte-swapped
+        // (the 0x1E..0x1F window holding the stored CVN itself is excluded).
+        private UInt16 CalcSegmentCvn(int startAddr, int endAddr)
+        {
+            UInt16 crc = this.Crc16Gm(0, startAddr + 2, startAddr + 0x1D);
+            crc = this.Crc16Gm(crc, startAddr + 0x20, endAddr);
+            return (UInt16)(((crc & 0x00FF) << 8) | ((crc & 0xFF00) >> 8));
         }
     }
 }

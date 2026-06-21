@@ -8,6 +8,7 @@
 # 2025-11-16 - Antus <pcmhacking.net> Add P11
 # 2026-04-07 - Antus <pcmhacking.net> Update dependencies
 # 2026-04-10 - Antus <pcmhacking.net> Update for WinForms + Uno Windows + Uno Android
+# 2026-06-18 - Antus <pcmhacking.net> E38 PPC Kernel, via source or binary distribution
 #
 
 name: CheckBuild
@@ -30,8 +31,8 @@ jobs:
     - name: Update Package Repository
       run: sudo apt-get update
 
-    - name: Install GNU m68k Compiler and Make tool
-      run: sudo apt-get install -y gcc-m68k-linux-gnu make
+    - name: Install compilers and make
+      run: sudo apt-get install -y gcc-m68k-linux-gnu gcc-powerpc-linux-gnu make
 
     - name: Create temporary artifact storage
       run: mkdir TemporaryArtifactStorage
@@ -136,6 +137,59 @@ jobs:
           fi
         done
 
+    - name: Build remaining kernels
+      run: |
+        cd Kernels
+        mkdir -p build
+        BUILD_STEP_START=$(date +%s)
+        verify_bin() {
+          local file="$1"
+          if [ ! -f "$file" ]; then
+            echo "ERROR: $file was not created"
+            exit 1
+          fi
+          local hash mtime
+          hash=$(sha1sum "$file" | awk '{print $1}')
+          mtime=$(stat -c %Y "$file")
+          if [ "$mtime" -ge "$BUILD_STEP_START" ]; then
+            printf "%s  sha1:%s  OK\n" "$file" "$hash"
+          else
+            echo "ERROR: $file is stale (mtime=$mtime < start=$BUILD_STEP_START)"
+            exit 1
+          fi
+        }
+        #
+        # Some kernels are maintained in their own source directory and build with a
+        # per-directory build script; when that source is not in this tree, the directory
+        # carries a committed binary instead. Run any build scripts present, then fall
+        # back to a committed Kernel-*.bin / Loader-*.bin left in a kernel directory that
+        # has no build script (a freshly built binary always wins), then stage results.
+        #
+        for script in */ci-build.sh; do
+          [ -e "$script" ] || continue
+          echo "Building kernel(s) in $(dirname "$script")"
+          bash "$script"
+        done
+        for dir in */; do
+          dir=${dir%/}
+          [ "$dir" = build ] && continue
+          [ -f "$dir/ci-build.sh" ] && continue
+          [ -f "$dir/BuildKernel.cmd" ] && continue
+          for bin in "$dir"/Kernel-*.bin "$dir"/Loader-*.bin; do
+            [ -e "$bin" ] || continue
+            base=$(basename "$bin")
+            if [ ! -f "build/$base" ]; then
+              echo "Using committed $base from $dir"
+              cp "$bin" "build/$base"
+            fi
+          done
+        done
+        for bin in build/Kernel-*.bin build/Loader-*.bin; do
+          [ -e "$bin" ] || continue
+          verify_bin "$bin"
+          cp "$bin" ../TemporaryArtifactStorage/
+        done
+
     - name: Upload kernels artifact
       uses: actions/upload-artifact@v7
       with:
@@ -153,6 +207,7 @@ jobs:
       WINFORMS_ARTIFACT_SUFFIX: ''
       UNO_ARTIFACT_SUFFIX: ''
       CLI_ARTIFACT_SUFFIX: ''
+      PACKAGE_TOKEN: ''
 
     steps:
     - name: Checkout Code
@@ -251,25 +306,22 @@ jobs:
         "PACKAGE_APP_VERSION=$appVersion" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         Write-Host "Release tag: $isReleaseTag  config: $config  token: $token"
 
-    - name: Build WinForms applications
+    # Build the WinForms apps + CLI with msbuild (via Build-Apps.ps1) and stage them into
+    # dist\staging. msbuild is required so Costura embeds the full transitive dependency closure
+    # into each single exe; dotnet build does not flow transitive package deps for these legacy
+    # (non-SDK) projects, which would produce runtime-incomplete single exes. Build-Apps also
+    # copies the kernels next to PcmHammer and the logger profiles/parameters next to PcmLogger.
+    - name: Build and stage WinForms apps + CLI
       shell: pwsh
       run: |
-        function Invoke-Build {
-          param([Parameter(Mandatory = $true)][string]$Project)
-          Write-Host "Building $Project ($env:BUILD_CONFIG)"
-          dotnet build $Project -c $env:BUILD_CONFIG -p:GenerateResourceUsePreserializedResources=true
-          if ($LASTEXITCODE -ne 0) {
-            throw "Build failed for $Project (exit code $LASTEXITCODE)"
-          }
-        }
-
-        Invoke-Build "Apps/PcmLibrary/PcmLibrary.csproj"
-        Invoke-Build "Apps/PcmLibraryWindowsApi/PcmLibraryWindowsApi.csproj"
-        Invoke-Build "Apps/UI/WindowsForms/PcmLibraryWindowsForms/PcmLibraryWindowsForms.csproj"
-        Invoke-Build "Apps/UI/WindowsForms/PcmHammer/PcmHammer.csproj"
-        Invoke-Build "Apps/UI/WindowsForms/PcmLogger/PcmLogger.csproj"
-        Invoke-Build "Apps/UI/WindowsForms/VpwExplorer/VpwExplorer.csproj"
-        Invoke-Build "Apps/UI/PcmHammerCLI/PcmHammerCLI.csproj"
+        # Build-Apps reads the kernels from Kernels\build; the CI kernels artifact was
+        # downloaded to TemporaryArtifactStorage\Kernels, so place them where it expects.
+        New-Item -ItemType Directory -Force -Path Kernels/build | Out-Null
+        Copy-Item -Path "TemporaryArtifactStorage/Kernels/*.bin" -Destination "Kernels/build" -Force
+        # Release tag -> stamp the tag version into the binaries; dev push -> date-stamped build.
+        $versionArgs = @()
+        if ($env:IS_RELEASE_TAG -eq 'True') { $versionArgs += @('-Version', $env:RELEASE_TAG) }
+        & "Apps/build/Build-Apps.ps1" -Configuration $env:BUILD_CONFIG @versionArgs
 
     # Uno is experimental and dev-only. On a release tag it is skipped entirely so it
     # cannot be attached to (or block) the release; on normal pushes/PRs it still builds
@@ -327,43 +379,6 @@ jobs:
         "WINFORMS_ARTIFACT_SUFFIX=$winFormsArtifactSuffix" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         "UNO_ARTIFACT_SUFFIX=$unoArtifactSuffix" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         "CLI_ARTIFACT_SUFFIX=$cliArtifactSuffix" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-
-    - name: Stage WinForms artifact payload
-      shell: pwsh
-      run: |
-        function Get-AppOutputDir {
-          param(
-            [Parameter(Mandatory = $true)][string]$SearchRoot,
-            [Parameter(Mandatory = $true)][string]$ExeName
-          )
-
-          $exe = Get-ChildItem -Path $SearchRoot -Recurse -File -Filter $ExeName -ErrorAction SilentlyContinue |
-            Sort-Object LastWriteTime -Descending |
-            Select-Object -First 1
-
-          if (!$exe) {
-            throw "Unable to find $ExeName under $SearchRoot"
-          }
-
-          Write-Host "Detected $ExeName at $($exe.FullName)"
-          return $exe.Directory.FullName
-        }
-
-        $pcmHammerOutput = Get-AppOutputDir -SearchRoot "Apps/UI/WindowsForms/PcmHammer/bin" -ExeName "PcmHammer.exe"
-        $pcmLoggerOutput = Get-AppOutputDir -SearchRoot "Apps/UI/WindowsForms/PcmLogger/bin" -ExeName "PcmLogger.exe"
-        $vpwExplorerOutput = Get-AppOutputDir -SearchRoot "Apps/UI/WindowsForms/VpwExplorer/bin" -ExeName "VpwExplorer.exe"
-
-        New-Item -ItemType Directory -Force -Path TemporaryArtifactStorage/WinForms/PcmHammer | Out-Null
-        New-Item -ItemType Directory -Force -Path TemporaryArtifactStorage/WinForms/PcmLogger | Out-Null
-        New-Item -ItemType Directory -Force -Path TemporaryArtifactStorage/WinForms/VpwExplorer | Out-Null
-
-        Copy-Item -Path "TemporaryArtifactStorage/Kernels/*.bin" -Destination "TemporaryArtifactStorage/WinForms/PcmHammer" -Force
-
-        Copy-Item -Path "$pcmHammerOutput/*" -Destination "TemporaryArtifactStorage/WinForms/PcmHammer" -Recurse -Force
-        Copy-Item -Path "$pcmLoggerOutput/*" -Destination "TemporaryArtifactStorage/WinForms/PcmLogger" -Recurse -Force
-        Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/*.LogProfile" -Destination "TemporaryArtifactStorage/WinForms/PcmLogger" -Force
-        Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/Parameters.*.xml" -Destination "TemporaryArtifactStorage/WinForms/PcmLogger" -Force
-        Copy-Item -Path "$vpwExplorerOutput/*" -Destination "TemporaryArtifactStorage/WinForms/VpwExplorer" -Recurse -Force
 
     - name: Stage Uno Windows artifact payload
       if: ${{ !startsWith(github.ref, 'refs/tags/') }}
@@ -451,21 +466,6 @@ jobs:
           Copy-Item -Path $apk.FullName -Destination "TemporaryArtifactStorage/UnoAndroid" -Force
         }
 
-    - name: Stage CLI artifact payload
-      shell: pwsh
-      run: |
-        $cliExe = Get-ChildItem -Path "Apps/UI/PcmHammerCLI/bin" -Recurse -File -Filter "pcmhammer-cli.exe" -ErrorAction SilentlyContinue |
-          Sort-Object LastWriteTime -Descending |
-          Select-Object -First 1
-
-        if (!$cliExe) {
-          throw "Unable to find pcmhammer-cli.exe under Apps/UI/PcmHammerCLI/bin"
-        }
-
-        Write-Host "Detected CLI exe at $($cliExe.FullName)"
-        New-Item -ItemType Directory -Force -Path TemporaryArtifactStorage/CLI | Out-Null
-        Copy-Item -Path $cliExe.FullName -Destination "TemporaryArtifactStorage/CLI" -Force
-
     # --- Package the WinForms apps into the installer + portable, in this same job, so
     #     no redundant intermediate (raw WinForms/CLI) artifacts are published.
     #     PACKAGE_TOKEN / PACKAGE_APP_VERSION are set by the
@@ -477,7 +477,7 @@ jobs:
     - name: Build installer + portable
       shell: pwsh
       run: |
-        $staging = (Resolve-Path "TemporaryArtifactStorage").Path   # has WinForms\ and CLI\ subfolders
+        $staging = (Resolve-Path "dist/staging").Path   # produced by Build-Apps.ps1; has WinForms\ and CLI\
         $dist = Join-Path (Get-Location).Path "dist"
         & "Apps/installer/build-installer.ps1" `
           -StagingRoot $staging -Version $env:PACKAGE_APP_VERSION `
@@ -492,11 +492,16 @@ jobs:
         name: PCMHammer_Setup_${{ env.WINFORMS_ARTIFACT_SUFFIX }}_${{ github.sha }}
         path: dist/PCMHammer_*_Setup.exe
 
+    # Upload the unzipped portable tree (the folder, not the .zip). upload-artifact always
+    # zips its input, so handing it the pre-made .zip would produce a zip-inside-a-zip;
+    # handing it the folder yields a single wrapping zip whose root is PCMHammer\ (the same
+    # way the Setup artifact is a single zip around the .exe). The .zip Build-Portable also
+    # produced is reserved for the GitHub Release asset below.
     - name: Upload portable artifact
       uses: actions/upload-artifact@v7
       with:
         name: PCMHammer_Portable_${{ env.WINFORMS_ARTIFACT_SUFFIX }}_${{ github.sha }}
-        path: dist/PCMHammer_*_Portable.zip
+        path: dist/PCMHammer_${{ env.PACKAGE_TOKEN }}_Portable
 
     - name: Upload Uno Android artifact (experimental)
       if: ${{ !startsWith(github.ref, 'refs/tags/') }}

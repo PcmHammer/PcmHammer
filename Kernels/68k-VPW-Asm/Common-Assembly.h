@@ -4,13 +4,13 @@
 | ===========================================================================
 |
 | C directives will only work if the source filename is .S, yup, capital S.
-| That is the extension gnu has asscoaited the assembler with and it is case sensitive.
+| That is the extension gnu has associated the assembler with and it is case sensitive.
 | When using gcc.exe with -x assembler option and anyother extension, the C directives will fail.
 | We need to use gcc.exe for C directives, as.exe does not provide for them.
 |
 
 | J1850 registers
-#if defined P01 || defined P05 || defined P08 || defined P10 || defined P11 || defined P12 || defined E54
+#if defined P01 || defined P05 || defined P08 || defined P10 || defined P11 || defined P12 || defined E54 || defined E60
   .equ J1850_Config,     0xFFF600
   .equ J1850_Command,    0xFFF60C
   .equ J1850_TX_FIFO,    0xFFF60D
@@ -22,7 +22,7 @@
   #elif defined P10
     .equ COP1,           0xFFFA27
     .equ COP2,           0x800806
-  #elif defined P05 || defined P11 || defined P12
+  #elif defined P05 || defined P11 || defined P12 || defined E60
     .equ COP1,           0xFFFA55
     .equ COP2,           0xFFFA21
   #else
@@ -49,7 +49,7 @@
 #endif
 
 | Word-form aliases for hardware registers in 0xFF8000-0xFFFFFF (sign-extends identically on 68k)
-#if defined P01 || defined P04 || defined P04_Early || defined P05 || defined P08 || defined P10 || defined P11 || defined P12 || defined E54 || defined BlackBox
+#if defined P01 || defined P04 || defined P04_Early || defined P05 || defined P08 || defined P10 || defined P11 || defined P12 || defined E54 || defined E60 || defined BlackBox
   .equ J1850_Config_w,   (J1850_Config  & 0xFFFF)
   .equ J1850_Command_w,  (J1850_Command & 0xFFFF)
   .equ J1850_TX_FIFO_w,  (J1850_TX_FIFO & 0xFFFF)

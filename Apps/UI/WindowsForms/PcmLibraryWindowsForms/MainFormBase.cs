@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
 using System.Drawing;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -227,9 +228,20 @@ namespace PcmHacking
             }
             catch (Exception exception)
             {
-                this.AddUserMessage("Unable to initialize " + this.vehicle.DeviceDescription);
+                // A missing, in-use, or unresponsive port is an expected condition - e.g. the
+                // last-used COM port is gone because the adapter was unplugged. Report it concisely
+                // instead of dumping a stack trace that looks like a crash. Anything unexpected still
+                // gets the full detail in the debug log so genuine bugs stay diagnosable.
+                if (exception is IOException || exception is UnauthorizedAccessException || exception is TimeoutException)
+                {
+                    this.AddUserMessage("Unable to connect to " + this.vehicle.DeviceDescription + ": " + exception.Message);
+                }
+                else
+                {
+                    this.AddUserMessage("Unable to initialize " + this.vehicle.DeviceDescription);
+                    this.AddDebugMessage(exception.ToString());
+                }
 
-                this.AddDebugMessage(exception.ToString());
                 this.Invoke((MethodInvoker)delegate ()
                 {
                     this.NoDeviceSelected();

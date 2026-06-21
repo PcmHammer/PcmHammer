@@ -26,13 +26,13 @@ namespace PcmHacking
 
         public RawLogData(byte dpid, byte[] payload)
         {
-            this.Dpid = dpid;
-            this.Payload = payload;
+            Dpid = dpid;
+            Payload = payload;
         }
 
         public override string ToString()
         {
-            return Utility.ToHex(this.Payload);
+            return Utility.ToHex(Payload);
         }
     }
 
@@ -45,7 +45,7 @@ namespace PcmHacking
 
         public DpidCollection(byte[] dpids)
         {
-            this.Dpids = dpids;
+            Dpids = dpids;
         }
     }
 
@@ -87,8 +87,8 @@ namespace PcmHacking
             byte[] payload = new byte[]
             {
                 Priority.Physical0,
-                DeviceId.Pcm,
-                DeviceId.Tool,
+                TargetVpwId,
+                ToolId,
                 Mode.ConfigureDynamicData,
                 dpid,
                 (byte)combined,
@@ -125,7 +125,7 @@ namespace PcmHacking
                 dpidBytes = dpidBytes.Concat(Enumerable.Repeat((byte)padding, 4 - length));
             }
 
-            byte[] header = new byte[] { Priority.Physical0, DeviceId.Pcm, DeviceId.Tool, Mode.SendDynamicData, (byte)requestType };
+            byte[] header = new byte[] { Priority.Physical0, TargetVpwId, ToolId, Mode.SendDynamicData, (byte)requestType };
             return new Message(header.Concat(dpidBytes).ToArray());
         }
 
@@ -137,7 +137,7 @@ namespace PcmHacking
             ResponseStatus unused;
 
             // The priority byte changes from 6C to 8C after the first tool-present message is sent.
-            if (!TryVerifyInitialBytes(message.GetBytes(), new byte[] { Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, 0x6A }, out unused))
+            if (!TryVerifyInitialBytes(message.GetBytes(), new byte[] { Priority.Physical0, ToolId, TargetVpwId, 0x6A }, out unused))
             {
                 rawLogData = null!;
                 return false;
@@ -155,7 +155,7 @@ namespace PcmHacking
 
         public Message CreateCrankRelearnRequest()
         {
-            return new Message(new byte[] { Priority.Physical0, DeviceId.Pcm, DeviceId.Tool, Mode.SpecialFunctions, 0x01, 0x00, 0x00, 0x00, 0x00, 0x80, 0x00 });
+            return new Message(new byte[] { Priority.Physical0, TargetVpwId, ToolId, Mode.SpecialFunctions, 0x01, 0x00, 0x00, 0x00, 0x00, 0x80, 0x00 });
         }
 
         /// <summary>
@@ -181,7 +181,7 @@ namespace PcmHacking
             */
 
             // Using OBD2 "Physical" addressing.
-            request = new Message(new byte[] { Priority.Physical0, DeviceId.Pcm, DeviceId.Tool, Mode.GetPid, (byte)(pid >> 8), (byte)pid, 0x01 });
+            request = new Message(new byte[] { Priority.Physical0, TargetVpwId, ToolId, Mode.GetPid, (byte)(pid >> 8), (byte)pid, 0x01 });
 
             return request;
         }
@@ -192,9 +192,9 @@ namespace PcmHacking
         public Response<int> ParsePidResponse(Message message)
         {
             ResponseStatus status;
-            if (!this.TryVerifyInitialBytes(
+            if (!TryVerifyInitialBytes(
                 message.GetBytes(), 
-                new byte[] { Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, Mode.GetPid + Mode.Response }, out status))
+                new byte[] { Priority.Physical0, ToolId, TargetVpwId, Mode.GetPid + Mode.Response }, out status))
             {
                 return Response.Create(status, 0);    
             }
@@ -224,7 +224,7 @@ namespace PcmHacking
         /// </summary>
         public Message CreateRamRequest(int address)
         { 
-            Message request = new Message(new byte[] { Priority.Block, DeviceId.Pcm, DeviceId.Tool, Mode.GetRam,
+            Message request = new Message(new byte[] { Priority.Block, TargetVpwId, ToolId, Mode.GetRam,
                 (byte)(address >> 16), (byte)(address >> 8), (byte)address, 0x01 });
 
             return request;
@@ -247,9 +247,9 @@ namespace PcmHacking
             }
 
             ResponseStatus status;
-            if (!this.TryVerifyInitialBytes(
+            if (!TryVerifyInitialBytes(
                 message.GetBytes(),
-                new byte[] { Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, Mode.GetRam + Mode.Response }, out status))
+                new byte[] { Priority.Physical0, ToolId, TargetVpwId, Mode.GetRam + Mode.Response }, out status))
             {
                 return Response.Create(status, (uint)0);
             }

@@ -21,21 +21,27 @@ namespace PcmHacking
         private readonly GroupBox writeGroup;
         private readonly RadioButton fullCloneRadioButton;
         private readonly RadioButton osCalRadioButton;
+        private readonly RadioButton calibrationRadioButton;
         private readonly RadioButton parametersRadioButton;
         private readonly ComboBox pcmTypeComboBox;
+        private readonly Label detectionLabel;
         private readonly Button okButton;
         private readonly Button cancelButton;
 
         public OperationSelection? Selection { get; private set; }
 
-        public OperationSelectionDialogBox(bool defaultIsWrite, WriteType defaultWriteType)
+        /// <param name="detected">
+        /// The PCM found by probing the bus before the dialog opened, or null if nothing was detected.
+        /// Drives which write types are offered and the default selection.
+        /// </param>
+        public OperationSelectionDialogBox(bool defaultIsWrite, WriteType defaultWriteType, OSIDInfo? detected)
         {
             this.Text = "Operation";
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.StartPosition = FormStartPosition.CenterParent;
             this.MaximizeBox = false;
             this.MinimizeBox = false;
-            this.ClientSize = new Size(430, 280);
+            this.ClientSize = new Size(430, 300);
 
             GroupBox operationGroup = new GroupBox
             {
@@ -65,7 +71,7 @@ namespace PcmHacking
             {
                 Text = "Write Type",
                 Location = new Point(220, 12),
-                Size = new Size(196, 112)
+                Size = new Size(196, 138)
             };
 
             this.fullCloneRadioButton = new RadioButton
@@ -80,20 +86,34 @@ namespace PcmHacking
                 Location = new Point(12, 45),
                 AutoSize = true
             };
+            this.calibrationRadioButton = new RadioButton
+            {
+                Text = "Calibration",
+                Location = new Point(12, 68),
+                AutoSize = true
+            };
             this.parametersRadioButton = new RadioButton
             {
                 Text = "Parameters",
-                Location = new Point(12, 68),
+                Location = new Point(12, 91),
                 AutoSize = true
             };
             this.writeGroup.Controls.Add(this.fullCloneRadioButton);
             this.writeGroup.Controls.Add(this.osCalRadioButton);
+            this.writeGroup.Controls.Add(this.calibrationRadioButton);
             this.writeGroup.Controls.Add(this.parametersRadioButton);
+
+            this.detectionLabel = new Label
+            {
+                Location = new Point(12, 96),
+                Size = new Size(196, 58),
+                AutoSize = false
+            };
 
             GroupBox pcmTypeGroup = new GroupBox
             {
                 Text = "PCM Type",
-                Location = new Point(12, 102),
+                Location = new Point(12, 160),
                 Size = new Size(404, 88)
             };
             Label pcmTypeLabel = new Label
@@ -132,14 +152,14 @@ namespace PcmHacking
             {
                 Text = "OK",
                 DialogResult = DialogResult.OK,
-                Location = new Point(260, 230),
+                Location = new Point(260, 258),
                 Size = new Size(75, 25)
             };
             this.cancelButton = new Button
             {
                 Text = "Cancel",
                 DialogResult = DialogResult.Cancel,
-                Location = new Point(341, 230),
+                Location = new Point(341, 258),
                 Size = new Size(75, 25)
             };
 
@@ -148,6 +168,7 @@ namespace PcmHacking
 
             this.Controls.Add(operationGroup);
             this.Controls.Add(this.writeGroup);
+            this.Controls.Add(this.detectionLabel);
             this.Controls.Add(pcmTypeGroup);
             this.Controls.Add(this.okButton);
             this.Controls.Add(this.cancelButton);
@@ -161,20 +182,87 @@ namespace PcmHacking
                 this.readRadioButton.Checked = true;
             }
 
-            switch (defaultWriteType)
+            this.ApplyDetection(detected, defaultWriteType);
+        }
+
+        /// <summary>
+        /// Offer only the write types the detected PCM supports, default the selection accordingly, and
+        /// preselect the detected PCM type. Falls back to a fully manual choice when nothing was detected.
+        /// </summary>
+        private void ApplyDetection(OSIDInfo? detected, WriteType requested)
+        {
+            if (detected == null || !detected.IsSupported)
+            {
+                this.detectionLabel.Text = "Could not detect a PCM. Choose the options manually.";
+                this.SelectWriteType(this.IsWriteTypeEnabled(requested) ? requested : WriteType.Full);
+                return;
+            }
+
+            this.SelectPcmType(detected.HardwareType);
+
+            if (!detected.IsSupportedWrite)
+            {
+                // Read-only PCM: there is nothing to write, so steer to Read and disable the write side.
+                this.detectionLabel.Text = string.Format(
+                    "Detected: {0} ({1}).\r\nWriting is not supported for this PCM.",
+                    detected.HardwareType, detected.Description);
+                this.readRadioButton.Checked = true;
+                this.writeRadioButton.Enabled = false;
+                this.fullCloneRadioButton.Enabled = false;
+                this.osCalRadioButton.Enabled = false;
+                this.calibrationRadioButton.Enabled = false;
+                this.parametersRadioButton.Enabled = false;
+                return;
+            }
+
+            // Clone is always available when writing is supported; the per-segment types need by-segment
+            // support (e.g. the E38 is clone-only).
+            bool bySegment = detected.IsSupportedWriteBySegment;
+            this.fullCloneRadioButton.Enabled = true;
+            this.osCalRadioButton.Enabled = bySegment;
+            this.calibrationRadioButton.Enabled = bySegment;
+            this.parametersRadioButton.Enabled = bySegment;
+
+            this.detectionLabel.Text = bySegment
+                ? string.Format("Detected: {0} ({1}).", detected.HardwareType, detected.Description)
+                : string.Format(
+                    "Detected: {0} ({1}).\r\nSegment writes not supported - clone (full) write only.",
+                    detected.HardwareType, detected.Description);
+
+            // Honour the requested write type when the PCM supports it; otherwise default to calibration
+            // for by-segment PCMs, or a full clone for the rest.
+            WriteType preferred = this.IsWriteTypeEnabled(requested)
+                ? requested
+                : (bySegment ? WriteType.Calibration : WriteType.Full);
+            this.SelectWriteType(preferred);
+        }
+
+        private RadioButton RadioForWriteType(WriteType writeType)
+        {
+            switch (writeType)
             {
                 case WriteType.Parameters:
-                    this.parametersRadioButton.Checked = true;
-                    break;
+                    return this.parametersRadioButton;
 
                 case WriteType.OsPlusCalibrationPlusBoot:
-                    this.osCalRadioButton.Checked = true;
-                    break;
+                    return this.osCalRadioButton;
+
+                case WriteType.Calibration:
+                    return this.calibrationRadioButton;
 
                 default:
-                    this.fullCloneRadioButton.Checked = true;
-                    break;
+                    return this.fullCloneRadioButton;
             }
+        }
+
+        private bool IsWriteTypeEnabled(WriteType writeType) => this.RadioForWriteType(writeType).Enabled;
+
+        private void SelectWriteType(WriteType writeType) => this.RadioForWriteType(writeType).Checked = true;
+
+        private void SelectPcmType(PcmType type)
+        {
+            int index = this.pcmTypeComboBox.Items.IndexOf(type.ToString());
+            this.pcmTypeComboBox.SelectedIndex = index > 0 ? index : 0;
         }
 
         protected override void OnFormClosing(FormClosingEventArgs e)
@@ -208,6 +296,11 @@ namespace PcmHacking
             if (this.osCalRadioButton.Checked)
             {
                 return WriteType.OsPlusCalibrationPlusBoot;
+            }
+
+            if (this.calibrationRadioButton.Checked)
+            {
+                return WriteType.Calibration;
             }
 
             return WriteType.Full;

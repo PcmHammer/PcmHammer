@@ -265,10 +265,65 @@ namespace PcmHacking
                     };
                     break;
 
+                // AMD 29BDD160G 2MiB
+                case 0x0001007E:
+                    size = 2048 * 1024;
+                    description = "AMD 29BDD160G, 2048KiB";
+                    memoryRanges = new MemoryRange[]
+                    {           // Start address, Size in Bytes
+                        new MemoryRange(0x1FE000, 0x02000, BlockType.Calibration),     // top: eight 8kb calibration sectors
+                        new MemoryRange(0x1FC000, 0x02000, BlockType.Calibration),
+                        new MemoryRange(0x1FA000, 0x02000, BlockType.Calibration),
+                        new MemoryRange(0x1F8000, 0x02000, BlockType.Calibration),
+                        new MemoryRange(0x1F6000, 0x02000, BlockType.Calibration),
+                        new MemoryRange(0x1F4000, 0x02000, BlockType.Calibration),
+                        new MemoryRange(0x1F2000, 0x02000, BlockType.Calibration),
+                        new MemoryRange(0x1F0000, 0x02000, BlockType.Calibration),
+                        new MemoryRange(0x1E0000, 0x10000, BlockType.Calibration),     // three 64kb calibration sectors
+                        new MemoryRange(0x1D0000, 0x10000, BlockType.Calibration),
+                        new MemoryRange(0x1C0000, 0x10000, BlockType.Calibration),
+                        new MemoryRange(0x1B0000, 0x10000, BlockType.OperatingSystem), // twenty-seven 64kb operating system sectors
+                        new MemoryRange(0x1A0000, 0x10000, BlockType.OperatingSystem),
+                        new MemoryRange(0x190000, 0x10000, BlockType.OperatingSystem),
+                        new MemoryRange(0x180000, 0x10000, BlockType.OperatingSystem),
+                        new MemoryRange(0x170000, 0x10000, BlockType.OperatingSystem),
+                        new MemoryRange(0x160000, 0x10000, BlockType.OperatingSystem),
+                        new MemoryRange(0x150000, 0x10000, BlockType.OperatingSystem),
+                        new MemoryRange(0x140000, 0x10000, BlockType.OperatingSystem),
+                        new MemoryRange(0x130000, 0x10000, BlockType.OperatingSystem),
+                        new MemoryRange(0x120000, 0x10000, BlockType.OperatingSystem),
+                        new MemoryRange(0x110000, 0x10000, BlockType.OperatingSystem),
+                        new MemoryRange(0x100000, 0x10000, BlockType.OperatingSystem),
+                        new MemoryRange(0x0F0000, 0x10000, BlockType.OperatingSystem),
+                        new MemoryRange(0x0E0000, 0x10000, BlockType.OperatingSystem),
+                        new MemoryRange(0x0D0000, 0x10000, BlockType.OperatingSystem),
+                        new MemoryRange(0x0C0000, 0x10000, BlockType.OperatingSystem),
+                        new MemoryRange(0x0B0000, 0x10000, BlockType.OperatingSystem),
+                        new MemoryRange(0x0A0000, 0x10000, BlockType.OperatingSystem),
+                        new MemoryRange(0x090000, 0x10000, BlockType.OperatingSystem),
+                        new MemoryRange(0x080000, 0x10000, BlockType.OperatingSystem),
+                        new MemoryRange(0x070000, 0x10000, BlockType.OperatingSystem),
+                        new MemoryRange(0x060000, 0x10000, BlockType.OperatingSystem),
+                        new MemoryRange(0x050000, 0x10000, BlockType.OperatingSystem),
+                        new MemoryRange(0x040000, 0x10000, BlockType.OperatingSystem),
+                        new MemoryRange(0x030000, 0x10000, BlockType.OperatingSystem),
+                        new MemoryRange(0x020000, 0x10000, BlockType.OperatingSystem),
+                        new MemoryRange(0x010000, 0x10000, BlockType.OperatingSystem),
+                        new MemoryRange(0x00E000, 0x02000, BlockType.Parameter),       // bottom: two 8kb parameter sectors
+                        new MemoryRange(0x00C000, 0x02000, BlockType.Parameter),
+                        new MemoryRange(0x00A000, 0x02000, BlockType.OperatingSystem), // five 8kb operating system sectors
+                        new MemoryRange(0x008000, 0x02000, BlockType.OperatingSystem),
+                        new MemoryRange(0x006000, 0x02000, BlockType.OperatingSystem),
+                        new MemoryRange(0x004000, 0x02000, BlockType.OperatingSystem),
+                        new MemoryRange(0x002000, 0x02000, BlockType.OperatingSystem),
+                        new MemoryRange(0x000000, 0x02000, BlockType.Boot),            // one 8kb boot sector
+                    };
+                    break;
+
                 // Both of these have eight 8kb blocks at the low end, the rest are
                 // 64kb. Not sure if they're actually used in any PCMs though.
-                case 0x00898893: // Intel 2F008B3 
-                case 0x008988C1: // Intel 2F800C3 
+                case 0x00898893: // Intel 2F008B3
+                case 0x008988C1: // Intel 2F800C3
                 default:
                     string manufacturer;
 

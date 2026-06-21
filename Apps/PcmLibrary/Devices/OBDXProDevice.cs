@@ -14,7 +14,7 @@ namespace PcmHacking
     /// This class encapsulates all code that is unique to the DVI interface.
     /// </summary>
     /// 
-    public class OBDXProDevice : SerialDevice
+    public class OBDXProDevice : SerialDevice, ICanTarget, ICanChannel
     {
         //Supported tools:
         //OBDX Pro VT v3- VPW only with USB, Wifi, BT, BLE
@@ -28,6 +28,41 @@ namespace PcmHacking
         // This default is probably excessive but it should always be
         // overwritten by a call to SetTimeout before use anyhow.
         private VpwSpeed vpwSpeed = VpwSpeed.Standard;
+
+        /// <summary>Bytes to strip from the front of each received network frame (4 = CAN ID prefix in CAN mode).</summary>
+        protected int CanIdPrefixLength = 0;
+
+        /// <summary>Current bus protocol; drives send/receive formatting for this device.</summary>
+        protected BusProtocol CurrentProtocol { get; private set; } = BusProtocol.Vpw;
+
+        /// <summary>True if the connected tool reports HS CAN support.</summary>
+        protected bool CanSupported = false;
+
+        // CAN target addresses. Default to the standard OBD2 PCM IDs (from the shared CanId
+        // constants), but are settable so the command layer can address a different module or ID.
+        /// <summary>CAN ID used when transmitting (tool to target).</summary>
+        public uint TxCanId { get; set; } = CanId.PcmPhysicalRequest;
+
+        /// <summary>CAN ID accepted when receiving (target to tool).</summary>
+        public uint RxCanId { get; set; } = CanId.PcmPhysicalResponse;
+
+        // Build-time choice of how CAN ISO-TP is done on this device. Not a UI/runtime setting -
+        // flip this one constant and rebuild.
+        //   false = NATIVE/hardware ISO-TP: the device firmware reassembles and handles flow control
+        //           (a FLOW filter). More efficient; this is the default.
+        //   true  = SOFTWARE ISO-TP: a PASS filter delivers raw CAN frames and IsoTpTransport does
+        //           the framing. Use for testing, or as a workaround if a firmware ISO-TP bug
+        //           resurfaces (some firmware leaves a stray ISO-TP pad byte on reassembled blocks).
+        // Either way the device still filters in hardware to the target's response CAN id.
+        private static readonly bool UseSoftwareIsoTpForCan = false;
+
+        private readonly IsoTpTransport isoTp;
+        private bool softwareIsoTp = false;
+
+        // Raw CAN frames read off the serial stream while in software ISO-TP mode, awaiting the
+        // transport. Buffered (not enqueued as device messages) so a frame that arrives during a
+        // send's TX-ack wait is not lost to the receive path.
+        private readonly Queue<(uint id, byte[] data)> pendingRawCanFrames = new Queue<(uint id, byte[] data)>();
 
         //ELM Command Set
         //To be put in, not really needed if using DVI command set
@@ -90,6 +125,7 @@ namespace PcmHacking
 
         public OBDXProDevice(IPort port, ILogger logger) : base(port, logger)
         {
+            this.isoTp = new IsoTpTransport(this);
             this.MaxSendSize = 4096 + 10 + 2;    // packets up to 4112 but we want 4096 byte data blocks
             this.MaxReceiveSize = 4096 + 10 + 2; // with 10 byte header and 2 byte block checksum
             this.Supports4X = true;
@@ -134,6 +170,10 @@ namespace PcmHacking
                 this.Logger.AddUserMessage("Unable to get DVI device details.");
                 return false;
             }
+
+            //Detect HS CAN support
+            this.CanSupported = await QueryCanSupported();
+            this.Logger.AddDebugMessage("HS CAN supported: " + this.CanSupported);
 
 
             //Read voltage
@@ -371,10 +411,49 @@ namespace PcmHacking
                 //network frames //Strip header and checksum
                 byte[] StrippedFrame = new byte[Length];
                 Buffer.BlockCopy(receive, 2 + offset, StrippedFrame, 0, Length);
-                this.Enqueue(new Message(StrippedFrame, timestampmicro, 0));
+
+                // Software ISO-TP: each network frame is one raw CAN frame [4-byte id][data]. Buffer
+                // (id, data) for ReceiveCanFrame rather than stripping/enqueuing; the transport
+                // reassembles. Return UnexpectedResponse so a send's TX-ack wait keeps looking.
+                if (this.softwareIsoTp)
+                {
+                    if (StrippedFrame.Length >= 4)
+                    {
+                        uint id = (uint)((StrippedFrame[0] << 24) | (StrippedFrame[1] << 16) | (StrippedFrame[2] << 8) | StrippedFrame[3]);
+                        byte[] data = new byte[StrippedFrame.Length - 4];
+                        Buffer.BlockCopy(StrippedFrame, 4, data, 0, data.Length);
+                        this.pendingRawCanFrames.Enqueue((id, data));
+                    }
+                    return Response.Create(ResponseStatus.UnexpectedResponse, (Message)null!);
+                }
+
+                // In CAN mode each network frame is prefixed with the 4-byte CAN ID; strip it so
+                // the rest of the stack sees the bare UDS/GMLAN payload (the device's native ISO-TP
+                // has already reassembled a whole payload for us).
+                byte[] frameToEnqueue = StrippedFrame;
+                if (this.CanIdPrefixLength > 0 && StrippedFrame.Length > this.CanIdPrefixLength)
+                {
+                    frameToEnqueue = new byte[StrippedFrame.Length - this.CanIdPrefixLength];
+                    Buffer.BlockCopy(StrippedFrame, this.CanIdPrefixLength, frameToEnqueue, 0, frameToEnqueue.Length);
+                }
+
+                // Some device configurations pass through a leading ISO-TP single-frame PCI byte.
+                // Strip it defensively: a real UDS/GMLAN response byte is never 0x01-0x07, so a
+                // first byte in that range that equals the remaining length can only be an SF PCI.
+                if (this.CurrentProtocol == BusProtocol.Can500k
+                    && frameToEnqueue.Length >= 2
+                    && frameToEnqueue[0] >= 0x01 && frameToEnqueue[0] <= 0x07
+                    && frameToEnqueue[0] == frameToEnqueue.Length - 1)
+                {
+                    byte[] unwrapped = new byte[frameToEnqueue.Length - 1];
+                    Buffer.BlockCopy(frameToEnqueue, 1, unwrapped, 0, unwrapped.Length);
+                    frameToEnqueue = unwrapped;
+                }
+
+                this.Enqueue(new Message(frameToEnqueue, timestampmicro, 0));
 
                 // This can be useful for debugging, but is generally too noisy.
-                // this.Logger.AddDebugMessage("RX: " + StrippedFrame.ToHex());
+                // this.Logger.AddDebugMessage("RX: " + frameToEnqueue.ToHex());
                 return Response.Create(ResponseStatus.UnexpectedResponse, (Message)null!);
             }
             else if (receive[0] == 0x7F)
@@ -627,8 +706,26 @@ namespace PcmHacking
         /// </summary>
         public override async Task<bool> SendMessage(Message message)
         {
-            //this.Logger.AddDebugMessage("Sendrequest called");
-            //  this.Logger.AddDebugMessage("TX: " + message.GetBytes().ToHex());
+            if (this.CurrentProtocol == BusProtocol.Can500k)
+            {
+                if (this.softwareIsoTp)
+                {
+                    // Software ISO-TP: the transport segments the payload and calls SendCanFrame per frame.
+                    return await this.isoTp.SendMessage(message);
+                }
+
+                // Native ISO-TP: prepend the 4-byte destination CAN ID; the device adds the framing.
+                byte[] uds = message.GetBytes();
+                byte[] withCanId = new byte[4 + uds.Length];
+                withCanId[0] = (byte)(this.TxCanId >> 24);
+                withCanId[1] = (byte)(this.TxCanId >> 16);
+                withCanId[2] = (byte)(this.TxCanId >> 8);
+                withCanId[3] = (byte)this.TxCanId;
+                Buffer.BlockCopy(uds, 0, withCanId, 4, uds.Length);
+                await SendDVIPacket(new Message(withCanId));
+                return true;
+            }
+
             await SendDVIPacket(message);
             return true;
         }
@@ -642,7 +739,62 @@ namespace PcmHacking
         /// </remarks>
         protected async override Task Receive()
         {
+            if (this.CurrentProtocol == BusProtocol.Can500k && this.softwareIsoTp)
+            {
+                // Software ISO-TP reassembles a whole message from raw frames (via ReceiveCanFrame).
+                // Keep reassembling until the active inbound filter accepts one (the reply we are
+                // waiting for) or the bus goes quiet. Off-conversation traffic - e.g. a stale ack
+                // the module repeats - is filtered out without being mistaken for silence, so a
+                // burst of it can never starve the response we are actually waiting for.
+                while (true)
+                {
+                    Message? assembled = await this.isoTp.ReceiveMessage();
+                    if (assembled == null)
+                    {
+                        // Genuine transport timeout: nothing more on the wire right now.
+                        return;
+                    }
+
+                    if (this.Enqueue(assembled))
+                    {
+                        return;
+                    }
+                }
+            }
+
             await ReadDVIPacket();
+        }
+
+        /// <summary>Send one raw CAN frame: DVI 0x10 with the 4-byte CAN id then the frame bytes.
+        /// With write auto-format off the device transmits these bytes verbatim as the CAN payload.</summary>
+        public async Task SendCanFrame(uint canId, byte[] framePayload)
+        {
+            byte[] withId = new byte[4 + framePayload.Length];
+            withId[0] = (byte)(canId >> 24);
+            withId[1] = (byte)(canId >> 16);
+            withId[2] = (byte)(canId >> 8);
+            withId[3] = (byte)canId;
+            Buffer.BlockCopy(framePayload, 0, withId, 4, framePayload.Length);
+            await SendDVIPacket(new Message(withId));
+        }
+
+        /// <summary>Read one raw CAN frame (id + data). Returns (0, empty) on a device read timeout.
+        /// Frames read while waiting for a send's TX-ack are buffered, so none are lost.</summary>
+        public async Task<(uint id, byte[] frame)> ReceiveCanFrame()
+        {
+            while (this.pendingRawCanFrames.Count == 0)
+            {
+                Response<Message> response = await ReadDVIPacket();
+                if (response.Status == ResponseStatus.Timeout)
+                {
+                    return (0u, Array.Empty<byte>());
+                }
+                // A network frame (0x08/0x09) is buffered into pendingRawCanFrames by ReadDVIPacket;
+                // any other response (e.g. a stray ack) is ignored and we read again.
+            }
+
+            (uint id, byte[] data) f = this.pendingRawCanFrames.Dequeue();
+            return (f.id, f.data);
         }
 
         private async Task<bool> ResetDevice()
@@ -790,7 +942,8 @@ namespace PcmHacking
 
         enum OBDProtocols : UInt16
         {
-            VPW = 1
+            VPW = 1,
+            HSCAN = 2
         }
         private async Task<bool> SetProtocol(OBDProtocols val)
         {
@@ -807,15 +960,197 @@ namespace PcmHacking
             Response<Message> m = await FindResponseFromTool(RespBytes);
             if (m.Status == ResponseStatus.Success)
             {
-                this.Logger.AddDebugMessage("OBD Protocol Set to VPW");
+                this.Logger.AddDebugMessage("OBD Protocol set to " + val);
             }
             else
             {
-                this.Logger.AddUserMessage("Unable to set OBDX Pro device to VPW mode");
+                this.Logger.AddUserMessage("Unable to set OBDX Pro protocol to " + val);
                 this.Logger.AddDebugMessage("Expected " + string.Join(" ", Array.ConvertAll(Msg, b => b.ToString("X2"))));
                 return false;
             }
             return true;
+        }
+
+        /// <summary>
+        /// Select the bus protocol the device communicates on. The OBDX Pro GT (and CAN-capable VT)
+        /// supports more than one on the same physical device. For CAN it switches the DVI protocol
+        /// to HS CAN and configures ISO-TP per <see cref="UseSoftwareIsoTpForCan"/> - native (a FLOW
+        /// filter; the device does reassembly/flow control) by default, or software (a PASS filter
+        /// delivering raw frames that IsoTpTransport reassembles).
+        /// </summary>
+        public override async Task<bool> SetProtocol(BusProtocol protocol)
+        {
+            if (protocol == this.CurrentProtocol)
+            {
+                return true;
+            }
+
+            if (protocol == BusProtocol.Can500k)
+            {
+                if (!this.CanSupported)
+                {
+                    this.Logger.AddUserMessage("This OBDX Pro does not support CAN.");
+                    return false;
+                }
+
+                // Switching protocol disables the network, so set protocol, configure CAN, then
+                // re-enable. Native uses a FLOW filter (device does ISO-TP); software uses a PASS
+                // filter (raw frames) plus write auto-format off, and IsoTpTransport does the framing.
+                // Both filter in hardware to the target's rx id; see UseSoftwareIsoTpForCan.
+                if (!await SetProtocol(OBDProtocols.HSCAN))
+                {
+                    return false;
+                }
+
+                if (UseSoftwareIsoTpForCan)
+                {
+                    if (!await SetWriteAutoFormat(false))
+                    {
+                        return false;
+                    }
+                    if (!await SetCanFilter(this.RxCanId, 0x7FF, CanFilterType.Pass))
+                    {
+                        return false;
+                    }
+                }
+                else
+                {
+                    if (!await SetCanFilter(this.RxCanId, 0x7FF, CanFilterType.Flow))
+                    {
+                        return false;
+                    }
+                }
+
+                if (await EnableProtocolNetwork() == false)
+                {
+                    return false;
+                }
+
+                this.pendingRawCanFrames.Clear();
+                this.softwareIsoTp = UseSoftwareIsoTpForCan;
+                this.CanIdPrefixLength = 4;
+                this.Supports4X = false;
+                this.CurrentProtocol = BusProtocol.Can500k;
+                this.Logger.AddDebugMessage($"OBDX CAN ready: 500k, tx 0x{this.TxCanId:X3}, rx 0x{this.RxCanId:X3}, {(UseSoftwareIsoTpForCan ? "software ISO-TP (PASS filter)" : "native ISO-15765 (FLOW filter)")}.");
+                return true;
+            }
+
+            if (protocol == BusProtocol.Vpw)
+            {
+                if (!await SetProtocol(OBDProtocols.VPW))
+                {
+                    return false;
+                }
+                Response<bool> setup = await DVISetup();
+                if (setup.Status != ResponseStatus.Success)
+                {
+                    return false;
+                }
+
+                this.softwareIsoTp = false;
+                this.CanIdPrefixLength = 0;
+                this.Supports4X = true;
+                this.CurrentProtocol = BusProtocol.Vpw;
+                this.Logger.AddDebugMessage("OBDX VPW mode restored.");
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>DVI CAN filter types (manual 3.14.5): PASS passes raw matching frames, FLOW also
+        /// does on-device ISO-TP reassembly/flow control, BLOCK discards matching frames.</summary>
+        private enum CanFilterType : byte { Pass = 0x00, Flow = 0x01, Block = 0x02 }
+
+        /// <summary>
+        /// Install a CAN filter (DVI 0x34 "entire filter", sub-command 0x00). Layout:
+        /// 34 11 00 [MM NN XX ZZ] [filterId 4] [mask 4] [flowId 4] YY, where MM=filter#,
+        /// NN=00(11-bit), XX=type, ZZ=01(on), filterId = ECU response ID, flowId = the TX ID (only
+        /// used for a FLOW filter). A PASS filter still filters in hardware to filterId/mask, so the
+        /// PC only sees the target's frames - it just doesn't reassemble them.
+        /// </summary>
+        private async Task<bool> SetCanFilter(uint rxId, uint mask, CanFilterType type)
+        {
+            byte[] cmd = new byte[2 + 17 + 1];
+            cmd[0] = 0x34;
+            cmd[1] = 0x11;          // 17 data bytes follow
+            cmd[2] = 0x00;          // sub-command: entire filter
+            cmd[3] = 0x00;          // filter number 0
+            cmd[4] = 0x00;          // frame type: 11-bit
+            cmd[5] = (byte)type;    // filter type: PASS / FLOW / BLOCK
+            cmd[6] = 0x01;          // status: ON
+            cmd[7]  = (byte)(rxId >> 24); cmd[8]  = (byte)(rxId >> 16); cmd[9]  = (byte)(rxId >> 8); cmd[10] = (byte)rxId;   // filter ID = RX
+            cmd[11] = (byte)(mask >> 24); cmd[12] = (byte)(mask >> 16); cmd[13] = (byte)(mask >> 8); cmd[14] = (byte)mask;   // mask
+            cmd[15] = (byte)(this.TxCanId >> 24); cmd[16] = (byte)(this.TxCanId >> 16); cmd[17] = (byte)(this.TxCanId >> 8); cmd[18] = (byte)this.TxCanId; // flow ID = TX
+            cmd[19] = CalcChecksum(cmd);
+
+            await this.Port.Send(cmd);
+
+            Response<Message> response = await ReadDVIPacket(1000);
+            if (response.Status == ResponseStatus.Success)
+            {
+                byte[] val = response.Value.GetBytes();
+                if (val.Length > 0 && val[0] == 0x44)
+                {
+                    this.Logger.AddDebugMessage($"CAN {type} filter configured (id 0x{rxId:X3}, mask 0x{mask:X3}).");
+                    return true;
+                }
+            }
+
+            // The device may have applied the filter even if the ack was unclear; don't hard-fail.
+            this.Logger.AddDebugMessage("CAN filter ack unclear; continuing.");
+            return true;
+        }
+
+        /// <summary>
+        /// Turn the device's automatic write framing on/off (DVI 0x34 sub 0x0F, manual 3.14.16). With
+        /// it off the device sends our bytes verbatim, so software ISO-TP supplies the PCI/length.
+        /// </summary>
+        private async Task<bool> SetWriteAutoFormat(bool on)
+        {
+            byte[] cmd = { 0x34, 0x02, 0x0F, (byte)(on ? 0x01 : 0x00), 0x00 };
+            cmd[cmd.Length - 1] = CalcChecksum(cmd);
+            await this.Port.Send(cmd);
+
+            Response<Message> response = await ReadDVIPacket(1000);
+            if (response.Status == ResponseStatus.Success)
+            {
+                byte[] val = response.Value.GetBytes();
+                if (val.Length > 0 && val[0] == 0x44)
+                {
+                    this.Logger.AddDebugMessage("CAN write auto-format " + (on ? "on." : "off."));
+                    return true;
+                }
+            }
+
+            this.Logger.AddDebugMessage("CAN write auto-format ack unclear; continuing.");
+            return true;
+        }
+
+        /// <summary>
+        /// Query the tool's supported OBD protocols (DVI 0x22 sub 0x05) and return whether HS CAN
+        /// (bit 2 of the first protocol byte) is available.
+        /// </summary>
+        private async Task<bool> QueryCanSupported()
+        {
+            byte[] Msg = OBDXProDevice.DVI_Supported_OBD_Protocols.GetBytes();
+            Msg[Msg.Length - 1] = CalcChecksum(Msg);
+            await this.Port.Send(Msg);
+
+            Response<Message> m = await ReadDVIPacket(500);
+            if (m.Status != ResponseStatus.Success)
+            {
+                this.Logger.AddDebugMessage("Could not read supported OBD protocols; assuming VPW only.");
+                return false;
+            }
+
+            // Response: 32 03 05 XX NN YY -> XX is the protocol bitmask, bit 2 = HS CAN.
+            byte[] val = m.Value.GetBytes();
+            if (val.Length < 5 || val[2] != 0x05)
+            {
+                return false;
+            }
+            return (val[3] & 0x04) != 0;
         }
 
         private async Task<bool> SetToFilter(byte Val)
@@ -1045,6 +1380,10 @@ namespace PcmHacking
                         result = 0;
                         break;
 
+                    case TimeoutScenario.Detect:
+                        result = 500;
+                        break;
+
                     case TimeoutScenario.Maximum:
                         result = 1020;
                         break;
@@ -1095,6 +1434,10 @@ namespace PcmHacking
 
                     case TimeoutScenario.DataLogging3:
                         result = 15;
+                        break;
+
+                    case TimeoutScenario.Detect:
+                        result = 500;
                         break;
 
                     case TimeoutScenario.Maximum:

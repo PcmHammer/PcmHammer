@@ -110,7 +110,10 @@ try {
         & $msb $proj /t:Restore /v:minimal /nologo
         if ($LASTEXITCODE -ne 0) { throw "Restore failed: $name" }
         Write-Host "== Building $name ($Configuration) =="
-        & $msb $proj /p:Configuration=$Configuration "/p:BuildTicks=$($info.Ticks)" /v:minimal /nologo /clp:ErrorsOnly
+        # GenerateResourceUsePreserializedResources: PcmHammer has binary .resx resources that
+        # are written with PreserializedResourceWriter (needs System.Resources.Extensions) instead
+        # of the deprecated BinaryFormatter path.
+        & $msb $proj /p:Configuration=$Configuration "/p:BuildTicks=$($info.Ticks)" /p:GenerateResourceUsePreserializedResources=true /v:minimal /nologo /clp:ErrorsOnly
         if ($LASTEXITCODE -ne 0) { throw "Build failed: $name" }
     }
 

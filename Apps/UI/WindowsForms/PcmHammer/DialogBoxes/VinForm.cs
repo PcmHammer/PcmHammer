@@ -24,6 +24,13 @@ namespace PcmHacking.DialogBoxes
         public string? Vin { get; set; }
 
         /// <summary>
+        /// When the VIN's only problem is its check digit, this holds the correct check digit so the
+        /// "Fix VIN" button can apply it. It is 'X' whenever the VIN is valid or wrong for any other
+        /// reason (so "Fix VIN" stays disabled).
+        /// </summary>
+        private char correctCheckDigit = 'X';
+
+        /// <summary>
         /// Constructor.
         /// </summary>
         public VinForm()
@@ -70,7 +77,28 @@ namespace PcmHacking.DialogBoxes
         /// </summary>
         private void vinBox_TextChanged(object? sender, EventArgs? e)
         {
-            this.okButton.Enabled = this.IsLegal();
+            bool legal = this.IsLegal();
+            this.okButton.Enabled = legal;
+
+            // "Fix VIN" is offered only when the sole problem is the check digit (IsLegal sets
+            // correctCheckDigit in that case). Applying the fix makes the VIN valid, which clears
+            // correctCheckDigit on the next validation and disables the button again.
+            this.fixVinButton.Enabled = !legal && this.correctCheckDigit != 'X';
+        }
+
+        /// <summary>
+        /// Replace the check digit (position 9) with the calculated correct value.
+        /// </summary>
+        private void fixVinButton_Click(object sender, EventArgs e)
+        {
+            if (this.correctCheckDigit == 'X' || this.vinBox.Text.Length != 17)
+            {
+                return;
+            }
+
+            char[] chars = this.vinBox.Text.ToCharArray();
+            chars[8] = this.correctCheckDigit;   // position 9 (one-based) is index 8
+            this.vinBox.Text = new string(chars); // re-validates via TextChanged, then disables this button
         }
 
         /// <summary>
@@ -78,6 +106,7 @@ namespace PcmHacking.DialogBoxes
         /// </summary>
         private bool IsLegal()
         {
+            this.correctCheckDigit = 'X';
 
             if (this.vinBox.Text.Length != 17)
             {
@@ -105,6 +134,7 @@ namespace PcmHacking.DialogBoxes
 
                 if (requiredCheckDigit != 'X')
                 {
+                    this.correctCheckDigit = requiredCheckDigit;
                     this.prompt.Text = $"The VIN check digit on position 9 is incorrect.\nCorrect check digit is: {requiredCheckDigit}";
                     return false;
                 }

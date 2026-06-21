@@ -16,7 +16,7 @@ namespace PcmHacking
         /// </remarks>
         public Message CreateTestDevicePresentNotification()
         {
-            byte[] bytes = new byte[] { Priority.Physical0High, DeviceId.Broadcast, DeviceId.Tool, Mode.TestDevicePresent };
+            byte[] bytes = new byte[] { Priority.Physical0High, DeviceId.Broadcast, ToolId, Mode.TestDevicePresent };
             return new Message(bytes);
         }
 
@@ -31,7 +31,7 @@ namespace PcmHacking
         /// </remarks>
         public Message CreateDataLoggerPresentNotification()
         {
-            byte[] bytes = new byte[] { Priority.Physical0, DeviceId.Broadcast, DeviceId.Tool, Mode.TestDevicePresent };
+            byte[] bytes = new byte[] { Priority.Physical0, DeviceId.Broadcast, ToolId, Mode.TestDevicePresent };
             return new Message(bytes);
         }
 
@@ -40,7 +40,7 @@ namespace PcmHacking
         /// </summary>
         public Message CreateClearDiagnosticTroubleCodesRequest()
         {
-            byte[] bytes = new byte[] { Priority.Functional0, 0x6A, DeviceId.Tool, Mode.ClearDiagnosticTroubleCodes };
+            byte[] bytes = new byte[] { Priority.Functional0, 0x6A, ToolId, Mode.ClearDiagnosticTroubleCodes };
             return new Message(bytes);
         }
 
@@ -49,7 +49,7 @@ namespace PcmHacking
         /// </summary>
         public Message CreateClearDiagnosticInformationRequest()
         {
-            byte[] bytes = new byte[] { Priority.Physical0High, DeviceId.Broadcast, DeviceId.Tool, Mode.ClearDiagnosticInformation };
+            byte[] bytes = new byte[] { Priority.Physical0High, DeviceId.Broadcast, ToolId, Mode.ClearDiagnosticInformation };
             return new Message(bytes);
         }
 
@@ -58,7 +58,7 @@ namespace PcmHacking
         /// </summary>
         public Message CreateDisableNormalMessageTransmission()
         {
-            byte[] Bytes = new byte[] { Priority.Physical0, DeviceId.Broadcast, DeviceId.Tool, Mode.SilenceBus, Submode.Null };
+            byte[] Bytes = new byte[] { Priority.Physical0, DeviceId.Broadcast, ToolId, Mode.SilenceBus, Submode.Null };
             return new Message(Bytes);
         }
 
@@ -67,7 +67,7 @@ namespace PcmHacking
         /// </summary>
         public Message CreateDisableNormalMessageTransmissionOK()
         {
-            byte[] bytes = new byte[] { Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, Mode.SilenceBus + Mode.Response, Submode.Null };
+            byte[] bytes = new byte[] { Priority.Physical0, ToolId, TargetVpwId, Mode.SilenceBus + Mode.Response, Submode.Null };
             return new Message(bytes);
         }
 
@@ -76,7 +76,7 @@ namespace PcmHacking
         /// </summary>
         public Message ClearDTCs()
         {
-            byte[] bytes = new byte[] { Priority.Functional0, 0x6A, DeviceId.Tool, Mode.ClearDiagnosticTroubleCodes };
+            byte[] bytes = new byte[] { Priority.Functional0, 0x6A, ToolId, Mode.ClearDiagnosticTroubleCodes };
             return new Message(bytes);
         }
 
@@ -85,16 +85,16 @@ namespace PcmHacking
         /// </summary>
         public Message ClearDTCsOK()
         {
-            byte[] bytes = new byte[] { Priority.Functional0Low, 0x6B, DeviceId.Pcm, Mode.ClearDiagnosticTroubleCodes + Mode.Response };
+            byte[] bytes = new byte[] { Priority.Functional0Low, 0x6B, TargetVpwId, Mode.ClearDiagnosticTroubleCodes + Mode.Response };
             return new Message(bytes);
         }
 
         public Response<bool> ParseRecoveryModeBroadcast(Message message)
         {
-            Response<bool> rc = this.DoSimpleValidation(message, Priority.Physical0, 0x62, 0x01);
+            Response<bool> rc = DoSimpleValidation(message, Priority.Physical0, 0x62, 0x01);
             if (!rc.Value)
             {
-                rc = this.DoSimpleValidation(message, Priority.Physical0, 0x62, 0x00);
+                rc = DoSimpleValidation(message, Priority.Physical0, 0x62, 0x00);
             }
 
             return rc;
