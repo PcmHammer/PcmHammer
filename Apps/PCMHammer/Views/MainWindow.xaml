@@ -4,9 +4,13 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:PCMHammer"
+        xmlns:helpers="clr-namespace:PCMHammer.Helpers"
         mc:Ignorable="d"
         Title="MainWindow" Height="500" Width="800"
         Loaded="Window_Loaded">
+    <Window.Resources>
+        <helpers:StringToVisibilityConverter x:Key="StringToVisibility" />
+    </Window.Resources>
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -49,9 +53,11 @@
             <StackPanel>
                 <GroupBox Header="Device">
                     <StackPanel>
-                        <Button Content="_Select Device"        Command="{Binding ReadPCMCommand}" 
+                        <Button Content="_Select Device"        
+                                Command="{Binding ReadPCMCommand}"
                                 Margin="5"/>
-                        <Button Content="Re-_Initialize Device" Command="{Binding ReInitializeDeviceCommand}" 
+                        <Button Content="Re-_Initialize Device" 
+                                Command="{Binding ReInitializeDeviceCommand}" 
                                 Margin="5"/>
                     </StackPanel>
                 </GroupBox>
@@ -110,24 +116,24 @@
             </StatusBar.ItemsPanel>
 
             <StatusBarItem Grid.Column="0" HorizontalAlignment="Stretch">
-                <TextBlock x:Name="ActivityTextBlock" Text="Ready" HorizontalAlignment="Stretch" 
-                           VerticalAlignment="Center"/>
+                <TextBlock x:Name="ActivityTextBlock" Text="{Binding StatusText}" HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
             </StatusBarItem>
-            
+
             <StatusBarItem Grid.Column="1" HorizontalAlignment="Right">
-                <StackPanel Orientation="Horizontal">
-                    <TextBlock x:Name="RetryCountTextBlock" Text="Retries: 0" 
-                               VerticalAlignment="Center"/>
-                    <Separator Margin="10,0"/>
-                    
-                    <TextBlock x:Name="KbpsTextBlock" Text="0 kbps" VerticalAlignment="Center"/>
+                <StackPanel Orientation="Horizontal"
+                            Visibility="{Binding StatusText, Converter={StaticResource StringToVisibility}, ConverterParameter='Not Ready'}">
+                    <TextBlock x:Name="RetryCountTextBlock" Text="{Binding RetryCount, StringFormat={}{0:Retries: 0}}" VerticalAlignment="Center"/>
                     <Separator Margin="10,0"/>
 
-                    <ProgressBar x:Name="ProgressBar" Width="150" Height="14" VerticalAlignment="Center"/>
-                    <TextBlock x:Name="ProgressBarPercentTextBlock" Text="0%" Margin="6,0" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="KbpsTextBlock" Text="{Binding TransferRate, StringFormat={}{0} kbps}" VerticalAlignment="Center"/>
                     <Separator Margin="10,0"/>
 
-                    <TextBlock x:Name="TimeRemainingTextBlock" Text="00:00 Remaining" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                    <ProgressBar x:Name="ProgressBar" Value="{Binding ProgressPercent}" Maximum="100" Width="150" Height="14" VerticalAlignment="Center"/>
+
+                    <TextBlock x:Name="ProgressBarPercentTextBlock" Text="{Binding ProgressPercent, StringFormat={}{0:0}%}" Margin="6,0" VerticalAlignment="Center"/>
+                    <Separator Margin="10,0"/>
+
+                    <TextBlock x:Name="TimeRemainingTextBlock" Text="{Binding TimeRemaining}" VerticalAlignment="Center" Margin="0,0,5,0"/>
                 </StackPanel>
             </StatusBarItem>
         </StatusBar>
