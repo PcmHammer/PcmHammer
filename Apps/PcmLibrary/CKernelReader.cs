@@ -130,6 +130,31 @@ namespace PcmHacking
                     return Response.Create(ResponseStatus.Cancelled, (Stream)null!);
                 }
 
+                // Does this PCM carry the IAC (idle air control) driver chip? Ask the kernel,
+                // which probes it live over the QSPI bus (P01/P59).
+                if (this.pcmInfo.DetectIAC)
+                {
+                    Response<ushort> iacResponse = await this.vehicle.QueryIACDriver(cancellationToken);
+                    if (iacResponse.Status == ResponseStatus.Cancelled)
+                    {
+                        return Response.Create(ResponseStatus.Cancelled, (Stream)null!);
+                    }
+
+                    if (iacResponse.Status == ResponseStatus.Success)
+                    {
+                        bool present = IacDriverPresent(iacResponse.Value);
+                        logger.AddDebugMessage(string.Format("IAC probe raw QSPI response: 0x{0:X4}", iacResponse.Value));
+
+                        logger.AddUserMessage(present
+                            ? "This PCM contains the IAC driver chip (DBW+DBC support)."
+                            : "This PCM does not contain the IAC driver chip (DBW Only, no DBC).");
+                    }
+                    else
+                    {
+                        logger.AddUserMessage("Unable to determine whether the IAC driver chip is present.");
+                    }
+                }
+
                 // Which flash chip?
                 await this.vehicle.SendToolPresentNotification();
 
@@ -303,6 +328,27 @@ namespace PcmHacking
                 await this.vehicle.Cleanup();
                 logger.StatusUpdateReset();
             }
+        }
+
+        /// <summary>
+        /// Decide whether the IAC driver chip is present from the QSPI probe response.
+        /// </summary>
+        /// <remarks>
+        /// The low byte is the 8-bit value the drive sends back over the QSPI.
+        /// An empty footprint reads back the high nibble all set, 0xF0, because nothing
+        /// drives the bus; a populated chip drives real status (high nibble never all-set, e.g. 0xC7
+        /// or 0xDF). A floating-low or no-response read (0x00) is also treated as not present.
+        /// Samples: empty board = 0xF0 x12; populated board = 0xDF then 0xC7 x11.
+        /// </remarks>
+        private static bool IacDriverPresent(ushort raw)
+        {
+            byte response = (byte)(raw & 0x00FF);
+            if (response == 0x00)
+            {
+                return false;
+            }
+
+            return (response & 0xF0) != 0xF0;
         }
 
         /// <summary>

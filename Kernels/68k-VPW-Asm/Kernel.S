@@ -114,10 +114,26 @@
 .equ CRC_3D02,           0x3D02        | Return CRC for range
 .equ OsID_3D03,          0x3D03        | Return OsID
 .equ EraseSector_3D05,   0x3D05        | ProcessEraseSector
+#if defined P01
+.equ DetectIac_3D06,     0x3D06        | Detect IAC driver chip presence (P01/P59)
+#endif
 |.equ Halt_20             0x20          | Moved to Common-Assembly.s
 |.equ Mode_34             0x34          | Moved to Common-Assembly.s
 .equ Mode_35,            0x35          | Send data from PCM to Tool
 |.equ Mode_36             0x36          | Moved to Common-Assembly.s
+
+#if defined P01
+| IAC stepper-motor driver chip detection (P01/P59 only).
+| The chip sits on the 68332 QSPI bus/ Chip Select is a SIM Port-C pin.
+.equ QSM_SPCR1,          0xFFFC1A      | QSPI Control Register 1, SPE = bit 15
+.equ QSM_SPCR2,          0xFFFC1C      | QSPI Control Register 2 (queue pointers)
+.equ QSM_SPSR,           0xFFFC1F      | QSPI Status Register, SPIF = bit 7
+.equ QSM_RXRAM,          0xFFFD00      | QSPI receive RAM, word 0
+.equ QSM_TXRAM,          0xFFFD20      | QSPI transmit RAM, word 0
+.equ QSM_CMDRAM,         0xFFFD40      | QSPI command RAM, byte 0
+.equ SIM_CSPDR,          0xFFFA41      | Chip Select Pin Data Register, CS = bit 2 (active low)
+.equ IAC_QSPI_CMD,       0x3F          | 8-bit, delay before/after, all PCS high (matches OS IAC read)
+#endif
 
 start:
 #if defined E54
@@ -184,6 +200,10 @@ MainLoop:
     beq.w   ProcessOsID                | Process it
     cmpi.w  #EraseSector_3D05, %d0     | Is it mode 0x3D 05 Erase Flash Sector (non-standard extension)
     beq.w   ProcessEraseSector         | Process it
+#if defined P01
+    cmpi.w  #DetectIac_3D06, %d0       | Is it mode 0x3D 06 Detect IAC driver chip (P01/P59 only)
+    beq.w   ProcessDetectIac           | Process it
+#endif
 
     lsr.w   #8, %d0                    | Shift the Mode into the lower byte of the word
 
@@ -515,6 +535,93 @@ ProcessEraseFlashFinal:
     move.w  #7, %d0                    | PCMHammer returns 7 bytes, 6C F0 10 7D 05 00 00, last two are Status and Error?, why two??
     bsr.w   VPWSend                    | Send it!
     bra.w   MainLoop
+
+#if defined P01
+| =============== S U B R O U T I N E =======================================
+|
+| Process Detect IAC Driver Chip
+| Mode 3D06  (P01/P59 only)
+|
+| The IAC stepper motor is driven by the IAC driver chip, which lives
+| on the 68332 QSPI bus. Some P59 boards are not populated with it. Probe it
+| the same way the factory firmware reads its fault status: stop the queued
+| QSPI, transmit one byte of 0x00 (so the driver channels stay controlled by
+| their input pins, not the SPI), assert the IAC chip select, clock the word
+| through, then read the byte the chip shifts back. A populated chip drives
+| MISO to a valid, repeatable value; an empty footprint does not.
+|
+| Reply: 6C F0 10 7D 06 <present> <rawHi> <rawLo>
+|   present = 1 chip detected, 0 not detected
+|   raw     = the 16-bit QSPI receive word (low byte is the 8-bit response).
+|             Returned so the present/absent criterion can be confirmed on the
+|             bench against a known-populated and a known-empty board.
+|
+| Uses
+|   a0 - IacReply buffer
+|   d0 - Scratch
+|   d1 - Received value
+|   d2 - Timeout counter / scratch
+|
+ProcessDetectIac:
+    bclr    #7, (QSM_SPCR1).l          | SPE = 0, stop the OS's queued QSPI
+
+    move.w  #2000, %d2                 | Let the QSM finish its current word and idle
+ProcessDetectIacSettle:
+    bsr.w   ResetWatchdog              | Scratch the dog
+    dbf     %d2, ProcessDetectIacSettle
+
+    move.w  #0x0000, (QSM_TXRAM).l     | Transmit 0x00 (keep driver outputs off)
+    move.b  #IAC_QSPI_CMD, (QSM_CMDRAM).l | IAC command byte
+    move.w  #0x0000, (QSM_SPCR2).l     | NEWQP = 0, ENDQP = 0, single word, no wrap
+
+    bclr    #2, (SIM_CSPDR).l          | Assert IAC chip select (active low)
+
+    bclr    #7, (QSM_SPSR).l           | Clear SPIF
+    bset    #7, (QSM_SPCR1).l          | SPE = 1, start the transfer
+
+    move.l  #0x00200000, %d2           | SPIF wait timeout, prevents a kernel hang
+ProcessDetectIacWait:
+    bsr.w   ResetWatchdog              | Scratch the dog
+    btst    #7, (QSM_SPSR).l           | SPIF set when the queue completes
+    bne.s   ProcessDetectIacRead       | Done, read the response
+    subq.l  #1, %d2                    | Decrement timeout
+    bne.s   ProcessDetectIacWait       | Keep waiting
+    move.w  #0xFFFF, %d1               | Timeout sentinel, treated as not present
+    bra.s   ProcessDetectIacDeassert
+
+ProcessDetectIacRead:
+    move.w  (QSM_RXRAM).l, %d1         | d1 = raw 16-bit QSPI receive word
+
+ProcessDetectIacDeassert:
+    bset    #2, (SIM_CSPDR).l          | Deassert IAC chip select
+    bclr    #7, (QSM_SPCR1).l          | SPE = 0, leave the QSPI idle
+
+    movea.l #IacReply, %a0             | Pointer to IacReply buffer
+    move.b  %d1, 7(%a0)                | Raw response low byte
+    move.w  %d1, %d2                   | Copy for high byte
+    lsr.w   #8, %d2                    | Shift high byte down
+    move.b  %d2, 6(%a0)                | Raw response high byte
+
+    | --- Presence decision (confirmed on the bench) ---------------------
+    | An empty IAC footprint reads back the high (status) nibble all-set
+    | (0xF0) because nothing drives the bus; a populated chip drives real
+    | status (high nibble never all-set, e.g. 0xC7/0xDF). A 0x00 read (no
+    | response / floating low) is also treated as not present. The app makes
+    | the authoritative call from the raw bytes; this keeps reply byte 5 in sync.
+    moveq   #0, %d0                    | Assume not present
+    andi.w  #0x00FF, %d1               | Isolate the 8-bit response
+    beq.s   ProcessDetectIacStore      | 0x00 = no valid response, not present
+    move.w  %d1, %d2                   | Copy response
+    andi.w  #0x00F0, %d2               | High (status) nibble
+    cmpi.w  #0x00F0, %d2               | All set = undriven / empty footprint
+    beq.s   ProcessDetectIacStore      | Not present
+    moveq   #1, %d0                    | Chip is driving the bus: present
+ProcessDetectIacStore:
+    move.b  %d0, 5(%a0)                | Store the presence flag
+    move.w  #8, %d0                    | Reply is 8 bytes long
+    bsr.w   VPWSend                    | Send it
+    bra.w   MainLoop                   | Return to MainLoop
+#endif
 
 | =============== S U B R O U T I N E =======================================
 |
@@ -1329,6 +1436,11 @@ Mode60Reply:    .byte  0x6C, toolid, pcmid, 0x60
 
 | Erase Sector Reply, 7 bytes + 1 alignment
 EraseSectorReply:   .byte  0x6C, toolid, pcmid, 0x7D, 0x05, 0x00, 0x00, 0xAA
+
+#if defined P01
+| IAC driver chip Detect Reply, 8 bytes - 6C F0 10 7D 06 <present> <rawHi> <rawLo>
+IacReply:           .byte  0x6C, toolid, pcmid, 0x7D, 0x06, 0x00, 0x00, 0x00
+#endif
 
 | Global buffer, it's at the end and it's not transported, thus length is irrelevant!
   .globl   MessageBuffer

@@ -155,6 +155,15 @@ namespace PcmHacking
         public bool KernelVersionSupport { get; private set; }
 
         /// <summary>
+        /// Should the app ask the kernel whether the IAC (idle air control) driver chip is present?
+        /// </summary>
+        /// <remarks>
+        /// Check if the PCM contains a IAC driver chip.
+        /// Enable for kernels that this function (currently P01/P59 only)
+        /// </remarks>
+        public bool DetectIAC { get; private set; }
+
+        /// <summary>
         /// PCM kernel max block size.
         /// </summary>
         public int KernelMaxBlockSize { get; private set; }
@@ -202,6 +211,7 @@ namespace PcmHacking
             this.FlashCRCSupport = false;
             this.FlashIDSupport = false;
             this.KernelVersionSupport = false;
+            this.DetectIAC = false;
             this.KernelMaxBlockSize = 4096;
             this.IsUnderDevelopment = false;
 
@@ -235,6 +245,7 @@ namespace PcmHacking
                     this.FlashCRCSupport = true;
                     this.FlashIDSupport = true;
                     this.KernelVersionSupport = true;
+                    this.DetectIAC = true;
                     this.KernelMaxBlockSize = 4096;
                     break;
 
@@ -259,6 +270,7 @@ namespace PcmHacking
                     this.FlashCRCSupport = true;
                     this.FlashIDSupport = true;
                     this.KernelVersionSupport = true;
+                    this.DetectIAC = true;
                     this.KernelMaxBlockSize = 4096;
                     break;
 
