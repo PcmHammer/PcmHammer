@@ -135,7 +135,7 @@ namespace PcmHacking
         private async Task<Response<Stream>?> RunCanRead(IProgress<ProgressUpdate>? progress)
         {
             OSIDInfo pcmInfo = new OSIDInfo(PcmType.E38);
-            logger.AddUserMessage("CAN PCM detected. Using the " + pcmInfo.Description + " read process.");
+            logger.AddDebugMessage("CAN PCM detected. Using the " + pcmInfo.Description + " read process.");
 
             if (!pcmInfo.IsSupportedRead)
             {
@@ -181,7 +181,7 @@ namespace PcmHacking
             if (forcedPcmType != PcmType.Undefined)
             {
                 pcmInfo = new OSIDInfo(forcedPcmType);
-                logger.AddUserMessage("Using manually selected PCM type: " + pcmInfo.HardwareType);
+                logger.AddDebugMessage("Using manually selected PCM type: " + pcmInfo.HardwareType);
             }
             else
             {
@@ -239,6 +239,24 @@ namespace PcmHacking
 
                     logger.AddUserMessage($"Using manually selected PCM type: {pcmInfo.HardwareType}");
                 }
+            }
+
+            // The forced-type path (normally the type detected at form load) skips the detection
+            // branch that routes CAN to its own path, so dispatch here too (mirrors WriteManager). Put
+            // the device on CAN and point it at the PCM first, else the VPW unlock/kernel flow runs
+            // over the CAN bus and no seed is parsed.
+            if (pcmInfo.BusProtocol == BusProtocol.Can500k)
+            {
+                this.vehicle.SetTarget(Target.Pcm);
+                if (!await this.vehicle.SelectBus(BusProtocol.Can500k))
+                {
+                    string msg = $"Abort: this device cannot use the CAN bus required by the {pcmInfo.HardwareType} PCM.";
+                    logger.AddUserMessage(msg);
+                    await this.invoke(async () => await this.alert(msg, "Abort"));
+                    return null;
+                }
+
+                return await this.RunCanRead(progress);
             }
 
             if (!pcmInfo.IsSupported)

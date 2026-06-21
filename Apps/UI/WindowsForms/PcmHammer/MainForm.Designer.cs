@@ -43,13 +43,13 @@ namespace PcmHacking
             this.readPropertiesButton = new System.Windows.Forms.Button();
             this.tabs = new System.Windows.Forms.TabControl();
             this.resultsTab = new System.Windows.Forms.TabPage();
-            this.userLog = new System.Windows.Forms.TextBox();
+            this.userLog = new PcmHacking.LogListView();
             this.helpTab = new System.Windows.Forms.TabPage();
             this.helpWebBrowser = new System.Windows.Forms.WebBrowser();
             this.creditsTab = new System.Windows.Forms.TabPage();
             this.creditsWebBrowser = new System.Windows.Forms.WebBrowser();
             this.debugTab = new System.Windows.Forms.TabPage();
-            this.debugLog = new System.Windows.Forms.TextBox();
+            this.debugLog = new PcmHacking.LogListView();
             this.menuStripMain = new System.Windows.Forms.MenuStrip();
             this.fileToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.saveToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -270,10 +270,7 @@ namespace PcmHacking
             | System.Windows.Forms.AnchorStyles.Right)));
             this.userLog.Location = new System.Drawing.Point(4, 5);
             this.userLog.Margin = new System.Windows.Forms.Padding(2);
-            this.userLog.Multiline = true;
             this.userLog.Name = "userLog";
-            this.userLog.ReadOnly = true;
-            this.userLog.ScrollBars = System.Windows.Forms.ScrollBars.Both;
             this.userLog.Size = new System.Drawing.Size(594, 420);
             this.userLog.TabIndex = 0;
             // 
@@ -336,10 +333,7 @@ namespace PcmHacking
             this.debugLog.Dock = System.Windows.Forms.DockStyle.Fill;
             this.debugLog.Location = new System.Drawing.Point(2, 2);
             this.debugLog.Margin = new System.Windows.Forms.Padding(2);
-            this.debugLog.Multiline = true;
             this.debugLog.Name = "debugLog";
-            this.debugLog.ReadOnly = true;
-            this.debugLog.ScrollBars = System.Windows.Forms.ScrollBars.Both;
             this.debugLog.Size = new System.Drawing.Size(596, 425);
             this.debugLog.TabIndex = 0;
             // 
@@ -627,9 +621,9 @@ namespace PcmHacking
         private System.Windows.Forms.Button readPropertiesButton;
         private System.Windows.Forms.TabControl tabs;
         private System.Windows.Forms.TabPage resultsTab;
-        private System.Windows.Forms.TextBox userLog;
+        private PcmHacking.LogListView userLog;
         private System.Windows.Forms.TabPage debugTab;
-        private System.Windows.Forms.TextBox debugLog;
+        private PcmHacking.LogListView debugLog;
         private System.Windows.Forms.Button reinitializeButton;
         private System.Windows.Forms.Button selectButton;
         private System.Windows.Forms.Label deviceDescription;

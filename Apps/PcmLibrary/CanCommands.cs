@@ -573,9 +573,13 @@ namespace PcmHacking
         /// ReturnToNormalMode (0x20). Stock PCM answers 0x60; the read kernel answers 0x98 then resets.
         /// Best-effort - the PCM returns to normal either way, so a missing reply does not fail it.
         /// </summary>
-        public async Task<bool> Reboot(CancellationToken cancellationToken)
+        public async Task<bool> Reboot(CancellationToken cancellationToken, bool announce = true)
         {
-            this.logger.AddUserMessage("Returning to normal mode.");
+            if (announce)
+            {
+                this.logger.AddUserMessage("Returning to normal mode.");
+            }
+
             await this.device.SetTimeout(TimeoutScenario.Detect);
 
             await this.MakeQuery(
@@ -591,14 +595,17 @@ namespace PcmHacking
         /// while the bus is busy). OBD-II ClearDiagnostics (0x04) on the functional broadcast id so all
         /// modules clear. Best-effort, repeated because the PCM is still restarting; never throws.
         /// </summary>
-        public async Task ClearDiagnosticCodes(CancellationToken cancellationToken)
+        public async Task ClearDiagnosticCodes(CancellationToken cancellationToken, bool announce = true)
         {
             if (!(this.device is ICanTarget target))
             {
                 return; // not a CAN-capable device
             }
 
-            this.logger.AddUserMessage("Clearing trouble codes.");
+            if (announce)
+            {
+                logger.AddUserMessage("Clearing trouble codes.");
+            }
 
             uint savedTx = target.TxCanId;
             uint savedRx = target.RxCanId;

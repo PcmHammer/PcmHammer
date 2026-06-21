@@ -350,12 +350,16 @@ namespace PcmHacking
                     {
                         // The PCM refused the seed because it is still counting down its forced delay.
                         // Wait the same delay again and retry the same candidate (no key was consumed).
-                        // Re-arm the countdown bar for this wait so it keeps animating through a long
-                        // lockout (which can span many of these poll cycles).
+                        // Do NOT restart the countdown bar here. It was armed once for the whole key at
+                        // presentation; these short seed polls (several per lockout) only re-check the
+                        // same key, so re-arming the bar to the poll interval would make it stutter -
+                        // draining and refilling every couple of seconds instead of counting the key
+                        // down once. Report with no wait, which refreshes progress/ETA but leaves the
+                        // running per-key countdown alone.
                         noResponseStreak = 0;
                         NoteLockout();
                         nextAttemptTime = DateTime.UtcNow + securityDelay;
-                        this.Report(lastPhase, lastKey, lastAlgorithm, cursor.Done, cursor.Total, perKeyEstimate, securityDelay.TotalSeconds);
+                        this.Report(lastPhase, lastKey, lastAlgorithm, cursor.Done, cursor.Total, perKeyEstimate);
                         continue;
                     }
                     if (!seedResult.Success)
@@ -432,11 +436,12 @@ namespace PcmHacking
                             // The PCM hit its attempt limit and is forcing a delay; the key was not
                             // evaluated. Keep the candidate and retry after another full delay - we do
                             // not poke it sooner, because a mid-lockout attempt only restarts the timer.
-                            // Re-arm the countdown bar for this wait so it keeps animating.
+                            // Leave the per-key countdown running (armed at presentation); do not restart
+                            // it for this internal wait, which would make the bar stutter.
                             noResponseStreak = 0;
                             NoteLockout();
                             nextAttemptTime = DateTime.UtcNow + securityDelay;
-                            this.Report(lastPhase, lastKey, lastAlgorithm, cursor.Done, cursor.Total, perKeyEstimate, securityDelay.TotalSeconds);
+                            this.Report(lastPhase, lastKey, lastAlgorithm, cursor.Done, cursor.Total, perKeyEstimate);
                             break;
 
                         case SecurityUnlockResult.NoResponse:

@@ -100,16 +100,13 @@ namespace PcmHacking
         /// </summary>
         public override void AddUserMessage(string message)
         {
-            string timestamp = DateTime.Now.ToString("HH:mm:ss.fff");
+            string line = "[" + DateTime.Now.ToString("HH:mm:ss.fff") + "]  " + message;
 
-            this.userLog.Invoke(
-                (MethodInvoker)delegate ()
-                {
-                    this.userLog.AppendText("[" + timestamp + "]  " + message + Environment.NewLine);
+            // AppendLine is thread-safe and does no UI work, so the worker thread is never blocked.
+            this.userLog.AppendLine(line);
 
-                    // User messages are added to the debug log as well, so that the debug log has everything.
-                    this.debugLog.AppendText("[" + timestamp + "]  " + message + Environment.NewLine);
-                });
+            // User messages go to the debug log too, so the debug log has everything.
+            this.debugLog.AppendLine(line);
         }
 
         /// <summary>
@@ -117,13 +114,7 @@ namespace PcmHacking
         /// </summary>
         public override void AddDebugMessage(string message)
         {
-            string timestamp = DateTime.Now.ToString("HH:mm:ss.fff");
-
-            this.debugLog.Invoke(
-                (MethodInvoker)delegate ()
-                {
-                    this.debugLog.AppendText("[" + timestamp + "]  " + message + Environment.NewLine);
-                });
+            this.debugLog.AppendLine("[" + DateTime.Now.ToString("HH:mm:ss.fff") + "]  " + message);
         }
 
         public override void StatusUpdateActivity(string activity)
@@ -207,9 +198,83 @@ namespace PcmHacking
             this.userLog.Invoke(
                 (MethodInvoker)delegate ()
                 {
-                    this.userLog.Text = string.Empty;
-                    this.debugLog.Text = string.Empty;
+                    this.userLog.ClearLog();
+                    this.debugLog.ClearLog();
                 });
+        }
+
+        private LogSearchBar searchBar;
+
+        // The log shown on the active tab (Debug Log, else Results) is the one Ctrl+F searches.
+        private LogListView ActiveLog() => this.tabs.SelectedTab == this.debugTab ? this.debugLog : this.userLog;
+
+        protected override bool ProcessCmdKey(ref System.Windows.Forms.Message msg, Keys keyData)
+        {
+            if (keyData == (Keys.Control | Keys.F))
+            {
+                this.ShowSearchBar();
+                return true;
+            }
+
+            if (keyData == Keys.Escape && this.searchBar != null && this.searchBar.Visible)
+            {
+                this.HideSearchBar();
+                return true;
+            }
+
+            return base.ProcessCmdKey(ref msg, keyData);
+        }
+
+        private void ShowSearchBar()
+        {
+            if (this.searchBar == null)
+            {
+                this.searchBar = new LogSearchBar { Anchor = AnchorStyles.Top | AnchorStyles.Right };
+                this.searchBar.QueryChanged += _ => this.RunSearch();
+                this.searchBar.FindNext += () => this.StepSearch(+1);
+                this.searchBar.FindPrevious += () => this.StepSearch(-1);
+                this.searchBar.CloseRequested += this.HideSearchBar;
+                this.Controls.Add(this.searchBar);
+                this.tabs.SelectedIndexChanged += (s, e) => { if (this.searchBar != null && this.searchBar.Visible) { this.RunSearch(); } };
+            }
+
+            this.searchBar.Location = new Point(this.tabs.Right - this.searchBar.Width - 6, this.tabs.Top + 6);
+            this.searchBar.Visible = true;
+            this.searchBar.BringToFront();
+            this.searchBar.FocusInput();
+            this.RunSearch();
+        }
+
+        private void HideSearchBar()
+        {
+            if (this.searchBar != null)
+            {
+                this.searchBar.Visible = false;
+            }
+
+            this.userLog.ClearSearch();
+            this.debugLog.ClearSearch();
+            this.ActiveLog().Focus();
+        }
+
+        // Run the current query against the active log and jump to the first match.
+        private void RunSearch()
+        {
+            LogListView log = this.ActiveLog();
+            int total = log.FindAll(this.searchBar.Query);
+            if (total > 0)
+            {
+                log.MoveToMatch(+1);
+            }
+
+            this.searchBar.SetStatus(log.CurrentMatchNumber, total);
+        }
+
+        private void StepSearch(int direction)
+        {
+            LogListView log = this.ActiveLog();
+            log.MoveToMatch(direction);
+            this.searchBar.SetStatus(log.CurrentMatchNumber, log.MatchCount);
         }
 
         /// <summary>
@@ -355,14 +420,14 @@ namespace PcmHacking
         /// <summary>
         /// Save the selected log
         /// </summary>
-        protected void SaveLog(TextBox logBox, string fileName)
+        protected void SaveLog(LogListView logBox, string fileName)
         {
             if (string.IsNullOrWhiteSpace(fileName))
             {
                 return;
             }
 
-            if (string.IsNullOrWhiteSpace(logBox.Text))
+            if (logBox.IsEmpty)
             {
                 return;
             }
@@ -371,7 +436,7 @@ namespace PcmHacking
             {
                 using (System.IO.StreamWriter file = new System.IO.StreamWriter(fileName))
                 {
-                    file.WriteLine(logBox.Text);
+                    file.WriteLine(logBox.GetAllText());
                 }
             }
             catch (Exception e)
