@@ -1,4 +1,5 @@
 ﻿using PCMHammer.Helpers;
+using PCMHammer.Views;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows;
@@ -65,6 +66,7 @@ namespace PCMHammer.Viewmodels
         public ICommand SettingsCommand { get; }
 
         // --- Commands (Device & Operations Sidebar) ---
+        public ICommand SelectDeviceCommand { get; }
         public ICommand ReInitializeDeviceCommand { get; }
         public ICommand ReadPropertiesCommand { get; }
         public ICommand WritePCMCommand { get; }
@@ -91,6 +93,7 @@ namespace PCMHammer.Viewmodels
             UserDefinedKeyCommand = new RelayCommand(ExecuteUserDefinedKey);
             SettingsCommand = new RelayCommand(ExecuteSettings);
 
+            SelectDeviceCommand = new RelayCommand(ExecuteSelectDevice);
             ReInitializeDeviceCommand = new RelayCommand(ExecuteReInitializeDevice);
             ReadPropertiesCommand = new RelayCommand(ExecuteReadProperties);
             WritePCMCommand = new RelayCommand(ExecuteWritePCM);
@@ -116,6 +119,17 @@ namespace PCMHammer.Viewmodels
         private void ExecuteUserDefinedKey() => MessageBox.Show("Opening Key Configuration...");
         private void ExecuteSettings() => MessageBox.Show("Opening Settings...");
 
+        private void ExecuteSelectDevice()
+        {
+            Window parentWindow = Application.Current.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive) ?? Application.Current.MainWindow;
+
+            DevicePicker dialog = new() { Owner = parentWindow };
+
+            if (dialog.ShowDialog() == true)
+            {
+                // Here you would normally handle the selected device information from the dialog
+            }
+        }
         private void ExecuteReInitializeDevice() => StatusText = "Re-initializing device...";
         private void ExecuteReadProperties() => StatusText = "Reading PCM Properties...";
         private void ExecuteWritePCM() => StatusText = "Writing PCM...";
