@@ -97,6 +97,22 @@ namespace PcmHacking
         public CanCommands CreateCanCommands() => new CanCommands(this.device, this.logger, this.UserDefinedKey);
 
         /// <summary>
+        /// Point the command layer at a specific module: set the VPW destination used by the
+        /// protocol's message builders, and (on a CAN-capable device) the CAN request/response
+        /// ids the device transmits to and filters on. Bus selection is separate (SetProtocol).
+        /// </summary>
+        public void SetTarget(Target target)
+        {
+            this.protocol.TargetVpwId = target.VpwId;
+
+            if (this.device is ICanTarget canTarget)
+            {
+                canTarget.TxCanId = target.CanRequestId;
+                canTarget.RxCanId = target.CanResponseId;
+            }
+        }
+
+        /// <summary>
         /// Point the device and protocol at a detected module's bus and target, ready for normal
         /// operations (restoring a normal receive timeout after the fast detection probes).
         /// </summary>

@@ -397,15 +397,9 @@ namespace PcmHacking
 
         /// <summary>
         /// Add a received message to the queue, unless an active inbound filter rejects it.
+        /// Returns true if the message was queued, false if it was dropped by the filter.
         /// </summary>
-        /// <remarks>
-        /// The intended owner is the request/response primitive (the Query class): it opens
-        /// the scope around its send/receive loop with a <c>using</c>, so the filter is
-        /// active exactly while that exchange is still trying and is guaranteed to be
-        /// released on every exit path. Nesting is supported; the innermost (most recent)
-        /// scope is the active one.
-        /// </remarks>
-        public InboundFilterScope FilterInbound(Predicate<Message> accept)
+        protected bool Enqueue(Message message)
         {
             Predicate<Message>? filter = this.inboundFilter;
             if (filter != null && !filter(message))
@@ -413,7 +407,7 @@ namespace PcmHacking
                 // Off-conversation bus traffic: count it (see DroppedMessageCount) but don't
                 // log each one — in-car that would be extremely chatty.
                 this.DroppedMessageCount++;
-                return;
+                return false;
             }
 
             lock (this.queue)
@@ -423,36 +417,6 @@ namespace PcmHacking
             }
 
             return true;
-        }
-
-        /// <summary>
-        /// Disposable scope that keeps an inbound filter installed on a Device for the
-        /// lifetime of one request/response exchange. Created via
-        /// <see cref="Device.FilterInbound"/>; disposing restores the prior filter.
-        /// </summary>
-        public sealed class InboundFilterScope : IDisposable
-        {
-            private readonly Device device;
-            private readonly Predicate<Message>? previous;
-            private bool disposed;
-
-            internal InboundFilterScope(Device device, Predicate<Message> accept)
-            {
-                this.device = device;
-                this.previous = device.inboundFilter;   // remember for restore (nesting)
-                device.inboundFilter = accept;           // innermost scope wins
-            }
-
-            public void Dispose()
-            {
-                if (this.disposed)
-                {
-                    return;
-                }
-
-                this.disposed = true;
-                this.device.inboundFilter = this.previous;
-            }
         }
 
         /// <summary>
