@@ -332,6 +332,42 @@ namespace PcmHacking
         }
 
         /// <summary>
+        /// Ask the kernel whether the IAC driver chip is present.
+        /// </summary>
+        /// <remarks>
+        /// Only the P01/P59 kernel answers this. The chip is probed over the QSPI bus.
+        /// </remarks>
+        public async Task<Response<ushort>> QueryIACDriver(CancellationToken cancellationToken)
+        {
+            for (int retries = 0; retries < 3; retries++)
+            {
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    return Response.Create(ResponseStatus.Cancelled, (ushort)0);
+                }
+
+                await this.SetDeviceTimeout(TimeoutScenario.ReadProperty);
+                Query<ushort> iacQuery = this.CreateQuery<ushort>(
+                    this.protocol.CreateDetectIacQuery,
+                    this.protocol.ParseDetectIac,
+                    cancellationToken);
+                Response<ushort> iacResponse = await iacQuery.Execute();
+
+                if (iacResponse.Status == ResponseStatus.Cancelled)
+                {
+                    return Response.Create(ResponseStatus.Cancelled, (ushort)0);
+                }
+
+                if (iacResponse.Status == ResponseStatus.Success)
+                {
+                    return iacResponse;
+                }
+            }
+
+            return Response.Create(ResponseStatus.Error, (ushort)0);
+        }
+
+        /// <summary>
         /// Check for a running kernel.
         /// </summary>
         /// <returns></returns>

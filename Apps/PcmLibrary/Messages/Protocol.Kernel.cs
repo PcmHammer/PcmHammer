@@ -174,6 +174,51 @@ namespace PcmHacking
         }
 
         /// <summary>
+        /// Create a request to ask the kernel whether the IAC (TPIC) driver chip is present.
+        /// </summary>
+        /// <remarks>
+        /// Only the P01/P59 kernel implements this. The chip is probed live over the QSPI bus,
+        /// so it reflects the actual hardware rather than anything stored in flash.
+        /// </remarks>
+        public Message CreateDetectIacQuery()
+        {
+            return new Message(new byte[] { Priority.Physical0, TargetVpwId, ToolId, 0x3D, 0x06 });
+        }
+
+        /// <summary>
+        /// Parse the kernel's IAC driver chip detection response.
+        /// </summary>
+        /// <remarks>
+        /// Returns the raw 16-bit QSPI receive word the kernel captured from the TPIC probe
+        /// (high byte = responseBytes[6], low byte = responseBytes[7]). The present/absent
+        /// decision is made by the caller so the criterion can be tuned without reflashing.
+        /// </remarks>
+        internal Response<ushort> ParseDetectIac(Message responseMessage)
+        {
+            ResponseStatus status;
+            byte[] expected = { Priority.Physical0, ToolId, TargetVpwId, 0x7D, 0x06 };
+            if (!TryVerifyInitialBytes(responseMessage, expected, out status))
+            {
+                byte[] refused = { Priority.Physical0, ToolId, TargetVpwId, Mode.NegativeResponse, 0x3D, 0x06 };
+                if (TryVerifyInitialBytes(responseMessage, refused, out status))
+                {
+                    return Response.Create(ResponseStatus.Refused, (ushort)0);
+                }
+
+                return Response.Create(status, (ushort)0);
+            }
+
+            byte[] responseBytes = responseMessage.GetBytes();
+            if (responseBytes.Length < 8)
+            {
+                return Response.Create(ResponseStatus.Truncated, (ushort)0);
+            }
+
+            ushort raw = (ushort)((responseBytes[6] << 8) | responseBytes[7]);
+            return Response.Create(ResponseStatus.Success, raw);
+        }
+
+        /// <summary>
         /// Create a request for implementation details... for development use only.
         /// </summary>
         public Message CreateDebugQuery()
