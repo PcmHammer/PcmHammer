@@ -282,15 +282,24 @@ namespace PcmHacking
         /// </summary>
         Task<int> IPort.Receive(byte[] buffer, int offset, int count)
         {
-            try
+            // Run the port read operation safely on a background thread
+            return Task.Run(() =>
             {
-                return TimeoutUtilities.TaskWithTimeoutAndException(
-                    Task.Run(() => this.port!.Read(buffer, offset, count)),
-                    TimeSpan.FromMilliseconds(this.port!.ReadTimeout));
-            } catch (TimeoutException) 
-            {
-                return Task.FromResult(0);
-            }
+                try
+                {
+                    // If the SerialPort's internal ReadTimeout is reached, it throws a TimeoutException
+                    return this.port!.Read(buffer, offset, count);
+                }
+                catch (TimeoutException)
+                {
+                    // Safely intercept the hardware timeout and return 0 bytes read
+                    return 0;
+                }
+                catch (Exception ex)
+                {
+                    return 0;
+                }
+            });
         }
 
         /// <summary>

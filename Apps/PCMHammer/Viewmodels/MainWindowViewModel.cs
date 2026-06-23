@@ -1,4 +1,5 @@
-﻿using PCMHammer.Helpers;
+﻿using PcmHacking;
+using PCMHammer.Helpers;
 using PCMHammer.Views;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
@@ -7,9 +8,23 @@ using System.Windows.Input;
 
 namespace PCMHammer.Viewmodels
 {
-    public class MainWindowViewModel : INotifyPropertyChanged
+    public partial class MainWindowViewModel : INotifyPropertyChanged
     {
+        private readonly ILogger _logger;
+        public PcmHacking.Device? SelectedDevice
+        {
+            get => _selectedDevice;
+            set { _selectedDevice = value; OnPropertyChanged(); }
+        }
+        private PcmHacking.Device? _selectedDevice;
+
         // --- Status and Progress Properties ---
+        private string _logText = string.Empty;
+        public string LogText
+        {
+            get => _logText;
+            set { _logText = value; OnPropertyChanged(); }
+        }
         private string _statusText = "Ready";
         public string StatusText
         {
@@ -75,6 +90,7 @@ namespace PCMHammer.Viewmodels
 
         public MainWindowViewModel()
         {
+            _logger = new MainWindowLogger(this);
             // Initialize Commands with placeholder actions
             SaveResultsLogCommand = new RelayCommand(ExecuteSaveResultsLog);
             SaveDebugLogCommand = new RelayCommand(ExecuteSaveDebugLog);
@@ -94,7 +110,7 @@ namespace PCMHammer.Viewmodels
             SettingsCommand = new RelayCommand(ExecuteSettings);
 
             SelectDeviceCommand = new RelayCommand(ExecuteSelectDevice);
-            ReInitializeDeviceCommand = new RelayCommand(ExecuteReInitializeDevice);
+            ReInitializeDeviceCommand = new RelayCommand(ExecuteReInitializeDevice, CanReInitialize);
             ReadPropertiesCommand = new RelayCommand(ExecuteReadProperties);
             WritePCMCommand = new RelayCommand(ExecuteWritePCM);
             TestWriteCommand = new RelayCommand(ExecuteTestWrite);
@@ -122,15 +138,27 @@ namespace PCMHammer.Viewmodels
         private void ExecuteSelectDevice()
         {
             Window parentWindow = Application.Current.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive) ?? Application.Current.MainWindow;
+            var pickerDialog = new DevicePicker(_logger);
 
-            DevicePicker dialog = new() { Owner = parentWindow };
-
-            if (dialog.ShowDialog() == true)
+            // ShowDialog blocks here until RequestAcceptAndClose or RequestClose fires
+            if (pickerDialog.ShowDialog() == true)
             {
-                // Here you would normally handle the selected device information from the dialog
+                // Grab the object directly from the window's property
+                Device? workingDevice = (pickerDialog.DataContext as DevicePickerViewModel)?.SelectedDevice;
+
+                if (workingDevice != null)
+                {
+                    SelectedDevice = workingDevice;
+                    MessageBox.Show($"Selected Device: {this.SelectedDevice.ToString()}");
+                    // Log($"Connected to device: {workingDevice.GetDeviceType()}");
+                    // Proceed to use your device...
+                }
+                else
+                    MessageBox.Show("Dialog returned OK, but no valid device data was stored.");
             }
         }
         private void ExecuteReInitializeDevice() => StatusText = "Re-initializing device...";
+        private bool CanReInitialize() => SelectedDevice is not null;
         private void ExecuteReadProperties() => StatusText = "Reading PCM Properties...";
         private void ExecuteWritePCM() => StatusText = "Writing PCM...";
         private void ExecuteTestWrite() => StatusText = "Running Test Write...";

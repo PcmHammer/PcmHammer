@@ -8,41 +8,53 @@
         WindowStyle="ToolWindow"
         SizeToContent="WidthAndHeight"
         Title="Select Device">
-    <Grid Margin="8">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-        </Grid.RowDefinitions>
-        <StackPanel>
-            <GroupBox Header="Device Category">
-                <StackPanel Orientation="Horizontal">
-                    <RadioButton x:Name="SerialDeviceRadioButton" GroupName="DeviceCategory" Content="Serial Device" Margin="5"/>
-                    <RadioButton x:Name="J2534DeviceRadioButton" GroupName="DeviceCategory" Content="J2534 Device" Margin="5"/>
+    <StackPanel>
+        <Grid Margin="8">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <StackPanel>
+                <GroupBox Header="Device Category">
+                    <StackPanel Orientation="Horizontal">
+                        <RadioButton x:Name="SerialDeviceRadioButton"   GroupName="DeviceCategory" Content="Serial Device"  Margin="5"/>
+                        <RadioButton x:Name="J2534DeviceRadioButton"    GroupName="DeviceCategory" Content="J2534 Device"   Margin="5"/>
+                    </StackPanel>
+                </GroupBox>
+                <Separator Margin="0,5" Height="0"/>
+                <GroupBox Header="Serial Device Options" IsEnabled="{Binding ElementName=SerialDeviceRadioButton, Path=IsChecked}">
+                    <StackPanel>
+                        <Label Content="Serial Port" 
+                               Target="{Binding ElementName=SerialPortComboBox}"/>
+                        <ComboBox x:Name="SerialPortComboBox" 
+                                  ItemsSource="{Binding SerialPorts}" 
+                                  SelectedItem="{Binding SerialPort, UpdateSourceTrigger=PropertyChanged}"/>
+                        <Label Content="Device Type" 
+                               Target="{Binding ElementName=SerialDeviceTypeComboBox}"/>
+                        <ComboBox x:Name="SerialDeviceTypeComboBox" 
+                                  ItemsSource="{Binding SerialDevices}" 
+                                  SelectedItem="{Binding SerialPortDeviceType, UpdateSourceTrigger=PropertyChanged}"/>
+                    </StackPanel>
+                </GroupBox>
+                <Separator Margin="0,5" Height="0"/>
+                <GroupBox Header="J2534 Device Options" IsEnabled="{Binding ElementName=J2534DeviceRadioButton, Path=IsChecked}">
+                    <StackPanel>
+                        <Label Content="Device Type" Target="{Binding ElementName=J2534DeviceTypeComboBox}"/>
+                        <ComboBox x:Name="J2534DeviceTypeComboBox" ItemsSource="{Binding J2534Devices}" Text="Select..."/>
+                    </StackPanel>
+                </GroupBox>
+                <Separator Margin="0,5" Height="0"/>
+                <CheckBox x:Name="Enable4xCommunication" Content="Enable 4x Communication" Margin="5,0,0,0"/>
+                <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                    <Button Content="Auto Detect"   Width="75" Margin="5" Command="{Binding AutoDetectCommand}"/>
+                    <Button Content="Test"          Width="75" Margin="5" Command="{Binding TestCommand}"/>
+                    <Button Content="Cancel"        Width="75" Margin="5" Command="{Binding CancelCommand}" IsCancel="True"/>
+                    <Button Content="OK"            Width="75" Margin="5" Command="{Binding AcceptCommand}" IsDefault="True"/>
                 </StackPanel>
-            </GroupBox>
-            <Separator Margin="0,5" Height="0"/>
-            <GroupBox Header="Serial Device Options" IsEnabled="{Binding ElementName=SerialDeviceRadioButton, Path=IsChecked}">
-                <StackPanel>
-                    <Label Content="Serial Port" Target="{Binding ElementName=SerialPortComboBox}"/>
-                    <ComboBox x:Name="SerialPortComboBox"/>
-                    <Label Content="Device Type" Target="{Binding ElementName=SerialDeviceTypeComboBox}"/>
-                    <ComboBox x:Name="SerialDeviceTypeComboBox"/>
-                </StackPanel>
-            </GroupBox>
-            <Separator Margin="0,5" Height="0"/>
-            <GroupBox Header="J2534 Device Options" IsEnabled="{Binding ElementName=J2534DeviceRadioButton, Path=IsChecked}">
-                <StackPanel>
-                    <Label Content="Device Type" Target="{Binding ElementName=J2534DeviceTypeComboBox}"/>
-                    <ComboBox x:Name="J2534DeviceTypeComboBox"/>
-                </StackPanel>
-            </GroupBox>
-            <Separator Margin="0,5" Height="0"/>
-            <CheckBox x:Name="Enable4xCommunication" Content="Enable 4x Communication" Margin="5,0,0,0"/>
-            <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
-                <Button Content="Auto Detect"   Width="75" Margin="5"/>
-                <Button Content="Test"          Width="75" Margin="5"/>
-                <Button Content="Cancel"        Width="75" Margin="5"/>
-                <Button Content="OK"            Width="75" Margin="5" IsDefault="True"/>
             </StackPanel>
-        </StackPanel>
-    </Grid>
+        </Grid>
+        <StatusBar Grid.Row="1">
+            <TextBlock Text="{Binding StatusText}" HorizontalAlignment="Stretch"/>
+        </StatusBar>
+    </StackPanel>
 </Window>
