@@ -5,14 +5,9 @@ using System.Windows;
 
 namespace PCMHammer.Helpers
 {
-    public class MainWindowLogger : ILogger
+    public class MainWindowLogger(MainWindowViewModel viewModel) : ILogger
     {
-        private readonly MainWindowViewModel _viewModel;
-
-        public MainWindowLogger(MainWindowViewModel viewModel)
-        {
-            _viewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
-        }
+        private readonly MainWindowViewModel _viewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
 
         // 1. Append User messages directly to the UI Log Text
         public void AddUserMessage(string message)
@@ -28,7 +23,7 @@ namespace PCMHammer.Helpers
         // 2. Append Debug messages (you can decide to prefix them or put them in the same box)
         public void AddDebugMessage(string message)
         {
-            string formatted = $"[{DateTime.Now:HH:mm:ss.fff}] [DEBUG] {message}";
+            string formatted = $"[{DateTime.Now:HH:mm:ss.fff}] {message}";
 
             Application.Current.Dispatcher.Invoke(() =>
             {

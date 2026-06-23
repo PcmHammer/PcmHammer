@@ -34,14 +34,7 @@ namespace PCMHammer.Views
             this.Loaded += DevicePicker_Loaded;
         }
 
-        private async void DevicePicker_Loaded(object sender, RoutedEventArgs e)
-        {
-            // Optional: Set a temporary status while loading
-            _viewModel.StatusText = "Discovering devices...";
-
-            // Execute the hardware discovery code we fixed earlier
-            await _viewModel.InitializeAsync();
-        }
+        private async void DevicePicker_Loaded(object sender, RoutedEventArgs e) => await _viewModel.InitializeAsync();
 
         private void Cancel()
         {

@@ -10,7 +10,7 @@ using System.Text.RegularExpressions;
 
 namespace PCMHammer.Viewmodels
 {
-    public class DevicePickerViewModel : INotifyPropertyChanged
+    public partial class DevicePickerViewModel : INotifyPropertyChanged
     {
         private const string _prompt = "Select...";
         private readonly ILogger _logger;
@@ -112,8 +112,9 @@ namespace PCMHammer.Viewmodels
         // Notification States
         public string StatusText { get; set; } = "Ready.";
         public bool IsBusy { get; set; }
-        public bool IsSerialSelected => DeviceCategory.Equals("Serial");
-        public bool IsJ2534Selected => DeviceCategory.Equals("J2534");
+        public bool IsSerialSelected => DeviceCategory?.Equals("Serial", StringComparison.Ordinal) ?? false;
+
+        public bool IsJ2534Selected => DeviceCategory?.Equals("J2534", StringComparison.Ordinal) ?? false;
 
         // Commands
         public ICommand SelectSerialCommand { get; }
@@ -199,6 +200,7 @@ namespace PCMHammer.Viewmodels
             SerialPortDeviceType = DeviceConfiguration.Settings.SerialPortDeviceType;
             J2534DeviceType = DeviceConfiguration.Settings.J2534DeviceType;
             Enable4xReadWrite = DeviceConfiguration.Settings.Enable4xReadWrite;
+            StatusText = "Ready.";
         }
 
         private void FillSerialDeviceList()
@@ -324,38 +326,31 @@ namespace PCMHammer.Viewmodels
             }
         }
 
-
-
         public async Task TestSelectedDeviceAsync()
         {
             Device? device = null;
             string target;
             string onPort = string.Empty;
 
-            var match = Regex.Match(SerialPort, @"\((COM\d+)\)");
-            if (match.Success)
+            if (SerialPort == _prompt || string.IsNullOrEmpty(SerialPort)) return;
+
+            MessageBox.Show($"SerialPort: {SerialPort}");
+
+            var match = SerialPortRegex().Match(SerialPort);
+            if (match.Success && SerialPort.Length > 4)
             {
                 // Extracts "COM1" out of "Communications Port (COM1)"
-                SerialPort = match.Groups[1].Value;
+                SerialPort = match.Groups[0].Value;
+                string debugGroupsInfo = string.Join(Environment.NewLine, match.Groups.Cast<Group>().Select((g, index) => $"Group [{index}]: {g.Value}"));
+                MessageBox.Show(debugGroupsInfo, "Regex Debug Match Results");
             }
-            else if (SerialPort.Contains("COM"))
-            {
-                // Fallback: If it's just raw text containing COM but no parentheses, 
-                // cleanly parse out the exact COM segment
-                var standaloneMatch = Regex.Match(SerialPort, @"COM\d+");
-                if (standaloneMatch.Success)
-                {
-                    SerialPort = standaloneMatch.Value;
-                }
-            }
-
-            _logger.AddDebugMessage($"Resolved friendly name '{this.SerialPort}' to hardware identifier '{SerialPort}'");
 
             if (IsSerialSelected)
             {
                 device = DeviceFactory.CreateSerialDevice(SerialPort, SerialPortDeviceType, _logger);
                 onPort = " on " + (SerialPort ?? "(no port)");
                 target = (SerialPortDeviceType ?? "serial device") + onPort;
+                MessageBox.Show($"Device: {device}\nOn Port: {onPort}\nTarget: {target}");
             }
             else if (IsJ2534Selected)
             {
@@ -435,5 +430,7 @@ namespace PCMHammer.Viewmodels
         public event PropertyChangedEventHandler? PropertyChanged;
         protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
             => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        [GeneratedRegex(@"COM\d+")]
+        private static partial Regex SerialPortRegex();
     }
 }
