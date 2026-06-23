@@ -91,7 +91,9 @@ namespace PCMHammer.Viewmodels
         public MainWindowViewModel()
         {
             _logger = new MainWindowLogger(this);
-            // Initialize Commands with placeholder actions
+            _logger.AddDebugMessage("Thanks for using PCM Hammer.");
+
+            // Initialize Commands with actions
             SaveResultsLogCommand = new RelayCommand(ExecuteSaveResultsLog);
             SaveDebugLogCommand = new RelayCommand(ExecuteSaveDebugLog);
             ExitCommand = new RelayCommand(ExecuteExit);
@@ -138,7 +140,16 @@ namespace PCMHammer.Viewmodels
         private void ExecuteSelectDevice()
         {
             Window parentWindow = Application.Current.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive) ?? Application.Current.MainWindow;
-            var pickerDialog = new DevicePicker(_logger);
+            var pickerDialog = new DevicePicker(_logger)
+            {
+                Owner = parentWindow
+            };
+
+            _logger.AddDebugMessage("Copyright (C) 2018-2026 PcmHacking.net - GPL v3");
+            _logger.AddDebugMessage("Version: 2.0.0");
+            _logger.AddDebugMessage($"Running at: {DateTime.Now:dddd, MMMM d yyyy, HH:mm:ss}");
+
+            StatusText = "Selecting Device...";
 
             // ShowDialog blocks here until RequestAcceptAndClose or RequestClose fires
             if (pickerDialog.ShowDialog() == true)
@@ -149,12 +160,11 @@ namespace PCMHammer.Viewmodels
                 if (workingDevice != null)
                 {
                     SelectedDevice = workingDevice;
-                    MessageBox.Show($"Selected Device: {this.SelectedDevice.ToString()}");
-                    // Log($"Connected to device: {workingDevice.GetDeviceType()}");
-                    // Proceed to use your device...
+                    _logger.AddDebugMessage($"Connected to device: {workingDevice.GetDeviceType()}");
                 }
                 else
-                    MessageBox.Show("Dialog returned OK, but no valid device data was stored.");
+                    _logger.AddDebugMessage("Dialog returned OK, but no valid device data was stored.");
+                StatusText = "Ready.";
             }
         }
         private void ExecuteReInitializeDevice() => StatusText = "Re-initializing device...";

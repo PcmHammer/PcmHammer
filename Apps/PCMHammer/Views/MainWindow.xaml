@@ -6,7 +6,7 @@
         xmlns:local="clr-namespace:PCMHammer"
         xmlns:helpers="clr-namespace:PCMHammer.Helpers"
         mc:Ignorable="d"
-        Title="MainWindow" Height="638" Width="800"
+        Title="PCM Hammer" Height="638" Width="800"
         Loaded="Window_Loaded">
     <Window.Resources>
         <helpers:StringToVisibilityConverter x:Key="StringToVisibility" />
@@ -57,34 +57,36 @@
                         <Button Content="_Select Device"   
                                 Command="{Binding SelectDeviceCommand}"
                                 CommandParameter="{Binding RelativeSource={RelativeSource AncestorType=Window}}"
-                                HorizontalAlignment="Stretch"/>
+                                HorizontalAlignment="Stretch"
+                                Margin="0,0,0,5"/>
                         <Button Content="Re-_Initialize Device" 
                                 Command="{Binding ReInitializeDeviceCommand}" 
-                                HorizontalAlignment="Stretch"/>
+                                HorizontalAlignment="Stretch"
+                                Margin="0,0,0,5"/>
                     </StackPanel>
                 </GroupBox>
                 <GroupBox Header="Operations" Grid.Row="1" VerticalAlignment="Center"
                           IsEnabled="{Binding SelectedDevice, Converter={StaticResource NullToBoolean}}">
                     <StackPanel>
-                        <Button Content="Read _Properties"      Command="{Binding ReadPropertiesCommand}" HorizontalAlignment="Stretch"/>
-                        <Button Content="Read P_CM"             Command="{Binding ReadPCMCommand}" HorizontalAlignment="Stretch"/>
-                        <Button Content="_Write PCM"            Command="{Binding WritePCMCommand}" HorizontalAlignment="Stretch"/>
-                        <Button Content="T_est Write"           Command="{Binding TestWriteCommand}" HorizontalAlignment="Stretch"/>
-                        <Button Content="_Verify PCM"           Command="{Binding VerifyPCMCommand}" HorizontalAlignment="Stretch"/>
+                        <Button Content="Read _Properties"      Command="{Binding ReadPropertiesCommand}"   HorizontalAlignment="Stretch" Margin="0,0,0,5"/>
+                        <Button Content="Read P_CM"             Command="{Binding ReadPCMCommand}"          HorizontalAlignment="Stretch" Margin="0,0,0,5"/>
+                        <Button Content="_Write PCM"            Command="{Binding WritePCMCommand}"         HorizontalAlignment="Stretch" Margin="0,0,0,5"/>
+                        <Button Content="T_est Write"           Command="{Binding TestWriteCommand}"        HorizontalAlignment="Stretch" Margin="0,0,0,5"/>
+                        <Button Content="_Verify PCM"           Command="{Binding VerifyPCMCommand}"        HorizontalAlignment="Stretch" Margin="0,0,0,5"/>
                     </StackPanel>
                 </GroupBox>
                 <GroupBox Header="Kernel" Grid.Row="2"
                           IsEnabled="{Binding SelectedDevice, Converter={StaticResource NullToBoolean}}">
                     <StackPanel>
-                        <Button Content="_Halt Running Kernel"  Command="{Binding HaltRunningKernelCommand}" HorizontalAlignment="Stretch"/>
-                        <Button Content="_Cancel"               Command="{Binding CancelCurrentCommand}"     HorizontalAlignment="Stretch"/>
+                        <Button Content="_Halt Running Kernel"  Command="{Binding HaltRunningKernelCommand}" HorizontalAlignment="Stretch" Margin="0,0,0,5"/>
+                        <Button Content="_Cancel"               Command="{Binding CancelCurrentCommand}"     HorizontalAlignment="Stretch" Margin="0,0,0,5"/>
                     </StackPanel>
                 </GroupBox>
             </StackPanel>
             
             <TabControl Grid.Column="1" Margin="8,0,0,0">
                 <TabItem Header="Results">
-                    <TextBox x:Name="ResultsLogTextBox" IsReadOnly="True" VerticalScrollBarVisibility="Visible"/>
+                    <TextBox x:Name="ResultsLogTextBox" IsReadOnly="True" VerticalScrollBarVisibility="Visible" Text="{Binding LogText}" />
                 </TabItem>
                 <TabItem Header="Help">
                     <WebBrowser x:Name="HelpWebBrowser"/>
