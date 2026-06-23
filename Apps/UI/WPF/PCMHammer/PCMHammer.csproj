@@ -25,13 +25,14 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\PcmLibrary\PcmLibrary.csproj" />
-    <ProjectReference Include="..\PcmLibraryWindowsApi\PcmLibraryWindowsApi.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Reference Include="System.Windows.Forms">
-      <HintPath>..\..\..\..\..\..\..\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8\System.Windows.Forms.dll</HintPath>
+    <Reference Include="J2534DotNet">
+      <HintPath>..\..\..\PcmLibraryWindowsApi\bin\Debug\net10.0-windows\J2534DotNet.dll</HintPath>
+    </Reference>
+    <Reference Include="PcmLibrary">
+      <HintPath>..\..\..\PcmLibrary\bin\Debug\netstandard2.0\PcmLibrary.dll</HintPath>
+    </Reference>
+    <Reference Include="PcmLibraryWindowsApi">
+      <HintPath>..\..\..\PcmLibraryWindowsApi\bin\Debug\net10.0-windows\PcmLibraryWindowsApi.dll</HintPath>
     </Reference>
   </ItemGroup>
 
