@@ -97,48 +97,84 @@ namespace PcmHacking
 
             for (int attempt = 1; attempt <= maxAttempts; attempt++)
             {
-                SerialPort newPort = new SerialPort(this.name);
-                newPort.BaudRate = config.BaudRate;
-                newPort.DataBits = 8;
-                newPort.Parity = Parity.None;
-                newPort.StopBits = StopBits.One;
-                newPort.ReadBufferSize = 12000;
-                newPort.WriteBufferSize = 12000;
-                newPort.ReadTimeout = config.Timeout;
-
-                Task openTask = Task.Run(() => newPort.Open());
-                Task firstToFinish = await Task.WhenAny(openTask, Task.Delay(TimeSpan.FromSeconds(5)));
-                if (firstToFinish != openTask)
+                SerialPort newPort = new(this.name)
                 {
-                    // The open is still stuck. Abandon the half-open port without blocking and bail out.
-                    // A genuine hang is not retried - that would just multiply the wait.
+                    BaudRate = config.BaudRate,
+                    DataBits = 8,
+                    Parity = Parity.None,
+                    StopBits = StopBits.One,
+                    ReadBufferSize = 12000,
+                    WriteBufferSize = 12000,
+                    ReadTimeout = config.Timeout
+                };
+
+                // We use a TaskCompletionSource to manually control the completion signal safely
+                var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+                // 1. Isolate the background thread completely
+                _ = Task.Run(() =>
+                {
+                    try
+                    {
+                        newPort.Open();
+                        tcs.TrySetResult(true); // Signal success to the main thread
+                    }
+                    catch (UnauthorizedAccessException ex)
+                    {
+                        tcs.TrySetException(ex); // Safely pass the access violation up
+                    }
+                    catch (Exception ex)
+                    {
+                        tcs.TrySetException(ex); // Safely pass any other hardware fault up
+                    }
+                });
+
+                // 2. Wait up to 5 seconds for our controlled TaskCompletionSource to resolve
+                Task finishedTask = await Task.WhenAny(tcs.Task, Task.Delay(TimeSpan.FromSeconds(5)));
+
+                if (finishedTask != tcs.Task)
+                {
+                    // TIMEOUT: The background thread is genuinely hung in the Win32 subsystem.
+                    // Forcefully dispose the port object reference to break the kernel lock.
                     SafeDisposeSerialPort(newPort);
-                    throw new TimeoutException($"Timed out trying to open serial port {this.name}.");
+
+                    if (attempt == maxAttempts)
+                    {
+                        throw new TimeoutException($"Timed out trying to open serial port {this.name}. It may be locked by a crashed process.");
+                    }
+
+                    // Give the OS extra breathing room before trying the next loop iteration
+                    await Task.Delay(1000);
+                    continue;
                 }
 
                 try
                 {
-                    // Observe the result so a failed open propagates cleanly to the caller.
-                    await openTask;
+                    // 3. Unpack the background exception safely on the main UI orchestration thread
+                    await tcs.Task;
+
+                    // Connection successful!
                     return newPort;
                 }
                 catch (UnauthorizedAccessException denied)
                 {
-                    // The port is in use - most often by its own previous handle, which is still
-                    // closing after a just-finished connection. Back off briefly and try again.
                     SafeDisposeSerialPort(newPort);
                     lastDenied = denied;
-                    await Task.Delay(250);
+
+                    // Progressive, highly visible backoff
+                    int backoffDelay = attempt * 500;
+
+                    await Task.Delay(backoffDelay);
                 }
-                catch
+                catch (Exception)
                 {
-                    // Any other failure (e.g. IOException for a missing device) is final.
+                    // Hardware fatal exceptions (e.g. device disconnected)
                     SafeDisposeSerialPort(newPort);
                     throw;
                 }
             }
 
-            // Ran out of retries while still being denied access.
+            // Exhausted all retry routines cleanly without an unhandled background thread crash
             throw lastDenied!;
         }
 

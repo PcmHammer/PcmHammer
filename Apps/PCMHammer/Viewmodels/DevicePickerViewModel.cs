@@ -334,23 +334,15 @@ namespace PCMHammer.Viewmodels
 
             if (SerialPort == _prompt || string.IsNullOrEmpty(SerialPort)) return;
 
-            MessageBox.Show($"SerialPort: {SerialPort}");
-
             var match = SerialPortRegex().Match(SerialPort);
             if (match.Success && SerialPort.Length > 4)
-            {
-                // Extracts "COM1" out of "Communications Port (COM1)"
                 SerialPort = match.Groups[0].Value;
-                string debugGroupsInfo = string.Join(Environment.NewLine, match.Groups.Cast<Group>().Select((g, index) => $"Group [{index}]: {g.Value}"));
-                MessageBox.Show(debugGroupsInfo, "Regex Debug Match Results");
-            }
 
             if (IsSerialSelected)
             {
                 device = DeviceFactory.CreateSerialDevice(SerialPort, SerialPortDeviceType, _logger);
                 onPort = " on " + (SerialPort ?? "(no port)");
                 target = (SerialPortDeviceType ?? "serial device") + onPort;
-                MessageBox.Show($"Device: {device}\nOn Port: {onPort}\nTarget: {target}");
             }
             else if (IsJ2534Selected)
             {

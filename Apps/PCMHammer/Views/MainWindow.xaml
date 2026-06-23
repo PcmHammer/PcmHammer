@@ -6,6 +6,7 @@
         xmlns:local="clr-namespace:PCMHammer"
         xmlns:helpers="clr-namespace:PCMHammer.Helpers"
         mc:Ignorable="d"
+        ThemeMode="System"
         Title="PCM Hammer" Height="638" Width="800"
         Loaded="Window_Loaded">
     <Window.Resources>
@@ -95,7 +96,7 @@
                     <WebBrowser x:Name="CreditsWebBrowser"/>
                 </TabItem>
                 <TabItem Header="Debug">
-                    <TextBox x:Name="DebugLogTextBox" IsReadOnly="True" VerticalScrollBarVisibility="Visible"/>
+                    <TextBox x:Name="DebugLogTextBox" IsReadOnly="True" VerticalScrollBarVisibility="Visible" Text="{Binding DebugLogText}" />
                 </TabItem>
             </TabControl>
         </Grid>
