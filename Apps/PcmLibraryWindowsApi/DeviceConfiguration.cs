@@ -9,7 +9,7 @@ namespace PcmHacking
 {
     public class DeviceConfiguration
     {
-        public static PcmLibraryWindowsForms.Properties.Settings Settings = PcmLibraryWindowsForms.Properties.Settings.Default;
+        public static PcmLibraryWindowsForms.Properties.Settings Settings { get; } = PcmLibraryWindowsForms.Properties.Settings.Default;
 
         public class Constants
         {

@@ -6,10 +6,11 @@
         xmlns:local="clr-namespace:PCMHammer"
         xmlns:helpers="clr-namespace:PCMHammer.Helpers"
         mc:Ignorable="d"
-        Title="MainWindow" Height="500" Width="800"
+        Title="MainWindow" Height="638" Width="800"
         Loaded="Window_Loaded">
     <Window.Resources>
         <helpers:StringToVisibilityConverter x:Key="StringToVisibility" />
+        <helpers:NullToBooleanConverter x:Key="NullToBoolean" />
     </Window.Resources>
     <Grid>
         <Grid.RowDefinitions>
@@ -56,32 +57,27 @@
                         <Button Content="_Select Device"   
                                 Command="{Binding SelectDeviceCommand}"
                                 CommandParameter="{Binding RelativeSource={RelativeSource AncestorType=Window}}"
-                                Margin="5"/>
+                                HorizontalAlignment="Stretch"/>
                         <Button Content="Re-_Initialize Device" 
                                 Command="{Binding ReInitializeDeviceCommand}" 
-                                Margin="5"/>
+                                HorizontalAlignment="Stretch"/>
                     </StackPanel>
                 </GroupBox>
-                <GroupBox Header="Operations" Grid.Row="1" VerticalAlignment="Center">
+                <GroupBox Header="Operations" Grid.Row="1" VerticalAlignment="Center"
+                          IsEnabled="{Binding SelectedDevice, Converter={StaticResource NullToBoolean}}">
                     <StackPanel>
-                        <Button Content="Read _Properties"      Command="{Binding ReadPropertiesCommand}" 
-                                Margin="5"/>
-                        <Button Content="Read P_CM"             Command="{Binding ReadPCMCommand}" 
-                                Margin="5"/>
-                        <Button Content="_Write PCM"            Command="{Binding WritePCMCommand}" 
-                                Margin="5"/>
-                        <Button Content="T_est Write"           Command="{Binding TestWriteCommand}" 
-                                Margin="5"/>
-                        <Button Content="_Verify PCM"           Command="{Binding VerifyPCMCommand}" 
-                                Margin="5"/>
+                        <Button Content="Read _Properties"      Command="{Binding ReadPropertiesCommand}" HorizontalAlignment="Stretch"/>
+                        <Button Content="Read P_CM"             Command="{Binding ReadPCMCommand}" HorizontalAlignment="Stretch"/>
+                        <Button Content="_Write PCM"            Command="{Binding WritePCMCommand}" HorizontalAlignment="Stretch"/>
+                        <Button Content="T_est Write"           Command="{Binding TestWriteCommand}" HorizontalAlignment="Stretch"/>
+                        <Button Content="_Verify PCM"           Command="{Binding VerifyPCMCommand}" HorizontalAlignment="Stretch"/>
                     </StackPanel>
                 </GroupBox>
-                <GroupBox Header="Kernel" Grid.Row="2">
+                <GroupBox Header="Kernel" Grid.Row="2"
+                          IsEnabled="{Binding SelectedDevice, Converter={StaticResource NullToBoolean}}">
                     <StackPanel>
-                        <Button Content="_Halt Running Kernel"  Command="{Binding HaltRunningKernelCommand}" 
-                            Margin="5"/>
-                        <Button Content="_Cancel"               Command="{Binding CancelCurrentCommand}" 
-                            Margin="5"/>
+                        <Button Content="_Halt Running Kernel"  Command="{Binding HaltRunningKernelCommand}" HorizontalAlignment="Stretch"/>
+                        <Button Content="_Cancel"               Command="{Binding CancelCurrentCommand}"     HorizontalAlignment="Stretch"/>
                     </StackPanel>
                 </GroupBox>
             </StackPanel>
