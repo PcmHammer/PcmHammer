@@ -27,7 +27,7 @@ namespace PCMHammer.Helpers
 
             Application.Current.Dispatcher.Invoke(() =>
             {
-                _viewModel.LogText += formatted + Environment.NewLine;
+                _viewModel.DebugLogText += formatted + Environment.NewLine;
             });
         }
 

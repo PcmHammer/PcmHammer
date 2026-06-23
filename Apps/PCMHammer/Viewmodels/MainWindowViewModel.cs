@@ -25,6 +25,12 @@ namespace PCMHammer.Viewmodels
             get => _logText;
             set { _logText = value; OnPropertyChanged(); }
         }
+        private string _debugLogText = string.Empty;
+        public string DebugLogText
+        {
+            get => _debugLogText;
+            set { _debugLogText = value; OnPropertyChanged(); }
+        }
         private string _statusText = "Ready";
         public string StatusText
         {
@@ -91,6 +97,15 @@ namespace PCMHammer.Viewmodels
         public MainWindowViewModel()
         {
             _logger = new MainWindowLogger(this);
+            _logger.AddUserMessage("PCM Hammer");
+            _logger.AddUserMessage("Copyright (C) 2018-2026 PcmHacking.net - GPL v3");
+            _logger.AddUserMessage("Version: 2.0.0");
+            _logger.AddUserMessage($"Running at: {DateTime.Now:dddd, MMMM d yyyy, HH:mm:ss}");
+            _logger.AddUserMessage("Thanks for using PCM Hammer.");
+            _logger.AddDebugMessage("PCM Hammer");
+            _logger.AddDebugMessage("Copyright (C) 2018-2026 PcmHacking.net - GPL v3");
+            _logger.AddDebugMessage("Version: 2.0.0");
+            _logger.AddDebugMessage($"Running at: {DateTime.Now:dddd, MMMM d yyyy, HH:mm:ss}");
             _logger.AddDebugMessage("Thanks for using PCM Hammer.");
 
             // Initialize Commands with actions
@@ -144,10 +159,6 @@ namespace PCMHammer.Viewmodels
             {
                 Owner = parentWindow
             };
-
-            _logger.AddDebugMessage("Copyright (C) 2018-2026 PcmHacking.net - GPL v3");
-            _logger.AddDebugMessage("Version: 2.0.0");
-            _logger.AddDebugMessage($"Running at: {DateTime.Now:dddd, MMMM d yyyy, HH:mm:ss}");
 
             StatusText = "Selecting Device...";
 
