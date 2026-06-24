@@ -14,5 +14,10 @@ namespace PCMHammer.Helpers
             add => CommandManager.RequerySuggested += value;
             remove => CommandManager.RequerySuggested -= value;
         }
+
+        /// <summary>
+        /// Forces the CommandManager to re-evaluate the CanExecute state manually.
+        /// </summary>
+        public static void RaiseCanExecuteChanged() => CommandManager.InvalidateRequerySuggested();
     }
 }

@@ -11,12 +11,12 @@ namespace PCMHammer.Viewmodels
     public partial class MainWindowViewModel : INotifyPropertyChanged
     {
         private readonly ILogger _logger;
-        public PcmHacking.Device? SelectedDevice
+        public Device? SelectedDevice
         {
             get => _selectedDevice;
             set { _selectedDevice = value; OnPropertyChanged(); }
         }
-        private PcmHacking.Device? _selectedDevice;
+        private Device? _selectedDevice;
 
         // --- Status and Progress Properties ---
         private string _logText = string.Empty;
@@ -64,6 +64,17 @@ namespace PCMHammer.Viewmodels
         {
             get => _timeRemaining;
             set { _timeRemaining = value; OnPropertyChanged(); }
+        }
+        private Vehicle? _vehicle;
+        public Vehicle? Vehicle
+        {
+            get => _vehicle;
+            set
+            {
+                _vehicle = value;
+                OnPropertyChanged();
+                RelayCommand.RaiseCanExecuteChanged();
+            }
         }
 
         // --- Commands (File Menu) ---
@@ -115,7 +126,7 @@ namespace PCMHammer.Viewmodels
 
             ReadPCMCommand = new RelayCommand(ExecuteReadPCM);
             VerifyPCMCommand = new RelayCommand(ExecuteVerifyPCM);
-            ChangeVINCommand = new RelayCommand(ExecuteChangeVIN);
+            ChangeVINCommand = new RelayCommand(ExecuteChangeVINAsync);
             WriteParametersCommand = new RelayCommand(ExecuteWriteParameters);
             WriteOSCalibrationBootCommand = new RelayCommand(ExecuteWriteOSCalibrationBoot);
             WriteFullFlashCloneCommand = new RelayCommand(ExecuteWriteFullFlashClone);
@@ -141,7 +152,58 @@ namespace PCMHammer.Viewmodels
 
         private void ExecuteReadPCM() => StatusText = "Reading PCM...";
         private void ExecuteVerifyPCM() => StatusText = "Verifying PCM...";
-        private void ExecuteChangeVIN() => MessageBox.Show("Changing VIN...");
+        private async void ExecuteChangeVINAsync()
+        {
+            try
+            {
+                Response<uint> osidResponse = await Vehicle!.QueryOperatingSystemId(CancellationToken.None);
+                if (osidResponse.Status != ResponseStatus.Success)
+                {
+                    _logger.AddUserMessage($"Operating system query failed: {osidResponse.Status}");
+                    return;
+                }
+
+                OSIDInfo info = new(osidResponse.Value);
+
+                var vinResponse = await Vehicle.QueryVin();
+                if (vinResponse.Status != ResponseStatus.Success)
+                {
+                    _logger.AddUserMessage($"VIN query failed: {vinResponse.Status}");
+                    return;
+                }
+
+                var vinViewModel = new ChangeVINViewModel(vinResponse.Value);
+                var vinDialog = new ChangeVINWindow(vinViewModel) { Owner = Application.Current.MainWindow };
+
+                if (vinDialog.ShowDialog() == true)
+                {
+                    string cleanVin = vinViewModel.Vin.Trim();
+                    _logger.AddUserMessage($"Attempting to write updated VIN: {cleanVin}");
+                    bool unlocked = await Vehicle.UnlockEcu(info.KeyAlgorithm);
+                    if (!unlocked)
+                    {
+                        _logger.AddUserMessage("Unable to unlock PCM. Authorization Denied.");
+                        MessageBox.Show("Unable to unlock PCM. Operation aborted.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                        return;
+                    }
+                    Response<bool> vinModified = await Vehicle.UpdateVin(cleanVin);
+                    if (vinModified.Value)
+                    {
+                        _logger.AddUserMessage($"VIN successfully updated to: {cleanVin}");
+                        MessageBox.Show($"VIN updated to {cleanVin} successfully.", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+                    }
+                    else
+                    {
+                        _logger.AddUserMessage($"Failed to commit changes. Error code: {vinModified.Status}");
+                        MessageBox.Show($"Unable to change the VIN. Error: {vinModified.Status}", "Operation Failed", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    }
+                }
+            }
+            catch (Exception exception)
+            {
+                _logger.AddUserMessage($"VIN change failed with exception: {exception.Message}");
+            }
+        }
         private void ExecuteWriteParameters() => StatusText = "Writing Parameters...";
         private void ExecuteWriteOSCalibrationBoot() => StatusText = "Writing OS/Cal/Boot...";
         private void ExecuteWriteFullFlashClone() => StatusText = "Cloning Full Flash...";
@@ -155,10 +217,7 @@ namespace PCMHammer.Viewmodels
         private void ExecuteSelectDevice()
         {
             Window parentWindow = Application.Current.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive) ?? Application.Current.MainWindow;
-            var pickerDialog = new DevicePicker(_logger)
-            {
-                Owner = parentWindow
-            };
+            var pickerDialog = new DevicePicker(_logger) { Owner = parentWindow };
 
             StatusText = "Selecting Device...";
 
@@ -171,6 +230,19 @@ namespace PCMHammer.Viewmodels
                 if (workingDevice != null)
                 {
                     SelectedDevice = workingDevice;
+                    Protocol protocolEngine = new();
+                    ToolPresentNotifier notifier = new(
+                        workingDevice,
+                        protocolEngine,
+                        _logger
+                    );
+                    Vehicle = new Vehicle(
+                        workingDevice,
+                        protocolEngine,
+                        _logger,
+                        notifier,
+                        "PCMHammer"
+                    );
                     _logger.AddDebugMessage($"Connected to device: {workingDevice.GetDeviceType()}");
                 }
                 else
