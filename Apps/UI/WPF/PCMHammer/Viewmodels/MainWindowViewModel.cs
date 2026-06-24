@@ -126,7 +126,9 @@ namespace PCMHammer.Viewmodels
 
             ReadPCMCommand = new RelayCommand(ExecuteReadPCM);
             VerifyPCMCommand = new RelayCommand(ExecuteVerifyPCM);
-            ChangeVINCommand = new RelayCommand(ExecuteChangeVINAsync);
+            ChangeVINCommand = new RelayCommand(
+                execute: async () => await ExecuteChangeVINAsync()
+            );
             WriteParametersCommand = new RelayCommand(ExecuteWriteParameters);
             WriteOSCalibrationBootCommand = new RelayCommand(ExecuteWriteOSCalibrationBoot);
             WriteFullFlashCloneCommand = new RelayCommand(ExecuteWriteFullFlashClone);
@@ -152,7 +154,7 @@ namespace PCMHammer.Viewmodels
 
         private void ExecuteReadPCM() => StatusText = "Reading PCM...";
         private void ExecuteVerifyPCM() => StatusText = "Verifying PCM...";
-        private async void ExecuteChangeVINAsync()
+        private async Task ExecuteChangeVINAsync()
         {
             try
             {
