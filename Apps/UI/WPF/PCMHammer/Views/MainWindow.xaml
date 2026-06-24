@@ -27,21 +27,30 @@
                 <MenuItem Header="E_xit"                Command="{Binding ExitCommand}"/>
             </MenuItem>
             <MenuItem Header="_Tools">
-                <MenuItem Header="_Read Entire PCM"                     Command="{Binding ReadPCMCommand}"/>
-                <MenuItem Header="_Verify Entire PCM"                   Command="{Binding VerifyPCMCommand}"/>
-                <MenuItem Header="_Change VIN"                          Command="{Binding ChangeVINCommand}"/>
-                <Separator Height="2" Margin="0,5,0,5"/>
-                <MenuItem Header="Write _Parameters"                    Command="{Binding WriteParametersCommand}"/>
-                <MenuItem Header="Write _OS, Calibration &amp; Boot"    Command="{Binding WriteOSCalibrationBootCommand}"/>
-                <MenuItem Header="Write _Full Flash (Clone)"            Command="{Binding WriteFullFlashCloneCommand}"/>
-                <Separator Height="2" Margin="0,5,0,5"/>
-                <MenuItem Header="_Test File Checksums..."              Command="{Binding TestFileChecksumsCommand}"/>
-                <MenuItem Header="Brute Force _Unlock..."               Command="{Binding BruteForceUnlockCommand}"/>
-                <Separator Height="2" Margin="0,5,0,5"/>
-                <MenuItem Header="_Halt Running Kernel"                  Command="{Binding HaltRunningKernelCommand}"/>
+                <MenuItem Header="_Read Entire PCM" Command="{Binding ReadPCMCommand}"
+                          IsEnabled="{Binding SelectedDevice, Converter={StaticResource NullToBoolean}}"/>
+                <MenuItem Header="_Verify Entire PCM" Command="{Binding VerifyPCMCommand}"
+                          IsEnabled="{Binding SelectedDevice, Converter={StaticResource NullToBoolean}}"/>
+                <MenuItem Header="_Change VIN" Command="{Binding ChangeVINCommand}"
+                          IsEnabled="{Binding SelectedDevice, Converter={StaticResource NullToBoolean}}"/>
+                <Separator Height="2"/>
+                <MenuItem Header="Write _Parameters" Command="{Binding WriteParametersCommand}"
+                          IsEnabled="{Binding SelectedDevice, Converter={StaticResource NullToBoolean}}"/>
+                <MenuItem Header="Write _OS, Calibration &amp; Boot" Command="{Binding WriteOSCalibrationBootCommand}"
+                          IsEnabled="{Binding SelectedDevice, Converter={StaticResource NullToBoolean}}"/>
+                <MenuItem Header="Write _Full Flash (Clone)" Command="{Binding WriteFullFlashCloneCommand}"
+                          IsEnabled="{Binding SelectedDevice, Converter={StaticResource NullToBoolean}}"/>
+                <Separator Height="2"/>
+                <MenuItem Header="_Test File Checksums..." Command="{Binding TestFileChecksumsCommand}"/>
+                <MenuItem Header="Brute Force _Unlock..." Command="{Binding BruteForceUnlockCommand}"
+                          IsEnabled="{Binding SelectedDevice, Converter={StaticResource NullToBoolean}}"/>
+                <Separator Height="2"/>
+                <MenuItem Header="_Halt Running Kernel" Command="{Binding HaltRunningKernelCommand}"
+                          IsEnabled="{Binding SelectedDevice, Converter={StaticResource NullToBoolean}}"/>
             </MenuItem>
             <MenuItem Header="_Options">
-                <MenuItem Header="_User Defined Key"    Command="{Binding UserDefinedKeyCommand}"/>
+                <MenuItem Header="_User Defined Key"    Command="{Binding UserDefinedKeyCommand}"
+                          IsEnabled="{Binding SelectedDevice, Converter={StaticResource NullToBoolean}}"/>
                 <MenuItem Header="_Settings"            Command="{Binding SettingsCommand}"/>
             </MenuItem>
         </Menu>
