@@ -71,6 +71,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AvtTests.cs" />
+    <Compile Include="CanKernelBootPolicyTests.cs" />
     <Compile Include="CanKernelUploadProtocolTests.cs" />
     <Compile Include="CanLoggerTests.cs" />
     <Compile Include="CanParserTests.cs" />

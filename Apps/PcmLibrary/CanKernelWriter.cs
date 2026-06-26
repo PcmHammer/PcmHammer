@@ -270,6 +270,15 @@ namespace PcmHacking
                     return true;
                 }
 
+                // Preflight policy gate: block before any erase/write if this PCM does not allow
+                // boot-sector writes and the plan would write boot.
+                if (!this.IsWritePlanAllowedByPcmInfo(flashChip, relevantBlocks))
+                {
+                    logger.AddUserMessage("Boot sector write is required for this operation.");
+                    logger.AddUserMessage($"Abort: The {this.pcmInfo.HardwareType} boot sector is write protected. This PCM is not compatible with this file.");
+                    return false;
+                }
+
                 // Erase and rewrite the required memory ranges.
                 DateTime startTime = DateTime.Now;
                 this.blockTransferTimer.Reset();
@@ -465,14 +474,82 @@ namespace PcmHacking
             return result;
         }
 
+        /// <summary>
+        /// Check the write plan against PCM policy before any erase/write occurs. Mirrors the VPW
+        /// writer: a PCM that does not support boot-sector writes must not have boot erased/written.
+        /// </summary>
+        private bool IsWritePlanAllowedByPcmInfo(FlashChip flashChip, BlockType relevantBlocks)
+        {
+            return BootPolicyAllowsWritePlan(
+                this.writeType,
+                this.pcmInfo.IsSupportedWriteBootSector,
+                relevantBlocks,
+                this.effectiveImageSize,
+                flashChip.MemoryRanges);
+        }
+
+        /// <summary>
+        /// Pure boot-sector write policy. Returns false only when a destructive plan on a PCM that
+        /// cannot write its boot sector would erase/write a boot range whose content differs.
+        /// </summary>
+        public static bool BootPolicyAllowsWritePlan(
+            WriteType writeType,
+            bool supportsBootSectorWrite,
+            BlockType relevantBlocks,
+            UInt32 effectiveImageSize,
+            IEnumerable<MemoryRange> memoryRanges)
+        {
+            // Compare and test-write are non-destructive.
+            if (writeType == WriteType.Compare || writeType == WriteType.TestWrite)
+            {
+                return true;
+            }
+
+            // Boot sector writes are supported; allow all write plans.
+            if (supportsBootSectorWrite)
+            {
+                return true;
+            }
+
+            foreach (MemoryRange range in memoryRanges)
+            {
+                // A range is processed only when it is relevant AND differs (for real writes).
+                if (!ShouldProcessRange(range, relevantBlocks, writeType, effectiveImageSize))
+                {
+                    continue;
+                }
+
+                // Block attempts to write the boot sector on PCMs that do not support it.
+                if ((range.Type & BlockType.Boot) != 0)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
         private bool ShouldProcess(MemoryRange range, BlockType relevantBlocks)
         {
-            if ((range.ActualCrc == range.DesiredCrc) && (this.writeType != WriteType.TestWrite))
+            return ShouldProcessRange(range, relevantBlocks, this.writeType, this.effectiveImageSize);
+        }
+
+        /// <summary>
+        /// Pure form of <see cref="ShouldProcess"/>: a range is processed when it is in scope, within
+        /// the image, and (for real writes) its on-device CRC differs from the image.
+        /// </summary>
+        public static bool ShouldProcessRange(
+            MemoryRange range,
+            BlockType relevantBlocks,
+            WriteType writeType,
+            UInt32 effectiveImageSize)
+        {
+            if ((range.ActualCrc == range.DesiredCrc) && (writeType != WriteType.TestWrite))
             {
                 return false;
             }
 
-            if (range.Address >= this.effectiveImageSize)
+            if (range.Address >= effectiveImageSize)
             {
                 return false;
             }
