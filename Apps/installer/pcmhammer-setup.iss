@@ -113,6 +113,37 @@ Source: "{#WinFormsRoot}\PcmHammer\Loader-*.bin"; DestDir: "{app}\Cli"; Componen
 ; --- Shared shortcut icon ---
 Source: "{#AppIcon}"; DestDir: "{app}"; DestName: "pcmhammer.ico"; Flags: ignoreversion
 
+[InstallDelete]
+; The apps are single-file: every managed dependency is embedded in the exe.
+; Earlier releases instead shipped those dependencies as loose files next to each
+; exe. Since this build no longer ships them, the installer never overwrites the
+; old loose copies on an over-the-top upgrade, and a stale loose assembly is
+; found by the runtime ahead of the embedded one (it shadows it), causing
+; TypeLoadException and missing devices. Remove the orphans before copying files.
+;
+; No loose managed dll belongs next to a single-file app, and .pdb symbols are
+; not shipped to end users at all, so wipe both wholesale (this also removes the
+; app pdbs that earlier builds installed; nothing reinstalls them). Runs before
+; the copy step, and on a clean install simply matches nothing.
+Type: files; Name: "{app}\PcmHammer\*.dll"
+Type: files; Name: "{app}\PcmHammer\*.pdb"
+Type: files; Name: "{app}\PcmLogger\*.dll"
+Type: files; Name: "{app}\PcmLogger\*.pdb"
+Type: files; Name: "{app}\VpwExplorer\*.dll"
+Type: files; Name: "{app}\VpwExplorer\*.pdb"
+; Localized satellite-assembly folder shipped loose by the old layout.
+Type: filesandordirs; Name: "{app}\PcmLogger\de"
+; Loose dependency XML docs from the old layout. PcmHammer and VpwExplorer have
+; no legitimate XML; PcmLogger keeps its own Parameters.*.xml, so only the known
+; dependency docs are removed there.
+Type: files; Name: "{app}\PcmHammer\*.xml"
+Type: files; Name: "{app}\VpwExplorer\*.xml"
+Type: files; Name: "{app}\PcmLogger\System.*.xml"
+Type: files; Name: "{app}\PcmLogger\Newtonsoft.Json.xml"
+; Kernels
+Type: files; Name: "{app}\PcmHammer\*.bin"
+Type: files; Name: "{app}\Cli\*.bin"
+
 [Icons]
 Name: "{group}\PCM Hammer";   Filename: "{app}\PcmHammer\PcmHammer.exe";     IconFilename: "{app}\pcmhammer.ico"; Components: pcmhammer
 Name: "{group}\PCM Logger";   Filename: "{app}\PcmLogger\PcmLogger.exe";     IconFilename: "{app}\pcmhammer.ico"; Components: pcmlogger

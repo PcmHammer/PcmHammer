@@ -400,7 +400,7 @@ namespace PcmHacking
         /// Returns true if the message was queued, false if it was dropped by the filter.
         /// </summary>
         /// <param name="logReceived">
-        /// When true (the default) a "Received:" line is written to the debug stream. CAN devices
+        /// When true (the default) an "RX:" line is written to the debug stream. CAN devices
         /// pass false and log their own "RX: &lt;id&gt; &lt;payload&gt;" line instead, so the queued
         /// payload is reported once, where the CAN id is known.
         /// </param>
@@ -419,7 +419,7 @@ namespace PcmHacking
             {
                 if (logReceived)
                 {
-                    this.Logger.AddDebugMessage("Received: " + message.ToString());
+                    this.Logger.AddDebugMessage("RX: " + message.ToString());
                 }
                 this.queue.Enqueue(message);
             }

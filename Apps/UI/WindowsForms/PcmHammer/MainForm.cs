@@ -1195,7 +1195,7 @@ namespace PcmHacking
                     {
                         detected = new OSIDInfo(pcm.Osid);
                         this.AddUserMessage(string.Format(
-                            "Detected {0} on {1}: {2}", detected.HardwareType, pcm.Bus, detected.Description));
+                            "Detected {0} on {1}", detected.HardwareType, pcm.Bus));
                     }
                     else
                     {

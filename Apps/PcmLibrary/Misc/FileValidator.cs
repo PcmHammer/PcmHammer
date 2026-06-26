@@ -341,26 +341,26 @@ namespace PcmHacking
                 case PcmType.P05c:
                     success &= ValidateParamBlockP04();
                     if (ReadUnsigned(image, 0x20882) == 0x012380) { // P05c special case
-                        logger.AddUserMessage("  Start\tEnd\tStored\tNeeded\tVerdict\tSegment Name");
+                        LogChecksumTableHeader();
                         success &= ValidateRangeWordSum(type, 0x0000, 0xFFFFF, 0x20880, "Operating System");
                         success &= ValidateRangeWordSum(type, 0x8002, 0x1FFFF, 0x8000, "Engine Calibration");
                     }
                     else
                     {
-                        logger.AddUserMessage("  Start\tEnd\tStored\t\tNeeded\t\tVerdict\tSegment Name");
+                        LogChecksumTableHeader();
                         success &= ValidateRangeP04(true);
                     }
                     break;
                 case PcmType.P08:
-                    logger.AddUserMessage("  Start\tEnd\tStored\tNeeded\tVerdict\tSegment Name");
+                    LogChecksumTableHeader();
                     success &= ValidateRangeByteSum(type, 0, 0x7FFFB, 0x8004, "Whole File");
                     break;
                 case PcmType.P11:
-                    logger.AddUserMessage("  Start\tEnd\tStored\tNeeded\tVerdict\tSegment Name");
+                    LogChecksumTableHeader();
                     success &= ValidateRangeWordSum(type, 0, 0x7FFFB, 0x8000, "Whole File");
                     break;
                 case PcmType.P12:
-                    logger.AddUserMessage("  Start\tEnd\tStored\tNeeded\tVerdict\tSegment Name");
+                    LogChecksumTableHeader();
                     success &= ValidateRangeP12(0x922, 0x900, 0x94A, 2, "Boot Block");
                     success &= ValidateRangeP12(0x8022, 0, 0x804A, 2, "Operating System");
                     success &= ValidateRangeP12(0x80C4, 0, 0x80E4, 2, "Engine Calibration");
@@ -376,7 +376,7 @@ namespace PcmHacking
                     return this.ValidateSumAndCvn() != SumCvnVerdict.SumError;
 
                 case PcmType.E54:
-                    logger.AddUserMessage("  Start\tEnd\tStored\tNeeded\tVerdict\tSegment Name");
+                    LogChecksumTableHeader();
                     success &= ValidateRangeWordSum(type, 0x20002, 0x6FFFF, 0x20000, "Operating System");
                     success &= ValidateRangeWordSum(type, 0x8002, 0x19FFF, 0x8000, "Engine Calibration");
                     success &= ValidateRangeWordSum(type, 0x1A002, 0x1C7FF, 0x1A000, "Engine Diagnostics");
@@ -387,7 +387,7 @@ namespace PcmHacking
 
                 // The rest can use the generic code
                 default:
-                    logger.AddUserMessage("  Start\tEnd\tStored\tNeeded\tVerdict\tSegment Name");
+                    LogChecksumTableHeader();
                     for (UInt32 segment = 0; segment < segments; segment++)
                     {
                         UInt32 startAddressLocation = tableAddress + (segment * 8);
@@ -676,11 +676,35 @@ namespace PcmHacking
         }
 
         /// <summary>
+        /// Column layout shared by every checksum/CVN table below. Flush-left and space-padded
+        /// (no leading indent, no tabs) so the columns line up in the log's proportional font,
+        /// matching the kernel CRC tables.
+        /// </summary>
+        private const string ChecksumTableFormat = "{0,-8}  {1,-8}  {2,-8}  {3,-8}  {4,-7}  {5}";
+
+        /// <summary>
+        /// Print the standard checksum table header.
+        /// </summary>
+        private void LogChecksumTableHeader()
+        {
+            logger.AddUserMessage(string.Format(ChecksumTableFormat, "Start", "End", "Stored", "Needed", "Verdict", "Segment Name"));
+        }
+
+        /// <summary>
+        /// Print one checksum table row. Hex columns are passed pre-formatted so each table can use
+        /// the digit width that suits its values (4-digit word sums, 8-digit P04 sums, etc.).
+        /// </summary>
+        private void LogChecksumTableRow(string start, string end, string stored, string needed, bool verdict, string name)
+        {
+            logger.AddUserMessage(string.Format(ChecksumTableFormat, start, end, stored, needed, verdict ? "Good" : "BAD", name));
+        }
+
+        /// <summary>
         /// Print the header for the table of checksums.
         /// </summary>
         private void PrintHeader()
         {
-            logger.AddUserMessage("  Start\tEnd\tResult\tFile\tActual\tContent");
+            logger.AddUserMessage(string.Format(ChecksumTableFormat, "Start", "End", "Result", "File", "Actual", "Content"));
         }
 
         /// <summary>
@@ -709,16 +733,7 @@ namespace PcmHacking
 
             bool verdict = storedChecksum == computedChecksum;
 
-            string error = string.Format(
-                "  {0:X5}\t{1:X5}\t{2:X4}\t{3:X4}\t{4:X4}\t{5}",
-                start,
-                end,
-                storedChecksum,
-                computedChecksum,
-                verdict ? "Good" : "BAD",
-                description);
-
-            logger.AddUserMessage(error);
+            LogChecksumTableRow(start.ToString("X6"), end.ToString("X6"), storedChecksum.ToString("X4"), computedChecksum.ToString("X4"), verdict, description);
             return verdict;
         }
 
@@ -798,16 +813,7 @@ namespace PcmHacking
 
             bool verdict = storedChecksum == computedChecksum;
 
-            string error = string.Format(
-                "  {0:X5}\t{1:X5}\t{2:X4}\t{3:X4}\t{4:X4}\t{5}",
-                start,
-                end,
-                storedChecksum,
-                computedChecksum,
-                verdict ? "Good" : "BAD",
-                description);
-
-            logger.AddUserMessage(error);
+            LogChecksumTableRow(start.ToString("X6"), end.ToString("X6"), storedChecksum.ToString("X4"), computedChecksum.ToString("X4"), verdict, description);
             return verdict;
         }
 
@@ -862,16 +868,13 @@ namespace PcmHacking
 
             bool verdict = storedChecksum == computedChecksum;
 
-            string error = string.Format(
-                "  {0:X5}\t{1:X5}\t{2:X4}\t{3:X4}\t{4:X4}\t{5}",
-                first, // The start of the first block
-                end,   // The end of the last block
-                storedChecksum,
-                computedChecksum,
-                verdict ? "Good" : "BAD",
+            LogChecksumTableRow(
+                first.ToString("X6"), // The start of the first block
+                end.ToString("X6"),   // The end of the last block
+                storedChecksum.ToString("X4"),
+                computedChecksum.ToString("X4"),
+                verdict,
                 description);
-
-            logger.AddUserMessage(error);
             return verdict;
         }
 
@@ -1012,16 +1015,13 @@ namespace PcmHacking
                 return ValidateRangeP04(false);
             }
 
-            string error = string.Format(
-                "  {0:X5}\t{1:X5}\t{2:X8}\t{3:X8}\t{4:X4}\t{5}",
-                0,              // The start of the first block
-                image.Length-1, // The end of the last block
-                storedChecksum,
-                computedChecksum,
-                verdict ? "Good" : "BAD",
+            LogChecksumTableRow(
+                0.ToString("X6"),              // The start of the first block
+                (image.Length - 1).ToString("X6"), // The end of the last block
+                storedChecksum.ToString("X8"),
+                computedChecksum.ToString("X8"),
+                verdict,
                 "Whole File");
-
-            logger.AddUserMessage(error);
             return verdict;
         }
 
@@ -1354,7 +1354,7 @@ namespace PcmHacking
             logger.AddUserMessage("Validating 2MB file.");
 
             logger.AddUserMessage("Checksum validation:");
-            logger.AddUserMessage("  Start\tEnd\tStored\tNeeded\tVerdict\tSegment Name");
+            LogChecksumTableHeader();
             bool anySumBad = false;
             foreach (Tuple<string, int, int> segment in segments)
             {
@@ -1362,12 +1362,11 @@ namespace PcmHacking
                 UInt16 needed = this.CalcSegmentSum(segment.Item2, segment.Item3);
                 bool good = stored == needed;
                 anySumBad |= !good;
-                logger.AddUserMessage(string.Format("  {0:X6}\t{1:X6}\t{2:X4}\t{3:X4}\t{4}\t{5}",
-                    segment.Item2, segment.Item3, stored, needed, good ? "Good" : "BAD", segment.Item1));
+                LogChecksumTableRow(segment.Item2.ToString("X6"), segment.Item3.ToString("X6"), stored.ToString("X4"), needed.ToString("X4"), good, segment.Item1);
             }
 
             logger.AddUserMessage("CVN validation:");
-            logger.AddUserMessage("  Start\tEnd\tStored\tNeeded\tVerdict\tSegment Name");
+            LogChecksumTableHeader();
             bool anyCvnBad = false;
             foreach (Tuple<string, int, int> segment in segments)
             {
@@ -1375,8 +1374,7 @@ namespace PcmHacking
                 UInt16 needed = this.CalcSegmentCvn(segment.Item2, segment.Item3);
                 bool good = stored == needed;
                 anyCvnBad |= !good;
-                logger.AddUserMessage(string.Format("  {0:X6}\t{1:X6}\t{2:X4}\t{3:X4}\t{4}\t{5}",
-                    segment.Item2, segment.Item3, stored, needed, good ? "Good" : "BAD", segment.Item1));
+                LogChecksumTableRow(segment.Item2.ToString("X6"), segment.Item3.ToString("X6"), stored.ToString("X4"), needed.ToString("X4"), good, segment.Item1);
             }
 
             if (anySumBad)
