@@ -23,6 +23,11 @@ namespace PcmHacking
         private const string P11BootSectorSha256_12576162 = "50db097c55a56378cf71a53e746796d366f3b84b967fdc43f10f80d1daebbbc1";
 
         /// <summary>
+        /// Second known SHA-256 of P11 boot sector bytes [0x000000..0x001FFF] for service number 12576162.
+        /// </summary>
+        private const string P11BootSectorSha256_12576162_2 = "bbf6af9e1a8f0815a4b087cd5d165ff3271f2643a073893fc9b912fea6a27871";
+
+        /// <summary>
         /// Names of segments in P10 operating systems.
         /// </summary>
         private readonly string[] segmentNames_P10 =
@@ -105,10 +110,10 @@ namespace PcmHacking
         }
 
         /// <summary>
-        /// Indicate whether the image is valid or not.
+        /// Identify the image (size and PCM type) and validate its checksums. Returns true for a
+        /// recognized image whose checksums are valid. The OSID is logged by the caller, not here.
         /// </summary>
-        /// <returns></returns>
-        public bool IsValid()
+        public bool IdentifyAndValidate()
         {
             if (this.image.Length == 256 * 1024)
             {
@@ -144,9 +149,6 @@ namespace PcmHacking
                     return false;
                 }
 
-                UInt32 fileOsid = this.GetOsidFromImage(type);
-                logger.AddUserMessage("File operating system ID: " + fileOsid);
-
                 return this.ValidateChecksums(type);
             }
             catch (Exception exception)
@@ -181,9 +183,8 @@ namespace PcmHacking
                 return true;
             }
 
-            logger.AddUserMessage("Hardware types do not match. This file is not compatible with this PCM");
-            logger.AddUserMessage("PCM Hardware is: " + pcmInfo.HardwareType.ToString());
-            logger.AddUserMessage("File requires: " + fileInfo.HardwareType.ToString());
+            logger.AddUserMessage(
+                $"Hardware mismatch: the file is for a {fileInfo.HardwareType} but the connected PCM is a {pcmInfo.HardwareType}. They are not compatible.");
             return false;
         }
 
@@ -340,26 +341,26 @@ namespace PcmHacking
                 case PcmType.P05c:
                     success &= ValidateParamBlockP04();
                     if (ReadUnsigned(image, 0x20882) == 0x012380) { // P05c special case
-                        logger.AddUserMessage("\tStart\tEnd\tStored\tNeeded\tVerdict\tSegment Name");
+                        logger.AddUserMessage("  Start\tEnd\tStored\tNeeded\tVerdict\tSegment Name");
                         success &= ValidateRangeWordSum(type, 0x0000, 0xFFFFF, 0x20880, "Operating System");
                         success &= ValidateRangeWordSum(type, 0x8002, 0x1FFFF, 0x8000, "Engine Calibration");
                     }
                     else
                     {
-                        logger.AddUserMessage("\tStart\tEnd\tStored\t\tNeeded\t\tVerdict\tSegment Name");
+                        logger.AddUserMessage("  Start\tEnd\tStored\t\tNeeded\t\tVerdict\tSegment Name");
                         success &= ValidateRangeP04(true);
                     }
                     break;
                 case PcmType.P08:
-                    logger.AddUserMessage("\tStart\tEnd\tStored\tNeeded\tVerdict\tSegment Name");
+                    logger.AddUserMessage("  Start\tEnd\tStored\tNeeded\tVerdict\tSegment Name");
                     success &= ValidateRangeByteSum(type, 0, 0x7FFFB, 0x8004, "Whole File");
                     break;
                 case PcmType.P11:
-                    logger.AddUserMessage("\tStart\tEnd\tStored\tNeeded\tVerdict\tSegment Name");
+                    logger.AddUserMessage("  Start\tEnd\tStored\tNeeded\tVerdict\tSegment Name");
                     success &= ValidateRangeWordSum(type, 0, 0x7FFFB, 0x8000, "Whole File");
                     break;
                 case PcmType.P12:
-                    logger.AddUserMessage("\tStart\tEnd\tStored\tNeeded\tVerdict\tSegment Name");
+                    logger.AddUserMessage("  Start\tEnd\tStored\tNeeded\tVerdict\tSegment Name");
                     success &= ValidateRangeP12(0x922, 0x900, 0x94A, 2, "Boot Block");
                     success &= ValidateRangeP12(0x8022, 0, 0x804A, 2, "Operating System");
                     success &= ValidateRangeP12(0x80C4, 0, 0x80E4, 2, "Engine Calibration");
@@ -375,7 +376,7 @@ namespace PcmHacking
                     return this.ValidateSumAndCvn() != SumCvnVerdict.SumError;
 
                 case PcmType.E54:
-                    logger.AddUserMessage("\tStart\tEnd\tStored\tNeeded\tVerdict\tSegment Name");
+                    logger.AddUserMessage("  Start\tEnd\tStored\tNeeded\tVerdict\tSegment Name");
                     success &= ValidateRangeWordSum(type, 0x20002, 0x6FFFF, 0x20000, "Operating System");
                     success &= ValidateRangeWordSum(type, 0x8002, 0x19FFF, 0x8000, "Engine Calibration");
                     success &= ValidateRangeWordSum(type, 0x1A002, 0x1C7FF, 0x1A000, "Engine Diagnostics");
@@ -386,7 +387,7 @@ namespace PcmHacking
 
                 // The rest can use the generic code
                 default:
-                    logger.AddUserMessage("\tStart\tEnd\tStored\tNeeded\tVerdict\tSegment Name");
+                    logger.AddUserMessage("  Start\tEnd\tStored\tNeeded\tVerdict\tSegment Name");
                     for (UInt32 segment = 0; segment < segments; segment++)
                     {
                         UInt32 startAddressLocation = tableAddress + (segment * 8);
@@ -679,7 +680,7 @@ namespace PcmHacking
         /// </summary>
         private void PrintHeader()
         {
-            logger.AddUserMessage("\tStart\tEnd\tResult\tFile\tActual\tContent");
+            logger.AddUserMessage("  Start\tEnd\tResult\tFile\tActual\tContent");
         }
 
         /// <summary>
@@ -709,7 +710,7 @@ namespace PcmHacking
             bool verdict = storedChecksum == computedChecksum;
 
             string error = string.Format(
-                "\t{0:X5}\t{1:X5}\t{2:X4}\t{3:X4}\t{4:X4}\t{5}",
+                "  {0:X5}\t{1:X5}\t{2:X4}\t{3:X4}\t{4:X4}\t{5}",
                 start,
                 end,
                 storedChecksum,
@@ -798,7 +799,7 @@ namespace PcmHacking
             bool verdict = storedChecksum == computedChecksum;
 
             string error = string.Format(
-                "\t{0:X5}\t{1:X5}\t{2:X4}\t{3:X4}\t{4:X4}\t{5}",
+                "  {0:X5}\t{1:X5}\t{2:X4}\t{3:X4}\t{4:X4}\t{5}",
                 start,
                 end,
                 storedChecksum,
@@ -862,7 +863,7 @@ namespace PcmHacking
             bool verdict = storedChecksum == computedChecksum;
 
             string error = string.Format(
-                "\t{0:X5}\t{1:X5}\t{2:X4}\t{3:X4}\t{4:X4}\t{5}",
+                "  {0:X5}\t{1:X5}\t{2:X4}\t{3:X4}\t{4:X4}\t{5}",
                 first, // The start of the first block
                 end,   // The end of the last block
                 storedChecksum,
@@ -1012,7 +1013,7 @@ namespace PcmHacking
             }
 
             string error = string.Format(
-                "\t{0:X5}\t{1:X5}\t{2:X8}\t{3:X8}\t{4:X4}\t{5}",
+                "  {0:X5}\t{1:X5}\t{2:X8}\t{3:X8}\t{4:X4}\t{5}",
                 0,              // The start of the first block
                 image.Length-1, // The end of the last block
                 storedChecksum,
@@ -1248,13 +1249,16 @@ namespace PcmHacking
             string hash = this.ComputeSha256Hex(0x0000, 0x2000);
             bool match =
                 string.Equals(hash, P11BootSectorSha256_12210553, StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(hash, P11BootSectorSha256_12576162, StringComparison.OrdinalIgnoreCase);
+                string.Equals(hash, P11BootSectorSha256_12576162, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(hash, P11BootSectorSha256_12576162_2, StringComparison.OrdinalIgnoreCase);
             if (!match)
             {
                 logger.AddDebugMessage(
                     "P11 boot sector hash mismatch. Found: " + hash +
-                    ", Expected one of: " + P11BootSectorSha256_12210553 +
-                    " (12210553), " + P11BootSectorSha256_12576162 + " (12576162).");
+                    ", Expected one of: " +
+                    P11BootSectorSha256_12210553 + " (12210553)," +
+                    P11BootSectorSha256_12576162 + " (12576162)," +
+                    P11BootSectorSha256_12576162_2 + " (12576162).");
             }
 
             return match;
@@ -1350,7 +1354,7 @@ namespace PcmHacking
             logger.AddUserMessage("Validating 2MB file.");
 
             logger.AddUserMessage("Checksum validation:");
-            logger.AddUserMessage("\tStart\tEnd\tStored\tNeeded\tVerdict\tSegment Name");
+            logger.AddUserMessage("  Start\tEnd\tStored\tNeeded\tVerdict\tSegment Name");
             bool anySumBad = false;
             foreach (Tuple<string, int, int> segment in segments)
             {
@@ -1358,12 +1362,12 @@ namespace PcmHacking
                 UInt16 needed = this.CalcSegmentSum(segment.Item2, segment.Item3);
                 bool good = stored == needed;
                 anySumBad |= !good;
-                logger.AddUserMessage(string.Format("\t{0:X6}\t{1:X6}\t{2:X4}\t{3:X4}\t{4}\t{5}",
+                logger.AddUserMessage(string.Format("  {0:X6}\t{1:X6}\t{2:X4}\t{3:X4}\t{4}\t{5}",
                     segment.Item2, segment.Item3, stored, needed, good ? "Good" : "BAD", segment.Item1));
             }
 
             logger.AddUserMessage("CVN validation:");
-            logger.AddUserMessage("\tStart\tEnd\tStored\tNeeded\tVerdict\tSegment Name");
+            logger.AddUserMessage("  Start\tEnd\tStored\tNeeded\tVerdict\tSegment Name");
             bool anyCvnBad = false;
             foreach (Tuple<string, int, int> segment in segments)
             {
@@ -1371,7 +1375,7 @@ namespace PcmHacking
                 UInt16 needed = this.CalcSegmentCvn(segment.Item2, segment.Item3);
                 bool good = stored == needed;
                 anyCvnBad |= !good;
-                logger.AddUserMessage(string.Format("\t{0:X6}\t{1:X6}\t{2:X4}\t{3:X4}\t{4}\t{5}",
+                logger.AddUserMessage(string.Format("  {0:X6}\t{1:X6}\t{2:X4}\t{3:X4}\t{4}\t{5}",
                     segment.Item2, segment.Item3, stored, needed, good ? "Good" : "BAD", segment.Item1));
             }
 

@@ -228,6 +228,7 @@ rem * Handle command line options.
     if /i "!VAR!" == "-d"      set DUMP_ELF=True
     if /i "!VAR:~0,2!" == "-g" set "GCC_LOCATION=!VAR:~2!"
     if /i "!VAR:~0,4!" == "-cpu" set "CPU=!VAR:~4!"
+    if /i "!VAR:~0,2!" == "-k" set "KVARIANT=!VAR:~2!"
     if /i "!VAR:~0,2!" == "-l" set "LOADER_ADDRESS=!VAR:~2!"
     if /i "!VAR!" == "-m"      set DUMP_MAP=True
     if /i "!VAR:~0,2!" == "-p" set "PCM=!VAR:~2!"
@@ -252,6 +253,15 @@ rem *   C kernels use 68k-VPW-C.
 set "SOURCE_DIR=68k-VPW-Asm"
 if not defined ASSEMBLY_KERNEL set "SOURCE_DIR=68k-VPW-C"
 if /i "%PCM%"=="P04" if defined ASSEMBLY_KERNEL set "SOURCE_DIR=68k-VPW-Asm-P04"
+rem *   P05c is a 68k (68332) part but CAN, not VPW: its own assembly kernel directory.
+if /i "%PCM%"=="P05c" if defined ASSEMBLY_KERNEL set "SOURCE_DIR=68k-CAN-Asm-P05c"
+
+rem * P05c default link address. The boot programming handler only launches at the EXACT factory
+rem * address 0xFF61AE (2-byte aligned), which the linker (4-byte .text alignment) cannot target.
+rem * So link at 0xFF61B0 and let PostBuild.cmd prepend a 2-byte NOP; PcmHammer loads the image at
+rem * 0xFF61AE (KernelBaseAddress), the NOP runs, execution falls into the kernel at 0xFF61B0.
+rem * Replaces the global FF8000 default for P05c (pass -aXXXX to override).
+if /i "%PCM%"=="P05c" if /i "%BASE_ADDRESS%"=="FF8000" set BASE_ADDRESS=FF61B0
 
 rem * Target CPU selection. Maps the required -cpu value to the cross toolchain,
 rem * assembler flags and (for non-68k) source dir. 68k uses the m68k toolchain and the
@@ -300,6 +310,20 @@ rem *** Build timestamp as Unix epoch (seconds since 1970-01-01 UTC)
 for /f %%a in ('powershell "[DateTimeOffset]::UtcNow.ToUnixTimeSeconds()"') do set BUILD_EPOCH=%%a
 set BUILD_DEFS=-DBUILD_EPOCH=%BUILD_EPOCH%
 
+rem *** Assembly kernel source/output selection. Optional -k<variant> builds an
+rem *** alternate source Kernel-<variant>.S into Kernel-<PCM>-<variant>.bin, so one PCM
+rem *** directory can produce several kernels (e.g. P05c read vs write). Default (no -k):
+rem *** Kernel.S -> Kernel-<PCM>.bin. These must be set OUTSIDE the build if/else block
+rem *** below (cmd expands %vars% per parenthesized block when the block is entered).
+set "KSRC=Kernel.S"
+set "KOBJ=Kernel.o"
+set "KOUT=Kernel-%PCM%"
+if defined KVARIANT (
+  set "KSRC=Kernel-%KVARIANT%.S"
+  set "KOBJ=Kernel-%KVARIANT%.o"
+  set "KOUT=Kernel-%PCM%-%KVARIANT%"
+)
+
 rem *** Build from source subdirectory; binary outputs go to ..\build\
 pushd "%SOURCE_DIR%"
 
@@ -332,14 +356,14 @@ if not defined ASSEMBLY_KERNEL (
   rem ***
   rem *** Assembly Kernel
   rem ***
-  echo Building Kernel-%PCM%.bin [Assembly, %SOURCE_DIR%]...
-  "%GCC_LOCATION%\%TOOL_PREFIX%gcc.exe" -c -D=%PCM% %BUILD_DEFS% %ASM_CC_FLAGS% Kernel.S
+  echo Building %KOUT%.bin [Assembly, %SOURCE_DIR%]...
+  "%GCC_LOCATION%\%TOOL_PREFIX%gcc.exe" -c -D=%PCM% %BUILD_DEFS% %ASM_CC_FLAGS% %KSRC%
   if %errorlevel% neq 0 (popd & goto :EOF)
 
-  "%GCC_LOCATION%\%TOOL_PREFIX%ld.exe" --section-start .text=0x%BASE_ADDRESS% -T Kernel.ld %DUMPMAP% -o ..\build\Kernel-%PCM%.elf Kernel.o
+  "%GCC_LOCATION%\%TOOL_PREFIX%ld.exe" --section-start .text=0x%BASE_ADDRESS% -T Kernel.ld %DUMPMAP% -o ..\build\%KOUT%.elf %KOBJ%
   if %errorlevel% neq 0 (popd & goto :EOF)
 
-  "%GCC_LOCATION%\%TOOL_PREFIX%objcopy.exe" -O binary --only-section=.text --only-section=.data ..\build\Kernel-%PCM%.elf ..\build\Kernel-%PCM%.bin
+  "%GCC_LOCATION%\%TOOL_PREFIX%objcopy.exe" -O binary --only-section=.text --only-section=.data ..\build\%KOUT%.elf ..\build\%KOUT%.bin
   if %errorlevel% neq 0 (popd & goto :EOF)
 
   rem *** Optional per-kernel post-build step. If the source directory provides a
@@ -347,15 +371,15 @@ if not defined ASSEMBLY_KERNEL (
   rem *** verified artifact is the final one, and so any kernel-specific
   rem *** post-processing stays within that kernel's own directory.
   if exist PostBuild.cmd (
-    call ".\PostBuild.cmd" "..\build\Kernel-%PCM%.elf" "..\build\Kernel-%PCM%.bin" "%BASE_ADDRESS%" "%GCC_LOCATION%" "%TOOL_PREFIX%"
+    call ".\PostBuild.cmd" "..\build\%KOUT%.elf" "..\build\%KOUT%.bin" "%BASE_ADDRESS%" "%GCC_LOCATION%" "%TOOL_PREFIX%"
     if errorlevel 1 (popd & exit /b 1)
   )
 
-  call :VerifyBin "..\build\Kernel-%PCM%.bin"
+  call :VerifyBin "..\build\%KOUT%.bin"
   if %errorlevel% neq 0 (popd & exit /b 1)
 
   if defined DUMP_ELF (
-    "%GCC_LOCATION%\%TOOL_PREFIX%objdump.exe" -d -S ..\build\Kernel-%PCM%.elf > ..\build\Kernel-%PCM%.disassembly
+    "%GCC_LOCATION%\%TOOL_PREFIX%objdump.exe" -d -S ..\build\%KOUT%.elf > ..\build\%KOUT%.disassembly
     if %errorlevel% neq 0 (popd & goto :EOF)
   )
 
@@ -384,9 +408,9 @@ popd
 
 rem *** Install: copy binaries from build\ to BIN_LOCATION if requested.
 if defined COPY_BIN (
-  if exist "build\Kernel-%PCM%.bin" (
-    echo Copying Kernel-%PCM%.bin -^> %BIN_LOCATION%\Kernel-%PCM%.bin
-    copy build\Kernel-%PCM%.bin "%BIN_LOCATION%" 1>nul
+  if exist "build\%KOUT%.bin" (
+    echo Copying %KOUT%.bin -^> %BIN_LOCATION%\%KOUT%.bin
+    copy build\%KOUT%.bin "%BIN_LOCATION%" 1>nul
   )
   if defined LOADER_ADDRESS (
     if exist "build\Loader-%PCM%.bin" (

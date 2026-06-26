@@ -127,14 +127,13 @@ namespace PcmHacking
         }
 
         /// <summary>
-        /// Read a CAN-bus PCM (E38). The VPW OSID table doesn't describe these, so we use the E38
-        /// profile for the key algorithm, kernel file and image size. Mirrors the VPW path: unlock,
-        /// then hand off to the CAN kernel reader for the upload + block read. Assumes the device is
-        /// already selected on CAN.
+        /// Read a CAN-bus PCM. The caller supplies the PCM profile (key algorithm, kernel file, base
+        /// and image size): the forced-type path passes the selected PCM, the auto-detect path passes
+        /// the detected one. Mirrors the VPW path: unlock, then hand off to the CAN kernel reader for
+        /// the upload + block read. Assumes the device is already selected on CAN.
         /// </summary>
-        private async Task<Response<Stream>?> RunCanRead(IProgress<ProgressUpdate>? progress)
+        private async Task<Response<Stream>?> RunCanRead(IProgress<ProgressUpdate>? progress, OSIDInfo pcmInfo)
         {
-            OSIDInfo pcmInfo = new OSIDInfo(PcmType.E38);
             logger.AddDebugMessage("CAN PCM detected. Using the " + pcmInfo.Description + " read process.");
 
             if (!pcmInfo.IsSupportedRead)
@@ -190,7 +189,9 @@ namespace PcmHacking
                 DetectedModule? detected = await this.vehicle.DetectAndSelectPcm(this.cancellationToken);
                 if (detected != null && detected.Bus == BusProtocol.Can500k)
                 {
-                    return await this.RunCanRead(progress);
+                    // Auto-detect on CAN: resolve the PCM from its OSID
+                    OSIDInfo detectedInfo = new OSIDInfo(detected.Osid);
+                    return await this.RunCanRead(progress, detectedInfo);
                 }
                 if (detected == null)
                 {
@@ -256,7 +257,7 @@ namespace PcmHacking
                     return null;
                 }
 
-                return await this.RunCanRead(progress);
+                return await this.RunCanRead(progress, pcmInfo);
             }
 
             if (!pcmInfo.IsSupported)

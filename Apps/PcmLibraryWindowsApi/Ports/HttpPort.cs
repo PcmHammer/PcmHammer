@@ -13,7 +13,7 @@ namespace PcmHacking
     /// Early in the development process, we used this to test different types of hardware remotely.
     /// </summary>
     /// <remarks>
-    /// This never supported anything beyond the get-properties operation, and wasn't
+    /// This never supported anything beyond the identify-pcm operation, and wasn't
     /// very reliable, but it helped us get going. 
     /// 
     /// The HTTP transaction model works well with send-then-recieve pairs, but not

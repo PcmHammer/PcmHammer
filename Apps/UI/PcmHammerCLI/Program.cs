@@ -62,8 +62,8 @@ namespace PcmHacking
                     case "--test-read":
                         operation = "test-read";
                         break;
-                    case "--get-properties":
-                        operation = "get-properties";
+                    case "--identify-pcm":
+                        operation = "identify-pcm";
                         break;
                     case "--detect":
                         operation = "detect";
@@ -118,7 +118,7 @@ namespace PcmHacking
                 return 1;
             }
 
-            if (filePath == null && operation != "read" && operation != "test-read" && operation != "get-properties" && operation != "brute-force" && operation != "detect")
+            if (filePath == null && operation != "read" && operation != "test-read" && operation != "identify-pcm" && operation != "brute-force" && operation != "detect")
             {
                 Console.Error.WriteLine($"Error: No file path specified for --{operation}.");
                 return 1;
@@ -256,9 +256,9 @@ namespace PcmHacking
                             success = await writeManager.Write(filePath!);
                             break;
                         }
-                        case "get-properties":
+                        case "identify-pcm":
                         {
-                            success = await GetProperties(vehicle, logger, cts.Token);
+                            success = await IdentifyPcm(vehicle, logger, cts.Token);
                             break;
                         }
                         case "detect":
@@ -453,13 +453,13 @@ namespace PcmHacking
             return matches.Count == 1 ? matches[0] : null;
         }
 
-        // Mirrors the WinForms "Read Properties" button. First detects what is on the bus and
+        // Mirrors the WinForms "Identify PCM" button. First detects what is on the bus and
         // selects its protocol (the shared first step of every operation), then reads the rest of
-        // the properties on the selected bus. The OSID comes from detection; VIN, calibration,
+        // the identification on the selected bus. The OSID comes from detection; VIN, calibration,
         // hardware ID, serial number, BCC, MEC, and voltage follow over VPW, with the same
         // hardware-type rules as the WinForms implementation. On CAN the GMLAN DID set is read and
-        // formatted via CanProperties (VIN, traceability code, OSID, module ids).
-        static async Task<bool> GetProperties(Vehicle vehicle, ILogger logger, CancellationToken token)
+        // formatted via CanIdentification (VIN, traceability code, OSID, module ids).
+        static async Task<bool> IdentifyPcm(Vehicle vehicle, ILogger logger, CancellationToken token)
         {
             DetectedModule? pcm = await vehicle.DetectAndSelectPcm(token);
             if (pcm == null)
@@ -472,8 +472,8 @@ namespace PcmHacking
 
             if (pcm.Bus != BusProtocol.Vpw)
             {
-                logger.AddUserMessage("Parameters:");
-                foreach (string line in await CanProperties.Read(vehicle.CreateCanCommands(), token))
+                logger.AddUserMessage("PCM Identification:");
+                foreach (string line in await CanIdentification.Read(vehicle.CreateCanCommands(), token))
                 {
                     logger.AddUserMessage(line);
                 }
@@ -691,7 +691,7 @@ namespace PcmHacking
             Console.WriteLine("  --write <file>            Write entire PCM from file");
             Console.WriteLine("  --test-write <file>       Test write (no permanent changes)");
             Console.WriteLine("  --verify <file>           CRC-compare file against PCM (no erase/write)");
-            Console.WriteLine("  --get-properties          Read VIN, OSID, calibration, serial, voltage");
+            Console.WriteLine("  --identify-pcm            Read VIN, OSID, calibration, serial, voltage");
             Console.WriteLine("  --detect                  Scan the buses (VPW, CAN) and list the modules that respond");
             Console.WriteLine("  --brute-force             Search the PCM security key (algo sweep, then numeric range)");
             Console.WriteLine("  --list-devices            List available serial and J2534 devices with index numbers");
@@ -718,7 +718,7 @@ namespace PcmHacking
             Console.WriteLine("  pcmhammer-cli.exe --test-read --device 3");
             Console.WriteLine("  pcmhammer-cli.exe --write newcal.bin --device OBDX");
             Console.WriteLine("  pcmhammer-cli.exe --test-write newcal.bin --device Mongoose");
-            Console.WriteLine("  pcmhammer-cli.exe --get-properties --device COM5");
+            Console.WriteLine("  pcmhammer-cli.exe --identify-pcm --device COM5");
             Console.WriteLine("  pcmhammer-cli.exe --brute-force --device COM3");
             Console.WriteLine("  pcmhammer-cli.exe --brute-force --range 0000-00FF --no-algo-sweep --device OBDX");
             Console.WriteLine("  pcmhammer-cli.exe --test-read --device COM6 --kernel-dir C:\\PcmHammer\\Kernels");

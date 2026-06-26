@@ -50,10 +50,16 @@ namespace PcmHacking
             {
                 this.vehicle.ClearDeviceMessageQueue();
 
-                Response<byte[]> kernel = await this.vehicle.LoadKernelFromFile(this.pcmInfo.KernelFileName);
+                // Compare (verify) only needs the CRC, which lives in the read kernel; an actual
+                // write/test-write needs the write kernel. Most PCMs define one kernel for both.
+                KernelOperation kernelOp = this.writeType == WriteType.Compare
+                    ? KernelOperation.Read
+                    : KernelOperation.Write;
+                string kernelFile = this.pcmInfo.GetKernelFileName(kernelOp);
+                Response<byte[]> kernel = await this.vehicle.LoadKernelFromFile(kernelFile);
                 if (kernel.Status != ResponseStatus.Success)
                 {
-                    this.logger.AddUserMessage("Failed to load CAN write kernel: " + this.pcmInfo.KernelFileName);
+                    this.logger.AddUserMessage("Failed to load CAN write kernel: " + kernelFile);
                     return false;
                 }
 
@@ -387,12 +393,14 @@ namespace PcmHacking
         {
             bool allMatch = true;
 
-            // One tab-separated row per range. Ranges not in this operation, or past the image, show
-            // "not needed". Purpose is the block type, or "General" when write-by-segment isn't supported.
-            const string formatString = "{0:X6}-{1:X6}\t{2:X8}\t{3:X8}\t{4}\t{5}";
+            // One fixed-width, space-padded row per range (no tabs) so the table aligns identically in
+            // the log view and when copied into a text file. Ranges not in this operation, or past the
+            // image, show "not needed". Purpose is the block type, or "General" when write-by-segment
+            // isn't supported.
+            const string formatString = "{0:X6}-{1:X6}  {2,-10:X8}  {3,-10:X8}  {4,-9}  {5}";
             this.logger.AddUserMessage("Calculating CRCs from file.");
             this.logger.AddUserMessage("Requesting CRCs from PCM.");
-            this.logger.AddUserMessage("\tRange\t\tFile CRC\t\tPCM CRC\tVerdict\tPurpose");
+            this.logger.AddUserMessage(string.Format("{0,-13}  {1,-10}  {2,-10}  {3,-9}  {4}", "Range", "File CRC", "PCM CRC", "Verdict", "Purpose"));
 
             foreach (MemoryRange range in flashChip.MemoryRanges)
             {

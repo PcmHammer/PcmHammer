@@ -20,6 +20,15 @@ namespace PcmHacking
         /// <summary>CAN ID the ECU answers on; frames with any other ID are ignored.</summary>
         uint RxCanId { get; }
 
+        /// <summary>
+        /// How long the transport should keep waiting for a frame on its own conversation (RxCanId)
+        /// before giving up, in milliseconds. On an adapter with a hardware acceptance filter only our
+        /// frames arrive; on an unfiltered one (e.g. SLCAN) the rest of the bus keeps ReceiveCanFrame
+        /// returning frames, so the transport bounds the overall wait by this rather than relying on
+        /// ReceiveCanFrame to report silence.
+        /// </summary>
+        int ReceiveTimeoutMilliseconds { get; }
+
         /// <summary>Send one CAN frame (up to 8 data bytes) with the given CAN ID.</summary>
         Task SendCanFrame(uint canId, byte[] framePayload);
 
@@ -115,18 +124,27 @@ namespace PcmHacking
             return true;
         }
 
-        // Safety cap so a flooded bus can't hang the receive; far above the largest classic ISO-TP
-        // message (~586 frames). Normal exit is a completed message or the per-frame receive timeout.
-        private const int MaxFramesPerMessage = 4096;
+        // Safety cap on frames read without any progress on our own conversation, so a peer flooding
+        // our id can't hang the receive. Far above the largest classic ISO-TP message (~586 frames);
+        // it resets whenever a frame for us arrives, so a long legitimate read is never truncated.
+        private const int MaxFramesWithoutProgress = 4096;
 
         /// <summary>
-        /// Receive one whole ISO-TP message, returning it once reassembly completes or null when the
-        /// per-frame read times out. A Flow Control is sent on the First Frame so the ECU streams the
-        /// rest. Frames on a different CAN ID (e.g. a transmit-echo) are skipped.
+        /// Receive one whole ISO-TP message, returning it once reassembly completes or null when no
+        /// frame for our conversation arrives within the timeout window. A Flow Control is sent on the
+        /// First Frame so the ECU streams the rest. Frames on a different CAN ID (a transmit-echo, or
+        /// any other module on an unfiltered adapter) are skipped without extending the wait, so the
+        /// receive gives up promptly once our conversation falls silent even while the bus stays busy.
         /// </summary>
         public async Task<Message?> ReceiveMessage()
         {
-            for (int framesRead = 0; framesRead < MaxFramesPerMessage; framesRead++)
+            // Bound the overall wait by time-since-progress, not per-frame: an unfiltered adapter keeps
+            // returning unrelated frames, which must not keep the receive alive indefinitely.
+            int timeoutMs = this.channel.ReceiveTimeoutMilliseconds;
+            Stopwatch sinceProgress = Stopwatch.StartNew();
+            int framesSinceProgress = 0;
+
+            while (sinceProgress.ElapsedMilliseconds <= timeoutMs && framesSinceProgress < MaxFramesWithoutProgress)
             {
                 (uint id, byte[] frame) incoming = await this.channel.ReceiveCanFrame();
                 if (incoming.frame.Length == 0)
@@ -135,11 +153,18 @@ namespace PcmHacking
                     return null;
                 }
 
+                framesSinceProgress++;
+
                 if (incoming.id != this.channel.RxCanId)
                 {
-                    // Not this conversation; keep reading for ours.
+                    // Not our conversation; keep reading but don't count it as progress, so unrelated
+                    // bus traffic can't keep the wait alive.
                     continue;
                 }
+
+                // A frame for us: reset the no-progress window so a long multi-frame read isn't cut off.
+                sinceProgress.Restart();
+                framesSinceProgress = 0;
 
                 if (IsoTpCodec.FrameType(incoming.frame) == IsoTpFrameType.FirstFrame)
                 {
@@ -151,7 +176,7 @@ namespace PcmHacking
                 {
                     return new Message(assembled);
                 }
-                // Intermediate frame: keep reading until the message completes or the device times out.
+                // Intermediate frame: keep reading until the message completes or the wait expires.
             }
 
             return null;

@@ -113,8 +113,8 @@
         <li>Either way, check the Results tab in the main window: it will either print an error message or show some information about the selected device.</li>
     </ol>
 
-    <h4>Read Properties</h4>
-    <p>Reads the VIN, serial number, and other properties from the PCM. You should generally do this before anything else, to confirm that the device can communicate with the PCM.</p>
+    <h4>Identify PCM</h4>
+    <p>Reads the VIN, serial number, and other identification from the PCM. You should generally do this before anything else, to confirm that the device can communicate with the PCM.</p>
 
     <h4>Test Write</h4>
     <p>Simulates the process of updating your PCM's calibration block from a file on your computer, without changing the contents of your PCM. This is useful for verifying the quality of the connection between your computer and your PCM.</p>
@@ -177,7 +177,7 @@
         <dd>
             TunerPro is a generic editing tool: it does not know anything about your PCM or your .bin file.
             It needs a <i>definition file</i> to tell it which bytes of the .bin file control which aspects of the PCM.
-            PCM Hammer reports the operating system ID (OSID) of your PCM once you are set up and click "Read Properties". You can search for that OSID together with "XDF" to see what is available online.
+            PCM Hammer reports the operating system ID (OSID) of your PCM once you are set up and click "Identify PCM". You can search for that OSID together with "XDF" to see what is available online.
             You will need to judge which XDFs are of good quality; the better ones usually come recommended online, or appear in PCMHacking.net posts with lots of downloads and positive comments in the thread.
             Sometimes it is best to change the operating system to a more common, compatible OSID so that you can get extra features or a better XDF.
         </dd>

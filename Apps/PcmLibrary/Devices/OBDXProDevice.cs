@@ -46,6 +46,9 @@ namespace PcmHacking
         /// <summary>CAN ID accepted when receiving (target to tool).</summary>
         public uint RxCanId { get; set; } = CanId.PcmPhysicalResponse;
 
+        /// <summary>No-progress wait the ISO-TP transport applies on the software-ISO-TP path.</summary>
+        public int ReceiveTimeoutMilliseconds => this.GetReceiveTimeout();
+
         // Build-time choice of how CAN ISO-TP is done on this device. Not a UI/runtime setting -
         // flip this one constant and rebuild.
         //   false = NATIVE/hardware ISO-TP: the device firmware reassembles and handles flow control
@@ -151,9 +154,8 @@ namespace PcmHacking
             configuration.Timeout = 1000;
             await this.Port.OpenAsync(configuration);
             System.Threading.Thread.Sleep(200);
-          // await Task.Delay(200);
 
-            ////Reset scantool - ensures starts at ELM protocol
+            //Reset scantool - ensures starts at ELM protocol
             bool Status = await ResetDevice();
             if (Status == false)
             {
@@ -450,10 +452,19 @@ namespace PcmHacking
                     frameToEnqueue = unwrapped;
                 }
 
-                this.Enqueue(new Message(frameToEnqueue, timestampmicro, 0));
-
-                // This can be useful for debugging, but is generally too noisy.
-                // this.Logger.AddDebugMessage("RX: " + frameToEnqueue.ToHex());
+                // Native ISO-TP: report the reassembled CAN payload once, with its id; VPW keeps the
+                // generic "Received:" line. Off-conversation frames (filtered out) are not logged.
+                if (this.CurrentProtocol == BusProtocol.Can500k)
+                {
+                    if (this.Enqueue(new Message(frameToEnqueue, timestampmicro, 0), logReceived: false))
+                    {
+                        this.Logger.AddDebugMessage($"RX: {this.RxCanId:X3} {frameToEnqueue.ToHex()}");
+                    }
+                }
+                else
+                {
+                    this.Enqueue(new Message(frameToEnqueue, timestampmicro, 0));
+                }
                 return Response.Create(ResponseStatus.UnexpectedResponse, (Message)null!);
             }
             else if (receive[0] == 0x7F)
@@ -570,7 +581,7 @@ namespace PcmHacking
         /// <summary>
         /// Convert a Message to an DVI formatted transmit, and send to the interface
         /// </summary>
-        async private Task<Response<Message>> SendDVIPacket(Message message)
+        async private Task<Response<Message>> SendDVIPacket(Message message, bool logTx = true)
         {
             int length = message.GetBytes().Length;
             byte[] RawPacket = message.GetBytes();
@@ -639,12 +650,12 @@ namespace PcmHacking
                 byte[] Val = m.Value.GetBytes();
                 if (Val[0] == 0x20 && Val[2] == 0x00)
                 {
-                    this.Logger.AddDebugMessage("TX: " + message.ToString());
+                    if (logTx) this.Logger.AddDebugMessage("TX: " + message.ToString());
                     return Response.Create(ResponseStatus.Success, message);
                 }
                 else if (Val[0] == 0x21 && Val[2] == 0x00)
                 {
-                    this.Logger.AddDebugMessage("TX: " + message.ToString());
+                    if (logTx) this.Logger.AddDebugMessage("TX: " + message.ToString());
                     return Response.Create(ResponseStatus.Success, message);
                 }
                 else
@@ -708,6 +719,10 @@ namespace PcmHacking
         {
             if (this.CurrentProtocol == BusProtocol.Can500k)
             {
+                // Log the whole payload once, whether the device or IsoTpTransport does the framing.
+                byte[] uds = message.GetBytes();
+                this.Logger.AddDebugMessage($"TX: {this.TxCanId:X3} {uds.ToHex()}");
+
                 if (this.softwareIsoTp)
                 {
                     // Software ISO-TP: the transport segments the payload and calls SendCanFrame per frame.
@@ -715,14 +730,13 @@ namespace PcmHacking
                 }
 
                 // Native ISO-TP: prepend the 4-byte destination CAN ID; the device adds the framing.
-                byte[] uds = message.GetBytes();
                 byte[] withCanId = new byte[4 + uds.Length];
                 withCanId[0] = (byte)(this.TxCanId >> 24);
                 withCanId[1] = (byte)(this.TxCanId >> 16);
                 withCanId[2] = (byte)(this.TxCanId >> 8);
                 withCanId[3] = (byte)this.TxCanId;
                 Buffer.BlockCopy(uds, 0, withCanId, 4, uds.Length);
-                await SendDVIPacket(new Message(withCanId));
+                await SendDVIPacket(new Message(withCanId), logTx: false);
                 return true;
             }
 
@@ -755,8 +769,10 @@ namespace PcmHacking
                         return;
                     }
 
-                    if (this.Enqueue(assembled))
+                    // Report the reassembled payload once; the ISO-TP frames are hidden.
+                    if (this.Enqueue(assembled, logReceived: false))
                     {
+                        this.Logger.AddDebugMessage($"RX: {this.RxCanId:X3} {assembled.GetBytes().ToHex()}");
                         return;
                     }
                 }
@@ -775,7 +791,7 @@ namespace PcmHacking
             withId[2] = (byte)(canId >> 8);
             withId[3] = (byte)canId;
             Buffer.BlockCopy(framePayload, 0, withId, 4, framePayload.Length);
-            await SendDVIPacket(new Message(withId));
+            await SendDVIPacket(new Message(withId), logTx: false);
         }
 
         /// <summary>Read one raw CAN frame (id + data). Returns (0, empty) on a device read timeout.
@@ -1031,7 +1047,7 @@ namespace PcmHacking
                 this.CanIdPrefixLength = 4;
                 this.Supports4X = false;
                 this.CurrentProtocol = BusProtocol.Can500k;
-                this.Logger.AddDebugMessage($"OBDX CAN ready: 500k, tx 0x{this.TxCanId:X3}, rx 0x{this.RxCanId:X3}, {(UseSoftwareIsoTpForCan ? "software ISO-TP (PASS filter)" : "native ISO-15765 (FLOW filter)")}.");
+                this.Logger.AddDebugMessage($"OBDX CAN ready: 500k, tx {this.TxCanId:X3}, rx {this.RxCanId:X3}, {(UseSoftwareIsoTpForCan ? "software ISO-TP (PASS filter)" : "native ISO-15765 (FLOW filter)")}.");
                 return true;
             }
 
@@ -1092,7 +1108,7 @@ namespace PcmHacking
                 byte[] val = response.Value.GetBytes();
                 if (val.Length > 0 && val[0] == 0x44)
                 {
-                    this.Logger.AddDebugMessage($"CAN {type} filter configured (id 0x{rxId:X3}, mask 0x{mask:X3}).");
+                    this.Logger.AddDebugMessage($"CAN {type} filter configured (id {rxId:X3}, mask 0x{mask:X3}).");
                     return true;
                 }
             }

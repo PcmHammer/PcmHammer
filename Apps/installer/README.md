@@ -55,7 +55,7 @@ component selection. To install **only the command-line tool** and then use it:
 .\PCMHammer_1.0.1.0_Setup.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /COMPONENTS="cli" /DIR="C:\pcmhammer"
 
 # Run it (kernels are installed alongside it):
-& "C:\pcmhammer\Cli\pcmhammer-cli.exe" --get-properties --device COM6 --kernel-dir "C:\pcmhammer\Cli"
+& "C:\pcmhammer\Cli\pcmhammer-cli.exe" --identify-pcm --device COM6 --kernel-dir "C:\pcmhammer\Cli"
 ```
 
 Useful switches: `/VERYSILENT`, `/SUPPRESSMSGBOXES`, `/NORESTART`, `/DIR=`, `/LOG=...`,

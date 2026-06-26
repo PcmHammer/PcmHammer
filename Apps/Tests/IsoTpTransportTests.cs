@@ -191,6 +191,7 @@ namespace Tests
         {
             public uint TxCanId { get; }
             public uint RxCanId { get; }
+            public int ReceiveTimeoutMilliseconds => 1000;
             public readonly List<(uint id, byte[] frame)> Sent = new List<(uint id, byte[] frame)>();
             private readonly Queue<(uint id, byte[] frame)> incoming = new Queue<(uint id, byte[] frame)>();
 

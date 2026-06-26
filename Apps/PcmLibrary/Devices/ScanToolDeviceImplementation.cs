@@ -465,7 +465,7 @@ namespace PcmHacking
                 this.MaxReceiveSize = 2048 + 12;
                 this.Supports4X = false;
                 this.CurrentProtocol = BusProtocol.Can500k;
-                this.Logger.AddDebugMessage($"ScanTool CAN ready: ISO 15765 500k, tx 0x{this.TxCanId:X3}, rx 0x{this.RxCanId:X3}, native ISO-TP.");
+                this.Logger.AddDebugMessage($"ScanTool CAN ready: ISO 15765 500k, tx {this.TxCanId:X3}, rx {this.RxCanId:X3}, native ISO-TP.");
                 return true;
             }
 

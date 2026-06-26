@@ -50,7 +50,7 @@ public partial record OtherFunctionsModel
         this.progressLogger = logger;
         this.dispatcherQueue = dispatcherQueue;
 
-        // Loaded="{Binding ReadProperties}"
+        // Loaded="{Binding IdentifyPcm}"
         this.dispatcherQueue.TryEnqueue(async () => {
             await this.MainLoop();
         });
@@ -67,7 +67,7 @@ public partial record OtherFunctionsModel
 
         while (!cancellation.Token.IsCancellationRequested)
         {
-            if (await this.ReadProperties(cancellation.Token))
+            if (await this.IdentifyPcm(cancellation.Token))
             {
                 break;
             }
@@ -77,7 +77,7 @@ public partial record OtherFunctionsModel
     }
 
     [Command]
-    private async Task<bool> ReadProperties(CancellationToken cancellationToken)
+    private async Task<bool> IdentifyPcm(CancellationToken cancellationToken)
     {
         const int delay = 50;
         try
@@ -318,6 +318,6 @@ public partial record OtherFunctionsModel
         }
 
         await this.ResetCodesButtonText.SetAsync(defaultClearCodesButtonText);
-        await this.ReadProperties(CancellationToken.None);
+        await this.IdentifyPcm(CancellationToken.None);
     }
 }

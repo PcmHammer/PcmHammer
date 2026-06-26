@@ -85,11 +85,13 @@ namespace PcmHacking
             await this.vehicle.SetDeviceTimeout(TimeoutScenario.ReadCrc);
 
             logger.AddUserMessage("Requesting CRCs from PCM.");
-            logger.AddUserMessage("\tRange\t\tFile CRC\t\tPCM CRC\tVerdict\tPurpose");
+            logger.AddUserMessage(string.Format("{0,-13}  {1,-10}  {2,-10}  {3,-9}  {4}", "Range", "File CRC", "PCM CRC", "Verdict", "Purpose"));
 
             foreach (MemoryRange range in this.ranges)
             {
-                string formatString = "{0:X6}-{1:X6}\t{2:X8}\t{3:X8}\t{4}\t{5}";
+                // Fixed-width, space-padded columns (no tabs) so the table aligns identically in the
+                // log view and when copied into a text file.
+                string formatString = "{0:X6}-{1:X6}  {2,-10:X8}  {3,-10:X8}  {4,-9}  {5}";
                 string range_type = pcmInfo.IsSupportedWriteBySegment ? range.Type.ToString() : "General";
 
                 if (((range.Type & blockTypes) == 0) || (range.Address >= this.effectiveImageSize))

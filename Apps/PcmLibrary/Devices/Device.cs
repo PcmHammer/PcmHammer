@@ -399,7 +399,12 @@ namespace PcmHacking
         /// Add a received message to the queue, unless an active inbound filter rejects it.
         /// Returns true if the message was queued, false if it was dropped by the filter.
         /// </summary>
-        protected bool Enqueue(Message message)
+        /// <param name="logReceived">
+        /// When true (the default) a "Received:" line is written to the debug stream. CAN devices
+        /// pass false and log their own "RX: &lt;id&gt; &lt;payload&gt;" line instead, so the queued
+        /// payload is reported once, where the CAN id is known.
+        /// </param>
+        protected bool Enqueue(Message message, bool logReceived = true)
         {
             Predicate<Message>? filter = this.inboundFilter;
             if (filter != null && !filter(message))
@@ -412,7 +417,10 @@ namespace PcmHacking
 
             lock (this.queue)
             {
-                this.Logger.AddDebugMessage("Received: " + message.ToString());
+                if (logReceived)
+                {
+                    this.Logger.AddDebugMessage("Received: " + message.ToString());
+                }
                 this.queue.Enqueue(message);
             }
 

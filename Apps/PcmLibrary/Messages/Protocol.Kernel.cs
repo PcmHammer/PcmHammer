@@ -174,7 +174,7 @@ namespace PcmHacking
         }
 
         /// <summary>
-        /// Create a request to ask the kernel whether the IAC (TPIC) driver chip is present.
+        /// Create a request to ask the kernel whether the IAC driver chip is present.
         /// </summary>
         /// <remarks>
         /// Only the P01/P59 kernel implements this. The chip is probed live over the QSPI bus,
@@ -189,7 +189,7 @@ namespace PcmHacking
         /// Parse the kernel's IAC driver chip detection response.
         /// </summary>
         /// <remarks>
-        /// Returns the raw 16-bit QSPI receive word the kernel captured from the TPIC probe
+        /// Returns the raw 16-bit QSPI receive word the kernel captured from the probe
         /// (high byte = responseBytes[6], low byte = responseBytes[7]). The present/absent
         /// decision is made by the caller so the criterion can be tuned without reflashing.
         /// </remarks>

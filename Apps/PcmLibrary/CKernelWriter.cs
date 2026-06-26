@@ -113,7 +113,7 @@ namespace PcmHacking
                         logger.AddUserMessage("Loader uploaded to PCM successfully.");
                     }
 
-                    response = await this.vehicle.LoadKernelFromFile(this.pcmInfo.KernelFileName);
+                    response = await this.vehicle.LoadKernelFromFile(this.pcmInfo.GetKernelFileName(KernelOperation.Write));
                     if (response.Status != ResponseStatus.Success)
                     {
                         logger.AddUserMessage("Failed to load kernel from file.");

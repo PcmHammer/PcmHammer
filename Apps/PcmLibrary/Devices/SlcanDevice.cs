@@ -37,6 +37,13 @@ namespace PcmHacking
         /// <summary>CAN id to accept (module to tool).</summary>
         public uint RxCanId { get; set; } = CanId.PcmPhysicalResponse;
 
+        /// <summary>
+        /// No-progress wait the ISO-TP transport applies. This adapter has no hardware acceptance
+        /// filter, so the transport relies on this to stop reading other modules' traffic once our
+        /// conversation goes silent (e.g. after the module resets).
+        /// </summary>
+        public int ReceiveTimeoutMilliseconds => this.receiveTimeoutMs;
+
         // Software ISO-TP over this device's raw CAN frames, presenting whole payloads like every
         // other device so Query/filtering work unchanged.
         private readonly IsoTpTransport isoTp;
@@ -105,6 +112,8 @@ namespace PcmHacking
                 return false;
             }
 
+            // Log the whole payload once; the individual ISO-TP frames are plumbing.
+            this.Logger.AddDebugMessage($"TX: {this.TxCanId:X3} {message.GetBytes().ToHex()}");
             return await this.isoTp.SendMessage(message);
         }
 
@@ -125,8 +134,10 @@ namespace PcmHacking
                     return;
                 }
 
-                if (this.Enqueue(assembled))
+                // Report the reassembled payload once; the ISO-TP frames are hidden.
+                if (this.Enqueue(assembled, logReceived: false))
                 {
+                    this.Logger.AddDebugMessage($"RX: {this.RxCanId:X3} {assembled.GetBytes().ToHex()}");
                     return;
                 }
             }
@@ -160,7 +171,7 @@ namespace PcmHacking
             await this.Port.DiscardBuffers();
 
             this.canChannelReady = true;
-            this.Logger.AddDebugMessage($"SLCAN CAN ready: 500k, tx 0x{this.TxCanId:X3}, rx 0x{this.RxCanId:X3}, software ISO-TP.");
+            this.Logger.AddDebugMessage($"SLCAN CAN ready: 500k, tx {this.TxCanId:X3}, rx {this.RxCanId:X3}, software ISO-TP.");
             return true;
         }
 
@@ -236,7 +247,6 @@ namespace PcmHacking
                 command.Append(framePayload[i].ToString("X2", CultureInfo.InvariantCulture));
             }
 
-            this.Logger.AddDebugMessage($"TX: 0x{(canId & 0x7FF):X3} {framePayload.ToHex(length)}");
             await this.WriteCommand(command.ToString());
         }
 
@@ -275,13 +285,6 @@ namespace PcmHacking
 
                 if (TryParseFrame(line, out uint id, out byte[] data))
                 {
-                    // Log only frames for our conversation. On a live bus every other module's
-                    // chatter arrives here too, and logging all of it would flood the debug log
-                    // (the ISO-TP layer drops anything that isn't RxCanId anyway).
-                    if (id == this.RxCanId)
-                    {
-                        this.Logger.AddDebugMessage($"RX: 0x{id:X3} {data.ToHex()}");
-                    }
                     return (id, data);
                 }
 

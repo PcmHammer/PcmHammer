@@ -18,11 +18,7 @@ namespace PcmHacking
         /// <summary>Selects the GMLAN security key table.</summary>
         public BusProtocol Bus => BusProtocol.Can500k;
 
-        // Executing-block header: 0x36 0x80 + 4-byte load + 4-byte run. A block's code is capped to
-        // MaxCanKernelBlockSize minus this.
-        private const int ExecChunkHeaderLength = 10;
-
-        // Upper bound on an upload/write block's code size, kept under a small interface's CAN buffer
+        // Upper bound on a write block's code size, kept under a small interface's CAN buffer
         // (e.g. an OBDLink). The boot loader imposes no alignment.
         private const int TransferPageSize = 0x400;
 
@@ -249,17 +245,26 @@ namespace PcmHacking
         // ---- Kernel upload ------------------------------------------------------------------------
 
         /// <summary>
-        /// Enter programming mode and upload the kernel, confirming it runs (0x99). PCM must already be
+        /// Enter programming mode and upload the kernel, confirming it launches. PCM must already be
         /// unlocked. Sequence: 0x28 DisableNormalCommunication (optional), tester present, 0xA5/01
-        /// ProgrammingMode (required), 0xA5/03 (optional), 0x34 RequestDownload for the total framed
-        /// size, then the non-exec (0x36/00) and exec (0x36/80) chunks.
+        /// ProgrammingMode (required), 0xA5/03 (optional), then the 0x34 RequestDownload and 0x36 transfer
+        /// blocks built by the PCM's <see cref="CanKernelUploadProtocol"/> (the boot-loader dialect).
         /// </summary>
         public async Task<bool> UploadKernel(OSIDInfo pcmInfo, byte[] payload, CancellationToken cancellationToken)
         {
+            CanKernelUploadProtocol protocol = CanKernelUploadProtocol.For(pcmInfo.GMLANProtocol);
             uint loadAddress = (uint)pcmInfo.KernelBaseAddress;
             uint runAddress = (uint)pcmInfo.KernelRunAddress;
 
             await this.device.SetTimeout(TimeoutScenario.ReadProperty);
+
+            // ProgrammingSession (0x10 0x02). The factory SPS sequence enters this session before the
+            // upload; it puts the OS's CAN comms in the state the launched kernel expects (so the kernel's
+            // re-armed RX mailbox actually matches). Optional/best-effort: answer is 0x50.
+            await this.MakeQuery(
+                () => this.gmlan.CreateProgrammingSessionRequest(),
+                this.Confirm(b => b[0] == 0x50),
+                cancellationToken, maxTimeouts: 2).Execute();
 
             // Optional: some PCMs answer 0x68/0x60, others reject it; programming mode is tried next regardless.
             await this.MakeQuery(
@@ -269,7 +274,7 @@ namespace PcmHacking
 
             await this.device.SendMessage(this.gmlan.CreateTesterPresentRequest());
 
-            this.logger.AddUserMessage("Requesting programming mode (0xA5/01).");
+            this.logger.AddUserMessage("Requesting programming mode.");
             Response<bool> progMode = await this.MakeQuery(
                 () => this.gmlan.CreateProgrammingModeRequest(),
                 this.Pending(this.gmlan.ParseProgrammingModeResponse),
@@ -286,23 +291,25 @@ namespace PcmHacking
                 this.Pending(this.gmlan.ParseProgrammingModeResponse),
                 cancellationToken, maxTimeouts: 1).Execute();
 
-            List<Message> blocks = this.BuildKernelUploadBlocks(payload, loadAddress, runAddress);
+            CanKernelUpload upload = protocol.BuildUpload(
+                this.gmlan, payload, loadAddress, runAddress, this.device.MaxCanKernelBlockSize);
 
-            // RequestDownload declares the total framed length of every block, not just the code size.
-            int downloadSize = 0;
-            foreach (Message block in blocks)
+            // Total framed bytes actually put on the wire, for progress (distinct from the size the
+            // RequestDownload declares, which is the dialect's business).
+            int bytesToSend = 0;
+            foreach (CanUploadBlock block in upload.Blocks)
             {
-                downloadSize += block.GetBytes().Length;
+                bytesToSend += block.Message.GetBytes().Length;
             }
 
             // Long receive window for the whole download: acks can be preceded by 7F..78 "pending",
-            // and the executing block's 0x99 only comes once the kernel has booted (a few hundred ms).
+            // and the executing block's ack only comes once the kernel has launched (a few hundred ms).
             await this.device.SetTimeout(TimeoutScenario.ReadCrc);
 
             this.logger.AddDebugMessage(string.Format(
-                "RequestDownload for {0} bytes in {1} block(s).", downloadSize, blocks.Count));
+                "RequestDownload, then {0} block(s), {1} bytes.", upload.Blocks.Count, bytesToSend));
             Response<bool> reqDownload = await this.MakeQuery(
-                () => this.gmlan.CreateRequestDownloadRequest(downloadSize),
+                () => upload.RequestDownload,
                 this.Pending(this.gmlan.ParseRequestDownloadResponse),
                 cancellationToken, maxTimeouts: 5).Execute();
             if (reqDownload.Status != ResponseStatus.Success)
@@ -311,89 +318,65 @@ namespace PcmHacking
                 return false;
             }
 
-            // Blocks in order; the last is the executing (0x36/80) block. Copy acks 0x76, exec acks 0x99.
+            // Blocks in send order; the last is the executing block. Copies are acked 0x76; the executing
+            // block's ack is the boot loader's dialect.
             string kernelOrLoader = pcmInfo.LoaderRequired ? "Loader" : "Kernel";
             int sent = 0;
-            for (int index = 0; index < blocks.Count; index++)
+            for (int index = 0; index < upload.Blocks.Count; index++)
             {
-                bool isExec = index == blocks.Count - 1;
-                Message block = blocks[index];
+                CanUploadBlock block = upload.Blocks[index];
+                bool isExec = block.IsExecuting;
                 this.logger.AddDebugMessage(string.Format(
                     "Uploading block {0}/{1} ({2} bytes, {3}).",
-                    index + 1, blocks.Count, block.GetBytes().Length, isExec ? "execute" : "copy"));
+                    index + 1, upload.Blocks.Count, block.Message.GetBytes().Length, isExec ? "execute" : "copy"));
 
                 Response<bool> ack = await this.MakeQuery(
-                    () => block,
-                    m => this.gmlan.IsChunkAck(m, isExec) ? Response.Create(ResponseStatus.Success, true) : Response.Create(ResponseStatus.UnexpectedResponse, false),
+                    () => block.Message,
+                    m => this.IsBlockAck(m, protocol, isExec) ? Response.Create(ResponseStatus.Success, true) : Response.Create(ResponseStatus.UnexpectedResponse, false),
                     cancellationToken, maxTimeouts: isExec ? 8 : 5).Execute();
                 if (ack.Status != ResponseStatus.Success)
                 {
-                    this.logger.AddUserMessage(string.Format(
-                        "Block {0}/{1} not acknowledged ({2}).",
-                        index + 1, blocks.Count, isExec ? "0x99 kernel-running ack" : "0x76 copy ack"));
-                    return false;
+                    // The kernel announces its launch with a single frame that can be lost in the boot
+                    // transient (it re-inits the CAN controller just before sending it). Before failing
+                    // the upload, probe the kernel directly - if it answers, it is running and we only
+                    // missed the announce. Copy-block acks are not subject to this, so they fail hard.
+                    if (isExec && await this.KernelRespondsToProbe(cancellationToken))
+                    {
+                        this.logger.AddDebugMessage("Launch announce missed; kernel answered a probe, treating as running.");
+                    }
+                    else
+                    {
+                        this.logger.AddUserMessage(string.Format(
+                            "Block {0}/{1} not acknowledged ({2}).",
+                            index + 1, upload.Blocks.Count, isExec ? "kernel-launch ack" : "0x76 copy ack"));
+                        return false;
+                    }
                 }
 
-                sent += block.GetBytes().Length;
-                int percentDone = downloadSize > 0 ? (sent * 100) / downloadSize : 100;
+                sent += block.Message.GetBytes().Length;
+                int percentDone = bytesToSend > 0 ? (sent * 100) / bytesToSend : 100;
                 this.logger.AddUserMessage(string.Format("{0} upload {1}% complete.", kernelOrLoader, percentDone));
             }
 
-            this.logger.AddDebugMessage("Kernel is running (0x99 ACK received).");
+            this.logger.AddDebugMessage("Kernel is running.");
             return true;
         }
 
-        /// <summary>
-        /// Split the kernel into GMLAN transfer blocks in send order: non-executing copies (0x36/00)
-        /// highest address first, then the offset-0 entry block last as the executing block (0x36/80),
-        /// so the kernel starts only once the whole image is in RAM. Block size follows the device's
-        /// CAN capacity, so a small interface just uses more blocks.
-        /// </summary>
-        private List<Message> BuildKernelUploadBlocks(byte[] payload, uint loadAddress, uint runAddress)
+        // Copy blocks are acked 0x76; the executing block's ack is the boot loader's dialect.
+        private bool IsBlockAck(Message message, CanKernelUploadProtocol protocol, bool isExec)
         {
-            int blockSize = this.device.MaxCanKernelBlockSize - ExecChunkHeaderLength;
-            if (blockSize < 1)
-            {
-                blockSize = 1; // defensive; never happens with a real interface
-            }
-
-            int chunkCount = payload.Length / blockSize;
-            int remainder = payload.Length % blockSize;
-
-            List<Message> blocks = new List<Message>();
-
-            // Tail bytes at the highest offset. (If the whole payload fits one block, offset is 0 and
-            // this becomes the executing block.)
-            int offset = chunkCount * blockSize;
-            if (remainder > 0)
-            {
-                blocks.Add(this.CreateUploadBlock(payload, offset, remainder, loadAddress, runAddress));
-            }
-
-            // Full blocks, highest offset down to 0; the offset-0 block is the executing one.
-            for (int chunkIndex = chunkCount; chunkIndex > 0; chunkIndex--)
-            {
-                offset = (chunkIndex - 1) * blockSize;
-                blocks.Add(this.CreateUploadBlock(payload, offset, blockSize, loadAddress, runAddress));
-            }
-
-            return blocks;
+            byte[] bytes = message?.GetBytes() ?? Array.Empty<byte>();
+            return isExec
+                ? protocol.IsExecutingBlockAck(bytes)
+                : (bytes.Length > 0 && bytes[0] == Gmlan.NonExecChunkAck);
         }
 
-        /// <summary>
-        /// Build one upload block: executing (0x36/80, jumps to runAddress) at offset 0, else a copy
-        /// (0x36/00). The boot loader writes an executing block as [run-address(4)][code] at the load
-        /// address and jumps to *(loadAddress), so the image lands at loadAddress+4. Copy blocks must
-        /// therefore target loadAddress + 4 + offset or they land 4 bytes low and corrupt the seam.
-        /// </summary>
-        private Message CreateUploadBlock(byte[] payload, int offset, int length, uint loadAddress, uint runAddress)
+        // Confirm the kernel is actually running when its launch announce was missed: a running kernel
+        // answers the version query (mode 0x3D 0x00); the stock boot loader does not.
+        private async Task<bool> KernelRespondsToProbe(CancellationToken cancellationToken)
         {
-            byte[] code = new byte[length];
-            Buffer.BlockCopy(payload, offset, code, 0, length);
-
-            return offset == 0
-                ? this.gmlan.CreateExecChunkMessage(code, loadAddress, runAddress)
-                : this.gmlan.CreateNonExecChunkMessage(code, loadAddress + (uint)offset + 4);
+            Response<uint> version = await this.GetKernelVersion(cancellationToken);
+            return version.Status == ResponseStatus.Success;
         }
 
         // ---- Post-kernel memory read --------------------------------------------------------------
@@ -402,13 +385,13 @@ namespace PcmHacking
         /// Read one KernelBlockSize (0x400) block: send 0x35, kernel acks 0x75 then streams the 0x36
         /// data block. The inbound filter drops the 0x75 ack so the parser only sees the data block.
         /// </summary>
-        public async Task<Response<byte[]>> ReadMemoryBlock(uint address, CancellationToken cancellationToken)
+        public async Task<Response<byte[]>> ReadMemoryBlock(uint address, int length, CancellationToken cancellationToken)
         {
             await this.device.SetTimeout(TimeoutScenario.ReadMemoryBlock);
             Query<byte[]> query = new Query<byte[]>(
                 this.device,
-                () => this.gmlan.CreateMemoryReadRequest(address),
-                this.gmlan.ParseMemoryBlock,
+                () => this.gmlan.CreateMemoryReadRequest(address, length),
+                m => this.gmlan.ParseMemoryBlock(m, length),
                 this.logger, cancellationToken, notifier: null,
                 acceptInbound: _ => (m =>
                 {

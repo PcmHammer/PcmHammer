@@ -97,7 +97,7 @@ namespace PcmHacking
                 }
 
                 // execute read kernel
-                response = await vehicle.LoadKernelFromFile(this.pcmInfo.KernelFileName);
+                response = await vehicle.LoadKernelFromFile(this.pcmInfo.GetKernelFileName(KernelOperation.Read));
                 if (response.Status != ResponseStatus.Success)
                 {
                     logger.AddUserMessage("Failed to load kernel from file.");
