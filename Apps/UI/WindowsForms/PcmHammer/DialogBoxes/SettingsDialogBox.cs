@@ -13,8 +13,11 @@ namespace PcmHacking.DialogBoxes
 {
     public partial class SettingsDialogBox : Form
     {
-        public SettingsDialogBox()
+        private readonly ILogger logger;
+
+        public SettingsDialogBox(ILogger logger)
         {
+            this.logger = logger;
             InitializeComponent();
         }
 
@@ -36,6 +39,11 @@ namespace PcmHacking.DialogBoxes
             saveDebugLogOnExitCheckBox.Checked = Configuration.Settings.SaveDebugLogOnExit;
             mainWindowPersistenceCheckBox.Checked = Configuration.Settings.MainWindowPersistence;
             useLogSaveAsDialogCheckBox.Checked = Configuration.Settings.UseLogSaveAsDialog;
+
+            // Cross flashing and force-write-all are runtime-only flags: they are never saved and
+            // always start cleared on launch. Reflect their current in-memory values without enabling Apply.
+            allowCrossFlashingCheckBox.Checked = RuntimeSettings.AllowCrossFlashing;
+            forceWriteAllSectorsCheckBox.Checked = RuntimeSettings.ForceWriteAllSectors;
             applyButton.Enabled = false;
         }
 
@@ -147,6 +155,50 @@ namespace PcmHacking.DialogBoxes
         private void useLogSaveAsDialogCheckBox_CheckedChanged(object sender, EventArgs e)
         {
             applyButton.Enabled = true;
+        }
+
+        private void allowCrossFlashingCheckBox_CheckedChanged(object sender, EventArgs e)
+        {
+            // This flag is runtime-only and applies immediately, so it deliberately does NOT
+            // enable Apply or get written by SaveSettings. It resets to cleared on next launch.
+            if (allowCrossFlashingCheckBox.Checked)
+            {
+                DialogResult choice = MessageBox.Show(
+                    this,
+                    "This setting disables cross flash protection. It allows you to brick your pcm with an incompatible file. For advanced recovery and developer use only. Continue?",
+                    "Brick Risk",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Warning,
+                    MessageBoxDefaultButton.Button2);
+
+                if (choice != DialogResult.Yes)
+                {
+                    // Revert; this re-enters and falls through to set the flag false.
+                    allowCrossFlashingCheckBox.Checked = false;
+                    return;
+                }
+
+                this.logger.AddUserMessage("##########################################################");
+                this.logger.AddUserMessage("# User accepts risk and disabled cross flash protection. #");
+                this.logger.AddUserMessage("#         Incompatible files can now be written.         #");
+                this.logger.AddUserMessage("#       You can now brick your PCM with this tool.       #");
+                this.logger.AddUserMessage("#      Exit the program to restore normal operation.     #");
+                this.logger.AddUserMessage("##########################################################");
+            }
+
+            RuntimeSettings.AllowCrossFlashing = allowCrossFlashingCheckBox.Checked;
+        }
+
+        private void forceWriteAllSectorsCheckBox_CheckedChanged(object sender, EventArgs e)
+        {
+            // Runtime-only flag, applies immediately and resets to cleared on next launch, so it
+            // deliberately does NOT enable Apply or get written by SaveSettings.
+            RuntimeSettings.ForceWriteAllSectors = forceWriteAllSectorsCheckBox.Checked;
+
+            if (forceWriteAllSectorsCheckBox.Checked)
+            {
+                this.logger.AddUserMessage("Force write all flash sectors enabled.");
+            }
         }
     }
 }

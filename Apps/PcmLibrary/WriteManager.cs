@@ -224,12 +224,18 @@ namespace PcmHacking
                 // declared PCM type, so we verify the file's own content matches it - we do NOT query
                 // the PCM for an OSID here.
                 PcmType fileType = validator.DetectFileType();
-                if (fileType != forcedPcmType)
+                if (fileType != forcedPcmType && !RuntimeSettings.AllowCrossFlashing)
                 {
                     string msg = $"Abort: this file is for a {fileType} PCM, but {forcedPcmType} was selected.";
                     logger.AddUserMessage(msg);
                     await this.alert(msg, "Abort");
                     return false;
+                }
+                if (fileType != forcedPcmType && RuntimeSettings.AllowCrossFlashing)
+                {
+                    // Cross flashing override: the user has accepted the brick risk. Advanced
+                    // recovery / developer use only (e.g. recovering a P05c BDM-flashed with a P05b bin).
+                    logger.AddUserMessage($"Cross flashing enabled: writing a {fileType} file as {forcedPcmType}.");
                 }
 
                 // A forced CAN PCM (e.g. E38) is written by the CAN path, not the VPW flow below.

@@ -150,8 +150,15 @@ namespace PcmHacking
             {
                 if (actual[index] != expected[index])
                 {
-                    // This is how we indicate that the response contained garbage.
-                    status = ResponseStatus.UnexpectedResponse;
+                    // A negative response (0x7F at the mode byte) is the PCM definitively refusing
+                    // THIS request - e.g. a property a P05 doesn't support. The inbound filter
+                    // (MessageFilters.RepliesFrom) already guarantees only replies addressed to us from
+                    // the module we queried reach here, so there is nothing to "read past": surface it
+                    // as Error so the query fails fast instead of retrying until it times out (~15 s a
+                    // query). Any other mismatch is treated as noise to read past, as before.
+                    status = (actual.Length > 3 && actual[3] == Mode.NegativeResponse)
+                        ? ResponseStatus.Error
+                        : ResponseStatus.UnexpectedResponse;
                     return false;
                 }
             }

@@ -183,6 +183,16 @@ namespace PcmHacking
                 return true;
             }
 
+            // Cross flashing override: the user has accepted the brick risk, so allow writing a file
+            // that does not match the connected PCM (e.g. recovering a P05c that was BDM-flashed with
+            // a P05b bin). Advanced recovery / developer use only.
+            if (RuntimeSettings.AllowCrossFlashing)
+            {
+                logger.AddUserMessage(
+                    $"Cross flashing enabled: writing a {fileInfo.HardwareType} file to a {pcmInfo.HardwareType} PCM.");
+                return true;
+            }
+
             logger.AddUserMessage(
                 $"Hardware mismatch: the file is for a {fileInfo.HardwareType} but the connected PCM is a {pcmInfo.HardwareType}. They are not compatible.");
             return false;

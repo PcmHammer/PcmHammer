@@ -422,18 +422,14 @@ namespace PcmHacking
                     this.IsSupportedWrite = true;
                     this.IsSupportedWriteSlaveCPU = false;
                     this.IsSupportedWriteBySegment = false;
-                    this.IsSupportedWriteBootSector = false;
+                    this.IsSupportedWriteBootSector = true; // tested on bench, boot sector write successful.
                     this.IsUnderDevelopment = true;
                     this.BusProtocol = BusProtocol.Can500k;
                     this.GMLANProtocol = GMLANProtocol.P05c;
                     this.LoaderRequired = false;
                     this.KernelFileName = "Kernel-P05c-read.bin";       // read / verify
                     this.WriteKernelFileName = "Kernel-P05c-write.bin"; // write / test-write
-                    // The boot programming handler only launches at the EXACT factory address 0xFF61AE
-                    // (bench: it acks the copy write but silently rejects execute at 0xFF6000 and even
-                    // 0xFF61B0). The kernel is linked at exactly 0xFF61AE (its first instruction is
-                    // the entry), so it is loaded and executed here with no offset.
-                    this.KernelBaseAddress = 0xFF61AE;
+                    this.KernelBaseAddress = 0xFF61AE; // must be this load address
                     this.KernelRunAddress = 0xFF61AE;
                     this.ImageBaseAddress = 0x0;
                     this.ImageSize = 1024 * 1024;

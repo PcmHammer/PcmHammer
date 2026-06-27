@@ -809,7 +809,7 @@ namespace PcmHacking
         /// </summary>
         private void settingsToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            using (DialogBoxes.SettingsDialogBox settingsDialog = new DialogBoxes.SettingsDialogBox())
+            using (DialogBoxes.SettingsDialogBox settingsDialog = new DialogBoxes.SettingsDialogBox(this))
             {
                 DialogResult dialogResult = settingsDialog.ShowDialog();
             }

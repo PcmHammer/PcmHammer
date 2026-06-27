@@ -24,6 +24,10 @@ namespace PcmHacking
         // How much of the flash chip we will verify and (re)write. Set once the chip is identified.
         private UInt32 effectiveImageSize;
 
+        // True while a "Force write all flash sectors" pass is owed; cleared after it runs once,
+        // so later retries rewrite only what still differs.
+        private bool forceWriteAllSectorsPending;
+
         // Reported throughput is the block round-trip rate: bytes moved / time spent in block transfers
         // only, so erase, verify, and idle time don't distort the figure.
         private readonly System.Diagnostics.Stopwatch blockTransferTimer = new System.Diagnostics.Stopwatch();
@@ -207,6 +211,8 @@ namespace PcmHacking
             this.effectiveImageSize = flashChip.Size;
             uint baseAddress = (uint)this.pcmInfo.ImageBaseAddress;
 
+            this.forceWriteAllSectorsPending = RuntimeSettings.ForceWriteAllSectors;
+
             bool allRangesMatch = false;
             int messageRetryCount = 0;
             for (int attempt = 1; attempt <= 5; attempt++)
@@ -243,7 +249,7 @@ namespace PcmHacking
                             logger.AddUserMessage("Beginning test.");
                         }
                     }
-                    else
+                    else if (!this.forceWriteAllSectorsPending)
                     {
                         logger.AddUserMessage("All relevant ranges are identical.");
                         if (attempt > 1)
@@ -353,6 +359,9 @@ namespace PcmHacking
                         bytesRemaining -= range.Size;
                     }
                 }
+
+                // The forced full-write pass, if any, is now done.
+                this.forceWriteAllSectorsPending = false;
             }
 
             if (allRangesMatch)
@@ -531,7 +540,24 @@ namespace PcmHacking
 
         private bool ShouldProcess(MemoryRange range, BlockType relevantBlocks)
         {
-            return ShouldProcessRange(range, relevantBlocks, this.writeType, this.effectiveImageSize);
+            // A forced full-write pass includes every in-scope sector regardless of CRC. Otherwise
+            // defer to the normal rule, which skips sectors whose on-device CRC already matches.
+            if (!this.forceWriteAllSectorsPending)
+            {
+                return ShouldProcessRange(range, relevantBlocks, this.writeType, this.effectiveImageSize);
+            }
+
+            if (range.Address >= this.effectiveImageSize)
+            {
+                return false;
+            }
+
+            if ((range.Type & relevantBlocks) == 0)
+            {
+                return false;
+            }
+
+            return true;
         }
 
         /// <summary>
