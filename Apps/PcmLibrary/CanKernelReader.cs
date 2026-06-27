@@ -40,10 +40,11 @@ namespace PcmHacking
             {
                 this.vehicle.ClearDeviceMessageQueue();
 
-                Response<byte[]> kernel = await this.vehicle.LoadKernelFromFile(this.pcmInfo.KernelFileName);
+                string kernelFile = this.pcmInfo.GetKernelFileName(KernelOperation.Read);
+                Response<byte[]> kernel = await this.vehicle.LoadKernelFromFile(kernelFile);
                 if (kernel.Status != ResponseStatus.Success)
                 {
-                    this.logger.AddUserMessage("Failed to load CAN read kernel: " + this.pcmInfo.KernelFileName);
+                    this.logger.AddUserMessage("Failed to load CAN read kernel: " + kernelFile);
                     return Response.Create(kernel.Status, (Stream)null!);
                 }
 
@@ -111,7 +112,10 @@ namespace PcmHacking
 
                 this.logger.AddUserMessage("Reading " + (imageSize / 1024) + " KiB...");
 
-                int blockSize = Gmlan.KernelBlockSize;
+                // P05c: 256-byte blocks read the full 1MB reliably. Larger blocks (e.g. 1024)
+                // monopolise the CPU ~57ms per block and still occasionally wedge MB13 reception
+                // unrecoverably even with the register-clobber fix, so keep 256 for stability.
+                int blockSize = this.pcmInfo.HardwareType == PcmType.P05c ? 256 : Gmlan.KernelBlockSize;
                 byte[] image = new byte[imageSize];
                 DateTime startTime = DateTime.Now;
                 this.blockTransferTimer.Reset();
@@ -142,7 +146,7 @@ namespace PcmHacking
                         this.blockTransferTimer.Start();
                         try
                         {
-                            blockResponse = await this.commands.ReadMemoryBlock(address, cancellationToken);
+                            blockResponse = await this.commands.ReadMemoryBlock(address, thisBlock, cancellationToken);
                         }
                         catch (Exception blockEx)
                         {
@@ -185,13 +189,18 @@ namespace PcmHacking
                 this.logger.AddUserMessage("Read complete.");
                 this.logger.AddUserMessage("Elapsed time " + DateTime.Now.Subtract(startTime));
 
-                // Per-segment Sum and CVN. A bad sum means a corrupt image; a bad CVN is only a warning.
-                FileValidator.SumCvnVerdict verdict = new FileValidator(image, this.logger).ValidateSumAndCvn();
+                // Validate the read image using the checks appropriate to its PCM type (E38 ->
+                // 2MB Sum/CVN tables; P05c -> 1MB parameter-block checksums; etc.). IdentifyAndValidate
+                // identifies the type and dispatches, so this is not hard-coded to E38/2MB.
+                FileValidator validator = new FileValidator(image, this.logger);
+                bool valid = validator.IdentifyAndValidate();
+                if (valid)
+                {
+                    this.logger.AddUserMessage("File operating system ID: " + validator.GetOsidFromImage());
+                }
 
-                // A bad sum makes this a bad read (caller saves it as *_badread); a CVN warning is non-fatal.
-                ResponseStatus status = verdict == FileValidator.SumCvnVerdict.SumError
-                    ? ResponseStatus.Unverified
-                    : ResponseStatus.Success;
+                // A failed validation makes this a bad read (caller saves it as *_badread).
+                ResponseStatus status = valid ? ResponseStatus.Success : ResponseStatus.Unverified;
 
                 return Response.Create(status, (Stream)new MemoryStream(image));
             }

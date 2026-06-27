@@ -11,8 +11,8 @@ namespace PcmHacking
     ///   - Service 0x1A (ReadDataByIdentifier) instead of 0x22; positive response 0x5A.
     ///   - 0xA5 ProgrammingMode service before RequestDownload (positive response 0xE5).
     ///   - RequestDownload (0x34) carries a 3-byte size, not 4.
-    ///   - Custom TransferData (0x36 0x00/0x80) with explicit load/run addresses, not the standard
-    ///     block-counter form. The executing chunk is acked with 0x99 (kernel running), not 0x76/0x77.
+    ///   - Custom TransferData (0x36 0x00/0x80) with explicit addresses, not the standard block-counter
+    ///     form.
     ///   - Kernel memory read uses 0x35 (tool->PCM, acked 0x75) / 0x36 (PCM->tool data).
     ///   - Kernel queries reuse OBD2 mode 0x3D (response 0x7D).
     /// </summary>
@@ -41,6 +41,13 @@ namespace PcmHacking
 
         /// <summary>DID 0xC9: operating system id (OSID), returned as a big-endian uint32.</summary>
         public const byte OperatingSystemDid = 0xC9;
+
+        /// <summary>
+        /// DIDs probed for the OSID during CAN detection, in order; the first that answers is taken as
+        /// the OSID. E-series modules carry it at 0xC9. P05c does not answer 0xC9 and exposes its OS
+        /// segment part number at 0xC1 (Module 1) instead.
+        /// </summary>
+        public static readonly byte[] OperatingSystemDids = { OperatingSystemDid, 0xC1 };
 
         /// <summary>Fixed kernel memory-read block size (bytes the kernel returns per 0x35 request).</summary>
         public const int KernelBlockSize = 0x400;
@@ -120,15 +127,21 @@ namespace PcmHacking
 
         // ---- RequestDownload (0x34) ---------------------------------------------------------------
 
-        /// <summary>GM CAN PCM RequestDownload: 0x34 0x00 [size 3 bytes big-endian].</summary>
-        public Message CreateRequestDownloadRequest(int totalBytes)
-            => new Message(new byte[]
+        /// <summary>
+        /// GM CAN PCM RequestDownload: 0x34 0x00 [size, big-endian]. The size width is the boot loader's
+        /// dialect - 3 bytes on E38, 2 bytes on P05c - so it is supplied by the caller.
+        /// </summary>
+        public Message CreateRequestDownloadRequest(int totalBytes, int sizeBytes = 3)
+        {
+            byte[] msg = new byte[2 + sizeBytes];
+            msg[0] = 0x34;
+            msg[1] = 0x00;
+            for (int i = 0; i < sizeBytes; i++)
             {
-                0x34, 0x00,
-                (byte)((totalBytes >> 16) & 0xFF),
-                (byte)((totalBytes >> 8) & 0xFF),
-                (byte)(totalBytes & 0xFF),
-            });
+                msg[2 + i] = (byte)((totalBytes >> (8 * (sizeBytes - 1 - i))) & 0xFF);
+            }
+            return new Message(msg);
+        }
 
         public Response<bool> ParseRequestDownloadResponse(Message message)
         {
@@ -175,6 +188,20 @@ namespace PcmHacking
             return new Message(msg);
         }
 
+        /// <summary>
+        /// Bare execute frame: 0x36 0x80 [address 4 bytes], with no run-address and no code. The boot
+        /// loader jumps to the address once the whole image is already in RAM (P05c-style). Acked 0x76.
+        /// </summary>
+        public Message CreateExecuteMessage(uint address)
+            => new Message(new byte[]
+            {
+                0x36, 0x80,
+                (byte)(address >> 24),
+                (byte)(address >> 16),
+                (byte)(address >> 8),
+                (byte)address,
+            });
+
         public bool IsChunkAck(Message message, bool isExec)
         {
             byte[] bytes = GetBytes(message);
@@ -185,14 +212,16 @@ namespace PcmHacking
         // ---- Kernel memory-read protocol (0x35 / 0x36) --------------------------------------------
 
         /// <summary>
-        /// Ask the running kernel to read KernelBlockSize (0x400) bytes starting at <paramref name="address"/>.
-        /// Format: 0x35 0x00 0x04 0x00 [addr_hi] [addr_mid] [addr_lo].
+        /// Ask the running kernel to read <paramref name="length"/> bytes starting at <paramref name="address"/>.
+        /// Format: 0x35 [len_hi] [len_mid] [len_lo] [addr_hi] [addr_mid] [addr_lo].
         /// </summary>
-        public Message CreateMemoryReadRequest(uint address)
+        public Message CreateMemoryReadRequest(uint address, int length = KernelBlockSize)
             => new Message(new byte[]
             {
-                0x35, 0x00,
-                0x04, 0x00,
+                0x35,
+                (byte)(length >> 16),
+                (byte)(length >> 8),
+                (byte)length,
                 (byte)(address >> 16),
                 (byte)(address >> 8),
                 (byte)address,
@@ -207,17 +236,17 @@ namespace PcmHacking
         /// <summary>
         /// Parse a 0x36 kernel memory block response: 0x36 0x00 [addr 3 bytes] [0x400 bytes data].
         /// </summary>
-        public Response<byte[]> ParseMemoryBlock(Message message)
+        public Response<byte[]> ParseMemoryBlock(Message message, int length = KernelBlockSize)
         {
             const int headerLen = 5; // 36 00 addr[3]
             byte[] bytes = GetBytes(message);
-            if (bytes.Length < headerLen + KernelBlockSize)
+            if (bytes.Length < headerLen + length)
                 return Response.Create(ResponseStatus.Error, Array.Empty<byte>());
             if (bytes[0] != MemoryBlockResponse || bytes[1] != 0x00)
                 return Response.Create(ResponseStatus.Refused, Array.Empty<byte>());
 
-            byte[] data = new byte[KernelBlockSize];
-            Buffer.BlockCopy(bytes, headerLen, data, 0, KernelBlockSize);
+            byte[] data = new byte[length];
+            Buffer.BlockCopy(bytes, headerLen, data, 0, length);
             return Response.Create(ResponseStatus.Success, data);
         }
 
@@ -277,10 +306,10 @@ namespace PcmHacking
         {
             byte[] bytes = GetBytes(message);
 
-            // Negative response aborts, except pending (7F .. 78): keep reading for the real answer.
+            // Negative response aborts. Response-pending (7F..78) keepalives are handled generically
+            // in Device.ReceiveMessage and never reach here.
             if (bytes.Length >= 1 && bytes[0] == NegativeResponse)
             {
-                if (bytes.Length >= 3 && bytes[2] == 0x78) return Response.Create(ResponseStatus.UnexpectedResponse, 0u);
                 return Response.Create(ResponseStatus.Error, 0u);
             }
 
@@ -312,8 +341,9 @@ namespace PcmHacking
         public Response<byte> ParseFlashEraseResponse(Message message)
         {
             byte[] bytes = GetBytes(message);
-            if (bytes.Length >= 3 && bytes[0] == NegativeResponse && bytes[1] == 0x3D && bytes[2] == 0x78)
-                return Response.Create(ResponseStatus.UnexpectedResponse, (byte)0xFF); // response pending
+            // The kernel's erase keepalive (7F 36 78, a response-pending against its flash primitive's
+            // 0x36 service) is handled generically in Device.ReceiveMessage and never reaches here, so
+            // any 7F seen here is a real erase failure.
             if (bytes.Length < 3 || bytes[0] != Mode3DResponse || bytes[1] != 0x05)
             {
                 if (bytes.Length >= 1 && bytes[0] == NegativeResponse) return Response.Create(ResponseStatus.Error, (byte)0xFF);
@@ -348,12 +378,11 @@ namespace PcmHacking
             return new Message(msg);
         }
 
-        /// <summary>Parse a write-block response: 0x76 = success, 0x7F 0x36 nrc = failure/pending.</summary>
+        /// <summary>Parse a write-block response: 0x76 = success, 0x7F = failure. (Response-pending
+        /// 7F..78 keepalives are handled generically in Device.ReceiveMessage.)</summary>
         public Response<bool> ParseWriteBlockResponse(Message message)
         {
             byte[] bytes = GetBytes(message);
-            if (bytes.Length >= 3 && bytes[0] == NegativeResponse && bytes[1] == MemoryBlockResponse && bytes[2] == 0x78)
-                return Response.Create(ResponseStatus.UnexpectedResponse, false); // response pending
             if (bytes.Length >= 1 && bytes[0] == NonExecChunkAck) // 0x76
                 return Response.Create(ResponseStatus.Success, true);
             if (bytes.Length >= 1 && bytes[0] == NegativeResponse)

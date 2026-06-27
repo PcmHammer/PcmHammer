@@ -24,6 +24,10 @@ namespace PcmHacking
         // How much of the flash chip we will verify and (re)write. Set once the chip is identified.
         private UInt32 effectiveImageSize;
 
+        // True while a "Force write all flash sectors" pass is owed; cleared after it runs once,
+        // so later retries rewrite only what still differs.
+        private bool forceWriteAllSectorsPending;
+
         // Reported throughput is the block round-trip rate: bytes moved / time spent in block transfers
         // only, so erase, verify, and idle time don't distort the figure.
         private readonly System.Diagnostics.Stopwatch blockTransferTimer = new System.Diagnostics.Stopwatch();
@@ -50,10 +54,16 @@ namespace PcmHacking
             {
                 this.vehicle.ClearDeviceMessageQueue();
 
-                Response<byte[]> kernel = await this.vehicle.LoadKernelFromFile(this.pcmInfo.KernelFileName);
+                // Compare (verify) only needs the CRC, which lives in the read kernel; an actual
+                // write/test-write needs the write kernel. Most PCMs define one kernel for both.
+                KernelOperation kernelOp = this.writeType == WriteType.Compare
+                    ? KernelOperation.Read
+                    : KernelOperation.Write;
+                string kernelFile = this.pcmInfo.GetKernelFileName(kernelOp);
+                Response<byte[]> kernel = await this.vehicle.LoadKernelFromFile(kernelFile);
                 if (kernel.Status != ResponseStatus.Success)
                 {
-                    this.logger.AddUserMessage("Failed to load CAN write kernel: " + this.pcmInfo.KernelFileName);
+                    this.logger.AddUserMessage("Failed to load CAN write kernel: " + kernelFile);
                     return false;
                 }
 
@@ -201,6 +211,8 @@ namespace PcmHacking
             this.effectiveImageSize = flashChip.Size;
             uint baseAddress = (uint)this.pcmInfo.ImageBaseAddress;
 
+            this.forceWriteAllSectorsPending = RuntimeSettings.ForceWriteAllSectors;
+
             bool allRangesMatch = false;
             int messageRetryCount = 0;
             for (int attempt = 1; attempt <= 5; attempt++)
@@ -237,7 +249,7 @@ namespace PcmHacking
                             logger.AddUserMessage("Beginning test.");
                         }
                     }
-                    else
+                    else if (!this.forceWriteAllSectorsPending)
                     {
                         logger.AddUserMessage("All relevant ranges are identical.");
                         if (attempt > 1)
@@ -262,6 +274,15 @@ namespace PcmHacking
                     logger.AddUserMessage("Note that mismatched Parameter blocks are to be expected.");
                     logger.AddUserMessage("Parameter data can change every time the PCM is used.");
                     return true;
+                }
+
+                // Preflight policy gate: block before any erase/write if this PCM does not allow
+                // boot-sector writes and the plan would write boot.
+                if (!this.IsWritePlanAllowedByPcmInfo(flashChip, relevantBlocks))
+                {
+                    logger.AddUserMessage("Boot sector write is required for this operation.");
+                    logger.AddUserMessage($"Abort: The {this.pcmInfo.HardwareType} boot sector is write protected. This PCM is not compatible with this file.");
+                    return false;
                 }
 
                 // Erase and rewrite the required memory ranges.
@@ -338,6 +359,9 @@ namespace PcmHacking
                         bytesRemaining -= range.Size;
                     }
                 }
+
+                // The forced full-write pass, if any, is now done.
+                this.forceWriteAllSectorsPending = false;
             }
 
             if (allRangesMatch)
@@ -387,12 +411,14 @@ namespace PcmHacking
         {
             bool allMatch = true;
 
-            // One tab-separated row per range. Ranges not in this operation, or past the image, show
-            // "not needed". Purpose is the block type, or "General" when write-by-segment isn't supported.
-            const string formatString = "{0:X6}-{1:X6}\t{2:X8}\t{3:X8}\t{4}\t{5}";
+            // One fixed-width, space-padded row per range (no tabs) so the table aligns identically in
+            // the log view and when copied into a text file. Ranges not in this operation, or past the
+            // image, show "not needed". Purpose is the block type, or "General" when write-by-segment
+            // isn't supported.
+            const string formatString = "{0:X6}-{1:X6}  {2,-10:X8}  {3,-10:X8}  {4,-9}  {5}";
             this.logger.AddUserMessage("Calculating CRCs from file.");
             this.logger.AddUserMessage("Requesting CRCs from PCM.");
-            this.logger.AddUserMessage("\tRange\t\tFile CRC\t\tPCM CRC\tVerdict\tPurpose");
+            this.logger.AddUserMessage(string.Format("{0,-13}  {1,-10}  {2,-10}  {3,-9}  {4}", "Range", "File CRC", "PCM CRC", "Verdict", "Purpose"));
 
             foreach (MemoryRange range in flashChip.MemoryRanges)
             {
@@ -457,14 +483,99 @@ namespace PcmHacking
             return result;
         }
 
+        /// <summary>
+        /// Check the write plan against PCM policy before any erase/write occurs. Mirrors the VPW
+        /// writer: a PCM that does not support boot-sector writes must not have boot erased/written.
+        /// </summary>
+        private bool IsWritePlanAllowedByPcmInfo(FlashChip flashChip, BlockType relevantBlocks)
+        {
+            return BootPolicyAllowsWritePlan(
+                this.writeType,
+                this.pcmInfo.IsSupportedWriteBootSector,
+                relevantBlocks,
+                this.effectiveImageSize,
+                flashChip.MemoryRanges);
+        }
+
+        /// <summary>
+        /// Pure boot-sector write policy. Returns false only when a destructive plan on a PCM that
+        /// cannot write its boot sector would erase/write a boot range whose content differs.
+        /// </summary>
+        public static bool BootPolicyAllowsWritePlan(
+            WriteType writeType,
+            bool supportsBootSectorWrite,
+            BlockType relevantBlocks,
+            UInt32 effectiveImageSize,
+            IEnumerable<MemoryRange> memoryRanges)
+        {
+            // Compare and test-write are non-destructive.
+            if (writeType == WriteType.Compare || writeType == WriteType.TestWrite)
+            {
+                return true;
+            }
+
+            // Boot sector writes are supported; allow all write plans.
+            if (supportsBootSectorWrite)
+            {
+                return true;
+            }
+
+            foreach (MemoryRange range in memoryRanges)
+            {
+                // A range is processed only when it is relevant AND differs (for real writes).
+                if (!ShouldProcessRange(range, relevantBlocks, writeType, effectiveImageSize))
+                {
+                    continue;
+                }
+
+                // Block attempts to write the boot sector on PCMs that do not support it.
+                if ((range.Type & BlockType.Boot) != 0)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
         private bool ShouldProcess(MemoryRange range, BlockType relevantBlocks)
         {
-            if ((range.ActualCrc == range.DesiredCrc) && (this.writeType != WriteType.TestWrite))
+            // A forced full-write pass includes every in-scope sector regardless of CRC. Otherwise
+            // defer to the normal rule, which skips sectors whose on-device CRC already matches.
+            if (!this.forceWriteAllSectorsPending)
+            {
+                return ShouldProcessRange(range, relevantBlocks, this.writeType, this.effectiveImageSize);
+            }
+
+            if (range.Address >= this.effectiveImageSize)
             {
                 return false;
             }
 
-            if (range.Address >= this.effectiveImageSize)
+            if ((range.Type & relevantBlocks) == 0)
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Pure form of <see cref="ShouldProcess"/>: a range is processed when it is in scope, within
+        /// the image, and (for real writes) its on-device CRC differs from the image.
+        /// </summary>
+        public static bool ShouldProcessRange(
+            MemoryRange range,
+            BlockType relevantBlocks,
+            WriteType writeType,
+            UInt32 effectiveImageSize)
+        {
+            if ((range.ActualCrc == range.DesiredCrc) && (writeType != WriteType.TestWrite))
+            {
+                return false;
+            }
+
+            if (range.Address >= effectiveImageSize)
             {
                 return false;
             }

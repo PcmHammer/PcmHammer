@@ -28,6 +28,17 @@ namespace PcmHacking
     }
 
     /// <summary>
+    /// Which kernel a PCM operation needs. Read and verify use the read kernel; write and
+    /// test-write use the write kernel. Most PCMs use one kernel for both (see
+    /// <see cref="OSIDInfo.GetKernelFileName"/>).
+    /// </summary>
+    public enum KernelOperation
+    {
+        Read,
+        Write,
+    }
+
+    /// <summary>
     /// This combines various metadata about whatever PCM we've connected to.
     /// </summary>
     /// <remarks>
@@ -95,9 +106,34 @@ namespace PcmHacking
         public bool HardwareSlaveCPU { get; private set; }
 
         /// <summary>
-        /// Name of the kernel file to use.
+        /// Name of the kernel file to use. The generic kernel for this PCM; used for any
+        /// operation that does not have an operation-specific kernel defined below.
         /// </summary>
         public string KernelFileName { get; private set; } = string.Empty;
+
+        /// <summary>
+        /// Optional kernel used specifically for read/verify. Empty -> fall back to
+        /// <see cref="KernelFileName"/>. (Most PCMs use a single kernel for everything.)
+        /// </summary>
+        public string ReadKernelFileName { get; private set; } = string.Empty;
+
+        /// <summary>
+        /// Optional kernel used specifically for write/test-write. Empty -> fall back to
+        /// <see cref="KernelFileName"/>.
+        /// </summary>
+        public string WriteKernelFileName { get; private set; } = string.Empty;
+
+        /// <summary>
+        /// The kernel file to load for the given operation: the read- or write-specific kernel
+        /// when defined, otherwise the generic <see cref="KernelFileName"/>. Read and verify pass
+        /// <see cref="KernelOperation.Read"/>; write and test-write pass
+        /// <see cref="KernelOperation.Write"/>.
+        /// </summary>
+        public string GetKernelFileName(KernelOperation operation)
+        {
+            string specific = operation == KernelOperation.Write ? this.WriteKernelFileName : this.ReadKernelFileName;
+            return string.IsNullOrEmpty(specific) ? this.KernelFileName : specific;
+        }
 
         /// <summary>
         /// Base address to begin writing the kernel to.
@@ -108,6 +144,12 @@ namespace PcmHacking
         /// Address at which the uploaded kernel begins executing. Usually the kernel base, but some
         /// </summary>
         public int KernelRunAddress { get; private set; }
+
+        /// <summary>
+        /// Which GMLAN protocol variant this CAN PCM speaks (None for non-CAN PCMs). Selects the
+        /// <see cref="CanKernelUploadProtocol"/> in <see cref="CanCommands.UploadKernel"/>.
+        /// </summary>
+        public GMLANProtocol GMLANProtocol { get; private set; }
 
         /// <summary>
         /// Name of the kernel loader file to use.
@@ -200,8 +242,11 @@ namespace PcmHacking
             this.ServiceNumber = 0;
             this.HardwareSlaveCPU = false;
             this.KernelFileName = string.Empty;
+            this.ReadKernelFileName = string.Empty;
+            this.WriteKernelFileName = string.Empty;
             this.KernelBaseAddress = 0x0;
             this.KernelRunAddress = 0x0;
+            this.GMLANProtocol = GMLANProtocol.None;
             this.BusProtocol = BusProtocol.Vpw;
             this.LoaderFileName = string.Empty;
             this.LoaderBaseAddress = 0x0;
@@ -345,15 +390,6 @@ namespace PcmHacking
                     this.KernelMaxBlockSize = 4096;
                     break;
 
-                case PcmType.P05c:
-                    this.Description = "P05c (CAN only, unsupported)";
-                    this.HardwareType = PcmType.P05c;
-                    this.IsSupported = false;
-                    this.IsSupportedRead = false;
-                    this.IsSupportedWrite = false;
-                    this.ImageSize = 1024 * 1024;
-                    break;
-
                 case PcmType.P05b:
                     this.Description = "P05b (VPW+CAN)";
                     this.HardwareType = PcmType.P05b;
@@ -367,6 +403,34 @@ namespace PcmHacking
                     this.LoaderRequired = false;
                     this.KernelFileName = "Kernel-P05.bin";
                     this.KernelBaseAddress = 0xFFC100;
+                    this.ImageBaseAddress = 0x0;
+                    this.ImageSize = 1024 * 1024;
+                    this.KeyAlgorithm = 0x35;
+                    this.ChecksumSupport = true;
+                    this.FlashCRCSupport = true;
+                    this.FlashIDSupport = true;
+                    this.KernelVersionSupport = true;
+                    this.KernelMaxBlockSize = 4096;
+                    break;
+
+                case PcmType.P05c:
+                    this.Description = "P05c (CAN)";
+                    this.HardwareType = PcmType.P05c;
+                    this.HardwareSlaveCPU = false;
+                    this.IsSupported = true;
+                    this.IsSupportedRead = true;
+                    this.IsSupportedWrite = true;
+                    this.IsSupportedWriteSlaveCPU = false;
+                    this.IsSupportedWriteBySegment = false;
+                    this.IsSupportedWriteBootSector = true; // tested on bench, boot sector write successful.
+                    this.IsUnderDevelopment = true;
+                    this.BusProtocol = BusProtocol.Can500k;
+                    this.GMLANProtocol = GMLANProtocol.P05c;
+                    this.LoaderRequired = false;
+                    this.KernelFileName = "Kernel-P05c-read.bin";       // read / verify
+                    this.WriteKernelFileName = "Kernel-P05c-write.bin"; // write / test-write
+                    this.KernelBaseAddress = 0xFF61AE; // must be this load address
+                    this.KernelRunAddress = 0xFF61AE;
                     this.ImageBaseAddress = 0x0;
                     this.ImageSize = 1024 * 1024;
                     this.KeyAlgorithm = 0x35;
@@ -531,6 +595,7 @@ namespace PcmHacking
                     this.IsSupportedRead = true;
                     this.IsSupportedWrite = true;
                     this.BusProtocol = BusProtocol.Can500k;
+                    this.GMLANProtocol = GMLANProtocol.E38;
                     this.KernelFileName = "Kernel-E38.bin";
                     this.KernelBaseAddress = 0x003FC430;
                     this.KernelRunAddress = 0x003FC434;
@@ -3041,8 +3106,14 @@ namespace PcmHacking
                     this.ServiceNumber = 12591279;
                     break;
 
-                // 2008 P05 service number 12600930 is CAN only
-                // 2006-2009 P05 service number 12604962 is CAN only
+                // P05c (CAN only). OSID is DID 0xC1 (OS segment / Module 1), not 0xC9.
+                case 12616867: // service no 12600930
+                    PCMInfo(PcmType.P05c);
+                    this.Description = "P05c (CAN) Service No 12600930";
+                    this.ServiceNumber = 12600930;
+                    break;
+
+                // 2006-2009 P05 service number 12604962 is also CAN only (OSID not yet known)
 
                 case 12603217:
                     PCMInfo(PcmType.P05);

@@ -126,6 +126,10 @@ try {
         $dest = Join-Path $staging $DestSub
         New-Item -ItemType Directory -Force -Path $dest | Out-Null
         Copy-Item -Path (Join-Path $exe.Directory.FullName "*") -Destination $dest -Recurse -Force
+        # Debug symbols are only useful when running from source; the end-user
+        # packages (installer + portable, both built from this staging dir) do not
+        # ship them.
+        Get-ChildItem -Path $dest -Recurse -File -Filter *.pdb -ErrorAction SilentlyContinue | Remove-Item -Force
         Write-Host "Staged $ExeName -> $DestSub"
     }
 

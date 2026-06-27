@@ -39,6 +39,8 @@
             this.binGroupBox = new System.Windows.Forms.GroupBox();
             this.binDirectoryTextBox = new System.Windows.Forms.TextBox();
             this.binDirectoryButton = new System.Windows.Forms.Button();
+            this.allowCrossFlashingCheckBox = new System.Windows.Forms.CheckBox();
+            this.forceWriteAllSectorsCheckBox = new System.Windows.Forms.CheckBox();
             this.logGroupBox = new System.Windows.Forms.GroupBox();
             this.saveUserLogOnExitCheckBox = new System.Windows.Forms.CheckBox();
             this.useLogSaveAsDialogCheckBox = new System.Windows.Forms.CheckBox();
@@ -55,7 +57,7 @@
             // applyButton
             // 
             this.applyButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.applyButton.Location = new System.Drawing.Point(371, 270);
+            this.applyButton.Location = new System.Drawing.Point(371, 318);
             this.applyButton.Name = "applyButton";
             this.applyButton.Size = new System.Drawing.Size(75, 23);
             this.applyButton.TabIndex = 3;
@@ -66,7 +68,7 @@
             // cancelButton
             // 
             this.cancelButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.cancelButton.Location = new System.Drawing.Point(290, 270);
+            this.cancelButton.Location = new System.Drawing.Point(290, 318);
             this.cancelButton.Name = "cancelButton";
             this.cancelButton.Size = new System.Drawing.Size(75, 23);
             this.cancelButton.TabIndex = 2;
@@ -77,7 +79,7 @@
             // okButton
             // 
             this.okButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.okButton.Location = new System.Drawing.Point(209, 270);
+            this.okButton.Location = new System.Drawing.Point(209, 318);
             this.okButton.Name = "okButton";
             this.okButton.Size = new System.Drawing.Size(75, 23);
             this.okButton.TabIndex = 1;
@@ -94,7 +96,7 @@
             this.tabControl.Location = new System.Drawing.Point(12, 12);
             this.tabControl.Name = "tabControl";
             this.tabControl.SelectedIndex = 0;
-            this.tabControl.Size = new System.Drawing.Size(434, 252);
+            this.tabControl.Size = new System.Drawing.Size(434, 300);
             this.tabControl.TabIndex = 0;
             // 
             // generalTabPage
@@ -105,7 +107,7 @@
             this.generalTabPage.Location = new System.Drawing.Point(4, 22);
             this.generalTabPage.Name = "generalTabPage";
             this.generalTabPage.Padding = new System.Windows.Forms.Padding(3);
-            this.generalTabPage.Size = new System.Drawing.Size(426, 226);
+            this.generalTabPage.Size = new System.Drawing.Size(426, 274);
             this.generalTabPage.TabIndex = 0;
             this.generalTabPage.Text = "General";
             this.generalTabPage.UseVisualStyleBackColor = true;
@@ -133,11 +135,13 @@
             // 
             // binGroupBox
             // 
+            this.binGroupBox.Controls.Add(this.forceWriteAllSectorsCheckBox);
+            this.binGroupBox.Controls.Add(this.allowCrossFlashingCheckBox);
             this.binGroupBox.Controls.Add(this.binDirectoryTextBox);
             this.binGroupBox.Controls.Add(this.binDirectoryButton);
             this.binGroupBox.Location = new System.Drawing.Point(6, 53);
             this.binGroupBox.Name = "binGroupBox";
-            this.binGroupBox.Size = new System.Drawing.Size(414, 45);
+            this.binGroupBox.Size = new System.Drawing.Size(414, 93);
             this.binGroupBox.TabIndex = 2;
             this.binGroupBox.TabStop = false;
             this.binGroupBox.Text = "Bin";
@@ -159,7 +163,30 @@
             this.binDirectoryButton.Text = "Bin Directory";
             this.binDirectoryButton.UseVisualStyleBackColor = true;
             this.binDirectoryButton.Click += new System.EventHandler(this.binDirectoryButton_Click);
-            // 
+            //
+            // allowCrossFlashingCheckBox
+            //
+            this.allowCrossFlashingCheckBox.AutoSize = true;
+            this.allowCrossFlashingCheckBox.ForeColor = System.Drawing.Color.Red;
+            this.allowCrossFlashingCheckBox.Location = new System.Drawing.Point(6, 68);
+            this.allowCrossFlashingCheckBox.Name = "allowCrossFlashingCheckBox";
+            this.allowCrossFlashingCheckBox.Size = new System.Drawing.Size(121, 17);
+            this.allowCrossFlashingCheckBox.TabIndex = 3;
+            this.allowCrossFlashingCheckBox.Text = "Allow cross flashing";
+            this.allowCrossFlashingCheckBox.UseVisualStyleBackColor = true;
+            this.allowCrossFlashingCheckBox.CheckedChanged += new System.EventHandler(this.allowCrossFlashingCheckBox_CheckedChanged);
+            //
+            // forceWriteAllSectorsCheckBox
+            //
+            this.forceWriteAllSectorsCheckBox.AutoSize = true;
+            this.forceWriteAllSectorsCheckBox.Location = new System.Drawing.Point(6, 48);
+            this.forceWriteAllSectorsCheckBox.Name = "forceWriteAllSectorsCheckBox";
+            this.forceWriteAllSectorsCheckBox.Size = new System.Drawing.Size(143, 17);
+            this.forceWriteAllSectorsCheckBox.TabIndex = 2;
+            this.forceWriteAllSectorsCheckBox.Text = "Force write all flash sectors";
+            this.forceWriteAllSectorsCheckBox.UseVisualStyleBackColor = true;
+            this.forceWriteAllSectorsCheckBox.CheckedChanged += new System.EventHandler(this.forceWriteAllSectorsCheckBox_CheckedChanged);
+            //
             // logGroupBox
             // 
             this.logGroupBox.Controls.Add(this.saveUserLogOnExitCheckBox);
@@ -167,7 +194,7 @@
             this.logGroupBox.Controls.Add(this.logDirectoryButton);
             this.logGroupBox.Controls.Add(this.saveDebugLogOnExitCheckBox);
             this.logGroupBox.Controls.Add(this.logDirectoryTextBox);
-            this.logGroupBox.Location = new System.Drawing.Point(6, 104);
+            this.logGroupBox.Location = new System.Drawing.Point(6, 152);
             this.logGroupBox.Name = "logGroupBox";
             this.logGroupBox.Size = new System.Drawing.Size(414, 116);
             this.logGroupBox.TabIndex = 1;
@@ -229,7 +256,7 @@
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(458, 305);
+            this.ClientSize = new System.Drawing.Size(458, 353);
             this.Controls.Add(this.tabControl);
             this.Controls.Add(this.okButton);
             this.Controls.Add(this.cancelButton);
@@ -265,6 +292,8 @@
         private System.Windows.Forms.CheckBox mainWindowPersistenceCheckBox;
         private System.Windows.Forms.TextBox binDirectoryTextBox;
         private System.Windows.Forms.Button binDirectoryButton;
+        private System.Windows.Forms.CheckBox allowCrossFlashingCheckBox;
+        private System.Windows.Forms.CheckBox forceWriteAllSectorsCheckBox;
         private System.Windows.Forms.CheckBox useLogSaveAsDialogCheckBox;
         private System.Windows.Forms.GroupBox windowGroupBox;
         private System.Windows.Forms.GroupBox binGroupBox;

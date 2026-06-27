@@ -39,14 +39,9 @@ namespace PcmHacking
             "If this doesn't work, your vehicle will not be driveable." +
             Environment.NewLine + Environment.NewLine +
             "You should read the contents of your PCM before you try this. " +
-            "A successful read will prove that you have a good " +
-            "connection to your PCM, and will determine whether " +
-            "or not there are any other modules in the vehicle " +
-            "that will cause the write process to fail." +
+            "A successful read will prove that you have a good connection to your PCM." +
             Environment.NewLine + Environment.NewLine +
-            "A successful read will also give you a file that you can use to replace your current PCM with a new one if something goes wrong." +
-            Environment.NewLine + Environment.NewLine +
-            "It is dangerous to attempt to modify the PCM's flash memory before completing a successful read of the PCM.";
+            "A successful read will also give you a file that you can use to replace your current PCM with a new one if something goes wrong.";
 
         /// <summary>
         /// Title for the unverified-connect warning prompt.
@@ -100,6 +95,9 @@ namespace PcmHacking
         /// </summary>
         public override void AddUserMessage(string message)
         {
+            // Collapse embedded line breaks so a multi-line message logs as one tidy line.
+            message = message.Replace("\r\n", " ").Replace("\r", " ").Replace("\n", " ");
+
             string line = "[" + DateTime.Now.ToString("HH:mm:ss.fff") + "]  " + message;
 
             // AppendLine is thread-safe and does no UI work, so the worker thread is never blocked.
@@ -722,7 +720,7 @@ namespace PcmHacking
             this.haltRunningKernelToolStripMenuItem.Enabled = false;
             this.testFileChecksumsToolStripMenuItem.Enabled = false;
 
-            this.readPropertiesButton.Enabled = false;
+            this.identifyPcmButton.Enabled = false;
             this.readPcmButton.Enabled = false;
             this.verifyPcmButton.Enabled = false;
 
@@ -758,7 +756,7 @@ namespace PcmHacking
                 this.haltRunningKernelToolStripMenuItem.Enabled = true;
                 this.testFileChecksumsToolStripMenuItem.Enabled = true;
 
-                this.readPropertiesButton.Enabled = true;
+                this.identifyPcmButton.Enabled = true;
                 this.readPcmButton.Enabled = true;
                 this.verifyPcmButton.Enabled = true;
 
@@ -811,7 +809,7 @@ namespace PcmHacking
         /// </summary>
         private void settingsToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            using (DialogBoxes.SettingsDialogBox settingsDialog = new DialogBoxes.SettingsDialogBox())
+            using (DialogBoxes.SettingsDialogBox settingsDialog = new DialogBoxes.SettingsDialogBox(this))
             {
                 DialogResult dialogResult = settingsDialog.ShowDialog();
             }
@@ -887,7 +885,7 @@ namespace PcmHacking
         /// <summary>
         /// Read the VIN, OS, etc.
         /// </summary>
-        private async void readPropertiesButton_Click(object sender, EventArgs e)
+        private async void identifyPcmButton_Click(object sender, EventArgs e)
         {
             if (this.Vehicle == null)
             {
@@ -910,8 +908,8 @@ namespace PcmHacking
 
                 if (pcm.Bus != BusProtocol.Vpw)
                 {
-                    this.AddUserMessage("Parameters:");
-                    foreach (string line in await CanProperties.Read(this.Vehicle.CreateCanCommands(), CancellationToken.None))
+                    this.AddUserMessage("PCM Identification:");
+                    foreach (string line in await CanIdentification.Read(this.Vehicle.CreateCanCommands(), CancellationToken.None))
                     {
                         this.AddUserMessage(line);
                     }
@@ -1028,7 +1026,7 @@ namespace PcmHacking
         {
             try
             {
-                // Detect the bus and select its protocol first (parity with Read Properties); CAN
+                // Detect the bus and select its protocol first (parity with Identify PCM); CAN
                 // PCMs use the GMLAN VIN write path.
                 DetectedModule? pcm = await this.Vehicle.DetectAndSelectPcm(CancellationToken.None);
                 if (pcm == null)
@@ -1183,7 +1181,7 @@ namespace PcmHacking
         private async void StartOperationFromDialog(bool defaultIsWrite, WriteType defaultWriteType)
         {
             // Probe the bus first so the dialog can offer only the write types this PCM supports and
-            // default to calibration (by-segment PCMs) or clone (the rest). Mirrors the Read Properties
+            // default to calibration (by-segment PCMs) or clone (the rest). Mirrors the Identify PCM
             // detect-first flow; on failure the dialog falls back to a manual choice.
             OSIDInfo? detected = null;
             if (this.Vehicle != null)
@@ -1197,7 +1195,7 @@ namespace PcmHacking
                     {
                         detected = new OSIDInfo(pcm.Osid);
                         this.AddUserMessage(string.Format(
-                            "Detected {0} on {1}: {2}", detected.HardwareType, pcm.Bus, detected.Description));
+                            "Detected {0} on {1}", detected.HardwareType, pcm.Bus));
                     }
                     else
                     {
@@ -1703,8 +1701,9 @@ namespace PcmHacking
 
             // Sanity checks. 
             FileValidator validator = new FileValidator(image, this);
-            if (validator.IsValid())
+            if (validator.IdentifyAndValidate())
             {
+                this.AddUserMessage("File operating system ID: " + validator.GetOsidFromImage());
                 this.AddUserMessage("File is " + new OSIDInfo(validator.GetFileType()).Description + ".");
                 this.AddUserMessage("All checksums are valid.");
             }

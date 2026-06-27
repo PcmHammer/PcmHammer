@@ -25,7 +25,7 @@ service-numbers (where known):
 ### New applications and platforms
 
 - **Command-line interface (`pcmhammer-cli`):** a scriptable CLI for read,
-  test-read, write, test-write, verify, and get-properties, with device and
+  test-read, write, test-write, verify, and identify-pcm, with device and
   external-kernel selection.
 - **Uno cross-platform UI (Windows and Android) - experimental:** a new UI built
   on the Uno Platform, including read/write pages, a settings page, background

@@ -40,7 +40,7 @@ namespace PcmHacking
             this.exitKernelButton = new System.Windows.Forms.Button();
             this.cancelButton = new System.Windows.Forms.Button();
             this.writeCalibrationButton = new System.Windows.Forms.Button();
-            this.readPropertiesButton = new System.Windows.Forms.Button();
+            this.identifyPcmButton = new System.Windows.Forms.Button();
             this.tabs = new System.Windows.Forms.TabControl();
             this.resultsTab = new System.Windows.Forms.TabPage();
             this.userLog = new PcmHacking.LogListView();
@@ -146,7 +146,7 @@ namespace PcmHacking
             this.operationsBox.Controls.Add(this.exitKernelButton);
             this.operationsBox.Controls.Add(this.cancelButton);
             this.operationsBox.Controls.Add(this.writeCalibrationButton);
-            this.operationsBox.Controls.Add(this.readPropertiesButton);
+            this.operationsBox.Controls.Add(this.identifyPcmButton);
             this.operationsBox.Location = new System.Drawing.Point(9, 155);
             this.operationsBox.Margin = new System.Windows.Forms.Padding(2);
             this.operationsBox.Name = "operationsBox";
@@ -224,16 +224,16 @@ namespace PcmHacking
             this.writeCalibrationButton.UseVisualStyleBackColor = true;
             this.writeCalibrationButton.Click += new System.EventHandler(this.writeCalibrationButton_Click);
             // 
-            // readPropertiesButton
+            // identifyPcmButton
             // 
-            this.readPropertiesButton.Location = new System.Drawing.Point(4, 18);
-            this.readPropertiesButton.Margin = new System.Windows.Forms.Padding(2);
-            this.readPropertiesButton.Name = "readPropertiesButton";
-            this.readPropertiesButton.Size = new System.Drawing.Size(216, 25);
-            this.readPropertiesButton.TabIndex = 0;
-            this.readPropertiesButton.Text = "Read &Properties";
-            this.readPropertiesButton.UseVisualStyleBackColor = true;
-            this.readPropertiesButton.Click += new System.EventHandler(this.readPropertiesButton_Click);
+            this.identifyPcmButton.Location = new System.Drawing.Point(4, 18);
+            this.identifyPcmButton.Margin = new System.Windows.Forms.Padding(2);
+            this.identifyPcmButton.Name = "identifyPcmButton";
+            this.identifyPcmButton.Size = new System.Drawing.Size(216, 25);
+            this.identifyPcmButton.TabIndex = 0;
+            this.identifyPcmButton.Text = "&Identify PCM";
+            this.identifyPcmButton.UseVisualStyleBackColor = true;
+            this.identifyPcmButton.Click += new System.EventHandler(this.identifyPcmButton_Click);
             // 
             // tabs
             // 
@@ -266,8 +266,9 @@ namespace PcmHacking
             // userLog
             // 
             this.userLog.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
-            | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Left)
             | System.Windows.Forms.AnchorStyles.Right)));
+            this.userLog.Font = new System.Drawing.Font("Consolas", 8.5F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.userLog.Location = new System.Drawing.Point(4, 5);
             this.userLog.Margin = new System.Windows.Forms.Padding(2);
             this.userLog.Name = "userLog";
@@ -331,6 +332,7 @@ namespace PcmHacking
             // debugLog
             // 
             this.debugLog.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.debugLog.Font = new System.Drawing.Font("Consolas", 8.5F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.debugLog.Location = new System.Drawing.Point(2, 2);
             this.debugLog.Margin = new System.Windows.Forms.Padding(2);
             this.debugLog.Name = "debugLog";
@@ -577,7 +579,7 @@ namespace PcmHacking
             // 
             // MainForm
             // 
-            this.AcceptButton = this.readPropertiesButton;
+            this.AcceptButton = this.identifyPcmButton;
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(854, 513);
@@ -618,7 +620,7 @@ namespace PcmHacking
         private System.Windows.Forms.Button verifyPcmButton;
         private System.Windows.Forms.Button readPcmButton;
         private System.Windows.Forms.Button writeCalibrationButton;
-        private System.Windows.Forms.Button readPropertiesButton;
+        private System.Windows.Forms.Button identifyPcmButton;
         private System.Windows.Forms.TabControl tabs;
         private System.Windows.Forms.TabPage resultsTab;
         private PcmHacking.LogListView userLog;

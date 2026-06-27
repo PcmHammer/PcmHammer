@@ -58,6 +58,15 @@ namespace PcmHacking
         /// <summary>CAN ID to accept (target to tool).</summary>
         public uint RxCanId { get; set; } = CanId.PcmPhysicalResponse;
 
+        /// <summary>No-progress wait the ISO-TP transport applies (the same budget ReadAVTPacket uses).</summary>
+        public int ReceiveTimeoutMilliseconds => this.receiveTimeoutMs;
+
+        // Serial bytes drained from the port but not yet parsed into whole AVT CAN packets. The CAN
+        // receive path reads the port in bulk and slices frames out of this, so it pays the serial
+        // round-trip once per burst rather than per frame. Only the CAN path uses it; VPW reads still
+        // go through ReadAVTPacket.
+        private readonly List<byte> canRxBuffer = new List<byte>();
+
         // Software ISO-TP over this device's raw CAN frames. The AVT firmware can do ISO-TP itself
         // (ISO-15765 mode) but only delivered the first frame of a multi-frame response, so we run
         // it in raw-frame mode and reassemble here, presenting whole payloads like every device.
@@ -426,6 +435,8 @@ namespace PcmHacking
         {
             if (this.CurrentProtocol == BusProtocol.Can500k)
             {
+                // Log the whole payload once; the individual ISO-TP frames are plumbing.
+                this.Logger.AddDebugMessage($"TX: {this.TxCanId:X3} {message.GetBytes().ToHex()}");
                 return await this.isoTp.SendMessage(message);
             }
 
@@ -449,8 +460,10 @@ namespace PcmHacking
                         return;
                     }
 
-                    if (this.Enqueue(assembled))
+                    // Report the reassembled payload once; the ISO-TP frames are hidden.
+                    if (this.Enqueue(assembled, logReceived: false))
                     {
+                        this.Logger.AddDebugMessage($"RX: {this.RxCanId:X3} {assembled.GetBytes().ToHex()}");
                         return;
                     }
                 }
@@ -495,6 +508,7 @@ namespace PcmHacking
 
         public override void ClearMessageBuffer()
         {
+            this.canRxBuffer.Clear();
             this.Port.DiscardBuffers();
             System.Threading.Thread.Sleep(50);
         }
@@ -558,13 +572,13 @@ namespace PcmHacking
                 // ReadAVTPacket parses, so SendCanConfig drains them rather than parsing.
                 await SendCanConfig(AVT_CAN0_500K.GetBytes(),            "CAN0 500 kbaud");
                 await SendCanConfig(AVT_CAN0_IDMASK_MODE4.GetBytes(),    "CAN0 ID/Mask mode 4");
-                await SendCanConfig(BuildAcceptIdCommand(this.RxCanId),  $"CAN0 accept ID 0x{this.RxCanId:X3}");
+                await SendCanConfig(BuildAcceptIdCommand(this.RxCanId),  $"CAN0 accept ID {this.RxCanId:X3}");
                 await SendCanConfig(AVT_CAN0_MASK0_EXACT.GetBytes(),     "CAN0 mask0 exact-match");
                 await SendCanConfig(AVT_CAN0_ISO15765_OFF.GetBytes(),    "CAN0 ISO 15765 off (raw frames)");
                 await SendCanConfig(AVT_ENABLE_CAN0.GetBytes(),          "CAN0 enable");
 
                 this.Supports4X = false;
-                this.Logger.AddDebugMessage($"AVT CAN0 ready: 500k, tx 0x{this.TxCanId:X3}, rx 0x{this.RxCanId:X3}, software ISO-TP.");
+                this.Logger.AddDebugMessage($"AVT CAN0 ready: 500k, tx {this.TxCanId:X3}, rx {this.RxCanId:X3}, software ISO-TP.");
                 return true;
             }
 
@@ -641,26 +655,143 @@ namespace PcmHacking
 
         /// <summary>
         /// Read one raw CAN frame from the AVT. Receive format (timestamps off) is
-        /// [flags|channel][id_hi][id_lo][data]. Returns (0, empty) on timeout or a too-short packet.
+        /// [flags|channel][id_hi][id_lo][data]. Returns (0, empty) on timeout.
         /// </summary>
+        /// <remarks>
+        /// Unlike the VPW path (ReadAVTPacket, one packet per call with a serial read per field), this
+        /// drains the whole serial buffer in one read into <see cref="canRxBuffer"/> and slices frames
+        /// out of memory. A streaming CAN read is hundreds of thousands of frames, so paying the serial
+        /// round-trip once per burst instead of ~twice per frame is what makes the read fast.
+        /// </remarks>
         public async Task<(uint id, byte[] frame)> ReceiveCanFrame()
         {
-            Response<Message> response = await ReadAVTPacket();
-            if (response.Status != ResponseStatus.Success)
+            Stopwatch stopwatch = Stopwatch.StartNew();
+            while (true)
             {
-                return (0, Array.Empty<byte>());
+                // Hand back any whole frame already buffered before touching the port again.
+                if (TryDequeueCanFrame(out uint id, out byte[] frame))
+                {
+                    return (id, frame);
+                }
+
+                if (stopwatch.ElapsedMilliseconds >= this.receiveTimeoutMs)
+                {
+                    return (0u, Array.Empty<byte>());
+                }
+
+                int available = await this.Port.GetReceiveQueueSize();
+                if (available > 0)
+                {
+                    byte[] buffer = new byte[available];
+                    int read = await this.Port.Receive(buffer, 0, available);
+                    for (int i = 0; i < read; i++)
+                    {
+                        this.canRxBuffer.Add(buffer[i]);
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Pull one whole CAN data frame from the front of <see cref="canRxBuffer"/>. In CAN mode a
+        /// data frame is the short form 0x0L followed by L bytes of [flags|channel][id_hi][id_lo][data],
+        /// so a single- and multi-byte frame (including a Flow Control) are the same shape, just a
+        /// different L. Non-data packets (acks, notifications, runts) are dropped. Returns false when
+        /// the buffer does not yet hold a complete packet.
+        /// </summary>
+        private bool TryDequeueCanFrame(out uint id, out byte[] frame)
+        {
+            id = 0u;
+            frame = Array.Empty<byte>();
+
+            while (this.canRxBuffer.Count > 0)
+            {
+                if (!TryDecodePacketLength(out int headerLength, out int payloadLength, out bool isData))
+                {
+                    // The length prefix is present but the full payload has not arrived yet.
+                    return false;
+                }
+
+                int total = headerLength + payloadLength;
+                if (this.canRxBuffer.Count < total)
+                {
+                    return false;
+                }
+
+                // A CAN frame needs at least flags + id_hi + id_lo. In CAN mode there is no VPW status
+                // byte, so the payload is the CAN frame verbatim.
+                if (isData && payloadLength >= 3)
+                {
+                    id = (uint)(((this.canRxBuffer[headerLength + 1] << 8) | this.canRxBuffer[headerLength + 2]) & 0x7FF);
+                    int frameLength = payloadLength - 3;
+                    frame = new byte[frameLength];
+                    for (int i = 0; i < frameLength; i++)
+                    {
+                        frame[i] = this.canRxBuffer[headerLength + 3 + i];
+                    }
+                    this.canRxBuffer.RemoveRange(0, total);
+                    return true;
+                }
+
+                // Ack / notification / too-short to be a frame: consume it and look at the next packet.
+                this.canRxBuffer.RemoveRange(0, total);
             }
 
-            byte[] data = response.Value.GetBytes();
-            if (data.Length < 3)
-            {
-                return (0, Array.Empty<byte>());
-            }
+            return false;
+        }
 
-            uint id = (uint)(((data[1] << 8) | data[2]) & 0x7FF);
-            byte[] frame = new byte[data.Length - 3];
-            Buffer.BlockCopy(data, 3, frame, 0, frame.Length);
-            return (id, frame);
+        /// <summary>
+        /// Decode the AVT length prefix at the front of <see cref="canRxBuffer"/>, mirroring the framing
+        /// rules in ReadAVTPacket. Reports the header byte count, the payload byte count, and whether the
+        /// packet carries data. Returns false when too few bytes are buffered to know the full length.
+        /// </summary>
+        private bool TryDecodePacketLength(out int headerLength, out int payloadLength, out bool isData)
+        {
+            headerLength = 0;
+            payloadLength = 0;
+            isData = false;
+
+            byte first = this.canRxBuffer[0];
+            switch (first)
+            {
+                case 0x11: // length in the next byte
+                    if (this.canRxBuffer.Count < 2) return false;
+                    headerLength = 2;
+                    payloadLength = this.canRxBuffer[1];
+                    isData = true;
+                    return true;
+
+                case 0x12: // length in the next two bytes
+                    if (this.canRxBuffer.Count < 3) return false;
+                    headerLength = 3;
+                    payloadLength = (this.canRxBuffer[1] << 8) | this.canRxBuffer[2];
+                    isData = true;
+                    return true;
+
+                default:
+                    int type = first >> 4;
+                    int low = first & 0x0F;
+                    headerLength = 1;
+                    switch (type)
+                    {
+                        case 0x0: // standard short data packet (842/852)
+                        case 0xF: // standard short data packet (838)
+                            payloadLength = low;
+                            isData = true;
+                            break;
+
+                        case 0x8: // high-speed notification: the low nibble counts one extra
+                            payloadLength = low - 1;
+                            break;
+
+                        default: // 0x2/0x3/0x6/0x9/0xC acks and notifications
+                            payloadLength = low;
+                            break;
+                    }
+
+                    if (payloadLength < 0) payloadLength = 0;
+                    return true;
+            }
         }
     }
 }

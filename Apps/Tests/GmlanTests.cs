@@ -106,6 +106,13 @@ namespace Tests
         }
 
         [TestMethod]
+        public void RequestDownload_Request_CarriesTwoByteSize()
+        {
+            // P05c-style 16-bit length.
+            CollectionAssert.AreEqual(new byte[] { 0x34, 0x00, 0x14, 0x60 }, new Gmlan().CreateRequestDownloadRequest(0x1460, sizeBytes: 2).GetBytes());
+        }
+
+        [TestMethod]
         public void ParseRequestDownload_74_IsSuccess()
         {
             var gmlan = new Gmlan();
@@ -129,6 +136,15 @@ namespace Tests
             CollectionAssert.AreEqual(
                 new byte[] { 0x36, 0x80, 0x00, 0x3F, 0xC4, 0x30, 0x00, 0x3F, 0xC4, 0x34, 0xBE, 0xEF },
                 msg);
+        }
+
+        [TestMethod]
+        public void ExecuteMessage_IsBareSidModeAddr_NoRunOrCode()
+        {
+            // P05c bare execute frame: 0x36 0x80 + address only.
+            CollectionAssert.AreEqual(
+                new byte[] { 0x36, 0x80, 0x00, 0xFF, 0x60, 0x00 },
+                new Gmlan().CreateExecuteMessage(0x00FF6000).GetBytes());
         }
 
         [TestMethod]

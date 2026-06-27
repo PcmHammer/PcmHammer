@@ -65,8 +65,14 @@ namespace PcmHacking
         /// </summary>
         private async Task<bool> RunCanWrite(byte[] image, FileValidator validator)
         {
-            OSIDInfo pcmInfo = new OSIDInfo(PcmType.E38);
-            logger.AddUserMessage("CAN PCM detected. Using the " + pcmInfo.Description + " write process.");
+            // Use the type identified from the file (P05c, E38, ...)
+            OSIDInfo pcmInfo = new OSIDInfo(validator.GetFileType());
+
+            string operation =
+                this.writeType == WriteType.Compare ? "verify" :
+                this.writeType == WriteType.TestWrite ? "test write" :
+                "write";
+            logger.AddUserMessage($"CAN PCM detected. Using the {pcmInfo.Description} {operation} process.");
 
             if (!pcmInfo.IsSupported)
             {
@@ -89,7 +95,7 @@ namespace PcmHacking
 
             if (destructive && pcmInfo.IsUnderDevelopment)
             {
-                string msg = $"WARNING: {pcmInfo.HardwareType.ToString()} Support is still in development.\r\nThere is additional brick risk in this operation\r\nDo you want to continue?";
+                string msg = $"WARNING: {pcmInfo.HardwareType.ToString()} Support is still in development.\r\nThere is additional brick risk in this operation.\r\nDo you want to continue?";
                 logger.AddUserMessage(msg);
                 if (await this.promptForYesNo(msg, "Brick Risk"))
                 {
@@ -141,12 +147,13 @@ namespace PcmHacking
             // Sanity checks.
             PcmType? forcedFileType = forcedPcmType != PcmType.Undefined ? forcedPcmType : (PcmType?)null;
             FileValidator validator = new FileValidator(image, this.logger, forcedFileType);
-            if (!validator.IsValid())
+            if (!validator.IdentifyAndValidate())
             {
                 logger.AddUserMessage("This file is corrupt or its format is unknown to PCMHammer. It would render your PCM unusable.");
                 return false;
             }
-            logger.AddUserMessage("File is " + new OSIDInfo(validator.GetFileType()).Description + ".");
+            logger.AddUserMessage("File OSID: " + validator.GetOsidFromImage());
+            logger.AddUserMessage("File Description: " + new OSIDInfo(validator.GetFileType()).Description + ".");
 
             // Detect what is on the bus first (the shared first step, as in ReadManager). A CAN PCM is
             // written by a separate path that mirrors this one; the only user-visible difference is the
@@ -156,6 +163,30 @@ namespace PcmHacking
                 DetectedModule? detected = await this.vehicle.DetectAndSelectPcm(this.cancellationToken);
                 if (detected != null && detected.Bus == BusProtocol.Can500k)
                 {
+                    // The CAN path builds its profile from the file, not the connected PCM. We can only
+                    // verify file-vs-hardware compatibility when the connected PCM's OSID resolves to a
+                    // known type. When it does and it disagrees with the file, reject the mismatch - the
+                    // same gate the VPW path applies below. When it does not resolve we cannot verify the
+                    // hardware, so warn about the brick risk and let the user decide.
+                    PcmType connectedType = new OSIDInfo(detected.Osid).HardwareType;
+                    if (connectedType == PcmType.Undefined)
+                    {
+                        string msg = "PCM Hardware is not known/verified. The PCM may brick if the file is not compatible. Continue?";
+                        logger.AddUserMessage(msg);
+                        if (await this.promptForYesNo(msg, "Brick Risk"))
+                        {
+                            logger.AddUserMessage("User chose to proceed.");
+                        }
+                        else
+                        {
+                            logger.AddUserMessage("User chose to abort.");
+                            return false;
+                        }
+                    }
+                    else if (!validator.IsSameHardware(detected.Osid))
+                    {
+                        return false;
+                    }
                     return await this.RunCanWrite(image, validator);
                 }
                 if (detected == null)
@@ -193,12 +224,18 @@ namespace PcmHacking
                 // declared PCM type, so we verify the file's own content matches it - we do NOT query
                 // the PCM for an OSID here.
                 PcmType fileType = validator.DetectFileType();
-                if (fileType != forcedPcmType)
+                if (fileType != forcedPcmType && !RuntimeSettings.AllowCrossFlashing)
                 {
                     string msg = $"Abort: this file is for a {fileType} PCM, but {forcedPcmType} was selected.";
                     logger.AddUserMessage(msg);
                     await this.alert(msg, "Abort");
                     return false;
+                }
+                if (fileType != forcedPcmType && RuntimeSettings.AllowCrossFlashing)
+                {
+                    // Cross flashing override: the user has accepted the brick risk. Advanced
+                    // recovery / developer use only (e.g. recovering a P05c BDM-flashed with a P05b bin).
+                    logger.AddUserMessage($"Cross flashing enabled: writing a {fileType} file as {forcedPcmType}.");
                 }
 
                 // A forced CAN PCM (e.g. E38) is written by the CAN path, not the VPW flow below.

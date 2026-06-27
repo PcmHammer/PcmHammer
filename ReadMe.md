@@ -12,6 +12,7 @@ PCM Hammer and tools support reading, writing, and data logging with General Mot
 |P01        | Yes    | Yes   | Yes     | Yes      | Yes     | N/A   | N/A    | Yes         | Assembly|
 |P04 (All)  | Yes    | Yes   | Yes     | N/A      | N/A     | N/A   | Yes    | Yes         | Assembly|
 |P05a, P05b | Yes    | Yes   | Yes     | N/A      | ?       | N/A   | N/A    | No          | Assembly|
+|P05c       | Yes    | Yes   | Yes     | N/A      | ?       | N/A   | N/A    | No          | Assembly|
 |P08        | Yes    | Yes   | Yes     | Yes      | No      | N/A   | N/A    | Yes         | Assembly|
 |P10        | Yes    | Yes   | Yes     | Yes      | Yes     | No    | N/A    | Yes         | Assembly|
 |P11        | Yes    | Yes   | Yes     | Yes      | ?       | No    | N/A    | Yes         | Assembly|

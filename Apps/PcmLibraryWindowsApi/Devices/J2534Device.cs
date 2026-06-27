@@ -24,6 +24,15 @@ namespace PcmHacking
         public int ReadTimeout = 3000;
         public int WriteTimeout = 2000;
 
+        // A J2534 ISO15765 (CAN) WriteMsgs blocks until the whole segmented multi-frame transfer is
+        // confirmed by the receiver's flow control. A multi-KB kernel/flash block on a slower device
+        // (e.g. Mongoose) can take longer than the 2 s VPW WriteTimeout, which made WriteMsgs return
+        // ERR_TIMEOUT even though the transfer completed and the PCM ack'd - the late ack then leaked
+        // into the next exchange and looked like an unexpected response. WriteMsgs returns the instant
+        // the transfer finishes, so this larger ceiling costs nothing on success; it only prevents a
+        // premature false "send failed" while a large CAN block is still in flight.
+        public int CanWriteTimeout = 8000;
+
         /// <summary>
         /// variety of properties used to id channels, fitlers and status
         /// </summary>
@@ -235,7 +244,26 @@ namespace PcmHacking
         {
             TimeoutScenario previous = this.currentTimeoutScenario;
             this.currentTimeoutScenario = scenario;
-            this.ReadTimeout = (scenario == TimeoutScenario.Detect) ? 500 : 3000;
+            switch (scenario)
+            {
+                case TimeoutScenario.Detect:
+                    // Fast empty-bus ruling during a multi-bus scan.
+                    this.ReadTimeout = 500;
+                    break;
+
+                case TimeoutScenario.EraseMemoryBlock:
+                    // A flash sector erase runs for seconds and the kernel only emits its
+                    // responsePending keepalive every few seconds. The read window must be longer than
+                    // that interval so the pending lands inside one Receive() and the wait is extended
+                    // (see Device.ReceiveMessage) instead of timing out between keepalives.
+                    this.ReadTimeout = 8000;
+                    break;
+
+                default:
+                    // All other scenarios keep the original 3000 ms so normal operations are unchanged.
+                    this.ReadTimeout = 3000;
+                    break;
+            }
             return Task.FromResult(previous);
         }
 
@@ -298,8 +326,17 @@ namespace PcmHacking
                 }
 
                 byte[] rxData = PassMess.Data;
-                if (this.CurrentProtocol == BusProtocol.Can500k && rxData.Length > 4)
+                if (this.CurrentProtocol == BusProtocol.Can500k)
                 {
+                    if (rxData.Length <= 4)
+                    {
+                        // Header-only CAN frame: the 4-byte transmit echo / TxDone with no UDS payload
+                        // (some J2534 stacks surface it without the TX_MSG_TYPE flag). Not a response -
+                        // keep reading so we read past it to the real reply rather than handing the
+                        // upper layers a bare CAN id (which looked like an "unexpected response").
+                        continue;
+                    }
+
                     // ISO15765 frames are prefixed with the 4-byte CAN ID; strip it so the upper layers
                     // see the bare UDS payload (J2534 already reassembled any multi-frame message).
                     byte[] stripped = new byte[rxData.Length - 4];
@@ -307,10 +344,17 @@ namespace PcmHacking
                     rxData = stripped;
                 }
 
-                this.Logger.AddDebugMessage("RX: " + rxData.ToHex());
-                if (this.Enqueue(new Message(rxData, (ulong)PassMess.Timestamp, (ulong)OBDError)))
+                if (this.Enqueue(new Message(rxData, (ulong)PassMess.Timestamp, (ulong)OBDError), logReceived: false))
                 {
-                    // On-conversation response queued for this exchange.
+                    // On-conversation response queued for this exchange: report the whole payload once.
+                    if (this.CurrentProtocol == BusProtocol.Can500k)
+                    {
+                        this.Logger.AddDebugMessage($"RX: {this.RxCanId:X3} {rxData.ToHex()}");
+                    }
+                    else
+                    {
+                        this.Logger.AddDebugMessage("RX: " + rxData.ToHex());
+                    }
                     return Task.FromResult(0);
                 }
                 // Off-conversation frame, dropped by the inbound filter: keep reading for the response.
@@ -322,7 +366,7 @@ namespace PcmHacking
         /// <summary>
         /// Convert a Message to an J2534 formatted transmit, and send to the interface
         /// </summary>
-        private Response<J2534Err> SendNetworkMessage(Message message, TxFlag Flags)
+        private Response<J2534Err> SendNetworkMessage(Message message, TxFlag Flags, int writeTimeout)
         {
             //this.Logger.AddDebugMessage("Trace: Send Network Packet");
 
@@ -330,7 +374,7 @@ namespace PcmHacking
 
             int NumMsgs = 1;
 
-            OBDError = J2534Port.Functions.WriteMsgs((int)ChannelID, ref TempMsg, ref NumMsgs, WriteTimeout);
+            OBDError = J2534Port.Functions.WriteMsgs((int)ChannelID, ref TempMsg, ref NumMsgs, writeTimeout);
             if (OBDError != J2534Err.STATUS_NOERROR)
             {
                 // Debug messages here...check why failed..
@@ -355,13 +399,15 @@ namespace PcmHacking
                 byte[] idBytes = CanIdToBytes(this.TxCanId);
                 Array.Copy(idBytes, 0, data, 0, 4);
                 Array.Copy(uds, 0, data, 4, uds.Length);
-                this.Logger.AddDebugMessage("CAN TX: " + uds.ToHex());
-                MyError = SendNetworkMessage(new Message(data), TxFlag.ISO15765_FRAME_PAD);
+                this.Logger.AddDebugMessage($"TX: {this.TxCanId:X3} {uds.ToHex()}");
+                // ISO15765 send blocks until the segmented transfer completes; give large CAN blocks
+                // enough headroom (see CanWriteTimeout) so a slow device is not falsely failed.
+                MyError = SendNetworkMessage(new Message(data), TxFlag.ISO15765_FRAME_PAD, this.CanWriteTimeout);
             }
             else
             {
                 this.Logger.AddDebugMessage("TX: " + message.GetBytes().ToHex());
-                MyError = SendNetworkMessage(message, TxFlag.NONE);
+                MyError = SendNetworkMessage(message, TxFlag.NONE, this.WriteTimeout);
             }
 
             if (MyError.Status != ResponseStatus.Success)
@@ -560,7 +606,7 @@ namespace PcmHacking
 
                 this.Supports4X = false;
                 this.CurrentProtocol = BusProtocol.Can500k;
-                this.Logger.AddDebugMessage($"J2534 CAN ready: 500k ISO15765, tx 0x{this.TxCanId:X3}, rx 0x{this.RxCanId:X3}.");
+                this.Logger.AddDebugMessage($"J2534 CAN ready: 500k ISO15765, tx {this.TxCanId:X3}, rx {this.RxCanId:X3}.");
                 return true;
             }
 

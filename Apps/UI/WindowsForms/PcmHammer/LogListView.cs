@@ -55,9 +55,10 @@ namespace PcmHacking
         private readonly Brush matchBrush = new SolidBrush(Color.FromArgb(255, 255, 150));
         private readonly Brush currentMatchBrush = new SolidBrush(Color.FromArgb(255, 200, 0));
 
-        // ExpandTabs keeps tab-separated columns (e.g. the CRC verification table) aligned, matching
-        // the old TextBox. NoPrefix stops '&' being read as a mnemonic; NoPadding/SingleLine keep the
-        // text tight, and the tab-aware GetTabbedTextExtent below measures the same way.
+        // ExpandTabs keeps tab-separated columns (e.g. the checksum validation tables) aligned. The log
+        // font is monospace, so tab stops land on consistent character columns. NoPrefix stops '&' being
+        // read as a mnemonic; NoPadding/SingleLine keep the text tight, and the tab-aware
+        // GetTabbedTextExtent below measures the same way.
         private const TextFormatFlags TextFlags =
             TextFormatFlags.NoPadding | TextFormatFlags.NoPrefix | TextFormatFlags.SingleLine | TextFormatFlags.ExpandTabs;
 
@@ -67,7 +68,7 @@ namespace PcmHacking
                 ControlStyles.OptimizedDoubleBuffer | ControlStyles.AllPaintingInWmPaint |
                 ControlStyles.UserPaint | ControlStyles.ResizeRedraw | ControlStyles.Selectable,
                 true);
-            this.BackColor = SystemColors.Window;
+            this.BackColor = SystemColors.Control;
             this.ForeColor = SystemColors.WindowText;
             this.TabStop = true;
 
@@ -601,7 +602,16 @@ namespace PcmHacking
 
             if (builder.Length > 0)
             {
-                Clipboard.SetText(builder.ToString());
+                // Clipboard.SetText throws ExternalException when another process is holding the
+                // clipboard open (clipboard managers, RDP/remote sessions, some IDEs). SetDataObject
+                // retries for us; swallow a final failure so copying text can never crash the app.
+                try
+                {
+                    Clipboard.SetDataObject(builder.ToString(), copy: true, retryTimes: 10, retryDelay: 50);
+                }
+                catch (ExternalException)
+                {
+                }
             }
         }
     }

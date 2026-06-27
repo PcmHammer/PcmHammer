@@ -131,48 +131,69 @@ namespace PcmHacking
 
         /// <summary>
         /// Quick OSID probe on the current bus: VPW uses the block-read OSID request, CAN uses GMLAN
-        /// ReadDataByIdentifier (1A C9). One attempt at the caller's fast Detect timeout.
+        /// ReadDataByIdentifier, trying each candidate DID (1A C9, then 1A C1) until one answers. One
+        /// attempt per DID at the caller's fast Detect timeout.
         /// </summary>
         private async Task<Response<uint>> ProbeOsid(BusProtocol bus, CancellationToken cancellationToken)
         {
-            Query<uint> query;
             if (bus == BusProtocol.Can500k)
             {
-                Gmlan gmlan = new Gmlan();
-                query = new Query<uint>(
-                    this.device,
-                    () => gmlan.CreateReadByIdRequest(Gmlan.OperatingSystemDid),
-                    (message) =>
+                // First DID that answers is the OSID; families expose it at different DIDs (E-series
+                // 0xC9, P05c 0xC1). A negative or absent DID returns fast, so this costs at most one
+                // extra probe on an E-series module.
+                Response<uint> result = Response.Create(ResponseStatus.Timeout, 0u);
+                foreach (byte did in Gmlan.OperatingSystemDids)
+                {
+                    if (cancellationToken.IsCancellationRequested) break;
+                    Query<uint> canQuery = this.CreateCanOsidQuery(did, cancellationToken);
+                    canQuery.MaxTimeouts = 1;   // detection: fail fast on a bus with nothing there
+                    result = await canQuery.Execute();
+                    if (result.Status == ResponseStatus.Success)
                     {
-                        Response<byte[]> data = gmlan.ParseReadByIdResponse(message, Gmlan.OperatingSystemDid);
-                        if (data.Status != ResponseStatus.Success || data.Value.Length < 4)
-                        {
-                            return Response.Create(data.Status, 0u);
-                        }
-                        uint value = (uint)((data.Value[0] << 24) | (data.Value[1] << 16) | (data.Value[2] << 8) | data.Value[3]);
-                        return Response.Create(ResponseStatus.Success, value);
-                    },
-                    // Drop the device's transmit-echo frame (leads with 0x00); a real GMLAN response
-                    // never does. Matches CanCommands.AcceptResponses so detection is no more
-                    // permissive than the operations that follow it.
-                    this.logger, cancellationToken, notifier: null,
-                    acceptInbound: _ => (m =>
-                    {
-                        byte[] bytes = m?.GetBytes() ?? System.Array.Empty<byte>();
-                        return bytes.Length > 0 && bytes[0] != 0x00;
-                    }));
-            }
-            else
-            {
-                query = new Query<uint>(
-                    this.device,
-                    this.protocol.CreateOperatingSystemIdReadRequest,
-                    this.protocol.ParseUInt32FromBlockReadResponse,
-                    this.logger, cancellationToken, this.notifier);
+                        return result;
+                    }
+                }
+
+                return result;
             }
 
+            Query<uint> query = new Query<uint>(
+                this.device,
+                this.protocol.CreateOperatingSystemIdReadRequest,
+                this.protocol.ParseUInt32FromBlockReadResponse,
+                this.logger, cancellationToken, this.notifier);
             query.MaxTimeouts = 1;   // detection: fail fast on a bus with nothing there
             return await query.Execute();
+        }
+
+        /// <summary>
+        /// Build a CAN OSID probe for one DID: GMLAN ReadDataByIdentifier (1A did) with the leading four
+        /// data bytes read as a big-endian uint32. Drops the device's transmit-echo frame (leads with
+        /// 0x00) the same way CanCommands.AcceptResponses does, so detection is no more permissive than
+        /// the operations that follow it.
+        /// </summary>
+        private Query<uint> CreateCanOsidQuery(byte did, CancellationToken cancellationToken)
+        {
+            Gmlan gmlan = new Gmlan();
+            return new Query<uint>(
+                this.device,
+                () => gmlan.CreateReadByIdRequest(did),
+                (message) =>
+                {
+                    Response<byte[]> data = gmlan.ParseReadByIdResponse(message, did);
+                    if (data.Status != ResponseStatus.Success || data.Value.Length < 4)
+                    {
+                        return Response.Create(data.Status, 0u);
+                    }
+                    uint value = (uint)((data.Value[0] << 24) | (data.Value[1] << 16) | (data.Value[2] << 8) | data.Value[3]);
+                    return Response.Create(ResponseStatus.Success, value);
+                },
+                this.logger, cancellationToken, notifier: null,
+                acceptInbound: _ => (m =>
+                {
+                    byte[] bytes = m?.GetBytes() ?? System.Array.Empty<byte>();
+                    return bytes.Length > 0 && bytes[0] != 0x00;
+                }));
         }
     }
 }

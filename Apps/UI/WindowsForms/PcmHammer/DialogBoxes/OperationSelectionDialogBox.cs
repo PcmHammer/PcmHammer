@@ -193,7 +193,7 @@ namespace PcmHacking
         {
             if (detected == null || !detected.IsSupported)
             {
-                this.detectionLabel.Text = "Could not detect a PCM. Choose the options manually.";
+                this.detectionLabel.Text = "Could not detect a PCM\r\nChoose the options manually";
                 this.SelectWriteType(this.IsWriteTypeEnabled(requested) ? requested : WriteType.Full);
                 return;
             }
@@ -204,8 +204,8 @@ namespace PcmHacking
             {
                 // Read-only PCM: there is nothing to write, so steer to Read and disable the write side.
                 this.detectionLabel.Text = string.Format(
-                    "Detected: {0} ({1}).\r\nWriting is not supported for this PCM.",
-                    detected.HardwareType, detected.Description);
+                    "Detected: {0}\r\nWriting is not supported",
+                    detected.HardwareType);
                 this.readRadioButton.Checked = true;
                 this.writeRadioButton.Enabled = false;
                 this.fullCloneRadioButton.Enabled = false;
@@ -224,10 +224,10 @@ namespace PcmHacking
             this.parametersRadioButton.Enabled = bySegment;
 
             this.detectionLabel.Text = bySegment
-                ? string.Format("Detected: {0} ({1}).", detected.HardwareType, detected.Description)
+                ? string.Format("Detected: {0}", detected.HardwareType)
                 : string.Format(
-                    "Detected: {0} ({1}).\r\nSegment writes not supported - clone (full) write only.",
-                    detected.HardwareType, detected.Description);
+                    "Detected: {0}\r\nSegment writes not supported\r\nClone only",
+                    detected.HardwareType);
 
             // Honour the requested write type when the PCM supports it; otherwise default to calibration
             // for by-segment PCMs, or a full clone for the rest.
