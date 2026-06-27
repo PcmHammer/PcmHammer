@@ -38,6 +38,9 @@ namespace PcmHacking
             int delaySeconds = BruteForcer.DefaultSecurityDelaySeconds;
             bool listDevices = false;
             bool debug = false;
+            BusProtocol monitorProtocol = BusProtocol.Vpw;
+            List<uint>? monitorCanIds = null;
+            bool monitorCanAll = false;
 
             for (int i = 0; i < args.Length; i++)
             {
@@ -70,6 +73,34 @@ namespace PcmHacking
                         break;
                     case "--brute-force":
                         operation = "brute-force";
+                        break;
+                    case "--monitor":
+                        operation = "monitor";
+                        if (i + 1 < args.Length && !args[i + 1].StartsWith("-"))
+                        {
+                            string proto = args[++i].ToLowerInvariant();
+                            monitorProtocol = (proto == "can" || proto == "can500k" || proto == "500k")
+                                ? BusProtocol.Can500k
+                                : BusProtocol.Vpw;
+                        }
+                        // Optional CAN id list (hex), or "all" for the whole bus. Ignored for VPW.
+                        while (i + 1 < args.Length && !args[i + 1].StartsWith("-"))
+                        {
+                            if (args[i + 1].Equals("all", StringComparison.OrdinalIgnoreCase))
+                            {
+                                monitorCanAll = true;
+                                i++;
+                            }
+                            else if (uint.TryParse(args[i + 1], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out uint canId))
+                            {
+                                (monitorCanIds ??= new List<uint>()).Add(canId);
+                                i++;
+                            }
+                            else
+                            {
+                                break;
+                            }
+                        }
                         break;
                     case "--range":
                         if (i + 1 < args.Length) rangeSpec = args[++i];
@@ -118,7 +149,7 @@ namespace PcmHacking
                 return 1;
             }
 
-            if (filePath == null && operation != "read" && operation != "test-read" && operation != "identify-pcm" && operation != "brute-force" && operation != "detect")
+            if (filePath == null && operation != "read" && operation != "test-read" && operation != "identify-pcm" && operation != "brute-force" && operation != "detect" && operation != "monitor")
             {
                 Console.Error.WriteLine($"Error: No file path specified for --{operation}.");
                 return 1;
@@ -269,6 +300,11 @@ namespace PcmHacking
                         case "brute-force":
                         {
                             success = await BruteForceUnlock(vehicle, logger, rangeSpec, algoSweep, delaySeconds, cts.Token);
+                            break;
+                        }
+                        case "monitor":
+                        {
+                            success = await RunMonitor(vehicle, logger, monitorProtocol, monitorCanIds, monitorCanAll, cts.Token);
                             break;
                         }
                     }
@@ -645,6 +681,44 @@ namespace PcmHacking
             return dir;
         }
 
+        /// <summary>
+        /// Passively display bus traffic until cancelled. CAN defaults to the 7E0/7E8/101 ids unless
+        /// specific ids or "all" were given; VPW shows everything and follows 4X automatically.
+        /// </summary>
+        static async Task<bool> RunMonitor(Vehicle vehicle, ILogger logger, BusProtocol protocol, List<uint>? canIds, bool canAll, CancellationToken token)
+        {
+            if (!vehicle.MonitorableProtocols.Contains(protocol))
+            {
+                logger.AddUserMessage($"The selected device cannot monitor {protocol}.");
+                return false;
+            }
+
+            if (protocol == BusProtocol.Vpw && !vehicle.Supports4X)
+            {
+                logger.AddUserMessage("This device can't switch to 4X; 4X reads will not be captured.");
+            }
+
+            IReadOnlyCollection<uint>? acceptIds = null;
+            if (protocol == BusProtocol.Can500k && !canAll)
+            {
+                acceptIds = (canIds != null && canIds.Count > 0)
+                    ? canIds
+                    : new List<uint> { 0x7E0, 0x7E8, 0x101 };
+            }
+
+            logger.AddUserMessage($"Monitoring {protocol}. Press Ctrl+C to stop.");
+            if (protocol == BusProtocol.Can500k)
+            {
+                logger.AddUserMessage(acceptIds == null
+                    ? "CAN filter: all ids."
+                    : "CAN filter: " + string.Join(" ", acceptIds.Select(id => id.ToString("X3"))));
+            }
+
+            BusMonitor monitor = vehicle.CreateBusMonitor();
+            await monitor.RunAsync(protocol, acceptIds, line => Console.WriteLine(line), token);
+            return true;
+        }
+
         static async Task<Vehicle> InitializeVehicle(Device device, ILogger logger, string kernelDir)
         {
             Protocol protocol = new Protocol();
@@ -693,6 +767,8 @@ namespace PcmHacking
             Console.WriteLine("  --verify <file>           CRC-compare file against PCM (no erase/write)");
             Console.WriteLine("  --identify-pcm            Read VIN, OSID, calibration, serial, voltage");
             Console.WriteLine("  --detect                  Scan the buses (VPW, CAN) and list the modules that respond");
+            Console.WriteLine("  --monitor [vpw|can] [ids] Passively display bus traffic until Ctrl+C (default vpw)");
+            Console.WriteLine("                            CAN: list hex ids to filter (default 7E0 7E8 101), or 'all'");
             Console.WriteLine("  --brute-force             Search the PCM security key (algo sweep, then numeric range)");
             Console.WriteLine("  --list-devices            List available serial and J2534 devices with index numbers");
             Console.WriteLine();
