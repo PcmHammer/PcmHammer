@@ -41,7 +41,7 @@ namespace PcmHacking
         /// already formatted (timestamp + payload). <paramref name="canAcceptIds"/> filters CAN by id
         /// (null = accept all); it does not apply to VPW.
         /// </summary>
-        public async Task RunAsync(BusProtocol protocol, IReadOnlyCollection<uint> canAcceptIds, Action<string> onLine, CancellationToken token)
+        public async Task RunAsync(BusProtocol protocol, IReadOnlyCollection<uint>? canAcceptIds, Action<string> onLine, CancellationToken token)
         {
             if (!await this.device.BeginMonitor(protocol))
             {
@@ -116,7 +116,7 @@ namespace PcmHacking
             await this.device.BeginMonitor(BusProtocol.Vpw);
         }
 
-        private async Task RunCan(IReadOnlyCollection<uint> canAcceptIds, Action<string> onLine, CancellationToken token)
+        private async Task RunCan(IReadOnlyCollection<uint>? canAcceptIds, Action<string> onLine, CancellationToken token)
         {
             if (!(this.device is IRawCanMonitor channel))
             {
@@ -124,7 +124,7 @@ namespace PcmHacking
                 return;
             }
 
-            HashSet<uint> accept = canAcceptIds == null ? null : new HashSet<uint>(canAcceptIds);
+            HashSet<uint>? accept = canAcceptIds == null ? null : new HashSet<uint>(canAcceptIds);
 
             while (!token.IsCancellationRequested)
             {
