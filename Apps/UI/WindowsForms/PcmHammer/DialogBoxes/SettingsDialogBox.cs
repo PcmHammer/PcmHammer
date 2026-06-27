@@ -39,6 +39,7 @@ namespace PcmHacking.DialogBoxes
             saveDebugLogOnExitCheckBox.Checked = Configuration.Settings.SaveDebugLogOnExit;
             mainWindowPersistenceCheckBox.Checked = Configuration.Settings.MainWindowPersistence;
             useLogSaveAsDialogCheckBox.Checked = Configuration.Settings.UseLogSaveAsDialog;
+            enableBusMonitorCheckBox.Checked = Configuration.Settings.EnableBusMonitor;
 
             // Cross flashing and force-write-all are runtime-only flags: they are never saved and
             // always start cleared on launch. Reflect their current in-memory values without enabling Apply.
@@ -77,6 +78,11 @@ namespace PcmHacking.DialogBoxes
             if (Configuration.Settings.UseLogSaveAsDialog != useLogSaveAsDialogCheckBox.Checked)
             {
                 Configuration.Settings.UseLogSaveAsDialog = useLogSaveAsDialogCheckBox.Checked;
+            }
+
+            if (Configuration.Settings.EnableBusMonitor != enableBusMonitorCheckBox.Checked)
+            {
+                Configuration.Settings.EnableBusMonitor = enableBusMonitorCheckBox.Checked;
             }
 
             Configuration.Settings.Save();
@@ -153,6 +159,11 @@ namespace PcmHacking.DialogBoxes
         }
 
         private void useLogSaveAsDialogCheckBox_CheckedChanged(object sender, EventArgs e)
+        {
+            applyButton.Enabled = true;
+        }
+
+        private void enableBusMonitorCheckBox_CheckedChanged(object sender, EventArgs e)
         {
             applyButton.Enabled = true;
         }

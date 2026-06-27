@@ -987,6 +987,36 @@ namespace PcmHacking
             return true;
         }
 
+        /// <summary>VPW and CAN 500k can both be monitored on this device.</summary>
+        public override IReadOnlyList<BusProtocol> MonitorableProtocols { get; } = new[] { BusProtocol.Vpw, BusProtocol.Can500k };
+
+        /// <summary>
+        /// Begin monitoring. The VPW "to tool" filter (set in DVISetup) only passes frames addressed to
+        /// us (F0), so a passive monitor would see nothing; turn it off so all bus traffic comes through.
+        /// </summary>
+        public override async Task<bool> BeginMonitor(BusProtocol protocol)
+        {
+            if (!await this.SetProtocol(protocol))
+            {
+                return false;
+            }
+
+            if (protocol == BusProtocol.Vpw)
+            {
+                await this.SetToFilter(DeviceId.Tool, false);
+            }
+
+            return true;
+        }
+
+        public override async Task EndMonitor()
+        {
+            if (this.CurrentProtocol == BusProtocol.Vpw)
+            {
+                await this.SetToFilter(DeviceId.Tool, true);
+            }
+        }
+
         /// <summary>
         /// Select the bus protocol the device communicates on. The OBDX Pro GT (and CAN-capable VT)
         /// supports more than one on the same physical device. For CAN it switches the DVI protocol
@@ -1169,11 +1199,16 @@ namespace PcmHacking
             return (val[3] & 0x04) != 0;
         }
 
-        private async Task<bool> SetToFilter(byte Val)
+        private Task<bool> SetToFilter(byte Val)
+        {
+            return this.SetToFilter(Val, true);
+        }
+
+        private async Task<bool> SetToFilter(byte Val, bool on)
         {
             byte[] Msg = OBDXProDevice.DVI_Set_To_Filter.GetBytes();
             Msg[3] = Val; // DeviceId.Tool;
-            Msg[4] = 1; //on
+            Msg[4] = (byte)(on ? 1 : 0);
             Msg[Msg.Length - 1] = CalcChecksum(Msg);
             await this.Port.Send(Msg);
 

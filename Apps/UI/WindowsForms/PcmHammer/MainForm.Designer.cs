@@ -55,6 +55,7 @@ namespace PcmHacking
             this.saveToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.saveResultsLogToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.saveDebugLogToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.saveBusMonitorLogToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.exitApplicationToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.menuItemTools = new System.Windows.Forms.ToolStripMenuItem();
             this.readEntirePCMToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -66,6 +67,7 @@ namespace PcmHacking
             this.testFileChecksumsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator3 = new System.Windows.Forms.ToolStripSeparator();
             this.bruteForceUnlockToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.busMonitorToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.haltRunningKernelToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.menuItemOptions = new System.Windows.Forms.ToolStripMenuItem();
             this.userDefinedKeyToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -364,7 +366,8 @@ namespace PcmHacking
             // 
             this.saveToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.saveResultsLogToolStripMenuItem,
-            this.saveDebugLogToolStripMenuItem});
+            this.saveDebugLogToolStripMenuItem,
+            this.saveBusMonitorLogToolStripMenuItem});
             this.saveToolStripMenuItem.Name = "saveToolStripMenuItem";
             this.saveToolStripMenuItem.Size = new System.Drawing.Size(98, 22);
             this.saveToolStripMenuItem.Text = "&Save";
@@ -382,7 +385,14 @@ namespace PcmHacking
             this.saveDebugLogToolStripMenuItem.Size = new System.Drawing.Size(134, 22);
             this.saveDebugLogToolStripMenuItem.Text = "&Debug Log";
             this.saveDebugLogToolStripMenuItem.Click += new System.EventHandler(this.saveDebugLogToolStripMenuItem_Click);
-            // 
+            //
+            // saveBusMonitorLogToolStripMenuItem
+            //
+            this.saveBusMonitorLogToolStripMenuItem.Name = "saveBusMonitorLogToolStripMenuItem";
+            this.saveBusMonitorLogToolStripMenuItem.Size = new System.Drawing.Size(134, 22);
+            this.saveBusMonitorLogToolStripMenuItem.Text = "&Bus Monitor";
+            this.saveBusMonitorLogToolStripMenuItem.Click += new System.EventHandler(this.saveBusMonitorLogToolStripMenuItem_Click);
+            //
             // exitApplicationToolStripMenuItem
             // 
             this.exitApplicationToolStripMenuItem.Name = "exitApplicationToolStripMenuItem";
@@ -403,6 +413,7 @@ namespace PcmHacking
             this.toolStripSeparator2,
             this.testFileChecksumsToolStripMenuItem,
             this.bruteForceUnlockToolStripMenuItem,
+            this.busMonitorToolStripMenuItem,
             this.toolStripSeparator3,
             this.haltRunningKernelToolStripMenuItem});
             this.menuItemTools.Name = "menuItemTools";
@@ -470,6 +481,14 @@ namespace PcmHacking
             this.bruteForceUnlockToolStripMenuItem.Text = "Brute Force &Unlock...";
             this.bruteForceUnlockToolStripMenuItem.ToolTipText = "Search for the PCM security key. This can take a very long time.";
             this.bruteForceUnlockToolStripMenuItem.Click += new System.EventHandler(this.bruteForceUnlockToolStripMenuItem_Click);
+            //
+            // busMonitorToolStripMenuItem
+            //
+            this.busMonitorToolStripMenuItem.Name = "busMonitorToolStripMenuItem";
+            this.busMonitorToolStripMenuItem.Size = new System.Drawing.Size(225, 22);
+            this.busMonitorToolStripMenuItem.Text = "Bus &Monitor";
+            this.busMonitorToolStripMenuItem.ToolTipText = "Show the Bus Monitor tab and switch to it.";
+            this.busMonitorToolStripMenuItem.Click += new System.EventHandler(this.busMonitorToolStripMenuItem_Click);
             //
             // haltRunningKernelToolStripMenuItem
             //
@@ -650,6 +669,7 @@ namespace PcmHacking
         private System.Windows.Forms.ToolStripMenuItem saveToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem saveResultsLogToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem saveDebugLogToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem saveBusMonitorLogToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem exitApplicationToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem userDefinedKeyToolStripMenuItem;
         private System.Windows.Forms.StatusStrip statusStatusStrip;
@@ -662,6 +682,7 @@ namespace PcmHacking
         private System.Windows.Forms.ToolStripMenuItem testFileChecksumsToolStripMenuItem;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator3;
         private System.Windows.Forms.ToolStripMenuItem bruteForceUnlockToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem busMonitorToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem haltRunningKernelToolStripMenuItem;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator1;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator2;

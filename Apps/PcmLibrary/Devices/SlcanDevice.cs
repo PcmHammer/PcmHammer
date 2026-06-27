@@ -143,6 +143,9 @@ namespace PcmHacking
             }
         }
 
+        /// <summary>SLCAN is CAN only, so only CAN 500k can be monitored.</summary>
+        public override IReadOnlyList<BusProtocol> MonitorableProtocols { get; } = new[] { BusProtocol.Can500k };
+
         /// <summary>
         /// Select the bus protocol. SLCAN is CAN only: CAN 500k opens the channel at 500 kbit/s;
         /// anything else (VPW) is unsupported, so detection skips this device for those buses.

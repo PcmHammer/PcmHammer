@@ -543,6 +543,9 @@ namespace PcmHacking
             return true;
         }
 
+        /// <summary>VPW and CAN 500k can both be monitored on this device.</summary>
+        public override IReadOnlyList<BusProtocol> MonitorableProtocols { get; } = new[] { BusProtocol.Vpw, BusProtocol.Can500k };
+
         /// <summary>
         /// Select the bus protocol the device communicates on. For CAN the AVT enters CAN mode and
         /// is configured for 500 kbaud raw frames; software ISO-TP (IsoTpTransport) does the

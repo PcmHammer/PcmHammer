@@ -281,6 +281,7 @@ namespace PcmHacking
         protected override void NoDeviceSelected()
         {
             this.deviceDescription.Text = "No device selected.";
+            this.RefreshMonitorCapability();
         }
 
         /// <summary>
@@ -291,6 +292,7 @@ namespace PcmHacking
             this.Invoke((MethodInvoker)delegate ()
             {
                 this.deviceDescription.Text = deviceName;
+                this.RefreshMonitorCapability();
             });
 
             return Task.CompletedTask;
@@ -490,6 +492,8 @@ namespace PcmHacking
 
                 this.StatusUpdateReset();
 
+                this.SetupBusMonitorTab();
+
                 ProcessCommandLine();
 
                 await this.ResetDevice();
@@ -632,6 +636,9 @@ namespace PcmHacking
         /// </summary>
         private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
         {
+            // The monitor is read-only, so just stop it on close (no warning prompt).
+            this.monitorCts?.Cancel();
+
             if (this.cancellationTokenSource != null)
             {
                 MessageBox.Show(
@@ -728,6 +735,8 @@ namespace PcmHacking
             this.writeCalibrationButton.Enabled = false;
             this.exitKernelButton.Enabled = false;
             this.reinitializeButton.Enabled = false;
+
+            this.MonitorOnDisableUserInput();
         }
 
         /// <summary>
@@ -764,6 +773,8 @@ namespace PcmHacking
                 this.writeCalibrationButton.Enabled = true;
                 this.exitKernelButton.Enabled = true;
                 this.reinitializeButton.Enabled = true;
+
+                this.MonitorOnEnableUserInput();
             });
         }
 
@@ -813,6 +824,8 @@ namespace PcmHacking
             {
                 DialogResult dialogResult = settingsDialog.ShowDialog();
             }
+
+            this.SetupBusMonitorTab();
         }
 
         /// <summary>

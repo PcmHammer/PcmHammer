@@ -134,6 +134,18 @@ namespace PcmHammer.Properties {
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool EnableBusMonitor {
+            get {
+                return ((bool)(this["EnableBusMonitor"]));
+            }
+            set {
+                this["EnableBusMonitor"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
         public bool ConnectionVerified {
             get {
                 return ((bool)(this["ConnectionVerified"]));

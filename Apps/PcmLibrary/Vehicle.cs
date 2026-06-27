@@ -100,6 +100,12 @@ namespace PcmHacking
             get => this.device.Supports4X;
         }
 
+        /// <summary>Buses the current device can passively monitor.</summary>
+        public IReadOnlyList<BusProtocol> MonitorableProtocols => this.device.MonitorableProtocols;
+
+        /// <summary>Create a bus monitor over the current device.</summary>
+        public BusMonitor CreateBusMonitor() => new BusMonitor(this.device, this.logger);
+
         public bool Enable4xReadWrite
         {
             set
