@@ -30,33 +30,25 @@ namespace PcmHacking
         private CancellationTokenSource? monitorCts;
         private bool monitoring;
 
-        /// <summary>Add or remove the tab to match the setting. Call at load and after Settings closes.</summary>
-        private void SetupBusMonitorTab()
+        /// <summary>
+        /// Show the Bus Monitor tab (and its Save menu item) for this session. It is off by default and
+        /// only appears via Tools &gt; Bus Monitor; once shown it stays until the app closes.
+        /// </summary>
+        private void ShowBusMonitorTab()
         {
             if (this.busMonitorTab == null)
             {
                 this.BuildBusMonitorTab();
             }
 
-            bool enabled = Configuration.Settings.EnableBusMonitor;
-            bool present = this.tabs.TabPages.Contains(this.busMonitorTab);
-
-            // The Save > Bus Monitor item is only meaningful when the tab exists.
-            this.saveBusMonitorLogToolStripMenuItem.Visible = enabled;
-
-            if (enabled && !present)
+            if (!this.tabs.TabPages.Contains(this.busMonitorTab))
             {
                 this.tabs.TabPages.Add(this.busMonitorTab);
+                this.saveBusMonitorLogToolStripMenuItem.Visible = true;
                 this.RefreshMonitorCapability();
             }
-            else if (!enabled && present)
-            {
-                if (this.monitoring)
-                {
-                    this.monitorCts?.Cancel();
-                }
-                this.tabs.TabPages.Remove(this.busMonitorTab);
-            }
+
+            this.tabs.SelectedTab = this.busMonitorTab;
         }
 
         private void BuildBusMonitorTab()
@@ -144,17 +136,10 @@ namespace PcmHacking
             this.monitorFilterTextBox.Enabled = this.monitorCanRadio.Checked && this.monitorCanRadio.Enabled;
         }
 
-        // Tools > Bus Monitor: enable the tab (persisted) and switch to it.
+        // Tools > Bus Monitor: show the tab for this session and switch to it.
         private void busMonitorToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            if (!Configuration.Settings.EnableBusMonitor)
-            {
-                Configuration.Settings.EnableBusMonitor = true;
-                Configuration.Settings.Save();
-            }
-
-            this.SetupBusMonitorTab();
-            this.tabs.SelectedTab = this.busMonitorTab;
+            this.ShowBusMonitorTab();
         }
 
         // File > Save > Bus Monitor.

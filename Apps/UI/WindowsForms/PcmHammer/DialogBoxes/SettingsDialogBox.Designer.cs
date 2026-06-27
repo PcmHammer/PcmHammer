@@ -36,7 +36,6 @@
             this.generalTabPage = new System.Windows.Forms.TabPage();
             this.windowGroupBox = new System.Windows.Forms.GroupBox();
             this.mainWindowPersistenceCheckBox = new System.Windows.Forms.CheckBox();
-            this.enableBusMonitorCheckBox = new System.Windows.Forms.CheckBox();
             this.binGroupBox = new System.Windows.Forms.GroupBox();
             this.binDirectoryTextBox = new System.Windows.Forms.TextBox();
             this.binDirectoryButton = new System.Windows.Forms.Button();
@@ -116,13 +115,12 @@
             // windowGroupBox
             // 
             this.windowGroupBox.Controls.Add(this.mainWindowPersistenceCheckBox);
-            this.windowGroupBox.Controls.Add(this.enableBusMonitorCheckBox);
             this.windowGroupBox.Location = new System.Drawing.Point(6, 6);
             this.windowGroupBox.Name = "windowGroupBox";
             this.windowGroupBox.Size = new System.Drawing.Size(414, 41);
             this.windowGroupBox.TabIndex = 0;
             this.windowGroupBox.TabStop = false;
-            this.windowGroupBox.Text = "Application";
+            this.windowGroupBox.Text = "Window";
             // 
             // mainWindowPersistenceCheckBox
             // 
@@ -134,17 +132,6 @@
             this.mainWindowPersistenceCheckBox.Text = "Main Window Persistence";
             this.mainWindowPersistenceCheckBox.UseVisualStyleBackColor = true;
             this.mainWindowPersistenceCheckBox.CheckedChanged += new System.EventHandler(this.mainWindowPersistenceCheckBox_CheckedChanged);
-            //
-            // enableBusMonitorCheckBox
-            //
-            this.enableBusMonitorCheckBox.AutoSize = true;
-            this.enableBusMonitorCheckBox.Location = new System.Drawing.Point(180, 19);
-            this.enableBusMonitorCheckBox.Name = "enableBusMonitorCheckBox";
-            this.enableBusMonitorCheckBox.Size = new System.Drawing.Size(149, 17);
-            this.enableBusMonitorCheckBox.TabIndex = 1;
-            this.enableBusMonitorCheckBox.Text = "Enable Bus Monitor tool";
-            this.enableBusMonitorCheckBox.UseVisualStyleBackColor = true;
-            this.enableBusMonitorCheckBox.CheckedChanged += new System.EventHandler(this.enableBusMonitorCheckBox_CheckedChanged);
             //
             // binGroupBox
             // 
@@ -303,7 +290,6 @@
         private System.Windows.Forms.CheckBox saveUserLogOnExitCheckBox;
         private System.Windows.Forms.CheckBox saveDebugLogOnExitCheckBox;
         private System.Windows.Forms.CheckBox mainWindowPersistenceCheckBox;
-        private System.Windows.Forms.CheckBox enableBusMonitorCheckBox;
         private System.Windows.Forms.TextBox binDirectoryTextBox;
         private System.Windows.Forms.Button binDirectoryButton;
         private System.Windows.Forms.CheckBox allowCrossFlashingCheckBox;

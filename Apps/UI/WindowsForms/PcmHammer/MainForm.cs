@@ -492,8 +492,6 @@ namespace PcmHacking
 
                 this.StatusUpdateReset();
 
-                this.SetupBusMonitorTab();
-
                 ProcessCommandLine();
 
                 await this.ResetDevice();
@@ -824,8 +822,6 @@ namespace PcmHacking
             {
                 DialogResult dialogResult = settingsDialog.ShowDialog();
             }
-
-            this.SetupBusMonitorTab();
         }
 
         /// <summary>

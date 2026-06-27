@@ -391,6 +391,7 @@ namespace PcmHacking
             this.saveBusMonitorLogToolStripMenuItem.Name = "saveBusMonitorLogToolStripMenuItem";
             this.saveBusMonitorLogToolStripMenuItem.Size = new System.Drawing.Size(134, 22);
             this.saveBusMonitorLogToolStripMenuItem.Text = "&Bus Monitor";
+            this.saveBusMonitorLogToolStripMenuItem.Visible = false;
             this.saveBusMonitorLogToolStripMenuItem.Click += new System.EventHandler(this.saveBusMonitorLogToolStripMenuItem_Click);
             //
             // exitApplicationToolStripMenuItem
@@ -466,7 +467,7 @@ namespace PcmHacking
             // 
             this.testFileChecksumsToolStripMenuItem.Name = "testFileChecksumsToolStripMenuItem";
             this.testFileChecksumsToolStripMenuItem.Size = new System.Drawing.Size(225, 22);
-            this.testFileChecksumsToolStripMenuItem.Text = "&Test File Checksums...";
+            this.testFileChecksumsToolStripMenuItem.Text = "&Test File Checksums";
             this.testFileChecksumsToolStripMenuItem.Click += new System.EventHandler(this.testFileChecksumsToolStripMenuItem_Click);
             //
             // toolStripSeparator3
@@ -478,7 +479,7 @@ namespace PcmHacking
             //
             this.bruteForceUnlockToolStripMenuItem.Name = "bruteForceUnlockToolStripMenuItem";
             this.bruteForceUnlockToolStripMenuItem.Size = new System.Drawing.Size(225, 22);
-            this.bruteForceUnlockToolStripMenuItem.Text = "Brute Force &Unlock...";
+            this.bruteForceUnlockToolStripMenuItem.Text = "Brute Force &Unlock";
             this.bruteForceUnlockToolStripMenuItem.ToolTipText = "Search for the PCM security key. This can take a very long time.";
             this.bruteForceUnlockToolStripMenuItem.Click += new System.EventHandler(this.bruteForceUnlockToolStripMenuItem_Click);
             //
