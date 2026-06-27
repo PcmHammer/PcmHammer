@@ -24,6 +24,15 @@ namespace PcmHacking
         public int ReadTimeout = 3000;
         public int WriteTimeout = 2000;
 
+        // A J2534 ISO15765 (CAN) WriteMsgs blocks until the whole segmented multi-frame transfer is
+        // confirmed by the receiver's flow control. A multi-KB kernel/flash block on a slower device
+        // (e.g. Mongoose) can take longer than the 2 s VPW WriteTimeout, which made WriteMsgs return
+        // ERR_TIMEOUT even though the transfer completed and the PCM ack'd - the late ack then leaked
+        // into the next exchange and looked like an unexpected response. WriteMsgs returns the instant
+        // the transfer finishes, so this larger ceiling costs nothing on success; it only prevents a
+        // premature false "send failed" while a large CAN block is still in flight.
+        public int CanWriteTimeout = 8000;
+
         /// <summary>
         /// variety of properties used to id channels, fitlers and status
         /// </summary>
@@ -338,7 +347,7 @@ namespace PcmHacking
         /// <summary>
         /// Convert a Message to an J2534 formatted transmit, and send to the interface
         /// </summary>
-        private Response<J2534Err> SendNetworkMessage(Message message, TxFlag Flags)
+        private Response<J2534Err> SendNetworkMessage(Message message, TxFlag Flags, int writeTimeout)
         {
             //this.Logger.AddDebugMessage("Trace: Send Network Packet");
 
@@ -346,7 +355,7 @@ namespace PcmHacking
 
             int NumMsgs = 1;
 
-            OBDError = J2534Port.Functions.WriteMsgs((int)ChannelID, ref TempMsg, ref NumMsgs, WriteTimeout);
+            OBDError = J2534Port.Functions.WriteMsgs((int)ChannelID, ref TempMsg, ref NumMsgs, writeTimeout);
             if (OBDError != J2534Err.STATUS_NOERROR)
             {
                 // Debug messages here...check why failed..
@@ -372,12 +381,14 @@ namespace PcmHacking
                 Array.Copy(idBytes, 0, data, 0, 4);
                 Array.Copy(uds, 0, data, 4, uds.Length);
                 this.Logger.AddDebugMessage($"TX: {this.TxCanId:X3} {uds.ToHex()}");
-                MyError = SendNetworkMessage(new Message(data), TxFlag.ISO15765_FRAME_PAD);
+                // ISO15765 send blocks until the segmented transfer completes; give large CAN blocks
+                // enough headroom (see CanWriteTimeout) so a slow device is not falsely failed.
+                MyError = SendNetworkMessage(new Message(data), TxFlag.ISO15765_FRAME_PAD, this.CanWriteTimeout);
             }
             else
             {
                 this.Logger.AddDebugMessage("TX: " + message.GetBytes().ToHex());
-                MyError = SendNetworkMessage(message, TxFlag.NONE);
+                MyError = SendNetworkMessage(message, TxFlag.NONE, this.WriteTimeout);
             }
 
             if (MyError.Status != ResponseStatus.Success)
