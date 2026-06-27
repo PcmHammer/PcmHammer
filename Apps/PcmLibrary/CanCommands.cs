@@ -10,8 +10,8 @@ namespace PcmHacking
     /// GMLAN/CAN command set for GM CAN PCMs. Messages are built and parsed by <see cref="Gmlan"/>.
     /// Every exchange runs through <see cref="Query{T}"/>, which clears the device queue before each
     /// send and loops on the parser's result: Success ends the exchange, Error aborts, anything else
-    /// keeps reading. That is why "response pending" (7F .. 78) and the 0x75 read-ack are handled by
-    /// the parser/filter rather than by manual receive loops here.
+    /// keeps reading. Response-pending (7F .. 78) keepalives are handled once, generically, in
+    /// <see cref="Device.ReceiveMessage"/>, so no parser here needs to special-case them.
     /// </summary>
     public class CanCommands : ISecurityAccess
     {
@@ -132,7 +132,7 @@ namespace PcmHacking
 
                 Query<bool> unlock = this.MakeQuery(
                     () => this.gmlan.CreateUnlockRequest(key),
-                    this.Pending(this.gmlan.ParseUnlockResponse),
+                    this.gmlan.ParseUnlockResponse,
                     cancellationToken,
                     maxTimeouts: 5);
                 Response<bool> result = await unlock.Execute();
@@ -156,9 +156,6 @@ namespace PcmHacking
                 (message) =>
                 {
                     byte[] bytes = message?.GetBytes() ?? Array.Empty<byte>();
-                    // Pending (..78): keep waiting.
-                    if (bytes.Length >= 3 && bytes[0] == Gmlan.NegativeResponse && bytes[2] == 0x78)
-                        return Response.Create(ResponseStatus.UnexpectedResponse, (ushort)0);
                     // Lockout (..37): Refused, so the caller waits and retries.
                     if (bytes.Length >= 3 && bytes[0] == Gmlan.NegativeResponse && bytes[2] == Gmlan.NrcSecurityDelay)
                         return Response.Create(ResponseStatus.Refused, (ushort)0);
@@ -277,7 +274,7 @@ namespace PcmHacking
             this.logger.AddUserMessage("Requesting programming mode.");
             Response<bool> progMode = await this.MakeQuery(
                 () => this.gmlan.CreateProgrammingModeRequest(),
-                this.Pending(this.gmlan.ParseProgrammingModeResponse),
+                this.gmlan.ParseProgrammingModeResponse,
                 cancellationToken, maxTimeouts: 5).Execute();
             if (progMode.Status != ResponseStatus.Success)
             {
@@ -288,7 +285,7 @@ namespace PcmHacking
             // 0xA5/03 is optional and usually unanswered; one quick attempt to keep the session alive.
             await this.MakeQuery(
                 () => this.gmlan.CreateProgrammingModeStep3Request(),
-                this.Pending(this.gmlan.ParseProgrammingModeResponse),
+                this.gmlan.ParseProgrammingModeResponse,
                 cancellationToken, maxTimeouts: 1).Execute();
 
             CanKernelUpload upload = protocol.BuildUpload(
@@ -302,15 +299,16 @@ namespace PcmHacking
                 bytesToSend += block.Message.GetBytes().Length;
             }
 
-            // Long receive window for the whole download: acks can be preceded by 7F..78 "pending",
-            // and the executing block's ack only comes once the kernel has launched (a few hundred ms).
+            // Long receive window for the whole download: the executing block's ack only comes once the
+            // kernel has launched (a few hundred ms). Any 7F..78 "pending" keepalives are swallowed
+            // generically in Device.ReceiveMessage.
             await this.device.SetTimeout(TimeoutScenario.ReadCrc);
 
             this.logger.AddDebugMessage(string.Format(
                 "RequestDownload, then {0} block(s), {1} bytes.", upload.Blocks.Count, bytesToSend));
             Response<bool> reqDownload = await this.MakeQuery(
                 () => upload.RequestDownload,
-                this.Pending(this.gmlan.ParseRequestDownloadResponse),
+                this.gmlan.ParseRequestDownloadResponse,
                 cancellationToken, maxTimeouts: 5).Execute();
             if (reqDownload.Status != ResponseStatus.Success)
             {
@@ -474,7 +472,7 @@ namespace PcmHacking
             Query<bool> query = new Query<bool>(
                 this.device,
                 () => this.gmlan.CreateWriteByIdRequest(did, data),
-                this.Pending(message => this.gmlan.ParseWriteByIdResponse(message, did)),
+                message => this.gmlan.ParseWriteByIdResponse(message, did),
                 this.logger, cancellationToken, notifier: null, acceptInbound: AcceptResponses);
             query.MaxTimeouts = 3;
             Response<bool> result = await query.Execute();
@@ -626,18 +624,8 @@ namespace PcmHacking
             return query;
         }
 
-        // Wrap a bool parser so "response pending" (7F .. 78) keeps reading instead of erroring.
-        private Func<Message, Response<bool>> Pending(Func<Message, Response<bool>> parser)
-            => (message) =>
-            {
-                byte[] bytes = message?.GetBytes() ?? Array.Empty<byte>();
-                if (bytes.Length >= 3 && bytes[0] == Gmlan.NegativeResponse && bytes[2] == 0x78)
-                    return Response.Create(ResponseStatus.UnexpectedResponse, false);
-                return parser(message!);
-            };
-
-        // Positive per predicate; 7F is a hard error (except 78 pending, which keeps reading), anything
-        // else keeps reading.
+        // Positive per predicate; 7F is a hard error, anything else keeps reading. (Response-pending
+        // 7F..78 keepalives are handled generically in Device.ReceiveMessage and never reach here.)
         private Func<Message, Response<bool>> Confirm(Func<byte[], bool> isPositive)
             => (message) =>
             {
@@ -646,7 +634,6 @@ namespace PcmHacking
                 if (isPositive(bytes)) return Response.Create(ResponseStatus.Success, true);
                 if (bytes[0] == Gmlan.NegativeResponse)
                 {
-                    if (bytes.Length >= 3 && bytes[2] == 0x78) return Response.Create(ResponseStatus.UnexpectedResponse, false);
                     return Response.Create(ResponseStatus.Error, false);
                 }
                 return Response.Create(ResponseStatus.UnexpectedResponse, false);

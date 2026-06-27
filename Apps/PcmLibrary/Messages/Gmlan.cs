@@ -306,10 +306,10 @@ namespace PcmHacking
         {
             byte[] bytes = GetBytes(message);
 
-            // Negative response aborts, except pending (7F .. 78): keep reading for the real answer.
+            // Negative response aborts. Response-pending (7F..78) keepalives are handled generically
+            // in Device.ReceiveMessage and never reach here.
             if (bytes.Length >= 1 && bytes[0] == NegativeResponse)
             {
-                if (bytes.Length >= 3 && bytes[2] == 0x78) return Response.Create(ResponseStatus.UnexpectedResponse, 0u);
                 return Response.Create(ResponseStatus.Error, 0u);
             }
 
@@ -341,8 +341,9 @@ namespace PcmHacking
         public Response<byte> ParseFlashEraseResponse(Message message)
         {
             byte[] bytes = GetBytes(message);
-            if (bytes.Length >= 3 && bytes[0] == NegativeResponse && bytes[1] == 0x3D && bytes[2] == 0x78)
-                return Response.Create(ResponseStatus.UnexpectedResponse, (byte)0xFF); // response pending
+            // The kernel's erase keepalive (7F 36 78, a response-pending against its flash primitive's
+            // 0x36 service) is handled generically in Device.ReceiveMessage and never reaches here, so
+            // any 7F seen here is a real erase failure.
             if (bytes.Length < 3 || bytes[0] != Mode3DResponse || bytes[1] != 0x05)
             {
                 if (bytes.Length >= 1 && bytes[0] == NegativeResponse) return Response.Create(ResponseStatus.Error, (byte)0xFF);
@@ -377,12 +378,11 @@ namespace PcmHacking
             return new Message(msg);
         }
 
-        /// <summary>Parse a write-block response: 0x76 = success, 0x7F 0x36 nrc = failure/pending.</summary>
+        /// <summary>Parse a write-block response: 0x76 = success, 0x7F = failure. (Response-pending
+        /// 7F..78 keepalives are handled generically in Device.ReceiveMessage.)</summary>
         public Response<bool> ParseWriteBlockResponse(Message message)
         {
             byte[] bytes = GetBytes(message);
-            if (bytes.Length >= 3 && bytes[0] == NegativeResponse && bytes[1] == MemoryBlockResponse && bytes[2] == 0x78)
-                return Response.Create(ResponseStatus.UnexpectedResponse, false); // response pending
             if (bytes.Length >= 1 && bytes[0] == NonExecChunkAck) // 0x76
                 return Response.Create(ResponseStatus.Success, true);
             if (bytes.Length >= 1 && bytes[0] == NegativeResponse)

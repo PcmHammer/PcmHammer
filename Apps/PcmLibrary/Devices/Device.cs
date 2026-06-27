@@ -314,27 +314,68 @@ namespace PcmHacking
 
 
         /// <summary>
+        /// Largest number of consecutive ISO-14229 "response pending" (7F xx 78) frames to wait
+        /// through before giving up. Each pending grants a fresh receive window, so this multiplied by
+        /// the device read timeout bounds the total wait for one slow operation (e.g. a flash erase).
+        /// </summary>
+        private const int MaxResponsePending = 50;
+
+        /// <summary>
+        /// True for an ISO-14229 "response pending" negative response (7F &lt;service&gt; 78): the module
+        /// accepted the request but is still working and will send the real response later. CAN payloads
+        /// reach this layer normalised to the UDS bytes (the device strips the CAN id on receive), so the
+        /// service byte is at index 0. VPW messages carry header bytes first and so will not match, which
+        /// is intended - this is only relevant to the GMLAN/CAN flow.
+        /// </summary>
+        protected virtual bool IsResponsePending(Message message)
+        {
+            byte[] bytes = message?.GetBytes() ?? Array.Empty<byte>();
+            return bytes.Length >= 3 && bytes[0] == 0x7F && bytes[2] == 0x78;
+        }
+
+        /// <summary>
         /// Reads a message from the VPW bus and returns it.
         /// </summary>
         public async Task<Message> ReceiveMessage()
         {
-            if (this.queue.Count == 0)
+            // A "response pending" (7F xx 78) means the module is still working (e.g. a long flash
+            // erase): it is not the final response, so handle it once here at the driver boundary
+            // rather than in every command's parser. Swallow it and read again - granting a fresh
+            // receive window per pending (the ISO P2* "extend the timeout" behaviour) - so the caller's
+            // request/response loop never sees it and never spends its timeout budget on it. Bounded so
+            // a module that streams pendings forever still ends.
+            for (int pendings = 0; ; )
             {
-                await this.Receive();
-            }
+                if (this.queue.Count == 0)
+                {
+                    await this.Receive();
+                }
 
-            lock (this.queue)
-            {
-                if (this.queue.Count > 0)
+                Message message;
+                lock (this.queue)
                 {
-                    // This can be useful for debugging, but is generally too noisy.
-                    // this.Logger.AddDebugMessage("Dequeue.");
-                    return this.queue.Dequeue();
+                    message = this.queue.Count > 0 ? this.queue.Dequeue() : null!;
                 }
-                else
+
+                if (message == null)
                 {
-                    return null!;
+                    return null!;   // genuine receive timeout
                 }
+
+                if (this.IsResponsePending(message))
+                {
+                    if (++pendings > MaxResponsePending)
+                    {
+                        // Pathological: stop extending and let the caller's loop see it and fail.
+                        this.Logger.AddDebugMessage("Response pending limit reached; giving up the wait.");
+                        return message;
+                    }
+
+                    this.Logger.AddDebugMessage("Response pending (7F..78); waiting for the final response.");
+                    continue;
+                }
+
+                return message;
             }
         }
 

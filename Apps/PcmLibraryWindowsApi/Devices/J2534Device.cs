@@ -244,7 +244,26 @@ namespace PcmHacking
         {
             TimeoutScenario previous = this.currentTimeoutScenario;
             this.currentTimeoutScenario = scenario;
-            this.ReadTimeout = (scenario == TimeoutScenario.Detect) ? 500 : 3000;
+            switch (scenario)
+            {
+                case TimeoutScenario.Detect:
+                    // Fast empty-bus ruling during a multi-bus scan.
+                    this.ReadTimeout = 500;
+                    break;
+
+                case TimeoutScenario.EraseMemoryBlock:
+                    // A flash sector erase runs for seconds and the kernel only emits its
+                    // responsePending keepalive every few seconds. The read window must be longer than
+                    // that interval so the pending lands inside one Receive() and the wait is extended
+                    // (see Device.ReceiveMessage) instead of timing out between keepalives.
+                    this.ReadTimeout = 8000;
+                    break;
+
+                default:
+                    // All other scenarios keep the original 3000 ms so normal operations are unchanged.
+                    this.ReadTimeout = 3000;
+                    break;
+            }
             return Task.FromResult(previous);
         }
 
