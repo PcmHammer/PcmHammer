@@ -1,0 +1,44 @@
+﻿<Window x:Class="PCMHammer.Views.BruteForceDialogBox"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:PCMHammer.Views"
+        mc:Ignorable="d"
+        WindowStartupLocation="CenterOwner"
+        SizeToContent="Height"
+        Width="400"
+        ResizeMode="NoResize"
+        Title="Brute Force Unlock">
+    <Grid>
+        <GroupBox Header="Key Range" Margin="12">
+            <StackPanel>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <Label Content="Start Key:" Target="{Binding ElementName=StartKeyTextBox}" />
+                    <TextBox x:Name="StartKeyTextBox" d:Text="0000" Grid.Row="1" Margin="5,0"
+                             Text="{Binding StartKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                    <Label Content="End Key:" Target="{Binding ElementName=EndKeyTextBox}" Grid.Column="1" Grid.Row="0"/>
+                    <TextBox x:Name="EndKeyTextBox" d:Text="FFFF" Grid.Column="1" Grid.Row="1" Margin="5,0"
+                             Text="{Binding EndKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                    <Label Content="Current Key:" Grid.Row="2" Target="{Binding ElementName=CurrentKeyTextBox}" 
+                           VerticalAlignment="Center"/>
+                    <TextBox x:Name="CurrentKeyTextBox" d:Text="0000" Grid.Row="2" Grid.Column="1" Margin="5"
+                            Text="{Binding CurrentKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                </Grid>
+                
+                <CheckBox Content="Algo sweep first" d:IsChecked="True" IsChecked="{Binding AlgoSweepFirst}"/>
+            </StackPanel>
+        </GroupBox>
+        
+    </Grid>
+</Window>
