@@ -25,15 +25,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Reference Include="J2534DotNet">
-      <HintPath>..\..\..\PcmLibraryWindowsApi\bin\Debug\net10.0-windows\J2534DotNet.dll</HintPath>
-    </Reference>
-    <Reference Include="PcmLibrary">
-      <HintPath>..\..\..\PcmLibrary\bin\Debug\netstandard2.0\PcmLibrary.dll</HintPath>
-    </Reference>
-    <Reference Include="PcmLibraryWindowsApi">
-      <HintPath>..\..\..\PcmLibraryWindowsApi\bin\Debug\net10.0-windows\PcmLibraryWindowsApi.dll</HintPath>
-    </Reference>
+    <ProjectReference Include="..\..\..\PcmLibrary\PcmLibrary.csproj" />
+    <ProjectReference Include="..\..\..\PcmLibraryWindowsApi\PcmLibraryWindowsApi.csproj" />
   </ItemGroup>
 
 </Project>

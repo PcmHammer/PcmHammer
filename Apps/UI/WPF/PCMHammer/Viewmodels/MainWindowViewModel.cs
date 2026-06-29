@@ -10,7 +10,7 @@ namespace PCMHammer.Viewmodels
 {
     public partial class MainWindowViewModel : INotifyPropertyChanged
     {
-        private readonly ILogger _logger;
+        private readonly MainWindowLogger _logger;
         public Device? SelectedDevice
         {
             get => _selectedDevice;
@@ -65,6 +65,7 @@ namespace PCMHammer.Viewmodels
             get => _timeRemaining;
             set { _timeRemaining = value; OnPropertyChanged(); }
         }
+
         private Vehicle? _vehicle;
         public Vehicle? Vehicle
         {
@@ -76,6 +77,8 @@ namespace PCMHammer.Viewmodels
                 RelayCommand.RaiseCanExecuteChanged();
             }
         }
+
+        private readonly Window _parentWindow;
 
         // --- Commands (File Menu) ---
         public ICommand SaveResultsLogCommand { get; }
@@ -105,8 +108,9 @@ namespace PCMHammer.Viewmodels
         public ICommand TestWriteCommand { get; }
         public ICommand CancelCurrentCommand { get; }
 
-        public MainWindowViewModel()
+        public MainWindowViewModel(MainWindow parentWindow)
         {
+            _parentWindow = parentWindow;
             _logger = new MainWindowLogger(this);
             _logger.AddUserMessage("PCM Hammer");
             _logger.AddUserMessage("Copyright (C) 2018-2026 PcmHacking.net - GPL v3");
@@ -175,7 +179,7 @@ namespace PCMHammer.Viewmodels
                 }
 
                 var vinViewModel = new ChangeVINViewModel(vinResponse.Value);
-                var vinDialog = new ChangeVINWindow(vinViewModel) { Owner = Application.Current.MainWindow };
+                var vinDialog = new ChangeVINWindow(vinViewModel) { Owner = _parentWindow };
 
                 if (vinDialog.ShowDialog() == true)
                 {
@@ -212,14 +216,20 @@ namespace PCMHammer.Viewmodels
         private void ExecuteTestFileChecksums() => MessageBox.Show("Testing Checksums...");
         private void ExecuteBruteForceUnlock() => StatusText = "Attempting Brute Force Unlock...";
         private void ExecuteHaltRunningKernel() => StatusText = "Kernel Halted.";
-
-        private void ExecuteUserDefinedKey() => MessageBox.Show("Opening Key Configuration...");
+        private void ExecuteUserDefinedKey()
+        {
+            UserDefinedKeyDialogBox userDefinedKeyDialog = new() { Owner = _parentWindow };
+            StatusText = "Setting user-defined key...";
+            if (userDefinedKeyDialog.ShowDialog() == true)
+            {
+                StatusText = "Ready.";
+            }
+        }
         private void ExecuteSettings() => MessageBox.Show("Opening Settings...");
 
         private void ExecuteSelectDevice()
         {
-            Window parentWindow = Application.Current.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive) ?? Application.Current.MainWindow;
-            var pickerDialog = new DevicePicker(_logger) { Owner = parentWindow };
+            var pickerDialog = new DevicePicker(_logger) { Owner = _parentWindow };
 
             StatusText = "Selecting Device...";
 
@@ -255,7 +265,15 @@ namespace PCMHammer.Viewmodels
         private void ExecuteReInitializeDevice() => StatusText = "Re-initializing device...";
         private bool CanReInitialize() => SelectedDevice is not null;
         private void ExecuteReadProperties() => StatusText = "Reading PCM Properties...";
-        private void ExecuteWritePCM() => StatusText = "Writing PCM...";
+        private void ExecuteWritePCM()
+        {
+            DelayDialogBox delayDialog = new() { Owner = _parentWindow };
+            StatusText = "Writing to PCM...";
+            if (delayDialog.ShowDialog() == true)
+            {
+                StatusText = "Ready.";
+            }
+        }
         private void ExecuteTestWrite() => StatusText = "Running Test Write...";
         private void ExecuteCancelCurrent() => StatusText = "Operation Canceled.";
 
