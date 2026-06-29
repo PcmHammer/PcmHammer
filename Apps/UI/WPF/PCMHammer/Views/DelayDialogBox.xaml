@@ -5,6 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:PCMHammer.Views"
         mc:Ignorable="d"
+        WindowStartupLocation="CenterOwner"
         SizeToContent="Height"
         Width="449"
         ResizeMode="NoResize"
@@ -20,7 +21,8 @@
             <TextBlock Text="Has the PCM been powered on for at least 10 seconds?" FontWeight="Bold"/>
             <TextBlock TextWrapping="Wrap" Margin="0,5">
                 <TextBlock.Text>
-                    If not, please wait for it to initialize before continuing. If you skip this step, the read process may be interrupted,and there's a good chance that you will need to temporarily remove the PCM's fuse to get it to work properly again.
+                    If not, please wait for it to initialize before continuing. If you skip this step, the read process may be interrupted, 
+                    and there's a good chance that you will need to temporarily remove the PCM's fuse to get it to work properly again.
                 </TextBlock.Text>
             </TextBlock>
         </StackPanel>
@@ -30,8 +32,6 @@
         <StackPanel Orientation="Horizontal" Grid.Row="2" HorizontalAlignment="Right" Margin="0,5">
             <Button Grid.Row="2" Content="Cancel"   HorizontalAlignment="Right" Width="100" Margin="5" 
                     IsCancel="True" Command="{Binding CloseCommand}"/>
-            <Button Grid.Row="2" Content="Continue" HorizontalAlignment="Right" Width="100" Margin="5" 
-                    IsDefault="True" IsEnabled="{Binding TimerExpired}" Command="{Binding CloseCommand}"/>
         </StackPanel>
     </Grid>
 </Window>

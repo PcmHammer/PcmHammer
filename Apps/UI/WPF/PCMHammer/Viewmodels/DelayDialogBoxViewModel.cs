@@ -9,19 +9,6 @@ namespace PCMHammer.Viewmodels
     public partial class DelayDialogBoxViewModel : INotifyPropertyChanged
     {
         // Properties
-        private bool _timerExpired = false;
-        public bool TimerExpired
-        {
-            get => _timerExpired;
-            set
-            {
-                if (_timerExpired != value)
-                {
-                    _timerExpired = value;
-                    OnPropertyChanged();
-                }
-            }
-        }
 
         private int _timerValue = 10;
         public int TimerValue
@@ -68,8 +55,6 @@ namespace PCMHammer.Viewmodels
                 if (TimerValue > 0) TimerValue--;
                 else
                 {
-                    TimerText = string.Empty;
-                    TimerExpired = true;
                     _waitTimer.Stop();
                     RequestClose?.Invoke();
                 }
