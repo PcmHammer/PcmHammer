@@ -237,7 +237,15 @@ namespace PCMHammer.Viewmodels
                 StatusText = "Ready.";
             }
         }
-        private void ExecuteSettings() => MessageBox.Show("Opening Settings...");
+        private void ExecuteSettings()
+        { 
+            SettingsWindow settingsWindow = new() { Owner = _parentWindow };
+            StatusText = "Settings...";
+            if (settingsWindow.ShowDialog() == true)
+            {
+
+            }
+        }
 
         private void ExecuteSelectDevice()
         {
