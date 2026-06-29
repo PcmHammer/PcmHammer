@@ -1,0 +1,42 @@
+﻿<Window x:Class="PCMHammer.Views.UserDefinedKeyDialogBox"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:PCMHammer.Views"
+        mc:Ignorable="d"
+        ResizeMode="NoResize"
+        SizeToContent="WidthAndHeight"
+        WindowStartupLocation="CenterOwner"
+        Title="User Defined Key">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            
+            <TextBlock Text="Enter Key:" Margin="0,0,8,0" VerticalAlignment="Center"/>
+            <TextBox x:Name="UserDefinedKeyTextBox" Grid.Column="1" Width="132" VerticalAlignment="Center" 
+                     Text="{Binding UserDefinedKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+        </Grid>
+
+        <TextBlock Text="Valid range: 0000 - FFFF" FontStyle="Italic" Opacity="0.5" Margin="0,8" Grid.Row="1"/>
+
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <Button Content="Cancel"                        HorizontalAlignment="Stretch"   Margin="5,0" IsCancel="True"    Command="{Binding CancelCommand}"/>
+            <Button Content="Ok"        Grid.Column="1"     HorizontalAlignment="Stretch"   Margin="5,0" IsDefault="True"   Command="{Binding AcceptCommand}"/>
+        </Grid>
+    </Grid>
+</Window>

@@ -13,7 +13,7 @@ namespace PCMHammer
         public MainWindow()
         {
             InitializeComponent();
-            DataContext = new MainWindowViewModel();
+            DataContext = new MainWindowViewModel(this);
         }
 
         private void Window_Loaded(object sender, RoutedEventArgs e)

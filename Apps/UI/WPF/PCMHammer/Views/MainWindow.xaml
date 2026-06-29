@@ -49,9 +49,9 @@
                           IsEnabled="{Binding SelectedDevice, Converter={StaticResource NullToBoolean}}"/>
             </MenuItem>
             <MenuItem Header="_Options">
-                <MenuItem Header="_User Defined Key"    Command="{Binding UserDefinedKeyCommand}"
+                <MenuItem Header="_User Defined Key" Command="{Binding UserDefinedKeyCommand}"
                           IsEnabled="{Binding SelectedDevice, Converter={StaticResource NullToBoolean}}"/>
-                <MenuItem Header="_Settings"            Command="{Binding SettingsCommand}"/>
+                <MenuItem Header="_Settings" Command="{Binding SettingsCommand}"/>
             </MenuItem>
         </Menu>
 

@@ -209,7 +209,7 @@ namespace PCMHammer.Viewmodels
             SerialDevices.Add(ElmDevice.DeviceType);
             SerialDevices.Add(AvtDevice.DeviceType);
             SerialDevices.Add(OBDXProDevice.DeviceType);
-            // SerialDevices.Add(MockDevice.DeviceType); // Uncomment for testing
+            SerialDevices.Add(MockDevice.DeviceType);
         }
 
         private async Task AddDiscoveredPortsAsync()
@@ -234,7 +234,7 @@ namespace PCMHammer.Viewmodels
                 _logger.AddDebugMessage("Failed to list serial ports: " + ex.ToString());
                 StatusText = "Unable to list serial ports: " + ex.Message;
             }
-            // SerialPorts.Add(MockPort.PortName); // Uncomment for testing
+            SerialPorts.Add(MockPort.PortName);
         }
 
         private async Task AddDiscoveredJ2534DevicesAsync()
