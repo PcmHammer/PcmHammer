@@ -10,13 +10,22 @@
         Width="400"
         ResizeMode="NoResize"
         Title="Brute Force Unlock">
-    <Grid>
-        <GroupBox Header="Key Range" Margin="12">
+    <StackPanel>
+        <Grid Margin="12">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
             <StackPanel>
                 <Grid>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="64"/>
+                        <ColumnDefinition Width="64"/>
+                        <ColumnDefinition Width="64"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <Grid.RowDefinitions>
@@ -24,21 +33,90 @@
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
-                    <Label Content="Start Key:" Target="{Binding ElementName=StartKeyTextBox}" />
-                    <TextBox x:Name="StartKeyTextBox" d:Text="0000" Grid.Row="1" Margin="5,0"
-                             Text="{Binding StartKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
-                    <Label Content="End Key:" Target="{Binding ElementName=EndKeyTextBox}" Grid.Column="1" Grid.Row="0"/>
-                    <TextBox x:Name="EndKeyTextBox" d:Text="FFFF" Grid.Column="1" Grid.Row="1" Margin="5,0"
-                             Text="{Binding EndKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
-                    <Label Content="Current Key:" Grid.Row="2" Target="{Binding ElementName=CurrentKeyTextBox}" 
-                           VerticalAlignment="Center"/>
-                    <TextBox x:Name="CurrentKeyTextBox" d:Text="0000" Grid.Row="2" Grid.Column="1" Margin="5"
-                            Text="{Binding CurrentKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+
+                    <Label Content="Start:" 
+                       Target="{Binding ElementName=StartKeyTextBox}" 
+                       HorizontalAlignment="Center"/>
+                    <TextBox x:Name="StartKeyTextBox" 
+                         d:Text="0000" 
+                         Grid.Row="1" 
+                         Margin="5,0" 
+                         CharacterCasing="Upper" 
+                         Text="{Binding StartKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+
+                    <Label Content="End:"
+                       Target="{Binding ElementName=EndKeyTextBox}" 
+                       Grid.Column="1" 
+                       Grid.Row="0"
+                       HorizontalAlignment="Center"/>
+                    <TextBox x:Name="EndKeyTextBox" 
+                         d:Text="FFFF" 
+                         Grid.Column="1" 
+                         Grid.Row="1" 
+                         Margin="5,0"
+                         CharacterCasing="Upper" 
+                         Text="{Binding EndKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+
+                    <Label Content="Current:" 
+                       Grid.Column="2" 
+                       Target="{Binding ElementName=CurrentKeyTextBox}"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"/>
+                    <TextBox x:Name="CurrentKeyTextBox"
+                         d:Text="0000" 
+                         Grid.Row="1" 
+                         Grid.Column="2"
+                         Margin="5,0"
+                         CharacterCasing="Upper"
+                         Text="{Binding CurrentKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                 </Grid>
-                
-                <CheckBox Content="Algo sweep first" d:IsChecked="True" IsChecked="{Binding AlgoSweepFirst}"/>
+
+                <CheckBox Content="Algo sweep first" 
+                      d:IsChecked="True" 
+                      IsChecked="{Binding AlgoSweepFirst}"
+                      Margin="5,0"/>
+
+                <StackPanel Orientation="Horizontal">
+                    <Label Content="Speed:" 
+                       Target="{Binding ElementName=SpeedComboBox}" 
+                       Margin="5,0"
+                       VerticalAlignment="Center"/>
+                    <ComboBox x:Name="SpeedComboBox"
+                          IsEditable="False"
+                          SelectedIndex="0"
+                          Width="120">
+                        <ComboBoxItem Content="Auto" />
+                    </ComboBox>
+                </StackPanel>
+
+                <Label Content="Lockout Timer"
+                   Target="{Binding ElementName=LockoutTimerProgressBar}" 
+                   d:Visibility="Collapsed"
+                   Margin="5,0"/>
+                <ProgressBar x:Name="LockoutTimerProgressBar"
+                         d:Visibility="Collapsed"
+                         d:Value="100" 
+                         Height="22"
+                         Margin="5,0"/>
             </StackPanel>
-        </GroupBox>
-        
-    </Grid>
+
+            <Grid Grid.Row="1" Margin="0,5">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="3*"/>
+                    <ColumnDefinition Width="3*"/>
+                    <ColumnDefinition Width="3*"/>
+                </Grid.ColumnDefinitions>
+
+                <Button Content="Exit" Width="96" HorizontalAlignment="Center"/>
+                <Button Content="Stop" Grid.Column="1" Width="96" IsEnabled="False" HorizontalAlignment="Center"/>
+                <Button Content="Start" Grid.Column="2" Width="96" HorizontalAlignment="Center"/>
+            </Grid>
+        </Grid>
+
+        <StatusBar Grid.Row="2">
+            <StatusBarItem>
+                <TextBlock Text="{Binding StatusMessage}" d:Text="Ready." />
+            </StatusBarItem>
+        </StatusBar>
+    </StackPanel>
 </Window>
