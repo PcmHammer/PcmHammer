@@ -214,7 +214,19 @@ namespace PCMHammer.Viewmodels
         private void ExecuteWriteOSCalibrationBoot() => StatusText = "Writing OS/Cal/Boot...";
         private void ExecuteWriteFullFlashClone() => StatusText = "Cloning Full Flash...";
         private void ExecuteTestFileChecksums() => MessageBox.Show("Testing Checksums...");
-        private void ExecuteBruteForceUnlock() => StatusText = "Attempting Brute Force Unlock...";
+        private void ExecuteBruteForceUnlock()
+        {
+            StatusText = "Brute Force Unlocking...";
+            BruteForceDialogBox bruteForceDialog = new() { Owner = _parentWindow };
+            if (bruteForceDialog.ShowDialog() == true)
+            {
+                StatusText = "Brute Force Unlock Completed.";
+            }
+            else
+            {
+                StatusText = "Brute Force Unlock Cancelled.";
+            }
+        }
         private void ExecuteHaltRunningKernel() => StatusText = "Kernel Halted.";
         private void ExecuteUserDefinedKey()
         {
