@@ -1,0 +1,55 @@
+﻿<Window x:Class="PCMHammer.Views.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:PCMHammer.Views"
+        mc:Ignorable="d"
+        SizeToContent="Height"
+        ResizeMode="CanMinimize"
+        WindowStartupLocation="CenterOwner"
+        Title="Settings" Width="629">
+    <StackPanel Margin="16">
+        <GroupBox Header="Window">
+            <CheckBox Content="Main Window Persistance"/>
+        </GroupBox>
+
+        <GroupBox Header="Bin">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <Button Content="Bin Directory" Width="120" Margin="5,0"/>
+                <TextBox Grid.Column="1" Margin="5,0"/>
+            </Grid>
+        </GroupBox>
+
+        <GroupBox Header="Log">
+            <StackPanel>
+                <CheckBox Content="Use Log SaveAs Dialog"/>
+                <CheckBox Content="Save results log on application exit (always silent)"/>
+                <CheckBox Content="Save debug log on application exit (always silent)"/>
+
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Button Content="Log Directory" Margin="5,0" Width="120"/>
+                    <TextBox Grid.Column="1"/>
+
+                </Grid>
+            </StackPanel>
+        </GroupBox>
+        <Grid Margin="0,16,0,0" HorizontalAlignment="Right">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Button Content="Cancel" Width="120" Margin="5,0"/>
+            <Button Content="OK" Width="120" Margin="5,0" Grid.Column="1"/>
+        </Grid>
+    </StackPanel>
+</Window>
