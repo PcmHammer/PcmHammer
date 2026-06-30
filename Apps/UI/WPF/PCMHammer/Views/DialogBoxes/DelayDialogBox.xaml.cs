@@ -9,12 +9,12 @@ namespace PCMHammer.Views
     /// </summary>
     public partial class DelayDialogBox : Window
     {
-        private readonly DelayDialogBoxViewModel _viewModel;
+        private readonly DelayViewModel _viewModel;
 
         public DelayDialogBox()
         {
             InitializeComponent();
-            _viewModel = new DelayDialogBoxViewModel();
+            _viewModel = new DelayViewModel();
             DataContext = _viewModel;
             _viewModel.RequestClose += Cancel;
         }

@@ -5,7 +5,7 @@ using System.Windows.Input;
 
 namespace PCMHammer.Viewmodels
 {
-    public partial class UserDefinedKeyDialogBoxViewModel : ViewModelBase
+    public partial class UserDefinedKeyViewModel : ViewModelBase
     {
         // Properties
         public string _userDefinedKey = string.Empty;
@@ -23,7 +23,7 @@ namespace PCMHammer.Viewmodels
         public ICommand CancelCommand { get; }
         public ICommand AcceptCommand { get; }
 
-        public UserDefinedKeyDialogBoxViewModel()
+        public UserDefinedKeyViewModel()
         {
             CancelCommand = new RelayCommand(() => RequestClose?.Invoke());
             AcceptCommand = new RelayCommand(ExecuteAcceptAndClose);
