@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:sys="clr-namespace:System;assembly=mscorlib"
         xmlns:local="clr-namespace:PCMHammer.Views"
         mc:Ignorable="d"
         WindowStartupLocation="CenterOwner"
@@ -10,113 +11,80 @@
         Width="400"
         ResizeMode="NoResize"
         Title="Brute Force Unlock">
-    <StackPanel>
-        <Grid Margin="12">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-            </Grid.RowDefinitions>
 
-            <StackPanel>
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="64"/>
-                        <ColumnDefinition Width="64"/>
-                        <ColumnDefinition Width="64"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
-
-                    <Label Content="Start:" 
-                       Target="{Binding ElementName=StartKeyTextBox}" 
-                       HorizontalAlignment="Center"/>
-                    <TextBox x:Name="StartKeyTextBox" 
-                         d:Text="0000" 
-                         Grid.Row="1" 
-                         Margin="5,0" 
-                         CharacterCasing="Upper" 
-                         Text="{Binding StartKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
-
-                    <Label Content="End:"
-                       Target="{Binding ElementName=EndKeyTextBox}" 
-                       Grid.Column="1" 
-                       Grid.Row="0"
-                       HorizontalAlignment="Center"/>
-                    <TextBox x:Name="EndKeyTextBox" 
-                         d:Text="FFFF" 
-                         Grid.Column="1" 
-                         Grid.Row="1" 
-                         Margin="5,0"
-                         CharacterCasing="Upper" 
-                         Text="{Binding EndKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
-
-                    <Label Content="Current:" 
-                       Grid.Column="2" 
-                       Target="{Binding ElementName=CurrentKeyTextBox}"
-                       HorizontalAlignment="Center"
-                       VerticalAlignment="Center"/>
-                    <TextBox x:Name="CurrentKeyTextBox"
-                         d:Text="0000" 
-                         Grid.Row="1" 
-                         Grid.Column="2"
-                         Margin="5,0"
-                         CharacterCasing="Upper"
-                         Text="{Binding CurrentKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
-                </Grid>
-
-                <CheckBox Content="Algo sweep first" 
-                      d:IsChecked="True" 
-                      IsChecked="{Binding AlgoSweepFirst}"
-                      Margin="5,0"/>
-
-                <StackPanel Orientation="Horizontal">
-                    <Label Content="Speed:" 
-                       Target="{Binding ElementName=SpeedComboBox}" 
-                       Margin="5,0"
-                       VerticalAlignment="Center"/>
-                    <ComboBox x:Name="SpeedComboBox"
-                          IsEditable="False"
-                          SelectedIndex="0"
-                          Width="120">
-                        <ComboBoxItem Content="Auto" />
-                    </ComboBox>
-                </StackPanel>
-
-                <Label Content="Lockout Timer"
-                   Target="{Binding ElementName=LockoutTimerProgressBar}" 
-                   d:Visibility="Collapsed"
-                   Margin="5,0"/>
-                <ProgressBar x:Name="LockoutTimerProgressBar"
-                         d:Visibility="Collapsed"
-                         d:Value="100" 
-                         Height="22"
-                         Margin="5,0"/>
-            </StackPanel>
-
-            <Grid Grid.Row="1" Margin="0,5">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="3*"/>
-                    <ColumnDefinition Width="3*"/>
-                    <ColumnDefinition Width="3*"/>
-                </Grid.ColumnDefinitions>
-
-                <Button Content="Exit" Width="96" HorizontalAlignment="Center"/>
-                <Button Content="Stop" Grid.Column="1" Width="96" IsEnabled="False" HorizontalAlignment="Center"/>
-                <Button Content="Start" Grid.Column="2" Width="96" HorizontalAlignment="Center"/>
-            </Grid>
-        </Grid>
-
-        <StatusBar Grid.Row="2">
+    <DockPanel>
+        <StatusBar DockPanel.Dock="Bottom">
             <StatusBarItem>
-                <TextBlock Text="{Binding StatusMessage}" d:Text="Ready." />
+                <TextBlock Text="{Binding StatusText}" d:Text="Ready." />
             </StatusBarItem>
         </StatusBar>
-    </StackPanel>
+
+        <Grid Margin="15">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" SharedSizeGroup="Labels" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/> 
+                <RowDefinition Height="Auto"/> 
+                <RowDefinition Height="Auto"/> 
+                <RowDefinition Height="Auto"/> 
+                <RowDefinition Height="Auto"/> 
+                <RowDefinition Height="Auto"/> 
+            </Grid.RowDefinitions>
+
+            <Label Content="Start:" Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Target="{Binding ElementName=StartKeyTextBox}" />
+            <TextBox x:Name="StartKeyTextBox" Grid.Row="0" Grid.Column="1" 
+                     d:Text="0000" Margin="5" Height="24" VerticalContentAlignment="Center"
+                     CharacterCasing="Upper" FontFamily="Consolas"
+                     Text="{Binding StartKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+
+            <Label Content="End:" Grid.Row="0" Grid.Column="2" Margin="15,0,5,0" VerticalAlignment="Center" Target="{Binding ElementName=EndKeyTextBox}" />
+            <TextBox x:Name="EndKeyTextBox" Grid.Row="0" Grid.Column="3" 
+                     d:Text="FFFF" Margin="5" Height="24" VerticalContentAlignment="Center"
+                     CharacterCasing="Upper" FontFamily="Consolas"
+                     Text="{Binding EndKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+
+            <Label Content="Speed:" Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Target="{Binding ElementName=SpeedComboBox}"/>
+            <ComboBox x:Name="SpeedComboBox" Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="3"
+                      Margin="5" Height="24" VerticalContentAlignment="Center"
+                      IsEditable="False"
+                      ItemsSource="{Binding SpeedOptions}"
+                      DisplayMemberPath="DisplayText"
+                      SelectedValuePath="Value"
+                      SelectedValue="{Binding BruteForceSpeed, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+
+            <CheckBox Content="Algo sweep first" Grid.Row="2" Grid.ColumnSpan="4"
+                      d:IsChecked="True" Margin="5,10"
+                      IsChecked="{Binding AlgoSweepFirst, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+
+            <StackPanel Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="4" Margin="0,5"
+                        Visibility="{Binding BruteForceRunning, Converter={StaticResource BooleanToVisibility}}">
+                <Label d:Content="Progress: 0000 / FFFF" Target="{Binding ElementName=ProgressBar}">
+                    <Label.Content>
+                        <MultiBinding StringFormat="Progress: {0} / {1}">
+                            <Binding Path="CurrentKey" />
+                            <Binding Path="EndKey" />
+                        </MultiBinding>
+                    </Label.Content>
+                </Label>
+                <ProgressBar x:Name="ProgressBar" d:Value="100" Height="22" Margin="5,2,5,10"/>
+            </StackPanel>
+
+            <StackPanel Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="4" Margin="0,5"
+                        Visibility="{Binding BruteForceRunning, Converter={StaticResource BooleanToVisibility}}">
+                <Label Content="Lockout Timer" Target="{Binding ElementName=LockoutTimerProgressBar}" />
+                <ProgressBar x:Name="LockoutTimerProgressBar" d:Value="100" Height="22" Margin="5,2,5,10"/>
+            </StackPanel>
+
+            <UniformGrid Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="4" Rows="1" Margin="0,15,0,5">
+                <Button Content="Exit" Width="96" Height="28" HorizontalAlignment="Center"/>
+                <Button Content="Stop" Width="96" Height="28" IsEnabled="{Binding BruteForceRunning}" HorizontalAlignment="Center"/>
+                <Button Content="Start" Width="96" Height="28" IsEnabled="{Binding BruteForceRunning, Converter={StaticResource InverseBoolean}}" HorizontalAlignment="Center"/>
+            </UniformGrid>
+            
+        </Grid>
+    </DockPanel>
 </Window>

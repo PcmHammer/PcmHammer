@@ -1,14 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+﻿using PCMHammer.Viewmodels;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Shapes;
 
 namespace PCMHammer.Views
 {
@@ -20,6 +11,7 @@ namespace PCMHammer.Views
         public BruteForceDialogBox()
         {
             InitializeComponent();
+            DataContext = new BruteForceDialogBoxViewModel();
         }
     }
 }
