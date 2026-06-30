@@ -4,11 +4,11 @@ using System.Windows;
 namespace PCMHammer.Views
 {
     /// <summary>
-    /// Interaction logic for ChangeVINWindow.xaml
+    /// Interaction logic for ChangeVinDialogBox.xaml
     /// </summary>
-    public partial class ChangeVINWindow : Window
+    public partial class ChangeVinDialogBox : Window
     {
-        public ChangeVINWindow(ChangeVINViewModel viewModel)
+        public ChangeVinDialogBox(ChangeVinViewModel viewModel)
         {
             InitializeComponent();
             DataContext = viewModel;

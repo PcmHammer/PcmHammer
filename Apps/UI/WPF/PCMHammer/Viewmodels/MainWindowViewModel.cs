@@ -178,8 +178,8 @@ namespace PCMHammer.Viewmodels
                     return;
                 }
 
-                var vinViewModel = new ChangeVINViewModel(vinResponse.Value);
-                var vinDialog = new ChangeVINWindow(vinViewModel) { Owner = _parentWindow };
+                var vinViewModel = new ChangeVinViewModel(vinResponse.Value);
+                var vinDialog = new ChangeVinDialogBox(vinViewModel) { Owner = _parentWindow };
 
                 if (vinDialog.ShowDialog() == true)
                 {
