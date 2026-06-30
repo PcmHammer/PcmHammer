@@ -217,14 +217,15 @@ namespace PCMHammer.Viewmodels
         private void ExecuteBruteForceUnlock()
         {
             StatusText = "Brute Force Unlocking...";
-            BruteForceDialogBox bruteForceDialog = new() { Owner = _parentWindow };
+            if (Vehicle == null) return;
+            BruteForceDialogBox bruteForceDialog = new(vehicle: Vehicle, logger: _logger) { Owner = _parentWindow };
             if (bruteForceDialog.ShowDialog() == true)
             {
                 StatusText = "Brute Force Unlock Completed.";
             }
             else
             {
-                StatusText = "Brute Force Unlock Cancelled.";
+                StatusText = "Ready";
             }
         }
         private void ExecuteHaltRunningKernel() => StatusText = "Kernel Halted.";

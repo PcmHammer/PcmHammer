@@ -10,7 +10,8 @@
         SizeToContent="Height"
         Width="400"
         ResizeMode="NoResize"
-        Title="Brute Force Unlock">
+        Title="Brute Force Unlock"
+        Closing="BruteForceDialogBox_Closing">
 
     <DockPanel>
         <StatusBar DockPanel.Dock="Bottom">
@@ -39,13 +40,13 @@
             <TextBox x:Name="StartKeyTextBox" Grid.Row="0" Grid.Column="1" 
                      d:Text="0000" Margin="5" Height="24" VerticalContentAlignment="Center"
                      CharacterCasing="Upper" FontFamily="Consolas"
-                     Text="{Binding StartKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                     Text="{Binding StartKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource HexConverter}}"/>
 
             <Label Content="End:" Grid.Row="0" Grid.Column="2" Margin="15,0,5,0" VerticalAlignment="Center" Target="{Binding ElementName=EndKeyTextBox}" />
             <TextBox x:Name="EndKeyTextBox" Grid.Row="0" Grid.Column="3" 
                      d:Text="FFFF" Margin="5" Height="24" VerticalContentAlignment="Center"
                      CharacterCasing="Upper" FontFamily="Consolas"
-                     Text="{Binding EndKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                     Text="{Binding EndKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource HexConverter}}"/>
 
             <Label Content="Speed:" Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Target="{Binding ElementName=SpeedComboBox}"/>
             <ComboBox x:Name="SpeedComboBox" Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="3"
@@ -64,25 +65,36 @@
                         Visibility="{Binding BruteForceRunning, Converter={StaticResource BooleanToVisibility}}">
                 <Label d:Content="Progress: 0000 / FFFF" Target="{Binding ElementName=ProgressBar}">
                     <Label.Content>
-                        <MultiBinding StringFormat="Progress: {0} / {1}">
+                        <MultiBinding StringFormat="Progress: {0:X4} / {1:X4}">
                             <Binding Path="CurrentKey" />
                             <Binding Path="EndKey" />
                         </MultiBinding>
                     </Label.Content>
                 </Label>
-                <ProgressBar x:Name="ProgressBar" d:Value="100" Height="22" Margin="5,2,5,10"/>
+                <ProgressBar x:Name="ProgressBar" d:Value="100" Height="22" Value="{Binding ProgressValue}"/>
             </StackPanel>
 
             <StackPanel Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="4" Margin="0,5"
                         Visibility="{Binding BruteForceRunning, Converter={StaticResource BooleanToVisibility}}">
                 <Label Content="Lockout Timer" Target="{Binding ElementName=LockoutTimerProgressBar}" />
-                <ProgressBar x:Name="LockoutTimerProgressBar" d:Value="100" Height="22" Margin="5,2,5,10"/>
+                <ProgressBar x:Name="LockoutTimerProgressBar" Height="22" Minimum="0" Maximum="1" Value="{Binding LockoutProgress}"/>
             </StackPanel>
 
             <UniformGrid Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="4" Rows="1" Margin="0,15,0,5">
-                <Button Content="Exit" Width="96" Height="28" HorizontalAlignment="Center"/>
-                <Button Content="Stop" Width="96" Height="28" IsEnabled="{Binding BruteForceRunning}" HorizontalAlignment="Center"/>
-                <Button Content="Start" Width="96" Height="28" IsEnabled="{Binding BruteForceRunning, Converter={StaticResource InverseBoolean}}" HorizontalAlignment="Center"/>
+                <Button Content="Exit"
+                        Width="96" 
+                        HorizontalAlignment="Center" 
+                        Command="{Binding ExitCommand}"/>
+                <Button Content="Stop" 
+                        Width="96" 
+                        IsEnabled="{Binding BruteForceRunning}" 
+                        HorizontalAlignment="Center" 
+                        Command="{Binding StopCommand}"/>
+                <Button Content="Start" 
+                        Width="96" 
+                        IsEnabled="{Binding BruteForceRunning, Converter={StaticResource InverseBoolean}}" 
+                        HorizontalAlignment="Center" 
+                        Command="{Binding StartCommand}"/>
             </UniformGrid>
             
         </Grid>
