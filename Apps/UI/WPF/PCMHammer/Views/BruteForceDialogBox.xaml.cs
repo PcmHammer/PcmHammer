@@ -1,4 +1,6 @@
-﻿using PCMHammer.Viewmodels;
+﻿using PcmHacking;
+using PCMHammer.Viewmodels;
+using System.ComponentModel;
 using System.Windows;
 
 namespace PCMHammer.Views
@@ -8,10 +10,30 @@ namespace PCMHammer.Views
     /// </summary>
     public partial class BruteForceDialogBox : Window
     {
-        public BruteForceDialogBox()
+        private readonly BruteForceDialogBoxViewModel _viewModel;
+        public BruteForceDialogBox(Vehicle vehicle, ILogger logger)
         {
             InitializeComponent();
-            DataContext = new BruteForceDialogBoxViewModel();
+            _viewModel = new BruteForceDialogBoxViewModel(vehicle, logger);
+            DataContext = _viewModel;
+            _viewModel.RequestClose += Cancel;
+            Closing += BruteForceDialogBox_Closing;
+        }
+
+        private void Cancel()
+        {
+            DialogResult = true;
+            Close();
+        }
+
+        private void BruteForceDialogBox_Closing(object? sender, CancelEventArgs e)
+        {
+            if (_viewModel != null && _viewModel.BruteForceRunning)
+            {
+                e.Cancel = true; // Block immediate exit
+                _viewModel.StopCommand.Execute(null); // Signal background cancel loop
+                _viewModel.StatusText = "Stopping...";
+            }
         }
     }
 }
