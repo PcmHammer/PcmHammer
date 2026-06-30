@@ -185,6 +185,12 @@ namespace PcmHacking
         public bool Supports4X { get; protected set; }
 
         /// <summary>
+        /// Physical buses this device can passively monitor (sniff all traffic). VPW by default;
+        /// CAN-capable devices override to add Can500k. An empty list means no monitoring at all.
+        /// </summary>
+        public virtual IReadOnlyList<BusProtocol> MonitorableProtocols { get; } = new[] { BusProtocol.Vpw };
+
+        /// <summary>
         /// Indicates whether or no the device supports logging just one DPID.
         /// </summary>
         /// <remarks>
@@ -406,6 +412,22 @@ namespace PcmHacking
         public virtual Task<bool> SetProtocol(BusProtocol protocol)
         {
             return Task.FromResult(protocol == BusProtocol.Vpw);
+        }
+
+        /// <summary>
+        /// Put the device into passive monitor mode on the given bus: pass all traffic, not just the
+        /// tool/PCM conversation. The default just selects the protocol (enough for devices that always
+        /// pass everything); a device with a hardware acceptance filter widens it here.
+        /// </summary>
+        public virtual Task<bool> BeginMonitor(BusProtocol protocol)
+        {
+            return this.SetProtocol(protocol);
+        }
+
+        /// <summary>Undo <see cref="BeginMonitor"/> and restore normal filtering. Default does nothing.</summary>
+        public virtual Task EndMonitor()
+        {
+            return Task.CompletedTask;
         }
 
         /// <summary>

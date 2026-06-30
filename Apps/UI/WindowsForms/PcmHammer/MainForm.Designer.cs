@@ -55,6 +55,7 @@ namespace PcmHacking
             this.saveToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.saveResultsLogToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.saveDebugLogToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.saveBusMonitorLogToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.exitApplicationToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.menuItemTools = new System.Windows.Forms.ToolStripMenuItem();
             this.readEntirePCMToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -66,6 +67,7 @@ namespace PcmHacking
             this.testFileChecksumsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator3 = new System.Windows.Forms.ToolStripSeparator();
             this.bruteForceUnlockToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.busMonitorToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.haltRunningKernelToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.menuItemOptions = new System.Windows.Forms.ToolStripMenuItem();
             this.userDefinedKeyToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -99,7 +101,7 @@ namespace PcmHacking
             this.interfaceBox.Margin = new System.Windows.Forms.Padding(2);
             this.interfaceBox.Name = "interfaceBox";
             this.interfaceBox.Padding = new System.Windows.Forms.Padding(2);
-            this.interfaceBox.Size = new System.Drawing.Size(224, 93);
+            this.interfaceBox.Size = new System.Drawing.Size(190, 93);
             this.interfaceBox.TabIndex = 0;
             this.interfaceBox.TabStop = false;
             this.interfaceBox.Text = "Device";
@@ -109,7 +111,7 @@ namespace PcmHacking
             this.reinitializeButton.Location = new System.Drawing.Point(4, 62);
             this.reinitializeButton.Margin = new System.Windows.Forms.Padding(2);
             this.reinitializeButton.Name = "reinitializeButton";
-            this.reinitializeButton.Size = new System.Drawing.Size(216, 25);
+            this.reinitializeButton.Size = new System.Drawing.Size(182, 25);
             this.reinitializeButton.TabIndex = 2;
             this.reinitializeButton.Text = "Re-&Initialize Device";
             this.reinitializeButton.UseVisualStyleBackColor = true;
@@ -119,7 +121,7 @@ namespace PcmHacking
             // 
             this.selectButton.Location = new System.Drawing.Point(4, 32);
             this.selectButton.Name = "selectButton";
-            this.selectButton.Size = new System.Drawing.Size(216, 25);
+            this.selectButton.Size = new System.Drawing.Size(182, 25);
             this.selectButton.TabIndex = 1;
             this.selectButton.Text = "&Select Device";
             this.selectButton.UseVisualStyleBackColor = true;
@@ -132,7 +134,7 @@ namespace PcmHacking
             this.deviceDescription.Location = new System.Drawing.Point(4, 16);
             this.deviceDescription.Margin = new System.Windows.Forms.Padding(2, 0, 2, 0);
             this.deviceDescription.Name = "deviceDescription";
-            this.deviceDescription.Size = new System.Drawing.Size(214, 13);
+            this.deviceDescription.Size = new System.Drawing.Size(180, 13);
             this.deviceDescription.TabIndex = 0;
             this.deviceDescription.Text = "Device name will be displayed here";
             // 
@@ -151,7 +153,7 @@ namespace PcmHacking
             this.operationsBox.Margin = new System.Windows.Forms.Padding(2);
             this.operationsBox.Name = "operationsBox";
             this.operationsBox.Padding = new System.Windows.Forms.Padding(2);
-            this.operationsBox.Size = new System.Drawing.Size(224, 326);
+            this.operationsBox.Size = new System.Drawing.Size(190, 326);
             this.operationsBox.TabIndex = 1;
             this.operationsBox.TabStop = false;
             this.operationsBox.Text = "Operations";
@@ -161,7 +163,7 @@ namespace PcmHacking
             this.verifyPcmButton.Location = new System.Drawing.Point(4, 134);
             this.verifyPcmButton.Margin = new System.Windows.Forms.Padding(2);
             this.verifyPcmButton.Name = "verifyPcmButton";
-            this.verifyPcmButton.Size = new System.Drawing.Size(216, 25);
+            this.verifyPcmButton.Size = new System.Drawing.Size(182, 25);
             this.verifyPcmButton.TabIndex = 7;
             this.verifyPcmButton.Text = "&Verify PCM";
             this.verifyPcmButton.UseVisualStyleBackColor = true;
@@ -172,7 +174,7 @@ namespace PcmHacking
             this.readPcmButton.Location = new System.Drawing.Point(4, 47);
             this.readPcmButton.Margin = new System.Windows.Forms.Padding(2);
             this.readPcmButton.Name = "readPcmButton";
-            this.readPcmButton.Size = new System.Drawing.Size(216, 25);
+            this.readPcmButton.Size = new System.Drawing.Size(182, 25);
             this.readPcmButton.TabIndex = 4;
             this.readPcmButton.Text = "Read P&CM";
             this.readPcmButton.UseVisualStyleBackColor = true;
@@ -183,7 +185,7 @@ namespace PcmHacking
             this.testWriteButton.Location = new System.Drawing.Point(4, 105);
             this.testWriteButton.Margin = new System.Windows.Forms.Padding(2);
             this.testWriteButton.Name = "testWriteButton";
-            this.testWriteButton.Size = new System.Drawing.Size(216, 25);
+            this.testWriteButton.Size = new System.Drawing.Size(182, 25);
             this.testWriteButton.TabIndex = 6;
             this.testWriteButton.Text = "T&est Write";
             this.testWriteButton.UseVisualStyleBackColor = true;
@@ -195,7 +197,7 @@ namespace PcmHacking
             this.exitKernelButton.Location = new System.Drawing.Point(4, 259);
             this.exitKernelButton.Margin = new System.Windows.Forms.Padding(2);
             this.exitKernelButton.Name = "exitKernelButton";
-            this.exitKernelButton.Size = new System.Drawing.Size(216, 25);
+            this.exitKernelButton.Size = new System.Drawing.Size(182, 25);
             this.exitKernelButton.TabIndex = 9;
             this.exitKernelButton.Text = "&Halt Running Kernel";
             this.exitKernelButton.UseVisualStyleBackColor = true;
@@ -207,7 +209,7 @@ namespace PcmHacking
             this.cancelButton.Location = new System.Drawing.Point(4, 293);
             this.cancelButton.Margin = new System.Windows.Forms.Padding(2);
             this.cancelButton.Name = "cancelButton";
-            this.cancelButton.Size = new System.Drawing.Size(216, 25);
+            this.cancelButton.Size = new System.Drawing.Size(182, 25);
             this.cancelButton.TabIndex = 10;
             this.cancelButton.Text = "&Cancel";
             this.cancelButton.UseVisualStyleBackColor = true;
@@ -218,7 +220,7 @@ namespace PcmHacking
             this.writeCalibrationButton.Location = new System.Drawing.Point(4, 76);
             this.writeCalibrationButton.Margin = new System.Windows.Forms.Padding(2);
             this.writeCalibrationButton.Name = "writeCalibrationButton";
-            this.writeCalibrationButton.Size = new System.Drawing.Size(216, 25);
+            this.writeCalibrationButton.Size = new System.Drawing.Size(182, 25);
             this.writeCalibrationButton.TabIndex = 5;
             this.writeCalibrationButton.Text = "&Write PCM";
             this.writeCalibrationButton.UseVisualStyleBackColor = true;
@@ -229,7 +231,7 @@ namespace PcmHacking
             this.identifyPcmButton.Location = new System.Drawing.Point(4, 18);
             this.identifyPcmButton.Margin = new System.Windows.Forms.Padding(2);
             this.identifyPcmButton.Name = "identifyPcmButton";
-            this.identifyPcmButton.Size = new System.Drawing.Size(216, 25);
+            this.identifyPcmButton.Size = new System.Drawing.Size(182, 25);
             this.identifyPcmButton.TabIndex = 0;
             this.identifyPcmButton.Text = "&Identify PCM";
             this.identifyPcmButton.UseVisualStyleBackColor = true;
@@ -244,11 +246,11 @@ namespace PcmHacking
             this.tabs.Controls.Add(this.helpTab);
             this.tabs.Controls.Add(this.creditsTab);
             this.tabs.Controls.Add(this.debugTab);
-            this.tabs.Location = new System.Drawing.Point(238, 26);
+            this.tabs.Location = new System.Drawing.Point(204, 26);
             this.tabs.Margin = new System.Windows.Forms.Padding(2);
             this.tabs.Name = "tabs";
             this.tabs.SelectedIndex = 0;
-            this.tabs.Size = new System.Drawing.Size(608, 455);
+            this.tabs.Size = new System.Drawing.Size(727, 455);
             this.tabs.TabIndex = 2;
             // 
             // resultsTab
@@ -364,7 +366,8 @@ namespace PcmHacking
             // 
             this.saveToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.saveResultsLogToolStripMenuItem,
-            this.saveDebugLogToolStripMenuItem});
+            this.saveDebugLogToolStripMenuItem,
+            this.saveBusMonitorLogToolStripMenuItem});
             this.saveToolStripMenuItem.Name = "saveToolStripMenuItem";
             this.saveToolStripMenuItem.Size = new System.Drawing.Size(98, 22);
             this.saveToolStripMenuItem.Text = "&Save";
@@ -382,7 +385,15 @@ namespace PcmHacking
             this.saveDebugLogToolStripMenuItem.Size = new System.Drawing.Size(134, 22);
             this.saveDebugLogToolStripMenuItem.Text = "&Debug Log";
             this.saveDebugLogToolStripMenuItem.Click += new System.EventHandler(this.saveDebugLogToolStripMenuItem_Click);
-            // 
+            //
+            // saveBusMonitorLogToolStripMenuItem
+            //
+            this.saveBusMonitorLogToolStripMenuItem.Name = "saveBusMonitorLogToolStripMenuItem";
+            this.saveBusMonitorLogToolStripMenuItem.Size = new System.Drawing.Size(134, 22);
+            this.saveBusMonitorLogToolStripMenuItem.Text = "&Bus Monitor";
+            this.saveBusMonitorLogToolStripMenuItem.Visible = false;
+            this.saveBusMonitorLogToolStripMenuItem.Click += new System.EventHandler(this.saveBusMonitorLogToolStripMenuItem_Click);
+            //
             // exitApplicationToolStripMenuItem
             // 
             this.exitApplicationToolStripMenuItem.Name = "exitApplicationToolStripMenuItem";
@@ -403,6 +414,7 @@ namespace PcmHacking
             this.toolStripSeparator2,
             this.testFileChecksumsToolStripMenuItem,
             this.bruteForceUnlockToolStripMenuItem,
+            this.busMonitorToolStripMenuItem,
             this.toolStripSeparator3,
             this.haltRunningKernelToolStripMenuItem});
             this.menuItemTools.Name = "menuItemTools";
@@ -455,7 +467,7 @@ namespace PcmHacking
             // 
             this.testFileChecksumsToolStripMenuItem.Name = "testFileChecksumsToolStripMenuItem";
             this.testFileChecksumsToolStripMenuItem.Size = new System.Drawing.Size(225, 22);
-            this.testFileChecksumsToolStripMenuItem.Text = "&Test File Checksums...";
+            this.testFileChecksumsToolStripMenuItem.Text = "&Test File Checksums";
             this.testFileChecksumsToolStripMenuItem.Click += new System.EventHandler(this.testFileChecksumsToolStripMenuItem_Click);
             //
             // toolStripSeparator3
@@ -467,9 +479,17 @@ namespace PcmHacking
             //
             this.bruteForceUnlockToolStripMenuItem.Name = "bruteForceUnlockToolStripMenuItem";
             this.bruteForceUnlockToolStripMenuItem.Size = new System.Drawing.Size(225, 22);
-            this.bruteForceUnlockToolStripMenuItem.Text = "Brute Force &Unlock...";
+            this.bruteForceUnlockToolStripMenuItem.Text = "Brute Force &Unlock";
             this.bruteForceUnlockToolStripMenuItem.ToolTipText = "Search for the PCM security key. This can take a very long time.";
             this.bruteForceUnlockToolStripMenuItem.Click += new System.EventHandler(this.bruteForceUnlockToolStripMenuItem_Click);
+            //
+            // busMonitorToolStripMenuItem
+            //
+            this.busMonitorToolStripMenuItem.Name = "busMonitorToolStripMenuItem";
+            this.busMonitorToolStripMenuItem.Size = new System.Drawing.Size(225, 22);
+            this.busMonitorToolStripMenuItem.Text = "Bus &Monitor";
+            this.busMonitorToolStripMenuItem.ToolTipText = "Show the Bus Monitor tab and switch to it.";
+            this.busMonitorToolStripMenuItem.Click += new System.EventHandler(this.busMonitorToolStripMenuItem_Click);
             //
             // haltRunningKernelToolStripMenuItem
             //
@@ -582,7 +602,7 @@ namespace PcmHacking
             this.AcceptButton = this.identifyPcmButton;
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(854, 513);
+            this.ClientSize = new System.Drawing.Size(939, 513);
             this.Controls.Add(this.statusStatusStrip);
             this.Controls.Add(this.tabs);
             this.Controls.Add(this.operationsBox);
@@ -650,6 +670,7 @@ namespace PcmHacking
         private System.Windows.Forms.ToolStripMenuItem saveToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem saveResultsLogToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem saveDebugLogToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem saveBusMonitorLogToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem exitApplicationToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem userDefinedKeyToolStripMenuItem;
         private System.Windows.Forms.StatusStrip statusStatusStrip;
@@ -662,6 +683,7 @@ namespace PcmHacking
         private System.Windows.Forms.ToolStripMenuItem testFileChecksumsToolStripMenuItem;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator3;
         private System.Windows.Forms.ToolStripMenuItem bruteForceUnlockToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem busMonitorToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem haltRunningKernelToolStripMenuItem;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator1;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator2;

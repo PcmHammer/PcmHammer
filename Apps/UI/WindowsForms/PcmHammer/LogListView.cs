@@ -91,6 +91,12 @@ namespace PcmHacking
             }
         }
 
+        /// <summary>
+        /// Cap on committed lines; oldest are dropped past this. 0 (the default) means unlimited.
+        /// Used by the bus monitor to bound a high-rate feed.
+        /// </summary>
+        public int MaxLines { get; set; }
+
         /// <summary>Queue a line for display. Thread-safe; performs no UI work.</summary>
         public void AppendLine(string text)
         {
@@ -194,6 +200,11 @@ namespace PcmHacking
                 {
                     this.maxLineChars = line.Length;
                 }
+            }
+
+            if (this.MaxLines > 0 && this.lines.Count > this.MaxLines)
+            {
+                this.lines.RemoveRange(0, this.lines.Count - this.MaxLines);
             }
 
             this.UpdateScrollBars();

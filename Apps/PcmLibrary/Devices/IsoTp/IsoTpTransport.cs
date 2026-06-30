@@ -8,11 +8,21 @@ using System.Threading.Tasks;
 namespace PcmHacking
 {
     /// <summary>
+    /// Reads raw CAN frames off the bus. Implemented for passive monitoring; satisfied by the software
+    /// ISO-TP channels (which read raw frames anyway) and by a J2534 device switched to raw CAN mode.
+    /// </summary>
+    public interface IRawCanMonitor
+    {
+        /// <summary>Block until one CAN frame arrives or the device times out; return (0, empty) on timeout.</summary>
+        Task<(uint id, byte[] frame)> ReceiveCanFrame();
+    }
+
+    /// <summary>
     /// Raw CAN frame I/O a device exposes so the software ISO-TP transport can run over it. A device
     /// with native ISO-TP (OBDX HSCAN, J2534 ISO15765) does not use this; one needing software ISO-TP
     /// (AVT with framing off, SLCAN) implements it and composes an <see cref="IsoTpTransport"/>.
     /// </summary>
-    public interface ICanChannel
+    public interface ICanChannel : IRawCanMonitor
     {
         /// <summary>CAN ID used when sending to the ECU (tool to ECU).</summary>
         uint TxCanId { get; }
@@ -31,9 +41,6 @@ namespace PcmHacking
 
         /// <summary>Send one CAN frame (up to 8 data bytes) with the given CAN ID.</summary>
         Task SendCanFrame(uint canId, byte[] framePayload);
-
-        /// <summary>Block until one CAN frame arrives or the device times out; return (0, empty) on timeout.</summary>
-        Task<(uint id, byte[] frame)> ReceiveCanFrame();
     }
 
     /// <summary>

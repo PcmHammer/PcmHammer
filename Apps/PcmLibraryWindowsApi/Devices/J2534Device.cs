@@ -16,7 +16,7 @@ namespace PcmHacking
     /// This class encapsulates all code that is unique to the AVT 852 interface.
     /// </summary>
     ///
-    class J2534Device : Device, ICanTarget
+    class J2534Device : Device, ICanTarget, IRawCanMonitor
     {
         /// <summary>
         /// Configuration settings
@@ -49,6 +49,12 @@ namespace PcmHacking
 
         /// <summary>Current bus protocol; drives send/receive formatting for this device.</summary>
         private BusProtocol CurrentProtocol = BusProtocol.Vpw;
+
+        /// <summary>Id of the extra pass-all filter installed while monitoring; -1 when not monitoring.</summary>
+        private int monitorFilterId = -1;
+
+        /// <summary>True while the channel is in raw CAN mode for monitoring (not ISO15765).</summary>
+        private bool monitoringRawCan;
 
         // CAN target addresses; default from the shared CanId constants, settable so the command
         // layer can address a different module or id.
@@ -631,6 +637,164 @@ namespace PcmHacking
             }
 
             return false;
+        }
+
+        /// <summary>VPW and CAN 500k can both be monitored on this device.</summary>
+        public override IReadOnlyList<BusProtocol> MonitorableProtocols { get; } = new[] { BusProtocol.Vpw, BusProtocol.Can500k };
+
+        /// <summary>
+        /// Begin monitoring. For VPW the init filter only passes the tool/PCM conversation, so install
+        /// a pass-all (mask 0) instead. For CAN the operational mode is ISO15765 (reassembled, single
+        /// id); switch to raw CAN at 500k with a pass-all filter so every id - including 101 and the
+        /// request side - is seen as raw frames. Filters are cleared first because some channels have
+        /// only one filter slot.
+        /// </summary>
+        public override async Task<bool> BeginMonitor(BusProtocol protocol)
+        {
+            if (protocol == BusProtocol.Can500k)
+            {
+                return this.BeginRawCanMonitor();
+            }
+
+            if (!await this.SetProtocol(protocol))
+            {
+                return false;
+            }
+
+            if (protocol == BusProtocol.Vpw)
+            {
+                this.StopAllFilters();
+                Response<J2534Err> f = SetFilter(0x000000, 0x000000, 0, TxFlag.NONE, FilterType.PASS_FILTER);
+                if (f.Status == ResponseStatus.Success)
+                {
+                    this.monitorFilterId = (int)Filters[Filters.Count - 1];
+                }
+                else
+                {
+                    this.Logger.AddDebugMessage("Bus monitor: pass-all filter failed, error 0x" + f.Value.ToString("X"));
+                }
+            }
+
+            return true;
+        }
+
+        public override Task EndMonitor()
+        {
+            if (this.monitoringRawCan)
+            {
+                // Restore the operational ISO15765 (native ISO-TP) CAN channel for later read/write.
+                this.monitoringRawCan = false;
+                DisconnectFromProtocol();
+                Filters.Clear();
+                ConnectToProtocol(ProtocolID.ISO15765, BaudRate.ISO15765, ConnectFlag.NONE);
+                SetCanFlowControlFilter();
+            }
+            else if (this.monitorFilterId >= 0)
+            {
+                this.monitorFilterId = -1;
+                // Drop the pass-all and restore the normal tool/PCM filter for later operations.
+                this.StopAllFilters();
+                SetFilter(0xFEFFFF, J2534Device.MessageFilter, 0, TxFlag.NONE, FilterType.PASS_FILTER);
+            }
+
+            return Task.CompletedTask;
+        }
+
+        /// <summary>Open a raw CAN channel at 500k with a pass-all filter for monitoring.</summary>
+        private bool BeginRawCanMonitor()
+        {
+            DisconnectFromProtocol();
+            Filters.Clear();
+
+            Response<J2534Err> c = ConnectToProtocol(ProtocolID.CAN, BaudRate.CAN, ConnectFlag.NONE);
+            if (c.Status != ResponseStatus.Success)
+            {
+                this.Logger.AddUserMessage("J2534: failed to open raw CAN channel, error 0x" + c.Value.ToString("X"));
+                return false;
+            }
+
+            Response<J2534Err> f = SetCanPassAllFilter();
+            if (f.Status != ResponseStatus.Success)
+            {
+                this.Logger.AddDebugMessage("J2534 raw CAN pass-all filter failed, error 0x" + f.Value.ToString("X"));
+            }
+
+            this.Supports4X = false;
+            this.monitoringRawCan = true;
+            this.CurrentProtocol = BusProtocol.Can500k;
+            this.Logger.AddDebugMessage("J2534 raw CAN monitor: 500k, pass-all.");
+            return true;
+        }
+
+        /// <summary>Install a pass-all (mask 0) PASS filter on the raw CAN channel.</summary>
+        private Response<J2534Err> SetCanPassAllFilter()
+        {
+            byte[] mask    = CanIdToBytes(0x00000000);
+            byte[] pattern = CanIdToBytes(0x00000000);
+
+            PassThruMsg maskMsg    = new PassThruMsg(ProtocolID.CAN, TxFlag.NONE, mask);
+            PassThruMsg patternMsg = new PassThruMsg(ProtocolID.CAN, TxFlag.NONE, pattern);
+            int filterId = 0;
+
+            OBDError = J2534Port.Functions.StartMsgFilter(ChannelID, FilterType.PASS_FILTER,
+                ref maskMsg, ref patternMsg, ref filterId);
+            if (OBDError != J2534Err.STATUS_NOERROR)
+            {
+                return Response.Create(ResponseStatus.Error, OBDError);
+            }
+
+            Filters.Add((ulong)filterId);
+            return Response.Create(ResponseStatus.Success, OBDError);
+        }
+
+        /// <summary>
+        /// IRawCanMonitor: read one raw CAN frame (id + payload) in raw CAN monitor mode. Skips TX echo
+        /// and keeps short frames (a 101 broadcast carries only a few bytes). (0, empty) on timeout.
+        /// </summary>
+        public Task<(uint id, byte[] frame)> ReceiveCanFrame()
+        {
+            List<PassThruMsg> rxMsgs = new List<PassThruMsg>();
+            Stopwatch sw = Stopwatch.StartNew();
+
+            while (sw.ElapsedMilliseconds <= (long)ReadTimeout)
+            {
+                int numMessages = 1;
+                OBDError = J2534Port.Functions.ReadMsgs((int)ChannelID, ref rxMsgs, ref numMessages, ReadTimeout);
+                if (OBDError != J2534Err.STATUS_NOERROR)
+                {
+                    return Task.FromResult((0u, Array.Empty<byte>()));
+                }
+
+                PassThruMsg msg = rxMsgs.Last();
+                if ((int)msg.RxStatus == (((int)RxStatus.NONE) + ((int)RxStatus.TX_MSG_TYPE)) || (msg.RxStatus == RxStatus.START_OF_MESSAGE))
+                {
+                    continue;
+                }
+
+                byte[] data = msg.Data;
+                if (data == null || data.Length < 4)
+                {
+                    continue;
+                }
+
+                uint id = ((uint)data[0] << 24) | ((uint)data[1] << 16) | ((uint)data[2] << 8) | data[3];
+                byte[] payload = new byte[data.Length - 4];
+                Array.Copy(data, 4, payload, 0, payload.Length);
+                return Task.FromResult((id, payload));
+            }
+
+            return Task.FromResult((0u, Array.Empty<byte>()));
+        }
+
+        /// <summary>Stop and forget every installed message filter.</summary>
+        private void StopAllFilters()
+        {
+            foreach (ulong filterId in Filters)
+            {
+                J2534Port.Functions.StopMsgFilter((int)ChannelID, (int)filterId);
+            }
+
+            Filters.Clear();
         }
 
         /// <summary>

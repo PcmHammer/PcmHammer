@@ -132,7 +132,7 @@
             this.mainWindowPersistenceCheckBox.Text = "Main Window Persistence";
             this.mainWindowPersistenceCheckBox.UseVisualStyleBackColor = true;
             this.mainWindowPersistenceCheckBox.CheckedChanged += new System.EventHandler(this.mainWindowPersistenceCheckBox_CheckedChanged);
-            // 
+            //
             // binGroupBox
             // 
             this.binGroupBox.Controls.Add(this.forceWriteAllSectorsCheckBox);
