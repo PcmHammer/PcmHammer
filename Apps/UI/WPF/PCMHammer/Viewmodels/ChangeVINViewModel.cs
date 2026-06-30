@@ -7,7 +7,7 @@ using System.Windows.Input;
 
 namespace PCMHammer.Viewmodels
 {
-    public class ChangeVINViewModel : INotifyPropertyChanged
+    public class ChangeVinViewModel : INotifyPropertyChanged
     {
         public event Action? RequestCloseOk;
         public event Action? RequestCloseCancel;
@@ -50,7 +50,7 @@ namespace PCMHammer.Viewmodels
         public ICommand OkCommand { get; }
         public ICommand CancelCommand { get; }
 
-        public ChangeVINViewModel(string initialVin)
+        public ChangeVinViewModel(string initialVin)
         {
             Vin = initialVin;
 
