@@ -11,7 +11,7 @@ namespace PCMHammer.Viewmodels
         public required string DisplayText { get; set; }
         public int Value { get; set; }
     }
-    public partial class BruteForceDialogBoxViewModel : ViewModelBase
+    public partial class BruteForceViewModel : ViewModelBase
     {
         // --- Properties ---
         private readonly Vehicle _vehicle;
@@ -95,7 +95,7 @@ namespace PCMHammer.Viewmodels
         public ICommand StopCommand { get; }
         public ICommand ExitCommand { get; }
 
-        public BruteForceDialogBoxViewModel(Vehicle vehicle, ILogger logger)
+        public BruteForceViewModel(Vehicle vehicle, ILogger logger)
         {
             _vehicle = vehicle;
             _logger = logger;

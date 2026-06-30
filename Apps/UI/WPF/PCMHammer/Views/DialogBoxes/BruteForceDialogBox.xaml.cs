@@ -10,11 +10,11 @@ namespace PCMHammer.Views
     /// </summary>
     public partial class BruteForceDialogBox : Window
     {
-        private readonly BruteForceDialogBoxViewModel _viewModel;
+        private readonly BruteForceViewModel _viewModel;
         public BruteForceDialogBox(Vehicle vehicle, ILogger logger)
         {
             InitializeComponent();
-            _viewModel = new BruteForceDialogBoxViewModel(vehicle, logger);
+            _viewModel = new BruteForceViewModel(vehicle, logger);
             DataContext = _viewModel;
             _viewModel.RequestClose += Cancel;
             Closing += BruteForceDialogBox_Closing;

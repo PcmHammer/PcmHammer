@@ -7,7 +7,7 @@ using System.Windows.Threading;
 
 namespace PCMHammer.Viewmodels
 {
-    public partial class DelayDialogBoxViewModel : ViewModelBase
+    public partial class DelayViewModel : ViewModelBase
     {
         // Properties
         private int _timerValue = 10;
@@ -36,7 +36,7 @@ namespace PCMHammer.Viewmodels
 
         private readonly DispatcherTimer _waitTimer = new() { Interval = TimeSpan.FromSeconds(1) };
 
-        public DelayDialogBoxViewModel()
+        public DelayViewModel()
         {
             CloseCommand = new RelayCommand(() => RequestClose?.Invoke());
             _waitTimer.Tick += (s, e) =>

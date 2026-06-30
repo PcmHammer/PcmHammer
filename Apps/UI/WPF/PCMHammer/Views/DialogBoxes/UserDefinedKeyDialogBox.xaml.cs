@@ -11,7 +11,7 @@ namespace PCMHammer.Views
         public UserDefinedKeyDialogBox()
         {
             InitializeComponent();
-            DataContext = new UserDefinedKeyDialogBoxViewModel();
+            DataContext = new UserDefinedKeyViewModel();
         }
     }
 }
