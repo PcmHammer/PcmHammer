@@ -44,5 +44,11 @@ namespace PCMHammer
                 MessageBox.Show($"Error loading document: {ex.Message}");
             }
         }
+
+        private void LogTextBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (sender is TextBox textBox)
+                textBox.ScrollToEnd();
+        }
     }
 }
