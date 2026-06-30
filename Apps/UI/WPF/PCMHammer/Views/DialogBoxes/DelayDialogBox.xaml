@@ -30,7 +30,7 @@
         <TextBlock Grid.Row="1" Text="{Binding TimerText}" d:Text="10 seconds remaining..." Margin="0,5" FontStyle="Italic" Opacity="0.5" HorizontalAlignment="Center"/>
 
         <StackPanel Orientation="Horizontal" Grid.Row="2" HorizontalAlignment="Right" Margin="0,5">
-            <Button Grid.Row="2" Content="Cancel"   HorizontalAlignment="Right" Width="100" Margin="5" 
+            <Button Grid.Row="2" Content="Skip"   HorizontalAlignment="Right" Width="100" Margin="5" 
                     IsCancel="True" Command="{Binding CloseCommand}"/>
         </StackPanel>
     </Grid>

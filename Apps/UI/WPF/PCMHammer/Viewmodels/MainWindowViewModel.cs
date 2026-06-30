@@ -1,7 +1,10 @@
 ﻿using PcmHacking;
 using PCMHammer.Helpers;
+using PCMHammer.Services;
 using PCMHammer.ViewModels;
 using PCMHammer.Views;
+using System.Configuration;
+using System.IO;
 using System.Windows;
 using System.Windows.Input;
 
@@ -10,26 +13,38 @@ namespace PCMHammer.Viewmodels
     public partial class MainWindowViewModel : ViewModelBase
     {
         private readonly MainWindowLogger _logger;
+        private readonly FileDialogService _fileDialogService;
+        private readonly Window _parentWindow;
+
+        // --- Status and Progress Properties ---
+        private PcmFlasher _pcmFlasher;
+        public PcmFlasher PcmFlasher
+        {
+            get => _pcmFlasher;
+            set => SetProperty(ref _pcmFlasher, value);
+        }
+
+        private Device? _selectedDevice;
         public Device? SelectedDevice
         {
             get => _selectedDevice;
             set => SetProperty(ref _selectedDevice, value);
         }
-        private Device? _selectedDevice;
 
-        // --- Status and Progress Properties ---
         private string _logText = string.Empty;
         public string LogText
         {
             get => _logText;
             set => SetProperty(ref _logText, value);
         }
+
         private string _debugLogText = string.Empty;
         public string DebugLogText
         {
             get => _debugLogText;
             set => SetProperty(ref _debugLogText, value);
         }
+
         private string _statusText = "Ready";
         public string StatusText
         {
@@ -76,7 +91,12 @@ namespace PCMHammer.Viewmodels
             }
         }
 
-        private readonly Window _parentWindow;
+        private bool _isOperationRunning;
+        public bool IsOperationRunning
+        {
+            get => _isOperationRunning;
+            set => SetProperty(ref _isOperationRunning, value);
+        }
 
         // --- Commands (File Menu) ---
         public ICommand SaveResultsLogCommand { get; }
@@ -110,11 +130,15 @@ namespace PCMHammer.Viewmodels
         {
             _parentWindow = parentWindow;
             _logger = new MainWindowLogger(this);
+            _fileDialogService = new FileDialogService();
+            _pcmFlasher = new PcmFlasher(null, _logger);
+            // Add user messages to the log
             _logger.AddUserMessage("PCM Hammer");
             _logger.AddUserMessage("Copyright (C) 2018-2026 PcmHacking.net - GPL v3");
             _logger.AddUserMessage("Version: 2.0.0");
             _logger.AddUserMessage($"Running at: {DateTime.Now:dddd, MMMM d yyyy, HH:mm:ss}");
             _logger.AddUserMessage("Thanks for using PCM Hammer.");
+            // Add debug messages to the debug log
             _logger.AddDebugMessage("PCM Hammer");
             _logger.AddDebugMessage("Copyright (C) 2018-2026 PcmHacking.net - GPL v3");
             _logger.AddDebugMessage("Version: 2.0.0");
@@ -144,7 +168,9 @@ namespace PCMHammer.Viewmodels
             SelectDeviceCommand = new RelayCommand(ExecuteSelectDevice);
             ReInitializeDeviceCommand = new RelayCommand(ExecuteReInitializeDevice, CanReInitialize);
             ReadPropertiesCommand = new RelayCommand(ExecuteReadProperties);
-            WritePCMCommand = new RelayCommand(ExecuteWritePCM);
+            WritePCMCommand = new RelayCommand(
+                execute: async () => ExecuteWritePCMAsync()
+            );
             TestWriteCommand = new RelayCommand(ExecuteTestWrite);
             CancelCurrentCommand = new RelayCommand(ExecuteCancelCurrent);
         }
@@ -233,7 +259,7 @@ namespace PCMHammer.Viewmodels
             StatusText = "Setting user-defined key...";
             if (userDefinedKeyDialog.ShowDialog() == true)
             {
-                StatusText = "Ready.";
+                StatusText = "Ready";
             }
         }
         private void ExecuteSettings()
@@ -241,9 +267,7 @@ namespace PCMHammer.Viewmodels
             SettingsWindow settingsWindow = new() { Owner = _parentWindow };
             StatusText = "Settings...";
             if (settingsWindow.ShowDialog() == true)
-            {
-
-            }
+                StatusText = "Ready";
         }
 
         private void ExecuteSelectDevice()
@@ -275,22 +299,62 @@ namespace PCMHammer.Viewmodels
                         "PCMHammer"
                     );
                     _logger.AddDebugMessage($"Connected to device: {workingDevice.GetDeviceType()}");
+                    _pcmFlasher = new PcmFlasher(Vehicle!, _logger);
                 }
                 else
                     _logger.AddDebugMessage("Dialog returned OK, but no valid device data was stored.");
-                StatusText = "Ready.";
+                StatusText = "Ready";
             }
         }
         private void ExecuteReInitializeDevice() => StatusText = "Re-initializing device...";
         private bool CanReInitialize() => SelectedDevice is not null;
         private void ExecuteReadProperties() => StatusText = "Reading PCM Properties...";
-        private void ExecuteWritePCM()
+        private async void ExecuteWritePCMAsync()
         {
-            DelayDialogBox delayDialog = new() { Owner = _parentWindow };
+            if (IsOperationRunning) return;
+
+            DelayDialogBox delayDialog = new() { Owner = Application.Current.MainWindow };
             StatusText = "Writing to PCM...";
+
             if (delayDialog.ShowDialog() == true)
             {
-                StatusText = "Ready.";
+                string selectedFilePath = _fileDialogService.OpenBinFileDialog();
+
+                if (string.IsNullOrEmpty(selectedFilePath))
+                {
+                    _logger.AddUserMessage("Flash operation canceled by user (no file selected).");
+                    StatusText = "Ready";
+                    return;
+                }
+
+                try
+                {
+                    IsOperationRunning = true;
+                    StatusText = "Writing to PCM...";
+                    WriteType writeType = WriteType.OsPlusCalibrationPlusBoot;
+                    var cts = new CancellationTokenSource();
+
+                    // Hand off the parameters directly to cleaned-up backend task
+                    // Task.Run guarantees it completely leaves the UI thread.
+                    bool success = await Task.Run(() =>
+                        _pcmFlasher.WritePcmAsync(writeType, selectedFilePath, useAutoPcmType: true, PcmType.Undefined, cts.Token)
+                    );
+
+                    StatusText = success ? "Write Complete Successfully!" : "Write Failed.";
+                }
+                catch (Exception ex)
+                {
+                    _logger.AddUserMessage($"Critical error: {ex.Message}");
+                    StatusText = "Error occurred.";
+                }
+                finally
+                {
+                    // Always restore UI state
+                    IsOperationRunning = false;
+
+                    await Task.Delay(2000);
+                    if (!IsOperationRunning) StatusText = "Ready";
+                }
             }
         }
         private void ExecuteTestWrite() => StatusText = "Running Test Write...";

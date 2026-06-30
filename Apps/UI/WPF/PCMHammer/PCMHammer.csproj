@@ -22,6 +22,7 @@
   <ItemGroup>
     <Folder Include="Configuration\" />
     <Folder Include="Models\" />
+    <Folder Include="Kernels\" />
   </ItemGroup>
 
   <ItemGroup>
