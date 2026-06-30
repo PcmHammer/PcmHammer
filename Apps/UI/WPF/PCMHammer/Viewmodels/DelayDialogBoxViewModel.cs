@@ -1,4 +1,5 @@
 ﻿using PCMHammer.Helpers;
+using PCMHammer.ViewModels;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
@@ -6,22 +7,17 @@ using System.Windows.Threading;
 
 namespace PCMHammer.Viewmodels
 {
-    public partial class DelayDialogBoxViewModel : INotifyPropertyChanged
+    public partial class DelayDialogBoxViewModel : ViewModelBase
     {
         // Properties
-
         private int _timerValue = 10;
         public int TimerValue
         {
             get => _timerValue;
             set
             {
-                if (_timerValue != value)
-                {
-                    _timerValue = value;
-                    TimerText = $"{TimerValue} seconds remaining...";
-                    OnPropertyChanged();
-                }
+                SetProperty(ref _timerValue, value);
+                TimerText = $"{TimerValue} seconds remaining...";
             }
         }
 
@@ -29,14 +25,7 @@ namespace PCMHammer.Viewmodels
         public string TimerText
         {
             get => _timerText;
-            set
-            {
-                if (_timerText != value)
-                {
-                    _timerText = value;
-                    OnPropertyChanged();
-                }
-            }
+            set => SetProperty(ref _timerText, value);
         }
 
         // Events

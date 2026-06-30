@@ -1,26 +1,18 @@
 ﻿using PCMHammer.Helpers;
-using System.ComponentModel;
-using System.Runtime.CompilerServices;
+using PCMHammer.ViewModels;
 using System.Windows;
 using System.Windows.Input;
 
 namespace PCMHammer.Viewmodels
 {
-    public partial class UserDefinedKeyDialogBoxViewModel : INotifyPropertyChanged
+    public partial class UserDefinedKeyDialogBoxViewModel : ViewModelBase
     {
         // Properties
         public string _userDefinedKey = string.Empty;
         public string UserDefinedKey
         {
             get => _userDefinedKey;
-            set
-            {
-                if (_userDefinedKey != value)
-                {
-                    _userDefinedKey = value;
-                    OnPropertyChanged();
-                }
-            }
+            set => SetProperty(ref _userDefinedKey, value);
         }
 
         // Events
@@ -59,10 +51,5 @@ namespace PCMHammer.Viewmodels
             await Task.Delay(100); // Simulate async work
             return !string.IsNullOrWhiteSpace(key); // Example validation
         }
-
-        // INotifyPropertyChanged Implementation
-        public event PropertyChangedEventHandler? PropertyChanged;
-        protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
-            => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
 }

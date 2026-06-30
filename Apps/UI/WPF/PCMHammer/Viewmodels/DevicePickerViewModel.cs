@@ -1,16 +1,14 @@
 ﻿using PcmHacking;
 using PCMHammer.Helpers;
-using PCMHammer.Views;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
-using System.Threading.Channels;
-using System.Windows;
 using System.Windows.Input;
 using System.Text.RegularExpressions;
+using PCMHammer.ViewModels;
 
 namespace PCMHammer.Viewmodels
 {
-    public partial class DevicePickerViewModel : INotifyPropertyChanged
+    public partial class DevicePickerViewModel : ViewModelBase
     {
         private const string _prompt = "Select...";
         private readonly ILogger _logger;
@@ -36,72 +34,36 @@ namespace PCMHammer.Viewmodels
         public string? DeviceCategory
         {
             get => _deviceCategory;
-            set
-            {
-                if (_deviceCategory != value)
-                {
-                    _deviceCategory = value;
-                    OnPropertyChanged();
-                    OnPropertyChanged(nameof(IsSerialSelected));
-                    OnPropertyChanged(nameof(IsJ2534Selected));
-                }
-            }
+            set => SetProperty(ref _deviceCategory, value);
         }
 
         private string? _j2534DeviceType;
         public string? J2534DeviceType
         {
             get => _j2534DeviceType;
-            set
-            {
-                if (_j2534DeviceType != value)
-                {
-                    _j2534DeviceType = value;
-                    OnPropertyChanged();
-                }
-            }
+            set => SetProperty(ref _j2534DeviceType, value);
         }
 
         private string? _serialPort;
         public string? SerialPort
         {
             get => _serialPort;
-            set
-            {
-                if (_serialPort != value)
-                {
-                    _serialPort = value;
-                    OnPropertyChanged();
-                }
-            }
+            set => SetProperty(ref _serialPort, value);
+
         }
 
         private string? _serialPortDeviceType;
         public string? SerialPortDeviceType
         {
             get => _serialPortDeviceType;
-            set
-            {
-                if (_serialPortDeviceType != value)
-                {
-                    _serialPortDeviceType = value;
-                    OnPropertyChanged();
-                }
-            }
+            set => SetProperty(ref _serialPortDeviceType, value);
         }
 
         private bool _enable4xReadWrite;
         public bool Enable4xReadWrite
         {
             get => _enable4xReadWrite;
-            set
-            {
-                if (_enable4xReadWrite != value)
-                {
-                    _enable4xReadWrite = value;
-                    OnPropertyChanged();
-                }
-            }
+            set => SetProperty(ref _enable4xReadWrite, value);
         }
         
         // Collections for UI drop-downs
@@ -418,10 +380,6 @@ namespace PCMHammer.Viewmodels
             }
         }
 
-        // --- INotifyPropertyChanged Implementation ---
-        public event PropertyChangedEventHandler? PropertyChanged;
-        protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
-            => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         [GeneratedRegex(@"COM\d+")]
         private static partial Regex SerialPortRegex();
     }

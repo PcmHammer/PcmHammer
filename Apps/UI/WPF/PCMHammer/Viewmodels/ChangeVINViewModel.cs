@@ -1,13 +1,11 @@
 ﻿using PcmHacking;
 using PCMHammer.Helpers;
-using System;
-using System.ComponentModel;
-using System.Runtime.CompilerServices;
+using PCMHammer.ViewModels;
 using System.Windows.Input;
 
 namespace PCMHammer.Viewmodels
 {
-    public class ChangeVinViewModel : INotifyPropertyChanged
+    public class ChangeVinViewModel : ViewModelBase
     {
         public event Action? RequestCloseOk;
         public event Action? RequestCloseCancel;
@@ -19,12 +17,8 @@ namespace PCMHammer.Viewmodels
             set
             {
                 string upperValue = value?.ToUpper() ?? string.Empty;
-                if (_vin != upperValue)
-                {
-                    _vin = upperValue;
-                    OnPropertyChanged();
-                    ValidateVin();
-                }
+                if (ValidateVin(upperValue))
+                    SetProperty(ref _vin, upperValue);
             }
         }
 
@@ -32,19 +26,14 @@ namespace PCMHammer.Viewmodels
         public string ValidationPrompt
         {
             get => _validationPrompt;
-            private set { _validationPrompt = value; OnPropertyChanged(); }
+            private set => SetProperty(ref _validationPrompt, value);
         }
 
         private bool _isValid;
         public bool IsValid
         {
             get => _isValid;
-            private set
-            {
-                _isValid = value;
-                OnPropertyChanged();
-                RelayCommand.RaiseCanExecuteChanged();
-            }
+            private set => SetProperty(ref _isValid, value);
         }
 
         public ICommand OkCommand { get; }
@@ -63,20 +52,20 @@ namespace PCMHammer.Viewmodels
                 execute: () => RequestCloseCancel?.Invoke()
             );
 
-            ValidateVin();
+            ValidateVin(Vin);
         }
 
-        private void ValidateVin()
+        private bool ValidateVin(string vin)
         {
-            if (string.IsNullOrWhiteSpace(_vin) || _vin.Length != 17)
+            if (string.IsNullOrWhiteSpace(vin) || vin.Length != 17)
             {
-                ValidationPrompt = $"The VIN must be 17 characters long.\nThis is {_vin?.Length ?? 0} characters.";
+                ValidationPrompt = $"The VIN must be 17 characters long.\nThis is {vin?.Length ?? 0} characters.";
                 IsValid = false;
-                return;
+                return false;
             }
 
             // Call legacy PcmHacking.VinValidator utility
-            if (VinValidator.IsValid(_vin, out int invalidCharacterIndex, out char requiredCheckDigit))
+            if (VinValidator.IsValid(vin, out int invalidCharacterIndex, out char requiredCheckDigit))
             {
                 ValidationPrompt = "The VIN is valid. Good!";
                 IsValid = true;
@@ -86,7 +75,7 @@ namespace PCMHammer.Viewmodels
                 IsValid = false;
                 if (invalidCharacterIndex >= 0)
                 {
-                    char invalidCharacter = _vin[invalidCharacterIndex];
+                    char invalidCharacter = vin[invalidCharacterIndex];
                     ValidationPrompt = $"The \"{invalidCharacter}\" at position {invalidCharacterIndex + 1} is not a letter or number.";
                 }
                 else if (requiredCheckDigit != 'X')
@@ -94,10 +83,7 @@ namespace PCMHammer.Viewmodels
                 else
                     ValidationPrompt = "The VIN is invalid.";
             }
+            return IsValid;
         }
-
-        public event PropertyChangedEventHandler? PropertyChanged;
-        protected void OnPropertyChanged([CallerMemberName] string? name = null) =>
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
     }
 }
