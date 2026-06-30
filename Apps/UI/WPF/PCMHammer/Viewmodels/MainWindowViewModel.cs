@@ -1,20 +1,19 @@
 ﻿using PcmHacking;
 using PCMHammer.Helpers;
+using PCMHammer.ViewModels;
 using PCMHammer.Views;
-using System.ComponentModel;
-using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Input;
 
 namespace PCMHammer.Viewmodels
 {
-    public partial class MainWindowViewModel : INotifyPropertyChanged
+    public partial class MainWindowViewModel : ViewModelBase
     {
         private readonly MainWindowLogger _logger;
         public Device? SelectedDevice
         {
             get => _selectedDevice;
-            set { _selectedDevice = value; OnPropertyChanged(); }
+            set => SetProperty(ref _selectedDevice, value);
         }
         private Device? _selectedDevice;
 
@@ -23,47 +22,47 @@ namespace PCMHammer.Viewmodels
         public string LogText
         {
             get => _logText;
-            set { _logText = value; OnPropertyChanged(); }
+            set => SetProperty(ref _logText, value);
         }
         private string _debugLogText = string.Empty;
         public string DebugLogText
         {
             get => _debugLogText;
-            set { _debugLogText = value; OnPropertyChanged(); }
+            set => SetProperty(ref _debugLogText, value);
         }
         private string _statusText = "Ready";
         public string StatusText
         {
             get => _statusText;
-            set { _statusText = value; OnPropertyChanged(); }
+            set => SetProperty(ref _statusText, value);
         }
 
         private int _retryCount = 0;
         public int RetryCount
         {
             get => _retryCount;
-            set { _retryCount = value; OnPropertyChanged(); }
+            set => SetProperty(ref _retryCount, value);
         }
 
         private double _transferRate = 0.0;
         public double TransferRate
         {
             get => _transferRate;
-            set { _transferRate = value; OnPropertyChanged(); }
+            set => SetProperty(ref _transferRate, value);
         }
 
         private double _progressPercent = 0.0;
         public double ProgressPercent
         {
             get => _progressPercent;
-            set { _progressPercent = value; OnPropertyChanged(); }
+            set => SetProperty(ref _progressPercent, value);
         }
 
         private string _timeRemaining = "00:00 Remaining";
         public string TimeRemaining
         {
             get => _timeRemaining;
-            set { _timeRemaining = value; OnPropertyChanged(); }
+            set => SetProperty(ref _timeRemaining, value);
         }
 
         private Vehicle? _vehicle;
@@ -72,9 +71,8 @@ namespace PCMHammer.Viewmodels
             get => _vehicle;
             set
             {
-                _vehicle = value;
-                OnPropertyChanged();
-                RelayCommand.RaiseCanExecuteChanged();
+                if (SetProperty(ref _vehicle, value))
+                    RelayCommand.RaiseCanExecuteChanged();
             }
         }
 
@@ -250,7 +248,7 @@ namespace PCMHammer.Viewmodels
 
         private void ExecuteSelectDevice()
         {
-            var pickerDialog = new DevicePicker(_logger) { Owner = _parentWindow };
+            var pickerDialog = new DevicePickerDialogBox(_logger) { Owner = _parentWindow };
 
             StatusText = "Selecting Device...";
 
@@ -297,10 +295,5 @@ namespace PCMHammer.Viewmodels
         }
         private void ExecuteTestWrite() => StatusText = "Running Test Write...";
         private void ExecuteCancelCurrent() => StatusText = "Operation Canceled.";
-
-        // --- INotifyPropertyChanged Implementation ---
-        public event PropertyChangedEventHandler? PropertyChanged;
-        protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
-            => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
 }

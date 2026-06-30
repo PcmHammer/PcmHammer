@@ -5,13 +5,13 @@ using System.Windows;
 namespace PCMHammer.Views
 {
     /// <summary>
-    /// Interaction logic for DevicePicker.xaml
+    /// Interaction logic for DevicePickerDialogBox.xaml
     /// </summary>
-    public partial class DevicePicker : Window
+    public partial class DevicePickerDialogBox : Window
     {
         private readonly DevicePickerViewModel _viewModel;
 
-        public DevicePicker(ILogger logger)
+        public DevicePickerDialogBox(ILogger logger)
         {
             InitializeComponent();
             _viewModel = new DevicePickerViewModel(logger);

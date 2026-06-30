@@ -20,7 +20,6 @@ namespace PCMHammer.Viewmodels
         public ObservableCollection<SpeedOption> SpeedOptions { get; } = [];
 
         // --- Bindable Properties ---
-
         private int _startKey = 0x0000;
         public int StartKey
         {
