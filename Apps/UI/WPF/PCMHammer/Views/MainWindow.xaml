@@ -9,10 +9,6 @@
         ThemeMode="System"
         Title="PCM Hammer" Height="638" Width="800"
         Loaded="Window_Loaded">
-    <Window.Resources>
-        <helpers:StringToVisibilityConverter x:Key="StringToVisibility" />
-        <helpers:NullToBooleanConverter x:Key="NullToBoolean" />
-    </Window.Resources>
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
