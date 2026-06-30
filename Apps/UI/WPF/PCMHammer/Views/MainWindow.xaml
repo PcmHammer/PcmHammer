@@ -92,7 +92,8 @@
             
             <TabControl Grid.Column="1" Margin="8,0,0,0">
                 <TabItem Header="Results">
-                    <TextBox x:Name="ResultsLogTextBox" IsReadOnly="True" VerticalScrollBarVisibility="Visible" Text="{Binding LogText}" />
+                    <TextBox x:Name="ResultsLogTextBox" IsReadOnly="True" VerticalScrollBarVisibility="Visible" Text="{Binding LogText}"
+                             TextChanged="LogTextBox_TextChanged"/>
                 </TabItem>
                 <TabItem Header="Help">
                     <WebBrowser x:Name="HelpWebBrowser"/>
@@ -101,7 +102,8 @@
                     <WebBrowser x:Name="CreditsWebBrowser"/>
                 </TabItem>
                 <TabItem Header="Debug">
-                    <TextBox x:Name="DebugLogTextBox" IsReadOnly="True" VerticalScrollBarVisibility="Visible" Text="{Binding DebugLogText}" />
+                    <TextBox x:Name="DebugLogTextBox" IsReadOnly="True" VerticalScrollBarVisibility="Visible" Text="{Binding DebugLogText}" 
+                             TextChanged="LogTextBox_TextChanged"/>
                 </TabItem>
             </TabControl>
         </Grid>
