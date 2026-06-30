@@ -119,6 +119,10 @@ call :CopyToDetectedLinuxTargets
 rem Uno targets (detected by output folder patterns)
 call :CopyToDetectedUnoTargets
 
+rem WPF targets
+call :CopyBinsToTarget "..\Apps\UI\WPF\PCMHammer\bin\Debug\net10.0-windows"
+call :CopyBinsToTarget "..\Apps\UI\WPF\PCMHammer\bin\Release\net10.0-windows"
+
 if "%COPY_TARGET_COUNT%" == "0" (
   echo No output targets detected. Kernels remain in build\.
 )

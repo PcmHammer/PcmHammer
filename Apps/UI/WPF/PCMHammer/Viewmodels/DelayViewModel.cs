@@ -1,7 +1,5 @@
 ﻿using PCMHammer.Helpers;
 using PCMHammer.ViewModels;
-using System.ComponentModel;
-using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using System.Windows.Threading;
 
@@ -38,7 +36,11 @@ namespace PCMHammer.Viewmodels
 
         public DelayViewModel()
         {
-            CloseCommand = new RelayCommand(() => RequestClose?.Invoke());
+            CloseCommand = new RelayCommand(() =>
+            {
+                _waitTimer.Stop();
+                RequestClose?.Invoke();
+            });
             _waitTimer.Tick += (s, e) =>
             {
                 if (TimerValue > 0) TimerValue--;
@@ -50,10 +52,5 @@ namespace PCMHammer.Viewmodels
             };
             _waitTimer.Start();
         }
-
-        // INotifyPropertyChanged Implementation
-        public event PropertyChangedEventHandler? PropertyChanged;
-        protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
-            => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
 }
