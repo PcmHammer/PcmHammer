@@ -17,19 +17,6 @@
             <helpers:HexStringToIntegerConverter x:Key="HexConverter" />
             <helpers:GreaterThanZeroConverter x:Key="GreaterThanZeroConverter" />
 
-            <Style TargetType="ProgressBar" BasedOn="{StaticResource {x:Type ProgressBar}}">
-                <Style.Triggers>
-                    <DataTrigger Binding="{Binding LockoutProgress, Converter={StaticResource GreaterThanZeroConverter}}" Value="True">
-                        <DataTrigger.EnterActions>
-                            <BeginStoryboard>
-                                <Storyboard>
-                                    <DoubleAnimation Storyboard.TargetProperty="Value" From="1.0" To="0.0" Duration="0:0:30" />
-                                </Storyboard>
-                            </BeginStoryboard>
-                        </DataTrigger.EnterActions>
-                    </DataTrigger>
-                </Style.Triggers>
-            </Style>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

@@ -77,7 +77,23 @@
             <StackPanel Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="4" Margin="0,5"
                         Visibility="{Binding BruteForceRunning, Converter={StaticResource BooleanToVisibility}}">
                 <Label Content="Lockout Timer" Target="{Binding ElementName=LockoutTimerProgressBar}" />
-                <ProgressBar x:Name="LockoutTimerProgressBar" Height="22" Minimum="0" Maximum="1" Value="{Binding LockoutProgress}"/>
+                <ProgressBar x:Name="LockoutTimerProgressBar" Height="22" Minimum="0" Maximum="1" Value="{Binding LockoutProgress}">
+                    <ProgressBar.Style>
+                        <Style TargetType="ProgressBar" BasedOn="{StaticResource {x:Type ProgressBar}}">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding LockoutProgress, Converter={StaticResource GreaterThanZeroConverter}}" Value="True">
+                                    <DataTrigger.EnterActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetProperty="Value" From="1.0" To="0.0" Duration="0:0:30" />
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </DataTrigger.EnterActions>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ProgressBar.Style>
+                </ProgressBar>
             </StackPanel>
 
             <UniformGrid Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="4" Rows="1" Margin="0,15,0,5">
