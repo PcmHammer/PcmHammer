@@ -1,4 +1,5 @@
 ﻿using Microsoft.Win32;
+using System.Configuration;
 
 namespace PCMHammer.Services
 {
@@ -27,6 +28,22 @@ namespace PCMHammer.Services
             };
 
             return saveFileDialog.ShowDialog() == true ? saveFileDialog.FileName : null;
+        }
+
+        public string GetLogSavePath(string defaultFileName)
+        {
+            // Interactive Dialog Prompt Branch
+            SaveFileDialog saveFileDialog = new()
+            {
+                Title = "Save Log Contents",
+                Filter = "Text files (*.txt)|*.txt|All files (*.*)|*.*",
+                FilterIndex = 1,
+                InitialDirectory = AppDomain.CurrentDomain.BaseDirectory,
+                FileName = defaultFileName,
+                DefaultExt = ".txt"
+            };
+
+            return saveFileDialog.ShowDialog() == true ? saveFileDialog.FileName : string.Empty;
         }
     }
 }

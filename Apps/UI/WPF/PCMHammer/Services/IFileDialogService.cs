@@ -13,5 +13,12 @@
         /// </summary>
         /// <returns>The full path to save the file, or null if canceled.</returns>
         string? SaveBinFileDialog();
+
+        /// <summary>
+        /// Handles customizable log saving locations
+        /// </summary>
+        /// <param name="defaultFileName">The default file name to use if the user does not specify one.</param>
+        /// <returns>The full path to save the file, or null if canceled.</returns>
+        string GetLogSavePath(string defaultFileName);
     }
 }
