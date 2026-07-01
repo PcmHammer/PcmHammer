@@ -148,57 +148,26 @@ namespace PCMHammer.Viewmodels
             AddInitialLogMessages();
 
             // Initialize Commands with actions
-            SaveResultsLogCommand = new RelayCommand(
-                execute: async () => await ExecuteSaveResultsLog()
-            );
-            SaveDebugLogCommand = new RelayCommand(
-                execute: async () => await ExecuteSaveDebugLog()
-            );
+            SaveResultsLogCommand = new RelayCommand(execute: async () => await ExecuteSaveResultsLog());
+            SaveDebugLogCommand = new RelayCommand(execute: async () => await ExecuteSaveDebugLog());
             ExitCommand = new RelayCommand(ExecuteExit);
-
-            ReadPCMCommand = new RelayCommand(
-                execute: async () => await ExecuteReadPCMAsync(true, PcmType.Undefined)
-            );
-            VerifyPCMCommand = new RelayCommand(
-                execute: async () => await ExecuteVerificationAsync()
-            );
-            ChangeVINCommand = new RelayCommand(
-                execute: async () => await ExecuteChangeVINAsync()
-            );
-            WriteParametersCommand = new RelayCommand(
-                execute: async () => await ExecuteWritePCMAsync(WriteType.Parameters)
-            );
-            WriteOSCalibrationBootCommand = new RelayCommand(
-                execute: async () => await ExecuteWritePCMAsync(WriteType.OsPlusCalibrationPlusBoot)
-            );
-            WriteFullFlashCloneCommand = new RelayCommand(
-                execute: async () => await ExecuteWritePCMAsync(WriteType.Full)
-            );
-            TestFileChecksumsCommand = new RelayCommand(
-                execute: async () => await TestFileChecksumsAsync()
-            );
+            ReadPCMCommand = new RelayCommand(execute: async () => await ExecuteReadPCMAsync(true, PcmType.Undefined));
+            VerifyPCMCommand = new RelayCommand(execute: async () => await ExecuteVerificationAsync());
+            ChangeVINCommand = new RelayCommand(execute: async () => await ExecuteChangeVINAsync());
+            WriteParametersCommand = new RelayCommand(execute: async () => await ExecuteWritePCMAsync(WriteType.Parameters));
+            WriteOSCalibrationBootCommand = new RelayCommand(execute: async () => await ExecuteWritePCMAsync(WriteType.OsPlusCalibrationPlusBoot));
+            WriteFullFlashCloneCommand = new RelayCommand(execute: async () => await ExecuteWritePCMAsync(WriteType.Full));
+            TestFileChecksumsCommand = new RelayCommand(execute: async () => await TestFileChecksumsAsync());
             BruteForceUnlockCommand = new RelayCommand(ExecuteBruteForceUnlock);
-            HaltRunningKernelCommand = new RelayCommand(
-                execute: async () => await ExecuteHaltRunningKernel()
-            );
-
+            HaltRunningKernelCommand = new RelayCommand(execute: async () => await ExecuteHaltRunningKernel());
             UserDefinedKeyCommand = new RelayCommand(ExecuteUserDefinedKey);
             SettingsCommand = new RelayCommand(ExecuteSettings);
-
             SelectDeviceCommand = new RelayCommand(ExecuteSelectDevice);
             ReInitializeDeviceCommand = new RelayCommand(ExecuteReInitializeDevice, CanReInitialize);
-            ReadPropertiesCommand = new RelayCommand(
-                execute: async () => await ExecuteReadPropertiesAsync()
-            );
-            WritePCMCommand = new RelayCommand(
-                execute: async () => await ExecuteWritePCMAsyncWithDialog()
-            );
-            TestWriteCommand = new RelayCommand(
-                execute: async () => await ExecuteWritePCMAsync(WriteType.TestWrite)
-            );
-            CancelCurrentCommand = new RelayCommand(
-                execute: async () => await ExecuteCancelCurrentOperationAsync()
-            );
+            ReadPropertiesCommand = new RelayCommand(execute: async () => await ExecuteReadPropertiesAsync());
+            WritePCMCommand = new RelayCommand(execute: async () => await ExecuteWritePCMAsyncWithDialog());
+            TestWriteCommand = new RelayCommand(execute: async () => await ExecuteWritePCMAsync(WriteType.TestWrite));
+            CancelCurrentCommand = new RelayCommand(execute: async () => await ExecuteCancelCurrentOperationAsync());
         }
 
         #region Command Execution Methods
