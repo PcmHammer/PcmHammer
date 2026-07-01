@@ -6,18 +6,11 @@ using System.Windows.Input;
 
 namespace PCMHammer.Viewmodels
 {
-    public partial class WriteTypeViewModel : ViewModelBase
+    public partial class PcmSelectViewModel : ViewModelBase
     {
-        public ObservableCollection<WriteType> WriteTypes { get; }
         public ObservableCollection<PcmType> PCMTypes { get; }
 
         // Properties
-        private WriteType _selectedWriteType;
-        public WriteType SelectedWriteType
-        {
-            get => _selectedWriteType;
-            set => SetProperty(ref _selectedWriteType, value);
-        }
         private PcmType _selectedPcmType;
         public PcmType SelectedPCMType
         {
@@ -34,10 +27,8 @@ namespace PCMHammer.Viewmodels
         public ICommand AcceptAndCloseCommand { get; }
 
         // Constructor
-        public WriteTypeViewModel()
+        public PcmSelectViewModel()
         {
-            WriteTypes = [WriteType.Full, WriteType.OsPlusCalibrationPlusBoot, WriteType.Parameters];
-
             PCMTypes = [.. Enum.GetValues<PcmType>()];
 
             CloseCommand = new RelayCommand(() => { RequestClose?.Invoke(); });
