@@ -87,6 +87,7 @@ namespace PcmHacking
                 if (this.pcmInfo.LoaderRequired)
                 {
                     response = await vehicle.LoadKernelFromFile(targetPath);
+                    
                     if (response.Status != ResponseStatus.Success)
                     {
                         logger.AddUserMessage("Failed to load loader from file.");

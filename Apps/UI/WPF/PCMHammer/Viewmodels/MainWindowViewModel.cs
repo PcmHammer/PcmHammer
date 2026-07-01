@@ -5,7 +5,6 @@ using PCMHammer.ViewModels;
 using PCMHammer.Views;
 using PCMHammer.Views.DialogBoxes;
 using System.Configuration;
-using System.IO;
 using System.Windows;
 using System.Windows.Input;
 
@@ -24,6 +23,13 @@ namespace PCMHammer.Viewmodels
         {
             get => _pcmFlasher;
             set => SetProperty(ref _pcmFlasher, value);
+        }
+
+        private PcmReader? _pcmReader;
+        public PcmReader? PcmReader
+        {
+            get => _pcmReader;
+            set => SetProperty(ref _pcmReader, value);
         }
 
         private Device? _selectedDevice;
@@ -151,7 +157,9 @@ namespace PCMHammer.Viewmodels
             SaveDebugLogCommand = new RelayCommand(ExecuteSaveDebugLog);
             ExitCommand = new RelayCommand(ExecuteExit);
 
-            ReadPCMCommand = new RelayCommand(ExecuteReadPCM);
+            ReadPCMCommand = new RelayCommand(
+                execute: async () => await ExecuteReadPCMAsync(true, PcmType.Undefined)
+            );
             VerifyPCMCommand = new RelayCommand(ExecuteVerifyPCM);
             ChangeVINCommand = new RelayCommand(
                 execute: async () => await ExecuteChangeVINAsync()
@@ -190,8 +198,73 @@ namespace PCMHammer.Viewmodels
         private void ExecuteSaveResultsLog() => MessageBox.Show("Saving Results Log...");
         private void ExecuteSaveDebugLog() => MessageBox.Show("Saving Debug Log...");
         private void ExecuteExit() => Application.Current.Shutdown();
+        private async Task ExecuteReadPCMAsync(bool useAutoPcmType, PcmType selectedPcmType)
+        {
+            if (Vehicle == null) return;
+            if (_pcmReader == null) return;
+            if (IsOperationRunning) return;
 
-        private void ExecuteReadPCM() => StatusText = "Reading PCM...";
+            StatusText = "Preparing for Read...";
+
+            // Get save destination on the UI thread before calling Task.Run
+            string selectedFilePath = _fileDialogService.SaveBinFileDialog()!;
+
+            if (string.IsNullOrEmpty(selectedFilePath))
+            {
+                _logger.AddUserMessage("Read operation canceled by user (no file selected).");
+                StatusText = "Ready";
+                return;
+            }
+
+            try
+            {
+                IsOperationRunning = true;
+                StatusText = "Reading PCM Contents...";
+                var cts = new CancellationTokenSource();
+
+                // Offload processing completely down to the Task Pool thread
+                bool success = await Task.Run(() =>
+                    _pcmReader.ReadPcmAsync(selectedFilePath, useAutoPcmType, selectedPcmType, cts.Token)
+                );
+
+                StatusText = success ? "Read Completed Successfully!" : "Read Failed.";
+            }
+            catch (Exception ex)
+            {
+                _logger.AddUserMessage($"Critical error during read: {ex.Message}");
+                StatusText = "Error occurred.";
+            }
+            finally
+            {
+                IsOperationRunning = false;
+
+                // Visual delay to let the user see the complete message status
+                await Task.Delay(2000);
+                if (!IsOperationRunning) StatusText = "Ready";
+            }
+        }
+
+        public async Task ExecuteReadPCMAsyncWithDialog()
+        {
+            WriteOperationDialogBox dialog = new() { Owner = System.Windows.Application.Current.MainWindow };
+
+            WriteTypeViewModel viewModel = new()
+            {
+                SelectedWriteType = WriteType.Full,
+                SelectedPCMType = PcmType.Undefined
+            };
+
+            viewModel.RequestClose += () => dialog.DialogResult = false;
+            viewModel.RequestAcceptandClose += () => dialog.DialogResult = true;
+
+            dialog.DataContext = viewModel;
+
+            if (dialog.ShowDialog() == true)
+            {
+                bool useAutoPcmType = viewModel.SelectedPCMType == PcmType.Undefined;
+                await ExecuteReadPCMAsync(useAutoPcmType, viewModel.SelectedPCMType);
+            }
+        }
         private void ExecuteVerifyPCM() => StatusText = "Verifying PCM...";
         private async Task ExecuteChangeVINAsync()
         {
@@ -307,6 +380,7 @@ namespace PCMHammer.Viewmodels
                     );
                     _logger.AddDebugMessage($"Connected to device: {workingDevice.GetDeviceType()}");
                     _pcmFlasher = new PcmFlasher(Vehicle!, _logger);
+                    _pcmReader = new PcmReader(Vehicle!, _logger);
                 }
                 else
                     _logger.AddDebugMessage("Dialog returned OK, but no valid device data was stored.");
@@ -422,7 +496,7 @@ namespace PCMHammer.Viewmodels
 
             if (delayDialog.ShowDialog() == true)
             {
-                string selectedFilePath = _fileDialogService.OpenBinFileDialog();
+                string selectedFilePath = _fileDialogService.OpenBinFileDialog()!;
 
                 if (string.IsNullOrEmpty(selectedFilePath))
                 {
