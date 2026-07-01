@@ -15,6 +15,7 @@ namespace PCMHammer.Viewmodels
         private readonly MainWindowLogger _logger;
         private readonly FileDialogService _fileDialogService;
         private readonly Window _parentWindow;
+        private CancellationTokenSource? _cancellationTokenSource;
         private bool CanReInitialize() => SelectedDevice is not null;
 
         #region Status and Progress Properties
@@ -191,7 +192,9 @@ namespace PCMHammer.Viewmodels
             TestWriteCommand = new RelayCommand(
                 execute: async () => await ExecuteWritePCMAsync(WriteType.TestWrite)
             );
-            CancelCurrentCommand = new RelayCommand(ExecuteCancelCurrent);
+            CancelCurrentCommand = new RelayCommand(
+                execute: async () => await ExecuteCancelCurrentOperationAsync()
+            );
         }
 
         #region Command Execution Methods
@@ -220,11 +223,11 @@ namespace PCMHammer.Viewmodels
             {
                 IsOperationRunning = true;
                 StatusText = "Reading PCM Contents...";
-                var cts = new CancellationTokenSource();
+                _cancellationTokenSource = new CancellationTokenSource();
 
                 // Offload processing completely down to the Task Pool thread
                 bool success = await Task.Run(() =>
-                    _pcmReader.ReadPcmAsync(selectedFilePath, useAutoPcmType, selectedPcmType, cts.Token)
+                    _pcmReader.ReadPcmAsync(selectedFilePath, useAutoPcmType, selectedPcmType, _cancellationTokenSource.Token)
                 );
 
                 StatusText = success ? "Read Completed Successfully!" : "Read Failed.";
@@ -237,6 +240,8 @@ namespace PCMHammer.Viewmodels
             finally
             {
                 IsOperationRunning = false;
+                _cancellationTokenSource?.Dispose();
+                _cancellationTokenSource = null;
 
                 // Visual delay to let the user see the complete message status
                 await Task.Delay(2000);
@@ -294,13 +299,13 @@ namespace PCMHammer.Viewmodels
                 {
                     IsOperationRunning = true;
                     StatusText = "Comparing PCM Blocks...";
+                    _cancellationTokenSource = new CancellationTokenSource();
 
-                    var cts = new CancellationTokenSource();
                     PcmType forcedPcmType = useAutoPcmType ? PcmType.Undefined : dialog.SelectedPCMType;
 
                     // Offload the low-level communication completely to the worker thread pool
                     bool success = await Task.Run(() =>
-                        _pcmFlasher.WritePcmAsync(WriteType.Compare, selectedFilePath, useAutoPcmType, forcedPcmType, cts.Token)
+                        _pcmFlasher.WritePcmAsync(WriteType.Compare, selectedFilePath, useAutoPcmType, forcedPcmType, _cancellationTokenSource.Token)
                     );
 
                     if (success)
@@ -321,6 +326,8 @@ namespace PCMHammer.Viewmodels
                 {
                     // Smoothly restore UI control structures
                     IsOperationRunning = false;
+                    _cancellationTokenSource?.Dispose();
+                    _cancellationTokenSource = null;
 
                     await Task.Delay(2000);
                     if (!IsOperationRunning) StatusText = "Ready";
@@ -472,8 +479,7 @@ namespace PCMHammer.Viewmodels
             {
                 // Lock out the buttons and UI elements automatically via commanding interlocks
                 IsOperationRunning = true;
-
-                var cts = new CancellationTokenSource();
+                _cancellationTokenSource = new CancellationTokenSource();
 
                 // Offload the low-level bus routine completely down to the Task Pool worker thread
                 await Task.Run(async () =>
@@ -481,7 +487,7 @@ namespace PCMHammer.Viewmodels
                     return await Vehicle.ExitKernel(
                         kernelRunning: true,
                         recoveryMode: false,
-                        cancellationToken: cts.Token,
+                        cancellationToken: _cancellationTokenSource.Token,
                         unused: null
                     );
                 });
@@ -499,6 +505,8 @@ namespace PCMHammer.Viewmodels
             {
                 // Smoothly unlock UI thread control
                 IsOperationRunning = false;
+                _cancellationTokenSource?.Dispose();
+                _cancellationTokenSource = null;
 
                 // Visual delay to let the user visually inspect the final status message
                 await Task.Delay(2000);
@@ -679,7 +687,7 @@ namespace PCMHammer.Viewmodels
                 {
                     IsOperationRunning = true;
                     StatusText = "Writing to PCM...";
-                    var cts = new CancellationTokenSource();
+                    _cancellationTokenSource = new CancellationTokenSource();
 
                     // Hand off the parameters directly to cleaned-up backend task
                     // Task.Run guarantees it completely leaves the UI thread.
@@ -687,13 +695,13 @@ namespace PCMHammer.Viewmodels
                     if (pcmType == PcmType.Undefined)
                     {
                         success = await Task.Run(() =>
-                            _pcmFlasher.WritePcmAsync(writeType, selectedFilePath, useAutoPcmType: true, PcmType.Undefined, cts.Token)
+                            _pcmFlasher.WritePcmAsync(writeType, selectedFilePath, useAutoPcmType: true, PcmType.Undefined, _cancellationTokenSource.Token)
                         );
                     }
                     else
                     {
                         success = await Task.Run(() =>
-                            _pcmFlasher.WritePcmAsync(writeType, selectedFilePath, useAutoPcmType: false, pcmType, cts.Token)
+                            _pcmFlasher.WritePcmAsync(writeType, selectedFilePath, useAutoPcmType: false, pcmType, _cancellationTokenSource.Token)
                         );
                     }
 
@@ -708,6 +716,8 @@ namespace PCMHammer.Viewmodels
                 {
                     // Always restore UI state
                     IsOperationRunning = false;
+                    _cancellationTokenSource?.Dispose();
+                    _cancellationTokenSource = null;
 
                     await Task.Delay(2000);
                     if (!IsOperationRunning) StatusText = "Ready";
@@ -722,7 +732,24 @@ namespace PCMHammer.Viewmodels
                 await ExecuteWritePCMAsync(dialog.SelectedWriteType, dialog.SelectedPCMType);
             }
         }
-        private void ExecuteCancelCurrent() => StatusText = "Operation Canceled.";
+        private async Task ExecuteCancelCurrentOperationAsync()
+        {
+            if (IsOperationRunning)
+            {
+                string warningMessage = "Canceling now could leave your PCM in an unbootable state (bricked)." + Environment.NewLine +
+                                 "Are you absolutely sure you want to take that risk?";
+                bool proceedWithCancel = await _pcmFlasher!.PromptForYesNo("PCM Hammer", warningMessage);
+
+                if (!proceedWithCancel)
+                {
+                    _logger.AddUserMessage("Cancellation aborted by user. Continuing operation...");
+                    return;
+                }
+            }
+
+            _logger.AddUserMessage("Cancel button clicked. Signaling background tasks to stop...");
+            _cancellationTokenSource?.Cancel();
+        }
         #endregion
 
         #region Private Helpers
