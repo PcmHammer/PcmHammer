@@ -14,7 +14,7 @@ namespace PCMHammer.Services
             return Task.CompletedTask;
         }
 
-        public static async Task<bool> PromptForYesNo(string title, string message)
+        public async Task<bool> PromptForYesNo(string title, string message)
         {
             bool userResult = false;
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
