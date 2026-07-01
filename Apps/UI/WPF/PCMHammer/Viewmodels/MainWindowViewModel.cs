@@ -3,8 +3,6 @@ using PCMHammer.Helpers;
 using PCMHammer.Services;
 using PCMHammer.ViewModels;
 using PCMHammer.Views;
-using System.Configuration;
-using System.IO;
 using System.Windows;
 using System.Windows.Input;
 
@@ -17,8 +15,8 @@ namespace PCMHammer.Viewmodels
         private readonly Window _parentWindow;
 
         // --- Status and Progress Properties ---
-        private PcmFlasher _pcmFlasher;
-        public PcmFlasher PcmFlasher
+        private PcmFlasher? _pcmFlasher;
+        public PcmFlasher? PcmFlasher
         {
             get => _pcmFlasher;
             set => SetProperty(ref _pcmFlasher, value);
@@ -131,7 +129,6 @@ namespace PCMHammer.Viewmodels
             _parentWindow = parentWindow;
             _logger = new MainWindowLogger(this);
             _fileDialogService = new FileDialogService();
-            _pcmFlasher = new PcmFlasher(null, _logger);
             // Add user messages to the log
             _logger.AddUserMessage("PCM Hammer");
             _logger.AddUserMessage("Copyright (C) 2018-2026 PcmHacking.net - GPL v3");
@@ -167,7 +164,9 @@ namespace PCMHammer.Viewmodels
 
             SelectDeviceCommand = new RelayCommand(ExecuteSelectDevice);
             ReInitializeDeviceCommand = new RelayCommand(ExecuteReInitializeDevice, CanReInitialize);
-            ReadPropertiesCommand = new RelayCommand(ExecuteReadProperties);
+            ReadPropertiesCommand = new RelayCommand(
+                execute: async () => await ExecuteReadPropertiesAsync()
+            );
             WritePCMCommand = new RelayCommand(
                 execute: async () => ExecuteWritePCMAsync()
             );
@@ -269,7 +268,6 @@ namespace PCMHammer.Viewmodels
             if (settingsWindow.ShowDialog() == true)
                 StatusText = "Ready";
         }
-
         private void ExecuteSelectDevice()
         {
             var pickerDialog = new DevicePickerDialogBox(_logger) { Owner = _parentWindow };
@@ -308,7 +306,103 @@ namespace PCMHammer.Viewmodels
         }
         private void ExecuteReInitializeDevice() => StatusText = "Re-initializing device...";
         private bool CanReInitialize() => SelectedDevice is not null;
-        private void ExecuteReadProperties() => StatusText = "Reading PCM Properties...";
+        private async Task ExecuteReadPropertiesAsync()
+        {
+            StatusText = "Reading Properties...";
+            if (Vehicle == null) return;
+            try
+            {
+                IsOperationRunning = true;
+                await Task.Run(async () =>
+                {
+                    OSIDInfo? pcmInfo = null;
+
+                    var vinResponse = await Vehicle.QueryVin();
+                    if (vinResponse.Status != ResponseStatus.Success)
+                    {
+                        _logger.AddUserMessage($"VIN query failed: {vinResponse.Status}");
+                        await Vehicle.ExitKernel();
+                        return;
+                    }
+                    _logger.AddUserMessage($"VIN: {vinResponse.Value}");
+
+                    var osResponse = await Vehicle.QueryOperatingSystemId(new CancellationToken());
+                    if (osResponse.Status == ResponseStatus.Success)
+                    {
+                        _logger.AddUserMessage($"OSID: {osResponse.Value}");
+                        pcmInfo = new OSIDInfo(osResponse.Value);
+                        _logger.AddUserMessage($"Description: {pcmInfo.Description}");
+                    }
+                    else
+                        _logger.AddUserMessage($"OS ID query failed: {osResponse.Status}");
+
+                    // Disable Calibration ID lookup for those that do not provide it
+                    if (pcmInfo != null && pcmInfo.HardwareType != PcmType.BlackBox)
+                    {
+                        var calResponse = await Vehicle.QueryCalibrationId();
+                        if (calResponse.Status == ResponseStatus.Success)
+                            _logger.AddUserMessage($"Calibration ID: {calResponse.Value}");
+                        else
+                            _logger.AddUserMessage($"Calibration ID query failed: {calResponse.Status}");
+                    }
+
+                    // Disable HardwareID lookup for the P05, P10, P12 and E54.
+                    if (pcmInfo != null && pcmInfo.HardwareType != PcmType.P05 &&
+                        pcmInfo.HardwareType != PcmType.P05b && pcmInfo.HardwareType != PcmType.P10 &&
+                        pcmInfo.HardwareType != PcmType.P12 && pcmInfo.HardwareType != PcmType.E54)
+                    {
+                        var hardwareResponse = await Vehicle.QueryHardwareId();
+                        if (hardwareResponse.Status == ResponseStatus.Success)
+                            _logger.AddUserMessage($"Hardware ID: {hardwareResponse.Value}");
+                        else
+                            _logger.AddUserMessage($"Hardware ID query failed: {hardwareResponse.Status}");
+                    }
+
+                    // Disable Serial Number lookup for those that do not provide it
+                    if (pcmInfo != null && pcmInfo.HardwareType != PcmType.BlackBox)
+                    {
+                        var serialResponse = await Vehicle.QuerySerial();
+                        if (serialResponse.Status == ResponseStatus.Success)
+                            _logger.AddUserMessage($"Serial Number: {serialResponse.Value}");
+                        else
+                            _logger.AddUserMessage($"Serial Number query failed: {serialResponse.Status}");
+                    }
+
+                    // Disable BCC lookup for those that do not provide it
+                    if (pcmInfo != null && pcmInfo.HardwareType != PcmType.P04 &&
+                        pcmInfo.HardwareType != PcmType.P04_Early && pcmInfo.HardwareType != PcmType.P08)
+                    {
+                        var bccResponse = await Vehicle.QueryBCC();
+                        if (bccResponse.Status == ResponseStatus.Success)
+                            _logger.AddUserMessage($"Broad Cast Code: {bccResponse.Value}");
+                        else
+                            _logger.AddUserMessage($"BCC query failed: {bccResponse.Status}");
+                    }
+
+                    var mecResponse = await Vehicle.QueryMEC();
+                    if (mecResponse.Status == ResponseStatus.Success)
+                        _logger.AddUserMessage($"MEC: {mecResponse.Value}");
+                    else
+                        _logger.AddUserMessage($"MEC query failed: {mecResponse.Status}");
+
+                    var voltageResponse = await Vehicle.QueryVoltage();
+                    if (voltageResponse.Status == ResponseStatus.Success)
+                        _logger.AddUserMessage($"Voltage: {voltageResponse.Value}");
+                    else
+                        _logger.AddUserMessage($"Voltage query failed: {voltageResponse.Status}");
+                });
+            }
+            catch (Exception exception)
+            {
+                _logger.AddUserMessage(exception.Message);
+                _logger.AddDebugMessage(exception.ToString());
+            }
+            finally
+            {
+                IsOperationRunning = false;
+                StatusText = "Ready";
+            }
+        }
         private async void ExecuteWritePCMAsync()
         {
             if (IsOperationRunning) return;
