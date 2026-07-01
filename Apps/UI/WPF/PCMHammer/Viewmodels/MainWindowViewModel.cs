@@ -509,12 +509,14 @@ namespace PCMHammer.Viewmodels
 
             if (pickerDialog.ShowDialog() == true)
             {
-                Device? workingDevice = (pickerDialog.DataContext as DevicePickerViewModel)?.SelectedDevice;
+
+                Device? workingDevice = pickerDialog.SelectedDevice;
+                bool enable4xReadWrite = pickerDialog.Enable4xReadWrite;
 
                 if (workingDevice != null)
                 {
                     // Pass the device directly into our new shared configuration helper
-                    InitializeDeviceAndVehicle(workingDevice);
+                    InitializeDeviceAndVehicle(workingDevice, enable4xReadWrite);
                 }
                 else
                 {
@@ -535,7 +537,7 @@ namespace PCMHammer.Viewmodels
             _logger.AddDebugMessage($"Re-initializing link to: {SelectedDevice.GetDeviceType()}");
 
             // Reuse the exact same connection architecture silently
-            InitializeDeviceAndVehicle(SelectedDevice);
+            InitializeDeviceAndVehicle(SelectedDevice, Vehicle!.Enable4xReadWrite);
 
             StatusText = "Ready";
         }
@@ -729,7 +731,7 @@ namespace PCMHammer.Viewmodels
         /// <summary>
         /// The core factory mechanism for establishing the bus topology.
         /// </summary>
-        private void InitializeDeviceAndVehicle(Device workingDevice)
+        private void InitializeDeviceAndVehicle(Device workingDevice, bool Enable4xCom)
         {
             SelectedDevice = workingDevice;
             Protocol protocolEngine = new();
@@ -747,6 +749,8 @@ namespace PCMHammer.Viewmodels
                 notifier,
                 "PCMHammer"
             );
+
+            Vehicle.Enable4xReadWrite = Enable4xCom;
 
             _logger.AddDebugMessage($"Vehicle pipeline established for: {workingDevice.GetDeviceType()}");
 

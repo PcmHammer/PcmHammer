@@ -10,6 +10,18 @@ namespace PCMHammer.Views
     public partial class DevicePickerDialogBox : Window
     {
         private readonly DevicePickerViewModel _viewModel;
+        private Device? _device;
+        public Device? SelectedDevice
+        { 
+            get => _device;
+            set => _device = value; 
+        }
+        private bool _enable4xReadWrite;
+        public bool Enable4xReadWrite
+        {
+            get => _enable4xReadWrite;
+            set => _enable4xReadWrite = value;
+        }
 
         public DevicePickerDialogBox(ILogger logger)
         {
@@ -32,6 +44,8 @@ namespace PCMHammer.Views
 
         private void AcceptAndClose()
         {
+            SelectedDevice = _viewModel.SelectedDevice;
+            Enable4xReadWrite = _viewModel.Enable4xReadWrite;
             DialogResult = true;
             Close();
         }
