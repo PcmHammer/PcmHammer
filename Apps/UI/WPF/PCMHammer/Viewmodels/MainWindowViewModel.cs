@@ -17,7 +17,7 @@ namespace PCMHammer.Viewmodels
         private readonly Window _parentWindow;
         private bool CanReInitialize() => SelectedDevice is not null;
 
-        // --- Status and Progress Properties ---
+        #region Status and Progress Properties
         private PcmFlasher? _pcmFlasher;
         public PcmFlasher? PcmFlasher
         {
@@ -105,13 +105,15 @@ namespace PCMHammer.Viewmodels
             get => _isOperationRunning;
             set => SetProperty(ref _isOperationRunning, value);
         }
+        #endregion
 
-        // --- Commands (File Menu) ---
+        #region Commands (File Menu)
         public ICommand SaveResultsLogCommand { get; }
         public ICommand SaveDebugLogCommand { get; }
         public ICommand ExitCommand { get; }
+        #endregion
 
-        // --- Commands (Tools Menu & Operations) ---
+        #region Commands (Tools Menu & Operations)
         public ICommand ReadPCMCommand { get; }
         public ICommand VerifyPCMCommand { get; }
         public ICommand ChangeVINCommand { get; }
@@ -121,36 +123,28 @@ namespace PCMHammer.Viewmodels
         public ICommand TestFileChecksumsCommand { get; }
         public ICommand BruteForceUnlockCommand { get; }
         public ICommand HaltRunningKernelCommand { get; }
+        #endregion
 
-        // --- Commands (Options Menu) ---
+        #region Commands (Options Menu)
         public ICommand UserDefinedKeyCommand { get; }
         public ICommand SettingsCommand { get; }
+        #endregion
 
-        // --- Commands (Device & Operations Sidebar) ---
+        #region Commands (Device & Operations Sidebar)
         public ICommand SelectDeviceCommand { get; }
         public ICommand ReInitializeDeviceCommand { get; }
         public ICommand ReadPropertiesCommand { get; }
         public ICommand WritePCMCommand { get; }
         public ICommand TestWriteCommand { get; }
         public ICommand CancelCurrentCommand { get; }
+        #endregion
 
         public MainWindowViewModel(MainWindow parentWindow)
         {
             _parentWindow = parentWindow;
             _logger = new MainWindowLogger(this);
             _fileDialogService = new FileDialogService();
-            // Add user messages to the log
-            _logger.AddUserMessage("PCM Hammer");
-            _logger.AddUserMessage("Copyright (C) 2018-2026 PcmHacking.net - GPL v3");
-            _logger.AddUserMessage("Version: 2.0.0");
-            _logger.AddUserMessage($"Running at: {DateTime.Now:dddd, MMMM d yyyy, HH:mm:ss}");
-            _logger.AddUserMessage("Thanks for using PCM Hammer.");
-            // Add debug messages to the debug log
-            _logger.AddDebugMessage("PCM Hammer");
-            _logger.AddDebugMessage("Copyright (C) 2018-2026 PcmHacking.net - GPL v3");
-            _logger.AddDebugMessage("Version: 2.0.0");
-            _logger.AddDebugMessage($"Running at: {DateTime.Now:dddd, MMMM d yyyy, HH:mm:ss}");
-            _logger.AddDebugMessage("Thanks for using PCM Hammer.");
+            AddInitialLogMessages();
 
             // Initialize Commands with actions
             SaveResultsLogCommand = new RelayCommand(ExecuteSaveResultsLog);
@@ -196,7 +190,7 @@ namespace PCMHammer.Viewmodels
             CancelCurrentCommand = new RelayCommand(ExecuteCancelCurrent);
         }
 
-        // --- Command Execution Methods ---
+        #region Command Execution Methods
         private void ExecuteSaveResultsLog() => MessageBox.Show("Saving Results Log...");
         private void ExecuteSaveDebugLog() => MessageBox.Show("Saving Debug Log...");
         private void ExecuteExit() => Application.Current.Shutdown();
@@ -418,9 +412,6 @@ namespace PCMHammer.Viewmodels
             if (settingsWindow.ShowDialog() == true)
                 StatusText = "Ready";
         }
-        /// <summary>
-        /// Opens the UI dialog box to select a physical device from scratch.
-        /// </summary>
         private void ExecuteSelectDevice()
         {
             var pickerDialog = new DevicePickerDialogBox(_logger) { Owner = _parentWindow };
@@ -442,9 +433,6 @@ namespace PCMHammer.Viewmodels
                 StatusText = "Ready";
             }
         }
-        /// <summary>
-        /// Silently re-initializes the vehicle bus communication using the current selection.
-        /// </summary>
         private void ExecuteReInitializeDevice()
         {
             if (SelectedDevice == null)
@@ -626,6 +614,9 @@ namespace PCMHammer.Viewmodels
             }
         }
         private void ExecuteCancelCurrent() => StatusText = "Operation Canceled.";
+        #endregion
+
+        #region Private Helpers
         /// <summary>
         /// Shared Helper: The core factory mechanism for establishing the bus topology.
         /// </summary>
@@ -654,5 +645,21 @@ namespace PCMHammer.Viewmodels
             _pcmFlasher = new PcmFlasher(Vehicle, _logger);
             _pcmReader = new PcmReader(Vehicle, _logger);
         }
+        private void AddInitialLogMessages()
+        {
+            // Add user messages to the log
+            _logger.AddUserMessage("PCM Hammer");
+            _logger.AddUserMessage("Copyright (C) 2018-2026 PcmHacking.net - GPL v3");
+            _logger.AddUserMessage("Version: 2.0.0");
+            _logger.AddUserMessage($"Running at: {DateTime.Now:dddd, MMMM d yyyy, HH:mm:ss}");
+            _logger.AddUserMessage("Thanks for using PCM Hammer.");
+            // Add debug messages to the debug log
+            _logger.AddDebugMessage("PCM Hammer");
+            _logger.AddDebugMessage("Copyright (C) 2018-2026 PcmHacking.net - GPL v3");
+            _logger.AddDebugMessage("Version: 2.0.0");
+            _logger.AddDebugMessage($"Running at: {DateTime.Now:dddd, MMMM d yyyy, HH:mm:ss}");
+            _logger.AddDebugMessage("Thanks for using PCM Hammer.");
+        }
+        #endregion
     }
 }
