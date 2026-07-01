@@ -3,6 +3,8 @@ using PCMHammer.Helpers;
 using PCMHammer.Services;
 using PCMHammer.ViewModels;
 using PCMHammer.Views;
+using System.Configuration;
+using System.IO;
 using System.Windows;
 using System.Windows.Input;
 
@@ -168,9 +170,11 @@ namespace PCMHammer.Viewmodels
                 execute: async () => await ExecuteReadPropertiesAsync()
             );
             WritePCMCommand = new RelayCommand(
-                execute: async () => ExecuteWritePCMAsync()
+                execute: async () => await ExecuteWritePCMAsync()
             );
-            TestWriteCommand = new RelayCommand(ExecuteTestWrite);
+            TestWriteCommand = new RelayCommand(
+                execute: async () => await ExecuteTestWriteAsync()
+            );
             CancelCurrentCommand = new RelayCommand(ExecuteCancelCurrent);
         }
 
@@ -262,7 +266,7 @@ namespace PCMHammer.Viewmodels
             }
         }
         private void ExecuteSettings()
-        { 
+        {
             SettingsWindow settingsWindow = new() { Owner = _parentWindow };
             StatusText = "Settings...";
             if (settingsWindow.ShowDialog() == true)
@@ -403,8 +407,10 @@ namespace PCMHammer.Viewmodels
                 StatusText = "Ready";
             }
         }
-        private async void ExecuteWritePCMAsync()
+        private async Task ExecuteWritePCMAsync()
         {
+            if (Vehicle == null) return;
+            if (_pcmFlasher == null) return;
             if (IsOperationRunning) return;
 
             DelayDialogBox delayDialog = new() { Owner = Application.Current.MainWindow };
@@ -451,7 +457,50 @@ namespace PCMHammer.Viewmodels
                 }
             }
         }
-        private void ExecuteTestWrite() => StatusText = "Running Test Write...";
+        private async Task ExecuteTestWriteAsync()
+        {
+            if (Vehicle == null) return;
+            if (_pcmFlasher == null) return;
+            if (IsOperationRunning) return;
+
+            string? selectedFilePath = _fileDialogService.OpenBinFileDialog();
+            if (string.IsNullOrWhiteSpace(selectedFilePath))
+            {
+                _logger.AddUserMessage("Test write canceled.");
+                return;
+            }
+
+            _logger.AddUserMessage(selectedFilePath);
+
+            using (new AwayMode())
+            {
+                StatusText = "Writing to PCM...";
+                WriteType writeType = WriteType.TestWrite;
+                try
+                {
+                    var cts = new CancellationTokenSource();
+
+                    // Hand off the parameters directly to cleaned-up backend task
+                    // Task.Run guarantees it completely leaves the UI thread.
+                    bool success = await Task.Run(() =>
+                        _pcmFlasher.WritePcmAsync(writeType, selectedFilePath, useAutoPcmType: true, PcmType.Undefined, cts.Token)
+                    );
+                }
+                catch (OperationCanceledException)
+                {
+                    _logger.AddUserMessage("Test write operation was canceled by the user.");
+                }
+                catch (IOException exception)
+                {
+                    _logger.AddUserMessage(exception.ToString());
+                }
+                finally
+                {
+                    writeType = WriteType.None;
+                    StatusText = "Ready";
+                }
+            }
+        }
         private void ExecuteCancelCurrent() => StatusText = "Operation Canceled.";
     }
 }
