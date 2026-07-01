@@ -3,6 +3,7 @@ using PCMHammer.Helpers;
 using PCMHammer.Services;
 using PCMHammer.ViewModels;
 using PCMHammer.Views;
+using PCMHammer.Views.DialogBoxes;
 using System.Configuration;
 using System.IO;
 using System.Windows;
@@ -15,6 +16,7 @@ namespace PCMHammer.Viewmodels
         private readonly MainWindowLogger _logger;
         private readonly FileDialogService _fileDialogService;
         private readonly Window _parentWindow;
+        private bool CanReInitialize() => SelectedDevice is not null;
 
         // --- Status and Progress Properties ---
         private PcmFlasher? _pcmFlasher;
@@ -154,9 +156,15 @@ namespace PCMHammer.Viewmodels
             ChangeVINCommand = new RelayCommand(
                 execute: async () => await ExecuteChangeVINAsync()
             );
-            WriteParametersCommand = new RelayCommand(ExecuteWriteParameters);
-            WriteOSCalibrationBootCommand = new RelayCommand(ExecuteWriteOSCalibrationBoot);
-            WriteFullFlashCloneCommand = new RelayCommand(ExecuteWriteFullFlashClone);
+            WriteParametersCommand = new RelayCommand(
+                execute: async () => await ExecuteWritePCMAsync(WriteType.Parameters)
+            );
+            WriteOSCalibrationBootCommand = new RelayCommand(
+                execute: async () => await ExecuteWritePCMAsync(WriteType.OsPlusCalibrationPlusBoot)
+            );
+            WriteFullFlashCloneCommand = new RelayCommand(
+                execute: async () => await ExecuteWritePCMAsync(WriteType.Full)
+            );
             TestFileChecksumsCommand = new RelayCommand(ExecuteTestFileChecksums);
             BruteForceUnlockCommand = new RelayCommand(ExecuteBruteForceUnlock);
             HaltRunningKernelCommand = new RelayCommand(ExecuteHaltRunningKernel);
@@ -170,10 +178,10 @@ namespace PCMHammer.Viewmodels
                 execute: async () => await ExecuteReadPropertiesAsync()
             );
             WritePCMCommand = new RelayCommand(
-                execute: async () => await ExecuteWritePCMAsync()
+                execute: async () => await ExecuteWritePCMAsyncWithDialog()
             );
             TestWriteCommand = new RelayCommand(
-                execute: async () => await ExecuteTestWriteAsync()
+                execute: async () => await ExecuteWritePCMAsync(WriteType.TestWrite)
             );
             CancelCurrentCommand = new RelayCommand(ExecuteCancelCurrent);
         }
@@ -237,9 +245,6 @@ namespace PCMHammer.Viewmodels
                 _logger.AddUserMessage($"VIN change failed with exception: {exception.Message}");
             }
         }
-        private void ExecuteWriteParameters() => StatusText = "Writing Parameters...";
-        private void ExecuteWriteOSCalibrationBoot() => StatusText = "Writing OS/Cal/Boot...";
-        private void ExecuteWriteFullFlashClone() => StatusText = "Cloning Full Flash...";
         private void ExecuteTestFileChecksums() => MessageBox.Show("Testing Checksums...");
         private void ExecuteBruteForceUnlock()
         {
@@ -309,7 +314,6 @@ namespace PCMHammer.Viewmodels
             }
         }
         private void ExecuteReInitializeDevice() => StatusText = "Re-initializing device...";
-        private bool CanReInitialize() => SelectedDevice is not null;
         private async Task ExecuteReadPropertiesAsync()
         {
             StatusText = "Reading Properties...";
@@ -407,7 +411,7 @@ namespace PCMHammer.Viewmodels
                 StatusText = "Ready";
             }
         }
-        private async Task ExecuteWritePCMAsync()
+        private async Task ExecuteWritePCMAsync(WriteType writeType, PcmType pcmType = PcmType.Undefined)
         {
             if (Vehicle == null) return;
             if (_pcmFlasher == null) return;
@@ -431,14 +435,23 @@ namespace PCMHammer.Viewmodels
                 {
                     IsOperationRunning = true;
                     StatusText = "Writing to PCM...";
-                    WriteType writeType = WriteType.OsPlusCalibrationPlusBoot;
                     var cts = new CancellationTokenSource();
 
                     // Hand off the parameters directly to cleaned-up backend task
                     // Task.Run guarantees it completely leaves the UI thread.
-                    bool success = await Task.Run(() =>
-                        _pcmFlasher.WritePcmAsync(writeType, selectedFilePath, useAutoPcmType: true, PcmType.Undefined, cts.Token)
-                    );
+                    bool success = false;
+                    if (pcmType == PcmType.Undefined)
+                    {
+                        success = await Task.Run(() =>
+                            _pcmFlasher.WritePcmAsync(writeType, selectedFilePath, useAutoPcmType: true, PcmType.Undefined, cts.Token)
+                        );
+                    }
+                    else
+                    {
+                        success = await Task.Run(() =>
+                            _pcmFlasher.WritePcmAsync(writeType, selectedFilePath, useAutoPcmType: false, pcmType, cts.Token)
+                        );
+                    }
 
                     StatusText = success ? "Write Complete Successfully!" : "Write Failed.";
                 }
@@ -457,48 +470,12 @@ namespace PCMHammer.Viewmodels
                 }
             }
         }
-        private async Task ExecuteTestWriteAsync()
+        private async Task ExecuteWritePCMAsyncWithDialog()
         {
-            if (Vehicle == null) return;
-            if (_pcmFlasher == null) return;
-            if (IsOperationRunning) return;
-
-            string? selectedFilePath = _fileDialogService.OpenBinFileDialog();
-            if (string.IsNullOrWhiteSpace(selectedFilePath))
+            WriteOperationDialogBox dialog = new() { Owner = Application.Current.MainWindow };
+            if (dialog.ShowDialog() == true)
             {
-                _logger.AddUserMessage("Test write canceled.");
-                return;
-            }
-
-            _logger.AddUserMessage(selectedFilePath);
-
-            using (new AwayMode())
-            {
-                StatusText = "Writing to PCM...";
-                WriteType writeType = WriteType.TestWrite;
-                try
-                {
-                    var cts = new CancellationTokenSource();
-
-                    // Hand off the parameters directly to cleaned-up backend task
-                    // Task.Run guarantees it completely leaves the UI thread.
-                    bool success = await Task.Run(() =>
-                        _pcmFlasher.WritePcmAsync(writeType, selectedFilePath, useAutoPcmType: true, PcmType.Undefined, cts.Token)
-                    );
-                }
-                catch (OperationCanceledException)
-                {
-                    _logger.AddUserMessage("Test write operation was canceled by the user.");
-                }
-                catch (IOException exception)
-                {
-                    _logger.AddUserMessage(exception.ToString());
-                }
-                finally
-                {
-                    writeType = WriteType.None;
-                    StatusText = "Ready";
-                }
+                await ExecuteWritePCMAsync(dialog.SelectedWriteType, dialog.SelectedPCMType);
             }
         }
         private void ExecuteCancelCurrent() => StatusText = "Operation Canceled.";
