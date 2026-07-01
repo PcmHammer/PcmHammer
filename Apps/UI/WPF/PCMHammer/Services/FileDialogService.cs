@@ -4,7 +4,7 @@ namespace PCMHammer.Services
 {
     public class FileDialogService : IFileDialogService
     {
-        public string OpenBinFileDialog()
+        public string? OpenBinFileDialog()
         {
             OpenFileDialog openFileDialog = new()
             {
@@ -13,12 +13,20 @@ namespace PCMHammer.Services
                 DefaultExt = ".bin"
             };
 
-            if (openFileDialog.ShowDialog() == true)
-            {
-                return openFileDialog.FileName;
-            }
+            return openFileDialog.ShowDialog() == true ? openFileDialog.FileName : null;
+        }
 
-            return null;
+        public string? SaveBinFileDialog()
+        {
+            SaveFileDialog saveFileDialog = new()
+            {
+                Title = "Save PCM Binary Content",
+                Filter = "Binary Files (*.bin)|*.bin|All Files (*.*)|*.*",
+                DefaultExt = ".bin",
+                FileName = "PCM_Read.bin"
+            };
+
+            return saveFileDialog.ShowDialog() == true ? saveFileDialog.FileName : null;
         }
     }
 }

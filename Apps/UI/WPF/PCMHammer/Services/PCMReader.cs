@@ -1,13 +1,9 @@
 ﻿using PcmHacking;
-using System.IO;
 
 namespace PCMHammer.Services
 {
-    public class PcmFlasher(Vehicle vehicle, ILogger logger)
+    public class PcmReader(Vehicle vehicle, ILogger logger)
     {
-        // Track the current operations state locally
-        private WriteType _currentWriteType = WriteType.None;
-
         public Task Alert(string title, string message)
         {
             logger.AddUserMessage($"ALERT [{title}]: {message}");
@@ -25,8 +21,11 @@ namespace PCMHammer.Services
             return userResult;
         }
 
-        public async Task<bool> WritePcmAsync(
-            WriteType writeType,
+        // These fallbacks map to ReadManager expectations if it encounters complex/deep OS query scenarios
+        private Task<string> DummyPromptForFile() => Task.FromResult(string.Empty);
+        private Task<uint> DummyPromptForOsId() => Task.FromResult(0U);
+
+        public async Task<bool> ReadPcmAsync(
             string path,
             bool useAutoPcmType = true,
             PcmType selectedPcmType = PcmType.Undefined,
@@ -37,38 +36,37 @@ namespace PCMHammer.Services
             {
                 try
                 {
-                    _currentWriteType = writeType;
-
                     if (vehicle == null)
                     {
                         logger.AddUserMessage("Error: No vehicle interface connected.");
                         return false;
                     }
 
-                    logger.AddUserMessage(path);
+                    logger.AddUserMessage($"Reading to: {path}");
 
                     PcmType forcedPcmType = useAutoPcmType ? PcmType.Undefined : selectedPcmType;
 
-                    WriteManager writer = new(
+                    // Match WinForms ReadManager initialization
+                    ReadManager reader = new(
                         logger,
                         vehicle,
-                        writeType,
+                        (action) => { 
+                            System.Windows.Application.Current.Dispatcher.Invoke(action); 
+                            return Task.CompletedTask; 
+                        },
+                        DummyPromptForFile!,
+                        DummyPromptForOsId!,
                         Alert,
                         PromptForYesNo,
                         cancellationToken);
 
-                    bool success = await writer.Write(path, forcedPcmType);
-                    
+                    bool success = await reader.Read(path, forcedPcmType);
                     return success;
                 }
-                catch (IOException exception)
+                catch (Exception exception)
                 {
-                    logger.AddUserMessage(exception.ToString());
+                    logger.AddUserMessage($"Read failed: {exception.Message}");
                     return false;
-                }
-                finally
-                {
-                    _currentWriteType = WriteType.None;
                 }
             }
         }
