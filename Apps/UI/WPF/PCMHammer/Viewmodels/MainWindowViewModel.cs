@@ -173,7 +173,9 @@ namespace PCMHammer.Viewmodels
                 execute: async () => await TestFileChecksumsAsync()
             );
             BruteForceUnlockCommand = new RelayCommand(ExecuteBruteForceUnlock);
-            HaltRunningKernelCommand = new RelayCommand(ExecuteHaltRunningKernel);
+            HaltRunningKernelCommand = new RelayCommand(
+                execute: async () => await ExecuteHaltRunningKernel()
+            );
 
             UserDefinedKeyCommand = new RelayCommand(ExecuteUserDefinedKey);
             SettingsCommand = new RelayCommand(ExecuteSettings);
@@ -458,7 +460,51 @@ namespace PCMHammer.Viewmodels
                 StatusText = "Ready";
             }
         }
-        private void ExecuteHaltRunningKernel() => StatusText = "Kernel Halted.";
+        private async Task ExecuteHaltRunningKernel()
+        {
+            if (Vehicle == null) return;
+            if (IsOperationRunning) return;
+
+            StatusText = "Sending Exit Kernel command...";
+            _logger.AddUserMessage("Attempting to exit PCM flash kernel mode...");
+
+            try
+            {
+                // Lock out the buttons and UI elements automatically via commanding interlocks
+                IsOperationRunning = true;
+
+                var cts = new CancellationTokenSource();
+
+                // Offload the low-level bus routine completely down to the Task Pool worker thread
+                await Task.Run(async () =>
+                {
+                    return await Vehicle.ExitKernel(
+                        kernelRunning: true,
+                        recoveryMode: false,
+                        cancellationToken: cts.Token,
+                        unused: null
+                    );
+                });
+
+                _logger.AddUserMessage("Exit Kernel command dispatched successfully.");
+                StatusText = "PCM Reset Completed.";
+            }
+            catch (Exception ex)
+            {
+                _logger.AddUserMessage($"Failed to exit kernel: {ex.Message}");
+                _logger.AddDebugMessage(ex.ToString());
+                StatusText = "Reset failed.";
+            }
+            finally
+            {
+                // Smoothly unlock UI thread control
+                IsOperationRunning = false;
+
+                // Visual delay to let the user visually inspect the final status message
+                await Task.Delay(2000);
+                if (!IsOperationRunning) StatusText = "Ready";
+            }
+        }
         private void ExecuteUserDefinedKey()
         {
             UserDefinedKeyDialogBox userDefinedKeyDialog = new() { Owner = _parentWindow };
