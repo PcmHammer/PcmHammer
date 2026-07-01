@@ -4,7 +4,7 @@ using PCMHammer.Services;
 using PCMHammer.ViewModels;
 using PCMHammer.Views;
 using PCMHammer.Views.DialogBoxes;
-using System.Configuration;
+using System.IO;
 using System.Windows;
 using System.Windows.Input;
 
@@ -169,7 +169,9 @@ namespace PCMHammer.Viewmodels
             WriteFullFlashCloneCommand = new RelayCommand(
                 execute: async () => await ExecuteWritePCMAsync(WriteType.Full)
             );
-            TestFileChecksumsCommand = new RelayCommand(ExecuteTestFileChecksums);
+            TestFileChecksumsCommand = new RelayCommand(
+                execute: async () => await TestFileChecksumsAsync()
+            );
             BruteForceUnlockCommand = new RelayCommand(ExecuteBruteForceUnlock);
             HaltRunningKernelCommand = new RelayCommand(ExecuteHaltRunningKernel);
 
@@ -380,7 +382,68 @@ namespace PCMHammer.Viewmodels
                 _logger.AddUserMessage($"VIN change failed with exception: {exception.Message}");
             }
         }
-        private void ExecuteTestFileChecksums() => MessageBox.Show("Testing Checksums...");
+        private async Task TestFileChecksumsAsync()
+        {
+            // Prompt the user for the .bin file safely on the UI Thread
+            StatusText = "Selecting file for validation...";
+            string selectedFilePath = _fileDialogService.OpenBinFileDialog()!;
+
+            if (string.IsNullOrEmpty(selectedFilePath))
+            {
+                StatusText = "Ready";
+                return;
+            }
+
+            _logger.AddUserMessage($"Examining {selectedFilePath}");
+            StatusText = "Validating binary checksums...";
+
+            try
+            {
+                IsOperationRunning = true;
+
+                // Offload the synchronous disk IO and deep block calculations entirely off the UI thread
+                string validationResult = await Task.Run(async () =>
+                {
+                    // Read the binary image into a memory block byte buffer
+                    using Stream stream = File.OpenRead(selectedFilePath);
+                    byte[] image = new byte[stream.Length];
+                    int bytesRead = await stream.ReadAsync(image, 0, (int)stream.Length);
+
+                    if (bytesRead != stream.Length)
+                        return "Error: Unable to fully load file into memory stream context.";
+
+                    // Perform original validation routines from the backend library
+                    FileValidator validator = new FileValidator(image, _logger); // Pass your standard shared logger
+
+                    if (validator.IsValid())
+                    {
+                        string pcmDescription = new OSIDInfo(validator.GetFileType()).Description;
+                        return $"File is {pcmDescription}.\r\nAll checksums are valid.";
+                    }
+                    else
+                    {
+                        return "This file is corrupt or its format is unknown to PCMHammer. It would render your PCM unusable.";
+                    }
+                });
+
+                // Post the processed feedback back to the UI logger
+                _logger.AddUserMessage(validationResult);
+                StatusText = "Validation Complete.";
+            }
+            catch (Exception ex)
+            {
+                _logger.AddUserMessage($"Unable to open file: {ex.Message}");
+                StatusText = "Error verifying file.";
+            }
+            finally
+            {
+                IsOperationRunning = false;
+
+                // Give the UI status layout text a standard brief delay to display completion status
+                await Task.Delay(2000);
+                if (!IsOperationRunning) StatusText = "Ready";
+            }
+        }
         private void ExecuteBruteForceUnlock()
         {
             StatusText = "Brute Force Unlocking...";
