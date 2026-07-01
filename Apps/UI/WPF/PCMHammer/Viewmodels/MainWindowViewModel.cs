@@ -160,7 +160,9 @@ namespace PCMHammer.Viewmodels
             ReadPCMCommand = new RelayCommand(
                 execute: async () => await ExecuteReadPCMAsync(true, PcmType.Undefined)
             );
-            VerifyPCMCommand = new RelayCommand(ExecuteVerifyPCM);
+            VerifyPCMCommand = new RelayCommand(
+                execute: async () => await ExecuteVerificationAsync(true, PcmType.Undefined)
+            );
             ChangeVINCommand = new RelayCommand(
                 execute: async () => await ExecuteChangeVINAsync()
             );
@@ -243,7 +245,6 @@ namespace PCMHammer.Viewmodels
                 if (!IsOperationRunning) StatusText = "Ready";
             }
         }
-
         public async Task ExecuteReadPCMAsyncWithDialog()
         {
             WriteOperationDialogBox dialog = new() { Owner = System.Windows.Application.Current.MainWindow };
@@ -265,7 +266,62 @@ namespace PCMHammer.Viewmodels
                 await ExecuteReadPCMAsync(useAutoPcmType, viewModel.SelectedPCMType);
             }
         }
-        private void ExecuteVerifyPCM() => StatusText = "Verifying PCM...";
+        private async Task ExecuteVerificationAsync(bool useAutoPcmType, PcmType selectedPcmType)
+        {
+            if (Vehicle == null) return;
+            if (_pcmFlasher == null) return;
+            if (IsOperationRunning) return;
+
+            // Set appropriate status messages depending on the action type
+            StatusText = "Preparing for Comparison...";
+
+            // Get the source binary path safely on the UI thread before offloading
+            string selectedFilePath = _fileDialogService.OpenBinFileDialog()!;
+
+            if (string.IsNullOrEmpty(selectedFilePath))
+            {
+                string cancelMessage = "Comparison canceled.";
+                _logger.AddUserMessage(cancelMessage);
+                StatusText = "Ready";
+                return;
+            }
+
+            try
+            {
+                IsOperationRunning = true;
+                StatusText = "Comparing PCM Blocks...";
+
+                var cts = new CancellationTokenSource();
+                PcmType forcedPcmType = useAutoPcmType ? PcmType.Undefined : selectedPcmType;
+
+                // Offload the low-level communication completely to the worker thread pool
+                bool success = await Task.Run(() =>
+                    _pcmFlasher.WritePcmAsync(WriteType.Compare, selectedFilePath, useAutoPcmType, forcedPcmType, cts.Token)
+                );
+
+                if (success)
+                {
+                    StatusText = "Comparison Complete!";
+                }
+                else
+                {
+                    StatusText = "Comparison Found Differences or Failed.";
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.AddUserMessage($"Critical error during verification: {ex.Message}");
+                StatusText = "Error occurred.";
+            }
+            finally
+            {
+                // Smoothly restore UI control structures
+                IsOperationRunning = false;
+
+                await Task.Delay(2000);
+                if (!IsOperationRunning) StatusText = "Ready";
+            }
+        }
         private async Task ExecuteChangeVINAsync()
         {
             try
@@ -350,44 +406,49 @@ namespace PCMHammer.Viewmodels
             if (settingsWindow.ShowDialog() == true)
                 StatusText = "Ready";
         }
+        /// <summary>
+        /// Opens the UI dialog box to select a physical device from scratch.
+        /// </summary>
         private void ExecuteSelectDevice()
         {
             var pickerDialog = new DevicePickerDialogBox(_logger) { Owner = _parentWindow };
-
             StatusText = "Selecting Device...";
 
-            // ShowDialog blocks here until RequestAcceptAndClose or RequestClose fires
             if (pickerDialog.ShowDialog() == true)
             {
-                // Grab the object directly from the window's property
                 Device? workingDevice = (pickerDialog.DataContext as DevicePickerViewModel)?.SelectedDevice;
 
                 if (workingDevice != null)
                 {
-                    SelectedDevice = workingDevice;
-                    Protocol protocolEngine = new();
-                    ToolPresentNotifier notifier = new(
-                        workingDevice,
-                        protocolEngine,
-                        _logger
-                    );
-                    Vehicle = new Vehicle(
-                        workingDevice,
-                        protocolEngine,
-                        _logger,
-                        notifier,
-                        "PCMHammer"
-                    );
-                    _logger.AddDebugMessage($"Connected to device: {workingDevice.GetDeviceType()}");
-                    _pcmFlasher = new PcmFlasher(Vehicle!, _logger);
-                    _pcmReader = new PcmReader(Vehicle!, _logger);
+                    // Pass the device directly into our new shared configuration helper
+                    InitializeDeviceAndVehicle(workingDevice);
                 }
                 else
+                {
                     _logger.AddDebugMessage("Dialog returned OK, but no valid device data was stored.");
+                }
                 StatusText = "Ready";
             }
         }
-        private void ExecuteReInitializeDevice() => StatusText = "Re-initializing device...";
+        /// <summary>
+        /// Silently re-initializes the vehicle bus communication using the current selection.
+        /// </summary>
+        private void ExecuteReInitializeDevice()
+        {
+            if (SelectedDevice == null)
+            {
+                _logger.AddUserMessage("Cannot re-initialize: No device has been selected yet.");
+                return;
+            }
+
+            StatusText = "Re-initializing device communication...";
+            _logger.AddDebugMessage($"Re-initializing link to: {SelectedDevice.GetDeviceType()}");
+
+            // Reuse the exact same connection architecture silently
+            InitializeDeviceAndVehicle(SelectedDevice);
+
+            StatusText = "Ready";
+        }
         private async Task ExecuteReadPropertiesAsync()
         {
             StatusText = "Reading Properties...";
@@ -553,5 +614,33 @@ namespace PCMHammer.Viewmodels
             }
         }
         private void ExecuteCancelCurrent() => StatusText = "Operation Canceled.";
+        /// <summary>
+        /// Shared Helper: The core factory mechanism for establishing the bus topology.
+        /// </summary>
+        private void InitializeDeviceAndVehicle(Device workingDevice)
+        {
+            SelectedDevice = workingDevice;
+            Protocol protocolEngine = new();
+
+            ToolPresentNotifier notifier = new(
+                workingDevice,
+                protocolEngine,
+                _logger
+            );
+
+            Vehicle = new Vehicle(
+                workingDevice,
+                protocolEngine,
+                _logger,
+                notifier,
+                "PCMHammer"
+            );
+
+            _logger.AddDebugMessage($"Vehicle pipeline established for: {workingDevice.GetDeviceType()}");
+
+            // Refresh your service layer with the updated Vehicle instance
+            _pcmFlasher = new PcmFlasher(Vehicle, _logger);
+            _pcmReader = new PcmReader(Vehicle, _logger);
+        }
     }
 }
