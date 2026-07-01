@@ -148,8 +148,12 @@ namespace PCMHammer.Viewmodels
             AddInitialLogMessages();
 
             // Initialize Commands with actions
-            SaveResultsLogCommand = new RelayCommand(ExecuteSaveResultsLog);
-            SaveDebugLogCommand = new RelayCommand(ExecuteSaveDebugLog);
+            SaveResultsLogCommand = new RelayCommand(
+                execute: async () => await ExecuteSaveResultsLog()
+            );
+            SaveDebugLogCommand = new RelayCommand(
+                execute: async () => await ExecuteSaveDebugLog()
+            );
             ExitCommand = new RelayCommand(ExecuteExit);
 
             ReadPCMCommand = new RelayCommand(
@@ -198,8 +202,8 @@ namespace PCMHammer.Viewmodels
         }
 
         #region Command Execution Methods
-        private void ExecuteSaveResultsLog() => MessageBox.Show("Saving Results Log...");
-        private void ExecuteSaveDebugLog() => MessageBox.Show("Saving Debug Log...");
+        private async Task ExecuteSaveResultsLog() => await SaveLogFileAsync("UserLog", LogText);
+        private async Task ExecuteSaveDebugLog() => await SaveLogFileAsync("DebugLog", DebugLogText);
         private void ExecuteExit() => Application.Current.Shutdown();
         private async Task ExecuteReadPCMAsync(bool useAutoPcmType, PcmType selectedPcmType)
         {
@@ -248,7 +252,7 @@ namespace PCMHammer.Viewmodels
                 if (!IsOperationRunning) StatusText = "Ready";
             }
         }
-        public async Task ExecuteReadPCMAsyncWithDialog()
+        private async Task ExecuteReadPCMAsyncWithDialog()
         {
             WriteOperationDialogBox dialog = new() { Owner = Application.Current.MainWindow };
 
@@ -754,7 +758,7 @@ namespace PCMHammer.Viewmodels
 
         #region Private Helpers
         /// <summary>
-        /// Shared Helper: The core factory mechanism for establishing the bus topology.
+        /// The core factory mechanism for establishing the bus topology.
         /// </summary>
         private void InitializeDeviceAndVehicle(Device workingDevice)
         {
@@ -781,6 +785,9 @@ namespace PCMHammer.Viewmodels
             _pcmFlasher = new PcmFlasher(Vehicle, _logger);
             _pcmReader = new PcmReader(Vehicle, _logger);
         }
+        /// <summary>
+        /// This method is used to update the UI with the current status of the operation.
+        /// </summary>
         private void AddInitialLogMessages()
         {
             // Add user messages to the log
@@ -795,6 +802,42 @@ namespace PCMHammer.Viewmodels
             _logger.AddDebugMessage("Version: 2.0.0");
             _logger.AddDebugMessage($"Running at: {DateTime.Now:dddd, MMMM d yyyy, HH:mm:ss}");
             _logger.AddDebugMessage("Thanks for using PCM Hammer.");
+        }
+        /// <summary>
+        /// Generates a filename pattern matching the legacy app (e.g., "UserLog_2026-07-01_18-30-00.txt")
+        /// </summary>
+        private static string GetLogFilename(string logName) => $"{logName}_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.txt";
+        /// <summary>
+        /// Core I/O helper method to write text directly to disk asynchronously.
+        /// </summary>
+        private async Task SaveLogFileAsync(string logName, string contents)
+        {
+            if (string.IsNullOrWhiteSpace(contents))
+            {
+                _logger.AddUserMessage($"Save aborted: {logName} is currently empty.");
+                return;
+            }
+
+            try
+            {
+                string defaultName = GetLogFilename(logName);
+                string destinationPath = _fileDialogService.GetLogSavePath(defaultName);
+
+                if (string.IsNullOrEmpty(destinationPath))
+                {
+                    _logger.AddUserMessage($"{logName} save operation canceled.");
+                    return;
+                }
+
+                // Completely offload the stream writer to disk from the UI loop
+                await File.WriteAllTextAsync(destinationPath, contents);
+
+                _logger.AddUserMessage($"{logName} successfully saved to: {destinationPath}");
+            }
+            catch (Exception ex)
+            {
+                _logger.AddUserMessage($"Failed to save log: {ex.Message}");
+            }
         }
         #endregion
     }
