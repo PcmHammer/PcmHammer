@@ -161,7 +161,7 @@ namespace PCMHammer.Viewmodels
                 execute: async () => await ExecuteReadPCMAsync(true, PcmType.Undefined)
             );
             VerifyPCMCommand = new RelayCommand(
-                execute: async () => await ExecuteVerificationAsync(true, PcmType.Undefined)
+                execute: async () => await ExecuteVerificationAsync()
             );
             ChangeVINCommand = new RelayCommand(
                 execute: async () => await ExecuteChangeVINAsync()
@@ -247,7 +247,7 @@ namespace PCMHammer.Viewmodels
         }
         public async Task ExecuteReadPCMAsyncWithDialog()
         {
-            WriteOperationDialogBox dialog = new() { Owner = System.Windows.Application.Current.MainWindow };
+            WriteOperationDialogBox dialog = new() { Owner = Application.Current.MainWindow };
 
             WriteTypeViewModel viewModel = new()
             {
@@ -266,60 +266,72 @@ namespace PCMHammer.Viewmodels
                 await ExecuteReadPCMAsync(useAutoPcmType, viewModel.SelectedPCMType);
             }
         }
-        private async Task ExecuteVerificationAsync(bool useAutoPcmType, PcmType selectedPcmType)
+        private async Task ExecuteVerificationAsync()
         {
             if (Vehicle == null) return;
             if (_pcmFlasher == null) return;
             if (IsOperationRunning) return;
 
-            // Set appropriate status messages depending on the action type
-            StatusText = "Preparing for Comparison...";
+            bool useAutoPcmType = true;
+            PcmTypeSelectDialogBox dialog = new() { Owner = Application.Current.MainWindow };
 
-            // Get the source binary path safely on the UI thread before offloading
-            string selectedFilePath = _fileDialogService.OpenBinFileDialog()!;
-
-            if (string.IsNullOrEmpty(selectedFilePath))
+            if (dialog.ShowDialog() == true)
             {
-                string cancelMessage = "Comparison canceled.";
-                _logger.AddUserMessage(cancelMessage);
+                useAutoPcmType = dialog.SelectedPCMType == PcmType.Undefined;
+                // Set appropriate status messages depending on the action type
+                StatusText = "Preparing for Comparison...";
+
+                // Get the source binary path safely on the UI thread before offloading
+                string selectedFilePath = _fileDialogService.OpenBinFileDialog()!;
+
+                if (string.IsNullOrEmpty(selectedFilePath))
+                {
+                    string cancelMessage = "Comparison canceled.";
+                    _logger.AddUserMessage(cancelMessage);
+                    StatusText = "Ready";
+                    return;
+                }
+
+                try
+                {
+                    IsOperationRunning = true;
+                    StatusText = "Comparing PCM Blocks...";
+
+                    var cts = new CancellationTokenSource();
+                    PcmType forcedPcmType = useAutoPcmType ? PcmType.Undefined : dialog.SelectedPCMType;
+
+                    // Offload the low-level communication completely to the worker thread pool
+                    bool success = await Task.Run(() =>
+                        _pcmFlasher.WritePcmAsync(WriteType.Compare, selectedFilePath, useAutoPcmType, forcedPcmType, cts.Token)
+                    );
+
+                    if (success)
+                    {
+                        StatusText = "Comparison Complete!";
+                    }
+                    else
+                    {
+                        StatusText = "Comparison Found Differences or Failed.";
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.AddUserMessage($"Critical error during verification: {ex.Message}");
+                    StatusText = "Error occurred.";
+                }
+                finally
+                {
+                    // Smoothly restore UI control structures
+                    IsOperationRunning = false;
+
+                    await Task.Delay(2000);
+                    if (!IsOperationRunning) StatusText = "Ready";
+                }
+            }
+            else
+            {
+                _logger.AddUserMessage("Comparison canceled by user (dialog closed).");
                 StatusText = "Ready";
-                return;
-            }
-
-            try
-            {
-                IsOperationRunning = true;
-                StatusText = "Comparing PCM Blocks...";
-
-                var cts = new CancellationTokenSource();
-                PcmType forcedPcmType = useAutoPcmType ? PcmType.Undefined : selectedPcmType;
-
-                // Offload the low-level communication completely to the worker thread pool
-                bool success = await Task.Run(() =>
-                    _pcmFlasher.WritePcmAsync(WriteType.Compare, selectedFilePath, useAutoPcmType, forcedPcmType, cts.Token)
-                );
-
-                if (success)
-                {
-                    StatusText = "Comparison Complete!";
-                }
-                else
-                {
-                    StatusText = "Comparison Found Differences or Failed.";
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.AddUserMessage($"Critical error during verification: {ex.Message}");
-                StatusText = "Error occurred.";
-            }
-            finally
-            {
-                // Smoothly restore UI control structures
-                IsOperationRunning = false;
-
-                await Task.Delay(2000);
-                if (!IsOperationRunning) StatusText = "Ready";
             }
         }
         private async Task ExecuteChangeVINAsync()
