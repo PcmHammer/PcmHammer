@@ -578,6 +578,7 @@ namespace PCMHammer.Viewmodels
                         backgroundViewModel.SelectedDevice,
                         backgroundViewModel.Enable4xReadWrite
                     );
+                    StatusText = "Ready";
                     return true;
                 }
             }
@@ -585,6 +586,8 @@ namespace PCMHammer.Viewmodels
             {
                 _logger.AddDebugMessage($"Silent hardware restore failed: {ex.Message}");
             }
+
+            StatusText = "Ready";
 
             return false; // Failed or timed out; needs UI fallback
         }
