@@ -32,13 +32,13 @@
             <StackPanel>
                 <CheckBox x:Name="UseLogSaveAsDialogCheckBox" Content="Use Log SaveAs Dialog" IsChecked="{Binding UseLogSaveAsDialog}"/>
                 <TextBlock FontStyle="Oblique" Opacity="0.5" Text="Show a dialog to select the log file location when saving logs."/>
-                <Grid Visibility="{Binding ElementName=UseLogSaveAsDialogCheckBox, Path=IsChecked, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <Grid Visibility="{Binding ElementName=UseLogSaveAsDialogCheckBox, Path=IsChecked, Converter={StaticResource BooleanToVisibility}, ConverterParameter=Inverse}">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
-                    <Button Content="Log Directory" Margin="5,0" Width="120"/>
-                    <TextBox Grid.Column="1"/>
+                    <Button Content="Log Directory" Margin="5,0" Width="120" Command="{Binding SelectLogDirectoryCommand}"/>
+                    <TextBox Grid.Column="1" Text="{Binding LogDirectory, UpdateSourceTrigger=LostFocus}"/>
                 </Grid>
                 <CheckBox Content="Save results log on application exit" IsChecked="{Binding SaveResultsLogOnExit}"/>
                 <TextBlock FontStyle="Oblique" Opacity="0.5" Text="Automatically save the results log on application exit."/>

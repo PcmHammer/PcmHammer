@@ -17,6 +17,12 @@ namespace PCMHammer.Viewmodels
             get => _binDirectory; 
             set => SetProperty(ref _binDirectory, value);
         }
+        private string _logDirectory;
+        public string LogDirectory
+        {
+            get => _logDirectory;
+            set => SetProperty(ref _logDirectory, value);
+        }
         private bool _retainDeviceConfigurationOnExit;
         public bool RetainDeviceConfigurationOnExit
         {
@@ -48,6 +54,7 @@ namespace PCMHammer.Viewmodels
 
         // Commands
         public ICommand SelectBinDirectoryCommand { get; }
+        public ICommand SelectLogDirectoryCommand { get; }
         public ICommand CloseCommand { get; }
         public ICommand AcceptCommand { get; }
 
@@ -59,7 +66,9 @@ namespace PCMHammer.Viewmodels
             _useLogSaveAsDialog = Properties.Settings.Default.UseLogSaveAsDialog;
             _saveResultsLogOnExit = Properties.Settings.Default.SaveResultsLogOnExit;
             _saveDebugLogOnExit = Properties.Settings.Default.SaveDebugLogOnExit;
+            _logDirectory = Properties.Settings.Default.LogDirectory;
             SelectBinDirectoryCommand = new RelayCommand(SelectBinDirectory);
+            SelectLogDirectoryCommand = new RelayCommand(SelectLogDirectory);
             CloseCommand = new RelayCommand(() => { RequestClose?.Invoke(); });
             AcceptCommand = new RelayCommand(() =>
             {
@@ -70,17 +79,28 @@ namespace PCMHammer.Viewmodels
 
         public void SelectBinDirectory()
         {
-            string? selectedFilePath = _fileDialogService.OpenDirectoryDialog(BinDirectory);
+            string? selectedDirectory = _fileDialogService.OpenDirectoryDialog(BinDirectory);
 
-            if (string.IsNullOrWhiteSpace(selectedFilePath))
+            if (string.IsNullOrWhiteSpace(selectedDirectory))
                 return;
 
-            BinDirectory = selectedFilePath;
+            BinDirectory = selectedDirectory;
+        }
+
+        public void SelectLogDirectory()
+        {
+            string? selectedDirectory = _fileDialogService.OpenDirectoryDialog(LogDirectory);
+
+            if (string.IsNullOrWhiteSpace(selectedDirectory))
+                return;
+
+            LogDirectory = selectedDirectory;
         }
 
         public void SaveSettings()
         {
             Properties.Settings.Default.BinDirectory = BinDirectory; 
+            Properties.Settings.Default.LogDirectory = LogDirectory;
             Properties.Settings.Default.RetainDeviceConfigurationOnExit = RetainDeviceConfigurationOnExit;
             Properties.Settings.Default.UseLogSaveAsDialog = UseLogSaveAsDialog;
             Properties.Settings.Default.SaveResultsLogOnExit = SaveResultsLogOnExit;
