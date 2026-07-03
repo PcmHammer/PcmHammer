@@ -72,7 +72,7 @@ namespace PCMHammer
 
             // Set flag and re-trigger close now that it's safe
             _isCleanedUp = true;
-            Close();
+            _ = Application.Current.Dispatcher.BeginInvoke(new Action(Close));
         }
     }
 }
