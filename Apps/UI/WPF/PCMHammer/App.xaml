@@ -10,7 +10,7 @@
                 <ResourceDictionary Source="pack://application:,,,/PresentationFramework.Fluent;component/Themes/Fluent.xaml" />
             </ResourceDictionary.MergedDictionaries>
 
-            <BooleanToVisibilityConverter x:Key="BooleanToVisibility" />
+            <helpers:BooleanToVisibilityConverter x:Key="BooleanToVisibility" />
             <helpers:StringToVisibilityConverter x:Key="StringToVisibility" />
             <helpers:NullToBooleanConverter x:Key="NullToBoolean" />
             <helpers:InverseBooleanConverter x:Key="InverseBoolean" />
