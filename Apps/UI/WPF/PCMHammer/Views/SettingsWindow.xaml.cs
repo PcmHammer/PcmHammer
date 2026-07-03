@@ -1,14 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+﻿using PCMHammer.Services;
+using PCMHammer.Viewmodels;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Shapes;
 
 namespace PCMHammer.Views
 {
@@ -17,9 +9,24 @@ namespace PCMHammer.Views
     /// </summary>
     public partial class SettingsWindow : Window
     {
-        public SettingsWindow()
+        private readonly SettingsViewModel _viewModel;
+        public SettingsWindow(FileDialogService fileDialogService)
         {
             InitializeComponent();
+            _viewModel = new SettingsViewModel(fileDialogService);
+            DataContext = _viewModel;
+            // Handle Close/Cancel (Discards changes since SaveSettings won't be called)
+            _viewModel.RequestClose += () =>
+            {
+                DialogResult = false;
+                Close();
+            };
+            // Handle Accept (Saves changes and signals success)
+            _viewModel.RequestAcceptandClose += () =>
+            {
+                DialogResult = true;
+                Close();
+            };
         }
     }
 }

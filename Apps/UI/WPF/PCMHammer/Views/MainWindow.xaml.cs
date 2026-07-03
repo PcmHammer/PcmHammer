@@ -10,10 +10,13 @@ namespace PCMHammer
     /// </summary>
     public partial class MainWindow : Window
     {
+        private readonly MainWindowViewModel _viewModel;
+        private bool _isCleanedUp = false;
         public MainWindow()
         {
             InitializeComponent();
-            DataContext = new MainWindowViewModel(this);
+            _viewModel = new MainWindowViewModel(this);
+            DataContext = _viewModel;
         }
 
         private void Window_Loaded(object sender, RoutedEventArgs e)
@@ -49,6 +52,27 @@ namespace PCMHammer
         {
             if (sender is TextBox textBox)
                 textBox.ScrollToEnd();
+        }
+
+        private async void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
+        {
+            // If we already finished cleaning up, let the window close normally
+            if (_isCleanedUp) return;
+
+            // Stop the window from closing immediately
+            e.Cancel = true;
+
+            if (_viewModel is not null)
+            {
+                _viewModel.StatusText = "Saving logs and cleaning up hardware connections...";
+
+                // Await the shutdown process completely off the main UI thread
+                await _viewModel.HandleApplicationShutdownAsync();
+            }
+
+            // Set flag and re-trigger close now that it's safe
+            _isCleanedUp = true;
+            Close();
         }
     }
 }

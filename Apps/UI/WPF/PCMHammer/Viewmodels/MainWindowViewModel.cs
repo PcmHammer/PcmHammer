@@ -162,12 +162,27 @@ namespace PCMHammer.Viewmodels
             HaltRunningKernelCommand = new RelayCommand(execute: async () => await ExecuteHaltRunningKernel());
             UserDefinedKeyCommand = new RelayCommand(ExecuteUserDefinedKey);
             SettingsCommand = new RelayCommand(ExecuteSettings);
-            SelectDeviceCommand = new RelayCommand(ExecuteSelectDevice);
+            SelectDeviceCommand = new RelayCommand(() => ExecuteSelectDevice());
             ReInitializeDeviceCommand = new RelayCommand(ExecuteReInitializeDevice, CanReInitialize);
             ReadPropertiesCommand = new RelayCommand(execute: async () => await ExecuteReadPropertiesAsync());
             WritePCMCommand = new RelayCommand(execute: async () => await ExecuteWritePCMAsyncWithDialog());
             TestWriteCommand = new RelayCommand(execute: async () => await ExecuteWritePCMAsync(WriteType.TestWrite));
             CancelCurrentCommand = new RelayCommand(execute: async () => await ExecuteCancelCurrentOperationAsync());
+
+            // Load up saved device and vehicle information from the settings file if configured to do so
+            bool retainConfigOnExit = Properties.Settings.Default.RetainDeviceConfigurationOnExit;
+            string savedType = Properties.Settings.Default.SavedDeviceType;
+            if (retainConfigOnExit && !string.IsNullOrEmpty(savedType))
+                _ = TrySilentDeviceConnectionAsync();
+        }
+
+        public async Task HandleApplicationShutdownAsync()
+        {
+            if (Properties.Settings.Default.SaveResultsLogOnExit)
+                await Task.Run(() => ExecuteSaveResultsLog());
+
+            if (Properties.Settings.Default.SaveDebugLogOnExit)
+                await Task.Run(() => ExecuteSaveDebugLog());
         }
 
         #region Command Execution Methods
@@ -497,14 +512,14 @@ namespace PCMHammer.Viewmodels
         }
         private void ExecuteSettings()
         {
-            SettingsWindow settingsWindow = new() { Owner = _parentWindow };
+            SettingsWindow settingsWindow = new(_fileDialogService) { Owner = _parentWindow };
             StatusText = "Settings...";
             if (settingsWindow.ShowDialog() == true)
                 StatusText = "Ready";
         }
         private void ExecuteSelectDevice()
         {
-            var pickerDialog = new DevicePickerDialogBox(_logger) { Owner = _parentWindow };
+            var pickerDialog = new DevicePickerDialogBox(_logger) { Owner = _parentWindow }; 
             StatusText = "Selecting Device...";
 
             if (pickerDialog.ShowDialog() == true)
@@ -515,7 +530,7 @@ namespace PCMHammer.Viewmodels
 
                 if (workingDevice != null)
                 {
-                    // Pass the device directly into our new shared configuration helper
+                    // Pass the device directly into shared configuration helper
                     InitializeDeviceAndVehicle(workingDevice, enable4xReadWrite);
                 }
                 else
@@ -524,6 +539,54 @@ namespace PCMHammer.Viewmodels
                 }
                 StatusText = "Ready";
             }
+        }
+        private async Task<bool> TrySilentDeviceConnectionAsync()
+        {
+            // Double check safety guards
+            if (!Properties.Settings.Default.RetainDeviceConfigurationOnExit ||
+                string.IsNullOrEmpty(Properties.Settings.Default.SavedDeviceType))
+            {
+                return false;
+            }
+
+            try
+            {
+                StatusText = "Restoring saved device configuration...";
+
+                var backgroundViewModel = new DevicePickerViewModel(_logger)
+                {
+                    DeviceCategory = Properties.Settings.Default.SavedDeviceType
+                };
+
+                if (backgroundViewModel.DeviceCategory.Equals("Serial", StringComparison.Ordinal))
+                {
+                    backgroundViewModel.SerialPort = Properties.Settings.Default.SavedSerialPort;
+                    backgroundViewModel.SerialPortDeviceType = Properties.Settings.Default.SavedSerialDevice;
+                }
+                else
+                {
+                    backgroundViewModel.J2534DeviceType = Properties.Settings.Default.SavedJ2534Device;
+                }
+
+                backgroundViewModel.Enable4xReadWrite = Properties.Settings.Default.SavedDevice4xCommunicationEnabled;
+
+                await backgroundViewModel.TestSelectedDeviceAsync();
+
+                if (backgroundViewModel.SelectedDevice != null)
+                {
+                    InitializeDeviceAndVehicle(
+                        backgroundViewModel.SelectedDevice,
+                        backgroundViewModel.Enable4xReadWrite
+                    );
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.AddDebugMessage($"Silent hardware restore failed: {ex.Message}");
+            }
+
+            return false; // Failed or timed out; needs UI fallback
         }
         private void ExecuteReInitializeDevice()
         {
@@ -748,9 +811,10 @@ namespace PCMHammer.Viewmodels
                 _logger,
                 notifier,
                 "PCMHammer"
-            );
-
-            Vehicle.Enable4xReadWrite = Enable4xCom;
+            )
+            {
+                Enable4xReadWrite = Enable4xCom
+            };
 
             _logger.AddDebugMessage($"Vehicle pipeline established for: {workingDevice.GetDeviceType()}");
 
@@ -794,8 +858,9 @@ namespace PCMHammer.Viewmodels
             try
             {
                 string defaultName = GetLogFilename(logName);
-                string destinationPath = _fileDialogService.GetLogSavePath(defaultName);
-
+                string destinationPath = Properties.Settings.Default.UseLogSaveAsDialog ?
+                    _fileDialogService.GetLogSavePath(defaultName) : Path.Combine(Properties.Settings.Default.LogDirectory, defaultName);
+                
                 if (string.IsNullOrEmpty(destinationPath))
                 {
                     _logger.AddUserMessage($"{logName} save operation canceled.");

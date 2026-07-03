@@ -10,37 +10,40 @@
         WindowStartupLocation="CenterOwner"
         Title="Settings" Width="629">
     <StackPanel Margin="16">
-        <GroupBox Header="Window">
-            <CheckBox Content="Main Window Persistance"/>
+        <GroupBox Header="Device">
+            <StackPanel>
+                <CheckBox Content="Retain device configuration" IsChecked="{Binding RetainDeviceConfigurationOnExit}"/>
+                <TextBlock FontStyle="Oblique" Opacity="0.5" Text="This will retain the current device configuration (serial, port, and device or J2354) on exit."/>
+            </StackPanel>
         </GroupBox>
 
-        <GroupBox Header="Bin">
+        <GroupBox Header="Bin Files">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
-
-                <Button Content="Bin Directory" Width="120" Margin="5,0"/>
-                <TextBox Grid.Column="1" Margin="5,0"/>
+                <Button Content="Bin Directory" Width="120" Margin="5,0" Command="{Binding SelectBinDirectoryCommand}"/>
+                <TextBox Grid.Column="1" Margin="5,0" Text="{Binding BinDirectory, UpdateSourceTrigger=LostFocus}"/>
             </Grid>
         </GroupBox>
 
-        <GroupBox Header="Log">
+        <GroupBox Header="Logging">
             <StackPanel>
-                <CheckBox Content="Use Log SaveAs Dialog"/>
-                <CheckBox Content="Save results log on application exit (always silent)"/>
-                <CheckBox Content="Save debug log on application exit (always silent)"/>
-
-                <Grid>
+                <CheckBox x:Name="UseLogSaveAsDialogCheckBox" Content="Use Log SaveAs Dialog" IsChecked="{Binding UseLogSaveAsDialog}"/>
+                <TextBlock FontStyle="Oblique" Opacity="0.5" Text="Show a dialog to select the log file location when saving logs."/>
+                <Grid Visibility="{Binding ElementName=UseLogSaveAsDialogCheckBox, Path=IsChecked, Converter={StaticResource BooleanToVisibilityConverter}}">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
                     <Button Content="Log Directory" Margin="5,0" Width="120"/>
                     <TextBox Grid.Column="1"/>
-
                 </Grid>
+                <CheckBox Content="Save results log on application exit" IsChecked="{Binding SaveResultsLogOnExit}"/>
+                <TextBlock FontStyle="Oblique" Opacity="0.5" Text="Automatically save the results log on application exit."/>
+                <CheckBox Content="Save debug log on application exit" IsChecked="{Binding SaveDebugLogOnExit}"/>
+                <TextBlock FontStyle="Oblique" Opacity="0.5" Text="Automatically save the debug log on application exit."/>
             </StackPanel>
         </GroupBox>
         <Grid Margin="0,16,0,0" HorizontalAlignment="Right">
@@ -48,8 +51,8 @@
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
-            <Button Content="Cancel" Width="120" Margin="5,0"/>
-            <Button Content="OK" Width="120" Margin="5,0" Grid.Column="1"/>
+            <Button Content="Cancel" Width="120" Margin="5,0" Command="{Binding CloseCommand}"/>
+            <Button Content="OK" Width="120" Margin="5,0" Grid.Column="1" Command="{Binding AcceptCommand}"/>
         </Grid>
     </StackPanel>
 </Window>

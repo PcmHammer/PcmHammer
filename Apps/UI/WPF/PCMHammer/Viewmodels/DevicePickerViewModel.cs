@@ -1,7 +1,5 @@
 ﻿using PcmHacking;
 using PCMHammer.Helpers;
-using System.ComponentModel;
-using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using System.Text.RegularExpressions;
 using PCMHammer.ViewModels;
@@ -26,7 +24,9 @@ namespace PCMHammer.Viewmodels
             AutoDetectCommand = new RelayCommand(ExecuteAutoDetect);
             TestCommand = new RelayCommand(ExecuteTestSelectedDevice);
             CancelCommand = new RelayCommand(() => RequestClose?.Invoke());
-            AcceptCommand = new RelayCommand(ExecuteAcceptAndClose);
+            AcceptCommand = new RelayCommand(
+                execute: async () => await ExecuteAcceptAndClose()
+            );
         }
 
         // UI Binding Properties
@@ -91,12 +91,30 @@ namespace PCMHammer.Viewmodels
         public Func<string, string, Task>? ShowInfoAlertAsync { get; set; }
         public Func<string, string, Task>? ShowErrorAlertAsync { get; set; }
 
-        private async void ExecuteAcceptAndClose()
+        public async Task ExecuteAcceptAndClose()
         {
             await TestSelectedDeviceAsync();
-            if (SelectedDevice != null)
+            if (SelectedDevice != null && !string.IsNullOrEmpty(DeviceCategory))
             {
+                Properties.Settings.Default.SavedDeviceType = DeviceCategory;
+                if (DeviceCategory.Equals("Serial", StringComparison.Ordinal))
+                {
+                    Properties.Settings.Default.SavedSerialPort = SerialPort;
+                    Properties.Settings.Default.SavedSerialDevice = SerialPortDeviceType;
+                    Properties.Settings.Default.SavedJ2534Device = "";
+                }
+                else
+                {
+                    Properties.Settings.Default.SavedSerialPort = "";
+                    Properties.Settings.Default.SavedSerialDevice = "";
+                    Properties.Settings.Default.SavedJ2534Device = J2534DeviceType;
+                }
+                Properties.Settings.Default.Save();
                 RequestAcceptAndClose?.Invoke();
+            }
+            else
+            {
+                StatusText = "Device test failed or invalid selection.";
             }
         }
         private void ExecuteTestSelectedDevice()
