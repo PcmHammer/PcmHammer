@@ -8,7 +8,8 @@
         mc:Ignorable="d"
         ThemeMode="System"
         Title="PCM Hammer" Height="638" Width="800"
-        Loaded="Window_Loaded">
+        Loaded="Window_Loaded"
+        Closing="Window_Closing">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>

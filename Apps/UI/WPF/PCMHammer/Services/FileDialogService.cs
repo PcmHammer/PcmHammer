@@ -1,10 +1,22 @@
 ﻿using Microsoft.Win32;
-using System.Configuration;
 
 namespace PCMHammer.Services
 {
     public class FileDialogService : IFileDialogService
     {
+        public string? OpenDirectoryDialog(string? initialDirectory = null)
+        {
+            var dialog = new OpenFolderDialog
+            {
+                Title = "Select Bin Directory",
+                InitialDirectory = !string.IsNullOrWhiteSpace(initialDirectory) && System.IO.Directory.Exists(initialDirectory)
+                    ? initialDirectory : Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)
+            };
+
+            bool? result = dialog.ShowDialog();
+            return result == true ? dialog.FolderName : null;
+        }
+
         public string? OpenBinFileDialog()
         {
             OpenFileDialog openFileDialog = new()
