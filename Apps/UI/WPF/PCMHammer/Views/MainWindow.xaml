@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
         xmlns:local="clr-namespace:PCMHammer"
         xmlns:helpers="clr-namespace:PCMHammer.Helpers"
         mc:Ignorable="d"
@@ -91,10 +92,10 @@
                 </GroupBox>
             </StackPanel>
             
-            <TabControl Grid.Column="1" Margin="8,0,0,0">
+            <TabControl x:Name="MainTabControl" Grid.Column="1" Margin="8,0,0,0">
                 <TabItem Header="Results">
-                    <TextBox x:Name="ResultsLogTextBox" IsReadOnly="True" VerticalScrollBarVisibility="Visible" Text="{Binding LogText}"
-                             TextChanged="LogTextBox_TextChanged"/>
+                    <TextBox x:Name="ResultsLogTextBox" IsReadOnly="True" VerticalScrollBarVisibility="Visible" HorizontalScrollBarVisibility="Auto" 
+                             Text="{Binding LogText}" Loaded="LogTextBox_Loaded" TextChanged="LogTextBox_TextChanged"/>
                 </TabItem>
                 <TabItem Header="Help">
                     <WebBrowser x:Name="HelpWebBrowser"/>
@@ -103,10 +104,17 @@
                     <WebBrowser x:Name="CreditsWebBrowser"/>
                 </TabItem>
                 <TabItem Header="Debug">
-                    <TextBox x:Name="DebugLogTextBox" IsReadOnly="True" VerticalScrollBarVisibility="Visible" Text="{Binding DebugLogText}" 
-                             TextChanged="LogTextBox_TextChanged"/>
+                    <TextBox x:Name="DebugLogTextBox" IsReadOnly="True" VerticalScrollBarVisibility="Visible" HorizontalScrollBarVisibility="Auto"
+                             Text="{Binding DebugLogText}" Loaded="LogTextBox_Loaded" TextChanged="LogTextBox_TextChanged"/>
                 </TabItem>
             </TabControl>
+
+            <Button Grid.Column="1" Style="{StaticResource CopyButtonStyle}" Command="{Binding CopyLogCommand}" 
+                    CommandParameter="{Binding Text, ElementName=ResultsLogTextBox}"
+                    Visibility="{Binding SelectedIndex, ElementName=MainTabControl, Converter={StaticResource TabIndexToVisibility}, ConverterParameter=0}"/>
+            <Button Grid.Column="1" Style="{StaticResource CopyButtonStyle}" Command="{Binding CopyLogCommand}"
+                    CommandParameter="{Binding Text, ElementName=DebugLogTextBox}"
+                    Visibility="{Binding SelectedIndex, ElementName=MainTabControl, Converter={StaticResource TabIndexToVisibility}, ConverterParameter=3}"/>
         </Grid>
         
         <StatusBar Grid.Row="2" HorizontalContentAlignment="Stretch">
@@ -127,7 +135,7 @@
 
             <StatusBarItem Grid.Column="1" HorizontalAlignment="Right">
                 <StackPanel Orientation="Horizontal"
-                            Visibility="{Binding StatusText, Converter={StaticResource StringToVisibility}, ConverterParameter='Not Ready'}">
+                            Visibility="{Binding IsOperationRunning, Converter={StaticResource BooleanToVisibilityConverter}}">
                     <TextBlock x:Name="RetryCountTextBlock" Text="{Binding RetryCount, StringFormat={}{0:Retries: 0}}" VerticalAlignment="Center"/>
                     <Separator Margin="10,0"/>
 

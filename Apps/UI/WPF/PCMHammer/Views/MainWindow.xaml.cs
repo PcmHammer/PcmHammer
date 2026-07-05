@@ -48,12 +48,6 @@ namespace PCMHammer
             }
         }
 
-        private void LogTextBox_TextChanged(object sender, TextChangedEventArgs e)
-        {
-            if (sender is TextBox textBox)
-                textBox.ScrollToEnd();
-        }
-
         private async void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
             // If we already finished cleaning up, let the window close normally
@@ -73,6 +67,18 @@ namespace PCMHammer
             // Set flag and re-trigger close now that it's safe
             _isCleanedUp = true;
             _ = Application.Current.Dispatcher.BeginInvoke(new Action(Close));
+        }
+
+        private void LogTextBox_Loaded(object sender, RoutedEventArgs e)
+        {
+            if (sender is TextBox textBox)
+                textBox.ScrollToEnd();
+        }
+
+        private void LogTextBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (sender is TextBox textBox)
+                textBox.ScrollToEnd();
         }
     }
 }

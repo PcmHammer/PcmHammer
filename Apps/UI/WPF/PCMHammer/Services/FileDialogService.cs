@@ -26,6 +26,9 @@ namespace PCMHammer.Services
                 DefaultExt = ".bin"
             };
 
+            if (Properties.Settings.Default.BinDirectory != null)
+                openFileDialog.InitialDirectory = Properties.Settings.Default.BinDirectory;
+
             return openFileDialog.ShowDialog() == true ? openFileDialog.FileName : null;
         }
 

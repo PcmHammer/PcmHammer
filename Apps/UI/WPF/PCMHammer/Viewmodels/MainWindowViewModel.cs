@@ -54,6 +54,13 @@ namespace PCMHammer.Viewmodels
             set => SetProperty(ref _debugLogText, value);
         }
 
+        private bool _isCopiedFeedbackVisible;
+        public bool IsCopiedFeedbackVisible
+        {
+            get => _isCopiedFeedbackVisible;
+            set => SetProperty(ref _isCopiedFeedbackVisible, value);
+        }
+
         private string _statusText = "Ready";
         public string StatusText
         {
@@ -108,6 +115,8 @@ namespace PCMHammer.Viewmodels
         }
         #endregion
 
+        public ICommand CopyLogCommand { get; }
+
         #region Commands (File Menu)
         public ICommand SaveResultsLogCommand { get; }
         public ICommand SaveDebugLogCommand { get; }
@@ -145,9 +154,20 @@ namespace PCMHammer.Viewmodels
             _parentWindow = parentWindow;
             _logger = new MainWindowLogger(this);
             _fileDialogService = new FileDialogService();
+            _logger.ProgressBarUpdated += (percent, visible) =>
+            {
+                // Safely hop onto the WPF UI thread to update properties
+                Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    // WriteManager/Reader sends percentages as decimals (0.0 to 1.0)
+                    // Multiply by 100 to map onto a standard 0-100 ProgressBar
+                    ProgressPercent = percent * 100;
+                });
+            };
             AddInitialLogMessages();
 
             // Initialize Commands with actions
+            CopyLogCommand = new RelayCommand<string>(execute: async (logText) => await CopyLogToClipboard(logText));
             SaveResultsLogCommand = new RelayCommand(execute: async () => await ExecuteSaveResultsLog());
             SaveDebugLogCommand = new RelayCommand(execute: async () => await ExecuteSaveDebugLog());
             ExitCommand = new RelayCommand(ExecuteExit);
@@ -174,6 +194,21 @@ namespace PCMHammer.Viewmodels
             string savedType = Properties.Settings.Default.SavedDeviceType;
             if (retainConfigOnExit && !string.IsNullOrEmpty(savedType))
                 _ = TrySilentDeviceConnectionAsync();
+        }
+
+        private async Task CopyLogToClipboard(string? logText)
+        {
+            if (string.IsNullOrEmpty(logText)) return;
+
+            Clipboard.SetText(logText);
+
+            // Trigger visual feedback
+            IsCopiedFeedbackVisible = true;
+
+            // Wait 1 second, then hide the feedback
+            await Task.Delay(1000);
+
+            IsCopiedFeedbackVisible = false;
         }
 
         public async Task HandleApplicationShutdownAsync()
