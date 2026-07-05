@@ -1,6 +1,7 @@
 ﻿<Application x:Class="PCMHammer.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
              xmlns:local="clr-namespace:PCMHammer"
              xmlns:helpers="clr-namespace:PCMHammer.Helpers"
              StartupUri="Views/MainWindow.xaml">
@@ -10,12 +11,36 @@
                 <ResourceDictionary Source="pack://application:,,,/PresentationFramework.Fluent;component/Themes/Fluent.xaml" />
             </ResourceDictionary.MergedDictionaries>
 
+            <helpers:TabIndexToVisibilityConverter x:Key="TabIndexToVisibility" />
             <helpers:BooleanToVisibilityConverter x:Key="BooleanToVisibility" />
             <helpers:StringToVisibilityConverter x:Key="StringToVisibility" />
             <helpers:NullToBooleanConverter x:Key="NullToBoolean" />
             <helpers:InverseBooleanConverter x:Key="InverseBoolean" />
             <helpers:HexStringToIntegerConverter x:Key="HexConverter" />
             <helpers:GreaterThanZeroConverter x:Key="GreaterThanZeroConverter" />
+
+            <Style x:Key="CopyButtonStyle" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="BorderThickness" Value="0"/>
+                <Setter Property="HorizontalAlignment" Value="Right"/>
+                <Setter Property="VerticalAlignment" Value="Top"/>
+                <Setter Property="Width" Value="32"/>
+                <Setter Property="Height" Value="32"/>
+                <Setter Property="Padding" Value="0"/>
+                <Setter Property="FontFamily" Value="Segoe Fluent Icons"/>
+                <Setter Property="FontSize" Value="16"/>
+                <Setter Property="Content" Value="&#xe8c8;"/>
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding IsCopiedFeedbackVisible}" Value="True">
+                        <Setter Property="Content" Value="&#xe73e;"/>
+                        <Setter Property="IsEnabled" Value="False"/>
+                    </DataTrigger>
+                    <Trigger Property="IsMouseOver" Value="True">
+                        <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}"/>
+                        <Setter Property="BorderThickness" Value="1"/>
+                    </Trigger>
+                </Style.Triggers>
+            </Style>
 
         </ResourceDictionary>
     </Application.Resources>

@@ -55,7 +55,8 @@ namespace PCMHammer.Services
                         writeType,
                         Alert,
                         PromptForYesNo,
-                        cancellationToken);
+                        cancellationToken
+                    );
 
                     bool success = await writer.Write(path, forcedPcmType);
                     

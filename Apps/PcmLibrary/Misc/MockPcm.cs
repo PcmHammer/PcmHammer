@@ -148,6 +148,44 @@ namespace PcmHacking
                     this.responseBuffer = new byte[] { Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, 0x67, 0x02, 0x34 };
                 }
             }
+            else if (this.modeByte == 0x34)
+            {
+                logger.AddDebugMessage("Mock PCM: Received Mode 0x34 Request Download. Allocating mock kernel allocation space...");
+
+                // Construct standard J1850 VPW Mode 0x74 positive response frame
+                // Priority.Physical0 (0x6C), Target (0xF0), Source (0x10), Mode 0x74 success byte, Sub-Status (0x00)
+                List<byte> response = new List<byte>();
+                response.AddRange(new byte[] { Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, 0x74, 0x00 });
+
+                // Calculate message checksum using the simulation's built-in CRC loops
+                this.crc = 0xFF;
+                for (int index = 0; index < response.Count; index++)
+                {
+                    this.Crc(response[index]);
+                }
+                response.Add(this.GetCrc());
+
+                this.responseBuffer = response.ToArray();
+            }
+            else if (this.modeByte == 0x36)
+            {
+                logger.AddDebugMessage("Mock PCM: Received Mode 0x36 Block Transfer. Confirming payload chunk...");
+
+                // Construct a standard J1850 VPW Mode 0x76 positive block response frame
+                // Priority.Physical0 (0x6C), Target (0xF0), Source (0x10), Mode 0x76 success byte, Sub-Status (0x00)
+                List<byte> response = new List<byte>();
+                response.AddRange(new byte[] { Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, 0x76, 0x00 });
+
+                // Calculate message checksum using the simulation's built-in CRC loop
+                this.crc = 0xFF;
+                for (int index = 0; index < response.Count; index++)
+                {
+                    this.Crc(response[index]);
+                }
+                response.Add(this.GetCrc());
+
+                this.responseBuffer = response.ToArray();
+            }
             else if (this.modeByte == 0x3C)
             {
                 byte[] responseData = new byte[0];
@@ -222,6 +260,13 @@ namespace PcmHacking
                 response.Add(this.GetCrc());
 
                 this.responseBuffer = response.ToArray();
+            }
+            else if (this.modeByte == 0x3D)
+            {
+                logger.AddDebugMessage("Mock PCM: Received Mode 0x3D Execute Kernel. Confirming execution changeover...");
+
+                // Return the absolute clean physical frame with the correct math-validated 0x4A CRC trailer
+                this.responseBuffer = new byte[] { 0x6C, 0xF0, 0x10, 0x7D, 0x00, 0x4A };
             }
             else if (modeByte == Mode.GetPid)
             {

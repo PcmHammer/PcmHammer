@@ -1,6 +1,5 @@
 ﻿using PcmHacking;
 using PCMHammer.Viewmodels;
-using System;
 using System.Windows;
 
 namespace PCMHammer.Helpers
@@ -9,7 +8,11 @@ namespace PCMHammer.Helpers
     {
         private readonly MainWindowViewModel _viewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
 
-        // 1. Append User messages directly to the UI Log Text
+        // Events
+        public event Action<double, bool>? ProgressBarUpdated;
+        public event Action<string>? StatusTextUpdated;
+
+        // Append User messages directly to the UI Log Text
         public void AddUserMessage(string message)
         {
             string formatted = $"[{DateTime.Now:HH:mm:ss}] {message}";
@@ -20,7 +23,7 @@ namespace PCMHammer.Helpers
             });
         }
 
-        // 2. Append Debug messages (you can decide to prefix them or put them in the same box)
+        // Append Debug messages
         public void AddDebugMessage(string message)
         {
             string formatted = $"[{DateTime.Now:HH:mm:ss.fff}] {message}";
@@ -31,7 +34,7 @@ namespace PCMHammer.Helpers
             });
         }
 
-        // 3. Keep the Status indicators seamlessly in sync!
+        // Keep the Status indicators seamlessly in sync!
         public void StatusUpdateActivity(string activity)
         {
             Application.Current.Dispatcher.Invoke(() => _viewModel.StatusText = activity);
@@ -42,38 +45,20 @@ namespace PCMHammer.Helpers
             Application.Current.Dispatcher.Invoke(() => _viewModel.TimeRemaining = remaining);
         }
 
-        public void StatusUpdatePercentDone(string percent)
-        {
-            // Parses string percent (e.g., "45%") or sets fallback
-            if (double.TryParse(percent.Replace("%", ""), out double result))
-            {
-                Application.Current.Dispatcher.Invoke(() => _viewModel.ProgressPercent = result);
-            }
-        }
+        public void StatusUpdatePercentDone(string percent) => StatusTextUpdated?.Invoke(percent);
+
+        public void StatusUpdateProgressBar(double percent, bool visible) => ProgressBarUpdated?.Invoke(percent, visible);
 
         public void StatusUpdateRetryCount(string retries)
         {
             if (int.TryParse(retries, out int result))
-            {
                 Application.Current.Dispatcher.Invoke(() => _viewModel.RetryCount = result);
-            }
-        }
-
-        public void StatusUpdateProgressBar(double completed, bool visible)
-        {
-            Application.Current.Dispatcher.Invoke(() =>
-            {
-                _viewModel.ProgressPercent = completed;
-                // If you have a Visibility property on your viewmodel, set it here
-            });
         }
 
         public void StatusUpdateKbps(string Kbps)
         {
             if (double.TryParse(Kbps.Replace(" Kb/s", "").Replace("kbps", ""), out double result))
-            {
                 Application.Current.Dispatcher.Invoke(() => _viewModel.TransferRate = result);
-            }
         }
 
         public void StatusUpdateReset()
