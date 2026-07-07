@@ -109,6 +109,7 @@ namespace PCMHammer.Viewmodels
                     Properties.Settings.Default.SavedSerialDevice = "";
                     Properties.Settings.Default.SavedJ2534Device = J2534DeviceType;
                 }
+                Properties.Settings.Default.SavedDevice4xCommunicationEnabled = Enable4xReadWrite;
                 Properties.Settings.Default.Save();
                 RequestAcceptAndClose?.Invoke();
             }

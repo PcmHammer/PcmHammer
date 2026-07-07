@@ -18,9 +18,10 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <Label Content="PCM Type:" VerticalAlignment="Center" Target="{Binding ElementName=PCMTypeComboBox}"/>
+        <Label Content="PCM Type" VerticalAlignment="Center" Target="{Binding ElementName=PCMTypeComboBox}"/>
         <ComboBox x:Name="PCMTypeComboBox" Grid.Column="1" Margin="10,5" 
                   IsEditable="False" ItemsSource="{Binding PCMTypes}" 
                    SelectedItem="{Binding SelectedPCMType, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
@@ -36,7 +37,7 @@
             </ComboBox.ItemTemplate>
         </ComboBox>
 
-        <Label Content="Write Type:" VerticalAlignment="Center" Grid.Row="1" Target="{Binding ElementName=WriteTypeComboBox}"/>
+        <Label Content="Write Type" VerticalAlignment="Center" Grid.Row="1" Target="{Binding ElementName=WriteTypeComboBox}"/>
         <ComboBox x:Name="WriteTypeComboBox" Grid.Column="1" Grid.Row="1" Margin="10,5"
                   IsEditable="False" ItemsSource="{Binding WriteTypes}" 
                   SelectedItem="{Binding SelectedWriteType, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
@@ -58,7 +59,11 @@
             </ComboBox.ItemTemplate>
         </ComboBox>
 
-        <Grid Grid.Column="1" Grid.Row="2" Margin="10,5">
+        <!-- TODO: This will be used to silence the brick warning when using the "reset pin" to bypass the standard initialization sequence -->
+        <CheckBox Content="PCM is in Recovery Mode" Grid.Row="2" Grid.ColumnSpan="2" Margin="0,5" HorizontalAlignment="Center"
+                  IsChecked="{Binding IsRecoveryMode, Mode=TwoWay}" Visibility="Collapsed"/>
+
+        <Grid Grid.Column="1" Grid.Row="3" Margin="10,5">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="*"/>
