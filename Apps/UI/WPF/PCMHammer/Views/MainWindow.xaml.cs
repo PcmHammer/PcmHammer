@@ -25,6 +25,27 @@ namespace PCMHammer
             LoadEmbeddedHtml("credits.html", CreditsWebBrowser);
         }
 
+        private async void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
+        {
+            // If we already finished cleaning up, let the window close normally
+            if (_isCleanedUp) return;
+
+            // Stop the window from closing immediately
+            e.Cancel = true;
+
+            if (_viewModel is not null)
+            {
+                _viewModel.StatusText = "Saving logs and cleaning up hardware connections...";
+
+                // Await the shutdown process completely off the main UI thread
+                await _viewModel.HandleApplicationShutdownAsync();
+            }
+
+            // Set flag and re-trigger close now that it's safe
+            _isCleanedUp = true;
+            _ = Application.Current.Dispatcher.BeginInvoke(new Action(Close));
+        }
+
         private static void LoadEmbeddedHtml(string resourceName, WebBrowser browser)
         {
             try
@@ -47,28 +68,7 @@ namespace PCMHammer
                 MessageBox.Show($"Error loading document: {ex.Message}");
             }
         }
-
-        private async void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
-        {
-            // If we already finished cleaning up, let the window close normally
-            if (_isCleanedUp) return;
-
-            // Stop the window from closing immediately
-            e.Cancel = true;
-
-            if (_viewModel is not null)
-            {
-                _viewModel.StatusText = "Saving logs and cleaning up hardware connections...";
-
-                // Await the shutdown process completely off the main UI thread
-                await _viewModel.HandleApplicationShutdownAsync();
-            }
-
-            // Set flag and re-trigger close now that it's safe
-            _isCleanedUp = true;
-            _ = Application.Current.Dispatcher.BeginInvoke(new Action(Close));
-        }
-
+        
         private void LogTextBox_Loaded(object sender, RoutedEventArgs e)
         {
             if (sender is TextBox textBox)

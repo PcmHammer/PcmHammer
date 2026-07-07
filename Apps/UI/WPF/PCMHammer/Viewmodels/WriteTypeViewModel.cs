@@ -24,6 +24,13 @@ namespace PCMHammer.Viewmodels
             get => _selectedPcmType;
             set => SetProperty(ref _selectedPcmType, value);
         }
+        // TODO: This property will be used to silence the brick warning when using the "reset pin" to bypass the standard initialization sequence
+        private bool _isRecoveryMode;
+        public bool IsRecoveryMode
+        {
+            get => _isRecoveryMode;
+            set => SetProperty(ref _isRecoveryMode, value);
+        }
 
         // Events
         public event Action? RequestClose;
