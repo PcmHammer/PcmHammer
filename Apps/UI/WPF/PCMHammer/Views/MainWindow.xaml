@@ -135,18 +135,23 @@
             <StatusBarItem Grid.Column="1" HorizontalAlignment="Right">
                 <StackPanel Orientation="Horizontal"
                             Visibility="{Binding IsOperationRunning, Converter={StaticResource BooleanToVisibilityConverter}}">
-                    <TextBlock x:Name="RetryCountTextBlock" Text="{Binding RetryCount, StringFormat={}{0:Retries: 0}}" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="RetryCountTextBlock" Text="{Binding RetryCount, StringFormat={}{0:Retries: 0}}" VerticalAlignment="Center"
+                               Visibility="{Binding RetryCount, Converter={StaticResource GreaterThanZeroToVisibility}}"/>
                     <Separator Margin="10,0"/>
 
-                    <TextBlock x:Name="KbpsTextBlock" Text="{Binding TransferRate, StringFormat={}{0} kbps}" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="KbpsTextBlock" Text="{Binding TransferRate, StringFormat={}{0} kbps}" VerticalAlignment="Center"
+                               Visibility="{Binding TransferRate, Converter={StaticResource GreaterThanZeroToVisibility}}"/>
                     <Separator Margin="10,0"/>
 
-                    <ProgressBar x:Name="ProgressBar" Value="{Binding ProgressPercent}" Maximum="100" Width="150" Height="14" VerticalAlignment="Center"/>
+                    <ProgressBar x:Name="ProgressBar" Value="{Binding ProgressPercent}" Maximum="100" Width="150" Height="14" VerticalAlignment="Center"
+                                 Visibility="{Binding ProgressPercent, Converter={StaticResource GreaterThanZeroToVisibility}}"/>
 
-                    <TextBlock x:Name="ProgressBarPercentTextBlock" Text="{Binding ProgressPercent, StringFormat={}{0:0}%}" Margin="6,0" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="ProgressBarPercentTextBlock" Text="{Binding ProgressPercent, StringFormat={}{0:0}%}" Margin="6,0" VerticalAlignment="Center"
+                               Visibility="{Binding ProgressPercent, Converter={StaticResource GreaterThanZeroToVisibility}}"/>
                     <Separator Margin="10,0"/>
 
-                    <TextBlock x:Name="TimeRemainingTextBlock" Text="{Binding TimeRemaining}" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                    <TextBlock x:Name="TimeRemainingTextBlock" Text="{Binding TimeRemaining}" VerticalAlignment="Center" Margin="0,0,5,0"
+                               Visibility="{Binding TimeRemaining, Converter={StaticResource GreaterThanZeroToVisibility}}"/>
                 </StackPanel>
             </StatusBarItem>
         </StatusBar>
