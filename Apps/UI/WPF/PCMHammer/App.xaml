@@ -18,6 +18,7 @@
             <helpers:InverseBooleanConverter x:Key="InverseBoolean" />
             <helpers:HexStringToIntegerConverter x:Key="HexConverter" />
             <helpers:GreaterThanZeroConverter x:Key="GreaterThanZeroConverter" />
+            <helpers:GreaterThanZeroToVisibilityConverter x:Key="GreaterThanZeroToVisibility" />
 
             <Style x:Key="CopyButtonStyle" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
                 <Setter Property="Background" Value="Transparent"/>

@@ -781,7 +781,7 @@ namespace PCMHammer.Viewmodels
                         );
                     }
 
-                    StatusText = success ? "Write Complete Successfully!" : "Write Failed.";
+                    StatusText = success ? "Write Operation Completed." : "Write Operation Failed.";
                 }
                 catch (Exception ex)
                 {
