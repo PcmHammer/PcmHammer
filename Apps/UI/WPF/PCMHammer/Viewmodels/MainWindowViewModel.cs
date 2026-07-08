@@ -739,7 +739,7 @@ namespace PCMHammer.Viewmodels
                 StatusText = "Ready";
             }
         }
-        private async Task ExecuteWritePCMAsync(WriteType writeType, PcmType pcmType = PcmType.Undefined)
+        private async Task ExecuteWritePCMAsync(WriteType writeType, PcmType pcmType = PcmType.Undefined, bool suppressOSIDWarning = false)
         {
             if (Vehicle == null) return;
             if (_pcmFlasher == null) return;
@@ -771,7 +771,7 @@ namespace PCMHammer.Viewmodels
                     if (pcmType == PcmType.Undefined)
                     {
                         success = await Task.Run(() =>
-                            _pcmFlasher.WritePcmAsync(writeType, selectedFilePath, useAutoPcmType: true, PcmType.Undefined, _cancellationTokenSource.Token)
+                            _pcmFlasher.WritePcmAsync(writeType, selectedFilePath, useAutoPcmType: true, PcmType.Undefined, _cancellationTokenSource.Token, suppressOSIDWarning)
                         );
                     }
                     else
@@ -805,7 +805,7 @@ namespace PCMHammer.Viewmodels
             WriteOperationDialogBox dialog = new() { Owner = Application.Current.MainWindow };
             if (dialog.ShowDialog() == true)
             {
-                await ExecuteWritePCMAsync(dialog.SelectedWriteType, dialog.SelectedPCMType);
+                await ExecuteWritePCMAsync(dialog.SelectedWriteType, dialog.SelectedPCMType, dialog.SuppressOSIDWarning);
             }
         }
         private async Task ExecuteCancelCurrentOperationAsync()

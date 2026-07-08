@@ -26,6 +26,13 @@ namespace PCMHammer.Views.DialogBoxes
             set => _selectedWriteType = value;
         }
 
+        private bool _suppressOSIDWarning;
+        public bool SuppressOSIDWarning
+        {
+            get => _suppressOSIDWarning;
+            set => _suppressOSIDWarning = value;
+        }
+
         public WriteOperationDialogBox()
         {
             InitializeComponent();
@@ -41,6 +48,7 @@ namespace PCMHammer.Views.DialogBoxes
         {
             SelectedPCMType = _viewModel.SelectedPCMType;
             SelectedWriteType = _viewModel.SelectedWriteType;
+            SuppressOSIDWarning = _viewModel.SuppressOSIDWarning;
             DialogResult = true;
             Close();
         }

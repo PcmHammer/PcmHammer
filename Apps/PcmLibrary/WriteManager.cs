@@ -1,6 +1,7 @@
 ﻿// SPDX-License-Identifier: GPL-3.0-only
 using System;
 using System.IO;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -40,7 +41,7 @@ namespace PcmHacking
         /// Accepts a string path for OSes that can directly access file structure.
         /// </summary>
         /// <returns>True if file opens and write succeeds. False if either condition fails.</returns>
-        public async Task<bool> Write(string path, PcmType forcedPcmType = PcmType.Undefined)
+        public async Task<bool> Write(string path, PcmType forcedPcmType = PcmType.Undefined, bool suppressOSIDWarning = false)
         {
             byte[] image;
             using (Stream stream = File.OpenRead(path))
@@ -54,18 +55,19 @@ namespace PcmHacking
                     return false;
                 }
             }
-            return await Write(image, forcedPcmType);
+            return await Write(image, forcedPcmType, suppressOSIDWarning);
         }
 
         /// <summary>
         /// Contains cross-platform code to handle user interactions to write the PCM's flash memory.
         /// Accepts a byte array directly for OSes that don't support direct file handling.
+        /// suppressOSIDWarning: If true, the user will not be prompted to confirm that the OSID is correct (useful for recovery mode).
         /// </summary>
         /// <remarks>
         /// The return value should be used to suppress future warnings about using an unproven connection.
         /// </remarks>
         /// <returns>True if the write was successful, fales if failed or aborted.</returns>
-        public async Task<bool> Write(byte[] image, PcmType forcedPcmType = PcmType.Undefined)
+        public async Task<bool> Write(byte[] image, PcmType forcedPcmType = PcmType.Undefined, bool suppressOSIDWarning = false)
         {
             // Sanity checks.
             PcmType? forcedFileType = forcedPcmType != PcmType.Undefined ? forcedPcmType : (PcmType?)null;
@@ -128,7 +130,7 @@ namespace PcmHacking
                         logger.AddUserMessage("PCM and file are both operating system " + forcedOsidResponse.Value);
                     }
                 }
-                else
+                else if (!suppressOSIDWarning)
                 {
                     // The PCM did not return an OSID, so we cannot verify the file matches the
                     // connected hardware. This is the genuine recovery case (corrupt or truly

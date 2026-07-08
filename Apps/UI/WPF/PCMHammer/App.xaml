@@ -1,7 +1,6 @@
 ﻿<Application x:Class="PCMHammer.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
              xmlns:local="clr-namespace:PCMHammer"
              xmlns:helpers="clr-namespace:PCMHammer.Helpers"
              StartupUri="Views/MainWindow.xaml">
