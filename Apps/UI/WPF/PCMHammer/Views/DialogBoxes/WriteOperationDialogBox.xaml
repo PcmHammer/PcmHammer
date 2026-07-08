@@ -58,10 +58,10 @@
                 </DataTemplate>
             </ComboBox.ItemTemplate>
         </ComboBox>
-
-        <!-- TODO: This will be used to silence the brick warning when using the "reset pin" to bypass the standard initialization sequence -->
-        <CheckBox Content="PCM is in Recovery Mode" Grid.Row="2" Grid.ColumnSpan="2" Margin="0,5" HorizontalAlignment="Center"
-                  IsChecked="{Binding IsRecoveryMode, Mode=TwoWay}" Visibility="Collapsed"/>
+        
+        <Label Content="Rest Pin Used" VerticalAlignment="Center" Grid.Row="2" Target="{Binding ElementName=PCMRestPinCheckBox}"/>
+        <CheckBox x:Name="PCMRestPinCheckBox" Grid.Row="2" Grid.Column="1" Margin="10,5"
+                  IsChecked="{Binding SuppressOSIDWarning, Mode=TwoWay}"/>
 
         <Grid Grid.Column="1" Grid.Row="3" Margin="10,5">
             <Grid.ColumnDefinitions>

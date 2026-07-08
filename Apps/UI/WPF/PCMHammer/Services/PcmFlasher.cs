@@ -30,7 +30,8 @@ namespace PCMHammer.Services
             string path,
             bool useAutoPcmType = true,
             PcmType selectedPcmType = PcmType.Undefined,
-            CancellationToken cancellationToken = default
+            CancellationToken cancellationToken = default,
+            bool suppressOSIDWarning = false
             )
         {
             using (new AwayMode())
@@ -58,7 +59,7 @@ namespace PCMHammer.Services
                         cancellationToken
                     );
 
-                    bool success = await writer.Write(path, forcedPcmType);
+                    bool success = await writer.Write(path, forcedPcmType, suppressOSIDWarning);
                     
                     return success;
                 }
