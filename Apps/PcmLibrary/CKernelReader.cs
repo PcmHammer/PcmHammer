@@ -83,6 +83,22 @@ namespace PcmHacking
                     return Response.Create(ResponseStatus.Error, (Stream)null!);
                 }
 
+                // Get the directory where your WPF application is running
+                string baseDirectory = AppDomain.CurrentDomain.BaseDirectory;
+
+                // Ensure we extract only the naked file name (e.g., "Kernel-P01.bin")
+                string pureFileName = Path.GetFileName(this.pcmInfo.KernelFileName);
+
+                // Force the application to look inside the "Kernels" subfolder where they are stored
+                string targetPath = Path.Combine(baseDirectory, "Kernels", pureFileName);
+
+                // Double check that the file physically exists before attempting to stream it to the interface
+                if (!File.Exists(targetPath))
+                {
+                    logger.AddUserMessage($"{pureFileName} could not be found inside the Kernels directory.");
+                    return Response.Create(ResponseStatus.Error, (Stream)null!);
+                }
+
                 // Execute kernel loader, if required
                 if (this.pcmInfo.LoaderRequired)
                 {
@@ -114,7 +130,7 @@ namespace PcmHacking
                 }
 
                 // execute read kernel
-                response = await vehicle.LoadKernelFromFile(this.pcmInfo.GetKernelFileName(KernelOperation.Read));
+                response = await vehicle.LoadKernelFromFile(targetPath);
                 if (response.Status != ResponseStatus.Success)
                 {
                     logger.AddUserMessage("Failed to load kernel from file.");

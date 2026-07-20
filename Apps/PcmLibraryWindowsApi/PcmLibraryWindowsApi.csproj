@@ -1,5 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+<Project Sdk="Microsoft.NET.Sdk">
+
   <PropertyGroup>
     <TargetFrameworks>net48;net10.0-windows</TargetFrameworks>
     <RootNamespace>PcmLibraryWindowsApi</RootNamespace>
@@ -13,6 +15,8 @@
          require this, but the release build uses msbuild so Costura embeds the full closure.) -->
     <RuntimeIdentifiers>win</RuntimeIdentifiers>
   </PropertyGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net48'">
 
   <ItemGroup Condition="'$(TargetFramework)' == 'net48'">
     <Reference Include="System.Net.Http" />

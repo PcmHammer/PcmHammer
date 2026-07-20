@@ -55,7 +55,7 @@ namespace PcmHacking
                     return false;
                 }
             }
-            return await Write(image, forcedPcmType);
+            return await Write(image, forcedPcmType, suppressOSIDWarning);
         }
 
         /// <summary>
