@@ -18,8 +18,10 @@
             <StackPanel>
                 <GroupBox Header="Device Category">
                     <StackPanel Orientation="Horizontal">
-                        <RadioButton x:Name="SerialDeviceRadioButton"   GroupName="DeviceCategory" Content="Serial Device"  Margin="5"/>
-                        <RadioButton x:Name="J2534DeviceRadioButton"    GroupName="DeviceCategory" Content="J2534 Device"   Margin="5"/>
+                        <RadioButton x:Name="SerialDeviceRadioButton" GroupName="DeviceCategory" Content="Serial Device" Margin="5"
+                                     IsChecked="{Binding IsSerialDeviceSelected, Mode=TwoWay}"/>
+                        <RadioButton x:Name="J2534DeviceRadioButton" GroupName="DeviceCategory" Content="J2534 Device" Margin="5"
+                                     IsChecked="{Binding IsJ2534DeviceSelected, Mode=TwoWay}"/>
                     </StackPanel>
                 </GroupBox>
                 <GroupBox Header="Serial Device Options" IsEnabled="{Binding ElementName=SerialDeviceRadioButton, Path=IsChecked}">
@@ -40,11 +42,12 @@
                 <GroupBox Header="J2534 Device Options" IsEnabled="{Binding ElementName=J2534DeviceRadioButton, Path=IsChecked}">
                     <StackPanel>
                         <Label Content="Device Type" Target="{Binding ElementName=J2534DeviceTypeComboBox}"/>
-                        <ComboBox x:Name="J2534DeviceTypeComboBox" ItemsSource="{Binding J2534Devices}" Text="Select..."/>
+                        <ComboBox x:Name="J2534DeviceTypeComboBox" ItemsSource="{Binding J2534Devices}" 
+                                  SelectedItem="{Binding J2534DeviceType, UpdateSourceTrigger=PropertyChanged}"/>
                     </StackPanel>
                 </GroupBox>
                 <CheckBox x:Name="Enable4xCommunication" Content="Enable 4x Communication" Margin="5,0,0,0"
-                          IsChecked="{Binding Enable4xCommunication, UpdateSourceTrigger=PropertyChanged}"/>
+                          IsChecked="{Binding Enable4xReadWrite, UpdateSourceTrigger=PropertyChanged}"/>
                 <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
                     <Button Content="Auto Detect"   Margin="5,0,0,5" Width="120" Command="{Binding AutoDetectCommand}"/>
                     <Button Content="Test"          Margin="5,0,0,5" Width="120" Command="{Binding TestCommand}"/>
