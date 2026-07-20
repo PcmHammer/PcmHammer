@@ -43,11 +43,18 @@ namespace PcmHacking
         public const byte OperatingSystemDid = 0xC9;
 
         /// <summary>
-        /// DIDs probed for the OSID during CAN detection, in order; the first that answers is taken as
-        /// the OSID. E-series modules carry it at 0xC9. P05c does not answer 0xC9 and exposes its OS
-        /// segment part number at 0xC1 (Module 1) instead.
+        /// DIDs probed for the OSID during CAN detection, in order; the first that answers with a
+        /// usable value (see <see cref="IsUsableOsid"/>) is taken as the OSID. 0xC1 (Module 1) holds
+        /// the OS segment part number and is the reliable source across families, including P05c,
+        /// which does not answer 0xC9 at all. 0xC9 is the fallback for modules that leave 0xC1 empty.
         /// </summary>
-        public static readonly byte[] OperatingSystemDids = { OperatingSystemDid, 0xC1 };
+        public static readonly byte[] OperatingSystemDids = { 0xC1, OperatingSystemDid };
+
+        /// <summary>
+        /// True when a DID's value can serve as the OSID. An unpopulated slot reads back as all
+        /// zeroes or all ones, which must not be taken as an OS id or the next candidate is skipped.
+        /// </summary>
+        public static bool IsUsableOsid(uint value) => value != 0x00000000 && value != 0xFFFFFFFF;
 
         /// <summary>Fixed kernel memory-read block size (bytes the kernel returns per 0x35 request).</summary>
         public const int KernelBlockSize = 0x400;

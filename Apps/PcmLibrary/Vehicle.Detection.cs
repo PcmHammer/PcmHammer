@@ -138,20 +138,24 @@ namespace PcmHacking
         {
             if (bus == BusProtocol.Can500k)
             {
-                // First DID that answers is the OSID; families expose it at different DIDs (E-series
-                // 0xC9, P05c 0xC1). A negative or absent DID returns fast, so this costs at most one
-                // extra probe on an E-series module.
+                // First DID that answers with a usable value is the OSID; 0xC1 is the reliable source
+                // across families and 0xC9 is the fallback. A module that answers but leaves the slot
+                // empty (all zeroes or all ones) is treated as no answer, so the next DID is tried.
+                // A negative or absent DID returns fast, so this costs at most one extra probe.
                 Response<uint> result = Response.Create(ResponseStatus.Timeout, 0u);
                 foreach (byte did in Gmlan.OperatingSystemDids)
                 {
                     if (cancellationToken.IsCancellationRequested) break;
                     Query<uint> canQuery = this.CreateCanOsidQuery(did, cancellationToken);
                     canQuery.MaxTimeouts = 1;   // detection: fail fast on a bus with nothing there
-                    result = await canQuery.Execute();
-                    if (result.Status == ResponseStatus.Success)
+                    Response<uint> candidate = await canQuery.Execute();
+                    if (candidate.Status == ResponseStatus.Success && Gmlan.IsUsableOsid(candidate.Value))
                     {
-                        return result;
+                        return candidate;
                     }
+
+                    // Keep the last response so an all-empty result still reports a sensible status.
+                    result = candidate;
                 }
 
                 return result;

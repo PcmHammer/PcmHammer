@@ -41,6 +41,7 @@ namespace PcmHacking
             BusProtocol monitorProtocol = BusProtocol.Vpw;
             List<uint>? monitorCanIds = null;
             bool monitorCanAll = false;
+            PcmType forcePcmType = PcmType.Undefined;
 
             for (int i = 0; i < args.Length; i++)
             {
@@ -120,6 +121,22 @@ namespace PcmHacking
                         break;
                     case "--kernel-dir":
                         if (i + 1 < args.Length) kernelDirArg = args[++i];
+                        break;
+                    case "--force-pcm":
+                        // Skip auto-detection and use the named profile. Needed when a PCM's OSID is
+                        // not in the table, which otherwise aborts the read as unsupported.
+                        if (i + 1 < args.Length)
+                        {
+                            string wanted = args[++i];
+                            if (!Enum.TryParse(wanted, ignoreCase: true, out forcePcmType) ||
+                                forcePcmType == PcmType.Undefined)
+                            {
+                                Console.Error.WriteLine($"Error: unknown PCM type \"{wanted}\".");
+                                Console.Error.WriteLine("Known: " + string.Join(", ",
+                                    Enum.GetNames(typeof(PcmType)).Where(n => n != nameof(PcmType.Undefined))));
+                                return 1;
+                            }
+                        }
                         break;
                     case "--list-devices":
                         listDevices = true;
@@ -225,11 +242,11 @@ namespace PcmHacking
                                 vehicle,
                                 invoke,
                                 () => Task.FromResult<string?>(null),
-                                () => Task.FromResult(PcmType.Undefined),
+                                () => Task.FromResult(forcePcmType),
                                 alert,
                                 promptForYesNo,
                                 cts.Token);
-                            success = await readManager.Read(filePath);
+                            success = await readManager.Read(filePath, forcePcmType);
                             break;
                         }
                         case "test-read":
@@ -239,11 +256,11 @@ namespace PcmHacking
                                 vehicle,
                                 invoke,
                                 () => Task.FromResult<string?>(null),
-                                () => Task.FromResult(PcmType.Undefined),
+                                () => Task.FromResult(forcePcmType),
                                 alert,
                                 promptForYesNo,
                                 cts.Token);
-                            var stream = await readManager.Read();
+                            var stream = await readManager.Read((IProgress<ProgressUpdate>?)null, forcePcmType);
                             success = stream != null;
                             if (success) logger.AddUserMessage("Test read complete. Data not saved.");
                             break;
@@ -343,7 +360,6 @@ namespace PcmHacking
         static void ListDevices(ILogger logger)
         {
             var serialPorts = SerialPort.GetPortNames();
-            var j2534Devices = J2534DeviceFinder.FindInstalledJ2534DLLs(logger);
             int index = 1;
 
             Console.WriteLine("Available serial devices:");
@@ -353,6 +369,9 @@ namespace PcmHacking
                 foreach (var port in serialPorts)
                     Console.WriteLine($"  [{index++}] {port}");
 
+#if !LINUX_CLI
+            var j2534Devices = J2534DeviceFinder.FindInstalledJ2534DLLs(logger);
+
             Console.WriteLine();
 
             Console.WriteLine("Available J2534 devices:");
@@ -361,6 +380,7 @@ namespace PcmHacking
             else
                 foreach (var d in j2534Devices)
                     Console.WriteLine($"  [{index++}] {d.Name}");
+#endif
         }
 
         // Resolves --device <spec> to a Device instance.
@@ -373,10 +393,28 @@ namespace PcmHacking
         static Device? ResolveDevice(string? deviceSpec, ILogger logger)
         {
             var serialPorts = SerialPort.GetPortNames();
+#if !LINUX_CLI
             var j2534Devices = J2534DeviceFinder.FindInstalledJ2534DLLs(logger);
+#endif
 
             if (deviceSpec == null)
             {
+#if LINUX_CLI
+                // Serial-only build: auto-select the sole serial port, if there is exactly one.
+                if (serialPorts.Length == 0)
+                {
+                    Console.Error.WriteLine("Error: No serial devices found. Connect a device (e.g. /dev/ttyUSB0) and try again.");
+                    return null;
+                }
+                if (serialPorts.Length > 1)
+                {
+                    Console.Error.WriteLine("Error: Multiple serial devices found. Use --device to select one.");
+                    Console.Error.WriteLine("  Run --list-devices to see available options.");
+                    return null;
+                }
+                logger.AddUserMessage("Auto-selected: " + serialPorts[0]);
+                return DeviceFactory.AutoDetectSerialDevice(serialPorts[0], logger).GetAwaiter().GetResult();
+#else
                 int total = serialPorts.Length + j2534Devices.Count;
                 if (total == 0)
                 {
@@ -396,9 +434,10 @@ namespace PcmHacking
                 }
                 logger.AddUserMessage("Auto-selected: " + j2534Devices[0].Name);
                 return DeviceFactory.CreateJ2534Device(j2534Devices[0].Name, logger);
+#endif
             }
 
-            // Integer index into the combined --list-devices list
+            // Integer index into the --list-devices list
             if (int.TryParse(deviceSpec, out int index) && index >= 1)
             {
                 if (index <= serialPorts.Length)
@@ -407,6 +446,7 @@ namespace PcmHacking
                     logger.AddUserMessage($"Selected [{index}] {port}");
                     return DeviceFactory.AutoDetectSerialDevice(port, logger).GetAwaiter().GetResult();
                 }
+#if !LINUX_CLI
                 int j2534Index = index - serialPorts.Length - 1;
                 if (j2534Index < j2534Devices.Count)
                 {
@@ -414,14 +454,15 @@ namespace PcmHacking
                     logger.AddUserMessage($"Selected [{index}] {name}");
                     return DeviceFactory.CreateJ2534Device(name, logger);
                 }
+#endif
                 Console.Error.WriteLine($"Error: Index {index} is out of range. Run --list-devices to see options.");
                 return null;
             }
 
-            // Serial port - exact name match (case-insensitive). An optional ":<type>" suffix forces
-            // a specific serial device type and skips auto-detect (e.g. "COM24:slcan"), which is the
-            // way to select a CAN-only adapter that does not answer the auto-detect probes.
-            if (deviceSpec.StartsWith("COM", StringComparison.OrdinalIgnoreCase))
+            // Serial port by name. An optional ":<type>" suffix forces a specific serial device type
+            // and skips auto-detect (e.g. "COM24:slcan" or "/dev/ttyUSB0:slcan"), which is the way to
+            // select a CAN-only adapter that does not answer the auto-detect probes.
+            if (LooksLikeSerialPortName(deviceSpec))
             {
                 int separator = deviceSpec.IndexOf(':');
                 if (separator > 0)
@@ -431,7 +472,7 @@ namespace PcmHacking
                     string? serialType = ResolveSerialDeviceType(typeHint);
                     if (serialType == null)
                     {
-                        Console.Error.WriteLine($"Error: unknown serial device type \"{typeHint}\". Known: avt, obdx, elm, slcan.");
+                        Console.Error.WriteLine($"Error: unknown serial device type \"{typeHint}\". Known: avt, xpro, elm, slcan.");
                         return null;
                     }
                     logger.AddUserMessage($"Selected {serialType} on {portName}");
@@ -441,6 +482,10 @@ namespace PcmHacking
                 return DeviceFactory.AutoDetectSerialDevice(deviceSpec, logger).GetAwaiter().GetResult();
             }
 
+#if LINUX_CLI
+            Console.Error.WriteLine($"Error: No serial device matching \"{deviceSpec}\" found. Use a port path like /dev/ttyUSB0, or run --list-devices.");
+            return null;
+#else
             // J2534 - case-insensitive substring match
             var matches = j2534Devices
                 .Where(d => d.Name.IndexOf(deviceSpec, StringComparison.OrdinalIgnoreCase) >= 0)
@@ -463,6 +508,20 @@ namespace PcmHacking
 
             Console.Error.WriteLine($"Error: No device matching \"{deviceSpec}\" found. Run --list-devices to see options.");
             return null;
+#endif
+        }
+
+        // True when the device spec names a serial port rather than a J2534 device or list index.
+        // Windows serial ports are "COMn"; on Linux they are device paths such as /dev/ttyUSB0.
+        static bool LooksLikeSerialPortName(string deviceSpec)
+        {
+            if (deviceSpec.StartsWith("COM", StringComparison.OrdinalIgnoreCase))
+                return true;
+#if LINUX_CLI
+            if (deviceSpec.StartsWith("/dev/", StringComparison.Ordinal))
+                return true;
+#endif
+            return false;
         }
 
         // Map a short serial-device-type hint (from a "COMx:<type>" spec) to a known device type,
@@ -476,6 +535,11 @@ namespace PcmHacking
                 OBDXProDevice.DeviceType,
                 ElmDevice.DeviceType,
             };
+
+            // "xpro" is the short name these devices go by, mapped explicitly so it stays valid
+            // regardless of how the full device type string is worded.
+            if (string.Equals(hint, "xpro", StringComparison.OrdinalIgnoreCase))
+                return OBDXProDevice.DeviceType;
 
             foreach (string type in knownTypes)
             {
@@ -673,9 +737,15 @@ namespace PcmHacking
 
             if (Directory.GetFiles(dir, "*.bin").Length == 0)
             {
+#if LINUX_CLI
+                // The Linux build embeds the kernels in the executable, so a directory with no
+                // loose .bin files is normal - the embedded copies are used automatically.
+                logger.AddDebugMessage($"No loose .bin kernel files in {dir}; using kernels embedded in the executable.");
+#else
                 logger.AddUserMessage(
                     $"Warning: no .bin kernel files found in {dir}. " +
                     "Place the Kernel-*.bin / Loader-*.bin files there or pass --kernel-dir <path>.");
+#endif
             }
 
             return dir;
@@ -729,7 +799,7 @@ namespace PcmHacking
                 new ToolPresentNotifier(device, protocol, logger),
                 kernelDir);
 
-            logger.AddUserMessage("PCM Hammer CLI");
+            logger.AddUserMessage(AppName);
             logger.AddUserMessage(AppInfo.GetVersionOrBuildLine(Generated.BuildTime));
             logger.AddUserMessage(AppInfo.GetRunningAtMessage());
             logger.AddUserMessage(AppInfo.CopyrightNotice);
@@ -753,11 +823,22 @@ namespace PcmHacking
             return vehicle;
         }
 
+        // Same program, same assembly name ("pcmhammer-cli"); only the platform's executable
+        // suffix differs. Used so the help text shows the command the user actually types.
+#if LINUX_CLI
+        private const string ExeName = "pcmhammer-cli";
+        private const string AppName = "PCM Hammer Linux CLI";
+#else
+        private const string ExeName = "pcmhammer-cli.exe";
+        private const string AppName = "PCM Hammer CLI";
+#endif
+
         static void PrintHelp()
         {
-            Console.WriteLine("PCM Hammer CLI");
+            Console.WriteLine(AppName);
+            Console.WriteLine(AppInfo.GetVersionOrBuildLine(Generated.BuildTime));
             Console.WriteLine();
-            Console.WriteLine("Usage:  pcmhammer-cli.exe <operation> [--device <id>] [--kernel-dir <path>] [--debug]");
+            Console.WriteLine($"Usage:  {ExeName} <operation> [--device <id>] [--kernel-dir <path>] [--debug]");
             Console.WriteLine();
             Console.WriteLine("Operations:");
             Console.WriteLine("  --read [file]             Read entire PCM to file (auto-names if omitted)");
@@ -770,7 +851,11 @@ namespace PcmHacking
             Console.WriteLine("  --monitor [vpw|can] [ids] Passively display bus traffic until Ctrl+C (default vpw)");
             Console.WriteLine("                            CAN: list hex ids to filter (default 7E0 7E8 101), or 'all'");
             Console.WriteLine("  --brute-force             Search the PCM security key (algo sweep, then numeric range)");
+#if LINUX_CLI
+            Console.WriteLine("  --list-devices            List available serial devices with index numbers");
+#else
             Console.WriteLine("  --list-devices            List available serial and J2534 devices with index numbers");
+#endif
             Console.WriteLine();
             Console.WriteLine("Brute force options:");
             Console.WriteLine("  --range <START-END>       Numeric key range in hex (default 0000-FFFF)");
@@ -779,25 +864,54 @@ namespace PcmHacking
             Console.WriteLine();
             Console.WriteLine("Device selection:");
             Console.WriteLine("  --device <number>         Select by index shown in --list-devices");
+#if LINUX_CLI
+            Console.WriteLine("  --device /dev/ttyUSB0     Select a serial port by device path");
+            Console.WriteLine("  --device /dev/ttyUSB0:dev Force a serial device type (avt, xpro, elm, slcan)");
+#else
             Console.WriteLine("  --device COM3             Select a serial port by name");
             Console.WriteLine("  --device OBDX             Select a J2534 device by partial name (case-insensitive)");
+#endif
             Console.WriteLine("  (omit --device)           Auto-selects when only one device is connected");
             Console.WriteLine();
             Console.WriteLine("Kernels:");
+#if LINUX_CLI
+            Console.WriteLine("  --kernel-dir <path>       Directory of loose Kernel-*.bin / Loader-*.bin (overrides embedded)");
+            Console.WriteLine("  (omit --kernel-dir)       Uses the kernels embedded in this binary");
+#else
             Console.WriteLine("  --kernel-dir <path>       Directory holding Kernel-*.bin / Loader-*.bin");
             Console.WriteLine("  (omit --kernel-dir)       Defaults to the current working directory");
+#endif
+            Console.WriteLine();
+            Console.WriteLine("PCM selection:");
+            Console.WriteLine("  --force-pcm <type>        Skip auto-detection and use this profile (e.g. E38, P01, P12).");
+            Console.WriteLine("                            Use when a PCM's OSID is not recognised. The wrong profile");
+            Console.WriteLine("                            uploads the wrong kernel, so only use it deliberately.");
             Console.WriteLine();
             Console.WriteLine("Examples:");
-            Console.WriteLine("  pcmhammer-cli.exe --list-devices");
-            Console.WriteLine("  pcmhammer-cli.exe --read");
-            Console.WriteLine("  pcmhammer-cli.exe --read backup.bin --device COM3");
-            Console.WriteLine("  pcmhammer-cli.exe --test-read --device 3");
-            Console.WriteLine("  pcmhammer-cli.exe --write newcal.bin --device OBDX");
-            Console.WriteLine("  pcmhammer-cli.exe --test-write newcal.bin --device Mongoose");
-            Console.WriteLine("  pcmhammer-cli.exe --identify-pcm --device COM5");
-            Console.WriteLine("  pcmhammer-cli.exe --brute-force --device COM3");
-            Console.WriteLine("  pcmhammer-cli.exe --brute-force --range 0000-00FF --no-algo-sweep --device OBDX");
-            Console.WriteLine("  pcmhammer-cli.exe --test-read --device COM6 --kernel-dir C:\\PcmHammer\\Kernels");
+#if LINUX_CLI
+            Console.WriteLine($"  {ExeName} --list-devices");
+            Console.WriteLine($"  {ExeName} --read");
+            Console.WriteLine($"  {ExeName} --read backup.bin --device /dev/ttyUSB0");
+            Console.WriteLine($"  {ExeName} --test-read --device 1");
+            Console.WriteLine($"  {ExeName} --write newcal.bin --device /dev/ttyUSB0");
+            Console.WriteLine($"  {ExeName} --test-write newcal.bin --device /dev/ttyACM0");
+            Console.WriteLine($"  {ExeName} --identify-pcm --device /dev/ttyUSB0");
+            Console.WriteLine($"  {ExeName} --brute-force --device /dev/ttyUSB0");
+            Console.WriteLine($"  {ExeName} --brute-force --range 0000-00FF --no-algo-sweep --device /dev/ttyUSB0");
+            Console.WriteLine($"  {ExeName} --monitor can all --device /dev/ttyUSB0:slcan");
+            Console.WriteLine($"  {ExeName} --test-read --device /dev/ttyUSB0 --kernel-dir ./kernels");
+#else
+            Console.WriteLine($"  {ExeName} --list-devices");
+            Console.WriteLine($"  {ExeName} --read");
+            Console.WriteLine($"  {ExeName} --read backup.bin --device COM3");
+            Console.WriteLine($"  {ExeName} --test-read --device 3");
+            Console.WriteLine($"  {ExeName} --write newcal.bin --device OBDX");
+            Console.WriteLine($"  {ExeName} --test-write newcal.bin --device Mongoose");
+            Console.WriteLine($"  {ExeName} --identify-pcm --device COM5");
+            Console.WriteLine($"  {ExeName} --brute-force --device COM3");
+            Console.WriteLine($"  {ExeName} --brute-force --range 0000-00FF --no-algo-sweep --device OBDX");
+            Console.WriteLine($"  {ExeName} --test-read --device COM6 --kernel-dir C:\\PcmHammer\\Kernels");
+#endif
         }
     }
 }

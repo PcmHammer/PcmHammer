@@ -40,6 +40,14 @@ namespace PcmHacking
             // so IsOutputRedirected is true even though the terminal handles \r fine.
             // Distinguish it from a genuine file/pipe redirect by checking that
             // stdout is a pipe AND the TERM env var is set (MinTTY always sets it).
+            // This is a Windows-only quirk; the GetStdHandle/GetFileType calls below
+            // are kernel32, so skip them on other platforms (a redirected stream there
+            // is a plain file/pipe and is correctly treated as non-interactive).
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                return false;
+            }
+
             try
             {
                 IntPtr handle = GetStdHandle(StdOutputHandle);

@@ -196,6 +196,149 @@ jobs:
         name: Temp_Kernels_${{github.sha}}
         path: TemporaryArtifactStorage
 
+  # Linux command-line build. Runs on Linux (the WinForms/CLI/Uno-Windows builds need
+  # Windows, so they live in the Applications job); this one only needs .NET and the
+  # kernels artifact. Publishes a self-contained, single-file binary named "pcmhammer-cli"
+  # with the kernels embedded in it, and uploads that single binary as the artifact.
+  LinuxCLI:
+    needs: Kernels
+    runs-on: ubuntu-24.04
+    env:
+      CLI_ARTIFACT_SUFFIX: ''
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v6
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v5
+      with:
+        dotnet-version: |
+          10.0.x
+
+    - name: Download kernels artifact
+      uses: actions/download-artifact@v8
+      with:
+        name: Temp_Kernels_${{github.sha}}
+        path: TemporaryArtifactStorage/Kernels
+
+    - name: Compute artifact name
+      run: |
+        # Match the WinForms/CLI naming: a version tag on a release, otherwise a UTC
+        # stamp + sanitized branch name marking it as a development test build.
+        if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+          suffix="v${GITHUB_REF_NAME}"
+        else
+          stamp=$(date -u +%Y%m%d_%H%M%S)
+          branch="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+          branch=$(printf '%s' "$branch" | tr '/\\' '--' | tr -c 'A-Za-z0-9._-' '-')
+          [ -z "$branch" ] && branch="unknown-branch"
+          suffix="utc${stamp}_${branch}_development_test_version"
+        fi
+        echo "CLI_ARTIFACT_SUFFIX=${suffix}" >> "$GITHUB_ENV"
+
+    - name: Stage kernels for embedding
+      run: |
+        # The Linux CLI embeds the kernels into the executable at build time from
+        # Kernels/build. The kernels were produced by the Kernels job and downloaded to
+        # TemporaryArtifactStorage/Kernels, so place them where the project expects them.
+        mkdir -p Kernels/build
+        cp TemporaryArtifactStorage/Kernels/*.bin Kernels/build/
+
+    # On a release tag, stamp the version into the AssemblyInfo.cs that PcmHammerLinux.csproj
+    # links from the Windows CLI, so the binary reports "Version: x.y.z" instead of the build
+    # date. This job cannot use Build-Apps.ps1 (that drives msbuild on Windows), so it reuses
+    # the same Get-BuildVersion rules and rewrites the same attributes that script would.
+    # Note the project sets GenerateAssemblyInfo=false, so -p:Version on the publish below
+    # would have no effect - the attributes have to come from this file.
+    - name: Stamp version (release tag only)
+      if: ${{ startsWith(github.ref, 'refs/tags/') }}
+      shell: pwsh
+      run: |
+        . "Apps/build/Get-BuildVersion.ps1"
+        $info = Get-BuildVersion -Version "${{ github.ref_name }}"
+        $file = "Apps/UI/PcmHammerCLI/Properties/AssemblyInfo.cs"
+        $lines = Get-Content -LiteralPath $file
+        $sawInfo = $false
+        $out = foreach ($line in $lines) {
+          if     ($line -match '^\[assembly:\s*AssemblyVersion\(')              { "[assembly: AssemblyVersion(""$($info.Version)"")]" }
+          elseif ($line -match '^\[assembly:\s*AssemblyFileVersion\(')          { "[assembly: AssemblyFileVersion(""$($info.Version)"")]" }
+          elseif ($line -match '^\[assembly:\s*AssemblyInformationalVersion\(') { $sawInfo = $true; "[assembly: AssemblyInformationalVersion(""$($info.Display)"")]" }
+          else { $line }
+        }
+        if (-not $sawInfo) { $out = @($out) + "[assembly: AssemblyInformationalVersion(""$($info.Display)"")]" }
+        Set-Content -LiteralPath $file -Value $out -Encoding UTF8
+        Write-Host "Stamped $($info.Version) / display $($info.Display)"
+
+    - name: Publish Linux CLI (self-contained, single-file)
+      run: >
+        dotnet publish Apps/UI/PcmHammerLinux/PcmHammerLinux.csproj
+        -c Release
+        -r linux-x64
+        --self-contained true
+        -p:PublishSingleFile=true
+
+    - name: Verify the published binary reports the expected version
+      run: |
+        pub=Apps/UI/PcmHammerLinux/bin/Release/net10.0/linux-x64/publish
+        chmod +x "$pub/pcmhammer-cli"
+        line=$("$pub/pcmhammer-cli" --help | sed -n 2p)
+        echo "Version line: $line"
+        if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+          # A stamped release must not fall back to the build-date line.
+          case "$line" in
+            Version:*) ;;
+            *) echo "::error::Release build reports '$line'; expected 'Version: ...'"; exit 1 ;;
+          esac
+        fi
+
+    - name: Stage Linux CLI payload
+      run: |
+        # The kernels are embedded in the executable, so the artifact is just the single
+        # self-contained binary - no loose .bin files needed alongside it.
+        dest=TemporaryArtifactStorage/LinuxCLI
+        mkdir -p "$dest"
+        pub=Apps/UI/PcmHammerLinux/bin/Release/net10.0/linux-x64/publish
+        cp "$pub/pcmhammer-cli" "$dest/"
+        chmod +x "$dest/pcmhammer-cli"
+
+    - name: Upload Linux CLI artifact
+      uses: actions/upload-artifact@v7
+      with:
+        name: PCMHammer_Linux_CLI_${{ env.CLI_ARTIFACT_SUFFIX }}_${{ github.sha }}
+        path: TemporaryArtifactStorage/LinuxCLI
+
+    # On a release tag, attach the binary to the GitHub Release so it is a public download
+    # rather than a login-only workflow artifact. The Applications job publishes the same
+    # release with the Windows assets; whichever job gets there first creates it and the
+    # other uploads into it, so this is written to tolerate either order.
+    - name: Publish Linux CLI to GitHub Release
+      if: ${{ startsWith(github.ref, 'refs/tags/') }}
+      env:
+        GH_TOKEN: ${{ github.token }}
+        TAG: ${{ github.ref_name }}
+      run: |
+        set -euo pipefail
+        dist=dist
+        mkdir -p "$dist"
+        asset="$dist/PCMHammer_Linux_CLI_v${TAG}.tar.gz"
+        # tar (unlike the zip format actions/upload-artifact produces) preserves the
+        # executable bit, so a user extracting this does not need to chmod it first.
+        # Built from inside the staging dir so the archive root is just the binary.
+        tar -czf "$asset" -C TemporaryArtifactStorage/LinuxCLI pcmhammer-cli
+        echo "Built asset: $asset"
+
+        if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+          gh release upload "$TAG" "$asset" --clobber --repo "$GITHUB_REPOSITORY"
+        else
+          # Create it; if the Applications job created it in between, fall back to uploading.
+          gh release create "$TAG" "$asset" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "PCM Hammer $TAG" \
+            --generate-notes \
+          || gh release upload "$TAG" "$asset" --clobber --repo "$GITHUB_REPOSITORY"
+        fi
+
   Applications:
     needs: Kernels
     runs-on: windows-2025-vs2026
@@ -485,7 +628,8 @@ jobs:
         & "Apps/build/Build-Portable.ps1" `
           -StagingRoot $staging -OutputName "PCMHammer_$($env:PACKAGE_TOKEN)_Portable" -OutputDir $dist
 
-    # GitHub lists run artifacts alphabetically: Portable, Setup, Uno_Android, Uno_Windows.
+    # GitHub lists run artifacts alphabetically: Linux_CLI (from the LinuxCLI job), then
+    # Portable, Setup, Uno_Android, Uno_Windows.
     - name: Upload installer artifact
       uses: actions/upload-artifact@v7
       with:

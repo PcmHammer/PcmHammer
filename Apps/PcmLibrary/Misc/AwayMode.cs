@@ -24,13 +24,22 @@ namespace PcmHacking
 
         private EXECUTION_STATE previousState;
 
+        // Keeping the machine awake this way is a Windows-only facility (kernel32
+        // SetThreadExecutionState). On other platforms this is a no-op so the same
+        // read/write flow runs unchanged; calling the P/Invoke there would throw.
+        private static readonly bool IsWindows =
+            RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
+
         public AwayMode()
         {
-            this.previousState = SetThreadExecutionState(
-                EXECUTION_STATE.ES_CONTINUOUS
-                | EXECUTION_STATE.ES_DISPLAY_REQUIRED
-                | EXECUTION_STATE.ES_SYSTEM_REQUIRED
-                | EXECUTION_STATE.ES_AWAYMODE_REQUIRED);
+            if (IsWindows)
+            {
+                this.previousState = SetThreadExecutionState(
+                    EXECUTION_STATE.ES_CONTINUOUS
+                    | EXECUTION_STATE.ES_DISPLAY_REQUIRED
+                    | EXECUTION_STATE.ES_SYSTEM_REQUIRED
+                    | EXECUTION_STATE.ES_AWAYMODE_REQUIRED);
+            }
         }
 
         #region IDisposable Support
@@ -45,7 +54,10 @@ namespace PcmHacking
                     // TODO: dispose managed state (managed objects).
                 }
 
-                SetThreadExecutionState(this.previousState);
+                if (IsWindows)
+                {
+                    SetThreadExecutionState(this.previousState);
+                }
 
                 disposedValue = true;
             }

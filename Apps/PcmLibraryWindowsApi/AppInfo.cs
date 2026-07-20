@@ -1,6 +1,5 @@
 ﻿// SPDX-License-Identifier: GPL-3.0-only
 using System;
-using System.Diagnostics;
 using System.Reflection;
 
 namespace PcmHacking
@@ -61,14 +60,16 @@ namespace PcmHacking
             {
                 Assembly asm = Assembly.GetEntryAssembly();
                 if (asm == null) return null;
-                string location = asm.Location;
-                if (string.IsNullOrEmpty(location)) return null;
-                FileVersionInfo fvi = FileVersionInfo.GetVersionInfo(location);
-                string fileVersion = fvi.FileVersion;
+
+                // Read the attributes off the loaded assembly rather than the file on disk.
+                // Assembly.Location is always empty in a single-file build, so reading the file
+                // would report every single-file release as an unversioned dev build.
+                string? fileVersion = asm.GetCustomAttribute<AssemblyFileVersionAttribute>()?.Version;
                 if (string.IsNullOrEmpty(fileVersion) || fileVersion == "0.0.0.0")
                     return null;
+
                 // Prefer InformationalVersion for display; it may include a -Preview suffix.
-                string infoVersion = fvi.ProductVersion;
+                string? infoVersion = asm.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
                 return !string.IsNullOrEmpty(infoVersion) ? infoVersion : fileVersion;
             }
             catch { return null; }

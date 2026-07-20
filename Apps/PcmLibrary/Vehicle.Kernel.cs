@@ -75,7 +75,66 @@ namespace PcmHacking
         }
 
         /// <summary>
-        /// Opens the named kernel file. The file must be in the same directory as the EXE.
+        /// Look for a kernel/loader payload embedded in the entry assembly. Single-file builds
+        /// (e.g. the Linux CLI) bundle the kernels into the executable so it runs with no loose
+        /// .bin files alongside it. Matches by file name, ignoring any namespace prefix in the
+        /// manifest resource name. Returns null when no embedded copy is present (e.g. the Windows
+        /// builds, which ship loose kernel files next to the exe).
+        /// </summary>
+        /// <summary>
+        /// True when a manifest resource name refers to the requested kernel file. The build
+        /// flattens resource names to the bare file name (LogicalName), but a namespace prefix
+        /// such as "PcmHacking.Kernel-P01.bin" is also accepted. Deliberately not a plain
+        /// EndsWith: that would let a request for "P01.bin" match "Kernel-P01.bin", and since the
+        /// order of GetManifestResourceNames is undefined, a loose match could pick either of two
+        /// candidates nondeterministically.
+        /// </summary>
+        private static bool IsResourceNameMatch(string resourceName, string fileName)
+        {
+            if (string.Equals(resourceName, fileName, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            return resourceName.Length > fileName.Length
+                && resourceName[resourceName.Length - fileName.Length - 1] == '.'
+                && resourceName.EndsWith(fileName, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static byte[]? TryLoadEmbeddedKernel(string fileName)
+        {
+            System.Reflection.Assembly? assembly = System.Reflection.Assembly.GetEntryAssembly();
+            if (assembly == null)
+            {
+                return null;
+            }
+
+            foreach (string resourceName in assembly.GetManifestResourceNames())
+            {
+                if (IsResourceNameMatch(resourceName, fileName))
+                {
+                    using (Stream? stream = assembly.GetManifestResourceStream(resourceName))
+                    {
+                        if (stream == null)
+                        {
+                            return null;
+                        }
+
+                        using (MemoryStream buffer = new MemoryStream())
+                        {
+                            stream.CopyTo(buffer);
+                            return buffer.ToArray();
+                        }
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Opens the named kernel file. The file must be in the same directory as the EXE,
+        /// or embedded in the executable (single-file builds).
         /// </summary>
         public async Task<Response<byte[]>> LoadKernelFromFile(string path)
         {
@@ -97,6 +156,27 @@ namespace PcmHacking
                 finalDir = _basePath;
             }
             path = Path.Combine(finalDir, path);
+
+            // A loose file on disk takes precedence, so --kernel-dir (or a .bin dropped next to the
+            // exe) can override the build. When there is none, fall back to a copy embedded in the
+            // executable, which is how the single-file Linux build ships its kernels.
+            if (!File.Exists(path))
+            {
+                byte[]? embedded = TryLoadEmbeddedKernel(Path.GetFileName(path));
+                if (embedded != null && embedded.Length > 0)
+                {
+                    using (var md5 = System.Security.Cryptography.MD5.Create())
+                    {
+                        string embHash = BitConverter.ToString(md5.ComputeHash(embedded)).Replace("-", "");
+                        string embName = Path.GetFileName(path);
+                        string embType = embName.StartsWith("Loader", StringComparison.OrdinalIgnoreCase) ? "Loader" : "Kernel";
+                        logger.AddUserMessage($"Loaded {embName} ({embedded.Length} bytes, embedded)");
+                        logger.AddUserMessage($"{embType} MD5={embHash}");
+                    }
+
+                    return Response.Create(ResponseStatus.Success, embedded);
+                }
+            }
 
             try
             {

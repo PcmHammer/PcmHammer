@@ -106,11 +106,36 @@ rem Same policy: create Debug if missing, leave Release to the release scripting
 call :CopyBinsToTarget "..\Apps\UI\PcmHammerCLI\bin\Release"
 call :CopyBinsToTarget "..\Apps\UI\PcmHammerCLI\bin\Debug" create
 
+rem Linux CLI target. The published Linux build EMBEDS the kernels in the executable (see the
+rem EmbeddedResource item in PcmHammerLinux.csproj), so a shipped binary needs no loose .bin
+rem files. Kernels are still copied next to the build output because a loose file on disk takes
+rem precedence over the embedded copy, which is what lets you test a freshly built kernel without
+rem rebuilding the binary. The SDK output is nested per TFM/RID; create the default Debug output
+rem dir so a fresh checkout has a populated place to run from, then also drop kernels next to any
+rem already-built binary (CopyToDetectedLinuxTargets).
+call :CopyBinsToTarget "..\Apps\UI\PcmHammerLinux\bin\Debug\net10.0\linux-x64" create
+call :CopyToDetectedLinuxTargets
+
 rem Uno targets (detected by output folder patterns)
 call :CopyToDetectedUnoTargets
 
 if "%COPY_TARGET_COUNT%" == "0" (
   echo No output targets detected. Kernels remain in build\.
+)
+
+goto :EOF
+
+:CopyToDetectedLinuxTargets
+set "LINUX_BIN_ROOT=..\Apps\UI\PcmHammerLinux\bin"
+if not exist "%LINUX_BIN_ROOT%" (
+  echo Linux CLI bin root not found: "%LINUX_BIN_ROOT%"
+  goto :EOF
+)
+
+echo Scanning Linux CLI bin output targets for the app binary...
+for /r "%LINUX_BIN_ROOT%" %%F in (pcmhammer-cli.dll) do (
+  echo   Found Linux CLI output: "%%~dpF"
+  call :CopyBinsToTarget "%%~dpF"
 )
 
 goto :EOF
