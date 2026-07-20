@@ -29,43 +29,54 @@ namespace PCMHammer.Viewmodels
             );
         }
 
-        // UI Binding Properties
+        #region UI Binding Properties
         private string? _deviceCategory;
-        public string? DeviceCategory
-        {
-            get => _deviceCategory;
-            set => SetProperty(ref _deviceCategory, value);
-        }
-
         private string? _j2534DeviceType;
-        public string? J2534DeviceType
-        {
-            get => _j2534DeviceType;
-            set => SetProperty(ref _j2534DeviceType, value);
-        }
-
         private string? _serialPort;
-        public string? SerialPort
-        {
-            get => _serialPort;
-            set => SetProperty(ref _serialPort, value);
-
-        }
-
         private string? _serialPortDeviceType;
-        public string? SerialPortDeviceType
+        private bool _enable4xReadWrite; 
+        private bool _isSerialDeviceSelected = true;
+        private bool _isJ2534DeviceSelected;
+        public string? DeviceCategory { get => _deviceCategory; set => SetProperty(ref _deviceCategory, value); }
+        public string? J2534DeviceType { get => _j2534DeviceType; set => SetProperty(ref _j2534DeviceType, value); }
+        public string? SerialPort { get => _serialPort; set => SetProperty(ref _serialPort, value); }
+        public string? SerialPortDeviceType { get => _serialPortDeviceType; set => SetProperty(ref _serialPortDeviceType, value); }
+        public bool Enable4xReadWrite { get => _enable4xReadWrite; set => SetProperty(ref _enable4xReadWrite, value); }
+        public bool IsSerialDeviceSelected
         {
-            get => _serialPortDeviceType;
-            set => SetProperty(ref _serialPortDeviceType, value);
+            get => _isSerialDeviceSelected;
+            set
+            {
+                if (SetProperty(ref _isSerialDeviceSelected, value) && value)
+                {
+                    DeviceCategory = "Serial";
+                    IsJ2534DeviceSelected = false;
+                }
+            }
         }
+        public bool IsJ2534DeviceSelected
+        {
+            get => _isJ2534DeviceSelected;
+            set
+            {
+                if (SetProperty(ref _isJ2534DeviceSelected, value) && value)
+                {
+                    DeviceCategory = "J2534";
+                    IsSerialDeviceSelected = false;
+                }
+            }
+        }
+        #endregion
 
-        private bool _enable4xReadWrite;
-        public bool Enable4xReadWrite
-        {
-            get => _enable4xReadWrite;
-            set => SetProperty(ref _enable4xReadWrite, value);
-        }
-        
+        #region Commands
+        public ICommand SelectSerialCommand { get; }
+        public ICommand SelectJ2534Command { get; }
+        public ICommand AutoDetectCommand { get; }
+        public ICommand TestCommand { get; }
+        public ICommand CancelCommand { get; }
+        public ICommand AcceptCommand { get; }
+        #endregion
+
         // Collections for UI drop-downs
         public List<object> SerialPorts { get; } = [];
         public List<string> SerialDevices { get; } = [];
@@ -74,17 +85,6 @@ namespace PCMHammer.Viewmodels
         // Notification States
         public string StatusText { get; set; } = "Ready.";
         public bool IsBusy { get; set; }
-        public bool IsSerialSelected => DeviceCategory?.Equals("Serial", StringComparison.Ordinal) ?? false;
-
-        public bool IsJ2534Selected => DeviceCategory?.Equals("J2534", StringComparison.Ordinal) ?? false;
-
-        // Commands
-        public ICommand SelectSerialCommand { get; }
-        public ICommand SelectJ2534Command { get; }
-        public ICommand AutoDetectCommand { get; }
-        public ICommand TestCommand { get; }
-        public ICommand CancelCommand { get; }
-        public ICommand AcceptCommand { get; }
 
         // Callbacks for View-layer UI alerts (decouples MessageBox.Show)
         public Func<string, string, Task>? ShowWarningAlertAsync { get; set; }
@@ -190,7 +190,6 @@ namespace PCMHammer.Viewmodels
             SerialDevices.Add(ElmDevice.DeviceType);
             SerialDevices.Add(AvtDevice.DeviceType);
             SerialDevices.Add(OBDXProDevice.DeviceType);
-            SerialDevices.Add(MockDevice.DeviceType);
         }
 
         private async Task AddDiscoveredPortsAsync()
@@ -215,7 +214,6 @@ namespace PCMHammer.Viewmodels
                 _logger.AddDebugMessage("Failed to list serial ports: " + ex.ToString());
                 StatusText = "Unable to list serial ports: " + ex.Message;
             }
-            SerialPorts.Add(MockPort.PortName);
         }
 
         private async Task AddDiscoveredJ2534DevicesAsync()
@@ -319,13 +317,13 @@ namespace PCMHammer.Viewmodels
             if (match.Success && SerialPort.Length > 4)
                 SerialPort = match.Groups[0].Value;
 
-            if (IsSerialSelected)
+            if (IsSerialDeviceSelected)
             {
                 device = DeviceFactory.CreateSerialDevice(SerialPort, SerialPortDeviceType, _logger);
                 onPort = " on " + (SerialPort ?? "(no port)");
                 target = (SerialPortDeviceType ?? "serial device") + onPort;
             }
-            else if (IsJ2534Selected)
+            else if (IsJ2534DeviceSelected)
             {
                 device = DeviceFactory.CreateJ2534Device(J2534DeviceType, _logger);
                 target = J2534DeviceType ?? "J2534 device";

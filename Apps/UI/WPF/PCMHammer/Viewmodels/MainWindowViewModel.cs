@@ -18,85 +18,34 @@ namespace PCMHammer.Viewmodels
         private CancellationTokenSource? _cancellationTokenSource;
         private bool CanReInitialize() => SelectedDevice is not null;
 
-        #region Status and Progress Properties
+        #region Private Properties
         private PcmFlasher? _pcmFlasher;
-        public PcmFlasher? PcmFlasher
-        {
-            get => _pcmFlasher;
-            set => SetProperty(ref _pcmFlasher, value);
-        }
-
         private PcmReader? _pcmReader;
-        public PcmReader? PcmReader
-        {
-            get => _pcmReader;
-            set => SetProperty(ref _pcmReader, value);
-        }
-
         private Device? _selectedDevice;
-        public Device? SelectedDevice
-        {
-            get => _selectedDevice;
-            set => SetProperty(ref _selectedDevice, value);
-        }
-
         private string _logText = string.Empty;
-        public string LogText
-        {
-            get => _logText;
-            set => SetProperty(ref _logText, value);
-        }
-
         private string _debugLogText = string.Empty;
-        public string DebugLogText
-        {
-            get => _debugLogText;
-            set => SetProperty(ref _debugLogText, value);
-        }
-
         private bool _isCopiedFeedbackVisible;
-        public bool IsCopiedFeedbackVisible
-        {
-            get => _isCopiedFeedbackVisible;
-            set => SetProperty(ref _isCopiedFeedbackVisible, value);
-        }
-
         private string _statusText = "Ready";
-        public string StatusText
-        {
-            get => _statusText;
-            set => SetProperty(ref _statusText, value);
-        }
-
         private int _retryCount = 0;
-        public int RetryCount
-        {
-            get => _retryCount;
-            set => SetProperty(ref _retryCount, value);
-        }
-
         private double _transferRate = 0.0;
-        public double TransferRate
-        {
-            get => _transferRate;
-            set => SetProperty(ref _transferRate, value);
-        }
-
         private double _progressPercent = 0.0;
-        public double ProgressPercent
-        {
-            get => _progressPercent;
-            set => SetProperty(ref _progressPercent, value);
-        }
-
         private string _timeRemaining = "00:00 Remaining";
-        public string TimeRemaining
-        {
-            get => _timeRemaining;
-            set => SetProperty(ref _timeRemaining, value);
-        }
-
         private Vehicle? _vehicle;
+        private bool _isOperationRunning;
+        #endregion
+
+        #region Public Properties
+        public PcmFlasher? PcmFlasher { get => _pcmFlasher; set => SetProperty(ref _pcmFlasher, value); }
+        public PcmReader? PcmReader { get => _pcmReader; set => SetProperty(ref _pcmReader, value); }
+        public Device? SelectedDevice { get => _selectedDevice; set => SetProperty(ref _selectedDevice, value); }
+        public string LogText { get => _logText; set => SetProperty(ref _logText, value); }
+        public string DebugLogText { get => _debugLogText; set => SetProperty(ref _debugLogText, value); }
+        public bool IsCopiedFeedbackVisible { get => _isCopiedFeedbackVisible; set => SetProperty(ref _isCopiedFeedbackVisible, value); }
+        public string StatusText { get => _statusText; set => SetProperty(ref _statusText, value); }
+        public int RetryCount { get => _retryCount; set => SetProperty(ref _retryCount, value); }
+        public double TransferRate { get => _transferRate; set => SetProperty(ref _transferRate, value); }
+        public double ProgressPercent { get => _progressPercent; set => SetProperty(ref _progressPercent, value); }
+        public string TimeRemaining { get => _timeRemaining; set => SetProperty(ref _timeRemaining, value); }
         public Vehicle? Vehicle
         {
             get => _vehicle;
@@ -106,15 +55,10 @@ namespace PCMHammer.Viewmodels
                     RelayCommand.RaiseCanExecuteChanged();
             }
         }
-
-        private bool _isOperationRunning;
-        public bool IsOperationRunning
-        {
-            get => _isOperationRunning;
-            set => SetProperty(ref _isOperationRunning, value);
-        }
+        public bool IsOperationRunning { get => _isOperationRunning; set => SetProperty(ref _isOperationRunning, value); }
         #endregion
 
+        #region Commands
         public ICommand CopyLogCommand { get; }
 
         #region Commands (File Menu)
@@ -147,6 +91,8 @@ namespace PCMHammer.Viewmodels
         public ICommand WritePCMCommand { get; }
         public ICommand TestWriteCommand { get; }
         public ICommand CancelCurrentCommand { get; }
+        #endregion
+
         #endregion
 
         public MainWindowViewModel(MainWindow parentWindow)
@@ -614,6 +560,7 @@ namespace PCMHammer.Viewmodels
                         backgroundViewModel.Enable4xReadWrite
                     );
                     StatusText = "Ready";
+                    backgroundViewModel.AcceptCommand.Execute(null);
                     return true;
                 }
             }
@@ -843,13 +790,7 @@ namespace PCMHammer.Viewmodels
                 _logger
             );
 
-            Vehicle = new Vehicle(
-                workingDevice,
-                protocolEngine,
-                _logger,
-                notifier,
-                "PCMHammer"
-            )
+            Vehicle = new Vehicle(workingDevice, protocolEngine, _logger, notifier, "PCMHammer")
             {
                 Enable4xReadWrite = Enable4xCom
             };
