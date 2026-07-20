@@ -58,7 +58,7 @@ namespace PcmHacking
         {
             try
             {
-                Assembly asm = Assembly.GetEntryAssembly();
+                Assembly? asm = Assembly.GetEntryAssembly();
                 if (asm == null) return null;
 
                 // Read the attributes off the loaded assembly rather than the file on disk.

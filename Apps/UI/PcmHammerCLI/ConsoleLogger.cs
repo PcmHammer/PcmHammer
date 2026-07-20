@@ -53,7 +53,7 @@ namespace PcmHacking
                 IntPtr handle = GetStdHandle(StdOutputHandle);
                 if (GetFileType(handle) == FileTypePipe)
                 {
-                    string term = Environment.GetEnvironmentVariable("TERM");
+                    string? term = Environment.GetEnvironmentVariable("TERM");
                     return !string.IsNullOrEmpty(term);
                 }
             }
