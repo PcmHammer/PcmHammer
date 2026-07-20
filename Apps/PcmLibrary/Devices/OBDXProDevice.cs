@@ -439,17 +439,32 @@ namespace PcmHacking
                     Buffer.BlockCopy(StrippedFrame, this.CanIdPrefixLength, frameToEnqueue, 0, frameToEnqueue.Length);
                 }
 
-                // Some device configurations pass through a leading ISO-TP single-frame PCI byte.
-                // Strip it defensively: a real UDS/GMLAN response byte is never 0x01-0x07, so a
-                // first byte in that range that equals the remaining length can only be an SF PCI.
-                if (this.CurrentProtocol == BusProtocol.Can500k
-                    && frameToEnqueue.Length >= 2
-                    && frameToEnqueue[0] >= 0x01 && frameToEnqueue[0] <= 0x07
-                    && frameToEnqueue[0] == frameToEnqueue.Length - 1)
+                // The device delivers the ISO-TP header along with the payload: a single frame as
+                // [0L][payload][padding to 8], and a reassembled multi-frame message as
+                // [1L][LL][payload]. Strip the header and keep exactly the declared length, which
+                // also drops the frame padding a short reply carries.
+                if (this.CurrentProtocol == BusProtocol.Can500k && frameToEnqueue.Length >= 2)
                 {
-                    byte[] unwrapped = new byte[frameToEnqueue.Length - 1];
-                    Buffer.BlockCopy(frameToEnqueue, 1, unwrapped, 0, unwrapped.Length);
-                    frameToEnqueue = unwrapped;
+                    int declaredLength = 0;
+                    int headerLength = 0;
+
+                    if ((frameToEnqueue[0] & 0xF0) == 0x00 && frameToEnqueue[0] > 0)
+                    {
+                        declaredLength = frameToEnqueue[0];
+                        headerLength = 1;
+                    }
+                    else if ((frameToEnqueue[0] & 0xF0) == 0x10)
+                    {
+                        declaredLength = ((frameToEnqueue[0] & 0x0F) << 8) | frameToEnqueue[1];
+                        headerLength = 2;
+                    }
+
+                    if (declaredLength > 0 && frameToEnqueue.Length >= headerLength + declaredLength)
+                    {
+                        byte[] unwrapped = new byte[declaredLength];
+                        Buffer.BlockCopy(frameToEnqueue, headerLength, unwrapped, 0, declaredLength);
+                        frameToEnqueue = unwrapped;
+                    }
                 }
 
                 // Native ISO-TP: report the reassembled CAN payload once, with its id; VPW keeps the

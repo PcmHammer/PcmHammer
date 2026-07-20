@@ -63,14 +63,17 @@ namespace PcmHacking
 
             List<string> lines = new List<string>();
 
-            // The OSID lives in a different SWMI slot across families (E-series 0xC9, P05c 0xC1), so it
-            // is derived from the first candidate that answered rather than fixed to one DID. It is shown
-            // on top of the SWMI list because downstream lookups key off it.
+            // The OSID lives in a different SWMI slot across families, so it is derived from the first
+            // candidate that answered with a usable value rather than fixed to one DID. A module that
+            // answers but leaves the slot empty (all zeroes or all ones) falls through to the next.
+            // Shown on top of the SWMI list because downstream lookups key off it.
             foreach (byte did in Gmlan.OperatingSystemDids)
             {
-                if (responses.TryGetValue(did, out byte[] osid))
+                if (responses.TryGetValue(did, out byte[] osid)
+                    && TryGetUint32(osid, out uint osidValue)
+                    && Gmlan.IsUsableOsid(osidValue))
                 {
-                    lines.Add("OSID: " + FormatUint32(osid));
+                    lines.Add("OSID: " + osidValue);
                     break;
                 }
             }
@@ -96,15 +99,25 @@ namespace PcmHacking
             return text.Trim();
         }
 
-        // [0x5A, did, b3, b2, b1, b0] -> big-endian uint32, shown as the decimal GM part number.
-        private static string FormatUint32(byte[] resp)
+        // [0x5A, did, b3, b2, b1, b0] -> big-endian uint32. False when the response is too short.
+        private static bool TryGetUint32(byte[] resp, out uint value)
         {
             if (resp.Length >= 6)
             {
-                uint value = (uint)((resp[2] << 24) | (resp[3] << 16) | (resp[4] << 8) | resp[5]);
-                return value.ToString();
+                value = (uint)((resp[2] << 24) | (resp[3] << 16) | (resp[4] << 8) | resp[5]);
+                return true;
             }
-            return BitConverter.ToString(resp).Replace("-", " ");
+
+            value = 0;
+            return false;
+        }
+
+        // [0x5A, did, b3, b2, b1, b0] -> big-endian uint32, shown as the decimal GM part number.
+        private static string FormatUint32(byte[] resp)
+        {
+            return TryGetUint32(resp, out uint value)
+                ? value.ToString()
+                : BitConverter.ToString(resp).Replace("-", " ");
         }
     }
 }

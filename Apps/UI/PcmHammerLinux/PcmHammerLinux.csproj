@@ -1,0 +1,108 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Linux command-line build of PcmHammer.
+
+    The serial protocol stack (PcmLibrary) is already portable; this project pairs it
+    with the portable serial transport (StandardPort) and the CLI front-end, compiled
+    for Linux. The Windows-only pieces (J2534 pass-through, WMI port discovery, the
+    WinForms settings store) are excluded via the LINUX_CLI define, so this build has no
+    dependency on PcmLibraryWindowsApi or J2534DotNet - it references only PcmLibrary and
+    links the handful of portable source files it needs.
+
+    Packaging note: the binary is published self-contained and single-file with invariant
+    globalization, so the target machine needs no .NET install and no ICU. A fully static
+    (musl) binary would require NativeAOT, which the reflection-based dependencies
+    (Newtonsoft.Json, XmlSerializer, DynamicExpresso) do not support; self-contained
+    single-file is the most portable form available here.
+  -->
+
+  <PropertyGroup>
+    <!-- net10.0 to match the rest of the solution (the Windows CLI is net48 only because it is
+         tied to the WinForms-era stack; every other project here is net10.0). The binary is
+         published self-contained, so the target machine needs no runtime and the framework
+         version imposes no compatibility cost. -->
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>PcmHacking</RootNamespace>
+    <!-- Same name as the Windows CLI, which is "pcmhammer-cli" (.exe is added on Windows). -->
+    <AssemblyName>pcmhammer-cli</AssemblyName>
+    <RuntimeIdentifier>linux-x64</RuntimeIdentifier>
+    <DefineConstants>$(DefineConstants);LINUX_CLI</DefineConstants>
+
+    <!-- Take the version from the Windows CLI's AssemblyInfo.cs (linked below) instead of letting
+         the SDK synthesize one. The release scripting rewrites the AssemblyVersion/FileVersion/
+         InformationalVersion attributes in that file, so linking it is what makes a stamped release
+         version reach this build too. Without this the SDK defaults to 1.0.0, which would be
+         reported as a real version and is worse than reporting none. -->
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+
+    <!-- Self-contained, single-file, no external runtime or ICU needed on the target. -->
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- Trimming is off on purpose: the dependency closure uses runtime reflection
+         (JSON/XML serialization, dynamic expression evaluation) and would break if trimmed. -->
+    <PublishTrimmed>false</PublishTrimmed>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../PcmLibrary/PcmLibrary.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.IO.Ports" />
+  </ItemGroup>
+
+  <!-- Embed the kernels into the executable so the single-file build is fully self-contained
+       and needs no loose .bin files alongside it. The kernel build scripts produce them into
+       Kernels/build; whatever is present there is embedded (LogicalName flattens the resource
+       name to just the file name, e.g. "Kernel-P01.bin", which the loader matches on). A user
+       can still override any kernel at runtime by passing a directory of loose .bin files on
+       the command line; a loose file on disk takes precedence over the embedded copy. -->
+  <ItemGroup>
+    <KernelBinary Include="../../../Kernels/build/*.bin" />
+    <EmbeddedResource Include="@(KernelBinary)">
+      <LogicalName>%(Filename)%(Extension)</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+
+  <!-- MSBuild evaluates the glob above before the build runs, so if Kernels/build is empty the
+       binary is produced with NO kernels embedded and nothing reports it until the tool fails
+       against a vehicle. Say so at build time instead of shipping a silently-empty binary. -->
+  <Target Name="ReportEmbeddedKernels" BeforeTargets="CoreCompile">
+    <Warning Condition="'@(KernelBinary)' == ''"
+             Text="No kernels embedded: ../../../Kernels/build/*.bin matched nothing. Build the kernels first (Kernels/BuildAll.cmd on Windows, or the per-kernel ci-build.sh), otherwise this binary only works when given loose .bin files via --kernel-dir." />
+    <Message Condition="'@(KernelBinary)' != ''" Importance="high"
+             Text="Embedding kernels: @(KernelBinary->'%(Filename)%(Extension)', ' ')" />
+  </Target>
+
+  <!-- Shared source, compiled here with LINUX_CLI defined. Linked (not copied) so the CLI
+       and the portable transport stay single-source with the Windows builds. -->
+  <ItemGroup>
+    <Compile Include="../PcmHammerCLI/Program.cs" Link="Program.cs" />
+    <Compile Include="../PcmHammerCLI/ConsoleLogger.cs" Link="ConsoleLogger.cs" />
+    <Compile Include="../PcmHammerCLI/Properties/AssemblyInfo.cs" Link="Properties/AssemblyInfo.cs" />
+    <Compile Include="../../PcmLibraryWindowsApi/Ports/StandardPort.cs" Link="Ports/StandardPort.cs" />
+    <Compile Include="../../PcmLibraryWindowsApi/Ports/HttpPort.cs" Link="Ports/HttpPort.cs" />
+    <Compile Include="../../PcmLibraryWindowsApi/Devices/DeviceFactory.cs" Link="Devices/DeviceFactory.cs" />
+    <Compile Include="../../PcmLibraryWindowsApi/AppInfo.cs" Link="AppInfo.cs" />
+    <Compile Include="../../PcmLibraryWindowsApi/DeviceConfiguration.cs" Link="DeviceConfiguration.cs" />
+  </ItemGroup>
+
+  <!-- Program.cs reads Generated.BuildTime for its version/build line; generate it the same
+       way the Windows CLI project does. BuildTicks can be passed in (/p:BuildTicks=...) so a
+       multi-project build can share one timestamp; defaults to UtcNow otherwise. -->
+  <Target Name="Date" BeforeTargets="CoreCompile">
+    <PropertyGroup>
+      <BuildTicks Condition="'$(BuildTicks)' == ''">$([System.DateTime]::UtcNow.Ticks)</BuildTicks>
+    </PropertyGroup>
+    <WriteLinesToFile File="$(IntermediateOutputPath)generated.cs" Lines="static partial class Generated { public static long BuildTime = $(BuildTicks)%3B }" Overwrite="true" />
+    <ItemGroup>
+      <Compile Include="$(IntermediateOutputPath)generated.cs" />
+    </ItemGroup>
+  </Target>
+
+</Project>
