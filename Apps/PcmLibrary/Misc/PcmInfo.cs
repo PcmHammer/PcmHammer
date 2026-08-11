@@ -1402,7 +1402,6 @@ namespace PcmHacking
                 case 16259676:
                 case 16259677:
                 case 16259682:
-                case 16259686:
                 case 16259687:
                 case 16259688:
                 case 16259694:
@@ -3205,6 +3204,7 @@ namespace PcmHacking
                 case 12225345: // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136159 2000 Cavalier 2.2 manual
                 case 12225346: // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136159 2000 Cavalier 2.2 manual
                 case 16257436:
+                case 16259686:
                     PCMInfo(PcmType.P08);
                     this.Description = "P08 Service No 9356249";
                     this.ServiceNumber = 9356249;
