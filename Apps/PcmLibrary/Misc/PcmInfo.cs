@@ -1931,7 +1931,6 @@ namespace PcmHacking
                 case 9391248:
                 case 9392594:
                 case 9392748:
-                case 9392786:
                 case 9392787:
                 case 9392790:
                 case 9392791:
@@ -3180,6 +3179,7 @@ namespace PcmHacking
                 case 9382954:  // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136163
                 case 9384480:  // via PM
                 case 9387226:  // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136163
+                case 9392786:  // https://pcmhacking.net/forums/viewtopic.php?p=139820#p139820
                 case 12202774: // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136163
                 case 12205537: // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136163
                 case 12205561: // https://pcmhacking.net/forums/viewtopic.php?p=136159#p136163
