@@ -1,8 +1,9 @@
-﻿using PcmHacking;
+﻿using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using PcmHacking;
 using PCMHammer.Helpers;
-using PCMHammer.ViewModels;
 using System.Collections.ObjectModel;
-using System.Windows.Input;
+using System.Xml.Linq;
 
 namespace PCMHammer.Viewmodels
 {
@@ -11,110 +12,48 @@ namespace PCMHammer.Viewmodels
         public required string DisplayText { get; set; }
         public int Value { get; set; }
     }
-    public partial class BruteForceViewModel : ViewModelBase
+
+    public partial class BruteForceViewModel : ObservableObject
     {
-        // --- Properties ---
+        #region Fields
         private readonly Vehicle _vehicle;
         private readonly ILogger _logger;
         private CancellationTokenSource? _cts;
-        public ObservableCollection<SpeedOption> SpeedOptions { get; } = [];
+        public ObservableCollection<SpeedOption> SpeedOptions { get; } = []; 
+        #endregion
 
-        // --- Bindable Properties ---
-        private int _startKey = 0x0000;
-        public int StartKey
-        {
-            get => _startKey;
-            set { if (SetProperty(ref _startKey, value)) CommandManager.InvalidateRequerySuggested(); }
-        }
+        #region Properties
+        [ObservableProperty]
+        public partial int StartKey { get; set; } = 0x0000;
 
-        private int _endKey = 0xFFFF;
-        public int EndKey
-        {
-            get => _endKey;
-            set { if (SetProperty(ref _endKey, value)) CommandManager.InvalidateRequerySuggested(); }
-        }
+        [ObservableProperty]
+        public partial int EndKey { get; set; } = 0xFFFF;
 
-        private int _currentKey = 0x0000;
-        public int CurrentKey
-        {
-            get => _currentKey;
-            set => SetProperty(ref _currentKey, value);
-        }
+        [ObservableProperty]
+        public partial int CurrentKey { get; set; } = 0x0000;
 
-        private bool _algoSweepFirst = true;
-        public bool AlgoSweepFirst
-        {
-            get => _algoSweepFirst;
-            set => SetProperty(ref _algoSweepFirst, value);
-        }
+        [ObservableProperty]
+        public partial bool AlgoSweepFirst { get; set; } = true;
 
-        private int _bruteForceSpeed = 0;
-        public int BruteForceSpeed
-        {
-            get => _bruteForceSpeed;
-            set => SetProperty(ref _bruteForceSpeed, value);
-        }
+        [ObservableProperty]
+        public partial int BruteForceSpeed { get; set; } = 0;
 
-        private double _progressValue = 0.0;
-        public double ProgressValue
-        {
-            get => _progressValue;
-            set => SetProperty(ref _progressValue, value);
-        }
+        [ObservableProperty]
+        public partial double ProgressValue { get; set; } = 0.0;
 
-        private double _lockoutProgress = 0.0;
-        public double LockoutProgress
-        {
-            get => _lockoutProgress;
-            set => SetProperty(ref _lockoutProgress, value);
-        }
+        [ObservableProperty]
+        public partial double LockoutProgress { get; set; } = 0.0;
 
-        private string _statusText = "Ready.";
-        public string StatusText
-        {
-            get => _statusText;
-            set => SetProperty(ref _statusText, value);
-        }
+        [ObservableProperty]
+        public partial string StatusText { get; set; } = "Ready.";
 
-        private bool _bruteForceRunning = false;
-        public bool BruteForceRunning
-        {
-            get => _bruteForceRunning;
-            private set
-            {
-                if (SetProperty(ref _bruteForceRunning, value))
-                    CommandManager.InvalidateRequerySuggested();
-            }
-        }
+        [ObservableProperty]
+        public partial bool BruteForceRunning { get; set; } = false;
+        #endregion
 
-        // --- Events ---
-        public event Action? RequestClose;
-
-        // --- Commands ---
-        public ICommand StartCommand { get; }
-        public ICommand StopCommand { get; }
-        public ICommand ExitCommand { get; }
-
-        public BruteForceViewModel(Vehicle vehicle, ILogger logger)
-        {
-            _vehicle = vehicle;
-            _logger = logger;
-
-            StartCommand = new RelayCommand(async () => await StartBruteForce(), () => !BruteForceRunning && StartKey <= EndKey);
-            StopCommand = new RelayCommand(StopBruteForce, () => BruteForceRunning);
-            ExitCommand = new RelayCommand(() => RequestClose?.Invoke());
-
-            PopulateSpeedOptions();
-        }
-
-        private void PopulateSpeedOptions()
-        {
-            SpeedOptions.Add(new SpeedOption { DisplayText = "Auto", Value = 0 });
-            for (int i = 1; i <= BruteForcer.MaxSecurityDelaySeconds; i++)
-                SpeedOptions.Add(new SpeedOption { DisplayText = $"{i}s", Value = i });
-        }
-
-        private async Task StartBruteForce()
+        #region Commands
+        [RelayCommand(CanExecute = nameof(CanStartBruteForce))]
+        private async Task StartBruteForceAsync()
         {
             BruteForceRunning = true;
             _logger.AddUserMessage("Brute force: Start.");
@@ -149,17 +88,42 @@ namespace PCMHammer.Viewmodels
             }
         }
 
+        private bool CanStartBruteForce() => !BruteForceRunning && StartKey <= EndKey;
+
+        [RelayCommand(CanExecute = nameof(CanStopBruteForce))]
         private void StopBruteForce()
         {
             _logger.AddUserMessage("Brute force: Stop.");
             StatusText = "Stopping...";
             _cts?.Cancel();
         }
+        private bool CanStopBruteForce() => BruteForceRunning;
+
+        [RelayCommand]
+        private void Exit() => RequestClose?.Invoke();
+        #endregion
+
+        public event Action? RequestClose;
+
+        public BruteForceViewModel(Vehicle vehicle, ILogger logger)
+        {
+            _vehicle = vehicle;
+            _logger = logger;
+
+            PopulateSpeedOptions();
+        }
+
+        private void PopulateSpeedOptions()
+        {
+            SpeedOptions.Add(new SpeedOption { DisplayText = "Auto", Value = 0 });
+            for (int i = 1; i <= BruteForcer.MaxSecurityDelaySeconds; i++)
+                SpeedOptions.Add(new SpeedOption { DisplayText = $"{i}s", Value = i });
+        }
 
         private void OnProgress(BruteForceProgress bruteForceProgress)
         {
             CurrentKey = bruteForceProgress.Key;
-            ProgressValue = bruteForceProgress.Fraction * 100; // WPF ProgressBar defaults to 0-100
+            ProgressValue = bruteForceProgress.Fraction * 100;
 
             string phaseStr = bruteForceProgress.Phase == BruteForcePhase.Sweeping ? "Sweeping" : "Trying";
             StatusText = $"{phaseStr} {bruteForceProgress.Key:X4}." + (string.IsNullOrEmpty(bruteForceProgress.Eta) ? "" : $" Max wait: {bruteForceProgress.Eta}");

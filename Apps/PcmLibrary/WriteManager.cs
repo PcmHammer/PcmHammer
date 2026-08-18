@@ -228,27 +228,10 @@ namespace PcmHacking
                 PcmType fileType = validator.DetectFileType();
                 if (fileType != forcedPcmType && !RuntimeSettings.AllowCrossFlashing)
                 {
-                    pcmOsid = forcedOsidResponse.Value;
-
-                    if (!validator.IsSameHardware(forcedOsidResponse.Value))
-                    {
-                        return false;
-                    }
-
-                    if (!validator.IsSameOperatingSystem(forcedOsidResponse.Value))
-                    {
-                        logger.AddUserMessage("PCM operating system ID: " + forcedOsidResponse.Value);
-                        logger.AddUserMessage("File operating system ID: " + validator.GetOsidFromImage());
-                        Utility.ReportOperatingSystems(validator.GetOsidFromImage(), forcedOsidResponse.Value, writeType, this.logger, out shouldHalt);
-                        if (shouldHalt)
-                        {
-                            return false;
-                        }
-                    }
-                    else
-                    {
-                        logger.AddUserMessage("PCM and file are both operating system " + forcedOsidResponse.Value);
-                    }
+                    string msg = $"Abort: this file is for a {fileType} PCM, but {forcedPcmType} was selected.";
+                    logger.AddUserMessage(msg);
+                    await this.alert(msg, "Abort");
+                    return false;
                 }
                 else if (!suppressOSIDWarning)
                 {
@@ -258,10 +241,11 @@ namespace PcmHacking
                     // warn that compatibility is unverified and let the user accept the brick risk.
                     if (this.cancellationToken.IsCancellationRequested)
                     {
-                    string msg = $"Abort: this file is for a {fileType} PCM, but {forcedPcmType} was selected.";
-                    logger.AddUserMessage(msg);
-                    await this.alert(msg, "Abort");
-                    return false;
+                        string msg = $"Abort: this file is for a {fileType} PCM, but {forcedPcmType} was selected.";
+                        logger.AddUserMessage(msg);
+                        await this.alert(msg, "Abort");
+                        return false;
+                    }
                 }
                 if (fileType != forcedPcmType && RuntimeSettings.AllowCrossFlashing)
                 {

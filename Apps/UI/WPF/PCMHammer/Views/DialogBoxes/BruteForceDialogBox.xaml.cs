@@ -31,7 +31,7 @@ namespace PCMHammer.Views
             if (_viewModel != null && _viewModel.BruteForceRunning)
             {
                 e.Cancel = true; // Block immediate exit
-                _viewModel.StopCommand.Execute(null); // Signal background cancel loop
+                _viewModel.StopBruteForceCommand.Execute(null); // Signal background cancel loop
                 _viewModel.StatusText = "Stopping...";
             }
         }

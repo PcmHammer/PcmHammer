@@ -1,80 +1,87 @@
-﻿using PcmHacking;
+﻿using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using PcmHacking;
 using PCMHammer.Helpers;
-using System.Windows.Input;
 using System.Text.RegularExpressions;
-using PCMHammer.ViewModels;
+using System.Windows.Input;
 
 namespace PCMHammer.Viewmodels
 {
-    public partial class DevicePickerViewModel : ViewModelBase
+    public partial class DevicePickerViewModel(ILogger logger) : ObservableObject
     {
         private const string _prompt = "Select...";
-        private readonly ILogger _logger;
-
         public Device? SelectedDevice = null;
         public event Action? RequestClose;
         public event Action? RequestAcceptAndClose;
 
-        public DevicePickerViewModel(ILogger logger)
-        {
-            _logger = logger;
-            SelectSerialCommand = new RelayCommand(ExecuteSelectSerial);
-            SelectJ2534Command = new RelayCommand(ExecuteSelectJ2534);
+        #region Properties
+        [ObservableProperty]
+        public partial string? DeviceCategory { get; set; }
 
-            AutoDetectCommand = new RelayCommand(ExecuteAutoDetect);
-            TestCommand = new RelayCommand(ExecuteTestSelectedDevice);
-            CancelCommand = new RelayCommand(() => RequestClose?.Invoke());
-            AcceptCommand = new RelayCommand(
-                execute: async () => await ExecuteAcceptAndClose()
-            );
-        }
+        [ObservableProperty]
+        public partial string? J2534DeviceType { get; set; }
 
-        #region UI Binding Properties
-        private string? _deviceCategory;
-        private string? _j2534DeviceType;
-        private string? _serialPort;
-        private string? _serialPortDeviceType;
-        private bool _enable4xReadWrite; 
-        private bool _isSerialDeviceSelected = true;
-        private bool _isJ2534DeviceSelected;
-        public string? DeviceCategory { get => _deviceCategory; set => SetProperty(ref _deviceCategory, value); }
-        public string? J2534DeviceType { get => _j2534DeviceType; set => SetProperty(ref _j2534DeviceType, value); }
-        public string? SerialPort { get => _serialPort; set => SetProperty(ref _serialPort, value); }
-        public string? SerialPortDeviceType { get => _serialPortDeviceType; set => SetProperty(ref _serialPortDeviceType, value); }
-        public bool Enable4xReadWrite { get => _enable4xReadWrite; set => SetProperty(ref _enable4xReadWrite, value); }
-        public bool IsSerialDeviceSelected
+        [ObservableProperty]
+        public partial string? SerialPort { get; set; }
+
+        [ObservableProperty]
+        public partial string? SerialPortDeviceType { get; set; }
+
+        [ObservableProperty]
+        public partial bool Enable4xReadWrite { get; set; }
+
+        [ObservableProperty]
+        public partial bool IsSerialDeviceSelected { get; set; } = true;
+
+        partial void OnIsSerialDeviceSelectedChanged(bool value)
         {
-            get => _isSerialDeviceSelected;
-            set
+            if (value)
             {
-                if (SetProperty(ref _isSerialDeviceSelected, value) && value)
-                {
-                    DeviceCategory = "Serial";
-                    IsJ2534DeviceSelected = false;
-                }
+                DeviceCategory = "Serial";
+                IsJ2534DeviceSelected = false;
             }
         }
-        public bool IsJ2534DeviceSelected
+
+        [ObservableProperty]
+        public partial bool IsJ2534DeviceSelected { get; set; }
+
+        partial void OnIsJ2534DeviceSelectedChanged(bool value)
         {
-            get => _isJ2534DeviceSelected;
-            set
+            if (value)
             {
-                if (SetProperty(ref _isJ2534DeviceSelected, value) && value)
-                {
-                    DeviceCategory = "J2534";
-                    IsSerialDeviceSelected = false;
-                }
+                DeviceCategory = "J2534";
+                IsSerialDeviceSelected = false;
             }
         }
         #endregion
 
         #region Commands
-        public ICommand SelectSerialCommand { get; }
-        public ICommand SelectJ2534Command { get; }
-        public ICommand AutoDetectCommand { get; }
-        public ICommand TestCommand { get; }
-        public ICommand CancelCommand { get; }
-        public ICommand AcceptCommand { get; }
+        [RelayCommand]
+        public async Task SelectSerial()
+        {
+            FillSerialDeviceList();
+            _ = AddDiscoveredPortsAsync();
+            DeviceCategory = "Serial";
+        }
+
+        [RelayCommand]
+        public async Task SelectJ2534()
+        {
+            _ = AddDiscoveredJ2534DevicesAsync();
+            DeviceCategory = "J2534";
+        }
+
+        [RelayCommand]
+        public void AutoDetect() => _ = ExecuteAutoDetect();
+
+        [RelayCommand]
+        public async Task Test() => _ = ExecuteTestSelectedDevice();
+
+        [RelayCommand]
+        public void Cancel() => RequestClose?.Invoke();
+
+        [RelayCommand]
+        public async Task Accept() => await ExecuteAcceptAndClose();
         #endregion
 
         // Collections for UI drop-downs
@@ -118,12 +125,12 @@ namespace PCMHammer.Viewmodels
                 StatusText = "Device test failed or invalid selection.";
             }
         }
-        private void ExecuteTestSelectedDevice()
+        private async Task ExecuteTestSelectedDevice()
         {
             // This method should be implemented to test the selected device.
         }
 
-        private void ExecuteAutoDetect()
+        private async Task ExecuteAutoDetect()
         {
             // This method should be implemented to auto-detect the device.
         }
@@ -196,7 +203,7 @@ namespace PCMHammer.Viewmodels
         {
             try
             {
-                Task<List<SerialPortInfo>> portsTask = Task.Run(() => PortDiscovery.GetPorts(_logger).ToList());
+                Task<List<SerialPortInfo>> portsTask = Task.Run(() => PortDiscovery.GetPorts(logger).ToList());
                 if (await portsTask.AwaitWithTimeout(TimeSpan.FromSeconds(5)))
                 {
                     SerialPorts.AddRange(portsTask.Result.Cast<object>());
@@ -211,7 +218,7 @@ namespace PCMHammer.Viewmodels
             }
             catch (Exception ex)
             {
-                _logger.AddDebugMessage("Failed to list serial ports: " + ex.ToString());
+                logger.AddDebugMessage("Failed to list serial ports: " + ex.ToString());
                 StatusText = "Unable to list serial ports: " + ex.Message;
             }
         }
@@ -220,7 +227,7 @@ namespace PCMHammer.Viewmodels
         {
             try
             {
-                Task<List<J2534DotNet.J2534Device>> devicesTask = Task.Run(() => J2534DeviceFinder.FindInstalledJ2534DLLs(_logger));
+                Task<List<J2534DotNet.J2534Device>> devicesTask = Task.Run(() => J2534DeviceFinder.FindInstalledJ2534DLLs(logger));
                 if (await devicesTask.AwaitWithTimeout(TimeSpan.FromSeconds(5)))
                 {
                     J2534Devices.AddRange(devicesTask.Result.Cast<object>());
@@ -235,7 +242,7 @@ namespace PCMHammer.Viewmodels
             }
             catch (Exception ex)
             {
-                _logger.AddDebugMessage("Failed to list J2534 devices: " + ex.ToString());
+                logger.AddDebugMessage("Failed to list J2534 devices: " + ex.ToString());
                 StatusText = "Unable to list J2534 devices: " + ex.Message;
             }
         }
@@ -257,7 +264,7 @@ namespace PCMHammer.Viewmodels
 
             try
             {
-                Task<Device?> detectTask = DeviceFactory.AutoDetectSerialDevice(SerialPort, _logger);
+                Task<Device?> detectTask = DeviceFactory.AutoDetectSerialDevice(SerialPort, logger);
                 if (!await detectTask.AwaitWithTimeout(TimeSpan.FromSeconds(30)))
                 {
                     StatusText = $"Auto detect timed out on {SerialPort}.";
@@ -291,7 +298,7 @@ namespace PCMHammer.Viewmodels
             }
             catch (Exception ex)
             {
-                _logger.AddDebugMessage("Auto detect failed: " + ex.ToString());
+                logger.AddDebugMessage("Auto detect failed: " + ex.ToString());
                 StatusText = "Auto detect failed: " + ex.Message;
                 if (ShowErrorAlertAsync != null)
                 {
@@ -319,13 +326,13 @@ namespace PCMHammer.Viewmodels
 
             if (IsSerialDeviceSelected)
             {
-                device = DeviceFactory.CreateSerialDevice(SerialPort, SerialPortDeviceType, _logger);
+                device = DeviceFactory.CreateSerialDevice(SerialPort, SerialPortDeviceType, logger);
                 onPort = " on " + (SerialPort ?? "(no port)");
                 target = (SerialPortDeviceType ?? "serial device") + onPort;
             }
             else if (IsJ2534DeviceSelected)
             {
-                device = DeviceFactory.CreateJ2534Device(J2534DeviceType, _logger);
+                device = DeviceFactory.CreateJ2534Device(J2534DeviceType, logger);
                 target = J2534DeviceType ?? "J2534 device";
             }
             else

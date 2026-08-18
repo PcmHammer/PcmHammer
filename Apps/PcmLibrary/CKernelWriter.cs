@@ -101,22 +101,6 @@ namespace PcmHacking
                         return false;
                     }
 
-                    // Get the directory where your WPF application is running
-                    string baseDirectory = AppDomain.CurrentDomain.BaseDirectory;
-
-                    // Ensure we extract only the naked file name (e.g., "Kernel-P01.bin")
-                    string pureFileName = Path.GetFileName(this.pcmInfo.KernelFileName);
-
-                    // Force the application to look inside the "Kernels" subfolder where they are stored
-                    string targetPath = Path.Combine(baseDirectory, "Kernels", pureFileName);
-
-                    // Double check that the file physically exists before attempting to stream it to the interface
-                    if (!File.Exists(targetPath))
-                    {
-                        logger.AddUserMessage($"{pureFileName} could not be found inside the Kernels directory.");
-                        return false;
-                    }
-
                     // Execute kernel loader, if required
                     if (this.pcmInfo.LoaderRequired)
                     {

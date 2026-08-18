@@ -103,14 +103,12 @@
                         Command="{Binding ExitCommand}"/>
                 <Button Content="Stop" 
                         Width="96" 
-                        IsEnabled="{Binding BruteForceRunning}" 
                         HorizontalAlignment="Center" 
-                        Command="{Binding StopCommand}"/>
+                        Command="{Binding StopBruteForceCommand}"/>
                 <Button Content="Start" 
                         Width="96" 
-                        IsEnabled="{Binding BruteForceRunning, Converter={StaticResource InverseBoolean}}" 
                         HorizontalAlignment="Center" 
-                        Command="{Binding StartCommand}"/>
+                        Command="{Binding StartBruteForceAsyncCommand}"/>
             </UniformGrid>
             
         </Grid>

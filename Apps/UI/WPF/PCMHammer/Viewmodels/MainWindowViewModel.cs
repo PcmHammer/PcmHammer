@@ -1,148 +1,69 @@
 ﻿using PcmHacking;
-using PCMHammer.Helpers;
 using PCMHammer.Services;
-using PCMHammer.ViewModels;
 using PCMHammer.Views;
 using PCMHammer.Views.DialogBoxes;
 using System.IO;
 using System.Windows;
-using System.Windows.Input;
+using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace PCMHammer.Viewmodels
 {
-    public partial class MainWindowViewModel : ViewModelBase
+    public partial class MainWindowViewModel : ObservableObject
     {
-        private readonly MainWindowLogger _logger;
+        #region Fields
+        private readonly PCMHammer.Helpers.MainWindowLogger _logger;
         private readonly FileDialogService _fileDialogService;
         private readonly Window _parentWindow;
         private CancellationTokenSource? _cancellationTokenSource;
-        private bool CanReInitialize() => SelectedDevice is not null;
-
-        #region Private Properties
-        private PcmFlasher? _pcmFlasher;
-        private PcmReader? _pcmReader;
-        private Device? _selectedDevice;
-        private string _logText = string.Empty;
-        private string _debugLogText = string.Empty;
-        private bool _isCopiedFeedbackVisible;
-        private string _statusText = "Ready";
-        private int _retryCount = 0;
-        private double _transferRate = 0.0;
-        private double _progressPercent = 0.0;
-        private string _timeRemaining = "00:00 Remaining";
-        private Vehicle? _vehicle;
-        private bool _isOperationRunning;
+        private bool CanReInitialize() => SelectedDevice is not null; 
         #endregion
 
-        #region Public Properties
-        public PcmFlasher? PcmFlasher { get => _pcmFlasher; set => SetProperty(ref _pcmFlasher, value); }
-        public PcmReader? PcmReader { get => _pcmReader; set => SetProperty(ref _pcmReader, value); }
-        public Device? SelectedDevice { get => _selectedDevice; set => SetProperty(ref _selectedDevice, value); }
-        public string LogText { get => _logText; set => SetProperty(ref _logText, value); }
-        public string DebugLogText { get => _debugLogText; set => SetProperty(ref _debugLogText, value); }
-        public bool IsCopiedFeedbackVisible { get => _isCopiedFeedbackVisible; set => SetProperty(ref _isCopiedFeedbackVisible, value); }
-        public string StatusText { get => _statusText; set => SetProperty(ref _statusText, value); }
-        public int RetryCount { get => _retryCount; set => SetProperty(ref _retryCount, value); }
-        public double TransferRate { get => _transferRate; set => SetProperty(ref _transferRate, value); }
-        public double ProgressPercent { get => _progressPercent; set => SetProperty(ref _progressPercent, value); }
-        public string TimeRemaining { get => _timeRemaining; set => SetProperty(ref _timeRemaining, value); }
-        public Vehicle? Vehicle
-        {
-            get => _vehicle;
-            set
-            {
-                if (SetProperty(ref _vehicle, value))
-                    RelayCommand.RaiseCanExecuteChanged();
-            }
-        }
-        public bool IsOperationRunning { get => _isOperationRunning; set => SetProperty(ref _isOperationRunning, value); }
+        #region Properties
+        [ObservableProperty]
+        public partial PcmFlasher? PcmFlasher { get; set; }
+
+        [ObservableProperty]
+        public partial PcmReader? PcmReader { get; set; }
+
+        [ObservableProperty]
+        public partial Device? SelectedDevice { get; set; }
+
+        [ObservableProperty]
+        public partial string LogText { get; set; } = string.Empty;
+
+        [ObservableProperty]
+        public partial string DebugLogText { get; set; } = string.Empty;
+
+        [ObservableProperty]
+        public partial bool IsCopiedFeedbackVisible { get; set; }
+
+        [ObservableProperty]
+        public partial string StatusText { get; set; } = "Ready";
+
+        [ObservableProperty]
+        public partial int RetryCount { get; set; } = 0;
+
+        [ObservableProperty]
+        public partial double TransferRate { get; set; } = 0.0;
+
+        [ObservableProperty]
+        public partial double ProgressPercent { get; set; } = 0.0;
+
+        [ObservableProperty]
+        public partial string TimeRemaining { get; set; } = "00:00 Remaining";
+
+        [ObservableProperty]
+        public partial Vehicle? Vehicle { get; set; }
+
+        [ObservableProperty]
+        public partial bool IsOperationRunning { get; set; }
+
         #endregion
 
         #region Commands
-        public ICommand CopyLogCommand { get; }
-
-        #region Commands (File Menu)
-        public ICommand SaveResultsLogCommand { get; }
-        public ICommand SaveDebugLogCommand { get; }
-        public ICommand ExitCommand { get; }
-        #endregion
-
-        #region Commands (Tools Menu & Operations)
-        public ICommand ReadPCMCommand { get; }
-        public ICommand VerifyPCMCommand { get; }
-        public ICommand ChangeVINCommand { get; }
-        public ICommand WriteParametersCommand { get; }
-        public ICommand WriteOSCalibrationBootCommand { get; }
-        public ICommand WriteFullFlashCloneCommand { get; }
-        public ICommand TestFileChecksumsCommand { get; }
-        public ICommand BruteForceUnlockCommand { get; }
-        public ICommand HaltRunningKernelCommand { get; }
-        #endregion
-
-        #region Commands (Options Menu)
-        public ICommand UserDefinedKeyCommand { get; }
-        public ICommand SettingsCommand { get; }
-        #endregion
-
-        #region Commands (Device & Operations Sidebar)
-        public ICommand SelectDeviceCommand { get; }
-        public ICommand ReInitializeDeviceCommand { get; }
-        public ICommand ReadPropertiesCommand { get; }
-        public ICommand WritePCMCommand { get; }
-        public ICommand TestWriteCommand { get; }
-        public ICommand CancelCurrentCommand { get; }
-        #endregion
-
-        #endregion
-
-        public MainWindowViewModel(MainWindow parentWindow)
-        {
-            _parentWindow = parentWindow;
-            _logger = new MainWindowLogger(this);
-            _fileDialogService = new FileDialogService();
-            _logger.ProgressBarUpdated += (percent, visible) =>
-            {
-                // Safely hop onto the WPF UI thread to update properties
-                Application.Current.Dispatcher.InvokeAsync(() =>
-                {
-                    // WriteManager/Reader sends percentages as decimals (0.0 to 1.0)
-                    // Multiply by 100 to map onto a standard 0-100 ProgressBar
-                    ProgressPercent = percent * 100;
-                });
-            };
-            AddInitialLogMessages();
-
-            // Initialize Commands with actions
-            CopyLogCommand = new RelayCommand<string>(execute: async (logText) => await CopyLogToClipboard(logText));
-            SaveResultsLogCommand = new RelayCommand(execute: async () => await ExecuteSaveResultsLog());
-            SaveDebugLogCommand = new RelayCommand(execute: async () => await ExecuteSaveDebugLog());
-            ExitCommand = new RelayCommand(ExecuteExit);
-            ReadPCMCommand = new RelayCommand(execute: async () => await ExecuteReadPCMAsync(true, PcmType.Undefined));
-            VerifyPCMCommand = new RelayCommand(execute: async () => await ExecuteVerificationAsync());
-            ChangeVINCommand = new RelayCommand(execute: async () => await ExecuteChangeVINAsync());
-            WriteParametersCommand = new RelayCommand(execute: async () => await ExecuteWritePCMAsync(WriteType.Parameters));
-            WriteOSCalibrationBootCommand = new RelayCommand(execute: async () => await ExecuteWritePCMAsync(WriteType.OsPlusCalibrationPlusBoot));
-            WriteFullFlashCloneCommand = new RelayCommand(execute: async () => await ExecuteWritePCMAsync(WriteType.Full));
-            TestFileChecksumsCommand = new RelayCommand(execute: async () => await TestFileChecksumsAsync());
-            BruteForceUnlockCommand = new RelayCommand(ExecuteBruteForceUnlock);
-            HaltRunningKernelCommand = new RelayCommand(execute: async () => await ExecuteHaltRunningKernel());
-            UserDefinedKeyCommand = new RelayCommand(ExecuteUserDefinedKey);
-            SettingsCommand = new RelayCommand(ExecuteSettings);
-            SelectDeviceCommand = new RelayCommand(() => ExecuteSelectDevice());
-            ReInitializeDeviceCommand = new RelayCommand(ExecuteReInitializeDevice, CanReInitialize);
-            ReadPropertiesCommand = new RelayCommand(execute: async () => await ExecuteReadPropertiesAsync());
-            WritePCMCommand = new RelayCommand(execute: async () => await ExecuteWritePCMAsyncWithDialog());
-            TestWriteCommand = new RelayCommand(execute: async () => await ExecuteWritePCMAsync(WriteType.TestWrite));
-            CancelCurrentCommand = new RelayCommand(execute: async () => await ExecuteCancelCurrentOperationAsync());
-
-            // Load up saved device and vehicle information from the settings file if configured to do so
-            bool retainConfigOnExit = Properties.Settings.Default.RetainDeviceConfigurationOnExit;
-            string savedType = Properties.Settings.Default.SavedDeviceType;
-            if (retainConfigOnExit && !string.IsNullOrEmpty(savedType))
-                _ = TrySilentDeviceConnectionAsync();
-        }
-
-        private async Task CopyLogToClipboard(string? logText)
+        [RelayCommand]
+        public async Task CopyLog(string logText)
         {
             if (string.IsNullOrEmpty(logText)) return;
 
@@ -157,23 +78,327 @@ namespace PCMHammer.Viewmodels
             IsCopiedFeedbackVisible = false;
         }
 
+        #region Commands (File Menu)
+        [RelayCommand]
+        public async Task SaveResultsLog() => await SaveLogFileAsync("UserLog", LogText);
+        [RelayCommand]
+        public async Task SaveDebugLog() => await SaveLogFileAsync("DebugLog", DebugLogText);
+        [RelayCommand]
+        public static void Exit() => Application.Current.Shutdown();
+        #endregion
+
+        #region Commands (Tools Menu & Operations)
+        [RelayCommand]
+        public async Task ReadPCM() => await ExecuteReadPCMAsync(true, PcmType.Undefined);
+        [RelayCommand]
+        public async Task VerifyPCM() => await ExecuteVerificationAsync();
+        [RelayCommand]
+        public async Task ChangeVIN() => await ExecuteChangeVINAsync();
+        [RelayCommand]
+        public async Task WriteParameters() => await ExecuteWritePCMAsync(WriteType.Parameters);
+        [RelayCommand]
+        public async Task WriteOSCalibrationBoot() => await ExecuteWritePCMAsync(WriteType.OsPlusCalibrationPlusBoot);
+        [RelayCommand]
+        public async Task WriteFullFlashClone() => await ExecuteWritePCMAsync(WriteType.Full);
+        [RelayCommand]
+        public async Task TestFileChecksums() => await TestFileChecksumsAsync();
+        [RelayCommand]
+        public void BruteForceUnlock() 
+        {
+            StatusText = "Brute Force Unlocking...";
+            if (Vehicle == null) return;
+            BruteForceDialogBox bruteForceDialog = new(vehicle: Vehicle, logger: _logger) { Owner = _parentWindow };
+            StatusText = bruteForceDialog.ShowDialog() == true ? "Brute Force Unlock Completed." : "Ready";
+        }
+        [RelayCommand]
+        public async Task HaltRunningKernel()
+        {
+            if (Vehicle == null) return;
+            if (IsOperationRunning) return;
+
+            StatusText = "Sending Exit Kernel command...";
+            _logger.AddUserMessage("Attempting to exit PCM flash kernel mode...");
+
+            try
+            {
+                // Lock out the buttons and UI elements automatically via commanding interlocks
+                IsOperationRunning = true;
+                _cancellationTokenSource = new CancellationTokenSource();
+
+                // Offload the low-level bus routine completely down to the Task Pool worker thread
+                await Task.Run(async () =>
+                {
+                    return await Vehicle.ExitKernel(
+                        kernelRunning: true,
+                        recoveryMode: false,
+                        cancellationToken: _cancellationTokenSource.Token,
+                        unused: null
+                    );
+                });
+
+                _logger.AddUserMessage("Exit Kernel command dispatched successfully.");
+                StatusText = "PCM Reset Completed.";
+            }
+            catch (Exception ex)
+            {
+                _logger.AddUserMessage($"Failed to exit kernel: {ex.Message}");
+                _logger.AddDebugMessage(ex.ToString());
+                StatusText = "Reset failed.";
+            }
+            finally
+            {
+                // Smoothly unlock UI thread control
+                IsOperationRunning = false;
+                _cancellationTokenSource?.Dispose();
+                _cancellationTokenSource = null;
+
+                // Visual delay to let the user visually inspect the final status message
+                await Task.Delay(2000);
+                if (!IsOperationRunning) StatusText = "Ready";
+            }
+        }
+        #endregion
+
+        #region Commands (Options Menu)
+        [RelayCommand]
+        public void UserDefinedKey() 
+        {
+            UserDefinedKeyDialogBox userDefinedKeyDialog = new() { Owner = _parentWindow };
+            StatusText = "Setting user-defined key...";
+            if (userDefinedKeyDialog.ShowDialog() == true)
+            {
+                StatusText = "Ready";
+            }
+        }
+        [RelayCommand]
+        public void Settings() 
+        {
+            SettingsWindow settingsWindow = new(_fileDialogService) { Owner = _parentWindow };
+            StatusText = "Settings...";
+            if (settingsWindow.ShowDialog() == true)
+                StatusText = "Ready";
+        }
+        #endregion
+
+        #region Commands (Device & Operations Sidebar)
+        [RelayCommand]
+        public void SelectDevice() 
+        {
+            var pickerDialog = new DevicePickerDialogBox(_logger) { Owner = _parentWindow };
+            StatusText = "Selecting Device...";
+
+            if (pickerDialog.ShowDialog() == true)
+            {
+
+                Device? workingDevice = pickerDialog.SelectedDevice;
+                bool enable4xReadWrite = pickerDialog.Enable4xReadWrite;
+
+                if (workingDevice != null)
+                {
+                    // Pass the device directly into shared configuration helper
+                    InitializeDeviceAndVehicle(workingDevice, enable4xReadWrite);
+                }
+                else
+                {
+                    _logger.AddDebugMessage("Dialog returned OK, but no valid device data was stored.");
+                }
+                StatusText = "Ready";
+            }
+        }
+        [RelayCommand(CanExecute=nameof(CanReInitialize))]
+        public void ReInitializeDevice() 
+        {
+            if (SelectedDevice == null)
+            {
+                _logger.AddUserMessage("Cannot re-initialize: No device has been selected yet.");
+                return;
+            }
+
+            StatusText = "Re-initializing device communication...";
+            _logger.AddDebugMessage(message: $"Re-initializing link to: {SelectedDevice.GetDeviceType()}");
+
+            // Reuse the exact same connection architecture silently
+            InitializeDeviceAndVehicle(SelectedDevice, Vehicle!.Enable4xReadWrite);
+
+            StatusText = "Ready";
+        }
+        [RelayCommand]
+        public async Task ReadProperties() 
+        {
+            StatusText = "Reading Properties...";
+            if (Vehicle == null) return;
+            try
+            {
+                IsOperationRunning = true;
+                await Task.Run(async () =>
+                {
+                    OSIDInfo? pcmInfo = null;
+
+                    var vinResponse = await Vehicle.QueryVin();
+                    if (vinResponse.Status != ResponseStatus.Success)
+                    {
+                        _logger.AddUserMessage($"VIN query failed: {vinResponse.Status}");
+                        await Vehicle.ExitKernel();
+                        return;
+                    }
+                    _logger.AddUserMessage($"VIN: {vinResponse.Value}");
+
+                    var osResponse = await Vehicle.QueryOperatingSystemId(new CancellationToken());
+                    if (osResponse.Status == ResponseStatus.Success)
+                    {
+                        _logger.AddUserMessage($"OSID: {osResponse.Value}");
+                        pcmInfo = new OSIDInfo(osResponse.Value);
+                        _logger.AddUserMessage($"Description: {pcmInfo.Description}");
+                    }
+                    else
+                        _logger.AddUserMessage($"OS ID query failed: {osResponse.Status}");
+
+                    // Disable Calibration ID lookup for those that do not provide it
+                    if (pcmInfo != null && pcmInfo.HardwareType != PcmType.BlackBox)
+                    {
+                        var calResponse = await Vehicle.QueryCalibrationId();
+                        if (calResponse.Status == ResponseStatus.Success)
+                            _logger.AddUserMessage($"Calibration ID: {calResponse.Value}");
+                        else
+                            _logger.AddUserMessage($"Calibration ID query failed: {calResponse.Status}");
+                    }
+
+                    // Disable HardwareID lookup for the P05, P10, P12 and E54.
+                    if (pcmInfo != null && pcmInfo.HardwareType != PcmType.P05 &&
+                        pcmInfo.HardwareType != PcmType.P05b && pcmInfo.HardwareType != PcmType.P10 &&
+                        pcmInfo.HardwareType != PcmType.P12 && pcmInfo.HardwareType != PcmType.E54)
+                    {
+                        var hardwareResponse = await Vehicle.QueryHardwareId();
+                        if (hardwareResponse.Status == ResponseStatus.Success)
+                            _logger.AddUserMessage($"Hardware ID: {hardwareResponse.Value}");
+                        else
+                            _logger.AddUserMessage($"Hardware ID query failed: {hardwareResponse.Status}");
+                    }
+
+                    // Disable Serial Number lookup for those that do not provide it
+                    if (pcmInfo != null && pcmInfo.HardwareType != PcmType.BlackBox)
+                    {
+                        var serialResponse = await Vehicle.QuerySerial();
+                        if (serialResponse.Status == ResponseStatus.Success)
+                            _logger.AddUserMessage($"Serial Number: {serialResponse.Value}");
+                        else
+                            _logger.AddUserMessage($"Serial Number query failed: {serialResponse.Status}");
+                    }
+
+                    // Disable BCC lookup for those that do not provide it
+                    if (pcmInfo != null && pcmInfo.HardwareType != PcmType.P04 &&
+                        pcmInfo.HardwareType != PcmType.P04_Early && pcmInfo.HardwareType != PcmType.P08)
+                    {
+                        var bccResponse = await Vehicle.QueryBCC();
+                        if (bccResponse.Status == ResponseStatus.Success)
+                            _logger.AddUserMessage($"Broad Cast Code: {bccResponse.Value}");
+                        else
+                            _logger.AddUserMessage($"BCC query failed: {bccResponse.Status}");
+                    }
+
+                    var mecResponse = await Vehicle.QueryMEC();
+                    if (mecResponse.Status == ResponseStatus.Success)
+                        _logger.AddUserMessage($"MEC: {mecResponse.Value}");
+                    else
+                        _logger.AddUserMessage($"MEC query failed: {mecResponse.Status}");
+
+                    var voltageResponse = await Vehicle.QueryVoltage();
+                    if (voltageResponse.Status == ResponseStatus.Success)
+                        _logger.AddUserMessage($"Voltage: {voltageResponse.Value}");
+                    else
+                        _logger.AddUserMessage($"Voltage query failed: {voltageResponse.Status}");
+                });
+            }
+            catch (Exception exception)
+            {
+                _logger.AddUserMessage(exception.Message);
+                _logger.AddDebugMessage(exception.ToString());
+            }
+            finally
+            {
+                IsOperationRunning = false;
+                StatusText = "Ready";
+            }
+        }
+        [RelayCommand]
+        public async Task WritePCM() => await ExecuteWritePCMAsyncWithDialog();
+        [RelayCommand]
+        public async Task TestWrite() => await ExecuteWritePCMAsync(WriteType.TestWrite);
+        [RelayCommand]
+        public async Task CancelCurrent()
+        {
+            if (IsOperationRunning)
+            {
+                string warningMessage = "Canceling now could leave your PCM in an unbootable state (bricked)." + Environment.NewLine +
+                                 "Are you absolutely sure you want to take that risk?";
+                bool proceedWithCancel = await PcmFlasher!.PromptForYesNo("PCM Hammer", warningMessage);
+
+                if (!proceedWithCancel)
+                {
+                    _logger.AddUserMessage("Cancellation aborted by user. Continuing operation...");
+                    return;
+                }
+            }
+
+            _logger.AddUserMessage("Cancel button clicked. Signaling background tasks to stop...");
+            _cancellationTokenSource?.Cancel();
+        }
+        #endregion
+
+        #endregion
+
+        public MainWindowViewModel(MainWindow parentWindow)
+        {
+            _parentWindow = parentWindow;
+            _logger = new PCMHammer.Helpers.MainWindowLogger(this);
+            _fileDialogService = new FileDialogService();
+            _logger.ProgressBarUpdated += (percent, visible) =>
+            {
+                // Safely hop onto the WPF UI thread to update properties
+                Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    // WriteManager/Reader sends percentages as decimals (0.0 to 1.0)
+                    // Multiply by 100 to map onto a standard 0-100 ProgressBar
+                    ProgressPercent = percent * 100;
+                });
+            };
+            AddInitialLogMessages();
+
+            // Load up saved device and vehicle information from the settings file if configured to do so
+            bool retainConfigOnExit = Properties.Settings.Default.RetainDeviceConfigurationOnExit;
+            string savedType = Properties.Settings.Default.SavedDeviceType;
+            if (retainConfigOnExit && !string.IsNullOrEmpty(savedType))
+                _ = TrySilentDeviceConnectionAsync();
+        }
+
         public async Task HandleApplicationShutdownAsync()
         {
-            if (Properties.Settings.Default.SaveResultsLogOnExit)
-                await Task.Run(() => ExecuteSaveResultsLog());
+            var tasks = new List<Task>();
 
-            if (Properties.Settings.Default.SaveDebugLogOnExit)
-                await Task.Run(() => ExecuteSaveDebugLog());
+            if (Properties.Settings.Default.SaveResultsLogOnExit && SaveResultsLogCommand.CanExecute(null))
+                tasks.Add(SaveLogFileAsync("UserLog", LogText));
+
+            if (Properties.Settings.Default.SaveDebugLogOnExit && SaveDebugLogCommand.CanExecute(null))
+                tasks.Add(SaveLogFileAsync("DebugLog", DebugLogText));
+
+            if (tasks.Count > 0)
+            {
+                try
+                {
+                    await Task.WhenAll(tasks);
+                }
+                catch (Exception)
+                {
+                    _logger.AddDebugMessage("One or more log save operations failed during application shutdown.");
+                }
+            }
         }
 
         #region Command Execution Methods
-        private async Task ExecuteSaveResultsLog() => await SaveLogFileAsync("UserLog", LogText);
-        private async Task ExecuteSaveDebugLog() => await SaveLogFileAsync("DebugLog", DebugLogText);
-        private void ExecuteExit() => Application.Current.Shutdown();
         private async Task ExecuteReadPCMAsync(bool useAutoPcmType, PcmType selectedPcmType)
         {
             if (Vehicle == null) return;
-            if (_pcmReader == null) return;
+            if (PcmReader == null) return;
             if (IsOperationRunning) return;
 
             StatusText = "Preparing for Read...";
@@ -196,7 +421,7 @@ namespace PCMHammer.Viewmodels
 
                 // Offload processing completely down to the Task Pool thread
                 bool success = await Task.Run(() =>
-                    _pcmReader.ReadPcmAsync(selectedFilePath, useAutoPcmType, selectedPcmType, _cancellationTokenSource.Token)
+                    PcmReader.ReadPcmAsync(selectedFilePath, useAutoPcmType, selectedPcmType, _cancellationTokenSource.Token)
                 );
 
                 StatusText = success ? "Read Completed Successfully!" : "Read Failed.";
@@ -241,7 +466,7 @@ namespace PCMHammer.Viewmodels
         private async Task ExecuteVerificationAsync()
         {
             if (Vehicle == null) return;
-            if (_pcmFlasher == null) return;
+            if (PcmFlasher == null) return;
             if (IsOperationRunning) return;
 
             bool useAutoPcmType = true;
@@ -274,7 +499,7 @@ namespace PCMHammer.Viewmodels
 
                     // Offload the low-level communication completely to the worker thread pool
                     bool success = await Task.Run(() =>
-                        _pcmFlasher.WritePcmAsync(WriteType.Compare, selectedFilePath, useAutoPcmType, forcedPcmType, _cancellationTokenSource.Token)
+                        PcmFlasher.WritePcmAsync(WriteType.Compare, selectedFilePath, useAutoPcmType, forcedPcmType, _cancellationTokenSource.Token)
                     );
 
                     if (success)
@@ -385,15 +610,15 @@ namespace PCMHammer.Viewmodels
                     // Read the binary image into a memory block byte buffer
                     using Stream stream = File.OpenRead(selectedFilePath);
                     byte[] image = new byte[stream.Length];
-                    int bytesRead = await stream.ReadAsync(image, 0, (int)stream.Length);
+                    int bytesRead = await stream.ReadAsync(image.AsMemory(0, (int)stream.Length));
 
                     if (bytesRead != stream.Length)
                         return "Error: Unable to fully load file into memory stream context.";
 
                     // Perform original validation routines from the backend library
-                    FileValidator validator = new FileValidator(image, _logger); // Pass your standard shared logger
+                    FileValidator validator = new(image, _logger); // Pass your standard shared logger
 
-                    if (validator.IsValid())
+                    if (validator.IdentifyAndValidate())
                     {
                         string pcmDescription = new OSIDInfo(validator.GetFileType()).Description;
                         return $"File is {pcmDescription}.\r\nAll checksums are valid.";
@@ -420,105 +645,6 @@ namespace PCMHammer.Viewmodels
                 // Give the UI status layout text a standard brief delay to display completion status
                 await Task.Delay(2000);
                 if (!IsOperationRunning) StatusText = "Ready";
-            }
-        }
-        private void ExecuteBruteForceUnlock()
-        {
-            StatusText = "Brute Force Unlocking...";
-            if (Vehicle == null) return;
-            BruteForceDialogBox bruteForceDialog = new(vehicle: Vehicle, logger: _logger) { Owner = _parentWindow };
-            if (bruteForceDialog.ShowDialog() == true)
-            {
-                StatusText = "Brute Force Unlock Completed.";
-            }
-            else
-            {
-                StatusText = "Ready";
-            }
-        }
-        private async Task ExecuteHaltRunningKernel()
-        {
-            if (Vehicle == null) return;
-            if (IsOperationRunning) return;
-
-            StatusText = "Sending Exit Kernel command...";
-            _logger.AddUserMessage("Attempting to exit PCM flash kernel mode...");
-
-            try
-            {
-                // Lock out the buttons and UI elements automatically via commanding interlocks
-                IsOperationRunning = true;
-                _cancellationTokenSource = new CancellationTokenSource();
-
-                // Offload the low-level bus routine completely down to the Task Pool worker thread
-                await Task.Run(async () =>
-                {
-                    return await Vehicle.ExitKernel(
-                        kernelRunning: true,
-                        recoveryMode: false,
-                        cancellationToken: _cancellationTokenSource.Token,
-                        unused: null
-                    );
-                });
-
-                _logger.AddUserMessage("Exit Kernel command dispatched successfully.");
-                StatusText = "PCM Reset Completed.";
-            }
-            catch (Exception ex)
-            {
-                _logger.AddUserMessage($"Failed to exit kernel: {ex.Message}");
-                _logger.AddDebugMessage(ex.ToString());
-                StatusText = "Reset failed.";
-            }
-            finally
-            {
-                // Smoothly unlock UI thread control
-                IsOperationRunning = false;
-                _cancellationTokenSource?.Dispose();
-                _cancellationTokenSource = null;
-
-                // Visual delay to let the user visually inspect the final status message
-                await Task.Delay(2000);
-                if (!IsOperationRunning) StatusText = "Ready";
-            }
-        }
-        private void ExecuteUserDefinedKey()
-        {
-            UserDefinedKeyDialogBox userDefinedKeyDialog = new() { Owner = _parentWindow };
-            StatusText = "Setting user-defined key...";
-            if (userDefinedKeyDialog.ShowDialog() == true)
-            {
-                StatusText = "Ready";
-            }
-        }
-        private void ExecuteSettings()
-        {
-            SettingsWindow settingsWindow = new(_fileDialogService) { Owner = _parentWindow };
-            StatusText = "Settings...";
-            if (settingsWindow.ShowDialog() == true)
-                StatusText = "Ready";
-        }
-        private void ExecuteSelectDevice()
-        {
-            var pickerDialog = new DevicePickerDialogBox(_logger) { Owner = _parentWindow }; 
-            StatusText = "Selecting Device...";
-
-            if (pickerDialog.ShowDialog() == true)
-            {
-
-                Device? workingDevice = pickerDialog.SelectedDevice;
-                bool enable4xReadWrite = pickerDialog.Enable4xReadWrite;
-
-                if (workingDevice != null)
-                {
-                    // Pass the device directly into shared configuration helper
-                    InitializeDeviceAndVehicle(workingDevice, enable4xReadWrite);
-                }
-                else
-                {
-                    _logger.AddDebugMessage("Dialog returned OK, but no valid device data was stored.");
-                }
-                StatusText = "Ready";
             }
         }
         private async Task<bool> TrySilentDeviceConnectionAsync()
@@ -573,123 +699,10 @@ namespace PCMHammer.Viewmodels
 
             return false; // Failed or timed out; needs UI fallback
         }
-        private void ExecuteReInitializeDevice()
-        {
-            if (SelectedDevice == null)
-            {
-                _logger.AddUserMessage("Cannot re-initialize: No device has been selected yet.");
-                return;
-            }
-
-            StatusText = "Re-initializing device communication...";
-            _logger.AddDebugMessage($"Re-initializing link to: {SelectedDevice.GetDeviceType()}");
-
-            // Reuse the exact same connection architecture silently
-            InitializeDeviceAndVehicle(SelectedDevice, Vehicle!.Enable4xReadWrite);
-
-            StatusText = "Ready";
-        }
-        private async Task ExecuteReadPropertiesAsync()
-        {
-            StatusText = "Reading Properties...";
-            if (Vehicle == null) return;
-            try
-            {
-                IsOperationRunning = true;
-                await Task.Run(async () =>
-                {
-                    OSIDInfo? pcmInfo = null;
-
-                    var vinResponse = await Vehicle.QueryVin();
-                    if (vinResponse.Status != ResponseStatus.Success)
-                    {
-                        _logger.AddUserMessage($"VIN query failed: {vinResponse.Status}");
-                        await Vehicle.ExitKernel();
-                        return;
-                    }
-                    _logger.AddUserMessage($"VIN: {vinResponse.Value}");
-
-                    var osResponse = await Vehicle.QueryOperatingSystemId(new CancellationToken());
-                    if (osResponse.Status == ResponseStatus.Success)
-                    {
-                        _logger.AddUserMessage($"OSID: {osResponse.Value}");
-                        pcmInfo = new OSIDInfo(osResponse.Value);
-                        _logger.AddUserMessage($"Description: {pcmInfo.Description}");
-                    }
-                    else
-                        _logger.AddUserMessage($"OS ID query failed: {osResponse.Status}");
-
-                    // Disable Calibration ID lookup for those that do not provide it
-                    if (pcmInfo != null && pcmInfo.HardwareType != PcmType.BlackBox)
-                    {
-                        var calResponse = await Vehicle.QueryCalibrationId();
-                        if (calResponse.Status == ResponseStatus.Success)
-                            _logger.AddUserMessage($"Calibration ID: {calResponse.Value}");
-                        else
-                            _logger.AddUserMessage($"Calibration ID query failed: {calResponse.Status}");
-                    }
-
-                    // Disable HardwareID lookup for the P05, P10, P12 and E54.
-                    if (pcmInfo != null && pcmInfo.HardwareType != PcmType.P05 &&
-                        pcmInfo.HardwareType != PcmType.P05b && pcmInfo.HardwareType != PcmType.P10 &&
-                        pcmInfo.HardwareType != PcmType.P12 && pcmInfo.HardwareType != PcmType.E54)
-                    {
-                        var hardwareResponse = await Vehicle.QueryHardwareId();
-                        if (hardwareResponse.Status == ResponseStatus.Success)
-                            _logger.AddUserMessage($"Hardware ID: {hardwareResponse.Value}");
-                        else
-                            _logger.AddUserMessage($"Hardware ID query failed: {hardwareResponse.Status}");
-                    }
-
-                    // Disable Serial Number lookup for those that do not provide it
-                    if (pcmInfo != null && pcmInfo.HardwareType != PcmType.BlackBox)
-                    {
-                        var serialResponse = await Vehicle.QuerySerial();
-                        if (serialResponse.Status == ResponseStatus.Success)
-                            _logger.AddUserMessage($"Serial Number: {serialResponse.Value}");
-                        else
-                            _logger.AddUserMessage($"Serial Number query failed: {serialResponse.Status}");
-                    }
-
-                    // Disable BCC lookup for those that do not provide it
-                    if (pcmInfo != null && pcmInfo.HardwareType != PcmType.P04 &&
-                        pcmInfo.HardwareType != PcmType.P04_Early && pcmInfo.HardwareType != PcmType.P08)
-                    {
-                        var bccResponse = await Vehicle.QueryBCC();
-                        if (bccResponse.Status == ResponseStatus.Success)
-                            _logger.AddUserMessage($"Broad Cast Code: {bccResponse.Value}");
-                        else
-                            _logger.AddUserMessage($"BCC query failed: {bccResponse.Status}");
-                    }
-
-                    var mecResponse = await Vehicle.QueryMEC();
-                    if (mecResponse.Status == ResponseStatus.Success)
-                        _logger.AddUserMessage($"MEC: {mecResponse.Value}");
-                    else
-                        _logger.AddUserMessage($"MEC query failed: {mecResponse.Status}");
-
-                    var voltageResponse = await Vehicle.QueryVoltage();
-                    if (voltageResponse.Status == ResponseStatus.Success)
-                        _logger.AddUserMessage($"Voltage: {voltageResponse.Value}");
-                    else
-                        _logger.AddUserMessage($"Voltage query failed: {voltageResponse.Status}");
-                });
-            }
-            catch (Exception exception)
-            {
-                _logger.AddUserMessage(exception.Message);
-                _logger.AddDebugMessage(exception.ToString());
-            }
-            finally
-            {
-                IsOperationRunning = false;
-                StatusText = "Ready";
-            }
-        }
         private async Task ExecuteWritePCMAsync(WriteType writeType, PcmType pcmType = PcmType.Undefined, bool suppressOSIDWarning = false)
         {
             if (Vehicle == null) return;
-            if (_pcmFlasher == null) return;
+            if (PcmFlasher == null) return;
             if (IsOperationRunning) return;
 
             DelayDialogBox delayDialog = new() { Owner = Application.Current.MainWindow };
@@ -718,13 +731,13 @@ namespace PCMHammer.Viewmodels
                     if (pcmType == PcmType.Undefined)
                     {
                         success = await Task.Run(() =>
-                            _pcmFlasher.WritePcmAsync(writeType, selectedFilePath, useAutoPcmType: true, PcmType.Undefined, _cancellationTokenSource.Token, suppressOSIDWarning)
+                            PcmFlasher.WritePcmAsync(writeType, selectedFilePath, useAutoPcmType: true, PcmType.Undefined, _cancellationTokenSource.Token, suppressOSIDWarning)
                         );
                     }
                     else
                     {
                         success = await Task.Run(() =>
-                            _pcmFlasher.WritePcmAsync(writeType, selectedFilePath, useAutoPcmType: false, pcmType, _cancellationTokenSource.Token)
+                            PcmFlasher.WritePcmAsync(writeType, selectedFilePath, useAutoPcmType: false, pcmType, _cancellationTokenSource.Token)
                         );
                     }
 
@@ -761,7 +774,7 @@ namespace PCMHammer.Viewmodels
             {
                 string warningMessage = "Canceling now could leave your PCM in an unbootable state (bricked)." + Environment.NewLine +
                                  "Are you absolutely sure you want to take that risk?";
-                bool proceedWithCancel = await _pcmFlasher!.PromptForYesNo("PCM Hammer", warningMessage);
+                bool proceedWithCancel = await PcmFlasher!.PromptForYesNo("PCM Hammer", warningMessage);
 
                 if (!proceedWithCancel)
                 {
@@ -798,9 +811,10 @@ namespace PCMHammer.Viewmodels
             _logger.AddDebugMessage($"Vehicle pipeline established for: {workingDevice.GetDeviceType()}");
 
             // Refresh your service layer with the updated Vehicle instance
-            _pcmFlasher = new PcmFlasher(Vehicle, _logger);
-            _pcmReader = new PcmReader(Vehicle, _logger);
+            PcmFlasher = new PcmFlasher(Vehicle, _logger);
+            PcmReader = new PcmReader(Vehicle, _logger);
         }
+
         /// <summary>
         /// This method is used to update the UI with the current status of the operation.
         /// </summary>
@@ -819,10 +833,12 @@ namespace PCMHammer.Viewmodels
             _logger.AddDebugMessage($"Running at: {DateTime.Now:dddd, MMMM d yyyy, HH:mm:ss}");
             _logger.AddDebugMessage("Thanks for using PCM Hammer.");
         }
+
         /// <summary>
         /// Generates a filename pattern matching the legacy app (e.g., "UserLog_2026-07-01_18-30-00.txt")
         /// </summary>
         private static string GetLogFilename(string logName) => $"{logName}_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.txt";
+
         /// <summary>
         /// Core I/O helper method to write text directly to disk asynchronously.
         /// </summary>

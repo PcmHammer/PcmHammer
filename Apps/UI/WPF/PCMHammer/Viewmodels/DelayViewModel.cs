@@ -1,46 +1,36 @@
-﻿using PCMHammer.Helpers;
-using PCMHammer.ViewModels;
+﻿using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using PCMHammer.Helpers;
 using System.Windows.Input;
 using System.Windows.Threading;
 
 namespace PCMHammer.Viewmodels
 {
-    public partial class DelayViewModel : ViewModelBase
+    public partial class DelayViewModel : ObservableObject
     {
         // Properties
-        private int _timerValue = 10;
-        public int TimerValue
-        {
-            get => _timerValue;
-            set
-            {
-                SetProperty(ref _timerValue, value);
-                TimerText = $"{TimerValue} seconds remaining...";
-            }
-        }
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(TimerText))]
+        public partial int TimerValue { get; set; } = 10;
 
-        private string _timerText = "10 seconds remaining...";
-        public string TimerText
-        {
-            get => _timerText;
-            set => SetProperty(ref _timerText, value);
-        }
+        [ObservableProperty]
+        public partial string TimerText { get; set; } = "10 seconds remaining...";
 
         // Events
         public event Action? RequestClose;
 
         // Commands
-        public ICommand CloseCommand { get; }
+        [RelayCommand]
+        public void CloseCommand()
+        {
+            _waitTimer.Stop();
+            RequestClose?.Invoke();
+        }
 
         private readonly DispatcherTimer _waitTimer = new() { Interval = TimeSpan.FromSeconds(1) };
 
         public DelayViewModel()
         {
-            CloseCommand = new RelayCommand(() =>
-            {
-                _waitTimer.Stop();
-                RequestClose?.Invoke();
-            });
             _waitTimer.Tick += (s, e) =>
             {
                 if (TimerValue > 0) TimerValue--;

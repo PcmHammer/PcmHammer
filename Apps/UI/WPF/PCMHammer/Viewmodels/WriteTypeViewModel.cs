@@ -1,44 +1,37 @@
-﻿using PcmHacking;
+﻿using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using PcmHacking;
 using PCMHammer.Helpers;
-using PCMHammer.ViewModels;
 using System.Collections.ObjectModel;
-using System.Windows.Input;
 
 namespace PCMHammer.Viewmodels
 {
-    public partial class WriteTypeViewModel : ViewModelBase
+    public partial class WriteTypeViewModel : ObservableObject
     {
         public ObservableCollection<WriteType> WriteTypes { get; }
         public ObservableCollection<PcmType> PCMTypes { get; }
 
-        // Properties
-        private WriteType _selectedWriteType;
-        public WriteType SelectedWriteType
-        {
-            get => _selectedWriteType;
-            set => SetProperty(ref _selectedWriteType, value);
-        }
-        private PcmType _selectedPcmType;
-        public PcmType SelectedPCMType
-        {
-            get => _selectedPcmType;
-            set => SetProperty(ref _selectedPcmType, value);
-        }
+        #region Properties
+        [ObservableProperty]
+        public partial WriteType SelectedWriteType { get; set; }
+
+        [ObservableProperty]
+        public partial PcmType SelectedPCMType { get; set; }
+
         // TODO: This property will be used to silence the brick warning when using the "reset pin" to bypass the standard initialization sequence
-        private bool _suppressOSIDWarning;
-        public bool SuppressOSIDWarning
-        {
-            get => _suppressOSIDWarning;
-            set => SetProperty(ref _suppressOSIDWarning, value);
-        }
+        [ObservableProperty]
+        public partial bool SuppressOSIDWarning { get; set; }
+        #endregion
 
         // Events
         public event Action? RequestClose;
         public event Action? RequestAcceptandClose;
 
         // Commands
-        public ICommand CloseCommand { get; }
-        public ICommand AcceptAndCloseCommand { get; }
+        [RelayCommand]
+        public void CloseCommand() => RequestClose?.Invoke();
+        [RelayCommand]
+        public void AcceptAndCloseCommand() => RequestAcceptandClose?.Invoke();
 
         // Constructor
         public WriteTypeViewModel()
@@ -46,9 +39,6 @@ namespace PCMHammer.Viewmodels
             WriteTypes = [WriteType.Full, WriteType.OsPlusCalibrationPlusBoot, WriteType.Parameters];
 
             PCMTypes = [.. Enum.GetValues<PcmType>()];
-
-            CloseCommand = new RelayCommand(() => { RequestClose?.Invoke(); });
-            AcceptAndCloseCommand = new RelayCommand(() => { RequestAcceptandClose?.Invoke(); });
         }
     }
 }

@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
@@ -8,6 +8,7 @@
     <UseWPF>true</UseWPF>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>0411_256px.ico</ApplicationIcon>
+	<LangVersion>14.0</LangVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -26,8 +27,18 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\J2534DotNet\J2534DotNet\J2534DotNet.csproj" />
     <ProjectReference Include="..\..\..\PcmLibrary\PcmLibrary.csproj" />
-    <ProjectReference Include="..\..\..\PcmLibraryWindowsApi\PcmLibraryWindowsApi.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="PcmLibraryWindowsApi">
+      <HintPath>..\..\..\PcmLibraryWindowsApi\bin\Debug\net10.0-windows\PcmLibraryWindowsApi.dll</HintPath>
+    </Reference>
   </ItemGroup>
 
   <ItemGroup>

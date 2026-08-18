@@ -1,38 +1,31 @@
-﻿using PcmHacking;
+﻿using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using PcmHacking;
 using PCMHammer.Helpers;
-using PCMHammer.ViewModels;
 using System.Collections.ObjectModel;
 using System.Windows.Input;
 
 namespace PCMHammer.Viewmodels
 {
-    public partial class PcmSelectViewModel : ViewModelBase
+    public partial class PcmSelectViewModel : ObservableObject
     {
         public ObservableCollection<PcmType> PCMTypes { get; }
 
         // Properties
-        private PcmType _selectedPcmType;
-        public PcmType SelectedPCMType
-        {
-            get => _selectedPcmType;
-            set => SetProperty(ref _selectedPcmType, value);
-        }
+        [ObservableProperty]
+        public partial PcmType SelectedPCMType { get; set; }
 
         // Events
         public event Action? RequestClose;
         public event Action? RequestAcceptandClose;
 
         // Commands
-        public ICommand CloseCommand { get; }
-        public ICommand AcceptAndCloseCommand { get; }
+        [RelayCommand]
+        public void Close() => RequestClose?.Invoke();
+        [RelayCommand]
+        public void AcceptAndClose() => RequestAcceptandClose?.Invoke();
 
         // Constructor
-        public PcmSelectViewModel()
-        {
-            PCMTypes = [.. Enum.GetValues<PcmType>()];
-
-            CloseCommand = new RelayCommand(() => { RequestClose?.Invoke(); });
-            AcceptAndCloseCommand = new RelayCommand(() => { RequestAcceptandClose?.Invoke(); });
-        }
+        public PcmSelectViewModel() => PCMTypes = [.. Enum.GetValues<PcmType>()];
     }
 }

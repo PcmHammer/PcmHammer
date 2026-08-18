@@ -1,57 +1,51 @@
-﻿using PcmHacking;
+﻿using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using PcmHacking;
 using PCMHammer.Helpers;
-using PCMHammer.ViewModels;
 using System.Windows.Input;
 
 namespace PCMHammer.Viewmodels
 {
-    public class ChangeVinViewModel : ViewModelBase
+    public partial class ChangeVinViewModel : ObservableObject
     {
+        #region Actions
         public event Action? RequestCloseOk;
         public event Action? RequestCloseCancel;
+        #endregion
 
-        private string _vin = string.Empty;
-        public string Vin
+        #region Properties
+        [ObservableProperty]
+        public partial string Vin { get; set; } = string.Empty;
+
+        partial void OnVinChanging(string value)
         {
-            get => _vin;
-            set
+            // Sanitize input before the property updates
+            string upperValue = value?.ToUpper() ?? string.Empty;
+
+            if (ValidateVin(upperValue))
             {
-                string upperValue = value?.ToUpper() ?? string.Empty;
-                if (ValidateVin(upperValue))
-                    SetProperty(ref _vin, upperValue);
+                // Update backing field directly when valid
+                Vin = upperValue;
             }
         }
 
-        private string _validationPrompt = "Enter a 17-character VIN.";
-        public string ValidationPrompt
-        {
-            get => _validationPrompt;
-            private set => SetProperty(ref _validationPrompt, value);
-        }
+        [ObservableProperty]
+        private partial string ValidationPrompt { get; set; } = "Enter a 17-character VIN.";
 
-        private bool _isValid;
-        public bool IsValid
-        {
-            get => _isValid;
-            private set => SetProperty(ref _isValid, value);
-        }
+        [ObservableProperty]
+        private partial bool IsValid { get; set; }
+        #endregion
 
-        public ICommand OkCommand { get; }
-        public ICommand CancelCommand { get; }
+        #region Commands
+        [RelayCommand(CanExecute = nameof(IsValid))]
+        public void OkCommand() => RequestCloseOk?.Invoke();
+        [RelayCommand]
+        public void CancelCommand() => RequestCloseCancel?.Invoke();
+        #endregion
 
         public ChangeVinViewModel(string initialVin)
         {
             Vin = initialVin;
-
-            OkCommand = new RelayCommand(
-                execute: () => RequestCloseOk?.Invoke(),
-                canExecute: () => IsValid
-            );
-
-            CancelCommand = new RelayCommand(
-                execute: () => RequestCloseCancel?.Invoke()
-            );
-
             ValidateVin(Vin);
         }
 

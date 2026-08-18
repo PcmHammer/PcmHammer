@@ -23,7 +23,7 @@ namespace PCMHammer.Services
 
         // These fallbacks map to ReadManager expectations if it encounters complex/deep OS query scenarios
         private Task<string> DummyPromptForFile() => Task.FromResult(string.Empty);
-        private Task<uint> DummyPromptForOsId() => Task.FromResult(0U);
+        private Task<PcmType> DummyPromptForOsId() => Task.FromResult(PcmType.Undefined);
 
         public async Task<bool> ReadPcmAsync(
             string path,
