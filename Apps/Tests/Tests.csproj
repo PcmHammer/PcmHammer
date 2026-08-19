@@ -58,6 +58,8 @@
       <HintPath>..\packages\System.Collections.Immutable.7.0.0\lib\netstandard2.0\System.Collections.Immutable.dll</HintPath>
     </Reference>
     <Reference Include="System.Core" />
+    <Reference Include="System.IO.Compression" />
+    <Reference Include="System.IO.Compression.FileSystem" />
     <Reference Include="System.Memory, Version=4.0.1.2, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
       <HintPath>..\packages\System.Memory.4.5.5\lib\net461\System.Memory.dll</HintPath>
     </Reference>
@@ -86,6 +88,8 @@
     <Compile Include="TestScenarios.cs" />
     <Compile Include="ScanToolTests.cs" />
     <Compile Include="MathTests.cs" />
+    <Compile Include="PackageFormatTests.cs" />
+    <Compile Include="FileValidatorTests.cs" />
     <Compile Include="UtilityTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>

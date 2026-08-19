@@ -39,6 +39,22 @@ namespace PcmHacking
     }
 
     /// <summary>
+    /// A flashable slave CPU module: the package <see cref="PackageImage.Target"/> it maps to (e.g.
+    /// "slave-os"), and the DID that reports its part number.
+    /// </summary>
+    public readonly struct SlaveModuleId
+    {
+        public string Target { get; }
+        public byte Did { get; }
+
+        public SlaveModuleId(string target, byte did)
+        {
+            this.Target = target;
+            this.Did = did;
+        }
+    }
+
+    /// <summary>
     /// This combines various metadata about whatever PCM we've connected to.
     /// </summary>
     /// <remarks>
@@ -104,6 +120,11 @@ namespace PcmHacking
         /// Does it have a slave CPU?
         /// </summary>
         public bool HardwareSlaveCPU { get; private set; }
+
+        /// <summary>
+        /// The slave CPU's flashable modules. Empty for PCMs without a distinct slave module.
+        /// </summary>
+        public IReadOnlyList<SlaveModuleId> SlaveModules { get; private set; } = Array.Empty<SlaveModuleId>();
 
         /// <summary>
         /// Name of the kernel file to use. The generic kernel for this PCM; used for any
@@ -241,6 +262,7 @@ namespace PcmHacking
             this.HardwareType = PcmType.Undefined;
             this.ServiceNumber = 0;
             this.HardwareSlaveCPU = false;
+            this.SlaveModules = Array.Empty<SlaveModuleId>();
             this.KernelFileName = string.Empty;
             this.ReadKernelFileName = string.Empty;
             this.WriteKernelFileName = string.Empty;
@@ -591,6 +613,12 @@ namespace PcmHacking
                     this.Description = "E38";
                     this.HardwareType = PcmType.E38;
                     this.HardwareSlaveCPU = true;
+                    // The slave CPU's two flash modules, and the SWMI DIDs that report their part numbers.
+                    this.SlaveModules = new[]
+                    {
+                        new SlaveModuleId("slave-os", 0xC9),          // SWMI 09
+                        new SlaveModuleId("slave-calibration", 0xCA), // SWMI 10
+                    };
                     this.IsSupported = true;
                     this.IsSupportedRead = true;
                     this.IsSupportedWrite = true;
