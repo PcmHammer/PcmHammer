@@ -207,22 +207,39 @@ public partial record ReadModel : IAsyncLogger
 
     private async Task performRead(string path, ConnectionLease lease, ReadManager readManager, IProgress<ProgressUpdate>? progress = null)
     {
-        Stream? readContents = null;
+        // Save as a .phz package (master image + any slave references) when the chosen file is .phz;
+        // otherwise write the raw master image, as before.
+        bool asPackage = _selectedFile != null
+            && System.IO.Path.GetExtension(_selectedFile.Name).Equals(".phz", StringComparison.OrdinalIgnoreCase);
+
         try
         {
-            readContents = await readManager.Read(progress);
+            if (asPackage)
+            {
+                PcmPackage? package = await readManager.ReadToPackage(progress);
+                if (_selectedFile != null && package != null)
+                {
+                    Stream writeStream = await _selectedFile.OpenStreamForWriteAsync();
+                    PackageStore.Save(writeStream, package, _selectedFile.Name);
+                    await writeStream.DisposeAsync();
+                }
+            }
+            else
+            {
+                Stream? readContents = await readManager.Read(progress);
+                if (_selectedFile != null && readContents != null)
+                {
+                    Stream writeStream = await _selectedFile.OpenStreamForWriteAsync();
+                    await readContents.CopyToAsync(writeStream);
+                    await writeStream.DisposeAsync();
+                }
+            }
         }
         catch (Exception exception)
         {
             await this.AddUserMessage(exception.Message);
             await this.AddDebugMessage(exception.ToString());
             throw;
-        }
-        if (_selectedFile != null && readContents != null)
-        {
-            Stream writeStream = await _selectedFile.OpenStreamForWriteAsync();
-            await readContents.CopyToAsync(writeStream);
-            await writeStream.DisposeAsync();
         }
     }
 
@@ -295,6 +312,7 @@ public partial record ReadModel : IAsyncLogger
         this.platformService.PrepareChildWindow(savePicker);
         savePicker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
         savePicker.FileTypeChoices.Add("Binary", new List<string>() { ".bin" });
+        savePicker.FileTypeChoices.Add("PcmHammer package", new List<string>() { ".phz" });
         savePicker.SuggestedFileName = "Untitled.bin";
         StorageFile file = await savePicker.PickSaveFileAsync();
         if (file == null)
