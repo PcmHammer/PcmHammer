@@ -33,12 +33,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\..\J2534DotNet\J2534DotNet\J2534DotNet.csproj" />
     <ProjectReference Include="..\..\..\PcmLibrary\PcmLibrary.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Reference Include="PcmLibraryWindowsApi">
-      <HintPath>..\..\..\PcmLibraryWindowsApi\bin\Debug\net10.0-windows\PcmLibraryWindowsApi.dll</HintPath>
-    </Reference>
+    <ProjectReference Include="..\..\..\PcmLibraryWindowsApi\PcmLibraryWindowsApi.csproj" />
   </ItemGroup>
 
   <ItemGroup>

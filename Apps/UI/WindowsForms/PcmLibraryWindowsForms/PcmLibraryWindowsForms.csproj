@@ -84,6 +84,10 @@
       <Project>{d99e0de7-2f06-41e3-b33e-687e1b425a7f}</Project>
       <Name>J2534DotNet</Name>
     </ProjectReference>
+    <ProjectReference Include="..\..\..\PcmLibraryWindowsApi\PcmLibraryWindowsApi.csproj">
+      <Project>{b11a7f04-2131-4f04-b5c3-528eb177c0b6}</Project>
+      <Name>PcmLibraryWindowsApi</Name>
+    </ProjectReference>
     <ProjectReference Include="..\..\..\PcmLibrary\PcmLibrary.csproj">
       <Project>{0b317c5a-e078-4a96-8e7a-00601bca1429}</Project>
       <Name>PcmLibrary</Name>

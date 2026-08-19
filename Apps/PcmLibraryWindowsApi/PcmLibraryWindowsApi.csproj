@@ -7,6 +7,9 @@
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <Deterministic>true</Deterministic>
+    <!-- This project keeps its metadata in Properties/AssemblyInfo.cs. Without this the SDK
+         generates a second set of the same attributes and every build fails with CS0579. -->
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <!-- Some PackageReferences (e.g. System.Management) carry runtime-specific assets; VS
          msbuild's NuGet asset resolver requires a RuntimeIdentifier to pick them, otherwise
          it errors. net48 only ever runs on Windows, so pin 'win'. (dotnet build does not

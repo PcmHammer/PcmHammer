@@ -133,8 +133,8 @@ namespace PcmHacking
         }
 
         /// <summary>
-        /// Opens the named kernel file. The file must be in the same directory as the EXE,
-        /// or embedded in the executable (single-file builds).
+        /// Opens the named kernel file. The file must be in the same directory as the EXE, in a
+        /// Kernels subfolder of it, or embedded in the executable (single-file builds).
         /// </summary>
         public async Task<Response<byte[]>> LoadKernelFromFile(string path)
         {
@@ -155,11 +155,19 @@ namespace PcmHacking
             {
                 finalDir = _basePath;
             }
-            path = Path.Combine(finalDir, path);
 
-            // A loose file on disk takes precedence, so --kernel-dir (or a .bin dropped next to the
-            // exe) can override the build. When there is none, fall back to a copy embedded in the
-            // executable, which is how the single-file Linux build ships its kernels.
+            // A loose file next to the exe takes precedence, so --kernel-dir (or a .bin dropped
+            // there) can override the build. Otherwise look in the Kernels subfolder the build
+            // deploys to.
+            string subfolderPath = Path.Combine(finalDir, "Kernels", Path.GetFileName(path));
+            path = Path.Combine(finalDir, path);
+            if (!File.Exists(path) && File.Exists(subfolderPath))
+            {
+                path = subfolderPath;
+            }
+
+            // With no file either way, fall back to a copy embedded in the executable, which is how
+            // the single-file build ships its kernels.
             if (!File.Exists(path))
             {
                 byte[]? embedded = TryLoadEmbeddedKernel(Path.GetFileName(path));
