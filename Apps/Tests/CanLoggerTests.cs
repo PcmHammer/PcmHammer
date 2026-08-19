@@ -37,12 +37,21 @@ namespace Tests
             logger.UseDatabaseKeys();
             logger.DataReceived(data, data.Length);
 
-            IEnumerable<CanLogger.ParameterAndValue> results = logger.GetParameterValues();
+            // Every row carries the same columns, so UseDatabaseKeys seeds each known parameter and a
+            // row is always returned. An unknown message is ignored by leaving those seeded values
+            // alone, not by returning nothing.
+            IList<CanLogger.ParameterAndValue> results = logger.GetParameterValues().ToArray();
             Assert.IsNotNull(results);
-            CanLogger.ParameterAndValue result = results.FirstOrDefault();
-            Assert.IsNull(result);
+            CollectionAssert.AreEqual(
+                new[] { "1", "21", "22" },
+                results.Select(x => x.Parameter.Id).ToArray(),
+                "an unknown message must not add a parameter");
 
-            // If we wanted to log unexpected messages, we could... not sure it's a good idea though.
+            foreach (CanLogger.ParameterAndValue result in results)
+            {
+                Assert.AreEqual(0, result.ValueAsNumber, "valueAsNumber for " + result.Parameter.Id);
+                Assert.AreEqual("0", result.ValueAsString, "valueAsString for " + result.Parameter.Id);
+            }
         }
 
         [TestMethod]
