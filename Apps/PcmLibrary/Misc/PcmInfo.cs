@@ -39,6 +39,22 @@ namespace PcmHacking
     }
 
     /// <summary>
+    /// A flashable slave CPU module: the package <see cref="PackageImage.Target"/> it maps to (e.g.
+    /// "slave-os"), and the DID that reports its part number.
+    /// </summary>
+    public readonly struct SlaveModuleId
+    {
+        public string Target { get; }
+        public byte Did { get; }
+
+        public SlaveModuleId(string target, byte did)
+        {
+            this.Target = target;
+            this.Did = did;
+        }
+    }
+
+    /// <summary>
     /// This combines various metadata about whatever PCM we've connected to.
     /// </summary>
     /// <remarks>
@@ -106,6 +122,11 @@ namespace PcmHacking
         public bool HardwareSlaveCPU { get; private set; }
 
         /// <summary>
+        /// The slave CPU's flashable modules. Empty for PCMs without a distinct slave module.
+        /// </summary>
+        public IReadOnlyList<SlaveModuleId> SlaveModules { get; private set; } = Array.Empty<SlaveModuleId>();
+
+        /// <summary>
         /// Name of the kernel file to use. The generic kernel for this PCM; used for any
         /// operation that does not have an operation-specific kernel defined below.
         /// </summary>
@@ -144,6 +165,65 @@ namespace PcmHacking
         /// Address at which the uploaded kernel begins executing. Usually the kernel base, but some
         /// </summary>
         public int KernelRunAddress { get; private set; }
+
+        /// <summary>
+        /// Indicates whether this PCM can be programmed through its resident boot loader.
+        /// </summary>
+        public bool IsSupportedBootLoaderWrite { get; private set; }
+
+        /// <summary>
+        /// Address the boot loader stages module data at, before programming the flash named by the
+        /// module header.
+        /// </summary>
+        public uint BootLoaderStagingAddress { get; private set; }
+
+        /// <summary>
+        /// Maximum boot loader download message length, including the six byte TransferData header.
+        /// </summary>
+        public int BootLoaderBlockSize { get; private set; }
+
+        /// <summary>
+        /// Length of the master OS module header, which is sent as a message of its own ahead of the
+        /// module data.
+        /// </summary>
+        public int BootLoaderMasterHeaderLength { get; private set; }
+
+        /// <summary>
+        /// Length of the slave OS module header, which is sent as a message of its own ahead of the
+        /// module data.
+        /// </summary>
+        public int BootLoaderSlaveHeaderLength { get; private set; }
+
+        /// <summary>
+        /// DID of the handshake that starts the master burn.
+        /// </summary>
+        public byte BootLoaderMasterHandshakeDid { get; private set; }
+
+        /// <summary>
+        /// DID of the handshake that engages the slave.
+        /// </summary>
+        public byte BootLoaderSlaveHandshakeDid { get; private set; }
+
+        /// <summary>
+        /// Name of the flash routine file the boot loader runs to program the master.
+        /// </summary>
+        public string BootLoaderMasterLibraryFileName { get; private set; } = string.Empty;
+
+        /// <summary>
+        /// Name of the flash routine file the boot loader relays to the slave to program it.
+        /// </summary>
+        public string BootLoaderSlaveDriverFileName { get; private set; } = string.Empty;
+
+        /// <summary>
+        /// Start of the SRAM parameter mirror the boot loader write fills with 0xFF, so the stale mirror
+        /// is not saved back over the new parameter flash at shutdown. 0 disables the fill.
+        /// </summary>
+        public uint SramEraseStart { get; private set; }
+
+        /// <summary>
+        /// Length of the <see cref="SramEraseStart"/> range. 0 disables the fill.
+        /// </summary>
+        public uint SramEraseLength { get; private set; }
 
         /// <summary>
         /// Which GMLAN protocol variant this CAN PCM speaks (None for non-CAN PCMs). Selects the
@@ -241,11 +321,23 @@ namespace PcmHacking
             this.HardwareType = PcmType.Undefined;
             this.ServiceNumber = 0;
             this.HardwareSlaveCPU = false;
+            this.SlaveModules = Array.Empty<SlaveModuleId>();
             this.KernelFileName = string.Empty;
             this.ReadKernelFileName = string.Empty;
             this.WriteKernelFileName = string.Empty;
             this.KernelBaseAddress = 0x0;
             this.KernelRunAddress = 0x0;
+            this.IsSupportedBootLoaderWrite = false;
+            this.BootLoaderStagingAddress = 0x0;
+            this.BootLoaderBlockSize = 0x0;
+            this.BootLoaderMasterHeaderLength = 0x0;
+            this.BootLoaderSlaveHeaderLength = 0x0;
+            this.BootLoaderMasterHandshakeDid = 0x0;
+            this.BootLoaderSlaveHandshakeDid = 0x0;
+            this.BootLoaderMasterLibraryFileName = string.Empty;
+            this.BootLoaderSlaveDriverFileName = string.Empty;
+            this.SramEraseStart = 0x0;
+            this.SramEraseLength = 0x0;
             this.GMLANProtocol = GMLANProtocol.None;
             this.BusProtocol = BusProtocol.Vpw;
             this.LoaderFileName = string.Empty;
@@ -591,6 +683,12 @@ namespace PcmHacking
                     this.Description = "E38";
                     this.HardwareType = PcmType.E38;
                     this.HardwareSlaveCPU = true;
+                    // The slave CPU's two flash modules, and the SWMI DIDs that report their part numbers.
+                    this.SlaveModules = new[]
+                    {
+                        new SlaveModuleId("slave-os", 0xC9),          // SWMI 09
+                        new SlaveModuleId("slave-calibration", 0xCA), // SWMI 10
+                    };
                     this.IsSupported = true;
                     this.IsSupportedRead = true;
                     this.IsSupportedWrite = true;
@@ -599,6 +697,20 @@ namespace PcmHacking
                     this.KernelFileName = "Kernel-E38.bin";
                     this.KernelBaseAddress = 0x003FC430;
                     this.KernelRunAddress = 0x003FC434;
+                    this.IsSupportedBootLoaderWrite = true;
+                    this.BootLoaderStagingAddress = 0x003F9090;
+                    this.BootLoaderBlockSize = 0x0FFE;
+                    this.BootLoaderMasterHeaderLength = 0x800;
+                    this.BootLoaderSlaveHeaderLength = 0x80;
+                    this.BootLoaderMasterHandshakeDid = 0xC1;
+                    this.BootLoaderSlaveHandshakeDid = 0xC9;
+                    this.BootLoaderMasterLibraryFileName = "e38-master.bin";
+                    this.BootLoaderSlaveDriverFileName = "e38-slave.bin";
+                    // The mirror's validity marker lives below the staging address, so the fill survives
+                    // the module data that later streams over the top of this range. 0x2000 covers the
+                    // mirror and stays below the kernel base.
+                    this.SramEraseStart = 0x003F8000;
+                    this.SramEraseLength = 0x2000;
                     this.ImageBaseAddress = 0x0;
                     this.ImageSize = 2048 * 1024;
                     this.KeyAlgorithm = 0x92;

@@ -37,7 +37,7 @@ namespace J2534DotNet
         static public List<J2534Device> ListDevices()
         {
             List<J2534Device> j2534Devices = new List<J2534Device>();
-            RegistryKey myKey = Registry.LocalMachine.OpenSubKey(PASSTHRU_REGISTRY_PATH, false);
+            RegistryKey? myKey = Registry.LocalMachine.OpenSubKey(PASSTHRU_REGISTRY_PATH, false);
             if (myKey == null)
             {
                 myKey = Registry.LocalMachine.OpenSubKey(PASSTHRU_REGISTRY_PATH_6432, false);
@@ -48,7 +48,7 @@ namespace J2534DotNet
             foreach (string device in devices)
             {
                 J2534Device tempDevice = new J2534Device();
-                RegistryKey deviceKey = myKey.OpenSubKey(device);
+                RegistryKey? deviceKey = myKey.OpenSubKey(device);
                 if(deviceKey == null)
                     continue;
                 tempDevice.Vendor = deviceKey.GetValue("Vendor", "") as string ?? string.Empty;

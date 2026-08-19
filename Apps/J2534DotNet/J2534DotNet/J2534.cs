@@ -131,7 +131,7 @@ namespace J2534DotNet
                 for (int i = 0; i < numMsgs; i++)
                 {
                     pNextMsg = (IntPtr)(Marshal.SizeOf(typeof(UnsafePassThruMsg)) * i + (int)pMsg);
-                    UnsafePassThruMsg uMsg = (UnsafePassThruMsg)Marshal.PtrToStructure(pMsg, typeof(UnsafePassThruMsg));
+                    UnsafePassThruMsg uMsg = Marshal.PtrToStructure<UnsafePassThruMsg>(pMsg);
                     msgs.Add(ConvertPassThruMsg(uMsg));
                 }
             }

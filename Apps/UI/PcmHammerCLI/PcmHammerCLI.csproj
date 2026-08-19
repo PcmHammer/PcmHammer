@@ -75,6 +75,22 @@
     <PackageReference Include="Costura.Fody">
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
+    <!-- PcmLibrary parses package manifests with Newtonsoft.Json. Costura embeds project references but
+         not transitive package assets, so this ships as a loose dll next to the exe. -->
+    <PackageReference Include="Newtonsoft.Json" GeneratePathProperty="true" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="$(PkgNewtonsoft_Json)\lib\net45\Newtonsoft.Json.dll">
+      <Link>Newtonsoft.Json.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Visible>false</Visible>
+    </Content>
+    <!-- Boot loader support files, shared with the WinForms build. Copied next to the exe, where
+         SlaveLibrary looks for them. -->
+    <Content Include="..\WindowsForms\PcmHammer\SlaveLibrary\*.bin">
+      <Link>SlaveLibrary\%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
   <Target Name="Date" BeforeTargets="CoreCompile">
     <!-- BuildTicks can be passed in (/p:BuildTicks=...) so every assembly in one build

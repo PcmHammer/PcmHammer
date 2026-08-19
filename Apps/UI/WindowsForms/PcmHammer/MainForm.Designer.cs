@@ -41,6 +41,11 @@ namespace PcmHacking
             this.cancelButton = new System.Windows.Forms.Button();
             this.writeCalibrationButton = new System.Windows.Forms.Button();
             this.identifyPcmButton = new System.Windows.Forms.Button();
+            this.fileBox = new System.Windows.Forms.GroupBox();
+            this.loadedFileLabel = new System.Windows.Forms.Label();
+            this.loadFileButton = new System.Windows.Forms.Button();
+            this.saveFileButton = new System.Windows.Forms.Button();
+            this.exportBinButton = new System.Windows.Forms.Button();
             this.tabs = new System.Windows.Forms.TabControl();
             this.resultsTab = new System.Windows.Forms.TabPage();
             this.userLog = new PcmHacking.LogListView();
@@ -52,6 +57,13 @@ namespace PcmHacking
             this.debugLog = new PcmHacking.LogListView();
             this.menuStripMain = new System.Windows.Forms.MenuStrip();
             this.fileToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.loadFileToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.saveFileToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.saveFileAsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.importBinToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.exportBinToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.fileSeparator1 = new System.Windows.Forms.ToolStripSeparator();
+            this.fileSeparator2 = new System.Windows.Forms.ToolStripSeparator();
             this.saveToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.saveResultsLogToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.saveDebugLogToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -83,6 +95,7 @@ namespace PcmHacking
             this.toolStripSeparator2 = new System.Windows.Forms.ToolStripSeparator();
             this.interfaceBox.SuspendLayout();
             this.operationsBox.SuspendLayout();
+            this.fileBox.SuspendLayout();
             this.tabs.SuspendLayout();
             this.resultsTab.SuspendLayout();
             this.helpTab.SuspendLayout();
@@ -149,7 +162,7 @@ namespace PcmHacking
             this.operationsBox.Controls.Add(this.cancelButton);
             this.operationsBox.Controls.Add(this.writeCalibrationButton);
             this.operationsBox.Controls.Add(this.identifyPcmButton);
-            this.operationsBox.Location = new System.Drawing.Point(9, 155);
+            this.operationsBox.Location = new System.Drawing.Point(9, 290);
             this.operationsBox.Margin = new System.Windows.Forms.Padding(2);
             this.operationsBox.Name = "operationsBox";
             this.operationsBox.Padding = new System.Windows.Forms.Padding(2);
@@ -236,9 +249,68 @@ namespace PcmHacking
             this.identifyPcmButton.Text = "&Identify PCM";
             this.identifyPcmButton.UseVisualStyleBackColor = true;
             this.identifyPcmButton.Click += new System.EventHandler(this.identifyPcmButton_Click);
-            // 
+            //
+            // fileBox
+            //
+            this.fileBox.Controls.Add(this.loadedFileLabel);
+            this.fileBox.Controls.Add(this.loadFileButton);
+            this.fileBox.Controls.Add(this.saveFileButton);
+            this.fileBox.Controls.Add(this.exportBinButton);
+            this.fileBox.Location = new System.Drawing.Point(9, 124);
+            this.fileBox.Margin = new System.Windows.Forms.Padding(2);
+            this.fileBox.Name = "fileBox";
+            this.fileBox.Padding = new System.Windows.Forms.Padding(2);
+            this.fileBox.Size = new System.Drawing.Size(190, 133);
+            this.fileBox.TabIndex = 1;
+            this.fileBox.TabStop = false;
+            this.fileBox.Text = "File";
+            //
+            // loadedFileLabel
+            //
+            this.loadedFileLabel.AutoSize = false;
+            this.loadedFileLabel.AutoEllipsis = true;
+            this.loadedFileLabel.Location = new System.Drawing.Point(4, 16);
+            this.loadedFileLabel.Margin = new System.Windows.Forms.Padding(2, 0, 2, 0);
+            this.loadedFileLabel.Name = "loadedFileLabel";
+            this.loadedFileLabel.Size = new System.Drawing.Size(182, 28);
+            this.loadedFileLabel.TabIndex = 0;
+            this.loadedFileLabel.Text = "No file loaded";
+            //
+            // loadFileButton
+            //
+            this.loadFileButton.Location = new System.Drawing.Point(4, 47);
+            this.loadFileButton.Margin = new System.Windows.Forms.Padding(2);
+            this.loadFileButton.Name = "loadFileButton";
+            this.loadFileButton.Size = new System.Drawing.Size(182, 25);
+            this.loadFileButton.TabIndex = 1;
+            this.loadFileButton.Text = "&Load File...";
+            this.loadFileButton.UseVisualStyleBackColor = true;
+            this.loadFileButton.Click += new System.EventHandler(this.loadFileButton_Click);
+            //
+            // saveFileButton
+            //
+            this.saveFileButton.Location = new System.Drawing.Point(4, 74);
+            this.saveFileButton.Margin = new System.Windows.Forms.Padding(2);
+            this.saveFileButton.Name = "saveFileButton";
+            this.saveFileButton.Size = new System.Drawing.Size(182, 25);
+            this.saveFileButton.TabIndex = 2;
+            this.saveFileButton.Text = "&Save File...";
+            this.saveFileButton.UseVisualStyleBackColor = true;
+            this.saveFileButton.Click += new System.EventHandler(this.saveFileButton_Click);
+            //
+            // exportBinButton
+            //
+            this.exportBinButton.Location = new System.Drawing.Point(4, 101);
+            this.exportBinButton.Margin = new System.Windows.Forms.Padding(2);
+            this.exportBinButton.Name = "exportBinButton";
+            this.exportBinButton.Size = new System.Drawing.Size(182, 25);
+            this.exportBinButton.TabIndex = 3;
+            this.exportBinButton.Text = "&Export Bin...";
+            this.exportBinButton.UseVisualStyleBackColor = true;
+            this.exportBinButton.Click += new System.EventHandler(this.exportBinButton_Click);
+            //
             // tabs
-            // 
+            //
             this.tabs.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
             | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
@@ -250,7 +322,7 @@ namespace PcmHacking
             this.tabs.Margin = new System.Windows.Forms.Padding(2);
             this.tabs.Name = "tabs";
             this.tabs.SelectedIndex = 0;
-            this.tabs.Size = new System.Drawing.Size(727, 455);
+            this.tabs.Size = new System.Drawing.Size(727, 590);
             this.tabs.TabIndex = 2;
             // 
             // resultsTab
@@ -356,11 +428,66 @@ namespace PcmHacking
             // fileToolStripMenuItem
             // 
             this.fileToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.loadFileToolStripMenuItem,
+            this.saveFileToolStripMenuItem,
+            this.saveFileAsToolStripMenuItem,
+            this.fileSeparator1,
+            this.importBinToolStripMenuItem,
+            this.exportBinToolStripMenuItem,
+            this.fileSeparator2,
             this.saveToolStripMenuItem,
             this.exitApplicationToolStripMenuItem});
             this.fileToolStripMenuItem.Name = "fileToolStripMenuItem";
             this.fileToolStripMenuItem.Size = new System.Drawing.Size(37, 20);
             this.fileToolStripMenuItem.Text = "&File";
+            //
+            // loadFileToolStripMenuItem
+            //
+            this.loadFileToolStripMenuItem.Name = "loadFileToolStripMenuItem";
+            this.loadFileToolStripMenuItem.Size = new System.Drawing.Size(200, 22);
+            this.loadFileToolStripMenuItem.Text = "&Load File...";
+            this.loadFileToolStripMenuItem.ShortcutKeys = ((System.Windows.Forms.Keys)((System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.O)));
+            this.loadFileToolStripMenuItem.Click += new System.EventHandler(this.loadFileButton_Click);
+            //
+            // saveFileToolStripMenuItem
+            //
+            this.saveFileToolStripMenuItem.Name = "saveFileToolStripMenuItem";
+            this.saveFileToolStripMenuItem.Size = new System.Drawing.Size(200, 22);
+            this.saveFileToolStripMenuItem.Text = "Save &File...";
+            this.saveFileToolStripMenuItem.ShortcutKeys = ((System.Windows.Forms.Keys)((System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.S)));
+            this.saveFileToolStripMenuItem.Click += new System.EventHandler(this.saveFileButton_Click);
+            //
+            // saveFileAsToolStripMenuItem
+            //
+            this.saveFileAsToolStripMenuItem.Name = "saveFileAsToolStripMenuItem";
+            this.saveFileAsToolStripMenuItem.Size = new System.Drawing.Size(200, 22);
+            this.saveFileAsToolStripMenuItem.Text = "Save File &As...";
+            this.saveFileAsToolStripMenuItem.Click += new System.EventHandler(this.saveFileAsMenuItem_Click);
+            //
+            // importBinToolStripMenuItem
+            //
+            this.importBinToolStripMenuItem.Name = "importBinToolStripMenuItem";
+            this.importBinToolStripMenuItem.Size = new System.Drawing.Size(200, 22);
+            this.importBinToolStripMenuItem.Text = "Import &Bin...";
+            this.importBinToolStripMenuItem.Visible = false;
+            this.importBinToolStripMenuItem.Click += new System.EventHandler(this.importBinButton_Click);
+            //
+            // exportBinToolStripMenuItem
+            //
+            this.exportBinToolStripMenuItem.Name = "exportBinToolStripMenuItem";
+            this.exportBinToolStripMenuItem.Size = new System.Drawing.Size(200, 22);
+            this.exportBinToolStripMenuItem.Text = "&Export Bin...";
+            this.exportBinToolStripMenuItem.Click += new System.EventHandler(this.exportBinButton_Click);
+            //
+            // fileSeparator1
+            //
+            this.fileSeparator1.Name = "fileSeparator1";
+            this.fileSeparator1.Size = new System.Drawing.Size(197, 6);
+            //
+            // fileSeparator2
+            //
+            this.fileSeparator2.Name = "fileSeparator2";
+            this.fileSeparator2.Size = new System.Drawing.Size(197, 6);
             // 
             // saveToolStripMenuItem
             // 
@@ -602,10 +729,11 @@ namespace PcmHacking
             this.AcceptButton = this.identifyPcmButton;
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(939, 513);
+            this.ClientSize = new System.Drawing.Size(939, 650);
             this.Controls.Add(this.statusStatusStrip);
             this.Controls.Add(this.tabs);
             this.Controls.Add(this.operationsBox);
+            this.Controls.Add(this.fileBox);
             this.Controls.Add(this.interfaceBox);
             this.Controls.Add(this.menuStripMain);
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
@@ -617,6 +745,7 @@ namespace PcmHacking
             this.Load += new System.EventHandler(this.MainForm_Load);
             this.interfaceBox.ResumeLayout(false);
             this.operationsBox.ResumeLayout(false);
+            this.fileBox.ResumeLayout(false);
             this.tabs.ResumeLayout(false);
             this.resultsTab.ResumeLayout(false);
             this.resultsTab.PerformLayout();
@@ -637,6 +766,11 @@ namespace PcmHacking
 
         private System.Windows.Forms.GroupBox interfaceBox;
         private System.Windows.Forms.GroupBox operationsBox;
+        private System.Windows.Forms.GroupBox fileBox;
+        private System.Windows.Forms.Label loadedFileLabel;
+        private System.Windows.Forms.Button loadFileButton;
+        private System.Windows.Forms.Button saveFileButton;
+        private System.Windows.Forms.Button exportBinButton;
         private System.Windows.Forms.Button verifyPcmButton;
         private System.Windows.Forms.Button readPcmButton;
         private System.Windows.Forms.Button writeCalibrationButton;
@@ -667,6 +801,13 @@ namespace PcmHacking
         private System.Windows.Forms.ToolStripMenuItem writeFullToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem settingsToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem fileToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem loadFileToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem saveFileToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem saveFileAsToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem importBinToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem exportBinToolStripMenuItem;
+        private System.Windows.Forms.ToolStripSeparator fileSeparator1;
+        private System.Windows.Forms.ToolStripSeparator fileSeparator2;
         private System.Windows.Forms.ToolStripMenuItem saveToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem saveResultsLogToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem saveDebugLogToolStripMenuItem;

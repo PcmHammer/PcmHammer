@@ -218,7 +218,10 @@ namespace PcmHacking
                     break;
 
                 case WriteType.TestWrite:
-                    relevantBlocks = BlockType.Calibration;
+                    // Can't write by segment: only a whole-image write is possible, so test all of it.
+                    relevantBlocks = this.pcmInfo.IsSupportedWriteBySegment
+                        ? BlockType.Calibration
+                        : BlockType.All;
                     break;
 
                 case WriteType.Calibration:

@@ -21,6 +21,7 @@
         <li><a target="_self" href="#devices">Supported Devices</a></li>
         <li><a target="_self" href="#pcms">Supported PCMs</a></li>
         <li><a target="_self" href="#basics">Basic Operations</a></li>
+        <li><a target="_self" href="#files">Working with Files</a></li>
         <li><a target="_self" href="#online">Getting Help Online</a></li>
         <li><a target="_self" href="#licensing">Licensing</a></li>
         <li><a target="_self" href="#contributing">Contributing</a></li>
@@ -145,6 +146,30 @@
 
     <h4>Write Full Flash (Clone)</h4>
     <p>Erases and reprograms the entire contents of the PCM's flash memory. To the best of our knowledge, this makes the target PCM indistinguishable from the original.</p>
+
+    <hr />
+
+    <h3 id="files">Working with Files</h3>
+
+    <p>PCM Hammer keeps one <b>loaded file</b> in memory - the working document. Reading a PCM fills it, and the Load File button opens one from disk. The Save File button writes it out, and Write, Test Write and Verify act on it. The window title shows the loaded file's name, with a "*" when it has unsaved changes. Save, Import Bin, Export Bin, Write, Test Write and Verify stay greyed out until a file is loaded.</p>
+
+    <h4>Two file types</h4>
+    <p>A <b>.bin</b> is a single raw flash image - the same file TunerPro and Universal Patcher edit. A <b>.phz</b> is a PCM Hammer <i>package</i>: it holds the main image together with a manifest (operating system ID, VIN, integrity checksums) and, for a PCM that has a throttle (slave) processor such as the E38, a record of which slave modules the PCM uses. The slave is stored <i>by reference</i> - its part numbers, not its bytes - because the slave cannot be read; PCM Hammer supplies the matching slave data from its own local library when you write.</p>
+
+    <h4>Load File</h4>
+    <p>Opens a .phz or a .bin into memory. A .bin becomes a main-image-only document; a .phz restores the full package. If a document you have loaded is a bare main image for a PCM that needs a slave (for example a downloaded E38 .bin), PCM Hammer says so: you can still write it - the master is programmed and the PCM's existing slave is left in place - but it is not a complete package.</p>
+
+    <h4>Save File / Save File As</h4>
+    <p>Writes the working document to disk. A complete package can be saved as either a .phz (which keeps the metadata and the slave record) or a plain .bin. A document that is only a main image for a slave PCM can be saved <i>only as a .bin</i>: PCM Hammer will not write a .phz that is missing modules, so a package on disk is always complete.</p>
+
+    <h4>Read</h4>
+    <p>Reads the PCM into the working document (rather than straight to a file) and then offers to save it. Choose .phz to keep the slave record and checksums; choose .bin for a plain image. Either way the read stays loaded, so you can write it to another PCM straight away.</p>
+
+    <h4>Export Bin</h4>
+    <p>Writes the main image out as a raw .bin so you can edit it in TunerPro or Universal Patcher. A picker lists the images in the document (the main image is selected by default). Each selection is written as <code>&lt;name&gt;_&lt;PCM type&gt;_&lt;module&gt;.bin</code>, for example <code>corvette_E38_main.bin</code>.</p>
+
+    <h4>Import Bin</h4>
+    <p>Brings an edited .bin back into the loaded package, replacing the main image while keeping the rest of the package (such as the slave record). PCM Hammer identifies and checksum-validates the file first; a corrupt or unrecognised file is refused. If the package's slave was recorded for one operating system and the imported image is a different one, PCM Hammer warns that the recorded slave may no longer match. The usual round trip is: read a PCM, save the .phz, Export Bin, edit it, Import Bin, then write.</p>
 
     <hr />
 

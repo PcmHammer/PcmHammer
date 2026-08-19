@@ -22,6 +22,13 @@ namespace PcmHacking
         private Func<string, string, Task<bool>> promptForYesNo;
         private CancellationToken cancellationToken;
 
+        // Slave modules identified by part number. A slave cannot be read, so the package records a
+        // reference to each one rather than its bytes.
+        private readonly List<PackageImage> capturedSlaveReferences = new List<PackageImage>();
+
+        // Stateless message factory, for parsing DID responses.
+        private static readonly Gmlan gmlan = new Gmlan();
+
         public int CrcPollingDelayMs { get; set; } = 50;
 
         public ReadManager(
@@ -64,23 +71,27 @@ namespace PcmHacking
                 logger.AddUserMessage("##############################################################################");
             }
 
-            // Save the contents to the path that the user provided.
+            // Wrap the image so the save dialog's extension picks the format: a raw .bin, or a .phz with
+            // a manifest and integrity checksums.
+            readContents.Position = 0;
+            byte[] image;
+            using (MemoryStream buffer = new MemoryStream())
+            {
+                await readContents.CopyToAsync(buffer);
+                image = buffer.ToArray();
+            }
+
+            PcmPackage package = BuildPackage(image, forcedPcmType);
+
             while (true)
             {
                 try
                 {
                     logger.AddUserMessage("Saving contents to " + path);
-
-                    readContents.Position = 0;
-
-                    using (Stream output = File.Open(path, FileMode.Create))
-                    {
-                        await readContents.CopyToAsync(output);
-                    }
-
+                    PackageStore.Save(path, package);
                     return true;
                 }
-                catch (IOException exception)
+                catch (Exception exception) when (exception is IOException || exception is PackageException)
                 {
                     logger.AddUserMessage("Unable to save file: " + exception.Message);
                     logger.AddDebugMessage(exception.ToString());
@@ -89,13 +100,138 @@ namespace PcmHacking
                     await this.invoke(async () => newPath = await this.promptForFilePath());
                     if (newPath == null)
                     {
+                        // The read worked; the user just chose not to keep the file.
                         logger.AddUserMessage("Save canceled.");
-
-                        // Returning true to indicate that the read worked. It doesn't
-                        // really matter that the user chose not to keep the file.
                         return true;
                     }
                     path = newPath;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Read the PCM's main flash and return it as an in-memory package, without saving. The UI holds
+        /// this as its working document and saves it separately. Null on failure or abort; an unverified
+        /// read still returns the package (the caller is warned) so it can be saved for debugging.
+        /// </summary>
+        public Task<PcmPackage?> ReadToPackage(PcmType forcedPcmType = PcmType.Undefined) =>
+            this.ReadToPackage(null, forcedPcmType);
+
+        /// <summary>As <see cref="ReadToPackage(PcmType)"/>, reporting progress during the read.</summary>
+        public async Task<PcmPackage?> ReadToPackage(IProgress<ProgressUpdate>? progress, PcmType forcedPcmType = PcmType.Undefined)
+        {
+            Response<Stream>? readResponse = await RunRead(progress, forcedPcmType);
+            if (readResponse == null || readResponse.Value == null)
+            {
+                return null;
+            }
+
+            if (readResponse.Status == ResponseStatus.Unverified)
+            {
+                logger.AddUserMessage("##############################################################################");
+                logger.AddUserMessage("WARNING: Verification timed out. The image could not be validated and may be corrupt.");
+                logger.AddUserMessage("Save it for debugging only. Do not write this file to a PCM without validation.");
+                logger.AddUserMessage("##############################################################################");
+            }
+
+            Stream readContents = readResponse.Value;
+            readContents.Position = 0;
+            byte[] image;
+            using (MemoryStream buffer = new MemoryStream())
+            {
+                await readContents.CopyToAsync(buffer);
+                image = buffer.ToArray();
+            }
+
+            return BuildPackage(image, forcedPcmType);
+        }
+
+        /// <summary>
+        /// Wrap a freshly-read main image in a package. Module type and OSID are identified from the image
+        /// (best-effort) for the .phz manifest; a raw .bin save ignores them and writes the bytes verbatim.
+        /// </summary>
+        private PcmPackage BuildPackage(byte[] image, PcmType forcedPcmType)
+        {
+            string? moduleType = null;
+            uint? osid = null;
+            try
+            {
+                FileValidator validator = new FileValidator(
+                    image, this.logger, forcedPcmType != PcmType.Undefined ? forcedPcmType : (PcmType?)null);
+
+                PcmType type = forcedPcmType != PcmType.Undefined ? forcedPcmType : validator.DetectFileType();
+                if (type != PcmType.Undefined)
+                {
+                    moduleType = type.ToString();
+                }
+
+                uint id = validator.GetOsidFromImage();
+                if (id != 0)
+                {
+                    osid = id;
+                }
+            }
+            catch
+            {
+                // Identification is best-effort metadata; the save works without it.
+            }
+
+            var controller = new PackageController
+            {
+                Id = 1,
+                Type = "PCM",
+                ModuleType = moduleType,
+                Images = { new PackageImage { Target = "main", FileName = "main.bin", Data = image, Osid = osid } }
+            };
+
+            // Slave modules identified before the read as references (part number, no bytes - the writer
+            // resolves them from the local library). Empty for PCMs without a slave.
+            foreach (PackageImage slaveReference in this.capturedSlaveReferences)
+            {
+                controller.Images.Add(slaveReference);
+            }
+
+            return new PcmPackage
+            {
+                Generator = "PcmHammer",
+                Created = DateTime.UtcNow.ToString("o"),
+                Controllers = { controller }
+            };
+        }
+
+        /// <summary>
+        /// Query the PCM (in normal mode) for the part number of each slave module it declares and stash
+        /// them as package references. A no-op for PCMs without a slave. See <see cref="OSIDInfo.SlaveModules"/>.
+        /// </summary>
+        private async Task CaptureSlaveReferences(CanCommands commands, OSIDInfo pcmInfo)
+        {
+            this.capturedSlaveReferences.Clear();
+            if (!pcmInfo.HardwareSlaveCPU || pcmInfo.SlaveModules.Count == 0)
+            {
+                return;
+            }
+
+            foreach (SlaveModuleId module in pcmInfo.SlaveModules)
+            {
+                if (this.cancellationToken.IsCancellationRequested) break;
+
+                Response<byte[]> response = await commands.ReadDataByIdentifier(module.Did, this.cancellationToken);
+                Response<uint> partNumber = response.Status == ResponseStatus.Success
+                    ? gmlan.ParseReadByIdUInt32(new Message(response.Value), module.Did)
+                    : Response.Create(ResponseStatus.Error, 0u);
+
+                // A zero or 0xFFFFFFFF part number is an empty / unprogrammed slot; don't record it.
+                if (partNumber.Status == ResponseStatus.Success && partNumber.Value != 0 && partNumber.Value != 0xFFFFFFFF)
+                {
+                    this.capturedSlaveReferences.Add(
+                        PackageImage.Reference(module.Target, partNumber.Value + ".bin", partNumber.Value));
+                    logger.AddUserMessage(string.Format("Slave module {0}: {1}", module.Target, partNumber.Value));
+                }
+                else
+                {
+                    logger.AddDebugMessage(string.Format(
+                        "Slave module {0} (DID 0x{1:X2}) did not report a part number; it will not be recorded.",
+                        module.Target, module.Did));
                 }
             }
         }
@@ -145,6 +281,10 @@ namespace PcmHacking
             }
 
             CanCommands commands = this.vehicle.CreateCanCommands();
+
+            // Identify the slave modules while the PCM is still in normal mode, before the read kernel
+            // takes over.
+            await this.CaptureSlaveReferences(commands, pcmInfo);
 
             logger.StatusUpdateActivity("Unlocking PCM...");
             if (!await commands.Unlock(pcmInfo, this.cancellationToken))

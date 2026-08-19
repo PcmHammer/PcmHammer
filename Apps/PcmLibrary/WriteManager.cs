@@ -1,7 +1,8 @@
 ﻿// SPDX-License-Identifier: GPL-3.0-only
 using System;
+using System.Collections.Generic;
 using System.IO;
-using System.Runtime.CompilerServices;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -36,26 +37,213 @@ namespace PcmHacking
         }
 
         /// <summary>
-        /// Contains cross-platform code to handle user interactions to write the PCM's flash memory.
-        /// Overloaded method that the utilizes Write(byte[]).
-        /// Accepts a string path for OSes that can directly access file structure.
+        /// Load a file (a raw .bin or a .phz package) and write it. Accepts a string path for OSes that
+        /// can directly access the file system.
         /// </summary>
-        /// <returns>True if file opens and write succeeds. False if either condition fails.</returns>
         public async Task<bool> Write(string path, PcmType forcedPcmType = PcmType.Undefined, bool suppressOSIDWarning = false)
         {
-            byte[] image;
-            using (Stream stream = File.OpenRead(path))
+            PcmPackage package;
+            try
             {
-                image = new byte[stream.Length];
-                int bytesRead = await stream.ReadAsync(image, 0, (int)stream.Length);
-                if (bytesRead != stream.Length)
+                // A .bin loads as a single-controller package with one "main" image; a .phz may also
+                // carry slave references.
+                package = PackageStore.Load(path);
+            }
+            catch (PackageException exception)
+            {
+                logger.AddUserMessage("Unable to load file: " + exception.Message);
+                return false;
+            }
+
+            return await this.Write(package, forcedPcmType, suppressOSIDWarning);
+        }
+
+        /// <summary>
+        /// Write an already-loaded package (the UI's in-memory working document). Slave handling is
+        /// derived, not chosen: if the package carries slave modules and the PCM supports a boot loader
+        /// write, a full write programs the whole PCM through the boot loader; otherwise the master image
+        /// is written the normal way and any slave in the PCM is left in place.
+        /// </summary>
+        public async Task<bool> Write(PcmPackage package, PcmType forcedPcmType = PcmType.Undefined, bool suppressOSIDWarning = false)
+        {
+            PackageImage? main = SelectMainImage(package);
+            if (main?.Data == null)
+            {
+                logger.AddUserMessage("This file has no main image to write.");
+                return false;
+            }
+
+            PackageController controller = package.Controllers.First(c => c.Images.Contains(main));
+            List<PackageImage> slaveImages = controller.Images
+                .Where(i => IsSlaveTarget(i.Target))
+                .OrderBy(i => SlaveOrder(i.Target))
+                .ToList();
+
+            // The master and slave are written together only for a full write; compare, test write and
+            // partial writes act on the master alone and fall through below.
+            if (slaveImages.Count > 0 && this.writeType == WriteType.Full)
+            {
+                OSIDInfo? pcmInfo = forcedPcmType != PcmType.Undefined
+                    ? new OSIDInfo(forcedPcmType)
+                    : PackageCompleteness.ResolvePlatform(controller);
+
+                if (pcmInfo != null && pcmInfo.IsSupportedBootLoaderWrite)
                 {
-                    // If this happens too much, we should try looping rather than reading the whole file in one shot.
-                    logger.AddUserMessage("Unable to load file.");
+                    // A reference carries no bytes, so resolve it from the local library.
+                    var slaveModules = new List<byte[]>();
+                    var missing = new List<string>();
+                    foreach (PackageImage slave in slaveImages)
+                    {
+                        byte[]? data = slave.Data ?? SlaveLibrary.Resolve(slave.FileName);
+                        if (data == null)
+                        {
+                            missing.Add(slave.FileName ?? slave.Target ?? "?");
+                        }
+                        else
+                        {
+                            logger.AddUserMessage(string.Format(
+                                "Slave {0} ({1}): resolved from the local library.", slave.Target, slave.FileName));
+                            slaveModules.Add(data);
+                        }
+                    }
+
+                    if (missing.Count == 0)
+                    {
+                        return await this.WriteMasterAndSlave(main.Data, slaveModules, pcmInfo);
+                    }
+
+                    // This file includes the slave, so do not quietly downgrade to a master-only write.
+                    logger.AddUserMessage("=================================================================");
+                    logger.AddUserMessage("SLAVE NOT WRITTEN - this file includes the slave CPU, but these");
+                    logger.AddUserMessage("slave module(s) are missing from the local library:");
+                    logger.AddUserMessage("  " + SlaveLibrary.DefaultDirectory);
+                    foreach (string moduleName in missing)
+                    {
+                        logger.AddUserMessage("    " + moduleName);
+                    }
+                    logger.AddUserMessage("Add the matching module file(s) there and try again.");
+                    logger.AddUserMessage("The PCM was NOT written.");
+                    logger.AddUserMessage("=================================================================");
                     return false;
                 }
+
+                logger.AddUserMessage(
+                    "This file has slave modules, but this PCM has no boot loader write path. Writing the master only.");
             }
-            return await Write(image, forcedPcmType, suppressOSIDWarning);
+
+            return await Write(main.Data, forcedPcmType, suppressOSIDWarning);
+        }
+
+        private static bool IsSlaveTarget(string? target) =>
+            target != null && target.StartsWith("slave", StringComparison.OrdinalIgnoreCase);
+
+        // Stream order the boot loader expects: the slave OS module before the slave calibration.
+        private static int SlaveOrder(string? target) =>
+            string.Equals(target, "slave-os", StringComparison.OrdinalIgnoreCase) ? 0
+            : string.Equals(target, "slave-calibration", StringComparison.OrdinalIgnoreCase) ? 1
+            : 2;
+
+        private PackageImage? SelectMainImage(PcmPackage package)
+        {
+            var candidates = package.Controllers.Where(c => c.Image("main") != null).ToList();
+            if (candidates.Count == 0)
+            {
+                return null;
+            }
+
+            if (candidates.Count > 1)
+            {
+                PackageController first = candidates[0];
+                logger.AddUserMessage(string.Format(
+                    "This package has {0} controllers with a main image; writing the first ({1}). " +
+                    "Controller selection is not available yet.",
+                    candidates.Count, first.ModuleType ?? first.Type ?? ("id " + first.Id)));
+            }
+
+            return candidates[0].Image("main");
+        }
+
+        /// <summary>
+        /// Write the master and the slave through the resident boot loader in one download. The master
+        /// image is split into flash modules by <see cref="FlashModuleBuilder"/>; streaming the master OS
+        /// module arms the slave, then the slave modules are programmed. This can brick the PCM, so it is
+        /// gated on a confirmation.
+        /// </summary>
+        private async Task<bool> WriteMasterAndSlave(byte[] masterImage, IList<byte[]> slaveModules, OSIDInfo pcmInfo)
+        {
+            // Checksum-validate the master first, the same gate as a normal write: a bad sum means the
+            // image is corrupt and would render the PCM unusable.
+            FileValidator validator = new FileValidator(masterImage, this.logger, pcmInfo.HardwareType);
+            if (!validator.IdentifyAndValidate())
+            {
+                logger.AddUserMessage("This file is corrupt or its format is unknown to PCMHammer. It would render your PCM unusable.");
+                return false;
+            }
+
+            logger.AddUserMessage("File OSID: " + validator.GetOsidFromImage());
+            logger.AddUserMessage("File Description: " + new OSIDInfo(validator.GetFileType()).Description + ".");
+
+            string warning =
+                "This will program the FULL PCM - the master flash AND the slave CPU - through the boot " +
+                "loader. It is EXPERIMENTAL and can brick the PCM. Continue?";
+            logger.AddUserMessage(warning);
+            if (!await this.promptForYesNo(warning, "Brick Risk"))
+            {
+                logger.AddUserMessage("User chose not to proceed.");
+                return false;
+            }
+
+            List<byte[]> masterModules;
+            try
+            {
+                masterModules = FlashModuleBuilder.Build(masterImage, pcmInfo);
+            }
+            catch (Exception exception)
+            {
+                logger.AddUserMessage("Could not split the master image into modules: " + exception.Message);
+                return false;
+            }
+
+            byte[]? masterFlashLibrary = SlaveLibrary.Resolve(pcmInfo.BootLoaderMasterLibraryFileName);
+            byte[]? slaveFlashDriver = SlaveLibrary.Resolve(pcmInfo.BootLoaderSlaveDriverFileName);
+            if (masterFlashLibrary == null || slaveFlashDriver == null)
+            {
+                logger.AddUserMessage("Missing the boot loader flash routines in the local library:");
+                logger.AddUserMessage("  " + SlaveLibrary.DefaultDirectory);
+                if (masterFlashLibrary == null)
+                {
+                    logger.AddUserMessage("    " + pcmInfo.BootLoaderMasterLibraryFileName);
+                }
+
+                if (slaveFlashDriver == null)
+                {
+                    logger.AddUserMessage("    " + pcmInfo.BootLoaderSlaveDriverFileName);
+                }
+
+                return false;
+            }
+
+            if (!await this.vehicle.SelectBus(pcmInfo.BusProtocol))
+            {
+                logger.AddUserMessage("Failed to select the " + pcmInfo.BusProtocol + " bus.");
+                return false;
+            }
+
+            DateTime start = DateTime.Now;
+            CanCommands commands = this.vehicle.CreateCanCommands();
+            CanBootLoaderWriter writer = new CanBootLoaderWriter(this.vehicle, commands, pcmInfo, this.logger);
+            bool success = await writer.Write(
+                masterFlashLibrary, masterModules, slaveFlashDriver, slaveModules, this.cancellationToken);
+            logger.AddUserMessage("Elapsed time " + DateTime.Now.Subtract(start));
+
+            if (success)
+            {
+                logger.AddUserMessage("Verify the result with a PCM identification.");
+                return true;
+            }
+
+            logger.AddUserMessage("The write did not complete. Review the log.");
+            return false;
         }
 
         /// <summary>

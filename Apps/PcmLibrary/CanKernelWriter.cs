@@ -168,7 +168,10 @@ namespace PcmHacking
                     break;
 
                 case WriteType.TestWrite:
-                    relevantBlocks = BlockType.Calibration;
+                    // Can't write by segment: only a whole-image write is possible, so test all of it.
+                    relevantBlocks = this.pcmInfo.IsSupportedWriteBySegment
+                        ? BlockType.Calibration
+                        : BlockType.All;
                     break;
 
                 case WriteType.Calibration:
@@ -413,8 +416,8 @@ namespace PcmHacking
 
             // One fixed-width, space-padded row per range (no tabs) so the table aligns identically in
             // the log view and when copied into a text file. Ranges not in this operation, or past the
-            // image, show "not needed". Purpose is the block type, or "General" when write-by-segment
-            // isn't supported.
+            // image, show "not needed". Purpose is the range's own block type, taken from the flash-chip
+            // map (not hard-coded per PCM).
             const string formatString = "{0:X6}-{1:X6}  {2,-10:X8}  {3,-10:X8}  {4,-9}  {5}";
             this.logger.AddUserMessage("Calculating CRCs from file.");
             this.logger.AddUserMessage("Requesting CRCs from PCM.");
@@ -427,7 +430,7 @@ namespace PcmHacking
                     return RangeCompareResult.Cancelled;
                 }
 
-                string rangeType = this.pcmInfo.IsSupportedWriteBySegment ? range.Type.ToString() : "General";
+                string rangeType = range.Type.ToString();
 
                 if (((range.Type & relevantBlocks) == 0) || (range.Address >= this.effectiveImageSize))
                 {

@@ -24,5 +24,12 @@ namespace PcmHacking
         /// starts false; it is never saved to disk.
         /// </summary>
         public static bool ForceWriteAllSectors { get; set; }
+
+        /// <summary>
+        /// When true, the Import Bin item on the File menu is available. Import replaces one module of
+        /// the loaded package, which is how a file with a specific slave module is built. Hidden by
+        /// default. Always starts false; it is never saved to disk.
+        /// </summary>
+        public static bool AllowModuleImport { get; set; }
     }
 }

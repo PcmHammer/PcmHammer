@@ -315,6 +315,7 @@ public partial record WriteModel : IAsyncLogger
         FileOpenPicker openPicker = new FileOpenPicker();
         this.platformService.PrepareChildWindow(openPicker);
         openPicker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
+        openPicker.FileTypeFilter.Add(".phz");
         openPicker.FileTypeFilter.Add(".bin");
         StorageFile file = await openPicker.PickSingleFileAsync();
         if (file == null)
