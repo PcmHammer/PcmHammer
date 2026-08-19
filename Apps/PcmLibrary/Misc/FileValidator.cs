@@ -1445,6 +1445,57 @@ namespace PcmHacking
         }
 
         /// <summary>
+        /// The six E38 master flash segments described by the checksum table at flash 0x10000. These are
+        /// the boundaries a boot loader write splits the master image on. Throws
+        /// <see cref="InvalidOperationException"/> if the table is missing or inconsistent.
+        /// </summary>
+        public static List<FlashSegment> GetE38MasterSegments(byte[] image)
+        {
+            const int index = 0x10000;
+            (int StartOffset, int EndOffset, string Name)[] layout =
+            {
+                (0x24, 0x28, "Operating System"),
+                (0x48, 0x4C, "Engine Operations"),
+                (0x6B, 0x6F, "Engine Diagnostics"),
+                (0x8E, 0x92, "Fuel System"),
+                (0xB1, 0xB5, "System"),
+                (0xD4, 0xD8, "Speedometer"),
+            };
+
+            var segments = new List<FlashSegment>();
+            for (int i = 0; i < layout.Length; i++)
+            {
+                int startAddr = unchecked((int)U32BE(image, index + layout[i].StartOffset));
+                int endAddr = unchecked((int)U32BE(image, index + layout[i].EndOffset));
+                int segNum = i + 1;
+
+                if (startAddr >= image.Length)
+                    throw new InvalidOperationException(string.Format("Segment {0} start out of range: 0x{1:X6}", segNum, startAddr));
+                if (endAddr >= image.Length)
+                    throw new InvalidOperationException(string.Format("Segment {0} end out of range: 0x{1:X6}", segNum, endAddr));
+                if ((startAddr & 0x1) != 0)
+                    throw new InvalidOperationException(string.Format("Segment {0} start not word-aligned: 0x{1:X6}", segNum, startAddr));
+                if ((endAddr & 0x1) == 0)
+                    throw new InvalidOperationException(string.Format("Segment {0} end not word-aligned: 0x{1:X6}", segNum, endAddr));
+                if (endAddr <= startAddr)
+                    throw new InvalidOperationException(string.Format("Segment {0} range invalid: 0x{1:X6}-0x{2:X6}", segNum, startAddr, endAddr));
+                if ((endAddr - startAddr) < 0x24)
+                    throw new InvalidOperationException(string.Format("Segment {0} range too short: 0x{1:X6}-0x{2:X6}", segNum, startAddr, endAddr));
+
+                segments.Add(new FlashSegment(startAddr, endAddr, layout[i].Name));
+            }
+
+            return segments;
+        }
+
+        private static UInt32 U32BE(byte[] image, int offset)
+        {
+            if (offset < 0 || offset + 3 >= image.Length)
+                throw new InvalidOperationException(string.Format("u32 read out of range at 0x{0:X6}", offset));
+            return (UInt32)((image[offset] << 24) | (image[offset + 1] << 16) | (image[offset + 2] << 8) | image[offset + 3]);
+        }
+
+        /// <summary>
         /// Identify an E38 image by structure: a 2 MiB file whose checksum table at 0x10000 parses
         /// into the expected six well-formed segments. Reuses the same table reader the checksum
         /// validation uses, so detection and validation never diverge.
@@ -1474,12 +1525,7 @@ namespace PcmHacking
             return (UInt16)((this.image[offset] << 8) | this.image[offset + 1]);
         }
 
-        private UInt32 GetU32BE(int offset)
-        {
-            if (offset < 0 || offset + 3 >= this.image.Length)
-                throw new InvalidOperationException(string.Format("u32 read out of range at 0x{0:X6}", offset));
-            return (UInt32)((this.image[offset] << 24) | (this.image[offset + 1] << 16) | (this.image[offset + 2] << 8) | this.image[offset + 3]);
-        }
+        private UInt32 GetU32BE(int offset) => U32BE(this.image, offset);
 
         // 16-bit two's-complement sum of the words from start+2..end (the stored sum sits at start).
         private UInt16 CalcSegmentSum(int startAddr, int endAddr)

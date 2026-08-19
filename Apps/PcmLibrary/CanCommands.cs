@@ -242,20 +242,15 @@ namespace PcmHacking
         // ---- Kernel upload ------------------------------------------------------------------------
 
         /// <summary>
-        /// Enter programming mode and upload the kernel, confirming it launches. PCM must already be
-        /// unlocked. Sequence: 0x28 DisableNormalCommunication (optional), tester present, 0xA5/01
-        /// ProgrammingMode (required), 0xA5/03 (optional), then the 0x34 RequestDownload and 0x36 transfer
-        /// blocks built by the PCM's <see cref="CanKernelUploadProtocol"/> (the boot-loader dialect).
+        /// Put the PCM in programming mode, which every download starts with. PCM must already be
+        /// unlocked. Sequence: 0x10/02 ProgrammingSession (optional), 0x28 DisableNormalCommunication
+        /// (optional), tester present, 0xA5/01 ProgrammingMode (required), 0xA5/03 (optional).
         /// </summary>
-        public async Task<bool> UploadKernel(OSIDInfo pcmInfo, byte[] payload, CancellationToken cancellationToken)
+        public async Task<bool> EnterProgrammingMode(CancellationToken cancellationToken)
         {
-            CanKernelUploadProtocol protocol = CanKernelUploadProtocol.For(pcmInfo.GMLANProtocol);
-            uint loadAddress = (uint)pcmInfo.KernelBaseAddress;
-            uint runAddress = (uint)pcmInfo.KernelRunAddress;
-
             await this.device.SetTimeout(TimeoutScenario.ReadProperty);
 
-            // ProgrammingSession (0x10 0x02). The factory SPS sequence enters this session before the
+            // ProgrammingSession (0x10 0x02). The factory sequence enters this session before the
             // upload; it puts the OS's CAN comms in the state the launched kernel expects (so the kernel's
             // re-armed RX mailbox actually matches). Optional/best-effort: answer is 0x50.
             await this.MakeQuery(
@@ -287,6 +282,25 @@ namespace PcmHacking
                 () => this.gmlan.CreateProgrammingModeStep3Request(),
                 this.gmlan.ParseProgrammingModeResponse,
                 cancellationToken, maxTimeouts: 1).Execute();
+
+            return true;
+        }
+
+        /// <summary>
+        /// Enter programming mode and upload the kernel, confirming it launches. PCM must already be
+        /// unlocked. Sends the 0x34 RequestDownload and 0x36 transfer blocks built by the PCM's
+        /// <see cref="CanKernelUploadProtocol"/> (the boot loader dialect).
+        /// </summary>
+        public async Task<bool> UploadKernel(OSIDInfo pcmInfo, byte[] payload, CancellationToken cancellationToken)
+        {
+            CanKernelUploadProtocol protocol = CanKernelUploadProtocol.For(pcmInfo.GMLANProtocol);
+            uint loadAddress = (uint)pcmInfo.KernelBaseAddress;
+            uint runAddress = (uint)pcmInfo.KernelRunAddress;
+
+            if (!await this.EnterProgrammingMode(cancellationToken))
+            {
+                return false;
+            }
 
             CanKernelUpload upload = protocol.BuildUpload(
                 this.gmlan, payload, loadAddress, runAddress, this.device.MaxCanKernelBlockSize);
@@ -638,5 +652,38 @@ namespace PcmHacking
                 }
                 return Response.Create(ResponseStatus.UnexpectedResponse, false);
             };
+
+        // ---- Boot loader download -----------------------------------------------------------------
+
+        /// <summary>
+        /// Send one message of a boot loader download and return the reply. Long receive window: the
+        /// boot loader programs flash as the download streams, so a message can take a while to answer.
+        /// </summary>
+        public async Task<Response<byte[]>> SendBootLoaderMessage(Message message, CancellationToken cancellationToken)
+        {
+            await this.device.SetTimeout(TimeoutScenario.EraseMemoryBlock);
+
+            Query<byte[]> query = new Query<byte[]>(
+                this.device,
+                () => message,
+                m =>
+                {
+                    byte[] bytes = m?.GetBytes() ?? Array.Empty<byte>();
+
+                    // A flash burn can send more response-pending keepalives than Device.ReceiveMessage
+                    // waits through, so keep reading when one reaches this far.
+                    if (bytes.Length >= 3 && bytes[0] == Gmlan.NegativeResponse && bytes[2] == Gmlan.NrcResponsePending)
+                    {
+                        return Response.Create(ResponseStatus.UnexpectedResponse, (byte[])null!);
+                    }
+
+                    return bytes.Length > 0
+                        ? Response.Create(ResponseStatus.Success, bytes)
+                        : Response.Create(ResponseStatus.UnexpectedResponse, (byte[])null!);
+                },
+                this.logger, cancellationToken, notifier: null, acceptInbound: AcceptResponses);
+            query.MaxTimeouts = 8;
+            return await query.Execute();
+        }
     }
 }

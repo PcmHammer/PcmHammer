@@ -21,6 +21,9 @@ namespace PcmHacking
         // Service / response identifiers used when parsing.
         public const byte ReadDataByIdentifier = 0x1A;
         public const byte ReadDataByIdentifierResponse = 0x5A;
+        public const byte RequestDownload = 0x34;
+        public const byte TransferData = 0x36;
+        public const byte DeviceControl = 0xAE;
         public const byte WriteDataByIdentifier = 0x3B;
         public const byte WriteDataByIdentifierResponse = 0x7B;
         public const byte VinDataIdentifier = 0x90;
@@ -38,6 +41,9 @@ namespace PcmHacking
 
         /// <summary>NRC 0x37: required time delay not expired (security access still locked out).</summary>
         public const byte NrcSecurityDelay = 0x37;
+
+        /// <summary>NRC 0x78: response pending (7F xx 78) - the PCM is busy; keep waiting for the reply.</summary>
+        public const byte NrcResponsePending = 0x78;
 
         /// <summary>DID 0xC9: operating system id (OSID), returned as a big-endian uint32.</summary>
         public const byte OperatingSystemDid = 0xC9;
@@ -208,6 +214,11 @@ namespace PcmHacking
                 (byte)(address >> 8),
                 (byte)address,
             });
+
+        /// <summary>
+        /// DeviceControl 0xAE 0x28 0x80: return to normal at the end of a boot loader download. Acked 0xEE.
+        /// </summary>
+        public Message CreateBootLoaderFinalizeRequest() => new Message(new byte[] { DeviceControl, 0x28, 0x80 });
 
         public bool IsChunkAck(Message message, bool isExec)
         {
@@ -401,6 +412,25 @@ namespace PcmHacking
 
         /// <summary>Build a ReadDataByIdentifier request for one DID: [0x1A, did].</summary>
         public Message CreateReadByIdRequest(byte did) => new Message(new byte[] { ReadDataByIdentifier, did });
+
+        /// <summary>
+        /// Parse a ReadDataByIdentifier uint32 response [0x5A, did, b3, b2, b1, b0] (e.g. a part number or
+        /// OSID). Mirrors <see cref="ParseMode3DUInt32"/> for the 0x1A service.
+        /// </summary>
+        public Response<uint> ParseReadByIdUInt32(Message message, byte did)
+        {
+            byte[] bytes = GetBytes(message);
+            if (bytes.Length >= 1 && bytes[0] == NegativeResponse)
+            {
+                return Response.Create(ResponseStatus.Error, 0u);
+            }
+            if (bytes.Length < 6 || bytes[0] != ReadDataByIdentifierResponse || bytes[1] != did)
+            {
+                return Response.Create(ResponseStatus.Refused, 0u);
+            }
+            uint value = (uint)((bytes[2] << 24) | (bytes[3] << 16) | (bytes[4] << 8) | bytes[5]);
+            return Response.Create(ResponseStatus.Success, value);
+        }
 
         /// <summary>
         /// Parse a ReadDataByIdentifier response [0x5A, did, data...] and return the data bytes.
