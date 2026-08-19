@@ -92,7 +92,7 @@ namespace PcmHacking
                 // Fixed-width, space-padded columns (no tabs) so the table aligns identically in the
                 // log view and when copied into a text file.
                 string formatString = "{0:X6}-{1:X6}  {2,-10:X8}  {3,-10:X8}  {4,-9}  {5}";
-                string range_type = pcmInfo.IsSupportedWriteBySegment ? range.Type.ToString() : "General";
+                string range_type = range.Type.ToString();
 
                 if (((range.Type & blockTypes) == 0) || (range.Address >= this.effectiveImageSize))
                 {
