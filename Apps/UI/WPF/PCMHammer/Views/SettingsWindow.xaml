@@ -1,0 +1,58 @@
+﻿<Window x:Class="PCMHammer.Views.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:PCMHammer.Views"
+        mc:Ignorable="d"
+        SizeToContent="Height"
+        ResizeMode="CanMinimize"
+        WindowStartupLocation="CenterOwner"
+        Title="Settings" Width="629">
+    <StackPanel Margin="16">
+        <GroupBox Header="Device">
+            <StackPanel>
+                <CheckBox Content="Retain device configuration" IsChecked="{Binding RetainDeviceConfigurationOnExit}"/>
+                <TextBlock FontStyle="Oblique" Opacity="0.5" Text="This will retain the current device configuration (serial, port, and device or J2354) on exit."/>
+            </StackPanel>
+        </GroupBox>
+
+        <GroupBox Header="Bin Files">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Button Content="Bin Directory" Width="120" Margin="5,0" Command="{Binding SelectBinDirectoryCommand}"/>
+                <TextBox Grid.Column="1" Margin="5,0" Text="{Binding BinDirectory, UpdateSourceTrigger=LostFocus}"/>
+            </Grid>
+        </GroupBox>
+
+        <GroupBox Header="Logging">
+            <StackPanel>
+                <CheckBox x:Name="UseLogSaveAsDialogCheckBox" Content="Use Log SaveAs Dialog" IsChecked="{Binding UseLogSaveAsDialog}"/>
+                <TextBlock FontStyle="Oblique" Opacity="0.5" Text="Show a dialog to select the log file location when saving logs."/>
+                <Grid Visibility="{Binding ElementName=UseLogSaveAsDialogCheckBox, Path=IsChecked, Converter={StaticResource BooleanToVisibility}, ConverterParameter=Inverse}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Button Content="Log Directory" Margin="5,0" Width="120" Command="{Binding SelectLogDirectoryCommand}"/>
+                    <TextBox Grid.Column="1" Text="{Binding LogDirectory, UpdateSourceTrigger=LostFocus}"/>
+                </Grid>
+                <CheckBox Content="Save results log on application exit" IsChecked="{Binding SaveResultsLogOnExit}"/>
+                <TextBlock FontStyle="Oblique" Opacity="0.5" Text="Automatically save the results log on application exit."/>
+                <CheckBox Content="Save debug log on application exit" IsChecked="{Binding SaveDebugLogOnExit}"/>
+                <TextBlock FontStyle="Oblique" Opacity="0.5" Text="Automatically save the debug log on application exit."/>
+            </StackPanel>
+        </GroupBox>
+        <Grid Margin="0,16,0,0" HorizontalAlignment="Right">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Button Content="Cancel" Width="120" Margin="5,0" Command="{Binding CloseCommand}"/>
+            <Button Content="OK" Width="120" Margin="5,0" Grid.Column="1" Command="{Binding AcceptCommand}"/>
+        </Grid>
+    </StackPanel>
+</Window>

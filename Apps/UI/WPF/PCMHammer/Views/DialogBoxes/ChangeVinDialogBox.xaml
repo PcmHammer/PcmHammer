@@ -1,0 +1,36 @@
+﻿<Window x:Class="PCMHammer.Views.ChangeVinDialogBox"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:PCMHammer.Views"
+        mc:Ignorable="d"
+        Title="Change VIN" Width="485" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize">
+    
+    <Grid Margin="15">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Text="Enter New VIN:" FontWeight="Bold" Margin="0,0,0,5"/>
+
+        <TextBox Grid.Row="1" 
+                 Text="{Binding Vin, UpdateSourceTrigger=PropertyChanged}" 
+                 d:Text="12345ABCDEF123456"
+                 FontFamily="Consolas" FontSize="16" CharacterCasing="Upper" MaxLength="17" Padding="5"/>
+
+        <TextBlock Grid.Row="2" 
+                   Text="{Binding ValidationPrompt}" 
+                   d:Text="The VIN check digit on position 9 is incorrect."
+                   TextWrapping="Wrap" Margin="0,10,0,0"/>
+
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Grid.ColumnSpan="2">
+            <Button Content="Cancel" Command="{Binding CancelCommand}" Width="80" Margin="5" IsCancel="True"/>
+            <Button Content="OK" Command="{Binding OkCommand}" Width="80" Margin="5" IsDefault="True"/>
+        </StackPanel>
+    </Grid>
+</Window>
