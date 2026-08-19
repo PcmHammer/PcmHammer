@@ -31,6 +31,7 @@
                         <ComboBox x:Name="SerialPortComboBox" 
                                   Margin="0,0,0,8"
                                   ItemsSource="{Binding SerialPorts}" 
+                                  DisplayMemberPath="PortName"
                                   SelectedItem="{Binding SerialPort, UpdateSourceTrigger=PropertyChanged}"/>
                         <Label Content="Device Type" 
                                Target="{Binding ElementName=SerialDeviceTypeComboBox}"/>

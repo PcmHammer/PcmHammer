@@ -2,8 +2,11 @@
 using CommunityToolkit.Mvvm.Input;
 using PcmHacking;
 using PCMHammer.Helpers;
+using System.Collections.ObjectModel;
 using System.Text.RegularExpressions;
+using System.Windows;
 using System.Windows.Input;
+using System.Windows.Threading;
 
 namespace PCMHammer.Viewmodels
 {
@@ -22,7 +25,7 @@ namespace PCMHammer.Viewmodels
         public partial string? J2534DeviceType { get; set; }
 
         [ObservableProperty]
-        public partial string? SerialPort { get; set; }
+        public partial SerialPortInfo? SerialPort { get; set; }
 
         [ObservableProperty]
         public partial string? SerialPortDeviceType { get; set; }
@@ -85,9 +88,9 @@ namespace PCMHammer.Viewmodels
         #endregion
 
         // Collections for UI drop-downs
-        public List<object> SerialPorts { get; } = [];
-        public List<string> SerialDevices { get; } = [];
-        public List<object> J2534Devices { get; } = [];
+        public ObservableCollection<SerialPortInfo> SerialPorts { get; } = [];
+        public ObservableCollection<string> SerialDevices { get; } = [];
+        public ObservableCollection<object> J2534Devices { get; } = [];
 
         // Notification States
         public string StatusText { get; set; } = "Ready.";
@@ -106,7 +109,7 @@ namespace PCMHammer.Viewmodels
                 Properties.Settings.Default.SavedDeviceType = DeviceCategory;
                 if (DeviceCategory.Equals("Serial", StringComparison.Ordinal))
                 {
-                    Properties.Settings.Default.SavedSerialPort = SerialPort;
+                    Properties.Settings.Default.SavedSerialPort = SerialPort?.PortName;
                     Properties.Settings.Default.SavedSerialDevice = SerialPortDeviceType;
                     Properties.Settings.Default.SavedJ2534Device = "";
                 }
@@ -125,15 +128,193 @@ namespace PCMHammer.Viewmodels
                 StatusText = "Device test failed or invalid selection.";
             }
         }
+
         private async Task ExecuteTestSelectedDevice()
         {
-            // This method should be implemented to test the selected device.
+            Device? device;
+            // "target" describes the user's selection for the failure messages we can show even
+            // before a device object exists (e.g. nothing matched).
+            string target;
+            // "onPort" is the trailing " on COMx" suffix for serial devices, empty for J2534.
+            string onPort = string.Empty;
+            if (DeviceCategory == DeviceConfiguration.Constants.DeviceCategorySerial)
+            {
+                device = DeviceFactory.CreateSerialDevice(SerialPort!.PortName, SerialPortDeviceType, logger);
+                onPort = " on " + (SerialPort!.PortName ?? "(no port)");
+                target = (SerialPortDeviceType ?? "serial device") + onPort;
+            }
+            else if (DeviceCategory == DeviceConfiguration.Constants.DeviceCategoryJ2534)
+            {
+                device = DeviceFactory.CreateJ2534Device(J2534DeviceType, logger);
+                target = J2534DeviceType ?? "J2534 device";
+            }
+            else
+            {
+                StatusText = "No device specified.";
+                MessageBox.Show(
+                    "Choose a device to test first.",
+                    "Test Device",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+                return;
+            }
+
+            if (device == null)
+            {
+                StatusText = "Could not create " + target + ".";
+                MessageBox.Show(
+                    "FAIL" + Environment.NewLine + Environment.NewLine +
+                        "Could not create " + target + ".",
+                    "Test Device",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+                return;
+            }
+
+            // Friendly name for the device (GetDeviceType()), plus the port it is on (serial only).
+            string description = device.GetDeviceType() + onPort;
+
+            StatusText = "Testing " + device.GetDeviceType() + "...";
+            try
+            {
+                // Guard the test with a timeout: a defunct port (e.g. a stale Bluetooth COM
+                // port) can make Initialize() hang, which would otherwise freeze the dialog.
+                Task<bool> initializeTask = device.Initialize();
+                bool completed = await initializeTask.AwaitWithTimeout(TimeSpan.FromSeconds(5));
+                if (!completed)
+                {
+                    StatusText = "Timed out testing " + description + ".";
+                    MessageBox.Show(
+                        "FAIL" + Environment.NewLine + Environment.NewLine +
+                            "Timed out trying to use " + description + "." + Environment.NewLine + Environment.NewLine +
+                            "The port may be in use, or the device may not be responding.",
+                        "Test Device",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
+                }
+                else if (initializeTask.Result)
+                {
+                    StatusText = description + " test OK.";
+                    MessageBox.Show(
+                        "OK" + Environment.NewLine + Environment.NewLine +
+                            description + " initialized successfully.",
+                        "Test Device",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information);
+                }
+                else
+                {
+                    StatusText = description + " test FAILED.";
+                    MessageBox.Show(
+                        "FAIL" + Environment.NewLine + Environment.NewLine +
+                            "Unable to initialize " + description + ".",
+                        "Test Device",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Error);
+                }
+            }
+            catch (Exception exception)
+            {
+                StatusText = description + " test FAILED: " + exception.Message;
+                MessageBox.Show(
+                    "FAIL" + Environment.NewLine + Environment.NewLine +
+                        "Unable to use " + description + ":" + Environment.NewLine + Environment.NewLine + exception.Message,
+                    "Test Device",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+            }
+            finally
+            {
+                // Dispose is non-blocking for serial ports (see StandardPort), so this is safe
+                // on the UI thread even when the underlying device is dead.
+                device.Dispose();
+            }
         }
 
         private async Task ExecuteAutoDetect()
         {
-            // This method should be implemented to auto-detect the device.
+            if (SerialPort == null)
+            {
+                MessageBox.Show(
+                    "Choose a serial port first, then click Auto Detect to scan it.",
+                    "Auto Detect",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+                return;
+            }
+
+            StatusText = "Scanning " + SerialPort?.PortName + " for a compatible device...";
+            Device? device = null;
+            try
+            {
+                // Bound the scan with a timeout: a defunct or busy port can make the underlying
+                // open / probe sequence hang, which would otherwise freeze the dialog.
+                // portName is non-null here (guarded by the IsNullOrEmpty check above).
+                Task<Device?> detectTask = DeviceFactory.AutoDetectSerialDevice(SerialPort!.PortName!, logger);
+                if (!await detectTask.AwaitWithTimeout(TimeSpan.FromSeconds(30)))
+                {
+                    StatusText = "Auto detect timed out on " + SerialPort?.PortName + ".";
+                    MessageBox.Show(
+                        "Auto detect timed out on " + SerialPort?.PortName + "." + Environment.NewLine + Environment.NewLine +
+                            "The port may be in use, or a connected device may not be responding.",
+                        "Auto Detect",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
+                    return;
+                }
+
+                device = detectTask.Result;
+                if (device == null)
+                {
+                    StatusText = "Auto detect timed out on " + SerialPort?.PortName + ".";
+                    MessageBox.Show(
+                        "Auto detect timed out on " + SerialPort?.PortName + "." + Environment.NewLine + Environment.NewLine +
+                            "The port may be in use, or a connected device may not be responding.",
+                        "Auto Detect",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
+                    return;
+                }
+
+                device = detectTask.Result;
+                if (device == null)
+                {
+                    StatusText = "No compatible device found on " + SerialPort?.PortName + ".";
+                    MessageBox.Show(
+                        "No compatible devices found on " + SerialPort?.PortName + ".",
+                        "Auto Detect",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information);
+                    return;
+                }
+
+                string deviceType = device.GetDeviceType();
+
+                StatusText = "Found " + deviceType + " on " + SerialPort?.PortName + ".";
+                MessageBox.Show(
+                    "Found a " + deviceType + " device on " + SerialPort?.PortName + ".",
+                    "Auto Detect",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+            }
+            catch (Exception exception)
+            {
+                logger.AddDebugMessage("Auto detect failed: " + exception.ToString());
+                StatusText = "Auto detect failed: " + exception.Message;
+                MessageBox.Show(
+                    "Auto detect failed on " + SerialPort?.PortName + ":" + Environment.NewLine + Environment.NewLine + exception.Message,
+                    "Auto Detect",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+            }
+            finally
+            {
+                // AutoDetectSerialDevice opens the port; dispose the device (and its port) so the
+                // OK / Test path can reopen it. Dispose is non-blocking for serial ports.
+                device?.Dispose();
+            }
         }
+
         private void ExecuteSelectSerial()
         {
             FillSerialDeviceList();
@@ -149,10 +330,6 @@ namespace PCMHammer.Viewmodels
 
         public async Task InitializeAsync()
         {
-            // Scaffold placeholders synchronously to protect the view's state changes
-            SerialPorts.Add(_prompt);
-            J2534Devices.Add(_prompt);
-
             FillSerialDeviceList();
 
             // Asynchronously run background discoveries with safe timeouts
@@ -184,7 +361,7 @@ namespace PCMHammer.Viewmodels
                 DeviceCategory = "J2534";
             }
 
-            SerialPort = DeviceConfiguration.Settings.SerialPort;
+            SerialPort = SerialPorts.FirstOrDefault(p => p.PortName == DeviceConfiguration.Settings.SerialPort);
             SerialPortDeviceType = DeviceConfiguration.Settings.SerialPortDeviceType;
             J2534DeviceType = DeviceConfiguration.Settings.J2534DeviceType;
             Enable4xReadWrite = DeviceConfiguration.Settings.Enable4xReadWrite;
@@ -203,18 +380,21 @@ namespace PCMHammer.Viewmodels
         {
             try
             {
-                Task<List<SerialPortInfo>> portsTask = Task.Run(() => PortDiscovery.GetPorts(logger).ToList());
-                if (await portsTask.AwaitWithTimeout(TimeSpan.FromSeconds(5)))
+                var ports = await Task.Run(() => PortDiscovery.GetPorts(logger).ToList());
+                Application.Current.Dispatcher.Invoke(() =>
                 {
-                    SerialPorts.AddRange(portsTask.Result.Cast<object>());
-                }
-                else
-                {
-                    string savedPort = DeviceConfiguration.Settings.SerialPort;
-                    StatusText = string.IsNullOrEmpty(savedPort)
-                        ? "Timed out listing serial ports - a disconnected device may be stuck. Try a different port."
+                    SerialPorts.Clear();
+                    foreach (var port in ports)
+                        SerialPorts.Add(port);
+                });
+            }
+            catch (TimeoutException)
+            {
+                string savedPort = DeviceConfiguration.Settings.SerialPort;
+                StatusText = string.IsNullOrEmpty(savedPort)
+                    ? "Timed out listing serial ports - a disconnected device may be stuck. Try a different port."
+
                         : $"Timed out listing serial ports - the saved port {savedPort} looks disconnected or stuck. Avoid it and choose a different port.";
-                }
             }
             catch (Exception ex)
             {
@@ -230,7 +410,12 @@ namespace PCMHammer.Viewmodels
                 Task<List<J2534DotNet.J2534Device>> devicesTask = Task.Run(() => J2534DeviceFinder.FindInstalledJ2534DLLs(logger));
                 if (await devicesTask.AwaitWithTimeout(TimeSpan.FromSeconds(5)))
                 {
-                    J2534Devices.AddRange(devicesTask.Result.Cast<object>());
+                    Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        J2534Devices.Clear();
+                        foreach (var device in devicesTask.Result)
+                            J2534Devices.Add(device);
+                    });
                 }
                 else
                 {
@@ -249,7 +434,7 @@ namespace PCMHammer.Viewmodels
 
         public async Task AutoDetectSerialAsync()
         {
-            if (string.IsNullOrEmpty(SerialPort) || SerialPort == _prompt)
+            if (SerialPort == null)
             {
                 if (ShowInfoAlertAsync != null)
                 {
@@ -264,7 +449,7 @@ namespace PCMHammer.Viewmodels
 
             try
             {
-                Task<Device?> detectTask = DeviceFactory.AutoDetectSerialDevice(SerialPort, logger);
+                Task<Device?> detectTask = DeviceFactory.AutoDetectSerialDevice(SerialPort!.PortName!, logger);
                 if (!await detectTask.AwaitWithTimeout(TimeSpan.FromSeconds(30)))
                 {
                     StatusText = $"Auto detect timed out on {SerialPort}.";
@@ -318,16 +503,19 @@ namespace PCMHammer.Viewmodels
             string target;
             string onPort = string.Empty;
 
-            if (SerialPort == _prompt || string.IsNullOrEmpty(SerialPort)) return;
+            if (SerialPort == null) return;
 
-            var match = SerialPortRegex().Match(SerialPort);
-            if (match.Success && SerialPort.Length > 4)
-                SerialPort = match.Groups[0].Value;
+            var match = SerialPortRegex().Match(SerialPort!.PortName!);
+            if (match.Success && SerialPort.PortName!.Length > 4)
+            {
+                string cleanedName = match.Groups[0].Value;
+                SerialPort = SerialPorts.FirstOrDefault(p => p.PortName == cleanedName);
+            }
 
             if (IsSerialDeviceSelected)
             {
-                device = DeviceFactory.CreateSerialDevice(SerialPort, SerialPortDeviceType, logger);
-                onPort = " on " + (SerialPort ?? "(no port)");
+                device = DeviceFactory.CreateSerialDevice(SerialPort!.PortName!, SerialPortDeviceType, logger);
+                onPort = " on " + (SerialPort!.PortName! ?? "(no port)");
                 target = (SerialPortDeviceType ?? "serial device") + onPort;
             }
             else if (IsJ2534DeviceSelected)

@@ -1,11 +1,12 @@
-﻿using PcmHacking;
+﻿using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using PcmHacking;
 using PCMHammer.Services;
 using PCMHammer.Views;
 using PCMHammer.Views.DialogBoxes;
 using System.IO;
+using System.IO.Ports;
 using System.Windows;
-using CommunityToolkit.Mvvm.Input;
-using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace PCMHammer.Viewmodels
 {
@@ -667,7 +668,7 @@ namespace PCMHammer.Viewmodels
 
                 if (backgroundViewModel.DeviceCategory.Equals("Serial", StringComparison.Ordinal))
                 {
-                    backgroundViewModel.SerialPort = Properties.Settings.Default.SavedSerialPort;
+                    backgroundViewModel.SerialPort = backgroundViewModel.SerialPorts.FirstOrDefault(p => p.PortName == Properties.Settings.Default.SavedSerialPort); 
                     backgroundViewModel.SerialPortDeviceType = Properties.Settings.Default.SavedSerialDevice;
                 }
                 else
