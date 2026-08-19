@@ -2,7 +2,14 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
-// General Information about an assembly is controlled through the following 
+// Every target framework of this project is Windows-only, but the SDK emits that attribute as part
+// of the assembly info it generates, which this project turns off. Without it the platform analyzer
+// treats each Windows-only call as reachable everywhere (CA1416).
+#if NET5_0_OR_GREATER
+[assembly: System.Runtime.Versioning.SupportedOSPlatform("windows")]
+#endif
+
+// General Information about an assembly is controlled through the following
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
 [assembly: AssemblyTitle("J2534DotNet")]

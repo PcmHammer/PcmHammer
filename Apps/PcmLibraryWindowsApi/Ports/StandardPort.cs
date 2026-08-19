@@ -331,7 +331,7 @@ namespace PcmHacking
                     // Safely intercept the hardware timeout and return 0 bytes read
                     return 0;
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
                     return 0;
                 }
