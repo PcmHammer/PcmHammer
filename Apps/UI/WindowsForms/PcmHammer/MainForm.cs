@@ -83,6 +83,18 @@ namespace PcmHacking
         private WriteType currentWriteType = WriteType.None;
 
         /// <summary>
+        /// The working document held in memory: the package last read from a PCM or loaded from a file.
+        /// Read fills it, Load opens it, Save writes it, Write flashes it. Null when nothing is loaded.
+        /// </summary>
+        private PcmPackage? loadedPackage;
+
+        /// <summary>Path the working document was last loaded from or saved to; null for an unsaved read.</summary>
+        private string? loadedPackagePath;
+
+        /// <summary>True when the working document has unsaved changes (a fresh read, or an imported bin).</summary>
+        private bool documentDirty;
+
+        /// <summary>
         /// Initializes a new instance of the main window.
         /// </summary>
         public MainForm()
@@ -313,7 +325,7 @@ namespace PcmHacking
             using (SaveFileDialog dialog = new SaveFileDialog())
             {
                 dialog.DefaultExt = ".bin";
-                dialog.Filter = "Binary Files (*.bin)|*.bin|All Files (*.*)|*.*";
+                dialog.Filter = "Binary Files (*.bin)|*.bin|PcmHammer package (*.phz)|*.phz|All Files (*.*)|*.*";
                 dialog.FilterIndex = 1;
                 dialog.OverwritePrompt = true;
                 dialog.ValidateNames = true;
@@ -343,7 +355,7 @@ namespace PcmHacking
             using (OpenFileDialog dialog = new OpenFileDialog())
             {
                 dialog.DefaultExt = ".bin";
-                dialog.Filter = "Binary Files (*.bin)|*.bin|All Files (*.*)|*.*";
+                dialog.Filter = "PcmHammer files (*.phz;*.bin)|*.phz;*.bin|PcmHammer package (*.phz)|*.phz|Binary Files (*.bin)|*.bin|All Files (*.*)|*.*";
                 dialog.FilterIndex = 1;
                 dialog.RestoreDirectory = true;
 
@@ -360,6 +372,491 @@ namespace PcmHacking
             }
             return fileName;
         }
+
+        #region Working document (load / save / import / export)
+
+        /// <summary>
+        /// Adopt a package as the working document and refresh the title and button states. Used by Load
+        /// and Import (both run on the UI thread while idle).
+        /// </summary>
+        private void SetLoadedPackage(PcmPackage? package, string? path, bool dirty)
+        {
+            this.loadedPackage = package;
+            this.loadedPackagePath = path;
+            this.documentDirty = package != null && dirty;
+            this.UpdateTitle();
+            this.UpdateDocumentControls();
+        }
+
+        /// <summary>Mark the working document as changed (e.g. after Import) and refresh the title.</summary>
+        private void MarkDocumentDirty()
+        {
+            if (this.loadedPackage == null)
+            {
+                return;
+            }
+
+            this.documentDirty = true;
+            this.UpdateTitle();
+        }
+
+        /// <summary>
+        /// Put the app name/version in the caption, plus the loaded file and a "*" when it has unsaved
+        /// changes, so what is in memory is always visible. Also refreshes the File box info line.
+        /// </summary>
+        private void UpdateTitle()
+        {
+            string baseTitle = this.GetAppNameAndVersion().Replace('\n', ' ');
+            if (this.loadedPackage == null)
+            {
+                this.Text = baseTitle;
+                this.loadedFileLabel.Text = "No file loaded";
+                return;
+            }
+
+            string name = this.loadedPackagePath != null
+                ? Path.GetFileName(this.loadedPackagePath)
+                : "Untitled (unsaved read)";
+            string dirtyMark = this.documentDirty ? " *" : string.Empty;
+            this.Text = baseTitle + " - " + name + dirtyMark;
+            this.loadedFileLabel.Text = name + dirtyMark + Environment.NewLine + DescribeDocument(this.loadedPackage);
+        }
+
+        /// <summary>One-line summary of a package: module type, OSID, and whether it carries the slave.</summary>
+        private static string DescribeDocument(PcmPackage package)
+        {
+            PackageController? controller = package.Controllers.FirstOrDefault();
+            if (controller == null)
+            {
+                return "empty";
+            }
+
+            string module = controller.ModuleType ?? controller.Type ?? "PCM";
+            PackageImage? main = controller.Image("main");
+            string osid = main?.Osid != null ? ", OSID " + main.Osid : string.Empty;
+            bool hasSlave = controller.Images.Any(
+                i => i.Target != null && i.Target.StartsWith("slave", StringComparison.OrdinalIgnoreCase));
+            bool complete = PackageCompleteness.IsComplete(package, out _);
+            string shape = hasSlave ? "master+slave" : (complete ? "master" : "master only");
+            return module + osid + ", " + shape;
+        }
+
+        /// <summary>
+        /// Enable the document-dependent controls (Save, Import, Export, Write, Test Write, Verify) only
+        /// when a document is loaded. The busy axis (DisableUserInput/EnableUserInput) still wins during an
+        /// operation; EnableUserInput calls this when the operation ends. Assumes the UI thread.
+        /// </summary>
+        private void UpdateDocumentControls()
+        {
+            bool loaded = this.loadedPackage != null;
+
+            this.saveFileButton.Enabled = loaded;
+            this.exportBinButton.Enabled = loaded;
+            this.writeCalibrationButton.Enabled = loaded;
+            this.testWriteButton.Enabled = loaded;
+            this.verifyPcmButton.Enabled = loaded;
+
+            this.saveFileToolStripMenuItem.Enabled = loaded;
+            this.saveFileAsToolStripMenuItem.Enabled = loaded;
+            this.importBinToolStripMenuItem.Enabled = loaded;
+            this.exportBinToolStripMenuItem.Enabled = loaded;
+            this.writeParmetersCloneToolStripMenuItem.Enabled = loaded;
+            this.writeOSCalibrationBootToolStripMenuItem.Enabled = loaded;
+            this.writeFullToolStripMenuItem.Enabled = loaded;
+            this.verifyEntirePCMToolStripMenuItem.Enabled = loaded;
+        }
+
+        /// <summary>
+        /// If the working document has unsaved changes, ask whether to save, discard, or cancel. Returns
+        /// false only when the user cancels (the caller should abort whatever would discard the document).
+        /// </summary>
+        private bool ConfirmDiscardIfDirty()
+        {
+            if (this.loadedPackage == null || !this.documentDirty)
+            {
+                return true;
+            }
+
+            DialogResult choice = MessageBox.Show(
+                this,
+                "The loaded file has unsaved changes. Save them first?",
+                "Unsaved changes",
+                MessageBoxButtons.YesNoCancel,
+                MessageBoxIcon.Warning);
+
+            switch (choice)
+            {
+                case DialogResult.Yes:
+                    return this.SaveDocument(forcePrompt: false);
+                case DialogResult.No:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        /// <summary>Load File: open a .phz or .bin into the working document.</summary>
+        private void loadFileButton_Click(object sender, EventArgs e)
+        {
+            if (this.BackgroundWorker.IsAlive)
+            {
+                return;
+            }
+
+            if (!this.ConfirmDiscardIfDirty())
+            {
+                return;
+            }
+
+            string? path = this.ShowOpenDialog();
+            if (path == null)
+            {
+                return;
+            }
+
+            try
+            {
+                PcmPackage package = PackageStore.Load(path);
+
+                // Identify a raw bin's main image at load time (a .phz already records its type/OSID).
+                // Reject anything that isn't a recognized main image - e.g. a lone slave module bin, which
+                // is not usable on its own; a slave can only come in via File -> Import Bin into a package.
+                if (!this.IdentifyLoadedMain(package))
+                {
+                    return;
+                }
+
+                this.SetLoadedPackage(package, path, dirty: false);
+                this.AddUserMessage("Loaded " + path);
+                this.AddUserMessage("  " + DescribeDocument(package));
+                this.WarnIfIncomplete(package);
+            }
+            catch (PackageException exception)
+            {
+                this.AddUserMessage("Unable to load file: " + exception.Message);
+                MessageBox.Show(this, exception.Message, "Could not load file", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        /// <summary>
+        /// Identify the main image of a just-loaded package. A .phz already carries its module type and
+        /// OSID (from the read that produced it), so only a raw .bin is identified here: if it is not a
+        /// recognized PCM image (e.g. a slave module bin, whose size/format the app does not recognize as
+        /// a main image), the load is rejected. On success the detected type and OSID are filled in so the
+        /// main form shows them (e.g. "E38, OSID 12628990"). Returns false when the file was rejected.
+        /// </summary>
+        private bool IdentifyLoadedMain(PcmPackage package)
+        {
+            foreach (PackageController controller in package.Controllers)
+            {
+                PackageImage? main = controller.Image("main");
+                if (main?.Data == null)
+                {
+                    continue;
+                }
+
+                // Already identified (a .phz records both); trust it and skip re-identification.
+                if (!string.IsNullOrEmpty(controller.ModuleType) && main.Osid != null)
+                {
+                    continue;
+                }
+
+                FileValidator validator = new FileValidator(main.Data, this);
+                PcmType type = validator.GetFileType();
+                if (type == PcmType.Undefined)
+                {
+                    string message =
+                        "This file is not a recognized PCM image, so it cannot be loaded on its own." + Environment.NewLine +
+                        "A slave module can only be brought in with File -> Import Bin, into a package read from a PCM.";
+                    this.AddUserMessage(message);
+                    MessageBox.Show(this, message, "Unrecognized file", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return false;
+                }
+
+                if (string.IsNullOrEmpty(controller.ModuleType))
+                {
+                    controller.ModuleType = type.ToString();
+                }
+
+                if (main.Osid == null)
+                {
+                    uint osid = validator.GetOsidFromImage();
+                    if (osid != 0)
+                    {
+                        main.Osid = osid;
+                    }
+                }
+            }
+
+            return true;
+        }
+
+        /// <summary>Save File: always opens the save picker (default name pre-filled, changeable, Cancel
+        /// from the picker). The offered file types come from the completeness rule at runtime.</summary>
+        private void saveFileButton_Click(object sender, EventArgs e)
+        {
+            if (this.BackgroundWorker.IsAlive)
+            {
+                return;
+            }
+
+            this.SaveDocument(forcePrompt: true);
+        }
+
+        /// <summary>Save File As: always prompt for a new path.</summary>
+        private void saveFileAsMenuItem_Click(object sender, EventArgs e)
+        {
+            if (this.BackgroundWorker.IsAlive)
+            {
+                return;
+            }
+
+            this.SaveDocument(forcePrompt: true);
+        }
+
+        /// <summary>
+        /// Save the working document. A complete package may be written as .phz or .bin; an incomplete one
+        /// (e.g. a lone bin for a slave PCM) may only be saved as .bin - the .phz option is refused so we
+        /// never write a package with missing modules. Returns true on a successful save.
+        /// </summary>
+        private bool SaveDocument(bool forcePrompt)
+        {
+            if (this.loadedPackage == null)
+            {
+                return false;
+            }
+
+            bool complete = PackageCompleteness.IsComplete(this.loadedPackage, out string reason);
+            string? path = forcePrompt ? null : this.loadedPackagePath;
+
+            // A remembered path is only reusable if it still satisfies the completeness rule for its type.
+            if (path != null && !complete && path.EndsWith(".phz", StringComparison.OrdinalIgnoreCase))
+            {
+                path = null;
+            }
+
+            if (path == null)
+            {
+                path = this.ShowPackageSaveAsDialog(complete);
+                if (path == null)
+                {
+                    return false;
+                }
+            }
+
+            if (!complete && path.EndsWith(".phz", StringComparison.OrdinalIgnoreCase))
+            {
+                MessageBox.Show(this,
+                    "This file cannot be saved as a package (.phz): " + reason + Environment.NewLine +
+                    "Save it as a .bin instead.",
+                    "Incomplete package", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+
+            try
+            {
+                PackageStore.Save(path, this.loadedPackage);
+                this.loadedPackagePath = path;
+                this.documentDirty = false;
+                this.UpdateTitle();
+                this.AddUserMessage("Saved " + path);
+                return true;
+            }
+            catch (Exception exception) when (exception is IOException || exception is PackageException)
+            {
+                this.AddUserMessage("Unable to save file: " + exception.Message);
+                MessageBox.Show(this, exception.Message, "Could not save file", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return false;
+            }
+        }
+
+        /// <summary>After a read, refresh the title and offer to save the fresh document immediately.</summary>
+        private void PromptSaveAfterRead()
+        {
+            this.UpdateTitle();
+            DialogResult choice = MessageBox.Show(this,
+                "Read complete. Save it to a file now?",
+                "Save", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+            if (choice == DialogResult.Yes)
+            {
+                this.SaveDocument(forcePrompt: true);
+            }
+        }
+
+        /// <summary>
+        /// After loading, note when the document is a master image for a platform that has a slave but no
+        /// slave data (e.g. a downloaded E38 .bin): it can be flashed master-only, leaving the slave in
+        /// place, but it isn't a complete package and can only be saved as a .bin.
+        /// </summary>
+        private void WarnIfIncomplete(PcmPackage package)
+        {
+            if (PackageCompleteness.IsComplete(package, out string reason))
+            {
+                return;
+            }
+
+            this.AddUserMessage("Note: " + reason);
+            this.AddUserMessage("It can still be written (master only); the PCM's slave is left in place. It can be saved only as a .bin.");
+        }
+
+        /// <summary>
+        /// Import Bin: replace a module of the loaded document with a file, keeping the rest of the
+        /// package. <see cref="ModuleImportDialog"/> owns the slot list and the file checks; this only
+        /// marks the document dirty when something changed.
+        /// </summary>
+        private void importBinButton_Click(object sender, EventArgs e)
+        {
+            if (this.BackgroundWorker.IsAlive || this.loadedPackage == null)
+            {
+                return;
+            }
+
+            using (ModuleImportDialog dialog = new ModuleImportDialog(this.loadedPackage, this))
+            {
+                dialog.ShowDialog(this);
+                if (dialog.Changed)
+                {
+                    this.MarkDocumentDirty();
+                    this.UpdateDocumentControls();
+                }
+            }
+        }
+
+        /// <summary>
+        /// Export Bin: write selected images from the loaded document out as raw .bin files, for editing
+        /// elsewhere. The dialog defaults to the main image; each selection is written as
+        /// "&lt;base&gt;_&lt;PCMType&gt;_&lt;target&gt;.bin" so multiple selections never collide.
+        /// </summary>
+        private void exportBinButton_Click(object sender, EventArgs e)
+        {
+            if (this.BackgroundWorker.IsAlive || this.loadedPackage == null)
+            {
+                return;
+            }
+
+            using (ExportBinDialogBox dialog = new ExportBinDialogBox(this.loadedPackage))
+            {
+                if (!dialog.HasExportableImages)
+                {
+                    MessageBox.Show(this, "This file has no image data to export.",
+                        "Export Bin", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return;
+                }
+
+                if (dialog.ShowDialog(this) != DialogResult.OK || dialog.SelectedImages.Count == 0)
+                {
+                    return;
+                }
+
+                string? basePath = this.ShowBinSaveAsDialog();
+                if (basePath == null)
+                {
+                    return;
+                }
+
+                string dir = Path.GetDirectoryName(basePath) ?? string.Empty;
+                string baseName = Path.GetFileNameWithoutExtension(basePath);
+
+                foreach (ExportBinSelection item in dialog.SelectedImages)
+                {
+                    string pcmType = item.Controller.ModuleType ?? item.Controller.Type ?? "PCM";
+                    string target = item.Image.Target ?? "image";
+                    string fileName = string.Format("{0}_{1}_{2}.bin", baseName, pcmType, target);
+                    string full = Path.Combine(dir, fileName);
+
+                    // Embedded images carry their own bytes; a reference (e.g. an E38 slave) is copied out
+                    // of the local slave library.
+                    byte[]? bytes = item.Image.Data ?? SlaveLibrary.Resolve(item.Image.FileName);
+                    if (bytes == null)
+                    {
+                        this.AddUserMessage(string.Format(
+                            "Skipped {0}: \"{1}\" is not in the local library.", target, item.Image.FileName));
+                        continue;
+                    }
+
+                    try
+                    {
+                        File.WriteAllBytes(full, bytes);
+                        this.AddUserMessage("Exported " + full);
+                    }
+                    catch (Exception exception)
+                    {
+                        this.AddUserMessage("Failed to export " + fileName + ": " + exception.Message);
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Save-as dialog for the working document. A complete package offers .phz (default) and .bin; an
+        /// incomplete document offers only .bin, so an invalid package can't be produced.
+        /// </summary>
+        private string? ShowPackageSaveAsDialog(bool complete)
+        {
+            using (SaveFileDialog dialog = new SaveFileDialog())
+            {
+                dialog.Filter = complete
+                    ? "PcmHammer package (*.phz)|*.phz|Binary Files (*.bin)|*.bin"
+                    : "Binary Files (*.bin)|*.bin";
+                dialog.DefaultExt = complete ? ".phz" : ".bin";
+                dialog.FilterIndex = 1;
+                dialog.OverwritePrompt = true;
+                dialog.RestoreDirectory = true;
+                if (!string.IsNullOrWhiteSpace(Configuration.Settings.BinDirectory))
+                {
+                    dialog.InitialDirectory = Configuration.Settings.BinDirectory;
+                }
+
+                // Pre-fill a sensible default name the user can keep or change (a fresh read has no path yet).
+                dialog.FileName = this.DefaultDocumentBaseName();
+                return dialog.ShowDialog() == DialogResult.OK ? dialog.FileName : null;
+            }
+        }
+
+        /// <summary>
+        /// A default base file name for the working document: the current file's name if it has one,
+        /// otherwise built from the module type and OSID of a freshly-read PCM (e.g. "E38_12628990").
+        /// </summary>
+        private string DefaultDocumentBaseName()
+        {
+            if (this.loadedPackagePath != null)
+            {
+                return Path.GetFileNameWithoutExtension(this.loadedPackagePath);
+            }
+
+            PackageController? controller = this.loadedPackage?.Controllers.FirstOrDefault();
+            string module = controller?.ModuleType ?? controller?.Type ?? "PCM";
+            uint? osid = controller?.Image("main")?.Osid;
+            return osid != null ? module + "_" + osid : module;
+        }
+
+        /// <summary>
+        /// Save dialog that supplies the folder and base name for an export. The exporter appends the PCM
+        /// type and target to each file, so this only collects the directory and the leading name.
+        /// </summary>
+        private string? ShowBinSaveAsDialog()
+        {
+            using (SaveFileDialog dialog = new SaveFileDialog())
+            {
+                dialog.Title = "Choose a folder and base name (the PCM type and module are added automatically)";
+                dialog.DefaultExt = ".bin";
+                dialog.Filter = "Binary Files (*.bin)|*.bin";
+                dialog.FilterIndex = 1;
+                dialog.OverwritePrompt = false;
+                dialog.RestoreDirectory = true;
+                if (!string.IsNullOrWhiteSpace(Configuration.Settings.BinDirectory))
+                {
+                    dialog.InitialDirectory = Configuration.Settings.BinDirectory;
+                }
+                if (this.loadedPackagePath != null)
+                {
+                    dialog.FileName = Path.GetFileNameWithoutExtension(this.loadedPackagePath);
+                }
+                return dialog.ShowDialog() == DialogResult.OK ? dialog.FileName : null;
+            }
+        }
+
+        #endregion
 
         /// <summary>
         /// Generate a filename based on Log Name and Timestamp.
@@ -459,6 +956,13 @@ namespace PcmHacking
                 this.Text = GetAppNameAndVersion().Replace('\n', ' ');
                 this.interfaceBox.Enabled = true;
                 this.operationsBox.Enabled = true;
+
+                // No working document yet: only Load is available; Save / Export / Write / Verify wait for
+                // a file to be read from a PCM or loaded from disk.
+                this.UpdateDocumentControls();
+
+                // File -> Import Bin stays hidden until the user opts in via Settings (never persisted).
+                this.UpdateModuleImportVisibility();
 
                 // This will be enabled during full reads (but not writes)
                 this.cancelButton.Enabled = false;
@@ -648,6 +1152,13 @@ namespace PcmHacking
                 return;
             }
 
+            // Unsaved working document: offer to save (or cancel the close) before it is lost.
+            if (!this.ConfirmDiscardIfDirty())
+            {
+                e.Cancel = true;
+                return;
+            }
+
             switch (this.currentWriteType)
             {
                 case WriteType.None:
@@ -734,6 +1245,16 @@ namespace PcmHacking
             this.exitKernelButton.Enabled = false;
             this.reinitializeButton.Enabled = false;
 
+            // Working-document controls (File box + File menu).
+            this.loadFileButton.Enabled = false;
+            this.saveFileButton.Enabled = false;
+            this.exportBinButton.Enabled = false;
+            this.loadFileToolStripMenuItem.Enabled = false;
+            this.saveFileToolStripMenuItem.Enabled = false;
+            this.saveFileAsToolStripMenuItem.Enabled = false;
+            this.importBinToolStripMenuItem.Enabled = false;
+            this.exportBinToolStripMenuItem.Enabled = false;
+
             this.MonitorOnDisableUserInput();
         }
 
@@ -771,6 +1292,12 @@ namespace PcmHacking
                 this.writeCalibrationButton.Enabled = true;
                 this.exitKernelButton.Enabled = true;
                 this.reinitializeButton.Enabled = true;
+
+                // Load is always available when idle; the rest of the File box / File menu depends on
+                // whether a document is loaded (and Write/Verify likewise), applied below.
+                this.loadFileButton.Enabled = true;
+                this.loadFileToolStripMenuItem.Enabled = true;
+                this.UpdateDocumentControls();
 
                 this.MonitorOnEnableUserInput();
             });
@@ -822,6 +1349,17 @@ namespace PcmHacking
             {
                 DialogResult dialogResult = settingsDialog.ShowDialog();
             }
+
+            // The "Allow module import" runtime flag may have changed; reveal or hide File -> Import Bin.
+            this.UpdateModuleImportVisibility();
+        }
+
+        /// <summary>
+        /// Show the File -> Import Bin item only while the "Allow module import" setting is enabled.
+        /// </summary>
+        private void UpdateModuleImportVisibility()
+        {
+            this.importBinToolStripMenuItem.Visible = RuntimeSettings.AllowModuleImport;
         }
 
         /// <summary>
@@ -1458,16 +1996,6 @@ namespace PcmHacking
                         return;
                     }
 
-                    // Get the path to save the image to.
-                    string? path = null;
-                    await this.InvokeWrapper(async () => path = await this.PromptForFileSavePath());
-
-                    if (path == null)
-                    {
-                        this.AddUserMessage("Read canceled.");
-                        return;
-                    }
-
                     PcmType forcedPcmType = useAutoPcmType ? PcmType.Undefined : selectedPcmType;
 
                     this.cancellationTokenSource = new CancellationTokenSource();
@@ -1481,10 +2009,19 @@ namespace PcmHacking
                         this.PromptForYesNo,
                         this.cancellationTokenSource.Token);
 
-                    if (await readManager.Read(path, forcedPcmType))
+                    // Read into the in-memory working document (unsaved). The user saves it via the prompt
+                    // below or the Save File button; Write flashes it directly - no file needed in between.
+                    PcmPackage? package = await readManager.ReadToPackage(forcedPcmType);
+                    if (package != null)
                     {
+                        this.loadedPackage = package;
+                        this.loadedPackagePath = null;
+                        this.documentDirty = true;
+
                         // This will suppress the scary warnings prior to writing.
                         Configuration.Settings.ConnectionVerified = true;
+
+                        await this.InvokeWrapper(() => this.PromptSaveAfterRead());
                     }
                 }
                 catch (Exception exception)
@@ -1564,23 +2101,24 @@ namespace PcmHacking
                     }
 
                     this.cancellationTokenSource = new CancellationTokenSource();
-                    
+
+                    // Write the in-memory working document; the bytes come from the loaded package, not a
+                    // file (the operation dialog already chose the write type and PCM type). Legacy
+                    // fallback: with nothing loaded, prompt for a file so a bare write still works.
+                    PcmPackage? document = this.loadedPackage;
+
                     this.Invoke((MethodInvoker)delegate ()
                     {
                         this.DisableUserInput();
                         this.cancelButton.Enabled = true;
 
-                        if (string.IsNullOrWhiteSpace(path))
+                        if (document == null && string.IsNullOrWhiteSpace(path))
                         {
                             path = this.ShowOpenDialog();
                         }
-                        if (string.IsNullOrWhiteSpace(path))
-                        {
-                            return;
-                        }
                     });
 
-                    if (path == null)
+                    if (document == null && string.IsNullOrWhiteSpace(path))
                     {
                         this.AddUserMessage(
                             writeType == WriteType.TestWrite ?
@@ -1589,7 +2127,15 @@ namespace PcmHacking
                         return;
                     }
 
-                    this.AddUserMessage(path);
+                    if (document != null)
+                    {
+                        this.AddUserMessage("Writing the loaded file" +
+                            (this.loadedPackagePath != null ? " (" + Path.GetFileName(this.loadedPackagePath) + ")" : string.Empty) + ".");
+                    }
+                    else
+                    {
+                        this.AddUserMessage(path);
+                    }
 
                     PcmType forcedPcmType = useAutoPcmType ? PcmType.Undefined : selectedPcmType;
 
@@ -1601,7 +2147,9 @@ namespace PcmHacking
                         this.PromptForYesNo,
                         this.cancellationTokenSource.Token);
 
-                    bool success = await writer.Write(path, forcedPcmType);
+                    bool success = document != null
+                        ? await writer.Write(document, forcedPcmType)
+                        : await writer.Write(path!, forcedPcmType);
 
                     if (success)
                     {
@@ -1677,7 +2225,7 @@ namespace PcmHacking
             }
         }
 
-        private async void testFileChecksumsToolStripMenuItem_Click(object sender, EventArgs e)
+        private void testFileChecksumsToolStripMenuItem_Click(object sender, EventArgs e)
         {
             string? path = this.ShowOpenDialog();
             if (path == null)
@@ -1687,28 +2235,25 @@ namespace PcmHacking
 
             this.AddUserMessage("Examining " + path);
 
-            byte[] image;
+            byte[]? image;
             try
             {
-                using (Stream stream = File.OpenRead(path))
-                {
-                    image = new byte[stream.Length];
-                    int bytesRead = await stream.ReadAsync(image, 0, (int)stream.Length);
-                    if (bytesRead != stream.Length)
-                    {
-                        // If this happens too much, we should try looping rather than reading the whole file in one shot.
-                        this.AddUserMessage("Unable to load file.");
-                        return;
-                    }
-                }
+                // A .phz is a package: pull its master image out. A .bin is returned as-is.
+                image = PackageStore.LoadMainImage(path);
             }
-            catch (Exception ex)
+            catch (PackageException ex)
             {
-                this.AddUserMessage($"Unable to open file: {ex.Message}");
+                this.AddUserMessage("Unable to open file: " + ex.Message);
                 return;
             }
 
-            // Sanity checks. 
+            if (image == null)
+            {
+                this.AddUserMessage("This file has no main image to check.");
+                return;
+            }
+
+            // Sanity checks.
             FileValidator validator = new FileValidator(image, this);
             if (validator.IdentifyAndValidate())
             {

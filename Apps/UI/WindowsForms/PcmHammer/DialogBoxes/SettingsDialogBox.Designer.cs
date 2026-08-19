@@ -41,6 +41,7 @@
             this.binDirectoryButton = new System.Windows.Forms.Button();
             this.allowCrossFlashingCheckBox = new System.Windows.Forms.CheckBox();
             this.forceWriteAllSectorsCheckBox = new System.Windows.Forms.CheckBox();
+            this.allowModuleImportCheckBox = new System.Windows.Forms.CheckBox();
             this.logGroupBox = new System.Windows.Forms.GroupBox();
             this.saveUserLogOnExitCheckBox = new System.Windows.Forms.CheckBox();
             this.useLogSaveAsDialogCheckBox = new System.Windows.Forms.CheckBox();
@@ -57,7 +58,7 @@
             // applyButton
             // 
             this.applyButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.applyButton.Location = new System.Drawing.Point(371, 318);
+            this.applyButton.Location = new System.Drawing.Point(371, 338);
             this.applyButton.Name = "applyButton";
             this.applyButton.Size = new System.Drawing.Size(75, 23);
             this.applyButton.TabIndex = 3;
@@ -68,7 +69,7 @@
             // cancelButton
             // 
             this.cancelButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.cancelButton.Location = new System.Drawing.Point(290, 318);
+            this.cancelButton.Location = new System.Drawing.Point(290, 338);
             this.cancelButton.Name = "cancelButton";
             this.cancelButton.Size = new System.Drawing.Size(75, 23);
             this.cancelButton.TabIndex = 2;
@@ -79,7 +80,7 @@
             // okButton
             // 
             this.okButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.okButton.Location = new System.Drawing.Point(209, 318);
+            this.okButton.Location = new System.Drawing.Point(209, 338);
             this.okButton.Name = "okButton";
             this.okButton.Size = new System.Drawing.Size(75, 23);
             this.okButton.TabIndex = 1;
@@ -96,7 +97,7 @@
             this.tabControl.Location = new System.Drawing.Point(12, 12);
             this.tabControl.Name = "tabControl";
             this.tabControl.SelectedIndex = 0;
-            this.tabControl.Size = new System.Drawing.Size(434, 300);
+            this.tabControl.Size = new System.Drawing.Size(434, 320);
             this.tabControl.TabIndex = 0;
             // 
             // generalTabPage
@@ -107,7 +108,7 @@
             this.generalTabPage.Location = new System.Drawing.Point(4, 22);
             this.generalTabPage.Name = "generalTabPage";
             this.generalTabPage.Padding = new System.Windows.Forms.Padding(3);
-            this.generalTabPage.Size = new System.Drawing.Size(426, 274);
+            this.generalTabPage.Size = new System.Drawing.Size(426, 294);
             this.generalTabPage.TabIndex = 0;
             this.generalTabPage.Text = "General";
             this.generalTabPage.UseVisualStyleBackColor = true;
@@ -137,11 +138,12 @@
             // 
             this.binGroupBox.Controls.Add(this.forceWriteAllSectorsCheckBox);
             this.binGroupBox.Controls.Add(this.allowCrossFlashingCheckBox);
+            this.binGroupBox.Controls.Add(this.allowModuleImportCheckBox);
             this.binGroupBox.Controls.Add(this.binDirectoryTextBox);
             this.binGroupBox.Controls.Add(this.binDirectoryButton);
             this.binGroupBox.Location = new System.Drawing.Point(6, 53);
             this.binGroupBox.Name = "binGroupBox";
-            this.binGroupBox.Size = new System.Drawing.Size(414, 93);
+            this.binGroupBox.Size = new System.Drawing.Size(414, 113);
             this.binGroupBox.TabIndex = 2;
             this.binGroupBox.TabStop = false;
             this.binGroupBox.Text = "Bin";
@@ -176,6 +178,17 @@
             this.allowCrossFlashingCheckBox.UseVisualStyleBackColor = true;
             this.allowCrossFlashingCheckBox.CheckedChanged += new System.EventHandler(this.allowCrossFlashingCheckBox_CheckedChanged);
             //
+            // allowModuleImportCheckBox
+            //
+            this.allowModuleImportCheckBox.AutoSize = true;
+            this.allowModuleImportCheckBox.Location = new System.Drawing.Point(6, 88);
+            this.allowModuleImportCheckBox.Name = "allowModuleImportCheckBox";
+            this.allowModuleImportCheckBox.Size = new System.Drawing.Size(123, 17);
+            this.allowModuleImportCheckBox.TabIndex = 4;
+            this.allowModuleImportCheckBox.Text = "Allow module import";
+            this.allowModuleImportCheckBox.UseVisualStyleBackColor = true;
+            this.allowModuleImportCheckBox.CheckedChanged += new System.EventHandler(this.allowModuleImportCheckBox_CheckedChanged);
+            //
             // forceWriteAllSectorsCheckBox
             //
             this.forceWriteAllSectorsCheckBox.AutoSize = true;
@@ -194,7 +207,7 @@
             this.logGroupBox.Controls.Add(this.logDirectoryButton);
             this.logGroupBox.Controls.Add(this.saveDebugLogOnExitCheckBox);
             this.logGroupBox.Controls.Add(this.logDirectoryTextBox);
-            this.logGroupBox.Location = new System.Drawing.Point(6, 152);
+            this.logGroupBox.Location = new System.Drawing.Point(6, 172);
             this.logGroupBox.Name = "logGroupBox";
             this.logGroupBox.Size = new System.Drawing.Size(414, 116);
             this.logGroupBox.TabIndex = 1;
@@ -256,7 +269,7 @@
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(458, 353);
+            this.ClientSize = new System.Drawing.Size(458, 373);
             this.Controls.Add(this.tabControl);
             this.Controls.Add(this.okButton);
             this.Controls.Add(this.cancelButton);
@@ -294,6 +307,7 @@
         private System.Windows.Forms.Button binDirectoryButton;
         private System.Windows.Forms.CheckBox allowCrossFlashingCheckBox;
         private System.Windows.Forms.CheckBox forceWriteAllSectorsCheckBox;
+        private System.Windows.Forms.CheckBox allowModuleImportCheckBox;
         private System.Windows.Forms.CheckBox useLogSaveAsDialogCheckBox;
         private System.Windows.Forms.GroupBox windowGroupBox;
         private System.Windows.Forms.GroupBox binGroupBox;

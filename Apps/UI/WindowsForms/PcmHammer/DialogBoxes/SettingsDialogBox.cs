@@ -44,6 +44,7 @@ namespace PcmHacking.DialogBoxes
             // always start cleared on launch. Reflect their current in-memory values without enabling Apply.
             allowCrossFlashingCheckBox.Checked = RuntimeSettings.AllowCrossFlashing;
             forceWriteAllSectorsCheckBox.Checked = RuntimeSettings.ForceWriteAllSectors;
+            allowModuleImportCheckBox.Checked = RuntimeSettings.AllowModuleImport;
             applyButton.Enabled = false;
         }
 
@@ -198,6 +199,19 @@ namespace PcmHacking.DialogBoxes
             if (forceWriteAllSectorsCheckBox.Checked)
             {
                 this.logger.AddUserMessage("Force write all flash sectors enabled.");
+            }
+        }
+
+        private void allowModuleImportCheckBox_CheckedChanged(object sender, EventArgs e)
+        {
+            // Runtime-only flag, applies immediately and resets to cleared on next launch, so it
+            // deliberately does NOT enable Apply or get written by SaveSettings. It reveals the
+            // File -> Import Bin item, the power tool for building a file with a specific slave module.
+            RuntimeSettings.AllowModuleImport = allowModuleImportCheckBox.Checked;
+
+            if (allowModuleImportCheckBox.Checked)
+            {
+                this.logger.AddUserMessage("Module import enabled (File -> Import Bin is now available).");
             }
         }
     }
