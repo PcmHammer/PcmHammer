@@ -3,13 +3,34 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>
+    <!-- Run 32-bit so the process can load 32-bit J2534 driver DLLs (a 64-bit process cannot).
+         Most J2534 drivers ship 32-bit only; the WinForms app runs 32-bit for the same reason. -->
+    <PlatformTarget>x86</PlatformTarget>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>0411_256px.ico</ApplicationIcon>
 	<LangVersion>14.0</LangVersion>
+    <!-- Untagged dev builds report 0.0.0.0 so AppInfo shows the build date instead of a version;
+         the release pipeline stamps a real version. Matches the WinForms/CLI convention. -->
+    <Version>0.0.0.0</Version>
+    <FileVersion>0.0.0.0</FileVersion>
+    <AssemblyVersion>0.0.0.0</AssemblyVersion>
   </PropertyGroup>
+
+  <Target Name="Date" BeforeTargets="CoreCompile">
+    <!-- Writes Generated.BuildTime (the compile timestamp) so the About/log lines can show a
+         "Build: <date time>" for untagged builds. BuildTicks can be passed in (/p:BuildTicks=...)
+         so every assembly in one build shares the same timestamp; defaults to UtcNow otherwise. -->
+    <PropertyGroup>
+      <BuildTicks Condition="'$(BuildTicks)' == ''">$([System.DateTime]::UtcNow.Ticks)</BuildTicks>
+    </PropertyGroup>
+    <WriteLinesToFile File="$(IntermediateOutputPath)generated.cs" Lines="static partial class Generated { public static long BuildTime = $(BuildTicks)%3B }" Overwrite="true" />
+    <ItemGroup>
+      <Compile Include="$(IntermediateOutputPath)generated.cs" />
+    </ItemGroup>
+  </Target>
 
   <ItemGroup>
     <Content Include="0411_256px.ico" />

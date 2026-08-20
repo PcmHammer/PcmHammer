@@ -10,13 +10,6 @@
         WindowStartupLocation="CenterOwner"
         Title="Settings" Width="629">
     <StackPanel Margin="16">
-        <GroupBox Header="Device">
-            <StackPanel>
-                <CheckBox Content="Retain device configuration" IsChecked="{Binding RetainDeviceConfigurationOnExit}"/>
-                <TextBlock FontStyle="Oblique" Opacity="0.5" Text="This will retain the current device configuration (serial, port, and device or J2354) on exit."/>
-            </StackPanel>
-        </GroupBox>
-
         <GroupBox Header="Bin Files">
             <Grid>
                 <Grid.ColumnDefinitions>
@@ -44,6 +37,16 @@
                 <TextBlock FontStyle="Oblique" Opacity="0.5" Text="Automatically save the results log on application exit."/>
                 <CheckBox Content="Save debug log on application exit" IsChecked="{Binding SaveDebugLogOnExit}"/>
                 <TextBlock FontStyle="Oblique" Opacity="0.5" Text="Automatically save the debug log on application exit."/>
+            </StackPanel>
+        </GroupBox>
+        <GroupBox Header="Advanced (this session only)">
+            <StackPanel>
+                <CheckBox Content="Allow cross-flashing" IsChecked="{Binding AllowCrossFlashing}"/>
+                <TextBlock FontStyle="Oblique" Opacity="0.5" TextWrapping="Wrap" Text="Relax the file-vs-PCM compatibility checks so an incompatible image can be written. Advanced recovery only - this can brick a PCM."/>
+                <CheckBox Content="Force write all sectors" IsChecked="{Binding ForceWriteAllSectors}"/>
+                <TextBlock FontStyle="Oblique" Opacity="0.5" TextWrapping="Wrap" Text="Erase and rewrite every in-scope sector even when its CRC already matches. Slower, adds flash wear; useful for recovery."/>
+                <CheckBox Content="Allow module import" IsChecked="{Binding AllowModuleImport}"/>
+                <TextBlock FontStyle="Oblique" Opacity="0.5" TextWrapping="Wrap" Text="Show File -&gt; Import Bin, which replaces one module of the loaded package. For building a file with a specific slave module."/>
             </StackPanel>
         </GroupBox>
         <Grid Margin="0,16,0,0" HorizontalAlignment="Right">

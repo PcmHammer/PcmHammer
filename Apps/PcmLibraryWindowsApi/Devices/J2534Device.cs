@@ -190,7 +190,9 @@ namespace PcmHacking
             m2 = LoadLibrary(J2534Port.LoadedDevice);
             if (m2.Status != ResponseStatus.Success)
             {
-                this.Logger.AddUserMessage("Unable to load the J2534 DLL.");
+                // The path is worth showing: a driver registered only for the other bitness is
+                // listed but cannot be loaded, and the Program Files tree it sits in says which.
+                this.Logger.AddUserMessage("Unable to load the J2534 DLL: " + J2534Port.LoadedDevice.FunctionLibrary);
                 return false;
             }
             this.Logger.AddUserMessage("Loaded DLL");
@@ -218,6 +220,15 @@ namespace PcmHacking
                 this.Logger.AddUserMessage("Battery Voltage is: " + volts.Value.ToString());
             }
 
+            // Start on VPW, which is what most of these PCMs use. A CAN-only interface has no VPW
+            // channel to open, so start it on CAN instead of failing initialization outright;
+            // SetProtocol moves either kind of device to the bus an operation needs.
+            if (!this.J2534Port.LoadedDevice.IsJ1850VPWSupported)
+            {
+                this.Logger.AddUserMessage("This device does not support VPW. Initializing on CAN.");
+                return SetProtocolInternal(BusProtocol.Can500k);
+            }
+
             // Set Protocol
             m = ConnectToProtocol(ProtocolID.J1850VPW, BaudRate.J1850VPW_10400, ConnectFlag.NONE);
             if (m.Status != ResponseStatus.Success)
@@ -234,7 +245,7 @@ namespace PcmHacking
                 this.Logger.AddUserMessage("Failed to set filter, J2534 error code: 0x" + m.Value.ToString("X2"));
                 return false;
             }
-           
+
             this.Logger.AddDebugMessage("Device initialization complete.");
 
             return true;
@@ -584,11 +595,42 @@ namespace PcmHacking
             }
         }
 
+        /// <summary>
+        /// Whether the installed driver declares a channel for this bus. CAN is read from the
+        /// ISO15765 channel count, because that is the mode these PCMs are talked to in.
+        /// </summary>
+        private bool SupportsProtocol(BusProtocol protocol)
+        {
+            switch (protocol)
+            {
+                case BusProtocol.Vpw:
+                    return this.J2534Port.LoadedDevice.IsJ1850VPWSupported;
+
+                case BusProtocol.Can500k:
+                    return this.J2534Port.LoadedDevice.IsISO15765Supported;
+
+                default:
+                    return false;
+            }
+        }
+
         private bool SetProtocolInternal(BusProtocol protocol)
         {
-            if (protocol == this.CurrentProtocol)
+            // The open channel has to match, not just the recorded protocol: a failed switch (asking
+            // a VPW-only interface for CAN, say) disconnects the old channel before finding out it
+            // cannot open the new one, which would otherwise leave this claiming to be on a bus whose
+            // channel is closed.
+            if (protocol == this.CurrentProtocol && this.IsProtocolOpen)
             {
                 return true;
+            }
+
+            // The driver declares its channels in the registry, so a bus it does not have is refused
+            // here rather than by disconnecting the working channel and then failing to open the new
+            // one.
+            if (!this.SupportsProtocol(protocol))
+            {
+                return false;
             }
 
             if (protocol == BusProtocol.Can500k)

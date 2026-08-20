@@ -17,7 +17,7 @@ public class SettingsChangedMessage { }
 public interface ISettingsService
 {
     string GetObd2DeviceCategory();
-    string GetJ2534DeviceName();
+    J2534DeviceListing GetJ2534Device();
     string GetBluetoothDeviceName();
     SerialPortListing GetObd2SerialPortName();
     string GetObd2SerialDeviceName();
@@ -155,9 +155,14 @@ public class SettingsService : ISettingsService
         return _settingsListInterface[BluetoothDeviceNameKey] as string ?? string.Empty;
     }
 
-    public string GetJ2534DeviceName()
+    public J2534DeviceListing GetJ2534Device()
     {
-        return _settingsListInterface[J2534DeviceNameKey] as string ?? string.Empty;
+        string result = _settingsListInterface[J2534DeviceNameKey] as string ?? string.Empty;
+        return new J2534DeviceListing
+        {
+            Name = result,
+            DisplayName = result
+        };
     }
 
     public bool IsCanEnabled()

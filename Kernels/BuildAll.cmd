@@ -119,9 +119,12 @@ call :CopyToDetectedLinuxTargets
 rem Uno targets (detected by output folder patterns)
 call :CopyToDetectedUnoTargets
 
-rem WPF targets
-call :CopyBinsToTarget "..\Apps\UI\WPF\PCMHammer\bin\Debug\net10.0-windows"
-call :CopyBinsToTarget "..\Apps\UI\WPF\PCMHammer\bin\Release\net10.0-windows"
+rem WPF targets. The app can build to bin\Debug\net10.0-windows or, when built for the x86
+rem platform, bin\x86\Debug\net10.0-windows, so scan for the app binary wherever it landed
+rem (same approach as Uno). Create the default Debug output dir so a fresh checkout (not yet
+rem built) still receives the kernels.
+call :CopyBinsToTarget "..\Apps\UI\WPF\PCMHammer\bin\Debug\net10.0-windows" create
+call :CopyToDetectedWpfTargets
 
 if "%COPY_TARGET_COUNT%" == "0" (
   echo No output targets detected. Kernels remain in build\.
@@ -139,6 +142,21 @@ if not exist "%LINUX_BIN_ROOT%" (
 echo Scanning Linux CLI bin output targets for the app binary...
 for /r "%LINUX_BIN_ROOT%" %%F in (pcmhammer-cli.dll) do (
   echo   Found Linux CLI output: "%%~dpF"
+  call :CopyBinsToTarget "%%~dpF"
+)
+
+goto :EOF
+
+:CopyToDetectedWpfTargets
+set "WPF_BIN_ROOT=..\Apps\UI\WPF\PCMHammer\bin"
+if not exist "%WPF_BIN_ROOT%" (
+  echo WPF bin root not found: "%WPF_BIN_ROOT%"
+  goto :EOF
+)
+
+echo Scanning WPF bin output targets for the app binary...
+for /r "%WPF_BIN_ROOT%" %%F in (pcm*.exe) do (
+  echo   Found WPF output: "%%~dpF"
   call :CopyBinsToTarget "%%~dpF"
 )
 

@@ -57,8 +57,15 @@ namespace PCMHammer.Helpers
 
         public void StatusUpdateKbps(string Kbps)
         {
-            if (double.TryParse(Kbps.Replace(" Kb/s", "").Replace("kbps", ""), out double result))
+            // The library sends the rate as e.g. "45.23 Kbps" (capital K), or an empty string to
+            // clear it. Take the leading numeric token so the unit's text/case can't defeat the parse
+            // (the old code only stripped a lowercase "kbps", so nothing ever parsed and the rate
+            // stayed at zero, hence invisible).
+            string number = (Kbps ?? string.Empty).Trim().Split(' ')[0];
+            if (double.TryParse(number, out double result))
                 Application.Current.Dispatcher.Invoke(() => _viewModel.TransferRate = result);
+            else if (string.IsNullOrWhiteSpace(Kbps))
+                Application.Current.Dispatcher.Invoke(() => _viewModel.TransferRate = 0);
         }
 
         public void StatusUpdateReset()

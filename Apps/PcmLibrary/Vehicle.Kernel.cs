@@ -469,7 +469,7 @@ namespace PcmHacking
 
         public async Task<UInt64> GetKernelVersion(int maxRetries = 5)
         {
-            return await this.GetKernelVersion(CancellationToken.None);
+            return await this.GetKernelVersion(CancellationToken.None, maxRetries);
         }
 
         public async Task<UInt64> GetKernelVersion(CancellationToken cancellationToken, int maxRetries = 5)

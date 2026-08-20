@@ -33,6 +33,14 @@ namespace PCMHammer
             // Stop the window from closing immediately
             e.Cancel = true;
 
+            // Offer to save a modified working document before we tear anything down. If the user cancels,
+            // abort the close entirely and leave the app as it was.
+            if (_viewModel is not null && !_viewModel.ConfirmDiscardOnExit())
+            {
+                _viewModel.StatusText = "Ready";
+                return;
+            }
+
             if (_viewModel is not null)
             {
                 _viewModel.StatusText = "Saving logs and cleaning up hardware connections...";

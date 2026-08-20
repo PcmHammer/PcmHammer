@@ -13,6 +13,50 @@ namespace PcmHacking
         private static readonly BusProtocol[] DetectionBuses = { BusProtocol.Vpw, BusProtocol.Can500k };
 
         /// <summary>
+        /// The bus the PCM was last found on, or null if it has not been found yet.
+        /// </summary>
+        /// <remarks>
+        /// Probed first next time, so a repeated detection (a connection poll, or one operation after
+        /// another) does not pay for a probe of the bus that did not answer last time.
+        /// </remarks>
+        public BusProtocol? LastDetectedBus { get; private set; }
+
+        // Buses this device has already been reported as unable to use. Detection runs repeatedly
+        // (every connection poll), and the same limitation is only worth stating once.
+        private readonly HashSet<BusProtocol> reportedUnusableBuses = new HashSet<BusProtocol>();
+
+        /// <summary>
+        /// Tell the user, once, that the interface cannot reach a bus. A VPW-only interface cannot
+        /// see a CAN PCM at all, which is otherwise indistinguishable from an absent PCM.
+        /// </summary>
+        private void ReportUnusableBus(BusProtocol bus)
+        {
+            if (this.reportedUnusableBuses.Add(bus))
+            {
+                this.logger.AddUserMessage($"This device cannot use the {bus} bus, so a {bus} module cannot be found with it.");
+            }
+        }
+
+        /// <summary>
+        /// The detection buses, with the one that answered last time first.
+        /// </summary>
+        private IEnumerable<BusProtocol> BusesToProbe()
+        {
+            if (this.LastDetectedBus.HasValue)
+            {
+                yield return this.LastDetectedBus.Value;
+            }
+
+            foreach (BusProtocol bus in DetectionBuses)
+            {
+                if (bus != this.LastDetectedBus)
+                {
+                    yield return bus;
+                }
+            }
+        }
+
+        /// <summary>
         /// Scan every bus the device supports, OSID-probing each target, and return the modules that
         /// answer. Leaves the device on the last bus probed; callers that intend to operate should
         /// then select a module (see SelectModule / DetectAndSelectPcm).
@@ -24,7 +68,12 @@ namespace PcmHacking
             foreach (BusProtocol bus in DetectionBuses)
             {
                 if (cancellationToken.IsCancellationRequested) break;
-                if (!await this.device.SetProtocol(bus)) continue;   // device can't do this bus
+                if (!await this.device.SetProtocol(bus))
+                {
+                    this.ReportUnusableBus(bus);
+                    continue;
+                }
+
                 await this.device.SetTimeout(TimeoutScenario.Detect);
 
                 foreach (Target target in DetectionTargets)
@@ -74,10 +123,15 @@ namespace PcmHacking
         public async Task<DetectedModule?> DetectAndSelectPcm(CancellationToken cancellationToken)
         {
             // Stop at the first bus the PCM answers on, so a VPW read is not slowed by a CAN probe.
-            foreach (BusProtocol bus in DetectionBuses)
+            foreach (BusProtocol bus in this.BusesToProbe())
             {
                 if (cancellationToken.IsCancellationRequested) break;
-                if (!await this.device.SetProtocol(bus)) continue;   // device can't do this bus
+                if (!await this.device.SetProtocol(bus))
+                {
+                    this.ReportUnusableBus(bus);
+                    continue;
+                }
+
                 await this.device.SetTimeout(TimeoutScenario.Detect);
 
                 this.SetTarget(Target.Pcm);
@@ -85,11 +139,13 @@ namespace PcmHacking
                 if (osid.Status == ResponseStatus.Success)
                 {
                     DetectedModule pcm = new DetectedModule(bus, Target.Pcm, osid.Value);
+                    this.LastDetectedBus = bus;
                     await this.SelectModule(pcm);
                     return pcm;
                 }
             }
 
+            this.LastDetectedBus = null;
             return null;
         }
 

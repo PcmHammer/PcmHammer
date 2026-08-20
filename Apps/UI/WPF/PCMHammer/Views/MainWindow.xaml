@@ -7,7 +7,7 @@
         xmlns:helpers="clr-namespace:PCMHammer.Helpers"
         mc:Ignorable="d"
         ThemeMode="System"
-        Title="PCM Hammer" Height="638" Width="800"
+        Title="{Binding WindowTitle}" Height="638" Width="800"
         Loaded="Window_Loaded"
         Closing="Window_Closing">
     <Grid>
@@ -18,6 +18,19 @@
         </Grid.RowDefinitions>
         <Menu>
             <MenuItem Header="_File">
+                <MenuItem Header="_Load File..."        Command="{Binding LoadFileCommand}"
+                          IsEnabled="{Binding IsDeviceControlEnabled}"/>
+                <MenuItem Header="_Save File..."        Command="{Binding SaveFileCommand}"
+                          IsEnabled="{Binding CanUseDocument}"/>
+                <MenuItem Header="Save File _As..."     Command="{Binding SaveFileAsCommand}"
+                          IsEnabled="{Binding CanUseDocument}"/>
+                <Separator/>
+                <MenuItem Header="_Import Bin..."       Command="{Binding ImportModuleCommand}"
+                          IsEnabled="{Binding CanUseDocument}"
+                          Visibility="{Binding IsModuleImportAllowed, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                <MenuItem Header="_Export Bin..."       Command="{Binding ExportBinCommand}"
+                          IsEnabled="{Binding CanUseDocument}"/>
+                <Separator/>
                 <MenuItem Header="Save _Results Log"    Command="{Binding SaveResultsLogCommand}"/>
                 <MenuItem Header="Save _Debug Log"      Command="{Binding SaveDebugLogCommand}"/>
                 <Separator/>
@@ -25,29 +38,30 @@
             </MenuItem>
             <MenuItem Header="_Tools">
                 <MenuItem Header="_Read Entire PCM" Command="{Binding ReadPCMCommand}"
-                          IsEnabled="{Binding SelectedDevice, Converter={StaticResource NullToBoolean}}"/>
+                          IsEnabled="{Binding CanStartOperation}"/>
                 <MenuItem Header="_Verify Entire PCM" Command="{Binding VerifyPCMCommand}"
-                          IsEnabled="{Binding SelectedDevice, Converter={StaticResource NullToBoolean}}"/>
+                          IsEnabled="{Binding CanWriteDocument}"/>
                 <MenuItem Header="_Change VIN" Command="{Binding ChangeVINCommand}"
-                          IsEnabled="{Binding SelectedDevice, Converter={StaticResource NullToBoolean}}"/>
+                          IsEnabled="{Binding CanStartOperation}"/>
                 <Separator Height="2"/>
                 <MenuItem Header="Write _Parameters" Command="{Binding WriteParametersCommand}"
-                          IsEnabled="{Binding SelectedDevice, Converter={StaticResource NullToBoolean}}"/>
+                          IsEnabled="{Binding CanWriteDocument}"/>
                 <MenuItem Header="Write _OS, Calibration &amp; Boot" Command="{Binding WriteOSCalibrationBootCommand}"
-                          IsEnabled="{Binding SelectedDevice, Converter={StaticResource NullToBoolean}}"/>
+                          IsEnabled="{Binding CanWriteDocument}"/>
                 <MenuItem Header="Write _Full Flash (Clone)" Command="{Binding WriteFullFlashCloneCommand}"
-                          IsEnabled="{Binding SelectedDevice, Converter={StaticResource NullToBoolean}}"/>
+                          IsEnabled="{Binding CanWriteDocument}"/>
                 <Separator Height="2"/>
-                <MenuItem Header="_Test File Checksums..." Command="{Binding TestFileChecksumsCommand}"/>
+                <MenuItem Header="_Test File Checksums..." Command="{Binding TestFileChecksumsCommand}"
+                          IsEnabled="{Binding IsDeviceControlEnabled}"/>
                 <MenuItem Header="Brute Force _Unlock..." Command="{Binding BruteForceUnlockCommand}"
-                          IsEnabled="{Binding SelectedDevice, Converter={StaticResource NullToBoolean}}"/>
+                          IsEnabled="{Binding CanStartOperation}"/>
                 <Separator Height="2"/>
                 <MenuItem Header="_Halt Running Kernel" Command="{Binding HaltRunningKernelCommand}"
-                          IsEnabled="{Binding SelectedDevice, Converter={StaticResource NullToBoolean}}"/>
+                          IsEnabled="{Binding CanStartOperation}"/>
             </MenuItem>
             <MenuItem Header="_Options">
                 <MenuItem Header="_User Defined Key" Command="{Binding UserDefinedKeyCommand}"
-                          IsEnabled="{Binding SelectedDevice, Converter={StaticResource NullToBoolean}}"/>
+                          IsEnabled="{Binding CanStartOperation}"/>
                 <MenuItem Header="_Settings" Command="{Binding SettingsCommand}"/>
             </MenuItem>
         </Menu>
@@ -59,7 +73,7 @@
             </Grid.ColumnDefinitions>
 
             <StackPanel>
-                <GroupBox Header="Device">
+                <GroupBox Header="Device" IsEnabled="{Binding IsDeviceControlEnabled}">
                     <StackPanel>
                         <Button Content="_Select Device"   
                                 Command="{Binding SelectDeviceCommand}"
@@ -72,21 +86,33 @@
                                 Margin="0,0,0,5"/>
                     </StackPanel>
                 </GroupBox>
-                <GroupBox Header="Operations" Grid.Row="1" VerticalAlignment="Center"
-                          IsEnabled="{Binding SelectedDevice, Converter={StaticResource NullToBoolean}}">
+                <GroupBox Header="File">
                     <StackPanel>
-                        <Button Content="Read _Properties"      Command="{Binding ReadPropertiesCommand}"   HorizontalAlignment="Stretch" Margin="0,0,0,5"/>
-                        <Button Content="Read P_CM"             Command="{Binding ReadPCMCommand}"          HorizontalAlignment="Stretch" Margin="0,0,0,5"/>
-                        <Button Content="_Write PCM"            Command="{Binding WritePCMCommand}"         HorizontalAlignment="Stretch" Margin="0,0,0,5"/>
-                        <Button Content="T_est Write"           Command="{Binding TestWriteCommand}"        HorizontalAlignment="Stretch" Margin="0,0,0,5"/>
-                        <Button Content="_Verify PCM"           Command="{Binding VerifyPCMCommand}"        HorizontalAlignment="Stretch" Margin="0,0,0,5"/>
+                        <Button Content="_Load File..."         Command="{Binding LoadFileCommand}"  IsEnabled="{Binding IsDeviceControlEnabled}" HorizontalAlignment="Stretch" Margin="0,0,0,5"/>
+                        <Button Content="_Save File..."         Command="{Binding SaveFileCommand}"  IsEnabled="{Binding CanUseDocument}"         HorizontalAlignment="Stretch" Margin="0,0,0,5"/>
+                        <Button Content="E_xport Bin..."        Command="{Binding ExportBinCommand}" IsEnabled="{Binding CanUseDocument}"         HorizontalAlignment="Stretch" Margin="0,0,0,5"/>
+                        <TextBlock Text="{Binding LoadedFileText}" TextWrapping="Wrap" FontSize="11" Opacity="0.8" Margin="0,2,0,0"/>
                     </StackPanel>
                 </GroupBox>
-                <GroupBox Header="Kernel" Grid.Row="2"
-                          IsEnabled="{Binding SelectedDevice, Converter={StaticResource NullToBoolean}}">
+                <GroupBox Header="Operations" Grid.Row="1" VerticalAlignment="Center"
+                          IsEnabled="{Binding CanStartOperation}">
                     <StackPanel>
-                        <Button Content="_Halt Running Kernel"  Command="{Binding HaltRunningKernelCommand}" HorizontalAlignment="Stretch" Margin="0,0,0,5"/>
-                        <Button Content="_Cancel"               Command="{Binding CancelCurrentCommand}"     HorizontalAlignment="Stretch" Margin="0,0,0,5"/>
+                        <!-- Read/Read Properties only need a connected device; Write/Test Write/Verify act
+                             on the loaded document, so they additionally require one (CanWriteDocument). -->
+                        <Button Content="Read _Properties"      Command="{Binding ReadPropertiesCommand}"   HorizontalAlignment="Stretch" Margin="0,0,0,5"/>
+                        <Button Content="Read P_CM"             Command="{Binding ReadPCMCommand}"          HorizontalAlignment="Stretch" Margin="0,0,0,5"/>
+                        <Button Content="_Write PCM"            Command="{Binding WritePCMCommand}"         IsEnabled="{Binding CanWriteDocument}" HorizontalAlignment="Stretch" Margin="0,0,0,5"/>
+                        <Button Content="T_est Write"           Command="{Binding TestWriteCommand}"        IsEnabled="{Binding CanWriteDocument}" HorizontalAlignment="Stretch" Margin="0,0,0,5"/>
+                        <Button Content="_Verify PCM"           Command="{Binding VerifyPCMCommand}"        IsEnabled="{Binding CanWriteDocument}" HorizontalAlignment="Stretch" Margin="0,0,0,5"/>
+                    </StackPanel>
+                </GroupBox>
+                <GroupBox Header="Kernel" Grid.Row="2">
+                    <StackPanel>
+                        <!-- Halt is a normal operation (needs a device, only when idle); Cancel is the
+                             opposite - it exists to interrupt a running operation, so it is enabled
+                             only while one is running. -->
+                        <Button Content="_Halt Running Kernel"  Command="{Binding HaltRunningKernelCommand}" IsEnabled="{Binding CanStartOperation}" HorizontalAlignment="Stretch" Margin="0,0,0,5"/>
+                        <Button Content="_Cancel"               Command="{Binding CancelCurrentCommand}"     IsEnabled="{Binding IsOperationRunning}" HorizontalAlignment="Stretch" Margin="0,0,0,5"/>
                     </StackPanel>
                 </GroupBox>
             </StackPanel>
