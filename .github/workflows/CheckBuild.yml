@@ -10,7 +10,7 @@
 # 2026-04-10 - Antus <pcmhacking.net> Update for WinForms + Uno Windows + Uno Android
 # 2026-06-18 - Antus <pcmhacking.net> E38 PPC Kernel, via source or binary distribution
 # 2026-08-11 - Antus <pcmhacking.net> Delete the temp kernels artifact in its own job, after
-#                                     all consumers, instead of racing them from Applications
+#                                     all consumers, instead of racing them from the app jobs
 # 2026-08-21 - Antus <pcmhacking.net> Add the WPF front end as an experimental, dev-only build
 #
 
@@ -222,11 +222,12 @@ jobs:
         name: Temp_Kernels_${{github.sha}}
         path: TemporaryArtifactStorage
 
-  # Linux command-line build. Runs on Linux (the WinForms/CLI/Uno-Windows builds need
-  # Windows, so they live in the Applications job); this one only needs .NET and the
-  # kernels artifact. Publishes a self-contained, single-file binary named "pcmhammer-cli"
-  # with the kernels embedded in it, and uploads that single binary as the artifact.
-  LinuxCLI:
+  # Everything built on Linux. Currently the command-line build: the WinForms/CLI/WPF/Uno-Windows
+  # builds need Windows, so they live in the WindowsApps job, while this one only needs .NET and the
+  # kernels artifact. Publishes a self-contained, single-file binary named "pcmhammer-cli" with the
+  # kernels embedded in it, and uploads that single binary as the artifact.
+  LinuxApps:
+    name: Linux Apps
     needs: Kernels
     runs-on: ubuntu-24.04
     env:
@@ -335,7 +336,7 @@ jobs:
         path: TemporaryArtifactStorage/LinuxCLI
 
     # On a release tag, attach the binary to the GitHub Release so it is a public download
-    # rather than a login-only workflow artifact. The Applications job publishes the same
+    # rather than a login-only workflow artifact. The WindowsApps job publishes the same
     # release with the Windows assets; whichever job gets there first creates it and the
     # other uploads into it, so this is written to tolerate either order.
     - name: Publish Linux CLI to GitHub Release
@@ -357,7 +358,7 @@ jobs:
         if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
           gh release upload "$TAG" "$asset" --clobber --repo "$GITHUB_REPOSITORY"
         else
-          # Create it; if the Applications job created it in between, fall back to uploading.
+          # Create it; if the WindowsApps job created it in between, fall back to uploading.
           gh release create "$TAG" "$asset" \
             --repo "$GITHUB_REPOSITORY" \
             --title "PCM Hammer $TAG" \
@@ -365,7 +366,10 @@ jobs:
           || gh release upload "$TAG" "$asset" --clobber --repo "$GITHUB_REPOSITORY"
         fi
 
-  Applications:
+  # Everything built on Windows: the WinForms apps, the Windows CLI, the installer/portable
+  # packages, and the experimental WPF and Uno targets.
+  WindowsApps:
+    name: Windows Apps
     needs: Kernels
     runs-on: windows-2025-vs2026
 
@@ -692,7 +696,7 @@ jobs:
         & "Apps/build/Build-Portable.ps1" `
           -StagingRoot $staging -OutputName "PCMHammer_$($env:PACKAGE_TOKEN)_Portable" -OutputDir $dist
 
-    # GitHub lists run artifacts alphabetically: Linux_CLI (from the LinuxCLI job), then
+    # GitHub lists run artifacts alphabetically: Linux_CLI (from the LinuxApps job), then
     # Portable, Setup, Uno_Android, Uno_Windows, WPF_Windows.
     - name: Upload installer artifact
       uses: actions/upload-artifact@v7
@@ -775,7 +779,7 @@ jobs:
   # This job deliberately does not fail the run - a leftover temp artifact expires on its
   # own and is not worth turning a good build red over.
   CleanupKernelsArtifact:
-    needs: [ Kernels, LinuxCLI, Applications ]
+    needs: [ Kernels, LinuxApps, WindowsApps ]
     if: always()
     runs-on: ubuntu-24.04
 
