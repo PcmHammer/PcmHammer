@@ -298,33 +298,6 @@ namespace PcmHacking
 
 
         /// <summary>
-        /// Note that this has only been confirmed to work with ObdLink ScanTool devices.
-        /// AllPro doesn't get the reply for some reason.
-        /// Might work with AVT or J-tool, that hasn't been tested.
-        /// </summary>
-        public async Task<bool> IsInRecoveryMode()
-        {
-            this.device.ClearMessageQueue();
-
-            for (int iterations = 0; iterations < 10; iterations++)
-            {
-                await this.TrySendMessage(new Message(new byte[] { Priority.Physical0, DeviceId.Pcm, DeviceId.Tool, 0x62 }), "recovery query", 2);
-                Message response = await this.device.ReceiveMessage();
-                if (response == null)
-                {
-                    continue;
-                }
-
-                if (this.protocol.ParseRecoveryModeBroadcast(response).Value == true)
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        /// <summary>
         /// Unlock the PCM by requesting a 'seed' and then sending the corresponding 'key' value.
         /// </summary>
         public async Task<bool> UnlockEcu(int keyAlgorithm)

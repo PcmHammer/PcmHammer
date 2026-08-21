@@ -18,20 +18,20 @@ namespace PCMHammer.Viewmodels
         [ObservableProperty]
         public partial PcmType SelectedPCMType { get; set; }
 
-        // TODO: This property will be used to silence the brick warning when using the "reset pin" to bypass the standard initialization sequence
-        [ObservableProperty]
-        public partial bool SuppressOSIDWarning { get; set; }
         #endregion
 
         // Events
         public event Action? RequestClose;
         public event Action? RequestAcceptandClose;
 
-        // Commands
+        // Commands. Do NOT name these methods "...Command": the generator appends "Command" to the
+        // method name, so CloseCommand() would produce CloseCommandCommand and the XAML binding to
+        // CloseCommand would silently resolve to nothing (which is why OK did nothing - Cancel only
+        // appeared to work because IsCancel="True" closes the dialog by itself).
         [RelayCommand]
-        public void CloseCommand() => RequestClose?.Invoke();
+        public void Close() => RequestClose?.Invoke();
         [RelayCommand]
-        public void AcceptAndCloseCommand() => RequestAcceptandClose?.Invoke();
+        public void AcceptAndClose() => RequestAcceptandClose?.Invoke();
 
         // Constructor
         public WriteTypeViewModel()

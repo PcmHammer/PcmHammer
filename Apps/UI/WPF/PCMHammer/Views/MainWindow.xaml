@@ -40,6 +40,13 @@
                 <MenuItem Header="Write _OS, Calibration &amp; Boot" Command="{Binding WriteOSCalibrationBootCommand}"/>
                 <MenuItem Header="Write _Full Flash (Clone)" Command="{Binding WriteFullFlashCloneCommand}"/>
                 <Separator Height="2"/>
+                <!-- Recovery: for a PCM held in its boot loader (reset/recovery pin grounded). It
+                     reports no OSID, so the user names the type and we skip detection entirely. -->
+                <MenuItem Header="PCM _Recovery">
+                    <MenuItem Header="_Read..."  Command="{Binding RecoveryReadCommand}"/>
+                    <MenuItem Header="_Write..." Command="{Binding RecoveryWriteCommand}"/>
+                </MenuItem>
+                <Separator Height="2"/>
                 <MenuItem Header="_Test File Checksums..." Command="{Binding TestFileChecksumsCommand}"/>
                 <MenuItem Header="Brute Force _Unlock..." Command="{Binding BruteForceUnlockCommand}"/>
                 <Separator Height="2"/>

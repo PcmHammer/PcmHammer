@@ -89,15 +89,5 @@ namespace PcmHacking
             return new Message(bytes);
         }
 
-        public Response<bool> ParseRecoveryModeBroadcast(Message message)
-        {
-            Response<bool> rc = DoSimpleValidation(message, Priority.Physical0, 0x62, 0x01);
-            if (!rc.Value)
-            {
-                rc = DoSimpleValidation(message, Priority.Physical0, 0x62, 0x00);
-            }
-
-            return rc;
-        }        
     }
 }

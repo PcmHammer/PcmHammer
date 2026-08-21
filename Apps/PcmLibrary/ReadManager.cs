@@ -117,6 +117,26 @@ namespace PcmHacking
         public Task<PcmPackage?> ReadToPackage(PcmType forcedPcmType = PcmType.Undefined) =>
             this.ReadToPackage(null, forcedPcmType);
 
+        /// <summary>
+        /// Read a PCM that is in recovery mode into an in-memory package. The PCM type is supplied by
+        /// the user because a PCM in recovery reports no operating system; detection, the OSID query and
+        /// the kernel probe are all skipped. See <see cref="RecoveryMode"/>. Null on failure or abort.
+        /// </summary>
+        public async Task<PcmPackage?> RecoveryRead(PcmType pcmType, IProgress<ProgressUpdate>? progress = null)
+        {
+            if (!RecoveryMode.CanAttempt(pcmType, out string reason))
+            {
+                logger.AddUserMessage(reason);
+                await this.invoke(async () => await this.alert(reason, "PCM Recovery"));
+                return null;
+            }
+
+            logger.AddUserMessage(RecoveryMode.DescribeEntry(pcmType, isWrite: false));
+
+            // Forcing the type is what takes us straight into the recovery flow.
+            return await this.ReadToPackage(progress, pcmType);
+        }
+
         /// <summary>As <see cref="ReadToPackage(PcmType)"/>, reporting progress during the read.</summary>
         public async Task<PcmPackage?> ReadToPackage(IProgress<ProgressUpdate>? progress, PcmType forcedPcmType = PcmType.Undefined)
         {

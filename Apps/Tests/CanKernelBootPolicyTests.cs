@@ -134,5 +134,71 @@ namespace Tests
             var range = new MemoryRange(0x00000, 0x04000, BlockType.Boot) { ActualCrc = 1, DesiredCrc = 2 };
             Assert.IsFalse(CanKernelWriter.ShouldProcessRange(range, BlockType.Calibration, WriteType.Full, ImageSize));
         }
+
+        // ---- Forced full write (RuntimeSettings.ForceWriteAllSectors) ----
+        // The gate must be evaluated with the same force flag the write loop uses. Otherwise a forced
+        // write passes the gate by CRC and then erases boot anyway, turning a recoverable PCM into a
+        // hard brick on hardware whose boot sector cannot be rewritten.
+
+        [TestMethod]
+        public void NoBootSupport_ForcedFullWrite_BootMatches_IsBlocked()
+        {
+            // Boot CRC matches, so an ordinary write would skip boot - but a forced pass rewrites every
+            // in-scope sector, boot included. The gate must refuse it.
+            var ranges = Layout(bootActualCrc: 0xAAAA, bootDesiredCrc: 0xAAAA, calActualCrc: 0x1111, calDesiredCrc: 0x2222);
+
+            bool allowed = CanKernelWriter.BootPolicyAllowsWritePlan(
+                WriteType.Full, supportsBootSectorWrite: false, BlockType.All, ImageSize, ranges,
+                forceAllSectors: true);
+
+            Assert.IsFalse(allowed);
+        }
+
+        [TestMethod]
+        public void NoBootSupport_ForcedCalibrationWrite_IsAllowed()
+        {
+            // Forcing rewrites more sectors, but it never widens scope: boot is not in relevantBlocks
+            // for a calibration write, so the clone is still allowed on a no-boot-write PCM.
+            var ranges = Layout(bootActualCrc: 0xAAAA, bootDesiredCrc: 0xBBBB, calActualCrc: 0x1111, calDesiredCrc: 0x2222);
+
+            bool allowed = CanKernelWriter.BootPolicyAllowsWritePlan(
+                WriteType.Calibration, supportsBootSectorWrite: false, BlockType.Calibration, ImageSize, ranges,
+                forceAllSectors: true);
+
+            Assert.IsTrue(allowed);
+        }
+
+        [TestMethod]
+        public void BootSupport_ForcedFullWrite_IsAllowed()
+        {
+            var ranges = Layout(bootActualCrc: 0xAAAA, bootDesiredCrc: 0xAAAA, calActualCrc: 1, calDesiredCrc: 1);
+
+            bool allowed = CanKernelWriter.BootPolicyAllowsWritePlan(
+                WriteType.Full, supportsBootSectorWrite: true, BlockType.All, ImageSize, ranges,
+                forceAllSectors: true);
+
+            Assert.IsTrue(allowed);
+        }
+
+        [TestMethod]
+        public void ShouldProcessRange_Forced_ProcessesMatchingCrc()
+        {
+            var range = new MemoryRange(0x00000, 0x04000, BlockType.Boot) { ActualCrc = 7, DesiredCrc = 7 };
+            Assert.IsTrue(CanKernelWriter.ShouldProcessRange(
+                range, BlockType.All, WriteType.Full, ImageSize, forceAllSectors: true));
+        }
+
+        [TestMethod]
+        public void ShouldProcessRange_Forced_StillSkipsOutOfScopeRanges()
+        {
+            // Force must not widen scope: out-of-image and irrelevant-block ranges stay skipped.
+            var outside = new MemoryRange(ImageSize, 0x04000, BlockType.OperatingSystem) { ActualCrc = 1, DesiredCrc = 2 };
+            Assert.IsFalse(CanKernelWriter.ShouldProcessRange(
+                outside, BlockType.All, WriteType.Full, ImageSize, forceAllSectors: true));
+
+            var irrelevant = new MemoryRange(0x00000, 0x04000, BlockType.Boot) { ActualCrc = 1, DesiredCrc = 2 };
+            Assert.IsFalse(CanKernelWriter.ShouldProcessRange(
+                irrelevant, BlockType.Calibration, WriteType.Full, ImageSize, forceAllSectors: true));
+        }
     }
 }

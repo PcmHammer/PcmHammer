@@ -80,6 +80,47 @@ namespace PCMHammer.Services
             }
         }
 
+        /// <summary>
+        /// Read a PCM that is in recovery mode into an in-memory document, using the user-selected PCM
+        /// type. All the recovery rules live in the library (see PcmHacking.RecoveryMode).
+        /// </summary>
+        public async Task<PcmPackage?> RecoveryReadAsync(
+            PcmType pcmType,
+            CancellationToken cancellationToken = default)
+        {
+            using (new AwayMode())
+            {
+                try
+                {
+                    if (vehicle == null)
+                    {
+                        logger.AddUserMessage("Error: No vehicle interface connected.");
+                        return null;
+                    }
+
+                    ReadManager reader = new(
+                        logger,
+                        vehicle,
+                        (action) => {
+                            System.Windows.Application.Current.Dispatcher.Invoke(action);
+                            return Task.CompletedTask;
+                        },
+                        DummyPromptForFile!,
+                        DummyPromptForOsId!,
+                        Alert,
+                        PromptForYesNo,
+                        cancellationToken);
+
+                    return await reader.RecoveryRead(pcmType);
+                }
+                catch (Exception exception)
+                {
+                    logger.AddUserMessage($"Recovery read failed: {exception.Message}");
+                    return null;
+                }
+            }
+        }
+
         public async Task<bool> ReadPcmAsync(
             string path,
             bool useAutoPcmType = true,

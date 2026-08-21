@@ -492,103 +492,63 @@ namespace PcmHacking
         /// </summary>
         private bool IsWritePlanAllowedByPcmInfo(FlashChip flashChip, BlockType relevantBlocks)
         {
+            // Pass the SAME force flag the write loop (ShouldProcess) uses. Without it a forced full
+            // write passes this gate by CRC and then writes boot anyway - a hard brick on a PCM whose
+            // boot sector cannot be rewritten.
             return BootPolicyAllowsWritePlan(
                 this.writeType,
                 this.pcmInfo.IsSupportedWriteBootSector,
                 relevantBlocks,
                 this.effectiveImageSize,
-                flashChip.MemoryRanges);
+                flashChip.MemoryRanges,
+                this.forceWriteAllSectorsPending);
         }
 
         /// <summary>
         /// Pure boot-sector write policy. Returns false only when a destructive plan on a PCM that
         /// cannot write its boot sector would erase/write a boot range whose content differs.
         /// </summary>
+        /// <summary>
+        /// Whether the PCM's boot-sector policy permits this write plan. Delegates to the shared
+        /// <see cref="WritePlan"/>; see there for why the force flag must be passed through.
+        /// </summary>
         public static bool BootPolicyAllowsWritePlan(
             WriteType writeType,
             bool supportsBootSectorWrite,
             BlockType relevantBlocks,
             UInt32 effectiveImageSize,
-            IEnumerable<MemoryRange> memoryRanges)
+            IEnumerable<MemoryRange> memoryRanges,
+            bool forceAllSectors = false)
         {
-            // Compare and test-write are non-destructive.
-            if (writeType == WriteType.Compare || writeType == WriteType.TestWrite)
-            {
-                return true;
-            }
-
-            // Boot sector writes are supported; allow all write plans.
-            if (supportsBootSectorWrite)
-            {
-                return true;
-            }
-
-            foreach (MemoryRange range in memoryRanges)
-            {
-                // A range is processed only when it is relevant AND differs (for real writes).
-                if (!ShouldProcessRange(range, relevantBlocks, writeType, effectiveImageSize))
-                {
-                    continue;
-                }
-
-                // Block attempts to write the boot sector on PCMs that do not support it.
-                if ((range.Type & BlockType.Boot) != 0)
-                {
-                    return false;
-                }
-            }
-
-            return true;
+            return WritePlan.BootPolicyAllowsWritePlan(
+                writeType, supportsBootSectorWrite, relevantBlocks, effectiveImageSize,
+                memoryRanges, forceAllSectors);
         }
 
         private bool ShouldProcess(MemoryRange range, BlockType relevantBlocks)
         {
-            // A forced full-write pass includes every in-scope sector regardless of CRC. Otherwise
-            // defer to the normal rule, which skips sectors whose on-device CRC already matches.
-            if (!this.forceWriteAllSectorsPending)
-            {
-                return ShouldProcessRange(range, relevantBlocks, this.writeType, this.effectiveImageSize);
-            }
-
-            if (range.Address >= this.effectiveImageSize)
-            {
-                return false;
-            }
-
-            if ((range.Type & relevantBlocks) == 0)
-            {
-                return false;
-            }
-
-            return true;
+            // One shared rule for "will this range be written", used by the boot-sector gate too.
+            return WritePlan.ShouldProcessRange(
+                range, relevantBlocks, this.writeType, this.effectiveImageSize, this.forceWriteAllSectorsPending);
         }
 
         /// <summary>
         /// Pure form of <see cref="ShouldProcess"/>: a range is processed when it is in scope, within
         /// the image, and (for real writes) its on-device CRC differs from the image.
         /// </summary>
+        /// <summary>
+        /// Whether this range will be erased/written. Delegates to the shared <see cref="WritePlan"/>
+        /// so the boot-sector gate and the write loop can never disagree.
+        /// </summary>
         public static bool ShouldProcessRange(
             MemoryRange range,
             BlockType relevantBlocks,
             WriteType writeType,
-            UInt32 effectiveImageSize)
+            UInt32 effectiveImageSize,
+            bool forceAllSectors = false)
         {
-            if ((range.ActualCrc == range.DesiredCrc) && (writeType != WriteType.TestWrite))
-            {
-                return false;
-            }
-
-            if (range.Address >= effectiveImageSize)
-            {
-                return false;
-            }
-
-            if ((range.Type & relevantBlocks) == 0)
-            {
-                return false;
-            }
-
-            return true;
+            return WritePlan.ShouldProcessRange(
+                range, relevantBlocks, writeType, effectiveImageSize, forceAllSectors);
         }
 
         /// <summary>

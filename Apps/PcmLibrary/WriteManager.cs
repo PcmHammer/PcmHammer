@@ -40,7 +40,7 @@ namespace PcmHacking
         /// Load a file (a raw .bin or a .phz package) and write it. Accepts a string path for OSes that
         /// can directly access the file system.
         /// </summary>
-        public async Task<bool> Write(string path, PcmType forcedPcmType = PcmType.Undefined, bool suppressOSIDWarning = false)
+        public async Task<bool> Write(string path, PcmType forcedPcmType = PcmType.Undefined)
         {
             PcmPackage package;
             try
@@ -55,7 +55,7 @@ namespace PcmHacking
                 return false;
             }
 
-            return await this.Write(package, forcedPcmType, suppressOSIDWarning);
+            return await this.Write(package, forcedPcmType);
         }
 
         /// <summary>
@@ -64,7 +64,33 @@ namespace PcmHacking
         /// write, a full write programs the whole PCM through the boot loader; otherwise the master image
         /// is written the normal way and any slave in the PCM is left in place.
         /// </summary>
-        public async Task<bool> Write(PcmPackage package, PcmType forcedPcmType = PcmType.Undefined, bool suppressOSIDWarning = false)
+        /// <summary>
+        /// Write to a PCM that is in recovery mode. The PCM type is supplied by the user because a PCM
+        /// in recovery reports no operating system; detection, the OSID query and the kernel probe are
+        /// all skipped. See <see cref="RecoveryMode"/>.
+        /// </summary>
+        /// <remarks>
+        /// The boot-sector protection still applies in full: once the kernel is running it CRCs the
+        /// real flash, and <see cref="WritePlan.BootPolicyAllowsWritePlan"/> aborts before any erase if
+        /// the plan would write a boot sector this PCM cannot rewrite. That is what stops a recoverable
+        /// soft brick from becoming a hard brick.
+        /// </remarks>
+        public async Task<bool> RecoveryWrite(PcmPackage package, PcmType pcmType)
+        {
+            if (!RecoveryMode.CanAttempt(pcmType, out string reason))
+            {
+                logger.AddUserMessage(reason);
+                await this.alert(reason, "PCM Recovery");
+                return false;
+            }
+
+            logger.AddUserMessage(RecoveryMode.DescribeEntry(pcmType, isWrite: true));
+
+            // Forcing the type is what takes us straight into the recovery flow.
+            return await this.Write(package, pcmType);
+        }
+
+        public async Task<bool> Write(PcmPackage package, PcmType forcedPcmType = PcmType.Undefined)
         {
             PackageImage? main = SelectMainImage(package);
             if (main?.Data == null)
@@ -131,7 +157,7 @@ namespace PcmHacking
                     "This file has slave modules, but this PCM has no boot loader write path. Writing the master only.");
             }
 
-            return await Write(main.Data, forcedPcmType, suppressOSIDWarning);
+            return await Write(main.Data, forcedPcmType);
         }
 
         private static bool IsSlaveTarget(string? target) =>
@@ -326,13 +352,12 @@ namespace PcmHacking
         /// <summary>
         /// Contains cross-platform code to handle user interactions to write the PCM's flash memory.
         /// Accepts a byte array directly for OSes that don't support direct file handling.
-        /// suppressOSIDWarning: If true, the user will not be prompted to confirm that the OSID is correct (useful for recovery mode).
         /// </summary>
         /// <remarks>
         /// The return value should be used to suppress future warnings about using an unproven connection.
         /// </remarks>
         /// <returns>True if the write was successful, fales if failed or aborted.</returns>
-        public async Task<bool> Write(byte[] image, PcmType forcedPcmType = PcmType.Undefined, bool suppressOSIDWarning = false)
+        public async Task<bool> Write(byte[] image, PcmType forcedPcmType = PcmType.Undefined)
         {
             // Sanity checks.
             PcmType? forcedFileType = forcedPcmType != PcmType.Undefined ? forcedPcmType : (PcmType?)null;
@@ -421,19 +446,9 @@ namespace PcmHacking
                     await this.alert(msg, "Abort");
                     return false;
                 }
-                else if (!suppressOSIDWarning)
+                else if (this.cancellationToken.IsCancellationRequested)
                 {
-                    // The PCM did not return an OSID, so we cannot verify the file matches the
-                    // connected hardware. This is the genuine recovery case (corrupt or truly
-                    // unidentified PCM), so we don't hard-block, but we must NOT proceed silently:
-                    // warn that compatibility is unverified and let the user accept the brick risk.
-                    if (this.cancellationToken.IsCancellationRequested)
-                    {
-                        string msg = $"Abort: this file is for a {fileType} PCM, but {forcedPcmType} was selected.";
-                        logger.AddUserMessage(msg);
-                        await this.alert(msg, "Abort");
-                        return false;
-                    }
+                    return false;
                 }
                 if (fileType != forcedPcmType && RuntimeSettings.AllowCrossFlashing)
                 {
@@ -504,20 +519,21 @@ namespace PcmHacking
                     kernelVersion = await this.vehicle.GetKernelVersion();
                     if (kernelVersion == 0)
                     {
-                        logger.AddUserMessage("Checking for recovery mode...");
-                        bool recoveryMode = await this.vehicle.IsInRecoveryMode();
-
-                        if (recoveryMode)
-                        {
-                            logger.AddUserMessage("PCM is in recovery mode.");
-                            needUnlock = true;
-                        }
-                        else
-                        {
-                            logger.AddUserMessage("PCM is not responding to OSID, kernel version, or recovery mode checks.");
-                            logger.AddUserMessage("Unlock may not work, but we'll try...");
-                            needUnlock = true;
-                        }
+                        // The PCM answered neither the OSID query nor the kernel version query, so it is
+                        // almost certainly sitting in its boot loader (recovery). We cannot learn the type
+                        // from the PCM, so the file's OSID supplies it and we try the unlock.
+                        //
+                        // There is deliberately no recovery probe here. A PCM in recovery announces itself
+                        // by broadcasting unsolicited (0xA2, "programming prompt") - see
+                        // Vehicle.CheckForRecoveryMode, which listens for exactly that. The old active
+                        // "recovery query" sent mode 0x62 and parsed the reply, which is a programming-mode
+                        // style request rather than recovery detection; it only ever worked on ObdLink
+                        // ScanTool hardware and both of its outcomes did the same thing, so it decided
+                        // nothing and has been removed. Use Tools -> PCM Recovery for an explicit recovery
+                        // operation, where the user names the PCM type.
+                        logger.AddUserMessage("PCM is not responding to OSID or kernel version checks; assuming recovery mode.");
+                        logger.AddUserMessage("Unlock may not work, but we'll try...");
+                        needUnlock = true;
                         pcmInfo = new OSIDInfo(validator.GetOsidFromImage()); // Prevent Null Reference Exceptions from breaking Recovery Mode
                     }
                     else
