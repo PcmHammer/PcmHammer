@@ -819,7 +819,11 @@ namespace PcmHacking
         /// null path is what asks it to build one from the package.
         /// </summary>
         private string DefaultDocumentBaseName() =>
-            PackageStore.DefaultBaseName(this.loadedPackage, this.loadedPackagePath);
+            PackageStore.DefaultBaseName(
+                this.loadedPackage,
+                this.loadedPackagePath,
+                // The folder the save dialogs open in, so the sequence number skips names already there.
+                Configuration.Settings.BinDirectory);
 
         /// <summary>
         /// Save dialog that supplies the folder and base name for an export. The exporter appends the PCM

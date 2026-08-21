@@ -11,6 +11,7 @@
 # 2026-06-18 - Antus <pcmhacking.net> E38 PPC Kernel, via source or binary distribution
 # 2026-08-11 - Antus <pcmhacking.net> Delete the temp kernels artifact in its own job, after
 #                                     all consumers, instead of racing them from Applications
+# 2026-08-21 - Antus <pcmhacking.net> Add the WPF front end as an experimental, dev-only build
 #
 
 name: CheckBuild
@@ -351,6 +352,7 @@ jobs:
       # at runtime via $GITHUB_ENV before the upload steps reference them.
       WINFORMS_ARTIFACT_SUFFIX: ''
       UNO_ARTIFACT_SUFFIX: ''
+      WPF_ARTIFACT_SUFFIX: ''
       CLI_ARTIFACT_SUFFIX: ''
       PACKAGE_TOKEN: ''
 
@@ -466,19 +468,45 @@ jobs:
         -p:AndroidPackageFormat=apk
         -p:EmbedAssembliesIntoApk=true
 
+    # The WPF front end is experimental and dev-only, on the same footing as Uno: skipped
+    # entirely on a release tag so it cannot be attached to (or block) the release, and
+    # published only as an experimental workflow artifact on normal pushes/PRs. The same
+    # gate is applied to every WPF build/stage/upload step below.
+    #
+    # Published self-contained and single-file, like the Linux CLI: the artifact is one .exe
+    # that needs no .NET install, with the kernels embedded in it (see PCMHammer.csproj), so
+    # there are no loose .bin files to keep beside it. win-x86 because the app must be 32-bit
+    # to load 32-bit J2534 driver DLLs. dotnet publish is enough here (unlike the WinForms
+    # apps, which need msbuild for Costura) because this is an SDK-style project.
+    - name: Publish WPF Windows (self-contained, single-file)
+      if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+      shell: pwsh
+      run: |
+        # The csproj embeds whatever is in Kernels\build; the CI kernels artifact was
+        # downloaded to TemporaryArtifactStorage\Kernels, so place them where it expects.
+        # (The WinForms step above does the same - repeated here so this step does not
+        # silently depend on that one having run first and produced an embeddable set.)
+        New-Item -ItemType Directory -Force -Path Kernels/build | Out-Null
+        Copy-Item -Path "TemporaryArtifactStorage/Kernels/*.bin" -Destination "Kernels/build" -Force
+        dotnet publish Apps/UI/WPF/PCMHammer/PCMHammer.csproj -c Release -r win-x86
+
     - name: Compute artifact names
       shell: pwsh
       run: |
         # WinForms + CLI artifacts are named after the git tag on a release (e.g. v2.0.0);
-        # development builds use a UTC stamp + branch name. The Uno (experimental) artifacts
-        # take their version from the Uno csproj (set by Release.ps1).
+        # development builds use a UTC stamp + branch name. The Uno and WPF (experimental)
+        # artifacts take their version from their own csproj (set by Release.ps1).
         [xml]$uno = Get-Content "Apps/UI/UnoUI/PcmHacking.UnoUI/PcmHacking.UnoUI.csproj"
         $unoDisplay = ($uno.Project.PropertyGroup | Where-Object { $_.ApplicationDisplayVersion } | Select-Object -First 1).ApplicationDisplayVersion
         $unoVersion = ($uno.Project.PropertyGroup | Where-Object { $_.ApplicationVersion } | Select-Object -First 1).ApplicationVersion
 
+        [xml]$wpf = Get-Content "Apps/UI/WPF/PCMHammer/PCMHammer.csproj"
+        $wpfVersion = ($wpf.Project.PropertyGroup | Where-Object { $_.Version } | Select-Object -First 1).Version
+
         $isReleaseTag = ($env:IS_RELEASE_TAG -eq "True")
         $timestampUtc = [DateTime]::UtcNow.ToString("yyyyMMdd_HHmmss")
         $unoLooksUnversioned = ($unoDisplay -eq "0.0.0.0")
+        $wpfLooksUnversioned = ($wpfVersion -eq "0.0.0.0")
         $branchNameRaw = if ([string]::IsNullOrWhiteSpace($env:GITHUB_HEAD_REF)) { $env:GITHUB_REF_NAME } else { $env:GITHUB_HEAD_REF }
         $branchNameSafe = $branchNameRaw -replace '[\\/]', '-'
         $branchNameSafe = $branchNameSafe -replace '[^A-Za-z0-9._-]', '-'
@@ -497,6 +525,12 @@ jobs:
           $unoArtifactSuffix = $devSuffix
         }
 
+        if ($isReleaseTag -and -not $wpfLooksUnversioned -and -not [string]::IsNullOrWhiteSpace($wpfVersion)) {
+          $wpfArtifactSuffix = "v$wpfVersion"
+        } else {
+          $wpfArtifactSuffix = $devSuffix
+        }
+
         # CLI shares the same version as WinForms since they are built from the same codebase.
         $cliArtifactSuffix = $winFormsArtifactSuffix
 
@@ -504,6 +538,7 @@ jobs:
         "UNO_APP_VERSION=$unoVersion" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         "WINFORMS_ARTIFACT_SUFFIX=$winFormsArtifactSuffix" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         "UNO_ARTIFACT_SUFFIX=$unoArtifactSuffix" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        "WPF_ARTIFACT_SUFFIX=$wpfArtifactSuffix" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         "CLI_ARTIFACT_SUFFIX=$cliArtifactSuffix" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
     - name: Stage Uno Windows artifact payload
@@ -592,6 +627,29 @@ jobs:
           Copy-Item -Path $apk.FullName -Destination "TemporaryArtifactStorage/UnoAndroid" -Force
         }
 
+    - name: Stage WPF Windows artifact payload
+      if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+      shell: pwsh
+      run: |
+        # The kernels are embedded in the executable, so the artifact is just the single
+        # self-contained exe - no loose .bin files needed alongside it. PCMHammer.dll.config
+        # carries the Settings defaults and is copied too; it is tiny and harmless.
+        $pub = "Apps/UI/WPF/PCMHammer/bin/Release/net10.0-windows/win-x86/publish"
+        if (!(Test-Path "$pub/PCMHammer.exe")) {
+          throw "WPF single-file output not found at $pub/PCMHammer.exe"
+        }
+
+        New-Item -ItemType Directory -Force -Path TemporaryArtifactStorage/WPF | Out-Null
+        Copy-Item -Path "$pub/*" -Destination "TemporaryArtifactStorage/WPF" -Recurse -Force
+
+        # A single-file build that quietly lost its embedded kernels would look fine here and
+        # only fail against a vehicle, so fail the build instead.
+        $exeSizeMb = [math]::Round((Get-Item "$pub/PCMHammer.exe").Length / 1MB, 1)
+        Write-Host "WPF single-file exe: $exeSizeMb MB"
+        if ($exeSizeMb -lt 40) {
+          throw "WPF exe is only $exeSizeMb MB - expected ~59 MB self-contained; the bundle looks incomplete."
+        }
+
     # --- Package the WinForms apps into the installer + portable, in this same job, so
     #     no redundant intermediate (raw WinForms/CLI) artifacts are published.
     #     PACKAGE_TOKEN / PACKAGE_APP_VERSION are set by the
@@ -612,7 +670,7 @@ jobs:
           -StagingRoot $staging -OutputName "PCMHammer_$($env:PACKAGE_TOKEN)_Portable" -OutputDir $dist
 
     # GitHub lists run artifacts alphabetically: Linux_CLI (from the LinuxCLI job), then
-    # Portable, Setup, Uno_Android, Uno_Windows.
+    # Portable, Setup, Uno_Android, Uno_Windows, WPF_Windows.
     - name: Upload installer artifact
       uses: actions/upload-artifact@v7
       with:
@@ -644,9 +702,16 @@ jobs:
         name: PCMHammer_Uno_Windows_experimental_${{ env.UNO_ARTIFACT_SUFFIX }}_${{ github.sha }}
         path: TemporaryArtifactStorage/UnoWindows
 
+    - name: Upload WPF Windows artifact (experimental)
+      if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+      uses: actions/upload-artifact@v7
+      with:
+        name: PCMHammer_WPF_Windows_experimental_${{ env.WPF_ARTIFACT_SUFFIX }}_${{ github.sha }}
+        path: TemporaryArtifactStorage/WPF
+
     # On an x.x.x / x.x.x.x tag push, publish a GitHub Release and attach the WinForms
-    # installer + portable zip (the public, supported downloads). The Uno targets are
-    # experimental and are intentionally NOT attached - they remain only as workflow
+    # installer + portable zip (the public, supported downloads). The Uno and WPF targets
+    # are experimental and are intentionally NOT attached - they remain only as workflow
     # run-artifacts above. Re-running on an existing tag updates the assets in place.
     - name: Publish GitHub Release
       if: ${{ startsWith(github.ref, 'refs/tags/') }}

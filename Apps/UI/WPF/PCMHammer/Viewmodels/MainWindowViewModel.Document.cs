@@ -390,7 +390,11 @@ namespace PCMHammer.Viewmodels
         /// suggests the same thing; a null path is what asks it to build one from the package.
         /// </summary>
         private string DefaultSaveName() =>
-            PackageStore.DefaultBaseName(LoadedPackage, LoadedPackagePath);
+            PackageStore.DefaultBaseName(
+                LoadedPackage,
+                LoadedPackagePath,
+                // The folder the save dialogs open in, so the sequence number skips names already there.
+                Properties.Settings.Default.BinDirectory);
 
         /// <summary>One-line summary of a package: module type, OSID, and whether it carries the slave.</summary>
         private static string DescribeDocument(PcmPackage package)

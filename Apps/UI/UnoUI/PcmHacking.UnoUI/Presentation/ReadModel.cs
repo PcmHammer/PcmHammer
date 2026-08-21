@@ -316,7 +316,7 @@ public partial record ReadModel : IAsyncLogger
         // Same naming rule as the other UIs. This picker runs before the read, so there is no package
         // to take a module type and OSID from yet and the name is the date-stamped fallback; the rule
         // still lives in the library rather than being spelled out again here.
-        savePicker.SuggestedFileName = PackageStore.DefaultBaseName(null, null) + ".bin";
+        savePicker.SuggestedFileName = PackageStore.DefaultBaseName(null, null, null) + ".bin";
         StorageFile file = await savePicker.PickSaveFileAsync();
         if (file == null)
         {
