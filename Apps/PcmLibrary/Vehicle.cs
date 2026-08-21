@@ -1,6 +1,7 @@
 ﻿// SPDX-License-Identifier: GPL-3.0-only
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -41,6 +42,12 @@ namespace PcmHacking
         /// small margin.
         /// </summary>
         private static readonly TimeSpan SecurityDelayLockout = TimeSpan.FromSeconds(11);
+
+        /// <summary>
+        /// Wall-clock ceiling on a single unlock, covering all of its nested retries. Sized for three
+        /// seed/key rounds including one <see cref="SecurityDelayLockout"/> wait, plus slack.
+        /// </summary>
+        private static readonly TimeSpan UnlockTimeBudget = TimeSpan.FromSeconds(32);
 
         public CancellationTokenSource ShutdownSignalSource = new CancellationTokenSource(); // Use this as a trigger to say we are ready to dispose the underlying device.
 
@@ -300,9 +307,38 @@ namespace PcmHacking
         /// <summary>
         /// Unlock the PCM by requesting a 'seed' and then sending the corresponding 'key' value.
         /// </summary>
-        public async Task<bool> UnlockEcu(int keyAlgorithm)
+        /// <remarks>
+        /// <para>
+        /// The token is honoured at the top of every retry loop and during the security time-delay
+        /// wait, and is required rather than optional so it cannot be omitted by accident.
+        /// </para>
+        /// <para>
+        /// Retries are bounded by <see cref="UnlockTimeBudget"/> (wall clock) rather than by the
+        /// nested attempt counts alone. The per-receive timeout is computed per device and protocol
+        /// (a few hundred ms to several seconds), so the counts alone gave wildly different real
+        /// durations - on a slow J2534 link the full budget of three unlock attempts x three seed
+        /// requests x five receive timeouts ran for minutes. One deadline covers every loop and
+        /// keeps the retry structure simple.
+        /// </para>
+        /// </remarks>
+        public async Task<bool> UnlockEcu(int keyAlgorithm, CancellationToken cancellationToken)
         {
             await this.device.SetTimeout(TimeoutScenario.ReadProperty);
+
+            // Enough for three seed/key rounds including one security time-delay lockout
+            // (SecurityDelayLockout is 11s), plus slack for the message exchanges around them.
+            Stopwatch unlockClock = Stopwatch.StartNew();
+            bool BudgetSpent()
+            {
+                if (unlockClock.Elapsed < UnlockTimeBudget)
+                {
+                    return false;
+                }
+
+                logger.AddUserMessage(
+                    $"Giving up on unlock after {unlockClock.Elapsed.TotalSeconds:F0} seconds; the PCM is not responding as expected.");
+                return true;
+            }
 
             Message seedRequest = this.protocol.CreateSeedRequest();
 
@@ -327,6 +363,17 @@ namespace PcmHacking
 
             for (int unlockAttempt = 1; unlockAttempt <= MaxUnlockAttempts; unlockAttempt++)
             {
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    logger.AddUserMessage("Unlock cancelled.");
+                    return false;
+                }
+
+                if (BudgetSpent())
+                {
+                    return false;
+                }
+
                 this.device.ClearMessageQueue();
 
                 logger.AddDebugMessage("Sending seed request.");
@@ -344,6 +391,17 @@ namespace PcmHacking
                 const int MaxSeedRequests = 3;
                 for (int sendAttempt = 1; (sendAttempt <= MaxSeedRequests) && !seedReceived; sendAttempt++)
                 {
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        logger.AddUserMessage("Unlock cancelled.");
+                        return false;
+                    }
+
+                    if (BudgetSpent())
+                    {
+                        return false;
+                    }
+
                     if (!await this.TrySendMessage(seedRequest, "seed request"))
                     {
                         logger.AddUserMessage("Unable to send seed request.");
@@ -357,6 +415,17 @@ namespace PcmHacking
                     // MaxReceiveAttempts timeouts before resending the request.
                     for (int receiveAttempt = 1; receiveAttempt <= 50; receiveAttempt++)
                     {
+                        if (cancellationToken.IsCancellationRequested)
+                        {
+                            logger.AddUserMessage("Unlock cancelled.");
+                            return false;
+                        }
+
+                        if (BudgetSpent())
+                        {
+                            return false;
+                        }
+
                         Message seedResponse = await this.device.ReceiveMessage();
                         if (seedResponse == null)
                         {
@@ -427,7 +496,15 @@ namespace PcmHacking
                         lockoutRetried = true;
                         sendAttempt--;
                         logger.AddUserMessage("PCM is in a security time-delay lockout. Waiting to retry.");
-                        await Task.Delay(SecurityDelayLockout);
+                        try
+                        {
+                            await Task.Delay(SecurityDelayLockout, cancellationToken);
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            logger.AddUserMessage("Unlock cancelled.");
+                            return false;
+                        }
                     }
 
                     // No usable seed this round; clear anything stale and let the loop resend.
@@ -477,6 +554,17 @@ namespace PcmHacking
                 bool retryAfterDelay = false;
                 for (int attempt = 1; attempt < MaxReceiveAttempts; attempt++)
                 {
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        logger.AddUserMessage("Unlock cancelled.");
+                        return false;
+                    }
+
+                    if (BudgetSpent())
+                    {
+                        return false;
+                    }
+
                     Message unlockResponse = await this.device.ReceiveMessage();
                     if (unlockResponse == null)
                     {
@@ -525,7 +613,15 @@ namespace PcmHacking
                 }
 
                 logger.AddUserMessage("PCM is enforcing a security time delay. Waiting to retry.");
-                await Task.Delay(SecurityDelayLockout);
+                try
+                {
+                    await Task.Delay(SecurityDelayLockout, cancellationToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    logger.AddUserMessage("Unlock cancelled.");
+                    return false;
+                }
             }
 
             logger.AddUserMessage("Unable to process unlock response.");

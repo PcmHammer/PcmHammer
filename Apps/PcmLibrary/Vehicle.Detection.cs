@@ -6,6 +6,21 @@ using System.Threading.Tasks;
 
 namespace PcmHacking
 {
+    /// <summary>
+    /// Outcome of <see cref="Vehicle.PrepareBusFor"/>.
+    /// </summary>
+    public enum BusPreparation
+    {
+        /// <summary>This PCM is not on CAN; the caller's VPW flow applies.</summary>
+        NotRequired,
+
+        /// <summary>The device is now on CAN and pointed at the PCM.</summary>
+        Ready,
+
+        /// <summary>The PCM needs CAN, but this device cannot do CAN.</summary>
+        Unavailable,
+    }
+
     public partial class Vehicle
     {
         // What a scan probes for, and the buses it tries. Add more targets/buses here as supported.
@@ -184,6 +199,30 @@ namespace PcmHacking
         /// Returns false if the device cannot do that bus.
         /// </summary>
         public Task<bool> SelectBus(BusProtocol bus) => this.device.SetProtocol(bus);
+
+        /// <summary>
+        /// Put the device on whichever bus this PCM's profile says it lives on, and point it at the
+        /// PCM. Call this once the PCM type is known, however it became known - detection, an OSID
+        /// query, a type the user forced, or a type inferred from the file.
+        /// </summary>
+        /// <remarks>
+        /// This exists so bus selection is decided in one place from <see cref="OSIDInfo.BusProtocol"/>
+        /// rather than at each point a PCM type happens to be resolved. Missing it means the VPW
+        /// unlock/kernel flow runs against a CAN PCM: nothing answers, no seed is ever parsed, and the
+        /// operation grinds through its full retry budget before failing.
+        /// </remarks>
+        public async Task<BusPreparation> PrepareBusFor(OSIDInfo pcmInfo)
+        {
+            if (pcmInfo.BusProtocol != BusProtocol.Can500k)
+            {
+                return BusPreparation.NotRequired;
+            }
+
+            this.SetTarget(Target.Pcm);
+            return await this.SelectBus(BusProtocol.Can500k)
+                ? BusPreparation.Ready
+                : BusPreparation.Unavailable;
+        }
 
         /// <summary>
         /// Quick OSID probe on the current bus: VPW uses the block-read OSID request, CAN uses GMLAN

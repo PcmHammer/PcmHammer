@@ -39,6 +39,16 @@ namespace PCMHammer.Viewmodels
             WriteTypes = [WriteType.Full, WriteType.OsPlusCalibrationPlusBoot, WriteType.Parameters];
 
             PCMTypes = [.. Enum.GetValues<PcmType>()];
+
+            // Seed the selections here rather than with ComboBox.SelectedIndex in the view. Setting
+            // SelectedIndex right after DataContext is timing-dependent: if ItemsSource has not been
+            // populated at that instant the assignment silently does nothing, SelectedIndex stays -1,
+            // and these properties keep their CLR defaults. For WriteType that default is
+            // WriteType.None (= 0), which is not a real operation - it survived all the way into
+            // CanKernelWriter and threw "Unsuppported operation type: None" only AFTER the kernel had
+            // been uploaded and was running on the PCM.
+            SelectedWriteType = WriteTypes[0];   // Clone (Full Flash)
+            SelectedPCMType = PcmType.Undefined; // Auto (Query OSID)
         }
     }
 }

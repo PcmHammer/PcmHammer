@@ -209,15 +209,8 @@ namespace PcmHacking
             logger.AddUserMessage("File OSID: " + validator.GetOsidFromImage());
             logger.AddUserMessage("File Description: " + new OSIDInfo(validator.GetFileType()).Description + ".");
 
-            string warning =
-                "This will program the FULL PCM - the master flash AND the slave CPU - through the boot " +
-                "loader. It is EXPERIMENTAL and can brick the PCM. Continue?";
-            logger.AddUserMessage(warning);
-            if (!await this.promptForYesNo(warning, "Brick Risk"))
-            {
-                logger.AddUserMessage("User chose not to proceed.");
-                return false;
-            }
+            logger.AddUserMessage(
+                "Programming the FULL PCM - the master flash AND the slave CPU - through the boot loader.");
 
             List<byte[]> masterModules;
             try
@@ -359,6 +352,19 @@ namespace PcmHacking
         /// <returns>True if the write was successful, fales if failed or aborted.</returns>
         public async Task<bool> Write(byte[] image, PcmType forcedPcmType = PcmType.Undefined)
         {
+            // WriteType.None is not an operation; it means a caller never chose one (it is the CLR
+            // default of the enum, so an unset UI binding produces it). Reject it here, before any
+            // bus work: the writers only discover it at their block-selection switch, by which point
+            // the kernel has already been uploaded and is running on the PCM, and the user sees an
+            // "Unsuppported operation type" exception instead of a plain message.
+            if (this.writeType == WriteType.None)
+            {
+                string msg = "Abort: no write type was selected.";
+                logger.AddUserMessage(msg);
+                await this.alert(msg, "Abort");
+                return false;
+            }
+
             // Sanity checks.
             PcmType? forcedFileType = forcedPcmType != PcmType.Undefined ? forcedPcmType : (PcmType?)null;
             FileValidator validator = new FileValidator(image, this.logger, forcedFileType);
@@ -458,21 +464,8 @@ namespace PcmHacking
                 }
 
                 // A forced CAN PCM (e.g. E38) is written by the CAN path, not the VPW flow below.
-                // Put the device on CAN, point it at the PCM, and hand off - mirroring the auto-detected
-                // CAN route above (RunCanWrite assumes the device is already selected on CAN).
-                if (pcmInfo.BusProtocol == BusProtocol.Can500k)
-                {
-                    this.vehicle.SetTarget(Target.Pcm);
-                    if (!await this.vehicle.SelectBus(BusProtocol.Can500k))
-                    {
-                        string msg = $"Abort: this device cannot use the CAN bus required by the {pcmInfo.HardwareType} PCM.";
-                        logger.AddUserMessage(msg);
-                        await this.alert(msg, "Abort");
-                        return false;
-                    }
-
-                    return await this.RunCanWrite(image, validator);
-                }
+                // The dispatch is not here: it is below, after every branch has resolved pcmInfo, so
+                // one place covers the forced type, a queried OSID, and a type inferred from the file.
             }
             else
             {
@@ -516,7 +509,7 @@ namespace PcmHacking
 
                     logger.AddUserMessage("Operating system request failed, checking for a live kernel...");
 
-                    kernelVersion = await this.vehicle.GetKernelVersion();
+                    kernelVersion = await this.vehicle.GetKernelVersion(this.cancellationToken);
                     if (kernelVersion == 0)
                     {
                         // The PCM answered neither the OSID query nor the kernel version query, so it is
@@ -566,6 +559,24 @@ namespace PcmHacking
                         needToCheckOperatingSystem = false;
                     }
                 }
+            }
+
+            // Select the bus once the PCM type is known, whichever branch above resolved it - the
+            // forced type, an OSID queried from the PCM, or (when the PCM answers nothing and we
+            // assume recovery) the type inferred from the file. That last route is why this sits
+            // here rather than inside a branch: an E38 file against a silent bus resolved to a CAN
+            // profile and then ran the whole VPW unlock/kernel flow anyway. ReadManager does the
+            // same with the same helper.
+            switch (await this.vehicle.PrepareBusFor(pcmInfo!))
+            {
+                case BusPreparation.Unavailable:
+                    string busMsg = $"Abort: this device cannot use the CAN bus required by the {pcmInfo!.HardwareType} PCM.";
+                    logger.AddUserMessage(busMsg);
+                    await this.alert(busMsg, "Abort");
+                    return false;
+
+                case BusPreparation.Ready:
+                    return await this.RunCanWrite(image, validator);
             }
 
             // Pre flight checks to block invalid write operations by PCM type.
@@ -653,7 +664,7 @@ namespace PcmHacking
             if (needUnlock)
             {
 
-                bool unlocked = await this.vehicle.UnlockEcu(keyAlgorithm);
+                bool unlocked = await this.vehicle.UnlockEcu(keyAlgorithm, this.cancellationToken);
                 if (!unlocked)
                 {
                     logger.AddUserMessage("Unlock was not successful.");

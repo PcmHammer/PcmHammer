@@ -814,21 +814,12 @@ namespace PcmHacking
         }
 
         /// <summary>
-        /// A default base file name for the working document: the current file's name if it has one,
-        /// otherwise built from the module type and OSID of a freshly-read PCM (e.g. "E38_12628990").
+        /// A default base file name for the working document. The rule lives in the library
+        /// (<see cref="PackageStore.DefaultBaseName"/>) so every UI suggests the same name; passing a
+        /// null path is what asks it to build one from the package.
         /// </summary>
-        private string DefaultDocumentBaseName()
-        {
-            if (this.loadedPackagePath != null)
-            {
-                return Path.GetFileNameWithoutExtension(this.loadedPackagePath);
-            }
-
-            PackageController? controller = this.loadedPackage?.Controllers.FirstOrDefault();
-            string module = controller?.ModuleType ?? controller?.Type ?? "PCM";
-            uint? osid = controller?.Image("main")?.Osid;
-            return osid != null ? module + "_" + osid : module;
-        }
+        private string DefaultDocumentBaseName() =>
+            PackageStore.DefaultBaseName(this.loadedPackage, this.loadedPackagePath);
 
         /// <summary>
         /// Save dialog that supplies the folder and base name for an export. The exporter appends the PCM
@@ -848,10 +839,7 @@ namespace PcmHacking
                 {
                     dialog.InitialDirectory = Configuration.Settings.BinDirectory;
                 }
-                if (this.loadedPackagePath != null)
-                {
-                    dialog.FileName = Path.GetFileNameWithoutExtension(this.loadedPackagePath);
-                }
+                dialog.FileName = this.DefaultDocumentBaseName();
                 return dialog.ShowDialog() == DialogResult.OK ? dialog.FileName : null;
             }
         }
@@ -1514,7 +1502,8 @@ namespace PcmHacking
 
                 if (dialogResult == DialogResult.OK)
                 {
-                    bool unlocked = await this.Vehicle.UnlockEcu(info.KeyAlgorithm);
+                    // No cancellation source in the VIN flow; the unlock is bounded by its own time budget.
+                    bool unlocked = await this.Vehicle.UnlockEcu(info.KeyAlgorithm, CancellationToken.None);
                     if (!unlocked)
                     {
                         this.AddUserMessage("Unable to unlock PCM.");

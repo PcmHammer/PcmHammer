@@ -13,8 +13,14 @@
     <!-- Some PackageReferences (e.g. System.Management) carry runtime-specific assets; VS
          msbuild's NuGet asset resolver requires a RuntimeIdentifier to pick them, otherwise
          it errors. net48 only ever runs on Windows, so pin 'win'. (dotnet build does not
-         require this, but the release build uses msbuild so Costura embeds the full closure.) -->
-    <RuntimeIdentifiers>win</RuntimeIdentifiers>
+         require this, but the release build uses msbuild so Costura embeds the full closure.)
+
+         Scoped to net48 deliberately. Applied to every framework it also became the RID for
+         the net10.0-windows leg, and 'win' is an abstract RID with no runtime pack, so any
+         RID-specific publish of a net10.0 consumer (the WPF app's single-file build) died
+         with NETSDK1082. NuGet unions RIDs across frameworks when it writes
+         project.assets.json, so net48/win is still restored exactly as before. -->
+    <RuntimeIdentifiers Condition="'$(TargetFramework)' == 'net48'">win</RuntimeIdentifiers>
   </PropertyGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'net48'">

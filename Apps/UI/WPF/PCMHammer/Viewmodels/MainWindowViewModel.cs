@@ -58,7 +58,16 @@ namespace PCMHammer.Viewmodels
         public partial string TimeRemaining { get; set; } = "00:00 Remaining";
 
         [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(DeviceDescription))]
         public partial Vehicle? Vehicle { get; set; }
+
+        /// <summary>
+        /// The connected interface, shown on the main window the way WinForms shows it in its
+        /// Device box. The text comes from the library (Vehicle.DeviceDescription -> Device
+        /// .ToString()), which is the same source MainFormBase hands to WinForms, so every front
+        /// end names a device identically and none of them format it themselves.
+        /// </summary>
+        public string DeviceDescription => Vehicle?.DeviceDescription ?? "No device selected.";
 
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(CanStartOperation))]
@@ -587,7 +596,8 @@ namespace PCMHammer.Viewmodels
                 {
                     string cleanVin = vinViewModel.Vin.Trim();
                     _logger.AddUserMessage($"Attempting to write updated VIN: {cleanVin}");
-                    bool unlocked = await Vehicle.UnlockEcu(info.KeyAlgorithm);
+                    // No cancellation source in the VIN flow; the unlock is bounded by its own time budget.
+                    bool unlocked = await Vehicle.UnlockEcu(info.KeyAlgorithm, CancellationToken.None);
                     if (!unlocked)
                     {
                         _logger.AddUserMessage("Unable to unlock PCM. Authorization Denied.");

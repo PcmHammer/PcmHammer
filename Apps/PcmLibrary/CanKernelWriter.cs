@@ -283,10 +283,11 @@ namespace PcmHacking
                 // boot-sector writes and the plan would write boot.
                 if (!this.IsWritePlanAllowedByPcmInfo(flashChip, relevantBlocks))
                 {
-                    logger.AddUserMessage("Boot sector write is required for this operation.");
-                    logger.AddUserMessage($"Abort: The {this.pcmInfo.HardwareType} boot sector is write protected. This PCM is not compatible with this file.");
+                    this.ReportBootSectorAbort();
                     return false;
                 }
+
+                this.ReportBootExcludedFromForcedPlan(flashChip, relevantBlocks);
 
                 // Erase and rewrite the required memory ranges.
                 DateTime startTime = DateTime.Now;
@@ -525,30 +526,58 @@ namespace PcmHacking
                 memoryRanges, forceAllSectors);
         }
 
+        /// <summary>Report why a write was refused by the boot-sector policy.</summary>
+        private void ReportBootSectorAbort()
+        {
+            foreach (string line in WritePlan.DescribeBootSectorAbort(
+                this.pcmInfo.HardwareType, this.forceWriteAllSectorsPending))
+            {
+                logger.AddUserMessage(line);
+            }
+        }
+
+        /// <summary>Tell the user when a forced pass is proceeding with the boot sector left out.</summary>
+        private void ReportBootExcludedFromForcedPlan(FlashChip flashChip, BlockType relevantBlocks)
+        {
+            if (WritePlan.ForcedPlanExcludesBoot(
+                    this.writeType,
+                    this.pcmInfo.IsSupportedWriteBootSector,
+                    relevantBlocks,
+                    this.effectiveImageSize,
+                    flashChip.MemoryRanges,
+                    this.forceWriteAllSectorsPending))
+            {
+                logger.AddUserMessage(WritePlan.DescribeBootExclusion(this.pcmInfo.HardwareType));
+            }
+        }
+
         private bool ShouldProcess(MemoryRange range, BlockType relevantBlocks)
         {
             // One shared rule for "will this range be written", used by the boot-sector gate too.
             return WritePlan.ShouldProcessRange(
-                range, relevantBlocks, this.writeType, this.effectiveImageSize, this.forceWriteAllSectorsPending);
+                range, relevantBlocks, this.writeType, this.effectiveImageSize,
+                this.forceWriteAllSectorsPending, this.pcmInfo.IsSupportedWriteBootSector);
         }
 
-        /// <summary>
-        /// Pure form of <see cref="ShouldProcess"/>: a range is processed when it is in scope, within
-        /// the image, and (for real writes) its on-device CRC differs from the image.
-        /// </summary>
         /// <summary>
         /// Whether this range will be erased/written. Delegates to the shared <see cref="WritePlan"/>
         /// so the boot-sector gate and the write loop can never disagree.
         /// </summary>
+        /// <remarks>
+        /// <paramref name="supportsBootSectorWrite"/> has no default on purpose: it changes the answer
+        /// for a forced boot range, and a silently-defaulted capability flag is exactly how the gate
+        /// and the loop drifted apart before.
+        /// </remarks>
         public static bool ShouldProcessRange(
             MemoryRange range,
             BlockType relevantBlocks,
             WriteType writeType,
             UInt32 effectiveImageSize,
-            bool forceAllSectors = false)
+            bool forceAllSectors,
+            bool supportsBootSectorWrite)
         {
             return WritePlan.ShouldProcessRange(
-                range, relevantBlocks, writeType, effectiveImageSize, forceAllSectors);
+                range, relevantBlocks, writeType, effectiveImageSize, forceAllSectors, supportsBootSectorWrite);
         }
 
         /// <summary>

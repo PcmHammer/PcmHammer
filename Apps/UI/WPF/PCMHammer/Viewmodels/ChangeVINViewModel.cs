@@ -37,10 +37,14 @@ namespace PCMHammer.Viewmodels
         #endregion
 
         #region Commands
+        // Do NOT name these methods "...Command": the generator appends "Command" to the method
+        // name, so OkCommand() produced OkCommandCommand and the XAML binding to OkCommand
+        // silently resolved to nothing - OK did nothing at all, and Cancel only appeared to work
+        // because IsCancel="True" closes the dialog by itself. Same trap as WriteTypeViewModel.
         [RelayCommand(CanExecute = nameof(IsValid))]
-        public void OkCommand() => RequestCloseOk?.Invoke();
+        public void Ok() => RequestCloseOk?.Invoke();
         [RelayCommand]
-        public void CancelCommand() => RequestCloseCancel?.Invoke();
+        public void Cancel() => RequestCloseCancel?.Invoke();
         #endregion
 
         public ChangeVinViewModel(string initialVin)

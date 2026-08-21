@@ -470,11 +470,15 @@ namespace PcmHacking
             return $"{dt:yyyy-MM-dd HH:mm:ss} PCM=0x{pcmType:X2}";
         }
 
-        public async Task<UInt64> GetKernelVersion(int maxRetries = 5)
-        {
-            return await this.GetKernelVersion(CancellationToken.None, maxRetries);
-        }
-
+        /// <summary>
+        /// Ask a running kernel for its version. Returns 0 if no kernel answers.
+        /// </summary>
+        /// <remarks>
+        /// The token is deliberately required rather than optional. There used to be a convenience
+        /// overload without one that forwarded CancellationToken.None; it read identically at the call
+        /// site, so WriteManager picked it up by accident and that step of a write could not be
+        /// cancelled at all. Making the token impossible to omit is what stops that recurring.
+        /// </remarks>
         public async Task<UInt64> GetKernelVersion(CancellationToken cancellationToken, int maxRetries = 5)
         {
             Message query = this.protocol.CreateKernelVersionQuery();

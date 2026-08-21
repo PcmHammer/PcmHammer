@@ -31,8 +31,8 @@ namespace PCMHammer.Views.DialogBoxes
             InitializeComponent();
             _viewModel = new WriteTypeViewModel();
             DataContext = _viewModel;
-            PCMTypeComboBox.SelectedIndex = 0;
-            WriteTypeComboBox.SelectedIndex = 0;
+            // The initial selections come from the view model's constructor, not from
+            // ComboBox.SelectedIndex here - see WriteTypeViewModel for why that was unreliable.
             _viewModel.RequestClose += () => Close();
             _viewModel.RequestAcceptandClose += AcceptAndClose;
         }

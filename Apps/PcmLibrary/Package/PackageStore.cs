@@ -32,6 +32,62 @@ namespace PcmHacking
         public static IReadOnlyList<string> SupportedExtensions =>
             Formats.Select(f => f.Extension).ToList();
 
+        /// <summary>
+        /// The base file name (no extension) to suggest when saving a document: the name it already
+        /// has, or for a document that has never been saved, one built from what was read -
+        /// <c>[PCM]_[OSID]_[Date]</c>, e.g. "E38_12628990_20260821".
+        /// </summary>
+        /// <param name="package">The working document. May be null.</param>
+        /// <param name="currentPath">
+        /// Where the document currently lives, or null for a document that has never been saved (a
+        /// fresh read). Pass null to have the name built from the package.
+        /// </param>
+        /// <remarks>
+        /// Lives here so the naming rule exists once for every UI. A front end that substituted its own
+        /// display text produced files called "Untitled (unsaved read).phz"; the callers now ask for
+        /// this instead of inventing a name.
+        /// </remarks>
+        public static string DefaultBaseName(PcmPackage? package, string? currentPath)
+        {
+            if (!string.IsNullOrWhiteSpace(currentPath))
+            {
+                return Path.GetFileNameWithoutExtension(currentPath);
+            }
+
+            PackageController? controller = package?.Controllers?.FirstOrDefault();
+            string module = FirstNonBlank(controller?.ModuleType, controller?.Type) ?? "PCM";
+            uint? osid = controller?.Image("main")?.Osid;
+            string date = DateTime.Now.ToString("yyyyMMdd");
+
+            string name = osid != null
+                ? module + "_" + osid + "_" + date
+                : module + "_" + date;
+
+            return Sanitize(name);
+        }
+
+        private static string? FirstNonBlank(string? first, string? second) =>
+            !string.IsNullOrWhiteSpace(first) ? first
+            : !string.IsNullOrWhiteSpace(second) ? second
+            : null;
+
+        /// <summary>
+        /// Strip anything the host file system would reject. A module type comes from the package's
+        /// manifest, so it is not guaranteed to be a legal file name.
+        /// </summary>
+        private static string Sanitize(string name)
+        {
+            char[] invalid = Path.GetInvalidFileNameChars();
+            var clean = new System.Text.StringBuilder(name.Length);
+            foreach (char c in name)
+            {
+                clean.Append(Array.IndexOf(invalid, c) >= 0 ? '_' : c);
+            }
+
+            string result = clean.ToString().Trim();
+            return result.Length > 0 ? result : "PCM";
+        }
+
         /// <summary>Load a package from a file. Dispatches on the file's extension.</summary>
         public static PcmPackage Load(string path)
         {

@@ -92,6 +92,7 @@
     <Compile Include="ScanToolTests.cs" />
     <Compile Include="MathTests.cs" />
     <Compile Include="PackageFormatTests.cs" />
+    <Compile Include="PackageNamingTests.cs" />
     <Compile Include="FileValidatorTests.cs" />
     <Compile Include="UtilityTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
