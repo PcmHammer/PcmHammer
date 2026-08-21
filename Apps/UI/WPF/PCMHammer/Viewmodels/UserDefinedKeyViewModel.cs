@@ -1,47 +1,52 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
+﻿using System.Globalization;
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using PCMHammer.Helpers;
-using System.Windows;
-using System.Windows.Input;
 
-namespace PCMHammer.Viewmodels
+namespace PCMHammer.Viewmodels;
+
+public partial class UserDefinedKeyViewModel : ObservableObject
 {
-    public partial class UserDefinedKeyViewModel : ObservableObject
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(AcceptCommand))]
+    public partial string UserDefinedKey { get; set; } = "0000";
+
+    public event Action<bool>? RequestClose;
+
+    public UserDefinedKeyViewModel() { }
+
+    public UserDefinedKeyViewModel(string initialKey) => UserDefinedKey = initialKey;
+
+    [RelayCommand]
+    private void Cancel() => RequestClose?.Invoke(false);
+
+
+    [RelayCommand(CanExecute = nameof(CanAccept))]
+    private async Task Accept()
     {
-        // Properties
-        [ObservableProperty]
-        public partial string UserDefinedKey {  get; set; } = string.Empty;
-
-        // Events
-        public event Action? RequestClose;
-        public event Action? RequestAcceptAndClose;
-
-        // Commands
-        [RelayCommand]
-        public void Cancel() => RequestClose?.Invoke();
-        public async Task Accept()
+        if (string.IsNullOrWhiteSpace(UserDefinedKey))
         {
-            if (UserDefinedKey.Equals(string.Empty))
-                RequestClose?.Invoke();
-            else
-            {
-                // Validate the key
-                if (await ValidateUserDefinedKey(UserDefinedKey))
-                    RequestAcceptAndClose?.Invoke();
-                else
-                    MessageBox.Show("Invalid key. Please enter a valid key.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
+            RequestClose?.Invoke(false);
+            return;
         }
 
-        public UserDefinedKeyViewModel() { }
-
-        public static async Task<bool> ValidateUserDefinedKey(string key)
+        if (ValidateUserDefinedKey(UserDefinedKey))
         {
-            // Implement your validation logic here
-            // For example, check if the key meets certain criteria
-            // Return true if valid, false otherwise
-            await Task.Delay(100); // Simulate async work
-            return !string.IsNullOrWhiteSpace(key); // Example validation
+            RequestClose?.Invoke(true);
         }
+        else
+        {
+            // Clear or handle invalid state
+            UserDefinedKey = "0000";
+        }
+    }
+    private bool CanAccept() => ValidateUserDefinedKey(UserDefinedKey);
+
+    public static bool ValidateUserDefinedKey(string key)
+    {
+        if (string.IsNullOrWhiteSpace(key)) return false;
+        if (key.Length != 4) return false; // Ensure the key is exactly 4 characters
+
+        return int.TryParse(key, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out int val)
+               && val is >= 0 and <= 0xFFFF;
     }
 }

@@ -241,6 +241,8 @@ namespace PCMHammer.Viewmodels
         public void UserDefinedKey()
         {
             UserDefinedKeyDialogBox userDefinedKeyDialog = new() { Owner = _parentWindow };
+            UserDefinedKeyViewModel viewModel = new();
+            userDefinedKeyDialog.DataContext = viewModel;
             StatusText = "Setting user-defined key...";
             if (userDefinedKeyDialog.ShowDialog() == true)
             {
