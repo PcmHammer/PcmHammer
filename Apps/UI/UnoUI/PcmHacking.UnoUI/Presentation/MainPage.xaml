@@ -47,6 +47,8 @@
         <TextBlock Grid.Row="1" Grid.Column="6" TextAlignment="Left" VerticalAlignment="Center" HorizontalAlignment="Right" Text="Volts:" Margin="4,0" />
         <TextBlock Grid.Row="1" Grid.Column="7" TextAlignment="Left" VerticalAlignment="Center" HorizontalAlignment="Left" Text="{Binding Voltage}" />
 
+        <TextBlock Grid.Row="1" Grid.Column="8" TextAlignment="Left" VerticalAlignment="Center" HorizontalAlignment="Left" Text="{Binding Bus}" />
+
         <Frame Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="9"
                x:Name="ContentFrame" uen:Region.Attached="True"
                Navigated="{x:Bind FrameNavigated}"/>

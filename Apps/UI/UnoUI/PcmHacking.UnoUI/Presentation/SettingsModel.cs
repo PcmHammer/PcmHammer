@@ -40,6 +40,33 @@ public class SerialPortListing
     }
 }
 
+/// <summary>
+/// A J2534 interface as offered in the settings list. The name is what identifies the driver;
+/// the display name adds the buses it supports, so a VPW-only interface is visibly unable to
+/// reach a CAN PCM before the user tries it.
+/// </summary>
+public class J2534DeviceListing
+{
+    public string? DisplayName { get; set; }
+    public string? Name { get; set; }
+
+    public override bool Equals(object? obj)
+    {
+        return obj is J2534DeviceListing listing &&
+               Name == listing.Name;
+    }
+
+    public override int GetHashCode()
+    {
+        return HashCode.Combine(Name);
+    }
+
+    public override string ToString()
+    {
+        return DisplayName ?? string.Empty;
+    }
+}
+
 public partial record SettingsModel
 {
     private readonly LoggerAdapter progressLogger;
@@ -63,7 +90,7 @@ public partial record SettingsModel
 
     public IListFeed<string> DeviceCategories => ListFeed<string>.Async(ct => this.GetDeviceCategories(ct)).Selection(SelectedDeviceType);
     public IListFeed<string> BTDevices => ListFeed<string>.Async(ct => this.GetBluetoothDevices(ct)).Selection(SelectedBluetoothDevice);
-    public IListFeed<string> JDevices => ListFeed<string>.Async(ct => this.GetJDevices(ct)).Selection(SelectedJDevice);
+    public IListFeed<J2534DeviceListing> JDevices => ListFeed.Async(ct => this.GetJDevices(ct)).Selection(SelectedJDevice);
     public IListFeed<SerialPortListing> Obd2Ports => ListFeed.Async(ct => this.GetPortNames(ct)).Selection(SelectedObd2Port);
     public IListFeed<SerialPortListing> CanPorts => ListFeed.Async(ct => this.GetPortNames(ct)).Selection(SelectedCanPort);
     
@@ -90,8 +117,8 @@ public partial record SettingsModel
     public IState<SerialPortListing> SelectedCanPort => State<SerialPortListing>
         .Async(this, ct => ValueTask.FromResult(settingsService.GetCanSerialPortName()))
         .ForEach(this.ConnectionSettingsChanged);
-    public IState<string> SelectedJDevice => State<string>
-        .Async(this, ct => ValueTask.FromResult(settingsService.GetJ2534DeviceName()))
+    public IState<J2534DeviceListing> SelectedJDevice => State<J2534DeviceListing>
+        .Async(this, ct => ValueTask.FromResult(settingsService.GetJ2534Device()))
         .ForEach(this.ConnectionSettingsChanged);
     public IState<string> SelectedBluetoothDevice => State<string>
         .Async(this, ct => ValueTask.FromResult(settingsService.GetBluetoothDeviceName()))
@@ -150,19 +177,40 @@ public partial record SettingsModel
         return ValueTask.FromResult(res);
     }
 
-    private ValueTask<IImmutableList<string>> GetJDevices(CancellationToken ct)
+    private ValueTask<IImmutableList<J2534DeviceListing>> GetJDevices(CancellationToken ct)
     {
-        List<string> jDevices = [];
+        List<J2534DeviceListing> jDevices = [];
 #if WINDOWS
         foreach (J2534DotNet.J2534Device device in J2534DeviceFinder.FindInstalledJ2534DLLs(this.progressLogger))
         {
-            jDevices.Add(device.Name);
+            jDevices.Add(new J2534DeviceListing
+            {
+                DisplayName = DescribeJDevice(device),
+                Name = device.Name
+            });
         }
 #endif
-        IImmutableList<string> res = ImmutableList.CreateRange(jDevices);
+        IImmutableList<J2534DeviceListing> res = ImmutableList.CreateRange(jDevices);
         return ValueTask.FromResult(res);
 
     }
+
+#if WINDOWS
+    /// <summary>
+    /// The interface name followed by the buses PCM Hammer can use it on. The driver reports the
+    /// others (ISO9141, SCI, ...) too, but none of them reach a PCM, so they are left out.
+    /// </summary>
+    private static string DescribeJDevice(J2534DotNet.J2534Device device)
+    {
+        List<string> buses = [];
+        if (device.IsJ1850VPWSupported) buses.Add("VPW");
+        if (device.IsISO15765Supported) buses.Add("CAN");
+
+        return buses.Count == 0
+            ? device.Name + " (no usable bus)"
+            : device.Name + " (" + string.Join(", ", buses) + ")";
+    }
+#endif
 
     private ValueTask<bool> AreEqual(string value1, string value2)
     {
@@ -182,7 +230,7 @@ public partial record SettingsModel
         string deviceCategory = await SelectedDeviceType.Value() ?? string.Empty;
         string? portName =
             deviceCategory == DeviceConstants.DeviceCategorySerial ? (await SelectedObd2Port.Value())?.PortName :
-            deviceCategory == DeviceConstants.DeviceCategoryJ2534 ? await SelectedJDevice.Value() :
+            deviceCategory == DeviceConstants.DeviceCategoryJ2534 ? (await SelectedJDevice.Value())?.Name :
             deviceCategory == DeviceConstants.DeviceCategoryBT ? await SelectedBluetoothDevice.Value() : string.Empty;
 
 

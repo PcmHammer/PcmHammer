@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+﻿// SPDX-License-Identifier: GPL-3.0-only
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -21,6 +21,11 @@ namespace PcmHacking
     {
         private enum Format { Ascii, Uint32 }
 
+        private const byte VinDid = 0x90;
+
+        /// <summary>The display name of the VIN identifier; a caller with its own VIN field filters it out.</summary>
+        public const string VinName = "VIN";
+
         private struct Identifier
         {
             public byte Did;
@@ -31,7 +36,7 @@ namespace PcmHacking
         // Probed in DID order; the output lists whichever answered, in this order.
         private static readonly Identifier[] Identifiers =
         {
-            new Identifier { Did = 0x90, Name = "VIN",                Format = Format.Ascii },
+            new Identifier { Did = VinDid, Name = VinName,                Format = Format.Ascii },
             new Identifier { Did = 0xB4, Name = "Traceability (MTC)", Format = Format.Ascii },
             new Identifier { Did = 0xC1, Name = "SWMI 01",            Format = Format.Uint32 },
             new Identifier { Did = 0xC2, Name = "SWMI 02",            Format = Format.Uint32 },
@@ -44,7 +49,60 @@ namespace PcmHacking
             new Identifier { Did = 0xCB, Name = "End Model P/N",      Format = Format.Uint32 },
         };
 
-        public static async Task<List<string>> Read(CanCommands commands, CancellationToken cancellationToken)
+        /// <summary>
+        /// One identifier the module reported, ready to display: its GMLAN name and the formatted
+        /// value. A SWMI item's value is the part number of one flashed software or calibration
+        /// segment.
+        /// </summary>
+        public class Item
+        {
+            public string Name { get; }
+            public string Value { get; }
+
+            public Item(string name, string value)
+            {
+                this.Name = name;
+                this.Value = value;
+            }
+
+            public override string ToString()
+            {
+                return this.Name + ": " + this.Value;
+            }
+        }
+
+        /// <summary>
+        /// The identification a CAN PCM reported: the values a caller can show in its own fields,
+        /// every identifier that answered, and the whole list already formatted for a log.
+        /// </summary>
+        public class Identity
+        {
+            /// <summary>Operating system id, or zero if no candidate DID answered with a usable one.</summary>
+            public uint Osid { get; }
+
+            /// <summary>VIN, or empty if the module did not report one.</summary>
+            public string Vin { get; }
+
+            /// <summary>Every identifier that answered, in DID order.</summary>
+            public IReadOnlyList<Item> Items { get; }
+
+            /// <summary>The OSID and every identifier that answered, formatted "Name: value".</summary>
+            public IReadOnlyList<string> Lines { get; }
+
+            public Identity(uint osid, string vin, IReadOnlyList<Item> items, IReadOnlyList<string> lines)
+            {
+                this.Osid = osid;
+                this.Vin = vin;
+                this.Items = items;
+                this.Lines = lines;
+            }
+        }
+
+        /// <summary>
+        /// Read every supported identifier and return both the values and their formatted form, so a
+        /// UI with its own fields and a UI that just logs the list share one implementation.
+        /// </summary>
+        public static async Task<Identity> Query(CanCommands commands, CancellationToken cancellationToken)
         {
             // Positive responses only ([0x5A, did, data...]); NRCs are dropped here so the rest of the
             // method never has to test for them.
@@ -67,26 +125,44 @@ namespace PcmHacking
             // candidate that answered with a usable value rather than fixed to one DID. A module that
             // answers but leaves the slot empty (all zeroes or all ones) falls through to the next.
             // Shown on top of the SWMI list because downstream lookups key off it.
+            uint operatingSystemId = 0;
             foreach (byte did in Gmlan.OperatingSystemDids)
             {
                 if (responses.TryGetValue(did, out byte[] osid)
                     && TryGetUint32(osid, out uint osidValue)
                     && Gmlan.IsUsableOsid(osidValue))
                 {
+                    operatingSystemId = osidValue;
                     lines.Add("OSID: " + osidValue);
                     break;
                 }
             }
 
+            string vin = responses.TryGetValue(VinDid, out byte[] vinResponse)
+                ? FormatAscii(vinResponse)
+                : string.Empty;
+
+            List<Item> items = new List<Item>();
             foreach (Identifier id in Identifiers)
             {
                 if (!responses.TryGetValue(id.Did, out byte[] resp)) continue;
                 string value = id.Format == Format.Ascii ? FormatAscii(resp) : FormatUint32(resp);
                 if (value == "0") continue;
-                lines.Add(id.Name + ": " + value);
+                Item item = new Item(id.Name, value);
+                items.Add(item);
+                lines.Add(item.ToString());
             }
 
-            return lines;
+            return new Identity(operatingSystemId, vin, items, lines);
+        }
+
+        /// <summary>
+        /// Read the identification and return just the formatted lines.
+        /// </summary>
+        public static async Task<List<string>> Read(CanCommands commands, CancellationToken cancellationToken)
+        {
+            Identity identity = await Query(commands, cancellationToken);
+            return new List<string>(identity.Lines);
         }
 
         // resp is the full positive response: [0x5A, did, data...].

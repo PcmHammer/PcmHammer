@@ -53,6 +53,11 @@
     <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.19041.1</SupportedOSPlatformVersion>
     <TargetPlatformMinVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.19041.1</TargetPlatformMinVersion>
     <RuntimeIdentifiers Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">win-x86</RuntimeIdentifiers>
+    <!-- Pin the Windows head to a 32-bit apphost so the process can load 32-bit J2534 driver DLLs
+         (a 64-bit process cannot). Without this, an AnyCPU/default build produces a 64-bit apphost;
+         setting the RID here makes 32-bit the default, not only the explicit x86 build. -->
+    <RuntimeIdentifier Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">win-x86</RuntimeIdentifier>
+    <PlatformTarget Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">x86</PlatformTarget>
     <Platforms>x64;x86</Platforms>
   </PropertyGroup>
   

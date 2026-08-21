@@ -503,22 +503,32 @@ namespace PCMHammer.Viewmodels
             string target;
             string onPort = string.Empty;
 
-            if (SerialPort == null) return;
-
-            var match = SerialPortRegex().Match(SerialPort!.PortName!);
-            if (match.Success && SerialPort.PortName!.Length > 4)
+            if (DeviceCategory == DeviceConfiguration.Constants.DeviceCategorySerial)
             {
-                string cleanedName = match.Groups[0].Value;
-                SerialPort = SerialPorts.FirstOrDefault(p => p.PortName == cleanedName);
-            }
+                // Only the serial path needs a port; a J2534 selection has none.
+                if (SerialPort == null)
+                {
+                    StatusText = "Choose a serial port first.";
+                    if (ShowInfoAlertAsync != null)
+                    {
+                        await ShowInfoAlertAsync("Choose a serial port first.", "Test Device");
+                    }
+                    return;
+                }
 
-            if (IsSerialDeviceSelected)
-            {
+                // A pasted or expanded name (e.g. "COM5 (USB Serial)") is reduced to "COM5".
+                var match = SerialPortRegex().Match(SerialPort!.PortName!);
+                if (match.Success && SerialPort.PortName!.Length > 4)
+                {
+                    string cleanedName = match.Groups[0].Value;
+                    SerialPort = SerialPorts.FirstOrDefault(p => p.PortName == cleanedName);
+                }
+
                 device = DeviceFactory.CreateSerialDevice(SerialPort!.PortName!, SerialPortDeviceType, logger);
                 onPort = " on " + (SerialPort!.PortName! ?? "(no port)");
                 target = (SerialPortDeviceType ?? "serial device") + onPort;
             }
-            else if (IsJ2534DeviceSelected)
+            else if (DeviceCategory == DeviceConfiguration.Constants.DeviceCategoryJ2534)
             {
                 device = DeviceFactory.CreateJ2534Device(J2534DeviceType, logger);
                 target = J2534DeviceType ?? "J2534 device";

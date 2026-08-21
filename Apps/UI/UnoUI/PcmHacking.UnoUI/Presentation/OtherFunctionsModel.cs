@@ -24,6 +24,7 @@ public partial record OtherFunctionsModel
 {
     private const string defaultClearCodesButtonText = "Clear Trouble Codes";
     private const string defaultValue = "---";
+
     private readonly DispatcherQueue dispatcherQueue;
     private readonly INavigator navigator;
     private readonly IConnectionService connectionService;
@@ -38,6 +39,12 @@ public partial record OtherFunctionsModel
     public IState<string> SerialNumber => State<string>.Value(this, () => defaultValue);
     public IState<string> BroadcastCode => State<string>.Value(this, () => defaultValue);
     public IState<string> Mec => State<string>.Value(this, () => defaultValue);
+
+    /// <summary>The software module identifiers a CAN PCM reports; empty for a VPW PCM.</summary>
+    public IListState<CanIdentification.Item> SoftwareModules => ListState<CanIdentification.Item>.Empty(this);
+
+    /// <summary>Drives the visibility of the software module list, which only a CAN PCM fills in.</summary>
+    public IState<bool> HasSoftwareModules => State<bool>.Value(this, () => false);
 
     public OtherFunctionsModel(
         INavigator navigator, 
@@ -79,77 +86,40 @@ public partial record OtherFunctionsModel
     [Command]
     private async Task<bool> IdentifyPcm(CancellationToken cancellationToken)
     {
-        const int delay = 50;
         try
         {
             using (ConnectionLease lease = await this.connectionService.BeginActivity("Reading...", true))
             {
                 Vehicle vehicle = lease.Vehicle;
 
-                // All VPW PCMs support the VIN query.
-                await this.Vin.SetAsync(await this.GetVin(vehicle, cancellationToken));
-                await Task.Delay(delay);
-                await this.Mec.SetAsync(await this.GetMec(vehicle, cancellationToken));
-                await Task.Delay(delay);
-
-                // The others depend on the operating system.        
-                const string notApplicable = "Not Applicable";
-                string? osIdString = await this.GetOperatingSystemId(vehicle, cancellationToken);
-                uint osId = (uint)0;
-                if (uint.TryParse(osIdString ?? "", out osId))
+                // One shared flow detects the bus (VPW or CAN) and reads the identification; this
+                // model only displays and logs what it returns.
+                PcmIdentity? identity = await vehicle.ReadIdentity(cancellationToken);
+                if (identity == null)
                 {
-                    OSIDInfo pcmInfo = new OSIDInfo(osId);
-                    await this.Description.SetAsync(pcmInfo.Description);
-                    await Task.Delay(delay);
-
-                    if (pcmInfo != null && pcmInfo.HardwareType != PcmType.BlackBox)
-                    {
-                        await this.CalibrationId.SetAsync(await this.GetCalibrationId(vehicle, cancellationToken));
-                        await Task.Delay(delay);
-                        await this.SerialNumber.SetAsync(await this.GetSerialNumber(vehicle, cancellationToken));
-                        await Task.Delay(delay);
-                    }
-                    else
-                    {
-                        await this.CalibrationId.SetAsync(notApplicable);
-                        await this.SerialNumber.SetAsync(notApplicable);
-                        await Task.Delay(delay);
-                    }
-
-                    if (pcmInfo != null && pcmInfo.HardwareType != PcmType.P10 && pcmInfo.HardwareType != PcmType.P12 && pcmInfo.HardwareType != PcmType.E54)
-                    {
-                        await this.HardwareId.SetAsync(await this.GetHardwareId(vehicle, cancellationToken));
-                        await Task.Delay(delay);
-                    }
-                    else
-                    {
-                        await this.HardwareId.SetAsync(notApplicable);
-                        await Task.Delay(delay);
-                    }
-
-                    if (pcmInfo != null && pcmInfo.HardwareType != PcmType.P04 && pcmInfo.HardwareType != PcmType.P04_Early && pcmInfo.HardwareType != PcmType.P08)
-                    {
-                        await this.BroadcastCode.SetAsync(await this.GetBroadcastCode(vehicle, cancellationToken));
-                        await Task.Delay(delay);
-                    }
-                    else
-                    {
-                        await this.BroadcastCode.SetAsync(notApplicable);
-                        await Task.Delay(delay);
-                    }
-
-                    return true;
-                }
-                else
-                {
-                    string unknown = "Unknown";
-                    await this.Description.SetAsync(unknown);
-                    await this.CalibrationId.SetAsync(unknown);
-                    await this.HardwareId.SetAsync(unknown);
-                    await this.SerialNumber.SetAsync(unknown);
-                    await this.BroadcastCode.SetAsync(unknown);
+                    this.progressLogger.AddUserMessage("No PCM detected.");
                     return false;
                 }
+
+                foreach (string line in identity.Lines)
+                {
+                    this.progressLogger.AddUserMessage(line);
+                }
+
+                await this.Description.SetAsync(identity.Description);
+                await this.Vin.SetAsync(identity.Vin);
+                await this.CalibrationId.SetAsync(identity.CalibrationId);
+                await this.HardwareId.SetAsync(identity.HardwareId);
+                await this.SerialNumber.SetAsync(identity.SerialNumber);
+                await this.BroadcastCode.SetAsync(identity.BroadcastCode);
+                await this.Mec.SetAsync(identity.Mec);
+
+                // Only a CAN PCM reports these; the list is empty (and hidden) for a VPW PCM.
+                ImmutableList<CanIdentification.Item> modules = identity.SoftwareModules.ToImmutableList();
+                await this.SoftwareModules.Update(updater: existing => modules, ct: cancellationToken);
+                await this.HasSoftwareModules.SetAsync(modules.Count > 0);
+
+                return true;
             }
         }
         catch (ConnectionUnavailableException exception)
@@ -163,11 +133,13 @@ public partial record OtherFunctionsModel
             this.progressLogger.AddDebugMessage("Other Functions: Exception while reading properties.");
             this.progressLogger.AddDebugMessage(exception.Message);
             return false;
-        }        
+        }
     }
 
     private async Task ClearDetails()
     {
+        await this.SoftwareModules.Update(updater: existing => ImmutableList<CanIdentification.Item>.Empty, ct: CancellationToken.None);
+        await this.HasSoftwareModules.SetAsync(false);
         await this.CalibrationId.SetAsync(defaultValue);
         await this.SerialNumber.SetAsync(defaultValue);
         await this.HardwareId.SetAsync(defaultValue);
@@ -177,76 +149,6 @@ public partial record OtherFunctionsModel
         await this.HardwareId.SetAsync(defaultValue);
         await this.SerialNumber.SetAsync(defaultValue);
         await this.BroadcastCode.SetAsync(defaultValue);
-    }
-
-    private async ValueTask<string> GetVin(Vehicle vehicle, CancellationToken cancellationToken)
-    {
-        var vinResponse = await vehicle.QueryVin();
-        if (vinResponse.Status != ResponseStatus.Success)
-        {
-            throw new Exception("VIN query failed: " + vinResponse.Status.ToString());
-        }
-        return vinResponse.Value;
-    }
-
-    private async ValueTask<string> GetOperatingSystemId(Vehicle vehicle, CancellationToken cancellationToken)
-    {
-        var response = await vehicle.QueryOperatingSystemId(cancellationToken);
-        if (response.Status != ResponseStatus.Success)
-        {
-            throw new Exception("Operating system ID query failed: " + response.Status.ToString());
-        }
-        return response.Value.ToString();
-    }
-
-    private async ValueTask<string> GetCalibrationId(Vehicle vehicle, CancellationToken cancellationToken)
-    {
-        var response = await vehicle.QueryCalibrationId();
-        if (response.Status != ResponseStatus.Success)
-        {
-            throw new Exception("Calibration ID query failed: " + response.Status.ToString());
-        }
-        return response.Value.ToString();
-    }
-
-    private async ValueTask<string> GetHardwareId(Vehicle vehicle, CancellationToken cancellationToken)
-    {
-        var response = await vehicle.QueryHardwareId();
-        if (response.Status != ResponseStatus.Success)
-        {
-            throw new Exception("Hardware ID query failed: " + response.Status.ToString());
-        }
-        return response.Value.ToString();
-    }
-
-    private async ValueTask<string> GetSerialNumber(Vehicle vehicle, CancellationToken cancellationToken)
-    {
-        var response = await vehicle.QuerySerial();
-        if (response.Status != ResponseStatus.Success)
-        {
-            throw new Exception("Serial number query failed: " + response.Status.ToString());
-        }
-        return response.Value.ToString();
-    }
-
-    private async ValueTask<string> GetBroadcastCode(Vehicle vehicle, CancellationToken cancellationToken)
-    {
-        var response = await vehicle.QueryBCC();
-        if (response.Status != ResponseStatus.Success)
-        {
-            throw new Exception("Broadcast code query failed: " + response.Status.ToString());
-        }
-        return response.Value.ToString();
-    }
-
-    private async ValueTask<string> GetMec(Vehicle vehicle, CancellationToken cancellationToken)
-    {
-        var response = await vehicle.QueryMEC();
-        if (response.Status != ResponseStatus.Success)
-        {
-            throw new Exception("MEC query failed: " + response.Status.ToString());
-        }
-        return response.Value.ToString();
     }
 
     public async Task GoToRead()

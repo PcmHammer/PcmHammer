@@ -1444,115 +1444,19 @@ namespace PcmHacking
             try
             {
                 this.DisableUserInput();
-                DetectedModule? pcm = await this.Vehicle.DetectAndSelectPcm(CancellationToken.None);
-                if (pcm == null)
+
+                // One shared flow detects the bus (VPW or CAN) and reads the identification; the UI
+                // only logs what it returns.
+                PcmIdentity? identity = await this.Vehicle.ReadIdentity(CancellationToken.None);
+                if (identity == null)
                 {
                     this.AddUserMessage("No PCM detected.");
                     return;
                 }
 
-                this.AddUserMessage("Detected PCM on " + pcm.Bus.ToString());
-
-                if (pcm.Bus != BusProtocol.Vpw)
+                foreach (string line in identity.Lines)
                 {
-                    this.AddUserMessage("PCM Identification:");
-                    foreach (string line in await CanIdentification.Read(this.Vehicle.CreateCanCommands(), CancellationToken.None))
-                    {
-                        this.AddUserMessage(line);
-                    }
-                    return;
-                }
-
-                OSIDInfo pcmInfo = new OSIDInfo(pcm.Osid);
-                this.AddUserMessage("OSID: " + pcm.Osid.ToString());
-                this.AddUserMessage("Description: " + pcmInfo.Description);
-
-                var vinResponse = await this.Vehicle.QueryVin();
-                if (vinResponse.Status == ResponseStatus.Success)
-                {
-                    this.AddUserMessage("VIN: " + vinResponse.Value);
-                }
-                else
-                {
-                    this.AddUserMessage("VIN query failed: " + vinResponse.Status.ToString());
-                }
-
-                // Disable Calibration ID lookup for those that do not provide it
-                if (pcmInfo.HardwareType != PcmType.BlackBox)
-                {
-
-                    var calResponse = await this.Vehicle.QueryCalibrationId();
-                    if (calResponse.Status == ResponseStatus.Success)
-                    {
-                        this.AddUserMessage("Calibration ID: " + calResponse.Value.ToString());
-                    }
-                    else
-                    {
-                        this.AddUserMessage("Calibration ID query failed: " + calResponse.Status.ToString());
-                    }
-                }
-
-                // Disable HardwareID lookup for the P05, P10, P12 and E54.
-                if (pcmInfo.HardwareType != PcmType.P05 && pcmInfo.HardwareType != PcmType.P05b && pcmInfo.HardwareType != PcmType.P10 && pcmInfo.HardwareType != PcmType.P12 && pcmInfo.HardwareType != PcmType.E54)
-                {
-                    var hardwareResponse = await this.Vehicle.QueryHardwareId();
-                    if (hardwareResponse.Status == ResponseStatus.Success)
-                    {
-                        this.AddUserMessage("Hardware ID: " + hardwareResponse.Value.ToString());
-                    }
-                    else
-                    {
-                        this.AddUserMessage("Hardware ID query failed: " + hardwareResponse.Status.ToString());
-                    }
-                }
-
-                // Disable Serial Number lookup for those that do not provide it
-                if (pcmInfo.HardwareType != PcmType.BlackBox)
-                {
-                    var serialResponse = await this.Vehicle.QuerySerial();
-
-                    if (serialResponse.Status == ResponseStatus.Success)
-                    {
-                        this.AddUserMessage("Serial Number: " + serialResponse.Value.ToString());
-                    }
-                    else
-                    {
-                        this.AddUserMessage("Serial Number query failed: " + serialResponse.Status.ToString());
-                    }
-                }
-
-                // Disable BCC lookup for those that do not provide it
-                if (pcmInfo.HardwareType != PcmType.P04 && pcmInfo.HardwareType != PcmType.P04_Early && pcmInfo.HardwareType != PcmType.P08)
-                {
-                    var bccResponse = await this.Vehicle.QueryBCC();
-                    if (bccResponse.Status == ResponseStatus.Success)
-                    {
-                        this.AddUserMessage("Broad Cast Code: " + bccResponse.Value.ToString());
-                    }
-                    else
-                    {
-                        this.AddUserMessage("BCC query failed: " + bccResponse.Status.ToString());
-                    }
-                }
-
-                var mecResponse = await this.Vehicle.QueryMEC();
-                if (mecResponse.Status == ResponseStatus.Success)
-                {
-                    this.AddUserMessage("MEC: " + mecResponse.Value.ToString());
-                }
-                else
-                {
-                    this.AddUserMessage("MEC query failed: " + mecResponse.Status.ToString());
-                }
-
-                var voltageResponse = await this.Vehicle.QueryVoltage();
-                if (voltageResponse.Status == ResponseStatus.Success)
-                {
-                    this.AddUserMessage("Voltage: " + voltageResponse.Value.ToString());
-                }
-                else
-                {
-                    this.AddUserMessage("Voltage query failed: " + voltageResponse.Status.ToString());
+                    this.AddUserMessage(line);
                 }
             }
             catch (Exception exception)

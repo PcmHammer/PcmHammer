@@ -86,6 +86,8 @@ public partial record MainModel
 
     public IState<string> Voltage => connectionService.Voltage;
 
+    public IState<string> Bus => connectionService.Bus;
+
     /// <summary>
     /// See comments on FrameNavigated above.
     /// </summary>

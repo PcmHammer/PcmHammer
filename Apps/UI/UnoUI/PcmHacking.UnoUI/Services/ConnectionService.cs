@@ -102,6 +102,7 @@ public interface IConnectionService
     IState<string> Activity { get; }
     IState<string> ConnectionError { get; }
     IState<string> OperatingSystemId { get; }
+    IState<string> Bus { get; }
     IState<string> Voltage { get; }
     int ResetTimeRemaining { get; }
 
@@ -120,6 +121,11 @@ public class ConnectionService : IConnectionService
 
     // Slow retry is used when app is idle.
     private const int SlowRetryPeriod = 1000;
+
+    // A first connection has to find the PCM, which can mean probing VPW and then CAN before
+    // anything answers. Once it has been found the bus is known, so a routine poll is quick again.
+    private static readonly TimeSpan ConnectTimeout = TimeSpan.FromSeconds(15);
+    private static readonly TimeSpan PollTimeout = TimeSpan.FromSeconds(3);
 
     private readonly ISettingsService settingsService;
     private readonly LoggerAdapter logger;
@@ -144,6 +150,7 @@ public class ConnectionService : IConnectionService
     public IState<string> Activity => State.Value(this, () => string.Empty);
     public IState<string> ConnectionError => State.Value(this, () => string.Empty);
     public IState<string> OperatingSystemId => State.Value(this, () => string.Empty);
+    public IState<string> Bus => State.Value(this, () => string.Empty);
     public IState<string> Voltage => State.Value(this, () => string.Empty);
 
     public ConnectionService(
@@ -199,7 +206,7 @@ public class ConnectionService : IConnectionService
             }
             await DeviceState.SetAsync("Connected");
 
-            if (await this.TryPollOnce(newVehicle))
+            if (await this.TryPollOnce(newVehicle, ConnectTimeout))
             {
                 logger.AddUserMessage("PCM Hammer");
 #if !ANDROID
@@ -645,7 +652,7 @@ public class ConnectionService : IConnectionService
                     return;
                 }
 
-                bool success = await this.TryPollOnce(acquiredVehicle);
+                bool success = await this.TryPollOnce(acquiredVehicle, PollTimeout);
                 if (!success)
                 {
                     this.internalState = ConnectionStates.NotConnected;
@@ -685,7 +692,7 @@ public class ConnectionService : IConnectionService
         }
     }
 
-    private async Task<bool> TryPollOnce(Vehicle vehicle)
+    private async Task<bool> TryPollOnce(Vehicle vehicle, TimeSpan timeout)
     {
         bool success = false;
 
@@ -699,7 +706,7 @@ public class ConnectionService : IConnectionService
                 }
                 success = await TimeoutUtilities.TaskWithTimeoutAndException(
                     this.TryRequestVehicleInfo(vehicle, source.Token),
-                    TimeSpan.FromSeconds(3));
+                    timeout);
             }
             catch (TimeoutException)
             {
@@ -748,45 +755,34 @@ public class ConnectionService : IConnectionService
             {
                 await this.OperatingSystemId.SetAsync(string.Empty);
             }
-            logger.AddUserMessage("Checking for a recovery message...");
-            Response<bool> recoveryResponse = await vehicle.CheckForRecoveryMode(cancellationToken);
-            if (recoveryResponse.Status == ResponseStatus.Success && recoveryResponse.Value == true)
-            {
-                logger.AddUserMessage("PCM/ECM recovery mode detected!");
-                await this.OperatingSystemId.SetAsync(_recoveryString);
-                return true;
-            }
-            logger.AddUserMessage("No recovery message detected. Checking for live kernel...");
-            ulong ver = await vehicle.GetKernelVersion(maxRetries: 1);
-            if (ver != 0)
-            {
-                logger.AddUserMessage($"Detected kernel version: {Vehicle.FormatKernelVersion(ver)}");
-                await this.OperatingSystemId.SetAsync(_kernelString);
-                return true;
-            }
-            await this.OperatingSystemId.SetAsync(string.Empty);
-            Response<uint> osidResponse = await vehicle.QueryOperatingSystemId(cancellationToken);
-            if (osidResponse.Status == ResponseStatus.Success)
-            {
-                await this.OperatingSystemId.SetAsync(osidResponse.Value.ToString());
-            }
-            else
+
+            // One shared check covers recovery mode, a live kernel, and a normal PCM on whichever
+            // bus it answers on. Everything below is presentation of what it found.
+            VehicleStatus? status = await vehicle.QueryStatus(cancellationToken);
+            if (status == null)
             {
                 await this.ResetVehicleInfo();
                 return false;
             }
 
-            await this.Voltage.SetAsync(String.Empty);
-            Response<string> voltageResponse = await vehicle.QueryVoltage();
-            if (voltageResponse.Status == ResponseStatus.Success)
+            if (status.PcmState == VehicleStatus.State.Recovery)
             {
-                await this.Voltage.SetAsync(voltageResponse.Value ?? String.Empty);
+                logger.AddUserMessage("PCM/ECM recovery mode detected!");
+                await this.OperatingSystemId.SetAsync(_recoveryString);
+                return true;
             }
-            else
+
+            if (status.PcmState == VehicleStatus.State.Kernel)
             {
-                await this.ResetVehicleInfo();
-                return false;
+                logger.AddUserMessage($"Detected kernel version: {Vehicle.FormatKernelVersion(status.KernelVersion)}");
+                await this.OperatingSystemId.SetAsync(_kernelString);
+                return true;
             }
+
+            logger.AddDebugMessage($"Detected PCM on {status.Bus}.");
+            await this.OperatingSystemId.SetAsync(status.Osid.ToString());
+            await this.Bus.SetAsync(status.Bus.ToString());
+            await this.Voltage.SetAsync(status.Voltage);
         }
         catch (Exception exception)
         {
@@ -810,6 +806,7 @@ public class ConnectionService : IConnectionService
     {
         await this.ConnectionState.SetAsync(ConnectionStates.NotConnected);
         await this.OperatingSystemId.SetAsync(String.Empty);
+        await this.Bus.SetAsync(String.Empty);
         await this.Voltage.SetAsync(String.Empty);
     }
 

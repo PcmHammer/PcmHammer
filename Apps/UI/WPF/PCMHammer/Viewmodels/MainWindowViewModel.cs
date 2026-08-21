@@ -17,7 +17,7 @@ namespace PCMHammer.Viewmodels
         private readonly FileDialogService _fileDialogService;
         private readonly Window _parentWindow;
         private CancellationTokenSource? _cancellationTokenSource;
-        private bool CanReInitialize() => SelectedDevice is not null; 
+        private bool CanReInitialize() => SelectedDevice is not null && !IsOperationRunning;
         #endregion
 
         #region Properties
@@ -28,6 +28,9 @@ namespace PCMHammer.Viewmodels
         public partial PcmReader? PcmReader { get; set; }
 
         [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(CanStartOperation))]
+        [NotifyPropertyChangedFor(nameof(CanWriteDocument))]
+        [NotifyCanExecuteChangedFor(nameof(ReInitializeDeviceCommand))]
         public partial Device? SelectedDevice { get; set; }
 
         [ObservableProperty]
@@ -58,7 +61,65 @@ namespace PCMHammer.Viewmodels
         public partial Vehicle? Vehicle { get; set; }
 
         [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(CanStartOperation))]
+        [NotifyPropertyChangedFor(nameof(IsDeviceControlEnabled))]
+        [NotifyPropertyChangedFor(nameof(CanWriteDocument))]
+        [NotifyPropertyChangedFor(nameof(CanUseDocument))]
         public partial bool IsOperationRunning { get; set; }
+
+        /// <summary>
+        /// True when a new operation may be started: a device is connected and nothing is running.
+        /// The Operations buttons and the operation menu items bind their IsEnabled to this, so they
+        /// grey out for the duration of a read/write/verify instead of inviting a second command.
+        /// </summary>
+        public bool CanStartOperation => SelectedDevice is not null && !IsOperationRunning;
+
+        /// <summary>
+        /// True when device-level controls (Select / Re-Initialize, file loading) are allowed: simply
+        /// when no operation is running. These do not require a device to already be present.
+        /// </summary>
+        public bool IsDeviceControlEnabled => !IsOperationRunning;
+
+        #endregion
+
+        #region Command state
+
+        /// <summary>
+        /// Re-evaluate the CanExecute of every gated command. Called whenever the state those predicates
+        /// read (connected device, operation-running, loaded document) changes, so the bound menu items
+        /// and buttons enable/disable themselves - each command owns its rule and the views just reflect
+        /// it, instead of every view repeating an IsEnabled binding.
+        /// </summary>
+        private void RefreshCommandStates()
+        {
+            SelectDeviceCommand.NotifyCanExecuteChanged();
+            ReInitializeDeviceCommand.NotifyCanExecuteChanged();
+            LoadFileCommand.NotifyCanExecuteChanged();
+            SaveFileCommand.NotifyCanExecuteChanged();
+            SaveFileAsCommand.NotifyCanExecuteChanged();
+            ImportModuleCommand.NotifyCanExecuteChanged();
+            ExportBinCommand.NotifyCanExecuteChanged();
+            ReadPropertiesCommand.NotifyCanExecuteChanged();
+            ReadPCMCommand.NotifyCanExecuteChanged();
+            WritePCMCommand.NotifyCanExecuteChanged();
+            TestWriteCommand.NotifyCanExecuteChanged();
+            VerifyPCMCommand.NotifyCanExecuteChanged();
+            WriteParametersCommand.NotifyCanExecuteChanged();
+            WriteOSCalibrationBootCommand.NotifyCanExecuteChanged();
+            WriteFullFlashCloneCommand.NotifyCanExecuteChanged();
+            ChangeVINCommand.NotifyCanExecuteChanged();
+            TestFileChecksumsCommand.NotifyCanExecuteChanged();
+            BruteForceUnlockCommand.NotifyCanExecuteChanged();
+            HaltRunningKernelCommand.NotifyCanExecuteChanged();
+            UserDefinedKeyCommand.NotifyCanExecuteChanged();
+            CancelCurrentCommand.NotifyCanExecuteChanged();
+        }
+
+        // CommunityToolkit generates these hooks; each fires when its property changes. Refreshing the
+        // command states here keeps every command's enabled state current (see RefreshCommandStates).
+        partial void OnSelectedDeviceChanged(Device? value) => RefreshCommandStates();
+        partial void OnIsOperationRunningChanged(bool value) => RefreshCommandStates();
+        partial void OnLoadedPackageChanged(PcmPackage? value) => RefreshCommandStates();
 
         #endregion
 
@@ -89,29 +150,29 @@ namespace PCMHammer.Viewmodels
         #endregion
 
         #region Commands (Tools Menu & Operations)
-        [RelayCommand]
+        [RelayCommand(CanExecute = nameof(CanStartOperation))]
         public async Task ReadPCM() => await ExecuteReadPCMAsync(true, PcmType.Undefined);
-        [RelayCommand]
+        [RelayCommand(CanExecute = nameof(CanWriteDocument))]
         public async Task VerifyPCM() => await ExecuteVerificationAsync();
-        [RelayCommand]
+        [RelayCommand(CanExecute = nameof(CanStartOperation))]
         public async Task ChangeVIN() => await ExecuteChangeVINAsync();
-        [RelayCommand]
+        [RelayCommand(CanExecute = nameof(CanWriteDocument))]
         public async Task WriteParameters() => await ExecuteWritePCMAsync(WriteType.Parameters);
-        [RelayCommand]
+        [RelayCommand(CanExecute = nameof(CanWriteDocument))]
         public async Task WriteOSCalibrationBoot() => await ExecuteWritePCMAsync(WriteType.OsPlusCalibrationPlusBoot);
-        [RelayCommand]
+        [RelayCommand(CanExecute = nameof(CanWriteDocument))]
         public async Task WriteFullFlashClone() => await ExecuteWritePCMAsync(WriteType.Full);
-        [RelayCommand]
+        [RelayCommand(CanExecute = nameof(IsDeviceControlEnabled))]
         public async Task TestFileChecksums() => await TestFileChecksumsAsync();
-        [RelayCommand]
-        public void BruteForceUnlock() 
+        [RelayCommand(CanExecute = nameof(CanStartOperation))]
+        public void BruteForceUnlock()
         {
             StatusText = "Brute Force Unlocking...";
             if (Vehicle == null) return;
             BruteForceDialogBox bruteForceDialog = new(vehicle: Vehicle, logger: _logger) { Owner = _parentWindow };
             StatusText = bruteForceDialog.ShowDialog() == true ? "Brute Force Unlock Completed." : "Ready";
         }
-        [RelayCommand]
+        [RelayCommand(CanExecute = nameof(CanStartOperation))]
         public async Task HaltRunningKernel()
         {
             if (Vehicle == null) return;
@@ -161,8 +222,8 @@ namespace PCMHammer.Viewmodels
         #endregion
 
         #region Commands (Options Menu)
-        [RelayCommand]
-        public void UserDefinedKey() 
+        [RelayCommand(CanExecute = nameof(CanStartOperation))]
+        public void UserDefinedKey()
         {
             UserDefinedKeyDialogBox userDefinedKeyDialog = new() { Owner = _parentWindow };
             StatusText = "Setting user-defined key...";
@@ -178,12 +239,15 @@ namespace PCMHammer.Viewmodels
             StatusText = "Settings...";
             if (settingsWindow.ShowDialog() == true)
                 StatusText = "Ready";
+
+            // The settings dialog can toggle RuntimeSettings.AllowModuleImport; refresh the menu binding.
+            OnPropertyChanged(nameof(IsModuleImportAllowed));
         }
         #endregion
 
         #region Commands (Device & Operations Sidebar)
-        [RelayCommand]
-        public void SelectDevice() 
+        [RelayCommand(CanExecute = nameof(IsDeviceControlEnabled))]
+        public void SelectDevice()
         {
             var pickerDialog = new DevicePickerDialogBox(_logger) { Owner = _parentWindow };
             StatusText = "Selecting Device...";
@@ -223,8 +287,8 @@ namespace PCMHammer.Viewmodels
 
             StatusText = "Ready";
         }
-        [RelayCommand]
-        public async Task ReadProperties() 
+        [RelayCommand(CanExecute = nameof(CanStartOperation))]
+        public async Task ReadProperties()
         {
             StatusText = "Reading Properties...";
             if (Vehicle == null) return;
@@ -233,81 +297,19 @@ namespace PCMHammer.Viewmodels
                 IsOperationRunning = true;
                 await Task.Run(async () =>
                 {
-                    OSIDInfo? pcmInfo = null;
-
-                    var vinResponse = await Vehicle.QueryVin();
-                    if (vinResponse.Status != ResponseStatus.Success)
+                    // One shared flow detects the bus (VPW or CAN) and reads the identification; the
+                    // UI only logs what it returns.
+                    PcmIdentity? identity = await Vehicle.ReadIdentity(CancellationToken.None);
+                    if (identity == null)
                     {
-                        _logger.AddUserMessage($"VIN query failed: {vinResponse.Status}");
-                        await Vehicle.ExitKernel();
+                        _logger.AddUserMessage("No PCM detected.");
                         return;
                     }
-                    _logger.AddUserMessage($"VIN: {vinResponse.Value}");
 
-                    var osResponse = await Vehicle.QueryOperatingSystemId(new CancellationToken());
-                    if (osResponse.Status == ResponseStatus.Success)
+                    foreach (string line in identity.Lines)
                     {
-                        _logger.AddUserMessage($"OSID: {osResponse.Value}");
-                        pcmInfo = new OSIDInfo(osResponse.Value);
-                        _logger.AddUserMessage($"Description: {pcmInfo.Description}");
+                        _logger.AddUserMessage(line);
                     }
-                    else
-                        _logger.AddUserMessage($"OS ID query failed: {osResponse.Status}");
-
-                    // Disable Calibration ID lookup for those that do not provide it
-                    if (pcmInfo != null && pcmInfo.HardwareType != PcmType.BlackBox)
-                    {
-                        var calResponse = await Vehicle.QueryCalibrationId();
-                        if (calResponse.Status == ResponseStatus.Success)
-                            _logger.AddUserMessage($"Calibration ID: {calResponse.Value}");
-                        else
-                            _logger.AddUserMessage($"Calibration ID query failed: {calResponse.Status}");
-                    }
-
-                    // Disable HardwareID lookup for the P05, P10, P12 and E54.
-                    if (pcmInfo != null && pcmInfo.HardwareType != PcmType.P05 &&
-                        pcmInfo.HardwareType != PcmType.P05b && pcmInfo.HardwareType != PcmType.P10 &&
-                        pcmInfo.HardwareType != PcmType.P12 && pcmInfo.HardwareType != PcmType.E54)
-                    {
-                        var hardwareResponse = await Vehicle.QueryHardwareId();
-                        if (hardwareResponse.Status == ResponseStatus.Success)
-                            _logger.AddUserMessage($"Hardware ID: {hardwareResponse.Value}");
-                        else
-                            _logger.AddUserMessage($"Hardware ID query failed: {hardwareResponse.Status}");
-                    }
-
-                    // Disable Serial Number lookup for those that do not provide it
-                    if (pcmInfo != null && pcmInfo.HardwareType != PcmType.BlackBox)
-                    {
-                        var serialResponse = await Vehicle.QuerySerial();
-                        if (serialResponse.Status == ResponseStatus.Success)
-                            _logger.AddUserMessage($"Serial Number: {serialResponse.Value}");
-                        else
-                            _logger.AddUserMessage($"Serial Number query failed: {serialResponse.Status}");
-                    }
-
-                    // Disable BCC lookup for those that do not provide it
-                    if (pcmInfo != null && pcmInfo.HardwareType != PcmType.P04 &&
-                        pcmInfo.HardwareType != PcmType.P04_Early && pcmInfo.HardwareType != PcmType.P08)
-                    {
-                        var bccResponse = await Vehicle.QueryBCC();
-                        if (bccResponse.Status == ResponseStatus.Success)
-                            _logger.AddUserMessage($"Broad Cast Code: {bccResponse.Value}");
-                        else
-                            _logger.AddUserMessage($"BCC query failed: {bccResponse.Status}");
-                    }
-
-                    var mecResponse = await Vehicle.QueryMEC();
-                    if (mecResponse.Status == ResponseStatus.Success)
-                        _logger.AddUserMessage($"MEC: {mecResponse.Value}");
-                    else
-                        _logger.AddUserMessage($"MEC query failed: {mecResponse.Status}");
-
-                    var voltageResponse = await Vehicle.QueryVoltage();
-                    if (voltageResponse.Status == ResponseStatus.Success)
-                        _logger.AddUserMessage($"Voltage: {voltageResponse.Value}");
-                    else
-                        _logger.AddUserMessage($"Voltage query failed: {voltageResponse.Status}");
                 });
             }
             catch (Exception exception)
@@ -321,18 +323,18 @@ namespace PCMHammer.Viewmodels
                 StatusText = "Ready";
             }
         }
-        [RelayCommand]
+        [RelayCommand(CanExecute = nameof(CanWriteDocument))]
         public async Task WritePCM() => await ExecuteWritePCMAsyncWithDialog();
-        [RelayCommand]
+        [RelayCommand(CanExecute = nameof(CanWriteDocument))]
         public async Task TestWrite() => await ExecuteWritePCMAsync(WriteType.TestWrite);
-        [RelayCommand]
+        [RelayCommand(CanExecute = nameof(IsOperationRunning))]
         public async Task CancelCurrent()
         {
             if (IsOperationRunning)
             {
                 string warningMessage = "Canceling now could leave your PCM in an unbootable state (bricked)." + Environment.NewLine +
                                  "Are you absolutely sure you want to take that risk?";
-                bool proceedWithCancel = await PcmFlasher!.PromptForYesNo("PCM Hammer", warningMessage);
+                bool proceedWithCancel = await PcmFlasher!.PromptForYesNo(warningMessage, "PCM Hammer");
 
                 if (!proceedWithCancel)
                 {
@@ -365,15 +367,20 @@ namespace PCMHammer.Viewmodels
             };
             AddInitialLogMessages();
 
-            // Load up saved device and vehicle information from the settings file if configured to do so
-            bool retainConfigOnExit = Properties.Settings.Default.RetainDeviceConfigurationOnExit;
+            // Reconnect to the last-used interface on startup when the user has left that option on
+            // (the default). The device is saved whenever one is picked; here we default straight back
+            // to it, falling back silently to the "no device" state if it can't be opened (e.g. unplugged).
             string savedType = Properties.Settings.Default.SavedDeviceType;
-            if (retainConfigOnExit && !string.IsNullOrEmpty(savedType))
+            if (Properties.Settings.Default.RetainDeviceConfigurationOnExit && !string.IsNullOrEmpty(savedType))
                 _ = TrySilentDeviceConnectionAsync();
         }
 
         public async Task HandleApplicationShutdownAsync()
         {
+            // The logger batches messages and flushes them on a timer; flush now (we are on the UI
+            // thread) so the logs we save below include every message up to this point.
+            _logger.Flush();
+
             var tasks = new List<Task>();
 
             if (Properties.Settings.Default.SaveResultsLogOnExit && SaveResultsLogCommand.CanExecute(null))
@@ -393,6 +400,27 @@ namespace PCMHammer.Viewmodels
                     _logger.AddDebugMessage("One or more log save operations failed during application shutdown.");
                 }
             }
+
+            // Release the hardware interface, the way WinForms disposes its Vehicle on close. Without
+            // this the J2534 device is never closed (PassThruDisconnect/PassThruClose never run), so it
+            // keeps its channel open and the next launch cannot reopen it - e.g. "failed to open
+            // ISO15765 (CAN) channel, error 0x1B". Vehicle.Dispose only closes the underlying device
+            // once its ShutdownSignalSource is cancelled (a reuse hook for the Uno front end), so signal
+            // that first.
+            try
+            {
+                Vehicle?.ShutdownSignalSource.Cancel();
+                Vehicle?.Dispose();
+                Vehicle = null;
+            }
+            catch (Exception exception)
+            {
+                _logger.AddDebugMessage("Device cleanup on shutdown failed: " + exception.Message);
+            }
+
+            // Stop the logger's flush timer and do its final flush (the logger implements IDisposable
+            // for exactly this). Last so any messages from the cleanup above are still captured.
+            _logger.Dispose();
         }
 
         #region Command Execution Methods
@@ -402,15 +430,12 @@ namespace PCMHammer.Viewmodels
             if (PcmReader == null) return;
             if (IsOperationRunning) return;
 
-            StatusText = "Preparing for Read...";
-
-            // Get save destination on the UI thread before calling Task.Run
-            string selectedFilePath = _fileDialogService.SaveBinFileDialog()!;
-
-            if (string.IsNullOrEmpty(selectedFilePath))
+            // Read into the in-memory working document (unsaved), the way WinForms does: no file is
+            // chosen up front. The user saves it via the prompt afterwards or the Save button, and Write
+            // flashes it directly - no file needed in between. Discard-check first so a fresh read never
+            // silently overwrites unsaved changes to the current document.
+            if (!ConfirmDiscardIfDirty())
             {
-                _logger.AddUserMessage("Read operation canceled by user (no file selected).");
-                StatusText = "Ready";
                 return;
             }
 
@@ -421,11 +446,20 @@ namespace PCMHammer.Viewmodels
                 _cancellationTokenSource = new CancellationTokenSource();
 
                 // Offload processing completely down to the Task Pool thread
-                bool success = await Task.Run(() =>
-                    PcmReader.ReadPcmAsync(selectedFilePath, useAutoPcmType, selectedPcmType, _cancellationTokenSource.Token)
+                PcmPackage? package = await Task.Run(() =>
+                    PcmReader.ReadToPackageAsync(useAutoPcmType, selectedPcmType, _cancellationTokenSource.Token)
                 );
 
-                StatusText = success ? "Read Completed Successfully!" : "Read Failed.";
+                if (package != null)
+                {
+                    SetLoadedPackage(package, path: null, dirty: true);
+                    StatusText = "Read Completed Successfully!";
+                    PromptSaveAfterRead();
+                }
+                else
+                {
+                    StatusText = "Read Failed.";
+                }
             }
             catch (Exception ex)
             {
@@ -470,25 +504,20 @@ namespace PCMHammer.Viewmodels
             if (PcmFlasher == null) return;
             if (IsOperationRunning) return;
 
-            bool useAutoPcmType = true;
+            // Verify compares the loaded working document against what is on the PCM - no file is picked.
+            PcmPackage? document = LoadedPackage;
+            if (document == null)
+            {
+                _logger.AddUserMessage("No file loaded. Read the PCM or load a file first.");
+                return;
+            }
+
             PcmTypeSelectDialogBox dialog = new() { Owner = Application.Current.MainWindow };
 
             if (dialog.ShowDialog() == true)
             {
-                useAutoPcmType = dialog.SelectedPCMType == PcmType.Undefined;
-                // Set appropriate status messages depending on the action type
-                StatusText = "Preparing for Comparison...";
-
-                // Get the source binary path safely on the UI thread before offloading
-                string selectedFilePath = _fileDialogService.OpenBinFileDialog()!;
-
-                if (string.IsNullOrEmpty(selectedFilePath))
-                {
-                    string cancelMessage = "Comparison canceled.";
-                    _logger.AddUserMessage(cancelMessage);
-                    StatusText = "Ready";
-                    return;
-                }
+                bool useAutoPcmType = dialog.SelectedPCMType == PcmType.Undefined;
+                PcmType forcedPcmType = useAutoPcmType ? PcmType.Undefined : dialog.SelectedPCMType;
 
                 try
                 {
@@ -496,21 +525,12 @@ namespace PCMHammer.Viewmodels
                     StatusText = "Comparing PCM Blocks...";
                     _cancellationTokenSource = new CancellationTokenSource();
 
-                    PcmType forcedPcmType = useAutoPcmType ? PcmType.Undefined : dialog.SelectedPCMType;
-
                     // Offload the low-level communication completely to the worker thread pool
                     bool success = await Task.Run(() =>
-                        PcmFlasher.WritePcmAsync(WriteType.Compare, selectedFilePath, useAutoPcmType, forcedPcmType, _cancellationTokenSource.Token)
+                        PcmFlasher.WritePackageAsync(WriteType.Compare, document, useAutoPcmType, forcedPcmType, _cancellationTokenSource.Token)
                     );
 
-                    if (success)
-                    {
-                        StatusText = "Comparison Complete!";
-                    }
-                    else
-                    {
-                        StatusText = "Comparison Found Differences or Failed.";
-                    }
+                    StatusText = success ? "Comparison Complete!" : "Comparison Found Differences or Failed.";
                 }
                 catch (Exception ex)
                 {
@@ -650,7 +670,7 @@ namespace PCMHammer.Viewmodels
         }
         private async Task<bool> TrySilentDeviceConnectionAsync()
         {
-            // Double check safety guards
+            // Respect the user's choice, and do nothing until a device has been picked at least once.
             if (!Properties.Settings.Default.RetainDeviceConfigurationOnExit ||
                 string.IsNullOrEmpty(Properties.Settings.Default.SavedDeviceType))
             {
@@ -687,7 +707,11 @@ namespace PCMHammer.Viewmodels
                         backgroundViewModel.Enable4xReadWrite
                     );
                     StatusText = "Ready";
-                    backgroundViewModel.AcceptCommand.Execute(null);
+
+                    // Do NOT call AcceptCommand here: it re-runs TestSelectedDeviceAsync, which opens a
+                    // SECOND device that is never wrapped or disposed (a leaked handle, and a second
+                    // PassThruOpen on the same J2534 hardware). The settings we are restoring from are
+                    // already saved, so there is nothing to persist.
                     return true;
                 }
             }
@@ -706,41 +730,34 @@ namespace PCMHammer.Viewmodels
             if (PcmFlasher == null) return;
             if (IsOperationRunning) return;
 
+            // Flash the in-memory working document; the bytes come from the loaded package, not a file.
+            PcmPackage? document = LoadedPackage;
+            if (document == null)
+            {
+                _logger.AddUserMessage("No file loaded. Read the PCM or load a file first.");
+                return;
+            }
+
             DelayDialogBox delayDialog = new() { Owner = Application.Current.MainWindow };
             StatusText = "Writing to PCM...";
 
             if (delayDialog.ShowDialog() == true)
             {
-                string selectedFilePath = _fileDialogService.OpenBinFileDialog()!;
-
-                if (string.IsNullOrEmpty(selectedFilePath))
-                {
-                    _logger.AddUserMessage("Flash operation canceled by user (no file selected).");
-                    StatusText = "Ready";
-                    return;
-                }
-
                 try
                 {
                     IsOperationRunning = true;
                     StatusText = "Writing to PCM...";
                     _cancellationTokenSource = new CancellationTokenSource();
 
-                    // Hand off the parameters directly to cleaned-up backend task
+                    _logger.AddUserMessage("Writing the loaded file" +
+                        (LoadedPackagePath != null ? " (" + Path.GetFileName(LoadedPackagePath) + ")" : string.Empty) + ".");
+
+                    bool useAutoPcmType = pcmType == PcmType.Undefined;
+
                     // Task.Run guarantees it completely leaves the UI thread.
-                    bool success = false;
-                    if (pcmType == PcmType.Undefined)
-                    {
-                        success = await Task.Run(() =>
-                            PcmFlasher.WritePcmAsync(writeType, selectedFilePath, useAutoPcmType: true, PcmType.Undefined, _cancellationTokenSource.Token, suppressOSIDWarning)
-                        );
-                    }
-                    else
-                    {
-                        success = await Task.Run(() =>
-                            PcmFlasher.WritePcmAsync(writeType, selectedFilePath, useAutoPcmType: false, pcmType, _cancellationTokenSource.Token)
-                        );
-                    }
+                    bool success = await Task.Run(() =>
+                        PcmFlasher.WritePackageAsync(writeType, document, useAutoPcmType, pcmType, _cancellationTokenSource.Token, suppressOSIDWarning)
+                    );
 
                     StatusText = success ? "Write Operation Completed." : "Write Operation Failed.";
                 }
@@ -775,7 +792,7 @@ namespace PCMHammer.Viewmodels
             {
                 string warningMessage = "Canceling now could leave your PCM in an unbootable state (bricked)." + Environment.NewLine +
                                  "Are you absolutely sure you want to take that risk?";
-                bool proceedWithCancel = await PcmFlasher!.PromptForYesNo("PCM Hammer", warningMessage);
+                bool proceedWithCancel = await PcmFlasher!.PromptForYesNo(warningMessage, "PCM Hammer");
 
                 if (!proceedWithCancel)
                 {
@@ -795,6 +812,24 @@ namespace PCMHammer.Viewmodels
         /// </summary>
         private void InitializeDeviceAndVehicle(Device workingDevice, bool Enable4xCom)
         {
+            // Release the previous interface when switching to a different device (Select Device), so its
+            // J2534 handle/channels don't leak for the rest of the session. A Re-Initialize reuses the
+            // same Device object, so skip disposal then - otherwise we'd close the very device the new
+            // Vehicle is about to wrap. Disposal needs the ShutdownSignalSource cancelled first (the Uno
+            // reuse hook), same as on app shutdown.
+            if (Vehicle != null && !ReferenceEquals(SelectedDevice, workingDevice))
+            {
+                try
+                {
+                    Vehicle.ShutdownSignalSource.Cancel();
+                    Vehicle.Dispose();
+                }
+                catch (Exception exception)
+                {
+                    _logger.AddDebugMessage("Releasing previous device failed: " + exception.Message);
+                }
+            }
+
             SelectedDevice = workingDevice;
             Protocol protocolEngine = new();
 
@@ -804,7 +839,10 @@ namespace PCMHammer.Viewmodels
                 _logger
             );
 
-            Vehicle = new Vehicle(workingDevice, protocolEngine, _logger, notifier, "PCMHammer")
+            // Empty base path: the library resolves kernels from AppContext.BaseDirectory (next to the
+            // exe, where BuildAll deploys them), matching WinForms. A literal here would look in a
+            // relative folder that doesn't exist and fail with "Invalid directory".
+            Vehicle = new Vehicle(workingDevice, protocolEngine, _logger, notifier, string.Empty)
             {
                 Enable4xReadWrite = Enable4xCom
             };
@@ -821,17 +859,23 @@ namespace PCMHammer.Viewmodels
         /// </summary>
         private void AddInitialLogMessages()
         {
+            // Version/build line comes from the shared AppInfo helper: a real "Version: x.y.z" for a
+            // stamped release build, or "Build: <date time>" for an untagged dev build (the assembly
+            // file version defaults to 0.0.0.0 in the csproj, and Generated.BuildTime is written at
+            // compile time by the Date target). This matches WinForms and the CLI.
+            string versionLine = AppInfo.GetVersionOrBuildLine(Generated.BuildTime);
+
             // Add user messages to the log
             _logger.AddUserMessage("PCM Hammer");
-            _logger.AddUserMessage("Copyright (C) 2018-2026 PcmHacking.net - GPL v3");
-            _logger.AddUserMessage("Version: 2.0.0");
-            _logger.AddUserMessage($"Running at: {DateTime.Now:dddd, MMMM d yyyy, HH:mm:ss}");
+            _logger.AddUserMessage(AppInfo.CopyrightNotice);
+            _logger.AddUserMessage(versionLine);
+            _logger.AddUserMessage(AppInfo.GetRunningAtMessage());
             _logger.AddUserMessage("Thanks for using PCM Hammer.");
             // Add debug messages to the debug log
             _logger.AddDebugMessage("PCM Hammer");
-            _logger.AddDebugMessage("Copyright (C) 2018-2026 PcmHacking.net - GPL v3");
-            _logger.AddDebugMessage("Version: 2.0.0");
-            _logger.AddDebugMessage($"Running at: {DateTime.Now:dddd, MMMM d yyyy, HH:mm:ss}");
+            _logger.AddDebugMessage(AppInfo.CopyrightNotice);
+            _logger.AddDebugMessage(versionLine);
+            _logger.AddDebugMessage(AppInfo.GetRunningAtMessage());
             _logger.AddDebugMessage("Thanks for using PCM Hammer.");
         }
 

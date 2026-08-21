@@ -553,96 +553,22 @@ namespace PcmHacking
             return matches.Count == 1 ? matches[0] : null;
         }
 
-        // Mirrors the WinForms "Identify PCM" button. First detects what is on the bus and
-        // selects its protocol (the shared first step of every operation), then reads the rest of
-        // the identification on the selected bus. The OSID comes from detection; VIN, calibration,
-        // hardware ID, serial number, BCC, MEC, and voltage follow over VPW, with the same
-        // hardware-type rules as the WinForms implementation. On CAN the GMLAN DID set is read and
-        // formatted via CanIdentification (VIN, traceability code, OSID, module ids).
+        // The "Identify PCM" operation. One shared flow (Vehicle.ReadIdentity) detects the bus and reads
+        // the identification for both VPW and CAN - the same implementation every UI (WinForms, WPF, Uno)
+        // uses - so the CLI just prints the lines it returns.
         static async Task<bool> IdentifyPcm(Vehicle vehicle, ILogger logger, CancellationToken token)
         {
-            DetectedModule? pcm = await vehicle.DetectAndSelectPcm(token);
-            if (pcm == null)
+            PcmIdentity? identity = await vehicle.ReadIdentity(token);
+            if (identity == null)
             {
                 logger.AddUserMessage("No PCM detected on VPW or CAN.");
                 return false;
             }
 
-            logger.AddUserMessage("Detected PCM on " + pcm.Bus);
-
-            if (pcm.Bus != BusProtocol.Vpw)
+            foreach (string line in identity.Lines)
             {
-                logger.AddUserMessage("PCM Identification:");
-                foreach (string line in await CanIdentification.Read(vehicle.CreateCanCommands(), token))
-                {
-                    logger.AddUserMessage(line);
-                }
-                return true;
+                logger.AddUserMessage(line);
             }
-
-            OSIDInfo pcmInfo = new OSIDInfo(pcm.Osid);
-            logger.AddUserMessage("OSID: " + pcm.Osid);
-            logger.AddUserMessage("Description: " + pcmInfo.Description);
-
-            var vinResponse = await vehicle.QueryVin();
-            if (vinResponse.Status == ResponseStatus.Success)
-                logger.AddUserMessage("VIN: " + vinResponse.Value);
-            else
-                logger.AddUserMessage("VIN query failed: " + vinResponse.Status);
-
-            if (pcmInfo.HardwareType != PcmType.BlackBox)
-            {
-                var calResponse = await vehicle.QueryCalibrationId();
-                if (calResponse.Status == ResponseStatus.Success)
-                    logger.AddUserMessage("Calibration ID: " + calResponse.Value);
-                else
-                    logger.AddUserMessage("Calibration ID query failed: " + calResponse.Status);
-            }
-
-            if (pcmInfo.HardwareType != PcmType.P05 &&
-                pcmInfo.HardwareType != PcmType.P05b &&
-                pcmInfo.HardwareType != PcmType.P10 &&
-                pcmInfo.HardwareType != PcmType.P12 &&
-                pcmInfo.HardwareType != PcmType.E54)
-            {
-                var hwResponse = await vehicle.QueryHardwareId();
-                if (hwResponse.Status == ResponseStatus.Success)
-                    logger.AddUserMessage("Hardware ID: " + hwResponse.Value);
-                else
-                    logger.AddUserMessage("Hardware ID query failed: " + hwResponse.Status);
-            }
-
-            if (pcmInfo.HardwareType != PcmType.BlackBox)
-            {
-                var serialResponse = await vehicle.QuerySerial();
-                if (serialResponse.Status == ResponseStatus.Success)
-                    logger.AddUserMessage("Serial Number: " + serialResponse.Value);
-                else
-                    logger.AddUserMessage("Serial Number query failed: " + serialResponse.Status);
-            }
-
-            if (pcmInfo.HardwareType != PcmType.P04 &&
-                pcmInfo.HardwareType != PcmType.P04_Early &&
-                pcmInfo.HardwareType != PcmType.P08)
-            {
-                var bccResponse = await vehicle.QueryBCC();
-                if (bccResponse.Status == ResponseStatus.Success)
-                    logger.AddUserMessage("Broad Cast Code: " + bccResponse.Value);
-                else
-                    logger.AddUserMessage("BCC query failed: " + bccResponse.Status);
-            }
-
-            var mecResponse = await vehicle.QueryMEC();
-            if (mecResponse.Status == ResponseStatus.Success)
-                logger.AddUserMessage("MEC: " + mecResponse.Value);
-            else
-                logger.AddUserMessage("MEC query failed: " + mecResponse.Status);
-
-            var voltageResponse = await vehicle.QueryVoltage();
-            if (voltageResponse.Status == ResponseStatus.Success)
-                logger.AddUserMessage("Voltage: " + voltageResponse.Value);
-            else
-                logger.AddUserMessage("Voltage query failed: " + voltageResponse.Status);
 
             return true;
         }

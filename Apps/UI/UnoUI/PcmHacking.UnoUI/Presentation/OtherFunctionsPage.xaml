@@ -18,6 +18,7 @@
             <RowDefinition Height="1*" />
             <RowDefinition Height="1*" />
             <RowDefinition Height="1*" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="5*" />
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
@@ -116,7 +117,42 @@
         HorizontalAlignment="Left"
         VerticalAlignment="Center" />
 
-        <Grid Grid.Row="7" Grid.Column="0" Grid.ColumnSpan="2">
+        <StackPanel
+        Grid.Row="7"
+        Grid.Column="0"
+        Grid.ColumnSpan="2"
+        Visibility="{Binding HasSoftwareModules}">
+            <TextBlock
+            Text="Software Module Identifiers (SWMI)"
+            Margin="0,10,0,4"
+            FontWeight="SemiBold" />
+            <ScrollViewer MaxHeight="200" VerticalScrollBarVisibility="Auto">
+                <ItemsControl ItemsSource="{Binding SoftwareModules}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="1*" />
+                                    <ColumnDefinition Width="1*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock
+                                Text="{Binding Name}"
+                                Grid.Column="0"
+                                HorizontalAlignment="Left"
+                                VerticalAlignment="Center" />
+                                <TextBlock
+                                Text="{Binding Value}"
+                                Grid.Column="1"
+                                HorizontalAlignment="Left"
+                                VerticalAlignment="Center" />
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </StackPanel>
+
+        <Grid Grid.Row="8" Grid.Column="0" Grid.ColumnSpan="2">
             <Grid.RowDefinitions>
                 <RowDefinition Height="1*" />
                 <RowDefinition Height="1*" />
