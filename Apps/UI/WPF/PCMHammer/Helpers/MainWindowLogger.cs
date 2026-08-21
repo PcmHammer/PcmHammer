@@ -50,6 +50,13 @@ public class MainWindowLogger : ILogger, IDisposable
         _debugMessageQueue.Enqueue($"[{DateTime.Now:HH:mm:ss.fff}] {message}");
     }
 
+    /// <summary>
+    /// Force any queued messages into the view model now instead of waiting for the next timer tick.
+    /// Must be called on the UI thread. Used before the logs are saved on shutdown so the saved files
+    /// include the most recent lines (they are read from the view model's LogText/DebugLogText).
+    /// </summary>
+    public void Flush() => FlushQueuesToViewModel();
+
     private void FlushQueuesToViewModel()
     {
         // 1. Process User Messages
@@ -127,8 +134,15 @@ public class MainWindowLogger : ILogger, IDisposable
 
     public void StatusUpdateKbps(string Kbps)
     {
-        if (double.TryParse(Kbps.Replace(" Kb/s", "").Replace("kbps", ""), out double result))
+        // The library sends the rate as e.g. "45.23 Kbps" (capital K), or an empty string to clear it.
+        // Take the leading numeric token so the unit's text/case can't defeat the parse - a plain
+        // Replace("kbps", ...) misses the capital-K form, so nothing parses and the rate stays at zero
+        // (invisible in the status bar).
+        string number = (Kbps ?? string.Empty).Trim().Split(' ')[0];
+        if (double.TryParse(number, out double result))
             Application.Current.Dispatcher.BeginInvoke(() => _viewModel.TransferRate = result);
+        else if (string.IsNullOrWhiteSpace(Kbps))
+            Application.Current.Dispatcher.BeginInvoke(() => _viewModel.TransferRate = 0);
     }
 
     public void StatusUpdateReset()

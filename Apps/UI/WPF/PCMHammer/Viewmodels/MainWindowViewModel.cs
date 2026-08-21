@@ -377,6 +377,10 @@ namespace PCMHammer.Viewmodels
 
         public async Task HandleApplicationShutdownAsync()
         {
+            // The logger batches messages and flushes them on a timer; flush now (we are on the UI
+            // thread) so the logs we save below include every message up to this point.
+            _logger.Flush();
+
             var tasks = new List<Task>();
 
             if (Properties.Settings.Default.SaveResultsLogOnExit && SaveResultsLogCommand.CanExecute(null))
@@ -413,6 +417,10 @@ namespace PCMHammer.Viewmodels
             {
                 _logger.AddDebugMessage("Device cleanup on shutdown failed: " + exception.Message);
             }
+
+            // Stop the logger's flush timer and do its final flush (the logger implements IDisposable
+            // for exactly this). Last so any messages from the cleanup above are still captured.
+            _logger.Dispose();
         }
 
         #region Command Execution Methods
