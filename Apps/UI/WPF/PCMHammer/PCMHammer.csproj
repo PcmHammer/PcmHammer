@@ -19,6 +19,68 @@
     <AssemblyVersion>0.0.0.0</AssemblyVersion>
   </PropertyGroup>
 
+  <!--
+    Single-file packaging, on the same model as the Linux CLI: one self-contained .exe that
+    needs no .NET install on the target, with the kernels embedded (below) so there are no
+    loose .bin files to keep alongside it. A plain multi-file build is 53 files.
+
+    Gated on RuntimeIdentifier so it only engages for a RID-specific publish:
+
+        dotnet publish Apps/UI/WPF/PCMHammer/PCMHammer.csproj -c Release -r win-x86
+
+    Ordinary builds and F5 in Visual Studio set no RID, so they stay framework-dependent and
+    fast - none of this touches the inner development loop. win-x86 matches PlatformTarget
+    above: the app must be 32-bit to load 32-bit J2534 driver DLLs.
+  -->
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' != ''">
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <!-- WPF ships native components (wpfgfx, PresentationNative, D3DCompiler, PenImc,
+         vcruntime). Without this they stay beside the exe and it is not a single file. -->
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <!-- Roughly halves the bundle (127 MB -> 59 MB); requires SelfContained. -->
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <!-- Trimming is off for the same reason as the Linux CLI: the dependency closure uses
+         runtime reflection (JSON/XML serialization, DynamicExpresso) and would break. -->
+    <PublishTrimmed>false</PublishTrimmed>
+    <!-- No .pdb next to the single exe. DebugType covers this project; the second property
+         covers the referenced ones (PcmLibrary, J2534DotNet, ...), whose .pdbs are copied in
+         as "reference related files" and would otherwise still land in the publish folder. -->
+    <DebugType>none</DebugType>
+    <AllowedReferenceRelatedFileExtensions>none</AllowedReferenceRelatedFileExtensions>
+  </PropertyGroup>
+
+  <!-- Embed the kernels into the executable, exactly as the Linux CLI does, so the single-file
+       build carries them internally. The kernel build scripts produce them into Kernels/build;
+       LogicalName flattens the resource name to the bare file name (e.g. "Kernel-P01.bin"),
+       which is what the loader matches on. A loose .bin next to the exe still wins over the
+       embedded copy, so a user can override an individual kernel without a rebuild. -->
+  <ItemGroup>
+    <KernelBinary Include="..\..\..\..\Kernels\build\*.bin" />
+    <EmbeddedResource Include="@(KernelBinary)">
+      <LogicalName>%(Filename)%(Extension)</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+
+  <!-- Boot loader support files, embedded the same way. SlaveLibrary prefers a loose file in a
+       SlaveLibrary folder next to the exe and falls back to the embedded copy. -->
+  <ItemGroup>
+    <SlaveLibraryBinary Include="..\..\WindowsForms\PcmHammer\SlaveLibrary\*.bin" />
+    <EmbeddedResource Include="@(SlaveLibraryBinary)">
+      <LogicalName>%(Filename)%(Extension)</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+
+  <!-- MSBuild expands the glob above before the build runs, so an empty Kernels/build yields a
+       binary with NO kernels embedded and nothing says so until it fails against a vehicle.
+       Report it at build time instead. -->
+  <Target Name="ReportEmbeddedKernels" BeforeTargets="CoreCompile">
+    <Warning Condition="'@(KernelBinary)' == ''"
+             Text="No kernels embedded: ..\..\..\..\Kernels\build\*.bin matched nothing. Build the kernels first (Kernels\BuildAll.cmd), otherwise this build only works with loose .bin files next to the exe." />
+    <Message Condition="'@(KernelBinary)' != ''" Importance="high"
+             Text="Embedding kernels: @(KernelBinary->'%(Filename)%(Extension)', ' ')" />
+  </Target>
+
   <Target Name="Date" BeforeTargets="CoreCompile">
     <!-- Writes Generated.BuildTime (the compile timestamp) so the About/log lines can show a
          "Build: <date time>" for untagged builds. BuildTicks can be passed in (/p:BuildTicks=...)

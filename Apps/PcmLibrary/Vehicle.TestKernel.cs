@@ -73,7 +73,7 @@ namespace PcmHacking
                     Response<uint> osidResponse = await this.QueryOperatingSystemId(cancellationToken);
                     if (osidResponse.Status != ResponseStatus.Success)
                     {
-                        kernelVersion = await this.GetKernelVersion();
+                        kernelVersion = await this.GetKernelVersion(cancellationToken);
 
                         // TODO: Check for recovery mode.                    
                         // TODO: Load the tiny kernel, then use that to load the test kernel.
@@ -87,7 +87,7 @@ namespace PcmHacking
                     }
 
                     logger.AddUserMessage("Unlocking PCM...");
-                    bool unlocked = await this.UnlockEcu(keyAlgorithm);
+                    bool unlocked = await this.UnlockEcu(keyAlgorithm, cancellationToken);
                     if (!unlocked)
                     {
                         logger.AddUserMessage("Unlock was not successful.");

@@ -313,7 +313,10 @@ public partial record ReadModel : IAsyncLogger
         savePicker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
         savePicker.FileTypeChoices.Add("Binary", new List<string>() { ".bin" });
         savePicker.FileTypeChoices.Add("PcmHammer package", new List<string>() { ".phz" });
-        savePicker.SuggestedFileName = "Untitled.bin";
+        // Same naming rule as the other UIs. This picker runs before the read, so there is no package
+        // to take a module type and OSID from yet and the name is the date-stamped fallback; the rule
+        // still lives in the library rather than being spelled out again here.
+        savePicker.SuggestedFileName = PackageStore.DefaultBaseName(null, null, null) + ".bin";
         StorageFile file = await savePicker.PickSaveFileAsync();
         if (file == null)
         {

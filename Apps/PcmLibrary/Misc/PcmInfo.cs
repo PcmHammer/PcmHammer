@@ -515,7 +515,6 @@ namespace PcmHacking
                     this.IsSupportedWriteSlaveCPU = false;
                     this.IsSupportedWriteBySegment = false;
                     this.IsSupportedWriteBootSector = true; // tested on bench, boot sector write successful.
-                    this.IsUnderDevelopment = true;
                     this.BusProtocol = BusProtocol.Can500k;
                     this.GMLANProtocol = GMLANProtocol.P05c;
                     this.LoaderRequired = false;

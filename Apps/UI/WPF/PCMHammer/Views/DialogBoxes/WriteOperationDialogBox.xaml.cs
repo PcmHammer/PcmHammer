@@ -26,20 +26,13 @@ namespace PCMHammer.Views.DialogBoxes
             set => _selectedWriteType = value;
         }
 
-        private bool _suppressOSIDWarning;
-        public bool SuppressOSIDWarning
-        {
-            get => _suppressOSIDWarning;
-            set => _suppressOSIDWarning = value;
-        }
-
         public WriteOperationDialogBox()
         {
             InitializeComponent();
             _viewModel = new WriteTypeViewModel();
             DataContext = _viewModel;
-            PCMTypeComboBox.SelectedIndex = 0;
-            WriteTypeComboBox.SelectedIndex = 0;
+            // The initial selections come from the view model's constructor, not from
+            // ComboBox.SelectedIndex here - see WriteTypeViewModel for why that was unreliable.
             _viewModel.RequestClose += () => Close();
             _viewModel.RequestAcceptandClose += AcceptAndClose;
         }
@@ -48,7 +41,6 @@ namespace PCMHammer.Views.DialogBoxes
         {
             SelectedPCMType = _viewModel.SelectedPCMType;
             SelectedWriteType = _viewModel.SelectedWriteType;
-            SuppressOSIDWarning = _viewModel.SuppressOSIDWarning;
             DialogResult = true;
             Close();
         }

@@ -35,6 +35,10 @@ namespace PcmHacking
         // in Write(). Normally the detected chip size, not the (possibly smaller) PCM-type default.
         private UInt32 effectiveImageSize;
 
+        // Set from RuntimeSettings at the start of Write() and cleared once the forced pass has run,
+        // so a retry does not force again. Mirrors CanKernelWriter.
+        private bool forceWriteAllSectorsPending;
+
         public CKernelWriter(Vehicle vehicle, OSIDInfo pcmInfo, Protocol protocol, WriteType writeType, ILogger logger)
         {
             this.vehicle = vehicle;
@@ -304,6 +308,8 @@ namespace PcmHacking
                 this.effectiveImageSize,
                 this.logger);
 
+            this.forceWriteAllSectorsPending = RuntimeSettings.ForceWriteAllSectors;
+
             bool allRangesMatch = false;
             int messageRetryCount = 0;
             await this.vehicle.SendToolPresentNotification();
@@ -334,7 +340,7 @@ namespace PcmHacking
                             logger.AddUserMessage("Beginning test.");
                         }
                     }
-                    else
+                    else if (!this.forceWriteAllSectorsPending)
                     {
                         logger.AddUserMessage("All relevant ranges are identical.");
                         if (attempt > 1)
@@ -365,10 +371,25 @@ namespace PcmHacking
                 // does not allow boot-sector writes and boot would be written.
                 if (!this.IsWritePlanAllowedByPcmInfo(flashChip, relevantBlocks))
                 {
-                    logger.AddUserMessage("Boot sector write is required for this operation.");
-                    logger.AddUserMessage($"Abort: The {this.pcmInfo.HardwareType} boot sector is write protected. This PCM is not compatible with this file.");
+                    foreach (string line in WritePlan.DescribeBootSectorAbort(
+                        this.pcmInfo.HardwareType, this.forceWriteAllSectorsPending))
+                    {
+                        logger.AddUserMessage(line);
+                    }
+
                     await this.vehicle.Cleanup();
                     return false;
+                }
+
+                if (WritePlan.ForcedPlanExcludesBoot(
+                        this.writeType,
+                        this.pcmInfo.IsSupportedWriteBootSector,
+                        relevantBlocks,
+                        this.effectiveImageSize,
+                        flashChip.MemoryRanges,
+                        this.forceWriteAllSectorsPending))
+                {
+                    logger.AddUserMessage(WritePlan.DescribeBootExclusion(this.pcmInfo.HardwareType));
                 }
 
                 // Erase and rewrite the required memory ranges.
@@ -438,6 +459,9 @@ namespace PcmHacking
                         bytesRemaining -= range.Size;
                     }
                 }
+
+                // The forced full-write pass, if any, is now done.
+                this.forceWriteAllSectorsPending = false;
             }
 
             if (allRangesMatch)
@@ -505,27 +529,10 @@ namespace PcmHacking
 
         private bool ShouldProcess(MemoryRange range, BlockType relevantBlocks)
         {
-            if ((range.ActualCrc == range.DesiredCrc) && (this.writeType != WriteType.TestWrite))
-            {
-                return false;
-            }
-
-            // The P10 has the same flash chip as the P59, but the high bit of the address bus
-            // isn't connected, so there will be hardware errors talking to the top 512kb.
-            // So, we skip ranges that are beyond the size of the usable image. For most PCMs the
-            // usable size is the whole detected chip; for P10/P11 it is the smaller PCM-type size.
-            if (range.Address >= this.effectiveImageSize)
-            {
-                return false;
-            }
-
-            // Skip irrelevant blocks.
-            if ((range.Type & relevantBlocks) == 0)
-            {
-                return false;
-            }
-
-            return true;
+            // One shared rule for "will this range be written", used by the boot-sector gate too.
+            return WritePlan.ShouldProcessRange(
+                range, relevantBlocks, this.writeType, this.effectiveImageSize,
+                this.forceWriteAllSectorsPending, this.pcmInfo.IsSupportedWriteBootSector);
         }
 
         /// <summary>
@@ -533,34 +540,15 @@ namespace PcmHacking
         /// </summary>
         private bool IsWritePlanAllowedByPcmInfo(FlashChip flashChip, BlockType relevantBlocks)
         {
-            // Compare and test-write are non-destructive.
-            if (this.writeType == WriteType.Compare || this.writeType == WriteType.TestWrite)
-            {
-                return true;
-            }
-
-            // Boot sector writes are supported; allow all write plans.
-            if (this.pcmInfo.IsSupportedWriteBootSector)
-            {
-                return true;
-            }
-
-            foreach (MemoryRange range in flashChip.MemoryRanges)
-            {
-                // ShouldProcess means this range is relevant AND differs (for real writes).
-                if (!this.ShouldProcess(range, relevantBlocks))
-                {
-                    continue;
-                }
-
-                // Block attempts to write boot sector on PCMs that do not support it
-                if ((range.Type & BlockType.Boot) != 0)
-                {
-                    return false;
-                }
-            }
-
-            return true;
+            // Shared with the CAN writer: a PCM that cannot write boot may still be cloned, as long
+            // as the plan does not actually write a boot range.
+            return WritePlan.BootPolicyAllowsWritePlan(
+                this.writeType,
+                this.pcmInfo.IsSupportedWriteBootSector,
+                relevantBlocks,
+                this.effectiveImageSize,
+                flashChip.MemoryRanges,
+                this.forceWriteAllSectorsPending);
         }
 
         /// <summary>

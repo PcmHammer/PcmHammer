@@ -814,21 +814,16 @@ namespace PcmHacking
         }
 
         /// <summary>
-        /// A default base file name for the working document: the current file's name if it has one,
-        /// otherwise built from the module type and OSID of a freshly-read PCM (e.g. "E38_12628990").
+        /// A default base file name for the working document. The rule lives in the library
+        /// (<see cref="PackageStore.DefaultBaseName"/>) so every UI suggests the same name; passing a
+        /// null path is what asks it to build one from the package.
         /// </summary>
-        private string DefaultDocumentBaseName()
-        {
-            if (this.loadedPackagePath != null)
-            {
-                return Path.GetFileNameWithoutExtension(this.loadedPackagePath);
-            }
-
-            PackageController? controller = this.loadedPackage?.Controllers.FirstOrDefault();
-            string module = controller?.ModuleType ?? controller?.Type ?? "PCM";
-            uint? osid = controller?.Image("main")?.Osid;
-            return osid != null ? module + "_" + osid : module;
-        }
+        private string DefaultDocumentBaseName() =>
+            PackageStore.DefaultBaseName(
+                this.loadedPackage,
+                this.loadedPackagePath,
+                // The folder the save dialogs open in, so the sequence number skips names already there.
+                Configuration.Settings.BinDirectory);
 
         /// <summary>
         /// Save dialog that supplies the folder and base name for an export. The exporter appends the PCM
@@ -848,10 +843,7 @@ namespace PcmHacking
                 {
                     dialog.InitialDirectory = Configuration.Settings.BinDirectory;
                 }
-                if (this.loadedPackagePath != null)
-                {
-                    dialog.FileName = Path.GetFileNameWithoutExtension(this.loadedPackagePath);
-                }
+                dialog.FileName = this.DefaultDocumentBaseName();
                 return dialog.ShowDialog() == DialogResult.OK ? dialog.FileName : null;
             }
         }
@@ -1514,7 +1506,8 @@ namespace PcmHacking
 
                 if (dialogResult == DialogResult.OK)
                 {
-                    bool unlocked = await this.Vehicle.UnlockEcu(info.KeyAlgorithm);
+                    // No cancellation source in the VIN flow; the unlock is bounded by its own time budget.
+                    bool unlocked = await this.Vehicle.UnlockEcu(info.KeyAlgorithm, CancellationToken.None);
                     if (!unlocked)
                     {
                         this.AddUserMessage("Unable to unlock PCM.");
@@ -1626,6 +1619,106 @@ namespace PcmHacking
             if (!BackgroundWorker.IsAlive)
             {
                 this.StartOperationFromDialog(false, WriteType.Full);
+            }
+        }
+
+        /// <summary>
+        /// Tools -> PCM Recovery -> Read. Reads a PCM held in its boot loader (recovery/reset pin
+        /// grounded). Such a PCM reports no operating system, so the user names the type and we skip
+        /// detection entirely.
+        /// </summary>
+        private void recoveryReadToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (BackgroundWorker.IsAlive || this.Vehicle == null)
+            {
+                return;
+            }
+
+            PcmType? pcmType = this.PromptForRecoveryPcmType();
+            if (pcmType == null)
+            {
+                return;
+            }
+
+            // Same document rules as a normal read: don't silently discard unsaved changes.
+            if (!this.ConfirmDiscardIfDirty())
+            {
+                return;
+            }
+
+            BackgroundWorker = new System.Threading.Thread(
+                () => readFullContents_BackgroundThread(false, pcmType.Value, recovery: true));
+            BackgroundWorker.IsBackground = true;
+            BackgroundWorker.Start();
+        }
+
+        /// <summary>
+        /// Tools -> PCM Recovery -> Write. Writes the loaded working document to a PCM held in its boot
+        /// loader. Recovery skips every detection cross-check, so the file is confirmed with the user
+        /// first. The boot-sector protection still applies inside the writer.
+        /// </summary>
+        private void recoveryWriteToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (BackgroundWorker.IsAlive || this.Vehicle == null)
+            {
+                return;
+            }
+
+            if (this.loadedPackage == null)
+            {
+                string message =
+                    "No file is loaded." + Environment.NewLine + Environment.NewLine +
+                    "Load the .phz or .bin you want to write (File -> Load File) before running a recovery write.";
+                this.AddUserMessage("Recovery write: no file loaded.");
+                MessageBox.Show(this, message, "PCM Recovery", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            PcmType? pcmType = this.PromptForRecoveryPcmType();
+            if (pcmType == null)
+            {
+                return;
+            }
+
+            string confirmation =
+                "Recovery write to a " + pcmType.Value + " PCM." + Environment.NewLine + Environment.NewLine +
+                "File: " + (this.loadedPackagePath != null ? Path.GetFileName(this.loadedPackagePath) : "Untitled (unsaved read)") + Environment.NewLine +
+                Environment.NewLine +
+                "The PCM will NOT be detected or verified first. Write this file now?";
+            if (MessageBox.Show(this, confirmation, "Confirm recovery write",
+                    MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
+            {
+                this.AddUserMessage("Recovery write canceled by user.");
+                return;
+            }
+
+            BackgroundWorker = new System.Threading.Thread(
+                () => write_BackgroundThread(WriteType.Full, null, false, pcmType.Value, recovery: true));
+            BackgroundWorker.IsBackground = true;
+            BackgroundWorker.Start();
+        }
+
+        /// <summary>
+        /// Ask which PCM is being recovered. Null when the user cancels or picks something recovery
+        /// cannot handle (the rules live in the shared PcmHacking.RecoveryMode).
+        /// </summary>
+        private PcmType? PromptForRecoveryPcmType()
+        {
+            using (PcmTypeSelectorDialogBox dialog = new PcmTypeSelectorDialogBox())
+            {
+                if (dialog.ShowDialog(this) != DialogResult.OK)
+                {
+                    return null;
+                }
+
+                if (!RecoveryMode.CanAttempt(dialog.SelectedPcmType, out string reason))
+                {
+                    this.AddUserMessage(reason);
+                    MessageBox.Show(this, reason, "PCM Recovery", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return null;
+                }
+
+                return dialog.SelectedPcmType;
             }
         }
 
@@ -1881,7 +1974,11 @@ namespace PcmHacking
         /// <summary>
         /// Read the entire contents of the flash.
         /// </summary>
-        private async void readFullContents_BackgroundThread(bool useAutoPcmType = true, PcmType selectedPcmType = PcmType.Undefined)
+        /// <param name="recovery">
+        /// True for a PCM Recovery read: the selected PCM type is used as-is and detection, the OSID
+        /// query and the kernel probe are all skipped. See PcmHacking.RecoveryMode.
+        /// </param>
+        private async void readFullContents_BackgroundThread(bool useAutoPcmType = true, PcmType selectedPcmType = PcmType.Undefined, bool recovery = false)
         {
             using (new AwayMode())
             {
@@ -1915,7 +2012,9 @@ namespace PcmHacking
 
                     // Read into the in-memory working document (unsaved). The user saves it via the prompt
                     // below or the Save File button; Write flashes it directly - no file needed in between.
-                    PcmPackage? package = await readManager.ReadToPackage(forcedPcmType);
+                    PcmPackage? package = recovery
+                        ? await readManager.RecoveryRead(selectedPcmType)
+                        : await readManager.ReadToPackage(forcedPcmType);
                     if (package != null)
                     {
                         this.loadedPackage = package;
@@ -1989,7 +2088,12 @@ namespace PcmHacking
         /// <summary>
         /// Write changes to the PCM's flash memory.
         /// </summary>
-        private async void write_BackgroundThread(WriteType writeType, string? path = null, bool useAutoPcmType = true, PcmType selectedPcmType = PcmType.Undefined)
+        /// <param name="recovery">
+        /// True for a PCM Recovery write: the selected PCM type is used as-is and detection, the OSID
+        /// query and the kernel probe are all skipped. The boot-sector protection still applies. See
+        /// PcmHacking.RecoveryMode.
+        /// </param>
+        private async void write_BackgroundThread(WriteType writeType, string? path = null, bool useAutoPcmType = true, PcmType selectedPcmType = PcmType.Undefined, bool recovery = false)
         {
             using (new AwayMode())
             {
@@ -2051,9 +2155,19 @@ namespace PcmHacking
                         this.PromptForYesNo,
                         this.cancellationTokenSource.Token);
 
-                    bool success = document != null
-                        ? await writer.Write(document, forcedPcmType)
-                        : await writer.Write(path!, forcedPcmType);
+                    bool success;
+                    if (recovery)
+                    {
+                        // Recovery always writes the loaded working document; the caller has already
+                        // checked one is loaded and confirmed it with the user.
+                        success = await writer.RecoveryWrite(document!, selectedPcmType);
+                    }
+                    else
+                    {
+                        success = document != null
+                            ? await writer.Write(document, forcedPcmType)
+                            : await writer.Write(path!, forcedPcmType);
+                    }
 
                     if (success)
                     {

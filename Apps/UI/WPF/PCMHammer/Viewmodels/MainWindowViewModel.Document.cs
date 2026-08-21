@@ -153,7 +153,7 @@ namespace PCMHammer.Viewmodels
                 return;
             }
 
-            string? basePath = _fileDialogService.ExportBinBaseDialog(DocumentDisplayName());
+            string? basePath = _fileDialogService.ExportBinBaseDialog(DefaultSaveName());
             if (basePath == null)
             {
                 return;
@@ -280,7 +280,7 @@ namespace PCMHammer.Viewmodels
 
             if (path == null)
             {
-                path = _fileDialogService.SavePackageFileDialog(complete, DocumentDisplayName());
+                path = _fileDialogService.SavePackageFileDialog(complete, DefaultSaveName());
                 if (path == null)
                 {
                     return false;
@@ -378,8 +378,23 @@ namespace PCMHammer.Viewmodels
         }
 
         /// <summary>The display file name for the working document (falls back to an unsaved-read label).</summary>
+        /// <remarks>
+        /// Window/status text only. Do NOT use it to seed a save dialog - that is what produced files
+        /// called "Untitled (unsaved read).phz". Use <see cref="DefaultSaveName"/> for that.
+        /// </remarks>
         private string DocumentDisplayName() =>
             LoadedPackagePath != null ? Path.GetFileName(LoadedPackagePath) : "Untitled (unsaved read)";
+
+        /// <summary>
+        /// The base file name to suggest when saving. The rule lives in the library so every UI
+        /// suggests the same thing; a null path is what asks it to build one from the package.
+        /// </summary>
+        private string DefaultSaveName() =>
+            PackageStore.DefaultBaseName(
+                LoadedPackage,
+                LoadedPackagePath,
+                // The folder the save dialogs open in, so the sequence number skips names already there.
+                Properties.Settings.Default.BinDirectory);
 
         /// <summary>One-line summary of a package: module type, OSID, and whether it carries the slave.</summary>
         private static string DescribeDocument(PcmPackage package)

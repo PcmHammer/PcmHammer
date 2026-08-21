@@ -1,4 +1,4 @@
-namespace PcmHacking
+﻿namespace PcmHacking
 {
     partial class MainForm
     {
@@ -81,6 +81,9 @@ namespace PcmHacking
             this.bruteForceUnlockToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.busMonitorToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.haltRunningKernelToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.pcmRecoveryToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.recoveryReadToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.recoveryWriteToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.menuItemOptions = new System.Windows.Forms.ToolStripMenuItem();
             this.userDefinedKeyToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.settingsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -539,6 +542,7 @@ namespace PcmHacking
             this.writeOSCalibrationBootToolStripMenuItem,
             this.writeFullToolStripMenuItem,
             this.toolStripSeparator2,
+            this.pcmRecoveryToolStripMenuItem,
             this.testFileChecksumsToolStripMenuItem,
             this.bruteForceUnlockToolStripMenuItem,
             this.busMonitorToolStripMenuItem,
@@ -617,6 +621,29 @@ namespace PcmHacking
             this.busMonitorToolStripMenuItem.Text = "Bus &Monitor";
             this.busMonitorToolStripMenuItem.ToolTipText = "Show the Bus Monitor tab and switch to it.";
             this.busMonitorToolStripMenuItem.Click += new System.EventHandler(this.busMonitorToolStripMenuItem_Click);
+            //
+            // pcmRecoveryToolStripMenuItem
+            //
+            this.pcmRecoveryToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.recoveryReadToolStripMenuItem,
+            this.recoveryWriteToolStripMenuItem});
+            this.pcmRecoveryToolStripMenuItem.Name = "pcmRecoveryToolStripMenuItem";
+            this.pcmRecoveryToolStripMenuItem.Size = new System.Drawing.Size(225, 22);
+            this.pcmRecoveryToolStripMenuItem.Text = "PCM &Recovery";
+            //
+            // recoveryReadToolStripMenuItem
+            //
+            this.recoveryReadToolStripMenuItem.Name = "recoveryReadToolStripMenuItem";
+            this.recoveryReadToolStripMenuItem.Size = new System.Drawing.Size(140, 22);
+            this.recoveryReadToolStripMenuItem.Text = "&Read...";
+            this.recoveryReadToolStripMenuItem.Click += new System.EventHandler(this.recoveryReadToolStripMenuItem_Click);
+            //
+            // recoveryWriteToolStripMenuItem
+            //
+            this.recoveryWriteToolStripMenuItem.Name = "recoveryWriteToolStripMenuItem";
+            this.recoveryWriteToolStripMenuItem.Size = new System.Drawing.Size(140, 22);
+            this.recoveryWriteToolStripMenuItem.Text = "&Write...";
+            this.recoveryWriteToolStripMenuItem.Click += new System.EventHandler(this.recoveryWriteToolStripMenuItem_Click);
             //
             // haltRunningKernelToolStripMenuItem
             //
@@ -826,6 +853,9 @@ namespace PcmHacking
         private System.Windows.Forms.ToolStripMenuItem bruteForceUnlockToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem busMonitorToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem haltRunningKernelToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem pcmRecoveryToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem recoveryReadToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem recoveryWriteToolStripMenuItem;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator1;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator2;
     }

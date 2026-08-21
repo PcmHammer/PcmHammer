@@ -117,6 +117,26 @@ namespace PcmHacking
         public Task<PcmPackage?> ReadToPackage(PcmType forcedPcmType = PcmType.Undefined) =>
             this.ReadToPackage(null, forcedPcmType);
 
+        /// <summary>
+        /// Read a PCM that is in recovery mode into an in-memory package. The PCM type is supplied by
+        /// the user because a PCM in recovery reports no operating system; detection, the OSID query and
+        /// the kernel probe are all skipped. See <see cref="RecoveryMode"/>. Null on failure or abort.
+        /// </summary>
+        public async Task<PcmPackage?> RecoveryRead(PcmType pcmType, IProgress<ProgressUpdate>? progress = null)
+        {
+            if (!RecoveryMode.CanAttempt(pcmType, out string reason))
+            {
+                logger.AddUserMessage(reason);
+                await this.invoke(async () => await this.alert(reason, "PCM Recovery"));
+                return null;
+            }
+
+            logger.AddUserMessage(RecoveryMode.DescribeEntry(pcmType, isWrite: false));
+
+            // Forcing the type is what takes us straight into the recovery flow.
+            return await this.ReadToPackage(progress, pcmType);
+        }
+
         /// <summary>As <see cref="ReadToPackage(PcmType)"/>, reporting progress during the read.</summary>
         public async Task<PcmPackage?> ReadToPackage(IProgress<ProgressUpdate>? progress, PcmType forcedPcmType = PcmType.Undefined)
         {
@@ -382,22 +402,19 @@ namespace PcmHacking
                 }
             }
 
-            // The forced-type path (normally the type detected at form load) skips the detection
-            // branch that routes CAN to its own path, so dispatch here too (mirrors WriteManager). Put
-            // the device on CAN and point it at the PCM first, else the VPW unlock/kernel flow runs
-            // over the CAN bus and no seed is parsed.
-            if (pcmInfo.BusProtocol == BusProtocol.Can500k)
+            // Select the bus once the PCM type is known, whichever branch above resolved it. Every
+            // route ends here, so a CAN PCM cannot reach the VPW flow below. WriteManager does the
+            // same with the same helper.
+            switch (await this.vehicle.PrepareBusFor(pcmInfo))
             {
-                this.vehicle.SetTarget(Target.Pcm);
-                if (!await this.vehicle.SelectBus(BusProtocol.Can500k))
-                {
+                case BusPreparation.Unavailable:
                     string msg = $"Abort: this device cannot use the CAN bus required by the {pcmInfo.HardwareType} PCM.";
                     logger.AddUserMessage(msg);
                     await this.invoke(async () => await this.alert(msg, "Abort"));
                     return null;
-                }
 
-                return await this.RunCanRead(progress, pcmInfo);
+                case BusPreparation.Ready:
+                    return await this.RunCanRead(progress, pcmInfo);
             }
 
             if (!pcmInfo.IsSupported)
@@ -431,7 +448,7 @@ namespace PcmHacking
 
             await this.vehicle.SuppressChatter();
 
-            bool unlocked = await this.vehicle.UnlockEcu(pcmInfo.KeyAlgorithm);
+            bool unlocked = await this.vehicle.UnlockEcu(pcmInfo.KeyAlgorithm, this.cancellationToken);
             if (!unlocked)
             {
                 logger.AddUserMessage("Unlock was not successful.");

@@ -31,8 +31,7 @@ namespace PCMHammer.Services
             PcmPackage package,
             bool useAutoPcmType = true,
             PcmType selectedPcmType = PcmType.Undefined,
-            CancellationToken cancellationToken = default,
-            bool suppressOSIDWarning = false)
+            CancellationToken cancellationToken = default)
         {
             using (new AwayMode())
             {
@@ -56,7 +55,50 @@ namespace PCMHammer.Services
                         PromptForYesNo,
                         cancellationToken);
 
-                    return await writer.Write(package, forcedPcmType, suppressOSIDWarning);
+                    return await writer.Write(package, forcedPcmType);
+                }
+                catch (IOException exception)
+                {
+                    logger.AddUserMessage(exception.ToString());
+                    return false;
+                }
+                finally
+                {
+                    _currentWriteType = WriteType.None;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Write the loaded document to a PCM that is in recovery mode, using the user-selected PCM
+        /// type. All the recovery rules live in the library (see PcmHacking.RecoveryMode).
+        /// </summary>
+        public async Task<bool> RecoveryWriteAsync(
+            PcmPackage package,
+            PcmType pcmType,
+            CancellationToken cancellationToken = default)
+        {
+            using (new AwayMode())
+            {
+                try
+                {
+                    _currentWriteType = WriteType.Full;
+
+                    if (vehicle == null)
+                    {
+                        logger.AddUserMessage("Error: No vehicle interface connected.");
+                        return false;
+                    }
+
+                    WriteManager writer = new(
+                        logger,
+                        vehicle,
+                        WriteType.Full,
+                        Alert,
+                        PromptForYesNo,
+                        cancellationToken);
+
+                    return await writer.RecoveryWrite(package, pcmType);
                 }
                 catch (IOException exception)
                 {
@@ -75,8 +117,7 @@ namespace PCMHammer.Services
             string path,
             bool useAutoPcmType = true,
             PcmType selectedPcmType = PcmType.Undefined,
-            CancellationToken cancellationToken = default,
-            bool suppressOSIDWarning = false
+            CancellationToken cancellationToken = default
             )
         {
             using (new AwayMode())
@@ -104,7 +145,7 @@ namespace PCMHammer.Services
                         cancellationToken
                     );
 
-                    bool success = await writer.Write(path, forcedPcmType, suppressOSIDWarning);
+                    bool success = await writer.Write(path, forcedPcmType);
                     
                     return success;
                 }

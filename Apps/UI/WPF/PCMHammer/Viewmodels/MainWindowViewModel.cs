@@ -58,7 +58,16 @@ namespace PCMHammer.Viewmodels
         public partial string TimeRemaining { get; set; } = "00:00 Remaining";
 
         [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(DeviceDescription))]
         public partial Vehicle? Vehicle { get; set; }
+
+        /// <summary>
+        /// The connected interface, shown on the main window the way WinForms shows it in its
+        /// Device box. The text comes from the library (Vehicle.DeviceDescription -> Device
+        /// .ToString()), which is the same source MainFormBase hands to WinForms, so every front
+        /// end names a device identically and none of them format it themselves.
+        /// </summary>
+        public string DeviceDescription => Vehicle?.DeviceDescription ?? "No device selected.";
 
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(CanStartOperation))]
@@ -108,6 +117,8 @@ namespace PCMHammer.Viewmodels
             WriteOSCalibrationBootCommand.NotifyCanExecuteChanged();
             WriteFullFlashCloneCommand.NotifyCanExecuteChanged();
             ChangeVINCommand.NotifyCanExecuteChanged();
+            RecoveryReadCommand.NotifyCanExecuteChanged();
+            RecoveryWriteCommand.NotifyCanExecuteChanged();
             TestFileChecksumsCommand.NotifyCanExecuteChanged();
             BruteForceUnlockCommand.NotifyCanExecuteChanged();
             HaltRunningKernelCommand.NotifyCanExecuteChanged();
@@ -156,6 +167,10 @@ namespace PCMHammer.Viewmodels
         public async Task VerifyPCM() => await ExecuteVerificationAsync();
         [RelayCommand(CanExecute = nameof(CanStartOperation))]
         public async Task ChangeVIN() => await ExecuteChangeVINAsync();
+        [RelayCommand(CanExecute = nameof(CanStartOperation))]
+        public async Task RecoveryRead() => await ExecuteRecoveryReadAsync();
+        [RelayCommand(CanExecute = nameof(CanStartOperation))]
+        public async Task RecoveryWrite() => await ExecuteRecoveryWriteAsync();
         [RelayCommand(CanExecute = nameof(CanWriteDocument))]
         public async Task WriteParameters() => await ExecuteWritePCMAsync(WriteType.Parameters);
         [RelayCommand(CanExecute = nameof(CanWriteDocument))]
@@ -581,7 +596,8 @@ namespace PCMHammer.Viewmodels
                 {
                     string cleanVin = vinViewModel.Vin.Trim();
                     _logger.AddUserMessage($"Attempting to write updated VIN: {cleanVin}");
-                    bool unlocked = await Vehicle.UnlockEcu(info.KeyAlgorithm);
+                    // No cancellation source in the VIN flow; the unlock is bounded by its own time budget.
+                    bool unlocked = await Vehicle.UnlockEcu(info.KeyAlgorithm, CancellationToken.None);
                     if (!unlocked)
                     {
                         _logger.AddUserMessage("Unable to unlock PCM. Authorization Denied.");
@@ -724,7 +740,7 @@ namespace PCMHammer.Viewmodels
 
             return false; // Failed or timed out; needs UI fallback
         }
-        private async Task ExecuteWritePCMAsync(WriteType writeType, PcmType pcmType = PcmType.Undefined, bool suppressOSIDWarning = false)
+        private async Task ExecuteWritePCMAsync(WriteType writeType, PcmType pcmType = PcmType.Undefined)
         {
             if (Vehicle == null) return;
             if (PcmFlasher == null) return;
@@ -756,7 +772,7 @@ namespace PCMHammer.Viewmodels
 
                     // Task.Run guarantees it completely leaves the UI thread.
                     bool success = await Task.Run(() =>
-                        PcmFlasher.WritePackageAsync(writeType, document, useAutoPcmType, pcmType, _cancellationTokenSource.Token, suppressOSIDWarning)
+                        PcmFlasher.WritePackageAsync(writeType, document, useAutoPcmType, pcmType, _cancellationTokenSource.Token)
                     );
 
                     StatusText = success ? "Write Operation Completed." : "Write Operation Failed.";
@@ -778,12 +794,149 @@ namespace PCMHammer.Viewmodels
                 }
             }
         }
+        /// <summary>
+        /// PCM Recovery -> Read. Asks which PCM is on the bench, then reads it straight through the
+        /// recovery path (no detection). The result replaces the working document, exactly like a
+        /// normal read.
+        /// </summary>
+        private async Task ExecuteRecoveryReadAsync()
+        {
+            if (Vehicle == null || PcmReader == null || IsOperationRunning) return;
+
+            PcmType? pcmType = PromptForRecoveryPcmType();
+            if (pcmType == null) return;
+
+            // Same document rules as a normal read: don't silently discard unsaved changes.
+            if (!ConfirmDiscardIfDirty()) return;
+
+            try
+            {
+                IsOperationRunning = true;
+                StatusText = "Recovery read...";
+                _cancellationTokenSource = new CancellationTokenSource();
+
+                PcmPackage? package = await Task.Run(() =>
+                    PcmReader.RecoveryReadAsync(pcmType.Value, _cancellationTokenSource.Token));
+
+                if (package != null)
+                {
+                    SetLoadedPackage(package, path: null, dirty: true);
+                    StatusText = "Recovery read completed.";
+                    PromptSaveAfterRead();
+                }
+                else
+                {
+                    StatusText = "Recovery read failed.";
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.AddUserMessage($"Recovery read failed: {ex.Message}");
+                StatusText = "Error occurred.";
+            }
+            finally
+            {
+                IsOperationRunning = false;
+                _cancellationTokenSource?.Dispose();
+                _cancellationTokenSource = null;
+
+                await Task.Delay(2000);
+                if (!IsOperationRunning) StatusText = "Ready";
+            }
+        }
+
+        /// <summary>
+        /// PCM Recovery -> Write. Writes the loaded document straight through the recovery path (no
+        /// detection), using the PCM type the user selects. Because recovery bypasses detection, we
+        /// confirm exactly which file is about to be written first.
+        /// </summary>
+        private async Task ExecuteRecoveryWriteAsync()
+        {
+            if (Vehicle == null || PcmFlasher == null || IsOperationRunning) return;
+
+            PcmPackage? document = LoadedPackage;
+            if (document == null)
+            {
+                const string message =
+                    "No file is loaded.\n\nLoad the .phz or .bin you want to write (File -> Load File) "
+                    + "before running a recovery write.";
+                _logger.AddUserMessage("Recovery write: no file loaded.");
+                MessageBox.Show(message, "PCM Recovery", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            PcmType? pcmType = PromptForRecoveryPcmType();
+            if (pcmType == null) return;
+
+            // Recovery skips every detection cross-check, so make sure the user knows which file this
+            // is about to put on the PCM.
+            string confirmation =
+                $"Recovery write to a {pcmType.Value} PCM.\n\n" +
+                $"File: {DocumentDisplayName()}\n" +
+                $"{DescribeDocument(document)}\n\n" +
+                "The PCM will NOT be detected or verified first. Write this file now?";
+            if (MessageBox.Show(confirmation, "Confirm recovery write",
+                    MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+            {
+                _logger.AddUserMessage("Recovery write canceled by user.");
+                return;
+            }
+
+            try
+            {
+                IsOperationRunning = true;
+                StatusText = "Recovery write...";
+                _cancellationTokenSource = new CancellationTokenSource();
+
+                bool success = await Task.Run(() =>
+                    PcmFlasher.RecoveryWriteAsync(document, pcmType.Value, _cancellationTokenSource.Token));
+
+                StatusText = success ? "Recovery write completed." : "Recovery write failed.";
+            }
+            catch (Exception ex)
+            {
+                _logger.AddUserMessage($"Recovery write failed: {ex.Message}");
+                StatusText = "Error occurred.";
+            }
+            finally
+            {
+                IsOperationRunning = false;
+                _cancellationTokenSource?.Dispose();
+                _cancellationTokenSource = null;
+
+                await Task.Delay(2000);
+                if (!IsOperationRunning) StatusText = "Ready";
+            }
+        }
+
+        /// <summary>
+        /// Ask which PCM is being recovered. Null when the user cancels. Recovery cannot auto-detect
+        /// the type, so "Auto" is rejected here rather than deeper in the flow.
+        /// </summary>
+        private PcmType? PromptForRecoveryPcmType()
+        {
+            PcmTypeSelectDialogBox dialog = new() { Owner = _parentWindow };
+            if (dialog.ShowDialog() != true)
+            {
+                return null;
+            }
+
+            if (!RecoveryMode.CanAttempt(dialog.SelectedPCMType, out string reason))
+            {
+                _logger.AddUserMessage(reason);
+                MessageBox.Show(reason, "PCM Recovery", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return null;
+            }
+
+            return dialog.SelectedPCMType;
+        }
+
         private async Task ExecuteWritePCMAsyncWithDialog()
         {
             WriteOperationDialogBox dialog = new() { Owner = Application.Current.MainWindow };
             if (dialog.ShowDialog() == true)
             {
-                await ExecuteWritePCMAsync(dialog.SelectedWriteType, dialog.SelectedPCMType, dialog.SuppressOSIDWarning);
+                await ExecuteWritePCMAsync(dialog.SelectedWriteType, dialog.SelectedPCMType);
             }
         }
         private async Task ExecuteCancelCurrentOperationAsync()
