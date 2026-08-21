@@ -252,7 +252,10 @@ namespace PcmHacking
         /// </remarks>
         public async Task Cleanup()
         {
-            logger.AddDebugMessage("Halting the kernel.");
+            // User-visible (not debug): this is the "back to normal" step every read/write/compare ends
+            // with, so the log shows the kernel was halted and codes cleared. ClearTroubleCodes logs its
+            // own "Clearing trouble codes." line. Mirrors the CAN path's messages.
+            logger.AddUserMessage("Returning PCM to normal mode.");
             await this.ExitKernel();
             await this.ClearTroubleCodes();
         }

@@ -6,7 +6,7 @@
       <Value Profile="(Default)" />
     </Setting>
     <Setting Name="RetainDeviceConfigurationOnExit" Type="System.Boolean" Scope="User">
-      <Value Profile="(Default)">False</Value>
+      <Value Profile="(Default)">True</Value>
     </Setting>
     <Setting Name="SavedSerialPort" Type="System.String" Scope="User">
       <Value Profile="(Default)" />
@@ -21,13 +21,13 @@
       <Value Profile="(Default)" />
     </Setting>
     <Setting Name="SavedDevice4xCommunicationEnabled" Type="System.Boolean" Scope="User">
-      <Value Profile="(Default)">False</Value>
+      <Value Profile="(Default)">True</Value>
     </Setting>
     <Setting Name="UseLogSaveAsDialog" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">False</Value>
     </Setting>
     <Setting Name="SaveResultsLogOnExit" Type="System.Boolean" Scope="User">
-      <Value Profile="(Default)">False</Value>
+      <Value Profile="(Default)">True</Value>
     </Setting>
     <Setting Name="SaveDebugLogOnExit" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">False</Value>

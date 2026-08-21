@@ -49,8 +49,8 @@ namespace PCMHammer.Services
         {
             OpenFileDialog openFileDialog = new()
             {
-                Title = "Load PCM File",
-                Filter = "PcmHammer files (*.phz;*.bin)|*.phz;*.bin|PcmHammer package (*.phz)|*.phz|Binary Files (*.bin)|*.bin|All Files (*.*)|*.*",
+                Title = "Load PCMHammer File",
+                Filter = "PcmHammer files (*.phz;*.bin)|*.phz;*.bin|PcmHammer (*.phz)|*.phz|Binary Files (*.bin)|*.bin|All Files (*.*)|*.*",
                 DefaultExt = ".phz"
             };
 
@@ -67,9 +67,9 @@ namespace PCMHammer.Services
             // invalid package can never be produced.
             SaveFileDialog saveFileDialog = new()
             {
-                Title = "Save PCM File",
+                Title = "Save PCMHamer File",
                 Filter = complete
-                    ? "PcmHammer package (*.phz)|*.phz|Binary Files (*.bin)|*.bin"
+                    ? "PcmHammer (*.phz)|*.phz|Binary Files (*.bin)|*.bin"
                     : "Binary Files (*.bin)|*.bin",
                 DefaultExt = complete ? ".phz" : ".bin",
                 FileName = string.IsNullOrWhiteSpace(suggestedName) ? "PCM_Read" : suggestedName,

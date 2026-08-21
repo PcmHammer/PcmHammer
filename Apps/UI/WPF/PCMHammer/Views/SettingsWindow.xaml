@@ -10,6 +10,13 @@
         WindowStartupLocation="CenterOwner"
         Title="Settings" Width="629">
     <StackPanel Margin="16">
+        <GroupBox Header="Device">
+            <StackPanel>
+                <CheckBox Content="Reconnect to the last used interface on startup" IsChecked="{Binding AutoInitializeLastDevice}"/>
+                <TextBlock FontStyle="Oblique" Opacity="0.5" TextWrapping="Wrap" Text="On launch, automatically re-open the interface you last used (serial port + device, or J2534). Turn off to always start with no interface selected."/>
+            </StackPanel>
+        </GroupBox>
+
         <GroupBox Header="Bin Files">
             <Grid>
                 <Grid.ColumnDefinitions>

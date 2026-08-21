@@ -19,6 +19,9 @@ namespace PCMHammer.Viewmodels
         public partial string LogDirectory { get; set; } = string.Empty;
 
         [ObservableProperty]
+        public partial bool AutoInitializeLastDevice { get; set; }
+
+        [ObservableProperty]
         public partial bool UseLogSaveAsDialog { get; set; }
 
         [ObservableProperty]
@@ -87,6 +90,7 @@ namespace PCMHammer.Viewmodels
         {
             BinDirectory = Properties.Settings.Default.BinDirectory;
             LogDirectory = Properties.Settings.Default.LogDirectory;
+            AutoInitializeLastDevice = Properties.Settings.Default.RetainDeviceConfigurationOnExit;
             UseLogSaveAsDialog = Properties.Settings.Default.UseLogSaveAsDialog;
             SaveResultsLogOnExit = Properties.Settings.Default.SaveResultsLogOnExit;
             SaveDebugLogOnExit = Properties.Settings.Default.SaveDebugLogOnExit;
@@ -99,8 +103,9 @@ namespace PCMHammer.Viewmodels
 
         public void SaveSettings()
         {
-            Properties.Settings.Default.BinDirectory = BinDirectory; 
+            Properties.Settings.Default.BinDirectory = BinDirectory;
             Properties.Settings.Default.LogDirectory = LogDirectory;
+            Properties.Settings.Default.RetainDeviceConfigurationOnExit = AutoInitializeLastDevice;
             Properties.Settings.Default.UseLogSaveAsDialog = UseLogSaveAsDialog;
             Properties.Settings.Default.SaveResultsLogOnExit = SaveResultsLogOnExit;
             Properties.Settings.Default.SaveDebugLogOnExit = SaveDebugLogOnExit;

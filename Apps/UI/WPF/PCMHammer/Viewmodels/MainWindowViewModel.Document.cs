@@ -68,7 +68,7 @@ namespace PCMHammer.Viewmodels
 
         #region Document commands
 
-        [RelayCommand]
+        [RelayCommand(CanExecute = nameof(IsDeviceControlEnabled))]
         public void LoadFile()
         {
             if (IsOperationRunning)
@@ -111,13 +111,13 @@ namespace PCMHammer.Viewmodels
             }
         }
 
-        [RelayCommand]
+        [RelayCommand(CanExecute = nameof(CanUseDocument))]
         public void SaveFile() => SaveDocument(forcePrompt: true);
 
-        [RelayCommand]
+        [RelayCommand(CanExecute = nameof(CanUseDocument))]
         public void SaveFileAs() => SaveDocument(forcePrompt: true);
 
-        [RelayCommand]
+        [RelayCommand(CanExecute = nameof(CanUseDocument))]
         public void ImportModule()
         {
             if (IsOperationRunning || LoadedPackage == null || !RuntimeSettings.AllowModuleImport)
@@ -133,7 +133,7 @@ namespace PCMHammer.Viewmodels
             }
         }
 
-        [RelayCommand]
+        [RelayCommand(CanExecute = nameof(CanUseDocument))]
         public void ExportBin()
         {
             if (IsOperationRunning || LoadedPackage == null)

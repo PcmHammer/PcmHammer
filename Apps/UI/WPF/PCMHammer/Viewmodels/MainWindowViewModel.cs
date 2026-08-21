@@ -17,7 +17,7 @@ namespace PCMHammer.Viewmodels
         private readonly FileDialogService _fileDialogService;
         private readonly Window _parentWindow;
         private CancellationTokenSource? _cancellationTokenSource;
-        private bool CanReInitialize() => SelectedDevice is not null; 
+        private bool CanReInitialize() => SelectedDevice is not null && !IsOperationRunning;
         #endregion
 
         #region Properties
@@ -82,6 +82,47 @@ namespace PCMHammer.Viewmodels
 
         #endregion
 
+        #region Command state
+
+        /// <summary>
+        /// Re-evaluate the CanExecute of every gated command. Called whenever the state those predicates
+        /// read (connected device, operation-running, loaded document) changes, so the bound menu items
+        /// and buttons enable/disable themselves - each command owns its rule and the views just reflect
+        /// it, instead of every view repeating an IsEnabled binding.
+        /// </summary>
+        private void RefreshCommandStates()
+        {
+            SelectDeviceCommand.NotifyCanExecuteChanged();
+            ReInitializeDeviceCommand.NotifyCanExecuteChanged();
+            LoadFileCommand.NotifyCanExecuteChanged();
+            SaveFileCommand.NotifyCanExecuteChanged();
+            SaveFileAsCommand.NotifyCanExecuteChanged();
+            ImportModuleCommand.NotifyCanExecuteChanged();
+            ExportBinCommand.NotifyCanExecuteChanged();
+            ReadPropertiesCommand.NotifyCanExecuteChanged();
+            ReadPCMCommand.NotifyCanExecuteChanged();
+            WritePCMCommand.NotifyCanExecuteChanged();
+            TestWriteCommand.NotifyCanExecuteChanged();
+            VerifyPCMCommand.NotifyCanExecuteChanged();
+            WriteParametersCommand.NotifyCanExecuteChanged();
+            WriteOSCalibrationBootCommand.NotifyCanExecuteChanged();
+            WriteFullFlashCloneCommand.NotifyCanExecuteChanged();
+            ChangeVINCommand.NotifyCanExecuteChanged();
+            TestFileChecksumsCommand.NotifyCanExecuteChanged();
+            BruteForceUnlockCommand.NotifyCanExecuteChanged();
+            HaltRunningKernelCommand.NotifyCanExecuteChanged();
+            UserDefinedKeyCommand.NotifyCanExecuteChanged();
+            CancelCurrentCommand.NotifyCanExecuteChanged();
+        }
+
+        // CommunityToolkit generates these hooks; each fires when its property changes. Refreshing the
+        // command states here keeps every command's enabled state current (see RefreshCommandStates).
+        partial void OnSelectedDeviceChanged(Device? value) => RefreshCommandStates();
+        partial void OnIsOperationRunningChanged(bool value) => RefreshCommandStates();
+        partial void OnLoadedPackageChanged(PcmPackage? value) => RefreshCommandStates();
+
+        #endregion
+
         #region Commands
         [RelayCommand]
         public async Task CopyLog(string logText)
@@ -109,29 +150,29 @@ namespace PCMHammer.Viewmodels
         #endregion
 
         #region Commands (Tools Menu & Operations)
-        [RelayCommand]
+        [RelayCommand(CanExecute = nameof(CanStartOperation))]
         public async Task ReadPCM() => await ExecuteReadPCMAsync(true, PcmType.Undefined);
-        [RelayCommand]
+        [RelayCommand(CanExecute = nameof(CanWriteDocument))]
         public async Task VerifyPCM() => await ExecuteVerificationAsync();
-        [RelayCommand]
+        [RelayCommand(CanExecute = nameof(CanStartOperation))]
         public async Task ChangeVIN() => await ExecuteChangeVINAsync();
-        [RelayCommand]
+        [RelayCommand(CanExecute = nameof(CanWriteDocument))]
         public async Task WriteParameters() => await ExecuteWritePCMAsync(WriteType.Parameters);
-        [RelayCommand]
+        [RelayCommand(CanExecute = nameof(CanWriteDocument))]
         public async Task WriteOSCalibrationBoot() => await ExecuteWritePCMAsync(WriteType.OsPlusCalibrationPlusBoot);
-        [RelayCommand]
+        [RelayCommand(CanExecute = nameof(CanWriteDocument))]
         public async Task WriteFullFlashClone() => await ExecuteWritePCMAsync(WriteType.Full);
-        [RelayCommand]
+        [RelayCommand(CanExecute = nameof(IsDeviceControlEnabled))]
         public async Task TestFileChecksums() => await TestFileChecksumsAsync();
-        [RelayCommand]
-        public void BruteForceUnlock() 
+        [RelayCommand(CanExecute = nameof(CanStartOperation))]
+        public void BruteForceUnlock()
         {
             StatusText = "Brute Force Unlocking...";
             if (Vehicle == null) return;
             BruteForceDialogBox bruteForceDialog = new(vehicle: Vehicle, logger: _logger) { Owner = _parentWindow };
             StatusText = bruteForceDialog.ShowDialog() == true ? "Brute Force Unlock Completed." : "Ready";
         }
-        [RelayCommand]
+        [RelayCommand(CanExecute = nameof(CanStartOperation))]
         public async Task HaltRunningKernel()
         {
             if (Vehicle == null) return;
@@ -181,8 +222,8 @@ namespace PCMHammer.Viewmodels
         #endregion
 
         #region Commands (Options Menu)
-        [RelayCommand]
-        public void UserDefinedKey() 
+        [RelayCommand(CanExecute = nameof(CanStartOperation))]
+        public void UserDefinedKey()
         {
             UserDefinedKeyDialogBox userDefinedKeyDialog = new() { Owner = _parentWindow };
             StatusText = "Setting user-defined key...";
@@ -205,8 +246,8 @@ namespace PCMHammer.Viewmodels
         #endregion
 
         #region Commands (Device & Operations Sidebar)
-        [RelayCommand]
-        public void SelectDevice() 
+        [RelayCommand(CanExecute = nameof(IsDeviceControlEnabled))]
+        public void SelectDevice()
         {
             var pickerDialog = new DevicePickerDialogBox(_logger) { Owner = _parentWindow };
             StatusText = "Selecting Device...";
@@ -246,8 +287,8 @@ namespace PCMHammer.Viewmodels
 
             StatusText = "Ready";
         }
-        [RelayCommand]
-        public async Task ReadProperties() 
+        [RelayCommand(CanExecute = nameof(CanStartOperation))]
+        public async Task ReadProperties()
         {
             StatusText = "Reading Properties...";
             if (Vehicle == null) return;
@@ -282,11 +323,11 @@ namespace PCMHammer.Viewmodels
                 StatusText = "Ready";
             }
         }
-        [RelayCommand]
+        [RelayCommand(CanExecute = nameof(CanWriteDocument))]
         public async Task WritePCM() => await ExecuteWritePCMAsyncWithDialog();
-        [RelayCommand]
+        [RelayCommand(CanExecute = nameof(CanWriteDocument))]
         public async Task TestWrite() => await ExecuteWritePCMAsync(WriteType.TestWrite);
-        [RelayCommand]
+        [RelayCommand(CanExecute = nameof(IsOperationRunning))]
         public async Task CancelCurrent()
         {
             if (IsOperationRunning)
@@ -326,11 +367,11 @@ namespace PCMHammer.Viewmodels
             };
             AddInitialLogMessages();
 
-            // Always reconnect to the last-used interface on startup (matching WinForms). The device is
-            // saved whenever one is picked; here we default straight back to it, falling back silently to
-            // the "no device" state if it can't be opened (e.g. unplugged).
+            // Reconnect to the last-used interface on startup when the user has left that option on
+            // (the default). The device is saved whenever one is picked; here we default straight back
+            // to it, falling back silently to the "no device" state if it can't be opened (e.g. unplugged).
             string savedType = Properties.Settings.Default.SavedDeviceType;
-            if (!string.IsNullOrEmpty(savedType))
+            if (Properties.Settings.Default.RetainDeviceConfigurationOnExit && !string.IsNullOrEmpty(savedType))
                 _ = TrySilentDeviceConnectionAsync();
         }
 
@@ -354,6 +395,23 @@ namespace PCMHammer.Viewmodels
                 {
                     _logger.AddDebugMessage("One or more log save operations failed during application shutdown.");
                 }
+            }
+
+            // Release the hardware interface, the way WinForms disposes its Vehicle on close. Without
+            // this the J2534 device is never closed (PassThruDisconnect/PassThruClose never run), so it
+            // keeps its channel open and the next launch cannot reopen it - e.g. "failed to open
+            // ISO15765 (CAN) channel, error 0x1B". Vehicle.Dispose only closes the underlying device
+            // once its ShutdownSignalSource is cancelled (a reuse hook for the Uno front end), so signal
+            // that first.
+            try
+            {
+                Vehicle?.ShutdownSignalSource.Cancel();
+                Vehicle?.Dispose();
+                Vehicle = null;
+            }
+            catch (Exception exception)
+            {
+                _logger.AddDebugMessage("Device cleanup on shutdown failed: " + exception.Message);
             }
         }
 
@@ -604,8 +662,9 @@ namespace PCMHammer.Viewmodels
         }
         private async Task<bool> TrySilentDeviceConnectionAsync()
         {
-            // Nothing to restore until a device has been picked at least once.
-            if (string.IsNullOrEmpty(Properties.Settings.Default.SavedDeviceType))
+            // Respect the user's choice, and do nothing until a device has been picked at least once.
+            if (!Properties.Settings.Default.RetainDeviceConfigurationOnExit ||
+                string.IsNullOrEmpty(Properties.Settings.Default.SavedDeviceType))
             {
                 return false;
             }
@@ -640,7 +699,11 @@ namespace PCMHammer.Viewmodels
                         backgroundViewModel.Enable4xReadWrite
                     );
                     StatusText = "Ready";
-                    backgroundViewModel.AcceptCommand.Execute(null);
+
+                    // Do NOT call AcceptCommand here: it re-runs TestSelectedDeviceAsync, which opens a
+                    // SECOND device that is never wrapped or disposed (a leaked handle, and a second
+                    // PassThruOpen on the same J2534 hardware). The settings we are restoring from are
+                    // already saved, so there is nothing to persist.
                     return true;
                 }
             }
@@ -741,6 +804,24 @@ namespace PCMHammer.Viewmodels
         /// </summary>
         private void InitializeDeviceAndVehicle(Device workingDevice, bool Enable4xCom)
         {
+            // Release the previous interface when switching to a different device (Select Device), so its
+            // J2534 handle/channels don't leak for the rest of the session. A Re-Initialize reuses the
+            // same Device object, so skip disposal then - otherwise we'd close the very device the new
+            // Vehicle is about to wrap. Disposal needs the ShutdownSignalSource cancelled first (the Uno
+            // reuse hook), same as on app shutdown.
+            if (Vehicle != null && !ReferenceEquals(SelectedDevice, workingDevice))
+            {
+                try
+                {
+                    Vehicle.ShutdownSignalSource.Cancel();
+                    Vehicle.Dispose();
+                }
+                catch (Exception exception)
+                {
+                    _logger.AddDebugMessage("Releasing previous device failed: " + exception.Message);
+                }
+            }
+
             SelectedDevice = workingDevice;
             Protocol protocolEngine = new();
 
