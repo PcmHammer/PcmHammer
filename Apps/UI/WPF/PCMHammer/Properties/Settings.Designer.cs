@@ -97,7 +97,7 @@ namespace PCMHammer.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
         public bool SavedDevice4xCommunicationEnabled {
             get {
                 return ((bool)(this["SavedDevice4xCommunicationEnabled"]));
@@ -109,7 +109,7 @@ namespace PCMHammer.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
         public bool UseLogSaveAsDialog {
             get {
                 return ((bool)(this["UseLogSaveAsDialog"]));

@@ -3,7 +3,6 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
-using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -17,7 +16,6 @@ namespace PcmHacking
     public partial class MainForm
     {
         private const int MonitorMaxLines = 5000;
-        private const string DefaultCanFilter = "7E0 7E8 101";
 
         private TabPage busMonitorTab;
         private LogListView monitorLog;
@@ -67,7 +65,7 @@ namespace PcmHacking
             this.monitorVpwRadio = new RadioButton { Text = "VPW", Location = new Point(62, 6), AutoSize = true, Checked = true };
             this.monitorCanRadio = new RadioButton { Text = "CAN 500k", Location = new Point(118, 6), AutoSize = true };
             Label filterLabel = new Label { Text = "CAN IDs:", Location = new Point(210, 9), AutoSize = true };
-            this.monitorFilterTextBox = new TextBox { Text = DefaultCanFilter, Location = new Point(265, 5), Size = new Size(150, 20), Enabled = false };
+            this.monitorFilterTextBox = new TextBox { Text = BusMonitor.DefaultCanFilter, Location = new Point(265, 5), Size = new Size(150, 20), Enabled = false };
             this.monitorStartStopButton = new Button { Text = "Start", Location = new Point(440, 4), Size = new Size(70, 23), Anchor = AnchorStyles.Top | AnchorStyles.Right };
             this.monitorClearButton = new Button { Text = "Clear", Location = new Point(514, 4), Size = new Size(70, 23), Anchor = AnchorStyles.Top | AnchorStyles.Right };
 
@@ -180,7 +178,7 @@ namespace PcmHacking
                 return;
             }
 
-            IReadOnlyCollection<uint>? canIds = protocol == BusProtocol.Can500k ? this.ParseCanIds() : null;
+            IReadOnlyCollection<uint>? canIds = protocol == BusProtocol.Can500k ? BusMonitor.ParseCanIds(this.monitorFilterTextBox.Text) : null;
 
             this.monitorCts = new CancellationTokenSource();
             this.monitoring = true;
@@ -219,45 +217,24 @@ namespace PcmHacking
         }
 
         /// <summary>
-        /// VPW 4X gate: refuse if 4X is supported but disabled (the user can enable it); warn but allow
-        /// if the device can't do 4X at all (so the monitor goes deaf during a 4X read it can't see).
+        /// VPW 4X gate. The rule and its wording live in the library (BusMonitor.CheckVpwReadiness) so
+        /// every front end applies the same one; this only decides how to show the result.
         /// </summary>
         private bool CheckVpwFourXGate()
         {
-            if (!this.Vehicle.Supports4X)
+            switch (BusMonitor.CheckVpwReadiness(this.Vehicle, out string message))
             {
-                this.AddUserMessage("Bus monitor: this device can't switch to 4X, so 4X reads will not be captured.");
-                return true;
+                case VpwMonitorReadiness.NoFourXSupport:
+                    this.AddUserMessage("Bus monitor: " + message);
+                    return true;
+
+                case VpwMonitorReadiness.FourXDisabled:
+                    MessageBox.Show(this, message, "Bus Monitor", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return false;
+
+                default:
+                    return true;
             }
-
-            if (!this.Vehicle.Enable4xReadWrite)
-            {
-                MessageBox.Show(
-                    this,
-                    "Bus monitoring needs 4X enabled so it can follow a 4X read.\n\n" +
-                    "Turn on 'Enable 4X' in the Select Device dialog, then reconnect.",
-                    "Bus Monitor",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Information);
-                return false;
-            }
-
-            return true;
-        }
-
-        private IReadOnlyCollection<uint>? ParseCanIds()
-        {
-            List<uint> ids = new List<uint>();
-            foreach (string token in this.monitorFilterTextBox.Text.Split(new[] { ' ', ',', '\t' }, StringSplitOptions.RemoveEmptyEntries))
-            {
-                if (uint.TryParse(token, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out uint id))
-                {
-                    ids.Add(id);
-                }
-            }
-
-            // Empty (or all-invalid) means accept every id.
-            return ids.Count == 0 ? null : ids;
         }
 
         // Called from DisableUserInput: keep Start/Stop usable only while monitoring (so Stop works);

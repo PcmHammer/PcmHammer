@@ -76,6 +76,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AvtTests.cs" />
+    <Compile Include="BusMonitorFilterTests.cs" />
     <Compile Include="CanKernelBootPolicyTests.cs" />
     <Compile Include="CanKernelUploadProtocolTests.cs" />
     <Compile Include="CanLoggerTests.cs" />
@@ -90,6 +91,7 @@
     <Compile Include="TestPort.cs" />
     <Compile Include="TestScenarios.cs" />
     <Compile Include="ScanToolTests.cs" />
+    <Compile Include="SlaveLibraryArchiveTests.cs" />
     <Compile Include="MathTests.cs" />
     <Compile Include="PackageFormatTests.cs" />
     <Compile Include="PackageNamingTests.cs" />

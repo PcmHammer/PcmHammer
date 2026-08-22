@@ -17,7 +17,7 @@ namespace PCMHammer.Viewmodels
         private readonly FileDialogService _fileDialogService;
         private readonly Window _parentWindow;
         private CancellationTokenSource? _cancellationTokenSource;
-        private bool CanReInitialize() => SelectedDevice is not null && !IsOperationRunning;
+        private bool CanReInitialize() => SelectedDevice is not null && !IsOperationRunning && !IsBusMonitorRunning;
         #endregion
 
         #region Properties
@@ -77,17 +77,30 @@ namespace PCMHammer.Viewmodels
         public partial bool IsOperationRunning { get; set; }
 
         /// <summary>
-        /// True when a new operation may be started: a device is connected and nothing is running.
-        /// The Operations buttons and the operation menu items bind their IsEnabled to this, so they
-        /// grey out for the duration of a read/write/verify instead of inviting a second command.
+        /// Locks the same controls an operation does, but kept separate so Cancel (which keys off
+        /// IsOperationRunning) stays disabled - its prompt warns about bricking, and the monitor is
+        /// passive with its own Stop button. WinForms does the same.
         /// </summary>
-        public bool CanStartOperation => SelectedDevice is not null && !IsOperationRunning;
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(CanStartOperation))]
+        [NotifyPropertyChangedFor(nameof(IsDeviceControlEnabled))]
+        [NotifyPropertyChangedFor(nameof(CanWriteDocument))]
+        [NotifyPropertyChangedFor(nameof(CanUseDocument))]
+        public partial bool IsBusMonitorRunning { get; set; }
+
+        /// <summary>
+        /// True when a new operation may be started: a device is connected and nothing - neither an
+        /// operation nor the bus monitor - is using it. The Operations buttons and the operation menu
+        /// items bind their IsEnabled to this, so they grey out for the duration of a read/write/verify
+        /// instead of inviting a second command.
+        /// </summary>
+        public bool CanStartOperation => SelectedDevice is not null && !IsOperationRunning && !IsBusMonitorRunning;
 
         /// <summary>
         /// True when device-level controls (Select / Re-Initialize, file loading) are allowed: simply
-        /// when no operation is running. These do not require a device to already be present.
+        /// when nothing is using the device. These do not require a device to already be present.
         /// </summary>
-        public bool IsDeviceControlEnabled => !IsOperationRunning;
+        public bool IsDeviceControlEnabled => !IsOperationRunning && !IsBusMonitorRunning;
 
         #endregion
 
@@ -129,8 +142,16 @@ namespace PCMHammer.Viewmodels
         // CommunityToolkit generates these hooks; each fires when its property changes. Refreshing the
         // command states here keeps every command's enabled state current (see RefreshCommandStates).
         partial void OnSelectedDeviceChanged(Device? value) => RefreshCommandStates();
-        partial void OnIsOperationRunningChanged(bool value) => RefreshCommandStates();
+        partial void OnIsOperationRunningChanged(bool value)
+        {
+            RefreshCommandStates();
+            BusMonitor.IsHostBusy = value;
+        }
+        partial void OnIsBusMonitorRunningChanged(bool value) => RefreshCommandStates();
         partial void OnLoadedPackageChanged(PcmPackage? value) => RefreshCommandStates();
+
+        // Protocol options depend on the device: a J2534 box does VPW and CAN, SLCAN only CAN.
+        partial void OnVehicleChanged(Vehicle? value) => BusMonitor.Vehicle = value;
 
         #endregion
 
@@ -371,6 +392,10 @@ namespace PCMHammer.Viewmodels
         {
             _parentWindow = parentWindow;
             _logger = new PCMHammer.Helpers.MainWindowLogger(this);
+
+            // Before anything that can set Vehicle or IsOperationRunning; their hooks touch it.
+            BusMonitor = new BusMonitorViewModel(_logger, busy => IsBusMonitorRunning = busy);
+
             _fileDialogService = new FileDialogService();
             _logger.ProgressBarUpdated += (percent, visible) =>
             {
@@ -394,6 +419,9 @@ namespace PCMHammer.Viewmodels
 
         public async Task HandleApplicationShutdownAsync()
         {
+            // First: it holds the device, so disposing the Vehicle would race an in-flight receive.
+            await BusMonitor.StopAsync();
+
             // The logger batches messages and flushes them on a timer; flush now (we are on the UI
             // thread) so the logs we save below include every message up to this point.
             _logger.Flush();
@@ -435,6 +463,8 @@ namespace PCMHammer.Viewmodels
                 _logger.AddDebugMessage("Device cleanup on shutdown failed: " + exception.Message);
             }
 
+            BusMonitor.Dispose();
+
             // Stop the logger's flush timer and do its final flush (the logger implements IDisposable
             // for exactly this). Last so any messages from the cleanup above are still captured.
             _logger.Dispose();
@@ -471,7 +501,7 @@ namespace PCMHammer.Viewmodels
                 {
                     SetLoadedPackage(package, path: null, dirty: true);
                     StatusText = "Read Completed Successfully!";
-                    PromptSaveAfterRead();
+                    SaveAfterRead();
                 }
                 else
                 {
@@ -824,7 +854,7 @@ namespace PCMHammer.Viewmodels
                 {
                     SetLoadedPackage(package, path: null, dirty: true);
                     StatusText = "Recovery read completed.";
-                    PromptSaveAfterRead();
+                    SaveAfterRead();
                 }
                 else
                 {
@@ -1053,8 +1083,17 @@ namespace PCMHammer.Viewmodels
             try
             {
                 string defaultName = GetLogFilename(logName);
-                string destinationPath = Properties.Settings.Default.UseLogSaveAsDialog ?
-                    _fileDialogService.GetLogSavePath(defaultName) : Path.Combine(Properties.Settings.Default.LogDirectory, defaultName);
+                string logDirectory = Properties.Settings.Default.LogDirectory;
+
+                // The directory check matters: LogDirectory is empty by default and
+                // Path.Combine("", name) yields a bare file name, silently writing to the process
+                // working directory.
+                bool canSaveWithoutAsking =
+                    !Properties.Settings.Default.UseLogSaveAsDialog && !string.IsNullOrWhiteSpace(logDirectory);
+
+                string destinationPath = canSaveWithoutAsking
+                    ? Path.Combine(logDirectory, defaultName)
+                    : _fileDialogService.GetLogSavePath(defaultName);
                 
                 if (string.IsNullOrEmpty(destinationPath))
                 {

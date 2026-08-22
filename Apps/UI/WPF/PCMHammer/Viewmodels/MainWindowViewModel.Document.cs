@@ -47,9 +47,10 @@ namespace PCMHammer.Viewmodels
 
         /// <summary>
         /// True when a document operation that needs no device (Save, Export, Import) is allowed: a
-        /// document is loaded and nothing is running.
+        /// document is loaded and nothing is running. WinForms locks the whole File box while the bus
+        /// monitor runs, so the monitor counts as "running" here too.
         /// </summary>
-        public bool CanUseDocument => HasDocument && !IsOperationRunning;
+        public bool CanUseDocument => HasDocument && !IsOperationRunning && !IsBusMonitorRunning;
 
         /// <summary>True when the (hidden by default) Import Bin feature is enabled.</summary>
         public bool IsModuleImportAllowed => RuntimeSettings.AllowModuleImport;
@@ -245,16 +246,15 @@ namespace PCMHammer.Viewmodels
             };
         }
 
-        /// <summary>After a read, offer to save the fresh document immediately.</summary>
-        private void PromptSaveAfterRead()
+        /// <summary>
+        /// After a read, go straight to the save dialog. Practically everyone wants to keep a fresh
+        /// read, so a "save it now?" confirmation was only ever an extra click on the way to the same
+        /// place. Cancelling the dialog costs nothing: the read stays in the working document, where
+        /// Save File and Write can still reach it.
+        /// </summary>
+        private void SaveAfterRead()
         {
-            MessageBoxResult choice = MessageBox.Show(
-                "Read complete. Save it to a file now?",
-                "Save", MessageBoxButton.YesNo, MessageBoxImage.Question);
-            if (choice == MessageBoxResult.Yes)
-            {
-                SaveDocument(forcePrompt: true);
-            }
+            SaveDocument(forcePrompt: true);
         }
 
         /// <summary>

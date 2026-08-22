@@ -670,17 +670,16 @@ namespace PcmHacking
             }
         }
 
-        /// <summary>After a read, refresh the title and offer to save the fresh document immediately.</summary>
-        private void PromptSaveAfterRead()
+        /// <summary>
+        /// After a read, refresh the title and go straight to the save dialog. Practically everyone
+        /// wants to keep a fresh read, so a "save it now?" confirmation was only ever an extra click on
+        /// the way to the same place. Cancelling the dialog costs nothing: the read stays in the working
+        /// document, where Save File and Write can still reach it.
+        /// </summary>
+        private void SaveAfterRead()
         {
             this.UpdateTitle();
-            DialogResult choice = MessageBox.Show(this,
-                "Read complete. Save it to a file now?",
-                "Save", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
-            if (choice == DialogResult.Yes)
-            {
-                this.SaveDocument(forcePrompt: true);
-            }
+            this.SaveDocument(forcePrompt: true);
         }
 
         /// <summary>
@@ -2024,7 +2023,7 @@ namespace PcmHacking
                         // This will suppress the scary warnings prior to writing.
                         Configuration.Settings.ConnectionVerified = true;
 
-                        await this.InvokeWrapper(() => this.PromptSaveAfterRead());
+                        await this.InvokeWrapper(() => this.SaveAfterRead());
                     }
                 }
                 catch (Exception exception)

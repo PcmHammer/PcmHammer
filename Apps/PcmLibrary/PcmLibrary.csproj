@@ -22,6 +22,87 @@
     <Compile Remove="Module.cs" />
   </ItemGroup>
 
+  <!--
+    The slave library is embedded here rather than in each front end, so every UI gets it through the
+    normal project reference. It is packed into one deflate stream instead of per-file resources: the
+    images are near-identical, so compressing them together roughly halves the result again (85 KB
+    raw, ~53 KB compressed separately, ~33 KB as one stream). SlaveLibrary.cs reads it back.
+  -->
+  <ItemGroup>
+    <SlaveLibraryBinary Include="$(MSBuildThisFileDirectory)..\..\SlaveLibrary\*.bin" />
+  </ItemGroup>
+
+  <UsingTask TaskName="PackSlaveLibrary" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <Files ParameterType="Microsoft.Build.Framework.ITaskItem[]" Required="true" />
+      <OutputFile ParameterType="System.String" Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System" />
+      <Using Namespace="System.IO" />
+      <Using Namespace="System.IO.Compression" />
+      <Using Namespace="System.Linq" />
+      <Using Namespace="System.Text" />
+      <Code Type="Fragment" Language="cs"><![CDATA[
+        var entries = Files
+            .Select(f => new FileInfo(f.GetMetadata("FullPath")))
+            // Largest first: deflate's 32 KB window only spans neighbours, so the similar images
+            // have to sit next to each other to compress against one another.
+            .OrderByDescending(f => f.Length)
+            .ToList();
+
+        Directory.CreateDirectory(Path.GetDirectoryName(OutputFile));
+
+        using (var raw = new MemoryStream())
+        {
+            using (var writer = new BinaryWriter(raw, Encoding.UTF8, true))
+            {
+                writer.Write(entries.Count);
+                foreach (var entry in entries)
+                {
+                    writer.Write(entry.Name);
+                    writer.Write((int)entry.Length);
+                }
+            }
+
+            foreach (var entry in entries)
+            {
+                byte[] bytes = File.ReadAllBytes(entry.FullName);
+                raw.Write(bytes, 0, bytes.Length);
+            }
+
+            using (var output = File.Create(OutputFile))
+            using (var deflate = new DeflateStream(output, CompressionLevel.Optimal))
+            {
+                raw.Position = 0;
+                raw.CopyTo(deflate);
+            }
+        }
+
+        Log.LogMessage(MessageImportance.High,
+            "Packed {0} slave library files into {1} bytes.", entries.Count, new FileInfo(OutputFile).Length);
+      ]]></Code>
+    </Task>
+  </UsingTask>
+
+  <Target Name="PackSlaveLibraryArchive" BeforeTargets="PrepareForBuild"
+          Inputs="@(SlaveLibraryBinary)" Outputs="$(IntermediateOutputPath)SlaveLibrary.archive">
+    <Warning Condition="'@(SlaveLibraryBinary)' == ''"
+             Text="No slave library files found at $(MSBuildThisFileDirectory)..\..\SlaveLibrary\*.bin; packages that reference a slave image will not resolve." />
+    <PackSlaveLibrary Condition="'@(SlaveLibraryBinary)' != ''"
+                      Files="@(SlaveLibraryBinary)"
+                      OutputFile="$(IntermediateOutputPath)SlaveLibrary.archive" />
+  </Target>
+
+  <Target Name="EmbedSlaveLibraryArchive" AfterTargets="PackSlaveLibraryArchive" BeforeTargets="PrepareForBuild">
+    <ItemGroup>
+      <EmbeddedResource Include="$(IntermediateOutputPath)SlaveLibrary.archive"
+                        Condition="Exists('$(IntermediateOutputPath)SlaveLibrary.archive')">
+        <LogicalName>SlaveLibrary.archive</LogicalName>
+      </EmbeddedResource>
+    </ItemGroup>
+  </Target>
+
   <ItemGroup>
     <PackageReference Include="DynamicExpresso.Core" />
     <PackageReference Include="Microsoft.Bcl.HashCode" />

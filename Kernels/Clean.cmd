@@ -19,9 +19,10 @@ if exist build (
   popd
 )
 
-rem Clean intermediate object files from every kernel source subdirectory.
+rem Clean build leftovers from every kernel source subdirectory. Not *.bin: that is the
+rem directory's committed artifact, and deleting it would show up as a git deletion.
 for /d %%D in (*) do (
   pushd %%D
-  for %%A in (*.o *.tmp) do if exist %%A echo   Deleting %%D\%%A & del "%%A"
+  for %%A in (*.o *.tmp *.elf *.map *.disassembly *.log) do if exist %%A echo   Deleting %%D\%%A & del "%%A"
   popd
 )

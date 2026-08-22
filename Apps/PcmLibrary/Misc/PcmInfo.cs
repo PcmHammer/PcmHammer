@@ -703,8 +703,8 @@ namespace PcmHacking
                     this.BootLoaderSlaveHeaderLength = 0x80;
                     this.BootLoaderMasterHandshakeDid = 0xC1;
                     this.BootLoaderSlaveHandshakeDid = 0xC9;
-                    this.BootLoaderMasterLibraryFileName = "e38-master.bin";
-                    this.BootLoaderSlaveDriverFileName = "e38-slave.bin";
+                    this.BootLoaderMasterLibraryFileName = "bootlib-E38-Master.bin";
+                    this.BootLoaderSlaveDriverFileName = "bootlib-E38-Slave.bin";
                     // The mirror's validity marker lives below the staging address, so the fill survives
                     // the module data that later streams over the top of this range. 0x2000 covers the
                     // mirror and stays below the kernel base.

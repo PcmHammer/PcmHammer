@@ -2,7 +2,9 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
+using System.Text;
 
 namespace PcmHacking
 {
@@ -55,32 +57,76 @@ namespace PcmHacking
             return path != null ? File.ReadAllBytes(path) : TryLoadEmbedded(fileName!);
         }
 
-        // Mirrors the kernel loader's embedded-resource fallback: match a resource whose name is the file
-        // name, or ends with "." and the file name.
+        private const string ArchiveResourceName = "SlaveLibrary.archive";
+
+        private static readonly object archiveLock = new object();
+        private static Dictionary<string, byte[]>? archive;
+
         private static byte[]? TryLoadEmbedded(string fileName)
         {
-            System.Reflection.Assembly? assembly = System.Reflection.Assembly.GetEntryAssembly();
-            if (assembly == null) return null;
+            LoadArchive();
+            return archive != null && archive.TryGetValue(fileName, out byte[] data) ? data : null;
+        }
 
-            foreach (string resourceName in assembly.GetManifestResourceNames())
+        /// <summary>
+        /// Unpacks the archive PcmLibrary.csproj embeds in this assembly: a deflate stream holding a
+        /// count, then each name and length, then the blobs in the same order. It lives in this
+        /// assembly rather than the entry assembly so every front end gets it from the one reference.
+        /// </summary>
+        private static void LoadArchive()
+        {
+            if (archive != null) return;
+
+            lock (archiveLock)
             {
-                bool match = string.Equals(resourceName, fileName, StringComparison.OrdinalIgnoreCase)
-                    || (resourceName.Length > fileName.Length
-                        && resourceName[resourceName.Length - fileName.Length - 1] == '.'
-                        && resourceName.EndsWith(fileName, StringComparison.OrdinalIgnoreCase));
-                if (!match) continue;
+                if (archive != null) return;
 
-                using (Stream? stream = assembly.GetManifestResourceStream(resourceName))
+                var loaded = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
+                try
                 {
-                    if (stream == null) return null;
-                    using (MemoryStream buffer = new MemoryStream())
+                    System.Reflection.Assembly assembly = typeof(SlaveLibrary).Assembly;
+                    using (Stream? resource = assembly.GetManifestResourceStream(ArchiveResourceName))
                     {
-                        stream.CopyTo(buffer);
-                        return buffer.ToArray();
+                        if (resource != null)
+                        {
+                            using (var deflate = new DeflateStream(resource, CompressionMode.Decompress))
+                            using (var raw = new MemoryStream())
+                            {
+                                deflate.CopyTo(raw);
+                                raw.Position = 0;
+                                ReadEntries(raw, loaded);
+                            }
+                        }
                     }
                 }
+                catch (Exception)
+                {
+                    // A corrupt archive must not take the app down; the file simply reads as missing.
+                }
+
+                archive = loaded;
             }
-            return null;
+        }
+
+        private static void ReadEntries(Stream raw, Dictionary<string, byte[]> into)
+        {
+            var names = new List<string>();
+            var lengths = new List<int>();
+
+            using (var reader = new BinaryReader(raw, Encoding.UTF8, true))
+            {
+                int count = reader.ReadInt32();
+                for (int i = 0; i < count; i++)
+                {
+                    names.Add(reader.ReadString());
+                    lengths.Add(reader.ReadInt32());
+                }
+
+                for (int i = 0; i < count; i++)
+                {
+                    into[names[i]] = reader.ReadBytes(lengths[i]);
+                }
+            }
         }
 
         /// <summary>

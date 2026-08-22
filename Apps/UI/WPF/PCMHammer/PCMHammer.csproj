@@ -62,15 +62,6 @@
     </EmbeddedResource>
   </ItemGroup>
 
-  <!-- Boot loader support files, embedded the same way. SlaveLibrary prefers a loose file in a
-       SlaveLibrary folder next to the exe and falls back to the embedded copy. -->
-  <ItemGroup>
-    <SlaveLibraryBinary Include="..\..\WindowsForms\PcmHammer\SlaveLibrary\*.bin" />
-    <EmbeddedResource Include="@(SlaveLibraryBinary)">
-      <LogicalName>%(Filename)%(Extension)</LogicalName>
-    </EmbeddedResource>
-  </ItemGroup>
-
   <!-- MSBuild expands the glob above before the build runs, so an empty Kernels/build yields a
        binary with NO kernels embedded and nothing says so until it fails against a vehicle.
        Report it at build time instead. -->

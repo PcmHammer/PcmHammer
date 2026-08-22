@@ -223,24 +223,28 @@ namespace PcmHacking
                 return false;
             }
 
-            byte[]? masterFlashLibrary = SlaveLibrary.Resolve(pcmInfo.BootLoaderMasterLibraryFileName);
-            byte[]? slaveFlashDriver = SlaveLibrary.Resolve(pcmInfo.BootLoaderSlaveDriverFileName);
-            if (masterFlashLibrary == null || slaveFlashDriver == null)
+            // Boot libraries ship and load like kernels, so --kernel-dir and a loose file next to the
+            // exe override the embedded copy for them too.
+            Response<byte[]> masterLibraryResponse = await this.vehicle.LoadKernelFromFile(pcmInfo.BootLoaderMasterLibraryFileName);
+            Response<byte[]> slaveDriverResponse = await this.vehicle.LoadKernelFromFile(pcmInfo.BootLoaderSlaveDriverFileName);
+            if (masterLibraryResponse.Status != ResponseStatus.Success || slaveDriverResponse.Status != ResponseStatus.Success)
             {
-                logger.AddUserMessage("Missing the boot loader flash routines in the local library:");
-                logger.AddUserMessage("  " + SlaveLibrary.DefaultDirectory);
-                if (masterFlashLibrary == null)
+                logger.AddUserMessage("Missing the boot loader flash routines:");
+                if (masterLibraryResponse.Status != ResponseStatus.Success)
                 {
                     logger.AddUserMessage("    " + pcmInfo.BootLoaderMasterLibraryFileName);
                 }
 
-                if (slaveFlashDriver == null)
+                if (slaveDriverResponse.Status != ResponseStatus.Success)
                 {
                     logger.AddUserMessage("    " + pcmInfo.BootLoaderSlaveDriverFileName);
                 }
 
                 return false;
             }
+
+            byte[] masterFlashLibrary = masterLibraryResponse.Value;
+            byte[] slaveFlashDriver = slaveDriverResponse.Value;
 
             if (!await this.vehicle.SelectBus(pcmInfo.BusProtocol))
             {

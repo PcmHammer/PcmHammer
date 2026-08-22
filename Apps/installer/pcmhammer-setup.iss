@@ -109,6 +109,8 @@ Source: "{#CliRoot}\pcmhammer-cli.exe"; DestDir: "{app}\Cli"; Components: cli; F
 ; next to it so it works out of the box from {app}\Cli.
 Source: "{#WinFormsRoot}\PcmHammer\Kernel-*.bin"; DestDir: "{app}\Cli"; Components: cli; Flags: ignoreversion skipifsourcedoesntexist
 Source: "{#WinFormsRoot}\PcmHammer\Loader-*.bin"; DestDir: "{app}\Cli"; Components: cli; Flags: ignoreversion skipifsourcedoesntexist
+; Boot loader flash libraries (E38). Not kernels, but loaded the same way and needed on disk.
+Source: "{#WinFormsRoot}\PcmHammer\bootlib-*.bin"; DestDir: "{app}\Cli"; Components: cli; Flags: ignoreversion skipifsourcedoesntexist
 
 ; --- Shared shortcut icon ---
 Source: "{#AppIcon}"; DestDir: "{app}"; DestName: "pcmhammer.ico"; Flags: ignoreversion
@@ -143,6 +145,11 @@ Type: files; Name: "{app}\PcmLogger\Newtonsoft.Json.xml"
 ; Kernels
 Type: files; Name: "{app}\PcmHammer\*.bin"
 Type: files; Name: "{app}\Cli\*.bin"
+; The slave library is embedded in the app now; earlier releases shipped it as a folder of
+; loose .bin files. SlaveLibrary searches disk before the embedded copy, so an orphaned
+; folder from an old install would shadow it with a stale, smaller set.
+Type: filesandordirs; Name: "{app}\PcmHammer\SlaveLibrary"
+Type: filesandordirs; Name: "{app}\Cli\SlaveLibrary"
 
 [Icons]
 Name: "{group}\PCM Hammer";   Filename: "{app}\PcmHammer\PcmHammer.exe";     IconFilename: "{app}\pcmhammer.ico"; Components: pcmhammer
