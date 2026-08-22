@@ -1,6 +1,7 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using PcmHacking;
+using PCMHammer.Helpers;
 using PCMHammer.Services;
 using PCMHammer.Views;
 using PCMHammer.Views.DialogBoxes;
@@ -33,11 +34,10 @@ namespace PCMHammer.Viewmodels
         [NotifyCanExecuteChangedFor(nameof(ReInitializeDeviceCommand))]
         public partial Device? SelectedDevice { get; set; }
 
-        [ObservableProperty]
-        public partial string LogText { get; set; } = string.Empty;
+        /// <summary>The Results pane appends from this; it never changes identity, so no notification.</summary>
+        public LogTextBuffer ResultsLog => _logger.ResultsLog;
 
-        [ObservableProperty]
-        public partial string DebugLogText { get; set; } = string.Empty;
+        public LogTextBuffer DebugLog => _logger.DebugLog;
 
         [ObservableProperty]
         public partial bool IsCopiedFeedbackVisible { get; set; }
@@ -174,9 +174,9 @@ namespace PCMHammer.Viewmodels
 
         #region Commands (File Menu)
         [RelayCommand]
-        public async Task SaveResultsLog() => await SaveLogFileAsync("UserLog", LogText);
+        public async Task SaveResultsLog() => await SaveLogFileAsync("UserLog", ResultsLog.Snapshot());
         [RelayCommand]
-        public async Task SaveDebugLog() => await SaveLogFileAsync("DebugLog", DebugLogText);
+        public async Task SaveDebugLog() => await SaveLogFileAsync("DebugLog", DebugLog.Snapshot());
         [RelayCommand]
         public static void Exit() => Application.Current.Shutdown();
         #endregion
@@ -429,10 +429,10 @@ namespace PCMHammer.Viewmodels
             var tasks = new List<Task>();
 
             if (Properties.Settings.Default.SaveResultsLogOnExit && SaveResultsLogCommand.CanExecute(null))
-                tasks.Add(SaveLogFileAsync("UserLog", LogText));
+                tasks.Add(SaveLogFileAsync("UserLog", ResultsLog.Snapshot()));
 
             if (Properties.Settings.Default.SaveDebugLogOnExit && SaveDebugLogCommand.CanExecute(null))
-                tasks.Add(SaveLogFileAsync("DebugLog", DebugLogText));
+                tasks.Add(SaveLogFileAsync("DebugLog", DebugLog.Snapshot()));
 
             if (tasks.Count > 0)
             {

@@ -19,8 +19,6 @@ public partial class BusMonitorViewModel : ObservableObject, IDisposable
     // A callback rather than a back-reference: the monitor doesn't need to know its host.
     private readonly Action<bool> _setHostBusy;
 
-    private readonly LogTextBuffer _lines;
-
     private CancellationTokenSource? _cancellationTokenSource;
     private Task? _runningTask;
 
@@ -28,7 +26,6 @@ public partial class BusMonitorViewModel : ObservableObject, IDisposable
     {
         _logger = logger;
         _setHostBusy = setHostBusy;
-        _lines = new LogTextBuffer(text => LogText = text);
     }
 
     #region Properties
@@ -62,8 +59,8 @@ public partial class BusMonitorViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     public partial string CanFilterText { get; set; } = BusMonitor.DefaultCanFilter;
 
-    [ObservableProperty]
-    public partial string LogText { get; set; } = string.Empty;
+    /// <summary>The pane appends from this; it never changes identity, so no notification.</summary>
+    public LogTextBuffer Lines { get; } = new();
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanStartOrStop))]
@@ -159,7 +156,7 @@ public partial class BusMonitorViewModel : ObservableObject, IDisposable
         _cancellationTokenSource = new CancellationTokenSource();
         IsRunning = true;
         _setHostBusy(true);
-        _lines.Start();
+        Lines.Start();
         _logger.AddUserMessage("Bus monitor started on " + protocol + ".");
 
         BusMonitor monitor = Vehicle.CreateBusMonitor();
@@ -168,7 +165,7 @@ public partial class BusMonitorViewModel : ObservableObject, IDisposable
             _runningTask = Task.Run(() => monitor.RunAsync(
                 protocol,
                 canIds,
-                line => _lines.Append(line),
+                line => Lines.Append(line),
                 _cancellationTokenSource.Token));
 
             await _runningTask;
@@ -190,8 +187,8 @@ public partial class BusMonitorViewModel : ObservableObject, IDisposable
             IsRunning = false;
             _setHostBusy(false);
 
-            _lines.Flush();
-            _lines.Stop();
+            Lines.Flush();
+            Lines.Stop();
 
             _logger.AddUserMessage("Bus monitor stopped.");
             RefreshCapability();
@@ -199,7 +196,7 @@ public partial class BusMonitorViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
-    public void ClearLog() => _lines.Clear();
+    public void ClearLog() => Lines.Clear();
 
     #endregion
 
@@ -245,5 +242,5 @@ public partial class BusMonitorViewModel : ObservableObject, IDisposable
         }
     }
 
-    public void Dispose() => _lines.Dispose();
+    public void Dispose() => Lines.Dispose();
 }

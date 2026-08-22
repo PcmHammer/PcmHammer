@@ -32,6 +32,6 @@ namespace PCMHammer.Viewmodels
         }
 
         [RelayCommand]
-        public async Task SaveBusMonitorLog() => await SaveLogFileAsync("BusMonitor", BusMonitor.LogText);
+        public async Task SaveBusMonitorLog() => await SaveLogFileAsync("BusMonitor", BusMonitor.Lines.Snapshot());
     }
 }

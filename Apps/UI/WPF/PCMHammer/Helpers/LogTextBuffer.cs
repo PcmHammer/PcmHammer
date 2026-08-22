@@ -6,9 +6,14 @@ using System.Windows.Threading;
 namespace PCMHammer.Helpers;
 
 /// <summary>
-/// Batches log lines from a background thread onto the UI thread, as MainWindowLogger does for the
-/// Results and Debug logs. A busy 500k bus emits hundreds of frames a second, so one
-/// PropertyChanged per frame would swamp the dispatcher.
+/// Batches log lines from a background thread onto the UI thread. A busy 500k bus emits hundreds of
+/// frames a second, so one notification per frame would swamp the dispatcher.
+/// <para>
+/// Publishes deltas rather than the whole log. Re-publishing the full text put a half-megabyte
+/// allocation on the large object heap ten times a second; the full string is now built only on
+/// demand (<see cref="Snapshot"/>) and on a trim, which invalidates what the view already holds.
+/// </para>
+/// <para>Backs the Results, Debug and Bus Monitor panes, as LogListView does in the WinForms app.</para>
 /// </summary>
 public sealed class LogTextBuffer : IDisposable
 {
@@ -16,16 +21,14 @@ public sealed class LogTextBuffer : IDisposable
 
     private readonly ConcurrentQueue<string> _pending = new();
     private readonly DispatcherTimer _flushTimer;
-    private readonly Action<string> _publish;
-    private readonly StringBuilder _builder = new();
+    private readonly StringBuilder _log = new();
+    private readonly StringBuilder _delta = new();
     private readonly int _maxLength;
 
-    private string _text = string.Empty;
     private bool _isDisposed;
 
-    public LogTextBuffer(Action<string> publish, int maxLength = DefaultMaxLength)
+    public LogTextBuffer(int maxLength = DefaultMaxLength)
     {
-        _publish = publish ?? throw new ArgumentNullException(nameof(publish));
         _maxLength = maxLength;
 
         _flushTimer = new DispatcherTimer(DispatcherPriority.Background)
@@ -35,7 +38,14 @@ public sealed class LogTextBuffer : IDisposable
         _flushTimer.Tick += (s, e) => Flush();
     }
 
-    public string Text => _text;
+    /// <summary>UI thread. Text to add to the end of what the view already shows.</summary>
+    public event Action<string>? Appended;
+
+    /// <summary>UI thread. Cleared or trimmed, so the view must replace everything it holds.</summary>
+    public event Action<string>? Replaced;
+
+    /// <summary>UI thread. Allocates the whole log; for saving and for attaching a view.</summary>
+    public string Snapshot() => _log.ToString();
 
     /// <summary>UI thread. Only runs while a producer is active; the tab is usually never opened.</summary>
     public void Start() => _flushTimer.Start();
@@ -53,8 +63,8 @@ public sealed class LogTextBuffer : IDisposable
         {
         }
 
-        _text = string.Empty;
-        _publish(_text);
+        _log.Clear();
+        Replaced?.Invoke(string.Empty);
     }
 
     /// <summary>UI thread. Call after the producer stops so the last lines aren't stranded.</summary>
@@ -65,30 +75,38 @@ public sealed class LogTextBuffer : IDisposable
             return;
         }
 
-        _builder.Clear();
+        _delta.Clear();
         while (_pending.TryDequeue(out string? line))
         {
-            _builder.AppendLine(line);
+            _delta.AppendLine(line);
         }
 
-        _text = TrimToCleanLineBoundary(_text + _builder.ToString());
-        _publish(_text);
+        _log.Append(_delta);
+
+        if (_log.Length > _maxLength)
+        {
+            Replaced?.Invoke(Trim());
+        }
+        else
+        {
+            Appended?.Invoke(_delta.ToString());
+        }
     }
 
     /// <summary>Drops the oldest half, cutting at a newline so no line is left truncated.</summary>
-    private string TrimToCleanLineBoundary(string text)
+    private string Trim()
     {
-        if (text.Length <= _maxLength)
-        {
-            return text;
-        }
-
+        string text = _log.ToString();
         int cutIndex = text.Length - (_maxLength / 2);
         int nextNewLine = text.IndexOf('\n', cutIndex);
 
-        return nextNewLine != -1 && nextNewLine < text.Length - 1
+        string kept = nextNewLine != -1 && nextNewLine < text.Length - 1
             ? text.Substring(nextNewLine + 1)
             : text.Substring(cutIndex);
+
+        _log.Clear();
+        _log.Append(kept);
+        return kept;
     }
 
     public void Dispose()

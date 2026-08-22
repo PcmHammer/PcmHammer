@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:helpers="clr-namespace:PCMHammer.Helpers"
              xmlns:viewmodels="clr-namespace:PCMHammer.Viewmodels"
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=viewmodels:BusMonitorViewModel}"
@@ -36,7 +37,6 @@
         <TextBox Grid.Row="1" x:Name="MonitorLogTextBox" IsReadOnly="True"
                  FontFamily="Consolas" FontSize="12"
                  VerticalScrollBarVisibility="Visible" HorizontalScrollBarVisibility="Auto"
-                 Text="{Binding LogText}"
-                 Loaded="MonitorLogTextBox_Loaded" TextChanged="MonitorLogTextBox_TextChanged"/>
+                 helpers:LogTextBoxBehavior.Source="{Binding Lines}"/>
     </Grid>
 </UserControl>

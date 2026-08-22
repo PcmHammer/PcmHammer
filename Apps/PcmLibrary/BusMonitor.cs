@@ -104,12 +104,17 @@ namespace PcmHacking
         /// Run the monitor until cancelled. Each accepted frame is handed to <paramref name="onLine"/>
         /// already formatted (timestamp + payload). <paramref name="canAcceptIds"/> filters CAN by id
         /// (null = accept all); it does not apply to VPW.
+        /// <para>
+        /// Failures go to the logger, not to <paramref name="onLine"/> - a front end may be piping the
+        /// frame stream somewhere an error message does not belong. The 4X transition markers stay in
+        /// the stream because their value is positional: they say where in the capture the speed changed.
+        /// </para>
         /// </summary>
         public async Task RunAsync(BusProtocol protocol, IReadOnlyCollection<uint>? canAcceptIds, Action<string> onLine, CancellationToken token)
         {
             if (!await this.device.BeginMonitor(protocol))
             {
-                onLine(Stamp() + "Could not start monitoring on " + protocol + ".");
+                this.logger.AddUserMessage("Could not start monitoring on " + protocol + ".");
                 return;
             }
 
@@ -184,7 +189,7 @@ namespace PcmHacking
         {
             if (!(this.device is IRawCanMonitor channel))
             {
-                onLine(Stamp() + "This device cannot stream raw CAN frames.");
+                this.logger.AddUserMessage("This device cannot stream raw CAN frames.");
                 return;
             }
 

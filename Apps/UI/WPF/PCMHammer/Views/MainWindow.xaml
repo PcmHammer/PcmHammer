@@ -121,7 +121,7 @@
                         SelectedIndex="{Binding SelectedTabIndex, Mode=TwoWay}">
                 <TabItem Header="Results">
                     <TextBox x:Name="ResultsLogTextBox" IsReadOnly="True" VerticalScrollBarVisibility="Visible" HorizontalScrollBarVisibility="Auto" 
-                             Text="{Binding LogText}" Loaded="LogTextBox_Loaded" TextChanged="LogTextBox_TextChanged"/>
+                             helpers:LogTextBoxBehavior.Source="{Binding ResultsLog}"/>
                 </TabItem>
                 <TabItem Header="Help">
                     <WebBrowser x:Name="HelpWebBrowser"/>
@@ -131,7 +131,7 @@
                 </TabItem>
                 <TabItem Header="Debug">
                     <TextBox x:Name="DebugLogTextBox" IsReadOnly="True" VerticalScrollBarVisibility="Visible" HorizontalScrollBarVisibility="Auto"
-                             Text="{Binding DebugLogText}" Loaded="LogTextBox_Loaded" TextChanged="LogTextBox_TextChanged"/>
+                             helpers:LogTextBoxBehavior.Source="{Binding DebugLog}"/>
                 </TabItem>
                 <!-- Last so the Results (0) and Debug (3) indexes the copy buttons key off are stable.
                      Collapsed until Tools > Bus Monitor is used; WinForms adds its tab page on demand
