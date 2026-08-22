@@ -8,12 +8,7 @@
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=viewmodels:BusMonitorViewModel}"
              d:DesignHeight="420" d:DesignWidth="600">
-    <Grid Margin="4">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-        </Grid.RowDefinitions>
-
+    <Grid Margin="4" RowDefinitions="Auto,*">
         <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Left" Margin="0,0,0,6">
             <TextBlock Text="Protocol:" VerticalAlignment="Center" Margin="0,0,8,0"/>
             <RadioButton Content="VPW" GroupName="MonitorProtocol" VerticalAlignment="Center" Margin="0,0,12,0"
