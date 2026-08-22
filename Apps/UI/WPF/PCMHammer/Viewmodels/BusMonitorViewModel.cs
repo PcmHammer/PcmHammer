@@ -14,6 +14,10 @@ namespace PCMHammer.Viewmodels;
 /// </summary>
 public partial class BusMonitorViewModel : ObservableObject, IDisposable
 {
+    // A full read of a large PCM is on the order of half a million frames; hold well over that so the
+    // whole capture survives. Virtualized paint makes the display cost independent of this.
+    private const int MonitorMaxLines = 1_000_000;
+
     private readonly ILogger _logger;
 
     // A callback rather than a back-reference: the monitor doesn't need to know its host.
@@ -59,8 +63,8 @@ public partial class BusMonitorViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     public partial string CanFilterText { get; set; } = BusMonitor.DefaultCanFilter;
 
-    /// <summary>The pane appends from this; it never changes identity, so no notification.</summary>
-    public LogTextBuffer Lines { get; } = new();
+    /// <summary>The pane binds to this; it never changes identity, so no notification.</summary>
+    public LogLinesSource Lines { get; } = new(MonitorMaxLines);
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanStartOrStop))]

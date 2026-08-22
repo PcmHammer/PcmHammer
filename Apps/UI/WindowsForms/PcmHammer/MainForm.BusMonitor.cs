@@ -15,7 +15,9 @@ namespace PcmHacking
     // operations are disabled until the user clicks Stop.
     public partial class MainForm
     {
-        private const int MonitorMaxLines = 5000;
+        // A full read of a large PCM is on the order of half a million frames; hold well over that so
+        // the whole capture survives. Virtualized paint makes the display cost independent of this.
+        private const int MonitorMaxLines = 1_000_000;
 
         private TabPage busMonitorTab;
         private LogListView monitorLog;

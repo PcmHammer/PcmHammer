@@ -19,6 +19,48 @@
             <helpers:GreaterThanZeroConverter x:Key="GreaterThanZeroConverter" />
             <helpers:GreaterThanZeroToVisibilityConverter x:Key="GreaterThanZeroToVisibility" />
 
+            <!-- Read-only, virtualized log view shared by the Results, Debug and Bus Monitor panes. Only
+                 the visible rows are realized, so its cost is independent of how many lines are held -
+                 that is what lets it show a whole PCM read without the freeze a large TextBox caused. -->
+            <Style x:Key="LogListStyle" TargetType="ListBox">
+                <Setter Property="FontFamily" Value="Consolas"/>
+                <Setter Property="FontSize" Value="12"/>
+                <Setter Property="SelectionMode" Value="Extended"/>
+                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Auto"/>
+                <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Visible"/>
+                <Setter Property="VirtualizingPanel.IsVirtualizing" Value="True"/>
+                <Setter Property="VirtualizingPanel.VirtualizationMode" Value="Recycling"/>
+                <Setter Property="VirtualizingPanel.ScrollUnit" Value="Item"/>
+                <Setter Property="helpers:LogListBehaviors.AutoScrollToEnd" Value="True"/>
+                <Setter Property="helpers:LogListBehaviors.SelectionCopy" Value="True"/>
+                <Setter Property="ItemsPanel">
+                    <Setter.Value>
+                        <ItemsPanelTemplate>
+                            <VirtualizingStackPanel/>
+                        </ItemsPanelTemplate>
+                    </Setter.Value>
+                </Setter>
+                <Setter Property="ItemTemplate">
+                    <Setter.Value>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}" TextWrapping="NoWrap"/>
+                        </DataTemplate>
+                    </Setter.Value>
+                </Setter>
+                <!-- Line pitch = font height, no per-row padding or selection inset. -->
+                <Setter Property="ItemContainerStyle">
+                    <Setter.Value>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="Padding" Value="0"/>
+                            <Setter Property="Margin" Value="0"/>
+                            <Setter Property="MinHeight" Value="0"/>
+                            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+                        </Style>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
             <Style x:Key="CopyButtonStyle" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
                 <Setter Property="Background" Value="Transparent"/>
                 <Setter Property="BorderThickness" Value="0"/>

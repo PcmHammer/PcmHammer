@@ -34,10 +34,10 @@ namespace PCMHammer.Viewmodels
         [NotifyCanExecuteChangedFor(nameof(ReInitializeDeviceCommand))]
         public partial Device? SelectedDevice { get; set; }
 
-        /// <summary>The Results pane appends from this; it never changes identity, so no notification.</summary>
-        public LogTextBuffer ResultsLog => _logger.ResultsLog;
+        /// <summary>The Results pane binds to this; it never changes identity, so no notification.</summary>
+        public LogLinesSource ResultsLog => _logger.ResultsLog;
 
-        public LogTextBuffer DebugLog => _logger.DebugLog;
+        public LogLinesSource DebugLog => _logger.DebugLog;
 
         [ObservableProperty]
         public partial bool IsCopiedFeedbackVisible { get; set; }
@@ -157,8 +157,9 @@ namespace PCMHammer.Viewmodels
 
         #region Commands
         [RelayCommand]
-        public async Task CopyLog(string logText)
+        public async Task CopyLog(LogLinesSource? source)
         {
+            string logText = source?.Snapshot() ?? string.Empty;
             if (string.IsNullOrEmpty(logText)) return;
 
             Clipboard.SetText(logText);

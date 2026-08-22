@@ -10,8 +10,8 @@ public class MainWindowLogger : ILogger, IDisposable
 
     // The Results and Debug panes batch exactly as the Bus Monitor pane does; one primitive serves
     // all three, as LogListView does in the WinForms app.
-    private readonly LogTextBuffer _resultsLog = new();
-    private readonly LogTextBuffer _debugLog = new();
+    private readonly LogLinesSource _resultsLog = new();
+    private readonly LogLinesSource _debugLog = new();
 
     private bool _isDisposed;
 
@@ -29,10 +29,10 @@ public class MainWindowLogger : ILogger, IDisposable
     public event Action<string>? StatusTextUpdated;
 
     /// <summary>Bound by the Results pane and read by the log save commands.</summary>
-    public LogTextBuffer ResultsLog => _resultsLog;
+    public LogLinesSource ResultsLog => _resultsLog;
 
     /// <summary>Bound by the Debug pane and read by the log save commands.</summary>
-    public LogTextBuffer DebugLog => _debugLog;
+    public LogLinesSource DebugLog => _debugLog;
 
     // Fast, non-blocking enqueue
     public void AddUserMessage(string message)

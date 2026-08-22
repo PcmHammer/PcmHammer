@@ -85,9 +85,9 @@ namespace Tests
         }
 
         [TestMethod]
-        public void DefaultIdsAreTheToolPcmPairAndTheAllNodeRequest()
+        public void DefaultIdsAreTheTwoToolModulePairsAndTheAllNodeRequest()
         {
-            CollectionAssert.AreEqual(new uint[] { 0x7E0, 0x7E8, 0x101 }, BusMonitor.DefaultCanIds.ToArray());
+            CollectionAssert.AreEqual(new uint[] { 0x7E0, 0x7E1, 0x7E8, 0x7E9, 0x101 }, BusMonitor.DefaultCanIds.ToArray());
         }
 
         [TestMethod]
