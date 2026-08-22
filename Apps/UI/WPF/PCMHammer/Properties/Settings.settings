@@ -24,10 +24,10 @@
       <Value Profile="(Default)">True</Value>
     </Setting>
     <Setting Name="UseLogSaveAsDialog" Type="System.Boolean" Scope="User">
-      <Value Profile="(Default)">False</Value>
+      <Value Profile="(Default)">True</Value>
     </Setting>
     <Setting Name="SaveResultsLogOnExit" Type="System.Boolean" Scope="User">
-      <Value Profile="(Default)">True</Value>
+      <Value Profile="(Default)">False</Value>
     </Setting>
     <Setting Name="SaveDebugLogOnExit" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">False</Value>

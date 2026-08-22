@@ -229,25 +229,6 @@
     <EmbeddedResource Include="start.txt" />
     <EmbeddedResource Include="credits.html" />
     <EmbeddedResource Include="help.html" />
-    <!-- Boot loader support files. Copied next to the exe, where SlaveLibrary looks for them. -->
-    <Content Include="SlaveLibrary\12625892.bin">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="SlaveLibrary\12629150.bin">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="SlaveLibrary\12617980.bin">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="SlaveLibrary\12608447.bin">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="SlaveLibrary\e38-master.bin">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="SlaveLibrary\e38-slave.bin">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\..\J2534DotNet\J2534DotNet\J2534DotNet.csproj">

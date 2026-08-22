@@ -689,9 +689,20 @@ namespace PcmHacking
                 return false;
             }
 
-            if (protocol == BusProtocol.Vpw && !vehicle.Supports4X)
+            if (protocol == BusProtocol.Vpw)
             {
-                logger.AddUserMessage("This device can't switch to 4X; 4X reads will not be captured.");
+                // Same 4X rule as the GUIs. InitializeVehicle turns 4X on for every CLI run, so in
+                // practice only the "device can't do 4X" warning can fire here.
+                VpwMonitorReadiness readiness = BusMonitor.CheckVpwReadiness(vehicle, out string readinessMessage);
+                if (readiness != VpwMonitorReadiness.Ready)
+                {
+                    logger.AddUserMessage(readinessMessage);
+                }
+
+                if (readiness == VpwMonitorReadiness.FourXDisabled)
+                {
+                    return false;
+                }
             }
 
             IReadOnlyCollection<uint>? acceptIds = null;
@@ -699,7 +710,7 @@ namespace PcmHacking
             {
                 acceptIds = (canIds != null && canIds.Count > 0)
                     ? canIds
-                    : new List<uint> { 0x7E0, 0x7E8, 0x101 };
+                    : BusMonitor.DefaultCanIds;
             }
 
             logger.AddUserMessage($"Monitoring {protocol}. Press Ctrl+C to stop.");
@@ -707,7 +718,7 @@ namespace PcmHacking
             {
                 logger.AddUserMessage(acceptIds == null
                     ? "CAN filter: all ids."
-                    : "CAN filter: " + string.Join(" ", acceptIds.Select(id => id.ToString("X3"))));
+                    : "CAN filter: " + BusMonitor.FormatCanIds(acceptIds));
             }
 
             BusMonitor monitor = vehicle.CreateBusMonitor();
@@ -775,7 +786,7 @@ namespace PcmHacking
             Console.WriteLine("  --identify-pcm            Read VIN, OSID, calibration, serial, voltage");
             Console.WriteLine("  --detect                  Scan the buses (VPW, CAN) and list the modules that respond");
             Console.WriteLine("  --monitor [vpw|can] [ids] Passively display bus traffic until Ctrl+C (default vpw)");
-            Console.WriteLine("                            CAN: list hex ids to filter (default 7E0 7E8 101), or 'all'");
+            Console.WriteLine($"                            CAN: list hex ids to filter (default {BusMonitor.DefaultCanFilter}), or 'all'");
             Console.WriteLine("  --brute-force             Search the PCM security key (algo sweep, then numeric range)");
 #if LINUX_CLI
             Console.WriteLine("  --list-devices            List available serial devices with index numbers");

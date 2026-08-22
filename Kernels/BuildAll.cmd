@@ -14,6 +14,7 @@ goto beginning
 * Revision Date: 2023-05-23 - Antus <pcmhacking.net> Update P04 loader address.
 * Revision Date: 2026-06-01 - Antus <pcmhacking.net> Restructure: 68k-VPW-C, 68k-VPW-Asm, 68k-VPW-Asm-P04; build/ for outputs.
 * Revision Date: 2026-06-18 - Use BuildKernel.cmd scripts in kernel dirs, or binary only artifact
+* Revision Date: 2026-08-22 - Antus <pcmhacking.net> Build sources then copy all committed bins; add bootlib-*
 *
 * Authors disclaimer
 *   It is what it is, you can do with it as you please. (with respect)
@@ -65,7 +66,7 @@ for /d %%D in (*) do (
   )
 )
 
-rem * Fall back to a binary artifact when a kernel directory  has no BuildKernel.cmd
+rem * Copy committed binary artifacts (kernels, loaders, boot libraries) into build.
 call :CopyKernelDirBins
 
 if not defined DISABLE_COPY call :CopyToDetectedTargets
@@ -74,17 +75,15 @@ popd
 goto :EOF
 
 :CopyKernelDirBins
+rem * Build scripts have already run. A kernel directory may hold committed binaries as well as
+rem * sources, and the sources need not cover every binary, so copy them all unconditionally.
 for /d %%D in (*) do (
   if /i not "%%~nxD" == "build" (
-    if not exist "%%D\BuildKernel.cmd" (
-      for %%F in ("%%D\Kernel-*.bin" "%%D\Loader-*.bin") do (
-        if exist "%%F" (
-          if not exist "build\%%~nxF" (
-            echo Using committed %%~nxF from %%D ^(no source built it^)
-            if not exist build mkdir build
-            copy /Y "%%F" "build\%%~nxF" 1>nul
-          )
-        )
+    for %%F in ("%%D\Kernel-*.bin" "%%D\Loader-*.bin" "%%D\bootlib-*.bin") do (
+      if exist "%%F" (
+        echo Staging %%~nxF from %%D
+        if not exist build mkdir build
+        copy /Y "%%F" "build\%%~nxF" 1>nul
       )
     )
   )
@@ -206,6 +205,11 @@ if exist "build\Kernel-*.bin" (
 if exist "build\Loader-*.bin" (
   echo   Copying build\Loader-*.bin to "%TARGET%"
   copy /Y build\Loader-*.bin "%TARGET%\" 1>nul 2>nul
+)
+
+if exist "build\bootlib-*.bin" (
+  echo   Copying build\bootlib-*.bin to "%TARGET%"
+  copy /Y build\bootlib-*.bin "%TARGET%\" 1>nul 2>nul
 )
 
 set /a COPY_TARGET_COUNT+=1

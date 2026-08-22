@@ -292,7 +292,9 @@ namespace Tests
                         {
                             new PackageImage { Target = "main", FileName = "main.bin", Data = Pattern(1024, 1) },
                             PackageImage.Reference("slave-os", "12625892.bin", 12625892),          // present
-                            PackageImage.Reference("slave-calibration", "12629150.bin", 12629150), // absent
+                            // Not a shipped file: every real name now resolves from the archive
+                            // embedded in PcmLibrary, so only an unknown one is genuinely absent.
+                            PackageImage.Reference("slave-calibration", "99999999.bin", 99999999), // absent
                         }
                     }
                 }
@@ -300,7 +302,7 @@ namespace Tests
 
             IList<PackageImage> missing = SlaveLibrary.ResolveReferences(package);
             Assert.AreEqual(1, missing.Count, "one reference is not in the library");
-            Assert.AreEqual("12629150.bin", missing[0].FileName);
+            Assert.AreEqual("99999999.bin", missing[0].FileName);
             CollectionAssert.AreEqual(osBytes, package.Controllers[0].Image("slave-os")!.Data, "resolved reference got its bytes");
             Assert.IsNull(package.Controllers[0].Image("slave-calibration")!.Data, "unresolved reference stays empty");
         }

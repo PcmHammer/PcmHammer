@@ -11,7 +11,7 @@
 # 2026-06-18 - Antus <pcmhacking.net> E38 PPC Kernel, via source or binary distribution
 # 2026-08-11 - Antus <pcmhacking.net> Delete the temp kernels artifact in its own job, after
 #                                     all consumers, instead of racing them from the app jobs
-# 2026-08-21 - Antus <pcmhacking.net> Add the WPF front end as an experimental, dev-only build
+# 2026-08-21 - Antus <pcmhacking.net> Add the WPF front end
 #
 
 name: CheckBuild
@@ -188,8 +188,9 @@ jobs:
         # Some kernels are maintained in their own source directory and build with a
         # per-directory build script; when that source is not in this tree, the directory
         # carries a committed binary instead. Run any build scripts present, then fall
-        # back to a committed Kernel-*.bin / Loader-*.bin left in a kernel directory that
-        # has no build script (a freshly built binary always wins), then stage results.
+        # back to a committed Kernel-*.bin / Loader-*.bin / bootlib-*.bin left in a kernel
+        # directory that has no build script (a freshly built binary always wins), then
+        # stage results. 
         #
         for script in */ci-build.sh; do
           [ -e "$script" ] || continue
@@ -201,7 +202,7 @@ jobs:
           [ "$dir" = build ] && continue
           [ -f "$dir/ci-build.sh" ] && continue
           [ -f "$dir/BuildKernel.cmd" ] && continue
-          for bin in "$dir"/Kernel-*.bin "$dir"/Loader-*.bin; do
+          for bin in "$dir"/Kernel-*.bin "$dir"/Loader-*.bin "$dir"/bootlib-*.bin; do
             [ -e "$bin" ] || continue
             base=$(basename "$bin")
             if [ ! -f "build/$base" ]; then
@@ -210,7 +211,7 @@ jobs:
             fi
           done
         done
-        for bin in build/Kernel-*.bin build/Loader-*.bin; do
+        for bin in build/Kernel-*.bin build/Loader-*.bin build/bootlib-*.bin; do
           [ -e "$bin" ] || continue
           verify_bin "$bin"
           cp "$bin" ../TemporaryArtifactStorage/

@@ -20,15 +20,7 @@ goto beginning
 * Revision Date: 2026-05-30 - Antus <pcmhacking.net> Generate an epoch to embed in the kernel as version/build time stamp.
 * Revision Date: 2026-06-01 - Antus <pcmhacking.net> Restructure: VPW-C, VPW-Asm, VPW-P04 subdirs; build/ for outputs.
 * Revision Date: 2026-06-01 - Antus <pcmhacking.net> Verify .bin files: sha1, timestamp >= build start, OK/ERROR + exit.
-
-*
-* Authors disclaimer
-*   It is what it is, you can do with it as you please. (with respect)
-*
-*   Just don't blame me if it teaches your computer to smoke!
-*
-*   -Enjoy
-*
+* Revision Date: 2026-08-22 - Antus <pcmhacking.net> Changes for more targets and staging dir
 *
 * NOTES:
 * To add a new C Kernel,
@@ -54,7 +46,11 @@ goto beginning
 *   68k-VPW-C\       - C kernel source files (Kernel-P01.c, Kernel-P10.c, Kernel-P12.c, main.c, etc.)
 *   68k-VPW-Asm\     - Assembly kernel source for all PCMs except P04 (Kernel.S, Loader.S, Common-Assembly.h)
 *   68k-VPW-Asm-P04\ - P04-specific assembly kernel (Kernel.S from crowbar, plus Loader.S, Kernel.ld, Loader.ld)
-*   build\           - All binary artifacts (.bin, .elf, .map, .disassembly)
+*   build\           - Staging: the .bin artifacts, collected from the source directories
+*
+* Each source directory holds its own build outputs. Its .bin is the committed artifact, so a
+* rebuild overwrites it in place and shows as a git change; .elf/.map/.disassembly sit beside
+* it and are ignored.
 *
 **********************************************************************
 * Here we'll collect the routines (call :label / goto label).
@@ -289,8 +285,8 @@ if not exist build mkdir build
 
 rem * Setup linker map dumps (point into build directory).
 if defined DUMP_MAP (
-  set "DUMPMAP=-Map ..\build\Kernel-%PCM%.map"
-  set "LDUMPMAP=-Map ..\build\Loader-%PCM%.map"
+  set "DUMPMAP=-Map Kernel-%PCM%.map"
+  set "LDUMPMAP=-Map Loader-%PCM%.map"
 )
 
 rem * Create PCM specific object file list from CFiles-<PCM>.list (C kernels only).
@@ -324,7 +320,8 @@ if defined KVARIANT (
   set "KOUT=Kernel-%PCM%-%KVARIANT%"
 )
 
-rem *** Build from source subdirectory; binary outputs go to ..\build\
+rem *** Build in the source subdirectory. The .bin lands on top of that directory's committed
+rem *** copy, so a rebuild shows as a git change; it is staged to build\ at the end.
 pushd "%SOURCE_DIR%"
 
 if not defined ASSEMBLY_KERNEL (
@@ -338,17 +335,17 @@ if not defined ASSEMBLY_KERNEL (
   rem * Create PCM specific Linker Script (.ld) in current (source) directory.
   call "%~dp0CreateCKernelPCMSpecificLinkerScript.cmd" %PCM%
 
-  "%GCC_LOCATION%\m68k-elf-ld.exe" --section-start .kernel_code=0x%BASE_ADDRESS% -T LinkerScript.tmp %DUMPMAP% -o ..\build\Kernel-%PCM%.elf Kernel-%PCM%.o %OLIST%
+  "%GCC_LOCATION%\m68k-elf-ld.exe" --section-start .kernel_code=0x%BASE_ADDRESS% -T LinkerScript.tmp %DUMPMAP% -o Kernel-%PCM%.elf Kernel-%PCM%.o %OLIST%
   if %errorlevel% neq 0 (del /f LinkerScript.tmp & popd & goto :EOF)
   del /f LinkerScript.tmp
 
-  "%GCC_LOCATION%\m68k-elf-objcopy.exe" -O binary --only-section=.kernel_code --only-section=.rodata ..\build\Kernel-%PCM%.elf ..\build\Kernel-%PCM%.bin
+  "%GCC_LOCATION%\m68k-elf-objcopy.exe" -O binary --only-section=.kernel_code --only-section=.rodata Kernel-%PCM%.elf Kernel-%PCM%.bin
   if %errorlevel% neq 0 (popd & goto :EOF)
-  call :VerifyBin "..\build\Kernel-%PCM%.bin"
+  call :VerifyBin "Kernel-%PCM%.bin"
   if %errorlevel% neq 0 (popd & exit /b 1)
 
   if defined DUMP_ELF (
-    "%GCC_LOCATION%\m68k-elf-objdump.exe" -d -S ..\build\Kernel-%PCM%.elf > ..\build\Kernel-%PCM%.disassembly
+    "%GCC_LOCATION%\m68k-elf-objdump.exe" -d -S Kernel-%PCM%.elf > Kernel-%PCM%.disassembly
     if %errorlevel% neq 0 (popd & goto :EOF)
   )
 
@@ -360,10 +357,10 @@ if not defined ASSEMBLY_KERNEL (
   "%GCC_LOCATION%\%TOOL_PREFIX%gcc.exe" -c -D=%PCM% %BUILD_DEFS% %ASM_CC_FLAGS% %KSRC%
   if %errorlevel% neq 0 (popd & goto :EOF)
 
-  "%GCC_LOCATION%\%TOOL_PREFIX%ld.exe" --section-start .text=0x%BASE_ADDRESS% -T Kernel.ld %DUMPMAP% -o ..\build\%KOUT%.elf %KOBJ%
+  "%GCC_LOCATION%\%TOOL_PREFIX%ld.exe" --section-start .text=0x%BASE_ADDRESS% -T Kernel.ld %DUMPMAP% -o %KOUT%.elf %KOBJ%
   if %errorlevel% neq 0 (popd & goto :EOF)
 
-  "%GCC_LOCATION%\%TOOL_PREFIX%objcopy.exe" -O binary --only-section=.text --only-section=.data ..\build\%KOUT%.elf ..\build\%KOUT%.bin
+  "%GCC_LOCATION%\%TOOL_PREFIX%objcopy.exe" -O binary --only-section=.text --only-section=.data %KOUT%.elf %KOUT%.bin
   if %errorlevel% neq 0 (popd & goto :EOF)
 
   rem *** Optional per-kernel post-build step. If the source directory provides a
@@ -371,15 +368,15 @@ if not defined ASSEMBLY_KERNEL (
   rem *** verified artifact is the final one, and so any kernel-specific
   rem *** post-processing stays within that kernel's own directory.
   if exist PostBuild.cmd (
-    call ".\PostBuild.cmd" "..\build\%KOUT%.elf" "..\build\%KOUT%.bin" "%BASE_ADDRESS%" "%GCC_LOCATION%" "%TOOL_PREFIX%"
+    call ".\PostBuild.cmd" "%KOUT%.elf" "%KOUT%.bin" "%BASE_ADDRESS%" "%GCC_LOCATION%" "%TOOL_PREFIX%"
     if errorlevel 1 (popd & exit /b 1)
   )
 
-  call :VerifyBin "..\build\%KOUT%.bin"
+  call :VerifyBin "%KOUT%.bin"
   if %errorlevel% neq 0 (popd & exit /b 1)
 
   if defined DUMP_ELF (
-    "%GCC_LOCATION%\%TOOL_PREFIX%objdump.exe" -d -S ..\build\%KOUT%.elf > ..\build\%KOUT%.disassembly
+    "%GCC_LOCATION%\%TOOL_PREFIX%objdump.exe" -d -S %KOUT%.elf > %KOUT%.disassembly
     if %errorlevel% neq 0 (popd & goto :EOF)
   )
 
@@ -389,19 +386,26 @@ if not defined ASSEMBLY_KERNEL (
     "%GCC_LOCATION%\m68k-elf-gcc.exe" -c -D=%PCM% %BUILD_DEFS% -fomit-frame-pointer -std=gnu99 -mcpu=68332 -O0 Loader.S
     if %errorlevel% neq 0 (popd & goto :EOF)
 
-    "%GCC_LOCATION%\m68k-elf-ld.exe" --section-start .text=0x%LOADER_ADDRESS% -T Loader.ld %LDUMPMAP% -o ..\build\Loader-%PCM%.elf Loader.o
+    "%GCC_LOCATION%\m68k-elf-ld.exe" --section-start .text=0x%LOADER_ADDRESS% -T Loader.ld %LDUMPMAP% -o Loader-%PCM%.elf Loader.o
     if %errorlevel% neq 0 (popd & goto :EOF)
 
-    "%GCC_LOCATION%\m68k-elf-objcopy.exe" -O binary --only-section=.text --only-section=.data ..\build\Loader-%PCM%.elf ..\build\Loader-%PCM%.bin
+    "%GCC_LOCATION%\m68k-elf-objcopy.exe" -O binary --only-section=.text --only-section=.data Loader-%PCM%.elf Loader-%PCM%.bin
     if %errorlevel% neq 0 (popd & goto :EOF)
-    call :VerifyBin "..\build\Loader-%PCM%.bin"
+    call :VerifyBin "Loader-%PCM%.bin"
     if %errorlevel% neq 0 (popd & exit /b 1)
 
     if defined DUMP_ELF (
-      "%GCC_LOCATION%\m68k-elf-objdump.exe" -d -S ..\build\Loader-%PCM%.elf > ..\build\Loader-%PCM%.disassembly
+      "%GCC_LOCATION%\m68k-elf-objdump.exe" -d -S Loader-%PCM%.elf > Loader-%PCM%.disassembly
       if %errorlevel% neq 0 (popd & goto :EOF)
     )
   )
+)
+
+rem *** Stage the finished binaries to build\, where BuildAll.cmd and the install step collect them.
+if not exist ..\build mkdir ..\build
+if exist "%KOUT%.bin" copy /Y "%KOUT%.bin" ..\build\ 1>nul
+if defined LOADER_ADDRESS (
+  if exist "Loader-%PCM%.bin" copy /Y "Loader-%PCM%.bin" ..\build\ 1>nul
 )
 
 popd

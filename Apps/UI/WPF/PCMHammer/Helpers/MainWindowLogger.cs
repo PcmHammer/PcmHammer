@@ -1,107 +1,59 @@
 using PcmHacking;
 using PCMHammer.Viewmodels;
-using System.Collections.Concurrent;
-using System.Text;
 using System.Windows;
-using System.Windows.Threading;
 
 namespace PCMHammer.Helpers;
 
 public class MainWindowLogger : ILogger, IDisposable
 {
     private readonly MainWindowViewModel _viewModel;
-    
-    // Thread-safe queues for log messages
-    private readonly ConcurrentQueue<string> _userMessageQueue = new();
-    private readonly ConcurrentQueue<string> _debugMessageQueue = new();
 
-    // UI Batching Timer (10 FPS)
-    private readonly DispatcherTimer _flushTimer;
-    private readonly StringBuilder _userStringBuilder = new();
-    private readonly StringBuilder _debugStringBuilder = new();
+    // The Results and Debug panes batch exactly as the Bus Monitor pane does; one primitive serves
+    // all three, as LogListView does in the WinForms app.
+    private readonly LogTextBuffer _resultsLog = new();
+    private readonly LogTextBuffer _debugLog = new();
 
-    private const int MaxLogLength = 500_000;
     private bool _isDisposed;
 
     public MainWindowLogger(MainWindowViewModel viewModel)
     {
         _viewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
 
-        _flushTimer = new DispatcherTimer(DispatcherPriority.Background)
-        {
-            Interval = TimeSpan.FromMilliseconds(100)
-        };
-        _flushTimer.Tick += (s, e) => FlushQueuesToViewModel();
-        _flushTimer.Start();
+        // Unlike the Bus Monitor, these two collect from startup.
+        _resultsLog.Start();
+        _debugLog.Start();
     }
 
     // Events
     public event Action<double, bool>? ProgressBarUpdated;
     public event Action<string>? StatusTextUpdated;
 
+    /// <summary>Bound by the Results pane and read by the log save commands.</summary>
+    public LogTextBuffer ResultsLog => _resultsLog;
+
+    /// <summary>Bound by the Debug pane and read by the log save commands.</summary>
+    public LogTextBuffer DebugLog => _debugLog;
+
     // Fast, non-blocking enqueue
     public void AddUserMessage(string message)
     {
-        _userMessageQueue.Enqueue($"[{DateTime.Now:HH:mm:ss}] {message}");
+        _resultsLog.Append($"[{DateTime.Now:HH:mm:ss}] {message}");
     }
 
     public void AddDebugMessage(string message)
     {
-        _debugMessageQueue.Enqueue($"[{DateTime.Now:HH:mm:ss.fff}] {message}");
+        _debugLog.Append($"[{DateTime.Now:HH:mm:ss.fff}] {message}");
     }
 
     /// <summary>
-    /// Force any queued messages into the view model now instead of waiting for the next timer tick.
-    /// Must be called on the UI thread. Used before the logs are saved on shutdown so the saved files
-    /// include the most recent lines (they are read from the view model's LogText/DebugLogText).
+    /// Force any queued messages into the buffers now instead of waiting for the next timer tick.
+    /// Must be called on the UI thread. Used before the logs are saved on shutdown so the saved
+    /// files include the most recent lines.
     /// </summary>
-    public void Flush() => FlushQueuesToViewModel();
-
-    private void FlushQueuesToViewModel()
+    public void Flush()
     {
-        // 1. Process User Messages
-        if (!_userMessageQueue.IsEmpty)
-        {
-            _userStringBuilder.Clear();
-            while (_userMessageQueue.TryDequeue(out string? msg))
-            {
-                _userStringBuilder.AppendLine(msg);
-            }
-
-            string current = _viewModel.LogText ?? string.Empty;
-            string updated = current + _userStringBuilder.ToString();
-            
-            _viewModel.LogText = TrimToCleanLineBoundary(updated);
-        }
-
-        // 2. Process Debug Messages
-        if (!_debugMessageQueue.IsEmpty)
-        {
-            _debugStringBuilder.Clear();
-            while (_debugMessageQueue.TryDequeue(out string? msg))
-            {
-                _debugStringBuilder.AppendLine(msg);
-            }
-
-            string current = _viewModel.DebugLogText ?? string.Empty;
-            string updated = current + _debugStringBuilder.ToString();
-
-            _viewModel.DebugLogText = TrimToCleanLineBoundary(updated);
-        }
-    }
-
-    // Truncates log length safely at a clean newline boundary rather than mid-string
-    private static string TrimToCleanLineBoundary(string text)
-    {
-        if (text.Length <= MaxLogLength)
-            return text;
-
-        int cutIndex = text.Length - (MaxLogLength / 2);
-        int nextNewLine = text.IndexOf('\n', cutIndex);
-
-        return nextNewLine != -1 && nextNewLine < text.Length - 1
-            ? text.Substring(nextNewLine + 1)
-            : text.Substring(cutIndex);
+        _resultsLog.Flush();
+        _debugLog.Flush();
     }
 
     // Status Updates: Safely Dispatch to UI Thread
@@ -158,22 +110,22 @@ public class MainWindowLogger : ILogger, IDisposable
         });
     }
 
-    // Fixed: Dispose now executes a final synchronous flush on the UI thread to prevent data loss on shutdown
+    // Dispose executes a final synchronous flush on the UI thread to prevent data loss on shutdown
     public void Dispose()
     {
         if (_isDisposed) return;
         _isDisposed = true;
 
-        _flushTimer.Stop();
-
-        // Perform final flush on Dispatcher to catch remaining messages
         if (Application.Current != null && Application.Current.Dispatcher != null)
         {
-            Application.Current.Dispatcher.Invoke(FlushQueuesToViewModel);
+            Application.Current.Dispatcher.Invoke(Flush);
         }
         else
         {
-            FlushQueuesToViewModel();
+            Flush();
         }
+
+        _resultsLog.Dispose();
+        _debugLog.Dispose();
     }
 }

@@ -76,17 +76,5 @@ namespace PCMHammer
                 MessageBox.Show($"Error loading document: {ex.Message}");
             }
         }
-        
-        private void LogTextBox_Loaded(object sender, RoutedEventArgs e)
-        {
-            if (sender is TextBox textBox)
-                textBox.ScrollToEnd();
-        }
-
-        private void LogTextBox_TextChanged(object sender, TextChangedEventArgs e)
-        {
-            if (sender is TextBox textBox)
-                textBox.ScrollToEnd();
-        }
     }
 }

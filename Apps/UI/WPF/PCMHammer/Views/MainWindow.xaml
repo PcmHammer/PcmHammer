@@ -5,6 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:PCMHammer"
         xmlns:helpers="clr-namespace:PCMHammer.Helpers"
+        xmlns:views="clr-namespace:PCMHammer.Views"
         mc:Ignorable="d"
         ThemeMode="System"
         Title="{Binding WindowTitle}" Height="638" Width="800"
@@ -28,6 +29,9 @@
                 <Separator/>
                 <MenuItem Header="Save _Results Log"    Command="{Binding SaveResultsLogCommand}"/>
                 <MenuItem Header="Save _Debug Log"      Command="{Binding SaveDebugLogCommand}"/>
+                <!-- Hidden until Tools > Bus Monitor opens the tool, matching WinForms. -->
+                <MenuItem Header="Save _Bus Monitor Log" Command="{Binding SaveBusMonitorLogCommand}"
+                          Visibility="{Binding IsBusMonitorVisible, Converter={StaticResource BooleanToVisibility}}"/>
                 <Separator/>
                 <MenuItem Header="E_xit"                Command="{Binding ExitCommand}"/>
             </MenuItem>
@@ -49,6 +53,8 @@
                 <Separator Height="2"/>
                 <MenuItem Header="_Test File Checksums..." Command="{Binding TestFileChecksumsCommand}"/>
                 <MenuItem Header="Brute Force _Unlock..." Command="{Binding BruteForceUnlockCommand}"/>
+                <MenuItem Header="Bus _Monitor" Command="{Binding ShowBusMonitorCommand}"
+                          ToolTip="Show the Bus Monitor tab and switch to it."/>
                 <Separator Height="2"/>
                 <MenuItem Header="_Halt Running Kernel" Command="{Binding HaltRunningKernelCommand}"/>
             </MenuItem>
@@ -111,10 +117,11 @@
                 </GroupBox>
             </StackPanel>
             
-            <TabControl x:Name="MainTabControl" Grid.Column="1" Margin="8,0,0,0">
+            <TabControl x:Name="MainTabControl" Grid.Column="1" Margin="8,0,0,0"
+                        SelectedIndex="{Binding SelectedTabIndex, Mode=TwoWay}">
                 <TabItem Header="Results">
                     <TextBox x:Name="ResultsLogTextBox" IsReadOnly="True" VerticalScrollBarVisibility="Visible" HorizontalScrollBarVisibility="Auto" 
-                             Text="{Binding LogText}" Loaded="LogTextBox_Loaded" TextChanged="LogTextBox_TextChanged"/>
+                             helpers:LogTextBoxBehavior.Source="{Binding ResultsLog}"/>
                 </TabItem>
                 <TabItem Header="Help">
                     <WebBrowser x:Name="HelpWebBrowser"/>
@@ -124,7 +131,14 @@
                 </TabItem>
                 <TabItem Header="Debug">
                     <TextBox x:Name="DebugLogTextBox" IsReadOnly="True" VerticalScrollBarVisibility="Visible" HorizontalScrollBarVisibility="Auto"
-                             Text="{Binding DebugLogText}" Loaded="LogTextBox_Loaded" TextChanged="LogTextBox_TextChanged"/>
+                             helpers:LogTextBoxBehavior.Source="{Binding DebugLog}"/>
+                </TabItem>
+                <!-- Last so the Results (0) and Debug (3) indexes the copy buttons key off are stable.
+                     Collapsed until Tools > Bus Monitor is used; WinForms adds its tab page on demand
+                     for the same effect. -->
+                <TabItem Header="Bus Monitor"
+                         Visibility="{Binding IsBusMonitorVisible, Converter={StaticResource BooleanToVisibility}}">
+                    <views:BusMonitorView DataContext="{Binding BusMonitor}"/>
                 </TabItem>
             </TabControl>
 

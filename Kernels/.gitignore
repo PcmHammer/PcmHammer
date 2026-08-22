@@ -7,8 +7,8 @@ a.out
 *.exe
 *.map
 
-# A kernel whose source is kept out of the tree ships its finished binary committed
-# in its own source directory; re-include those. The build/ outputs stay ignored.
-!*/Kernel-*.bin
-!*/Loader-*.bin
+# allow these files
+!68k-CAN-Asm-P05c/Kernel-P05c-*.bin
+!PPC-CAN-Asm-E38/Kernel-E38.bin
+!PPC-CAN-Asm-E38/bootlib-E38-*.bin
 /build/
