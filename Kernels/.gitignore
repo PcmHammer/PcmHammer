@@ -7,8 +7,13 @@ a.out
 *.exe
 *.map
 
-# allow these files
-!68k-CAN-Asm-P05c/Kernel-P05c-*.bin
-!PPC-CAN-Asm-E38/Kernel-E38.bin
-!PPC-CAN-Asm-E38/bootlib-E38-*.bin
+# These kernels are built elsewhere: ignore the directory contents, ship the binaries.
+68k-CAN-Asm-P05c/*
+!68k-CAN-Asm-P05c/Kernel-*.bin
+PPC-CAN-Asm-E38/*
+!PPC-CAN-Asm-E38/Kernel-*.bin
+!PPC-CAN-Asm-E38/BootLib-*.bin
+PPC-CAN-Asm-E92/*
+!PPC-CAN-Asm-E92/Kernel-*.bin
+
 /build/

@@ -22,6 +22,8 @@ namespace PcmHacking
         P11,
         P12,
         E38,
+        E92,  // GM 4 MB PowerPC e200 CAN PCM (FlexCAN), service no 12704475
+        E92a, // E92 variant placeholder (to be physically confirmed)
         E54, // 01-04 LB7 Duramax
         E60, // 4-05 LLY Duramax
         BlackBox
@@ -247,14 +249,37 @@ namespace PcmHacking
         public int ImageBaseAddress { get; private set; }
 
         /// <summary>
+        /// Flash address the reader starts at, when part of the image below it is not readable (e.g.
+        /// the E92's protected 0..0x40000 boot block). The bytes below this in the image are left 0xFF.
+        /// Defaults to <see cref="ImageBaseAddress"/> (read the whole image from its base).
+        /// </summary>
+        public int ReadStartAddress { get; private set; }
+
+        /// <summary>
         /// Size of the ROM.
         /// </summary>
         public int ImageSize { get; private set; }
 
         /// <summary>
+        /// Bytes a CAN read kernel returns per block (mode 0x35/0x36). Fixed by each read kernel, so it
+        /// belongs with the rest of the PCM configuration rather than being branched on hardware type in
+        /// the reader. Defaults to <see cref="Gmlan.KernelBlockSize"/> (0x400); P05c uses 256 and E92
+        /// uses 0x800. Ignored by the VPW reader, which caps at <see cref="KernelMaxBlockSize"/> instead.
+        /// </summary>
+        public int KernelReadBlockSize { get; private set; }
+
+        /// <summary>
         /// Which key algorithm to use to unlock the PCM.
         /// </summary>
         public int KeyAlgorithm { get; private set; }
+
+        /// <summary>
+        /// True when the PCM uses the newer 40-bit (5-byte) seed/key security instead of the
+        /// 16-bit <see cref="KeyAlgorithm"/> path. The key algorithm lives outside this app: the
+        /// tool shows the seed, the user enters the key, and a successful pair is cached per PCM
+        /// type + seed for reuse (see CanCommands.Unlock and SecurityKeyStore).
+        /// </summary>
+        public bool Uses40BitSecurity { get; private set; }
 
         /// <summary>
         /// Supports file validation checksums?
@@ -350,6 +375,7 @@ namespace PcmHacking
             this.KernelVersionSupport = false;
             this.DetectIAC = false;
             this.KernelMaxBlockSize = 4096;
+            this.KernelReadBlockSize = Gmlan.KernelBlockSize;
             this.IsUnderDevelopment = false;
 
 
@@ -530,6 +556,10 @@ namespace PcmHacking
                     this.FlashIDSupport = true;
                     this.KernelVersionSupport = true;
                     this.KernelMaxBlockSize = 4096;
+                    // 256-byte blocks read the full 1MB reliably. Larger blocks (e.g. 1024) monopolise
+                    // the CPU ~57ms per block and still occasionally wedge MB13 reception unrecoverably
+                    // even with the register-clobber fix, so keep 256 for stability.
+                    this.KernelReadBlockSize = 256;
                     break;
 
                 case PcmType.P08:
@@ -703,8 +733,8 @@ namespace PcmHacking
                     this.BootLoaderSlaveHeaderLength = 0x80;
                     this.BootLoaderMasterHandshakeDid = 0xC1;
                     this.BootLoaderSlaveHandshakeDid = 0xC9;
-                    this.BootLoaderMasterLibraryFileName = "bootlib-E38-Master.bin";
-                    this.BootLoaderSlaveDriverFileName = "bootlib-E38-Slave.bin";
+                    this.BootLoaderMasterLibraryFileName = "BootLib-E38-Master.bin";
+                    this.BootLoaderSlaveDriverFileName = "BootLib-E38-Slave.bin";
                     // The mirror's validity marker lives below the staging address, so the fill survives
                     // the module data that later streams over the top of this range. 0x2000 covers the
                     // mirror and stays below the kernel base.
@@ -718,6 +748,44 @@ namespace PcmHacking
                     this.FlashIDSupport = true;
                     this.KernelVersionSupport = true;
                     this.IsUnderDevelopment = false;
+                    break;
+
+                case PcmType.E92:
+                    // GM 4 MB PowerPC e200 (Book E) CAN PCM. Service number 12704475.
+                    // Read support is under development.
+                    this.Description = "E92 (service no 12704475)";
+                    this.HardwareType = PcmType.E92;
+                    this.HardwareSlaveCPU = true;
+                    // The slave CPU's flash modules, and the SWMI DIDs that report their part numbers.
+                    // (Used by write, which is not yet enabled; recorded here for completeness.)
+                    this.SlaveModules = new[]
+                    {
+                        new SlaveModuleId("slave-os", 0xC9),          // SWMI 09
+                        new SlaveModuleId("slave-calibration", 0xCA), // SWMI 10
+                    };
+                    this.IsSupported = true;
+                    this.IsSupportedRead = true;
+                    this.IsSupportedWrite = false;
+                    this.BusProtocol = BusProtocol.Can500k;
+                    // E38-style boot loader seam: the image lands at load+4 and the loader jumps to
+                    // *(load), so the kernel runs at load+4 and is linked there.
+                    this.GMLANProtocol = GMLANProtocol.E38;
+                    this.KernelFileName = "Kernel-E92.bin";
+                    this.KernelBaseAddress = 0x40007000;
+                    this.KernelRunAddress = 0x40007004;
+                    // The full 4 MiB flash addressed from 0. The 0..0x40000 boot block is protected, so
+                    // the reader starts above it and leaves it 0xFF.
+                    this.ImageBaseAddress = 0x000000;
+                    this.ReadStartAddress = 0x040000;
+                    this.ImageSize = 0x400000;       // full 4 MiB
+                    this.KernelReadBlockSize = 0x800; // E92 kernel returns 0x800 bytes per read block
+                    this.KeyAlgorithm = 0x92;
+                    this.Uses40BitSecurity = true;
+                    this.ChecksumSupport = true;
+                    this.FlashCRCSupport = true;
+                    this.FlashIDSupport = true;
+                    this.KernelVersionSupport = true;
+                    this.IsUnderDevelopment = true;
                     break;
 
                 case PcmType.E60:
@@ -3632,6 +3700,12 @@ namespace PcmHacking
                     PCMInfo(PcmType.P12);
                     this.Description = "P12";
                     this.ServiceNumber = 0;
+                    break;
+
+                // E92 (GM 4 MB PowerPC e200 CAN PCM). Service number 12704475.
+                case 12691156: // SWMI1 / OSID 12691156, service no 12704475
+                    PCMInfo(PcmType.E92);
+                    this.ServiceNumber = 12704475;
                     break;
 
                 // E38

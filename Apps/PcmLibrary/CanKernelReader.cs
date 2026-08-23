@@ -73,10 +73,10 @@ namespace PcmHacking
                 int imageSize = this.pcmInfo.ImageSize;
 
                 // Confirm the kernel is alive and identify the flash chip.
-                Response<uint> version = await this.commands.GetKernelVersion(cancellationToken);
+                Response<ulong> version = await this.commands.GetKernelVersion(cancellationToken);
                 if (version.Status == ResponseStatus.Success)
                 {
-                    this.logger.AddUserMessage("Kernel version: " + CanCommands.FormatKernelVersion(version.Value));
+                    this.logger.AddUserMessage("Kernel version: " + Vehicle.FormatKernelVersion(version.Value));
                 }
                 else
                 {
@@ -92,12 +92,16 @@ namespace PcmHacking
                         this.logger.AddUserMessage("Flash chip: " + flashChip.ToString());
 
                         // Trust the detected chip's size over the profile size.
-                        if (flashChip.Size > 0 && (int)flashChip.Size != imageSize)
+                        // Bytes readable from the profile base to the end of the chip. For a chip based
+                        // at 0 this is the whole chip; for the E92 (4 MiB chip, base 0x040000) it is the
+                        // app region, which already matches the profile size, so no override fires.
+                        int readable = (int)flashChip.Size - (int)baseAddress;
+                        if (readable > 0 && readable != imageSize)
                         {
                             this.logger.AddUserMessage(string.Format(
-                                "Profile image size is {0}KiB but the detected flash chip is {1}KiB. Reading the full chip.",
-                                imageSize / 1024, flashChip.Size / 1024));
-                            imageSize = (int)flashChip.Size;
+                                "Profile image size is {0}KiB but the detected flash chip is {1}KiB. Reading {2}KiB.",
+                                imageSize / 1024, flashChip.Size / 1024, readable / 1024));
+                            imageSize = readable;
                         }
                     }
                     catch (Exception)
@@ -112,16 +116,22 @@ namespace PcmHacking
 
                 this.logger.AddUserMessage("Reading " + (imageSize / 1024) + " KiB...");
 
-                // P05c: 256-byte blocks read the full 1MB reliably. Larger blocks (e.g. 1024)
-                // monopolise the CPU ~57ms per block and still occasionally wedge MB13 reception
-                // unrecoverably even with the register-clobber fix, so keep 256 for stability.
-                int blockSize = this.pcmInfo.HardwareType == PcmType.P05c ? 256 : Gmlan.KernelBlockSize;
+                // Bytes per read block are fixed by each read kernel; see PcmInfo.KernelReadBlockSize.
+                int blockSize = this.pcmInfo.KernelReadBlockSize;
                 byte[] image = new byte[imageSize];
                 DateTime startTime = DateTime.Now;
                 this.blockTransferTimer.Reset();
                 this.blockTransferBytes = 0;
 
-                for (int offset = 0; offset < imageSize; offset += blockSize)
+                // Anything below the read-start address is not readable (e.g. the E92 protected boot
+                // block); leave it 0xFF. For the usual case ReadStartAddress is 0, so this is a no-op.
+                int readStart = this.pcmInfo.ReadStartAddress;
+                for (int i = 0; i < readStart && i < imageSize; i++)
+                {
+                    image[i] = 0xFF;
+                }
+
+                for (int offset = readStart; offset < imageSize; offset += blockSize)
                 {
                     if (cancellationToken.IsCancellationRequested)
                     {

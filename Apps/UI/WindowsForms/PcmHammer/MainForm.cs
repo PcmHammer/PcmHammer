@@ -801,9 +801,13 @@ namespace PcmHacking
                 dialog.FilterIndex = 1;
                 dialog.OverwritePrompt = true;
                 dialog.RestoreDirectory = true;
-                if (!string.IsNullOrWhiteSpace(Configuration.Settings.BinDirectory))
+
+                // The library decides which folder this opens in, and sequences the suggested name
+                // against that same folder - open anywhere else and the name could overwrite a read.
+                string? initialDirectory = PackageStore.DefaultSaveDirectory(Configuration.Settings.BinDirectory);
+                if (!string.IsNullOrWhiteSpace(initialDirectory))
                 {
-                    dialog.InitialDirectory = Configuration.Settings.BinDirectory;
+                    dialog.InitialDirectory = initialDirectory;
                 }
 
                 // Pre-fill a sensible default name the user can keep or change (a fresh read has no path yet).

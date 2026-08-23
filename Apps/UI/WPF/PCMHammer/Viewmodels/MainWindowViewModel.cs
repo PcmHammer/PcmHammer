@@ -271,8 +271,35 @@ namespace PCMHammer.Viewmodels
                 StatusText = "Ready";
             }
         }
+
+        /// <summary>
+        /// Show the security seed and prompt for the externally-computed key (E92 and similar). Called
+        /// from a background operation, so the modal dialog is marshaled onto the UI thread. Returns the
+        /// key bytes, or null if the user cancelled.
+        /// </summary>
+        private byte[]? PromptForSecurityKey(PcmType pcmType, byte[] seed, CancellationToken cancellationToken)
+        {
+            if (cancellationToken.IsCancellationRequested)
+            {
+                return null;
+            }
+
+            byte[]? key = _parentWindow.Dispatcher.Invoke(() =>
+            {
+                SecurityKeyDialogBox dialog = new(pcmType, seed) { Owner = _parentWindow };
+
+                // Cancelling the operation closes the prompt, so Cancel is not stuck behind it.
+                using (cancellationToken.Register(() => dialog.Dispatcher.BeginInvoke(new Action(dialog.Close))))
+                {
+                    return dialog.ShowDialog() == true ? dialog.KeyBytes : null;
+                }
+            });
+
+            return cancellationToken.IsCancellationRequested ? null : key;
+        }
+
         [RelayCommand]
-        public void Settings() 
+        public void Settings()
         {
             SettingsWindow settingsWindow = new(_fileDialogService) { Owner = _parentWindow };
             StatusText = "Settings...";
@@ -1032,6 +1059,10 @@ namespace PCMHammer.Viewmodels
             {
                 Enable4xReadWrite = Enable4xCom
             };
+
+            // Prompt for the key of a PCM with external 40-bit security (e.g. E92): the library shows
+            // the seed and the user enters the externally-computed key; a proven pair is cached.
+            Vehicle.SecurityKeyProvider = PromptForSecurityKey;
 
             _logger.AddDebugMessage($"Vehicle pipeline established for: {workingDevice.GetDeviceType()}");
 

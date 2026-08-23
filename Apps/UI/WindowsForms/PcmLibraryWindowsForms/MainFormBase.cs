@@ -7,6 +7,7 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
@@ -161,6 +162,10 @@ namespace PcmHacking
                 new ToolPresentNotifier(device, protocol, this),
                 string.Empty); //Logic will treat an empty string as a trigger method to fetch path.
 
+            // Prompt for the key of a PCM with external 40-bit security (e.g. E92): the library shows
+            // the seed and the user enters the externally-computed key; a proven pair is cached.
+            this.vehicle.SecurityKeyProvider = this.PromptForSecurityKey;
+
             if (!await this.InitializeCurrentDevice())
             {
                 // Initialization failed (e.g. a defunct port). Dispose the vehicle so the
@@ -175,6 +180,36 @@ namespace PcmHacking
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// Show the security seed and prompt for the externally-computed key (E92 and similar). Called
+        /// from a background operation, so the modal dialog is marshaled onto the UI thread. Returns the
+        /// key bytes, or null if the user cancelled.
+        /// </summary>
+        private byte[]? PromptForSecurityKey(PcmType pcmType, byte[] seed, CancellationToken cancellationToken)
+        {
+            if (cancellationToken.IsCancellationRequested)
+            {
+                return null;
+            }
+
+            byte[]? key = null;
+            this.Invoke((MethodInvoker)delegate ()
+            {
+                using (SecurityKeyDialogBox dialog = new SecurityKeyDialogBox(pcmType, seed))
+                {
+                    // Cancelling the operation closes the prompt, so Cancel is not stuck behind it.
+                    using (cancellationToken.Register(() => dialog.BeginInvoke((MethodInvoker)dialog.Close)))
+                    {
+                        if (dialog.ShowDialog(this) == DialogResult.OK)
+                        {
+                            key = dialog.KeyBytes;
+                        }
+                    }
+                }
+            });
+            return cancellationToken.IsCancellationRequested ? null : key;
         }
 
         /// <summary>
