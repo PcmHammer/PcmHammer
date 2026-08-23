@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-only
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
@@ -19,10 +18,12 @@ namespace PcmHacking
     /// </summary>
     public class LogListView : Control
     {
-        private readonly ConcurrentQueue<string> pending = new ConcurrentQueue<string>();
+        // The shared line store (queue + committed list + cap). The WPF panes use the same type.
+        private readonly LogLineBuffer buffer = new LogLineBuffer();
 
-        // The committed log. Only touched on the UI thread (flush, paint, save, clear).
-        private readonly List<string> lines = new List<string>();
+        // Committed lines, read-only. Paint, selection and search index this exactly as before; only
+        // Flush and ClearLog mutate, and they go through the buffer.
+        private IReadOnlyList<string> lines => this.buffer.Lines;
 
         private readonly Timer flushTimer;
         private readonly VScrollBar vbar;
@@ -95,41 +96,35 @@ namespace PcmHacking
         /// Cap on committed lines; oldest are dropped past this. 0 (the default) means unlimited.
         /// Used by the bus monitor to bound a high-rate feed.
         /// </summary>
-        public int MaxLines { get; set; }
+        public int MaxLines
+        {
+            get => this.buffer.MaxLines;
+            set => this.buffer.MaxLines = value;
+        }
 
         /// <summary>Queue a line for display. Thread-safe; performs no UI work.</summary>
         public void AppendLine(string text)
         {
-            this.pending.Enqueue(text ?? string.Empty);
+            this.buffer.Append(text);
         }
 
         /// <summary>The whole log as one newline-separated string. UI thread.</summary>
-        public string GetAllText()
-        {
-            this.Flush();
-            StringBuilder builder = new StringBuilder();
-            foreach (string line in this.lines)
-            {
-                builder.AppendLine(line);
-            }
-            return builder.ToString();
-        }
+        public string GetAllText() => this.buffer.Snapshot();
 
         /// <summary>True when there is nothing to save. UI thread.</summary>
         public bool IsEmpty
         {
             get
             {
-                this.Flush();
-                return this.lines.Count == 0;
+                this.buffer.Drain();
+                return this.buffer.Count == 0;
             }
         }
 
         /// <summary>Discard the whole log. UI thread.</summary>
         public void ClearLog()
         {
-            while (this.pending.TryDequeue(out _)) { }
-            this.lines.Clear();
+            this.buffer.Clear();
             this.maxLineChars = 0;
             this.selAnchor = this.selCaret = -1;
             this.UpdateScrollBars();
@@ -182,29 +177,32 @@ namespace PcmHacking
             this.Invalidate();
         }
 
-        // Move queued lines into the committed list, resize the scrollbars, and keep the newest line
-        // in view only when the user is already at the bottom (so manual scrolling is not yanked down).
+        // Move queued lines into the committed list (the buffer also applies MaxLines), resize the
+        // scrollbars, and keep the newest line in view only when the user is already at the bottom (so
+        // manual scrolling is not yanked down).
         private void Flush()
         {
-            if (this.pending.IsEmpty)
+            if (!this.buffer.HasPending)
             {
                 return;
             }
 
             bool atBottom = this.IsScrolledToBottom();
 
-            while (this.pending.TryDequeue(out string line))
+            LogLineBuffer.DrainResult result = this.buffer.Drain();
+            if (!result.Changed)
             {
-                this.lines.Add(line);
-                if (line.Length > this.maxLineChars)
-                {
-                    this.maxLineChars = line.Length;
-                }
+                return;
             }
 
-            if (this.MaxLines > 0 && this.lines.Count > this.MaxLines)
+            // Track the widest line for the horizontal scrollbar. Only the lines just added can widen
+            // it; as before, a trim never shrinks it back.
+            for (int i = Math.Max(0, this.lines.Count - result.AddedCount); i < this.lines.Count; i++)
             {
-                this.lines.RemoveRange(0, this.lines.Count - this.MaxLines);
+                if (this.lines[i].Length > this.maxLineChars)
+                {
+                    this.maxLineChars = this.lines[i].Length;
+                }
             }
 
             this.UpdateScrollBars();

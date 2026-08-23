@@ -29,9 +29,7 @@
             <Button Content="Clear" Command="{Binding ClearLogCommand}" Width="74" Margin="6,0,0,0"/>
         </StackPanel>
 
-        <TextBox Grid.Row="1" x:Name="MonitorLogTextBox" IsReadOnly="True"
-                 FontFamily="Consolas" FontSize="12"
-                 VerticalScrollBarVisibility="Visible" HorizontalScrollBarVisibility="Auto"
-                 helpers:LogTextBoxBehavior.Source="{Binding Lines}"/>
+        <ListBox Grid.Row="1" x:Name="MonitorLogList" Style="{StaticResource LogListStyle}"
+                 ItemsSource="{Binding Lines}"/>
     </Grid>
 </UserControl>

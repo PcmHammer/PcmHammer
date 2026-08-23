@@ -50,8 +50,11 @@ namespace PcmHacking
         /// </summary>
         public bool WillFollowFourX => this.device.Supports4X && this.device.Enable4xReadWrite;
 
-        /// <summary>7E0 tool to PCM, 7E8 PCM to tool, 101 all-node request.</summary>
-        public static readonly IReadOnlyCollection<uint> DefaultCanIds = new uint[] { 0x7E0, 0x7E8, 0x101 };
+        /// <summary>
+        /// The two diagnostic request/response pairs plus the all-node request: 7E0/7E8 (tool to and
+        /// from the first module) and 7E1/7E9 (the second module), then 101 (all-node request).
+        /// </summary>
+        public static readonly IReadOnlyCollection<uint> DefaultCanIds = new uint[] { 0x7E0, 0x7E1, 0x7E8, 0x7E9, 0x101 };
 
         public static readonly string DefaultCanFilter = FormatCanIds(DefaultCanIds);
 

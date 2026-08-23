@@ -84,6 +84,7 @@
     <Compile Include="FlashChipTests.cs" />
     <Compile Include="GmlanTests.cs" />
     <Compile Include="IsoTpCodecTests.cs" />
+    <Compile Include="LogLineBufferTests.cs" />
     <Compile Include="IsoTpTransportTests.cs" />
     <Compile Include="LoggingTests.cs" />
     <Compile Include="MockLogger.cs" />

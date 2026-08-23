@@ -120,8 +120,8 @@
             <TabControl x:Name="MainTabControl" Grid.Column="1" Margin="8,0,0,0"
                         SelectedIndex="{Binding SelectedTabIndex, Mode=TwoWay}">
                 <TabItem Header="Results">
-                    <TextBox x:Name="ResultsLogTextBox" IsReadOnly="True" VerticalScrollBarVisibility="Visible" HorizontalScrollBarVisibility="Auto" 
-                             helpers:LogTextBoxBehavior.Source="{Binding ResultsLog}"/>
+                    <ListBox x:Name="ResultsLogList" Style="{StaticResource LogListStyle}"
+                             ItemsSource="{Binding ResultsLog}"/>
                 </TabItem>
                 <TabItem Header="Help">
                     <WebBrowser x:Name="HelpWebBrowser"/>
@@ -130,8 +130,8 @@
                     <WebBrowser x:Name="CreditsWebBrowser"/>
                 </TabItem>
                 <TabItem Header="Debug">
-                    <TextBox x:Name="DebugLogTextBox" IsReadOnly="True" VerticalScrollBarVisibility="Visible" HorizontalScrollBarVisibility="Auto"
-                             helpers:LogTextBoxBehavior.Source="{Binding DebugLog}"/>
+                    <ListBox x:Name="DebugLogList" Style="{StaticResource LogListStyle}"
+                             ItemsSource="{Binding DebugLog}"/>
                 </TabItem>
                 <!-- Last so the Results (0) and Debug (3) indexes the copy buttons key off are stable.
                      Collapsed until Tools > Bus Monitor is used; WinForms adds its tab page on demand
@@ -142,11 +142,11 @@
                 </TabItem>
             </TabControl>
 
-            <Button Grid.Column="1" Style="{StaticResource CopyButtonStyle}" Command="{Binding CopyLogCommand}" 
-                    CommandParameter="{Binding Text, ElementName=ResultsLogTextBox}"
+            <Button Grid.Column="1" Style="{StaticResource CopyButtonStyle}" Command="{Binding CopyLogCommand}"
+                    CommandParameter="{Binding ResultsLog}"
                     Visibility="{Binding SelectedIndex, ElementName=MainTabControl, Converter={StaticResource TabIndexToVisibility}, ConverterParameter=0}"/>
             <Button Grid.Column="1" Style="{StaticResource CopyButtonStyle}" Command="{Binding CopyLogCommand}"
-                    CommandParameter="{Binding Text, ElementName=DebugLogTextBox}"
+                    CommandParameter="{Binding DebugLog}"
                     Visibility="{Binding SelectedIndex, ElementName=MainTabControl, Converter={StaticResource TabIndexToVisibility}, ConverterParameter=3}"/>
         </Grid>
         
