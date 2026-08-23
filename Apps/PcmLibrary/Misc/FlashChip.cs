@@ -320,6 +320,55 @@ namespace PcmHacking
                     };
                     break;
 
+                // Freescale MPC5674F on-chip flash, 4 MiB. The chip id is the MCU ID register (SIU_MIDR):
+                // high half 0x5674 = part number, low half = mask/revision. Unlike the external Intel/AMD
+                // parts above (whose datasheets list x16 WORD addresses), this is embedded C90LC flash
+                // addressed as BYTES, so the sizes below are byte counts matching the image directly.
+                //
+                //   Low address space  0x000000..0x040000: 16K x4, 64K x2, 16K x4  -> Boot (protected)
+                //   Mid address space  0x040000..0x080000: 128K x2                 -> Calibration
+                //   High address space 0x080000..0x400000: 256K x14                -> Calibration, then OS
+                //
+                // The calibration/OS split falls exactly on erase-sector boundaries and matches the
+                // segment map: calibration 0x040000..0x0C0000, operating system 0x0C0000..0x400000.
+                case 0x56746020:
+                    size = 4096 * 1024;
+                    description = "Freescale MPC5674F on-chip flash, 4096KiB";
+                    memoryRanges = new MemoryRange[]
+                    {           // Start address, Size in bytes
+                        // High address space: thirteen 256 KiB operating-system sectors ...
+                        new MemoryRange(0x3C0000, 0x40000, BlockType.OperatingSystem), // 256kb main block
+                        new MemoryRange(0x380000, 0x40000, BlockType.OperatingSystem), // 256kb main block
+                        new MemoryRange(0x340000, 0x40000, BlockType.OperatingSystem), // 256kb main block
+                        new MemoryRange(0x300000, 0x40000, BlockType.OperatingSystem), // 256kb main block
+                        new MemoryRange(0x2C0000, 0x40000, BlockType.OperatingSystem), // 256kb main block
+                        new MemoryRange(0x280000, 0x40000, BlockType.OperatingSystem), // 256kb main block
+                        new MemoryRange(0x240000, 0x40000, BlockType.OperatingSystem), // 256kb main block
+                        new MemoryRange(0x200000, 0x40000, BlockType.OperatingSystem), // 256kb main block
+                        new MemoryRange(0x1C0000, 0x40000, BlockType.OperatingSystem), // 256kb main block
+                        new MemoryRange(0x180000, 0x40000, BlockType.OperatingSystem), // 256kb main block
+                        new MemoryRange(0x140000, 0x40000, BlockType.OperatingSystem), // 256kb main block
+                        new MemoryRange(0x100000, 0x40000, BlockType.OperatingSystem), // 256kb main block
+                        new MemoryRange(0x0C0000, 0x40000, BlockType.OperatingSystem), // 256kb main block
+                        // ... then the first 256 KiB high sector is calibration.
+                        new MemoryRange(0x080000, 0x40000, BlockType.Calibration),     // 256kb calibration block
+                        // Mid address space: two 128 KiB calibration sectors.
+                        new MemoryRange(0x060000, 0x20000, BlockType.Calibration),     // 128kb calibration block
+                        new MemoryRange(0x040000, 0x20000, BlockType.Calibration),     // 128kb calibration block
+                        // Low address space: protected boot (256 KiB): 16K x4, 64K x2, 16K x4.
+                        new MemoryRange(0x03C000, 0x04000, BlockType.Boot),            //  16kb boot block
+                        new MemoryRange(0x038000, 0x04000, BlockType.Boot),            //  16kb boot block
+                        new MemoryRange(0x034000, 0x04000, BlockType.Boot),            //  16kb boot block
+                        new MemoryRange(0x030000, 0x04000, BlockType.Boot),            //  16kb boot block
+                        new MemoryRange(0x020000, 0x10000, BlockType.Boot),            //  64kb boot block
+                        new MemoryRange(0x010000, 0x10000, BlockType.Boot),            //  64kb boot block
+                        new MemoryRange(0x00C000, 0x04000, BlockType.Boot),            //  16kb boot block
+                        new MemoryRange(0x008000, 0x04000, BlockType.Boot),            //  16kb boot block
+                        new MemoryRange(0x004000, 0x04000, BlockType.Boot),            //  16kb boot block
+                        new MemoryRange(0x000000, 0x04000, BlockType.Boot),            //  16kb boot block
+                    };
+                    break;
+
                 // Both of these have eight 8kb blocks at the low end, the rest are
                 // 64kb. Not sure if they're actually used in any PCMs though.
                 case 0x00898893: // Intel 2F008B3
@@ -360,9 +409,9 @@ namespace PcmHacking
                 if (index == 0)
                 {
                     UInt32 top = memoryRanges[index].Address + memoryRanges[index].Size;
-                    if ((top != 256 * 1024) && (top != 512 * 1024) && (top != 1024 * 1024) && (top != 2048 * 1024))
+                    if ((top != 256 * 1024) && (top != 512 * 1024) && (top != 1024 * 1024) && (top != 2048 * 1024) && (top != 4096 * 1024))
                     {
-                        throw new InvalidOperationException(chipIdString + " - Upper end of memory range must be 256KiB, 512KiB, 1024KiB or 2048KiB, is " + (top / 1024).ToString() + "KiB");
+                        throw new InvalidOperationException(chipIdString + " - Upper end of memory range must be 256KiB, 512KiB, 1024KiB, 2048KiB or 4096KiB, is " + (top / 1024).ToString() + "KiB");
                     }
 
                     if (size != top)

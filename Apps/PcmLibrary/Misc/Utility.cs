@@ -1,6 +1,7 @@
 ﻿// SPDX-License-Identifier: GPL-3.0-only
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -32,6 +33,61 @@ namespace PcmHacking
         public static string ToHex(this byte[] bytes, int count)
         {
             return string.Join(" ", bytes.Take(count).Select(x => x.ToString("X2")));
+        }
+
+        /// <summary>
+        /// Convert an array of bytes to a hex string with a caller-chosen separator. Pass an empty
+        /// string for unseparated hex, e.g. a seed or key written as one run of digits.
+        /// </summary>
+        public static string ToHex(this byte[] bytes, string separator)
+        {
+            return string.Join(separator, bytes.Select(x => x.ToString("X2")));
+        }
+
+        /// <summary>
+        /// Convert a hex string to bytes, tolerating the ways a person might type one: 0x prefixes and
+        /// space, dash or colon separators. Returns null rather than throwing when the text is not valid
+        /// hex, because the input comes from a user. Use <see cref="ToBytes"/> for hex the app produced.
+        /// </summary>
+        public static byte[]? TryParseHex(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return null;
+            }
+
+            string cleaned = text.Replace("0x", string.Empty).Replace("0X", string.Empty)
+                                 .Replace(" ", string.Empty).Replace("\t", string.Empty)
+                                 .Replace("-", string.Empty).Replace(":", string.Empty);
+            if (cleaned.Length == 0 || (cleaned.Length % 2) != 0)
+            {
+                return null;
+            }
+
+            byte[] result = new byte[cleaned.Length / 2];
+            for (int index = 0; index < result.Length; index++)
+            {
+                if (!byte.TryParse(cleaned.Substring(index * 2, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out result[index]))
+                {
+                    return null;
+                }
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Indicates whether every byte in a range has the given value. <see cref="IsBlank"/> is the
+        /// erased-flash case (all 0xFF); an all-zero seed means an already-unlocked PCM.
+        /// </summary>
+        public static bool IsAllBytes(byte[] data, int start, int length, byte value)
+        {
+            for (int index = start; index < start + length; index++)
+            {
+                if (data[index] != value)
+                    return false;
+            }
+            return true;
         }
 
         /// <summary>
@@ -121,12 +177,7 @@ namespace PcmHacking
         /// </summary>
         public static bool IsBlank(byte[] data, int start, int length)
         {
-            for (int i = start; i < start + length; i++)
-            {
-                if (data[i] != 0xFF)
-                    return false;
-            }
-            return true;
+            return IsAllBytes(data, start, length, 0xFF);
         }
 
         /// <summary>

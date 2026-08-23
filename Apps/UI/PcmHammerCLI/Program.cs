@@ -726,6 +726,33 @@ namespace PcmHacking
             return true;
         }
 
+        // Prompt for the 5-byte unlock key of a PCM with external security. The library shows the
+        // seed too; we repeat it here so the prompt is self-contained. Returns null to abort.
+        static byte[]? PromptForSecurityKey(PcmType pcmType, byte[] seed, CancellationToken cancellationToken, ILogger logger)
+        {
+            if (cancellationToken.IsCancellationRequested)
+            {
+                return null;
+            }
+
+            Console.WriteLine();
+            Console.WriteLine($"{pcmType} security seed: {seed.ToHex(string.Empty)}");
+            Console.Write("Enter the 5-byte unlock key (10 hex digits), or blank to abort: ");
+            string? line = Console.ReadLine();
+            if (string.IsNullOrWhiteSpace(line) || cancellationToken.IsCancellationRequested)
+            {
+                return null;
+            }
+
+            byte[]? key = Utility.TryParseHex(line);
+            if (key == null || key.Length != 5)
+            {
+                logger.AddUserMessage("Invalid key: expected 5 hex bytes (10 hex digits).");
+                return null;
+            }
+            return key;
+        }
+
         static async Task<Vehicle> InitializeVehicle(Device device, ILogger logger, string kernelDir)
         {
             Protocol protocol = new Protocol();
@@ -735,6 +762,11 @@ namespace PcmHacking
                 logger,
                 new ToolPresentNotifier(device, protocol, logger),
                 kernelDir);
+
+            // External 40-bit security (e.g. E92): the tool shows the seed and the user types the
+            // key computed by the external algorithm. A proven pair is cached by the library.
+            vehicle.SecurityKeyProvider = (pcmType, seed, cancellationToken) =>
+                PromptForSecurityKey(pcmType, seed, cancellationToken, logger);
 
             logger.AddUserMessage(AppName);
             logger.AddUserMessage(AppInfo.GetVersionOrBuildLine(Generated.BuildTime));

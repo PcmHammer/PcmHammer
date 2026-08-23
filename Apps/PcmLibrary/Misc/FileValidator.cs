@@ -131,11 +131,15 @@ namespace PcmHacking
             {
                 logger.AddUserMessage("Identifying 2048KiB file.");
             }
+            else if (this.image.Length == 4096 * 1024)
+            {
+                logger.AddUserMessage("Identifying 4096KiB file.");
+            }
             else
             {
                 logger.AddUserMessage(
                     string.Format(
-                        "Files must be 256KiB, 512KiB, 1024KiB or 2048KiB. This file is {0} / {1:X} bytes long.",
+                        "Files must be 256KiB, 512KiB, 1024KiB, 2048KiB or 4096KiB. This file is {0} / {1:X} bytes long.",
                         this.image.Length,
                         this.image.Length));
                 return false;
@@ -279,6 +283,12 @@ namespace PcmHacking
                     // at 0x1000E (e.g. "12628990"); that part number is the OSID.
                     osid = ReadAsciiUInt32(image, 0x1000E);
                     break;
+
+                case PcmType.E92:
+                    // The OS segment part number is the OSID: a big-endian uint32 at the OS segment
+                    // start + 0x105 (the OS segment starts at the address stored at 0xC0126).
+                    osid = this.GetU32BE(unchecked((int)this.GetU32BE(0xC0126)) + 0x105);
+                    break;
             }
 
             return osid;
@@ -295,9 +305,10 @@ namespace PcmHacking
 
             switch (type)
             {
-                // The E38 uses its own checksum table (a per-segment Sum and CVN), validated below
-                // by ValidateSumAndCvn() rather than the generic segment-table path.
+                // The E38 and E92 use their own per-segment Sum and CVN scheme, validated below by
+                // ValidateSumAndCvn()/ValidateE92SumAndCvn() rather than the generic segment-table path.
                 case PcmType.E38:
+                case PcmType.E92:
                     break;
 
                 // have a segment table
@@ -384,6 +395,10 @@ namespace PcmHacking
                     // The E38 has its own per-segment Sum and CVN scheme. A bad sum means the image is
                     // corrupt; a bad CVN is only a warning, so it does not fail validation here.
                     return this.ValidateSumAndCvn() != SumCvnVerdict.SumError;
+
+                case PcmType.E92:
+                    // The E92 uses the same policy with its own per-segment Sum and CVN scheme.
+                    return this.ValidateE92SumAndCvn() != SumCvnVerdict.SumError;
 
                 case PcmType.E54:
                     LogChecksumTableHeader();
@@ -511,8 +526,8 @@ namespace PcmHacking
         /// </summary>
         public PcmType DetectFileType()
         {
-            // All currently supported bins are 256KiB, 512KiB, 1024KiB or 20248KiB
-            if ((image.Length != 256 * 1024) && (image.Length != 512 * 1024) && (image.Length != 1024 * 1024) && (image.Length != 2048 * 1024))
+            // All currently supported bins are 256KiB, 512KiB, 1024KiB, 2048KiB or 4096KiB
+            if ((image.Length != 256 * 1024) && (image.Length != 512 * 1024) && (image.Length != 1024 * 1024) && (image.Length != 2048 * 1024) && (image.Length != 4096 * 1024))
             {
                 logger.AddUserMessage("Files of size " + image.Length.ToString("X8") + " are not supported.");
                 return PcmType.Undefined;
@@ -681,6 +696,16 @@ namespace PcmHacking
 
             }
 
+            // 4096KiB types
+            if (image.Length == 4096 * 1024)
+            {
+                logger.AddDebugMessage("Trying E92 4096KiB");
+                if (this.LooksLikeE92())
+                {
+                    return PcmType.E92;
+                }
+            }
+
             logger.AddDebugMessage("Unable to identify or validate bin image content");
             return PcmType.Undefined;
         }
@@ -706,7 +731,16 @@ namespace PcmHacking
         /// </summary>
         private void LogChecksumTableRow(string start, string end, string stored, string needed, bool verdict, string name)
         {
-            logger.AddUserMessage(string.Format(ChecksumTableFormat, start, end, stored, needed, verdict ? "Good" : "BAD", name));
+            this.LogChecksumTableRow(start, end, stored, needed, verdict ? "Good" : "BAD", name);
+        }
+
+        /// <summary>
+        /// Print one checksum table row with an explicit verdict, for rows that are neither good nor bad
+        /// (e.g. "n/a" where a protected block cannot be read back and so cannot be checked).
+        /// </summary>
+        private void LogChecksumTableRow(string start, string end, string stored, string needed, string verdict, string name)
+        {
+            logger.AddUserMessage(string.Format(ChecksumTableFormat, start, end, stored, needed, verdict, name));
         }
 
         /// <summary>
@@ -902,7 +936,7 @@ namespace PcmHacking
             UInt32 sumaddr = 0;
             bool sumFound = false;
 
-            // Thanks Joukoy for Universal Patcher and the idea to use a pattern search for the P04 sum address.
+            // Thanks to Joukoy and Kur4o for Universal Patcher and the idea to use a pattern search for the P04 sum address.
             // Working for all tested 1024KiB (P05)
             if (image.Length == 1024 * 1024)
             {
@@ -1147,6 +1181,9 @@ namespace PcmHacking
 
                 case PcmType.E38:
                     return this.HasSize(2048 * 1024) && this.LooksLikeE38();
+
+                case PcmType.E92:
+                    return this.HasSize(4096 * 1024) && this.LooksLikeE92();
 
                 case PcmType.E54:
                     return this.HasSize(512 * 1024) &&
@@ -1513,6 +1550,341 @@ namespace PcmHacking
                 return true;
             }
             catch
+            {
+                return false;
+            }
+        }
+
+        // GM E92 (Freescale MPC5674F) 4 MiB checksum scheme. Six segments, described by a pointer table
+        // in the OS segment, each carry a 16-bit two's-complement word Sum and a GM CRC-16 CVN. A code
+        // signature locates five more 32-bit word Sums covering extra regions. The 0..0x40000 boot block
+        // is protected (reads all 0xFF from a PCM) and is reported n/a rather than failed. A bad Sum
+        // means the image is corrupt; a bad CVN is only a warning - the same policy as the E38.
+        //
+        // Thanks to Joukoy and Kur4o for Universal Patcher: the segment layout, the code signature that
+        // locates the extra sums, and the values this table is checked against all came from there.
+
+        private const int E92BootBlockSize = 0x40000;
+
+        /// <summary>
+        /// One E92 checksum: the blocks it covers, where its value is stored, and how wide it is. The
+        /// block table already excludes the bytes holding the checksum itself, so the blocks are summed
+        /// as-is. Applicable is false for the protected boot block, which is reported n/a.
+        /// </summary>
+        private sealed class E92Checksum
+        {
+            public string Name = string.Empty;
+            public int Address;
+            public int Digits = 4;      // hex digits in the stored value: 4 (16-bit) or 8 (32-bit)
+            public bool Applicable = true;
+            public List<Tuple<int, int>> Blocks = new List<Tuple<int, int>>();
+
+            public int Start => this.Blocks.Count > 0 ? this.Blocks[0].Item1 : 0;
+            public int End => this.Blocks.Count > 0 ? this.Blocks[this.Blocks.Count - 1].Item2 : 0;
+        }
+
+        // The six normal segments' pointer-table layout (verified against known-good bins). AddrPtr is a
+        // big-endian uint32 pointer to the segment start; the CVN/Sum are stored at start + offset; the
+        // CVN/Sum blocks are [start,end] uint32 pairs read from the block pointers. Names echo UP.
+        private static readonly (string Name, int AddrPtr, int CvnOffset, int CvnBlockPtr, int CvnBlockCount, int SumOffset, int SumBlockPtr, int SumBlockCount)[] E92Layout =
+        {
+            ("OS",         0xC0126, 0x120, 0xC0136, 3, 0x100, 0xC014E, 2),
+            ("System",     0xC0162, 0x020, 0xC016A, 2, 0x000, 0xC017A, 1),
+            ("Fuel",       0xC0186, 0x020, 0xC018E, 2, 0x000, 0xC019E, 1),
+            ("Speedo",     0xC01AA, 0x020, 0xC01B2, 2, 0x000, 0xC01C2, 1),
+            ("EngineDiag", 0xC01CE, 0x020, 0xC01D6, 2, 0x000, 0xC01E6, 1),
+            ("Engine",     0xC01F2, 0x020, 0xC01FA, 2, 0x000, 0xC020A, 1),
+        };
+
+        // 28-byte code signature that locates the extra 32-bit word-sum regions (null = wildcard byte).
+        private static readonly byte?[] E92ExtSignature =
+        {
+            0x00, 0x0B, 0xFF, 0xFF, 0x48, 0x13, 0x00, 0x04, 0x30, 0x6E, null, null, 0x00, 0x04, 0x44, 0x44,
+            0x30, 0x6E, null, null, 0x7C, 0x63, 0x00, 0x34, 0x68, 0x53, 0x00, 0x04,
+        };
+
+        // Extra 32-bit word-sum segments. At the signature match M, each checksum is stored at
+        // value@(M+CsOff) and covers [value@(M+StartOff), value@(M+CsOff)-1]. Cs2Off < 0 = no Checksum 2.
+        private static readonly (string Name, int Start1Off, int Cs1Off, int Start2Off, int Cs2Off)[] E92ExtLayout =
+        {
+            ("SYSSPD ext",  64, 68, 76, 80),
+            ("ENG extra 1", 28, 32, 40, 44),
+            ("ENG extra 2", 52, 56, -1, -1),
+        };
+
+        /// <summary>
+        /// The six segments' Sums, then the boot block, then the extra 32-bit Sums located by the code
+        /// signature. Throws <see cref="InvalidOperationException"/> if a pointer or block is out of range.
+        /// </summary>
+        private List<E92Checksum> CollectE92Sums()
+        {
+            List<E92Checksum> sums = new List<E92Checksum>();
+
+            foreach (var segment in E92Layout)
+            {
+                int start = this.E92SegmentStart(segment);
+                sums.Add(new E92Checksum
+                {
+                    Name = segment.Name,
+                    Address = start + segment.SumOffset,
+                    Blocks = this.ReadE92Blocks(segment.SumBlockPtr, segment.SumBlockCount),
+                });
+            }
+
+            sums.Add(this.E92BootChecksum());
+
+            int signature = this.FindE92ExtSignature();
+            if (signature >= 0)
+            {
+                foreach (var ext in E92ExtLayout)
+                {
+                    this.AddE92ExtSum(sums, ext.Name, signature, ext.Start1Off, ext.Cs1Off);
+                    if (ext.Cs2Off >= 0)
+                    {
+                        this.AddE92ExtSum(sums, ext.Name, signature, ext.Start2Off, ext.Cs2Off);
+                    }
+                }
+            }
+
+            return sums;
+        }
+
+        /// <summary>The six segments' CVNs, then the boot block.</summary>
+        private List<E92Checksum> CollectE92Cvns()
+        {
+            List<E92Checksum> cvns = new List<E92Checksum>();
+
+            foreach (var segment in E92Layout)
+            {
+                int start = this.E92SegmentStart(segment);
+                cvns.Add(new E92Checksum
+                {
+                    Name = segment.Name,
+                    Address = start + segment.CvnOffset,
+                    Blocks = this.ReadE92Blocks(segment.CvnBlockPtr, segment.CvnBlockCount),
+                });
+            }
+
+            cvns.Add(this.E92BootChecksum());
+            return cvns;
+        }
+
+        private int E92SegmentStart((string Name, int AddrPtr, int CvnOffset, int CvnBlockPtr, int CvnBlockCount, int SumOffset, int SumBlockPtr, int SumBlockCount) segment)
+        {
+            int start = unchecked((int)this.GetU32BE(segment.AddrPtr));
+            if (start < 0 || start >= this.image.Length)
+                throw new InvalidOperationException(string.Format("{0} start out of range: 0x{1:X6}", segment.Name, start));
+            return start;
+        }
+
+        /// <summary>
+        /// The boot block entry. The block is protected, so a PCM read leaves it all 0xFF and there is
+        /// nothing to check; it is listed for completeness as n/a and never counted as a failure.
+        /// </summary>
+        private E92Checksum E92BootChecksum()
+        {
+            return new E92Checksum
+            {
+                Name = "Boot Block",
+                Applicable = false,
+                Blocks = new List<Tuple<int, int>> { Tuple.Create(0, E92BootBlockSize - 1) },
+            };
+        }
+
+        /// <summary>
+        /// One extra 32-bit Sum, whose covered range and storage address are file pointers read at the
+        /// signature match. Skipped if the pointers do not describe a range inside the image.
+        /// </summary>
+        private void AddE92ExtSum(List<E92Checksum> sums, string name, int signature, int startOffset, int checksumOffset)
+        {
+            int start = unchecked((int)this.GetU32BE(signature + startOffset));
+            int checksumAddress = unchecked((int)this.GetU32BE(signature + checksumOffset));
+            if (start < 0 || checksumAddress <= start || checksumAddress + 4 > this.image.Length)
+            {
+                return;
+            }
+
+            sums.Add(new E92Checksum
+            {
+                Name = name,
+                Address = checksumAddress,
+                Digits = 8,
+                Blocks = new List<Tuple<int, int>> { Tuple.Create(start, checksumAddress - 1) },
+            });
+        }
+
+        /// <summary>Find the E92 extra-segment code signature; returns its offset, or -1 if absent.</summary>
+        private int FindE92ExtSignature()
+        {
+            byte?[] signature = E92ExtSignature;
+            int limit = this.image.Length - signature.Length;
+            for (int i = 0; i <= limit; i++)
+            {
+                bool match = true;
+                for (int j = 0; j < signature.Length; j++)
+                {
+                    if (signature[j].HasValue && this.image[i + j] != signature[j]!.Value)
+                    {
+                        match = false;
+                        break;
+                    }
+                }
+                if (match)
+                {
+                    return i;
+                }
+            }
+            return -1;
+        }
+
+        /// <summary>Read <paramref name="count"/> [start,end] block pointers (big-endian uint32 pairs) starting at the table pointer.</summary>
+        private List<Tuple<int, int>> ReadE92Blocks(int pointer, int count)
+        {
+            List<Tuple<int, int>> blocks = new List<Tuple<int, int>>();
+            for (int i = 0; i < count; i++)
+            {
+                int start = unchecked((int)this.GetU32BE(pointer + (8 * i)));
+                int end = unchecked((int)this.GetU32BE(pointer + (8 * i) + 4));
+                if (start < 0 || end < start || end >= this.image.Length)
+                    throw new InvalidOperationException(string.Format("E92 checksum block out of range: 0x{0:X6}-0x{1:X6}", start, end));
+                blocks.Add(Tuple.Create(start, end));
+            }
+            return blocks;
+        }
+
+        /// <summary>The value stored for a checksum, read at its own width.</summary>
+        private uint StoredE92Value(E92Checksum checksum)
+            => checksum.Digits == 4 ? this.GetU16BE(checksum.Address) : this.GetU32BE(checksum.Address);
+
+        /// <summary>Two's-complement 16-bit word sum over a checksum's blocks, masked to its width.</summary>
+        private uint CalcE92Sum(E92Checksum checksum)
+        {
+            long total = 0;
+            foreach (Tuple<int, int> block in checksum.Blocks)
+            {
+                for (int address = block.Item1; address < block.Item2; address += 2)
+                {
+                    total += (this.image[address] << 8) | this.image[address + 1];
+                }
+            }
+
+            ulong mask = checksum.Digits == 4 ? 0xFFFFUL : 0xFFFFFFFFUL;
+            return (uint)((~(ulong)total + 1) & mask);
+        }
+
+        /// <summary>GM CRC-16 over a checksum's blocks, byte-swapped as stored (an E92 CVN).</summary>
+        private uint CalcE92Cvn(E92Checksum checksum)
+        {
+            UInt16 crc = 0;
+            foreach (Tuple<int, int> block in checksum.Blocks)
+            {
+                crc = this.Crc16Gm(crc, block.Item1, block.Item2);
+            }
+
+            return (uint)(((crc & 0x00FF) << 8) | ((crc & 0xFF00) >> 8));
+        }
+
+        /// <summary>
+        /// Log one E92 checksum row and report whether it is good. A checksum that cannot be validated
+        /// (the protected boot block) prints n/a and reports good, so it never fails the file.
+        /// </summary>
+        private bool LogE92Row(E92Checksum checksum, uint needed)
+        {
+            string start = checksum.Start.ToString("X6");
+            string end = checksum.End.ToString("X6");
+            string digits = "X" + checksum.Digits;
+
+            if (!checksum.Applicable)
+            {
+                LogChecksumTableRow(start, end, "n/a", "n/a", "n/a", checksum.Name);
+                return true;
+            }
+
+            uint stored = this.StoredE92Value(checksum);
+            bool good = stored == needed;
+            LogChecksumTableRow(start, end, stored.ToString(digits), needed.ToString(digits), good, checksum.Name);
+            return good;
+        }
+
+        /// <summary>
+        /// Validate a 4 MiB E92 image: a Sum table then a CVN table, both in the standard checksum table
+        /// format. A bad Sum is an error; a bad CVN is only a warning; the protected boot block is n/a and
+        /// never fails. Mirrors <see cref="ValidateSumAndCvn"/>.
+        /// </summary>
+        public SumCvnVerdict ValidateE92SumAndCvn()
+        {
+            if (this.image.Length != 0x400000)
+            {
+                logger.AddUserMessage(string.Format(
+                    "File must be 0x400000 bytes; this file is 0x{0:X} bytes.", this.image.Length));
+                return SumCvnVerdict.NotApplicable;
+            }
+
+            List<E92Checksum> sums;
+            List<E92Checksum> cvns;
+            try
+            {
+                sums = this.CollectE92Sums();
+                cvns = this.CollectE92Cvns();
+            }
+            catch (Exception exception)
+            {
+                logger.AddUserMessage("Checksum table is invalid: " + exception.Message);
+                return SumCvnVerdict.NotApplicable;
+            }
+
+            logger.AddUserMessage("Validating 4MB file.");
+
+            logger.AddUserMessage("Checksum validation:");
+            LogChecksumTableHeader();
+            bool anySumBad = false;
+            foreach (E92Checksum sum in sums)
+            {
+                anySumBad |= !this.LogE92Row(sum, this.CalcE92Sum(sum));
+            }
+
+            logger.AddUserMessage("CVN validation:");
+            LogChecksumTableHeader();
+            bool anyCvnBad = false;
+            foreach (E92Checksum cvn in cvns)
+            {
+                anyCvnBad |= !this.LogE92Row(cvn, this.CalcE92Cvn(cvn));
+            }
+
+            if (anySumBad)
+            {
+                logger.AddUserMessage("This file is corrupt. It would render your PCM unusable.");
+                return SumCvnVerdict.SumError;
+            }
+
+            logger.AddUserMessage("All checksums are valid.");
+            if (anyCvnBad)
+            {
+                logger.AddUserMessage("Warning: One or more CVNs are bad.");
+                return SumCvnVerdict.CvnWarning;
+            }
+
+            return SumCvnVerdict.Good;
+        }
+
+        /// <summary>
+        /// Identify an E92 image by structure: a 4 MiB file whose segment table parses into the expected
+        /// six well-formed segments. Reuses the same table reader the checksum validation uses, so
+        /// detection and validation never diverge.
+        /// </summary>
+        private bool LooksLikeE92()
+        {
+            if (this.image.Length != 0x400000)
+            {
+                return false;
+            }
+
+            try
+            {
+                this.CollectE92Cvns();
+                return true;
+            }
+            catch (Exception)
             {
                 return false;
             }
