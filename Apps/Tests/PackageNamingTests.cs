@@ -161,5 +161,48 @@ namespace Tests
             // A bad setting must not be able to break saving.
             Assert.AreEqual("E38_12628990_" + Today + "_1", PackageStore.DefaultBaseName(E38, null, "::::"));
         }
+
+        // ---- Sequencing follows where reads are actually saved ----
+
+        [TestMethod]
+        public void SaveDialogFolderAndSequencedNameAlwaysAgree()
+        {
+            // The bug this guards: the dialog opened in the folder the user actually saves to while the
+            // name was sequenced against a different (or blank) configured folder, so it suggested "_1"
+            // over the top of a read already sitting there. The folder a front end opens and the folder
+            // the sequence is counted against must be the same one, whatever the caller passes.
+            string stem = "E38_12628990_" + Today;
+            PackageStore.Save(Path.Combine(this.dir, stem + "_1.phz"), E38);
+
+            foreach (string? configured in new[] { null, "", "::::", Path.GetTempPath() })
+            {
+                Assert.AreEqual(this.dir, PackageStore.DefaultSaveDirectory(configured),
+                    "Dialog must open in the folder packages were last saved to.");
+                Assert.AreEqual(stem + "_2", PackageStore.DefaultBaseName(E38, null, configured),
+                    "Name must be sequenced against that same folder.");
+            }
+        }
+
+        [TestMethod]
+        public void AfterSaving_SequencesAgainstTheSavedFolderNotThePassedOne()
+        {
+            // The bug this guards: a UI passes its configured bin folder, but the user saves reads
+            // somewhere else. The sequence must follow the real save location so the next read does not
+            // reuse "_1" and overwrite the last one. PackageStore.Save records that folder; DefaultBaseName
+            // sequences against it in preference to the passed (configured) folder.
+            string stem = "E38_12628990_" + Today;
+            PackageStore.Save(Path.Combine(this.dir, stem + "_1.phz"), E38);
+
+            string empty = Path.Combine(Path.GetTempPath(), "PcmHammerNamingCfg_" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(empty);
+            try
+            {
+                Assert.AreEqual(stem + "_2", PackageStore.DefaultBaseName(E38, null, empty));
+            }
+            finally
+            {
+                if (Directory.Exists(empty)) Directory.Delete(empty, true);
+            }
+        }
     }
 }

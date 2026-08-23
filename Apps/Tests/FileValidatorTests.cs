@@ -24,7 +24,7 @@ namespace Tests
         private static readonly string[] DetectionOrder =
         {
             "E54", "BlackBox", "P01", "P04", "P04_Early", "P10", "P11", "P08",
-            "P59", "P05c", "P05b", "P05", "P12", "E38",
+            "P59", "P05c", "P05b", "P05", "P12", "E38", "E92",
         };
 
         private sealed class Sample
@@ -123,10 +123,18 @@ namespace Tests
             var failures = new List<string>();
             foreach (Sample s in LoadCorpus())
             {
-                FileValidator.SumCvnVerdict verdict = new FileValidator(s.Bytes, new MockLogger()).ValidateSumAndCvn();
-                if (verdict == FileValidator.SumCvnVerdict.NotApplicable)
+                FileValidator validator = new FileValidator(s.Bytes, new MockLogger());
+                FileValidator.SumCvnVerdict verdict;
+                switch (s.Type)
                 {
-                    continue; // CVN only applies to types that carry one (E38).
+                    case PcmType.E38:
+                        verdict = validator.ValidateSumAndCvn();
+                        break;
+                    case PcmType.E92:
+                        verdict = validator.ValidateE92SumAndCvn();
+                        break;
+                    default:
+                        continue; // Sum/CVN only applies to types that carry one (E38, E92).
                 }
                 if (verdict != FileValidator.SumCvnVerdict.Good)
                 {

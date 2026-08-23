@@ -188,7 +188,7 @@ jobs:
         # Some kernels are maintained in their own source directory and build with a
         # per-directory build script; when that source is not in this tree, the directory
         # carries a committed binary instead. Run any build scripts present, then fall
-        # back to a committed Kernel-*.bin / Loader-*.bin / bootlib-*.bin left in a kernel
+        # back to a committed Kernel-*.bin / Loader-*.bin / BootLib-*.bin left in a kernel
         # directory that has no build script (a freshly built binary always wins), then
         # stage results. 
         #
@@ -202,7 +202,7 @@ jobs:
           [ "$dir" = build ] && continue
           [ -f "$dir/ci-build.sh" ] && continue
           [ -f "$dir/BuildKernel.cmd" ] && continue
-          for bin in "$dir"/Kernel-*.bin "$dir"/Loader-*.bin "$dir"/bootlib-*.bin; do
+          for bin in "$dir"/Kernel-*.bin "$dir"/Loader-*.bin "$dir"/BootLib-*.bin; do
             [ -e "$bin" ] || continue
             base=$(basename "$bin")
             if [ ! -f "build/$base" ]; then
@@ -211,7 +211,7 @@ jobs:
             fi
           done
         done
-        for bin in build/Kernel-*.bin build/Loader-*.bin build/bootlib-*.bin; do
+        for bin in build/Kernel-*.bin build/Loader-*.bin build/BootLib-*.bin; do
           [ -e "$bin" ] || continue
           verify_bin "$bin"
           cp "$bin" ../TemporaryArtifactStorage/

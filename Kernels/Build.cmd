@@ -88,7 +88,8 @@ goto beginning
   echo.
   echo     -cpu^<value^>
   echo       Set the target CPU, given as the gcc -mcpu value (no space). Required, no default.
-  echo       68332 = Motorola 68k (m68k-elf, all VPW PCMs); 505 = PowerPC MPC5xx (powerpc-eabi, E38 CAN).
+  echo       68332 = Motorola 68k (m68k-elf, all VPW PCMs); 505 = PowerPC MPC5xx (powerpc-eabi, E38 CAN);
+  echo       8540 = PowerPC e200 / Book E (powerpc-eabi, E92 CAN).
   echo       Value: %CPU%
   echo.
   echo     -l^<address^>
@@ -165,6 +166,17 @@ powershell -NoProfile -Command "& { $f = Get-Item '%_VF%'; $h = (Get-FileHash '%
 if %errorlevel% neq 0 (set "_VF=" & exit /b 1)
 set "_VF="
 goto :EOF
+
+rem * Toolchain and flags shared by every PowerPC assembly kernel. Only -mcpu varies
+rem * between them, and it reuses %CPU% so the value given on the command line is the
+rem * value gcc sees.
+:SetPowerPc
+set ASSEMBLY_KERNEL=True
+set "SOURCE_DIR=PPC-CAN-Asm-%PCM%"
+set "GCC_LOCATION=%GCC_LOCATION:m68k-elf=powerpc-eabi%"
+set "TOOL_PREFIX=powerpc-eabi-"
+set "ASM_CC_FLAGS=-mregnames -mcpu=%CPU% -mbig-endian -mstrict-align"
+goto :EOF
 *
 *
 *************************************** Beginning
@@ -211,6 +223,11 @@ rem *        505   - PowerPC. This is the gcc -mcpu name for the classic 32-bit
 rem *                PowerPC 5xx core family, NOT a chip part number; gcc has no
 rem *                555/561/565 option, so 505 is what targets the E38's MPC56x.
 rem *                powerpc-eabi toolchain. Used by: E38 (CAN).
+rem *        8540  - PowerPC e200 / Book E. Again a gcc -mcpu name, not a part
+rem *                number: gcc has no e200 or MPC5674F option, and 8540 is the
+rem *                Book E target whose instruction set the e200 shares (it
+rem *                enables wrteei and the Book E SPRs, so no separate -mbooke is
+rem *                needed). powerpc-eabi toolchain. Used by: E92 (CAN).
 set CPU=
 
 
@@ -270,13 +287,13 @@ if /i "%CPU%"=="68332" (
   set "TOOL_PREFIX=m68k-elf-"
   set "ASM_CC_FLAGS=-fomit-frame-pointer -std=gnu99 -mcpu=%CPU% -O0"
 ) else if /i "%CPU%"=="505" (
-  set ASSEMBLY_KERNEL=True
-  set "SOURCE_DIR=PPC-CAN-Asm-%PCM%"
-  set "GCC_LOCATION=%GCC_LOCATION:m68k-elf=powerpc-eabi%"
-  set "TOOL_PREFIX=powerpc-eabi-"
-  set "ASM_CC_FLAGS=-mregnames -mcpu=%CPU% -mbig-endian -mstrict-align"
+  call :SetPowerPc
+) else if /i "%CPU%"=="8540" (
+  rem e200 / Book E (E92). Same toolchain and flags as 505; only -mcpu differs, and
+  rem -mcpu=8540 is what enables the Book E instructions the E92 kernel uses.
+  call :SetPowerPc
 ) else (
-  echo ERROR: -cpu^<value^> is required. Supported: 68332 ^(m68k VPW PCMs^), 505 ^(PowerPC E38^).
+  echo ERROR: -cpu^<value^> is required. Supported: 68332 ^(m68k VPW PCMs^), 505 ^(PowerPC E38^), 8540 ^(PowerPC E92^).
   exit /b 1
 )
 

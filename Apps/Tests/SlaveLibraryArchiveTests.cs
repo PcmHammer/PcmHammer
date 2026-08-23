@@ -104,8 +104,8 @@ namespace Tests
         {
             Assert.IsNull(SlaveLibrary.Resolve("e38-master.bin"));
             Assert.IsNull(SlaveLibrary.Resolve("e38-slave.bin"));
-            Assert.IsNull(SlaveLibrary.Resolve("bootlib-E38-Master.bin"));
-            Assert.IsNull(SlaveLibrary.Resolve("bootlib-E38-Slave.bin"));
+            Assert.IsNull(SlaveLibrary.Resolve("BootLib-E38-Master.bin"));
+            Assert.IsNull(SlaveLibrary.Resolve("BootLib-E38-Slave.bin"));
         }
     }
 }

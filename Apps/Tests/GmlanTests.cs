@@ -210,9 +210,23 @@ namespace Tests
         {
             var gmlan = new Gmlan();
             Assert.AreEqual(0xAABBCCDDu, gmlan.ParseCrcResponse(Msg(0x7D, 0x02, 0xAA, 0xBB, 0xCC, 0xDD)).Value);
-            Assert.AreEqual(0x12345678u, gmlan.ParseKernelVersionResponse(Msg(0x7D, 0x00, 0x12, 0x34, 0x56, 0x78)).Value);
             // Wrong sub-function is rejected, not silently accepted.
             Assert.AreEqual(ResponseStatus.Refused, gmlan.ParseFlashIdResponse(Msg(0x7D, 0x00, 0x00, 0x00, 0x00, 0x00)).Status);
+        }
+
+        [TestMethod]
+        public void ParseKernelVersion_PacksEpochAndPcmType_LikeTheVpwPath()
+        {
+            var gmlan = new Gmlan();
+
+            // E38 kernels reply with only the four epoch bytes (no PCM type): pcmType packs as 0x00.
+            Assert.AreEqual(0x12345678ul << 8,
+                gmlan.ParseKernelVersionResponse(Msg(0x7D, 0x00, 0x12, 0x34, 0x56, 0x78)).Value);
+
+            // E92 kernels append the PCM type byte (0x92); it lands in the low 8 bits, matching the VPW
+            // packing so both protocols share the one "<date> PCM=0xXX" version string.
+            Assert.AreEqual((0x12345678ul << 8) | 0x92,
+                gmlan.ParseKernelVersionResponse(Msg(0x7D, 0x00, 0x12, 0x34, 0x56, 0x78, 0x92)).Value);
         }
 
         // ---- CRC32 ----

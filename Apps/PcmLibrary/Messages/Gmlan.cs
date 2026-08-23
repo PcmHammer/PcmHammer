@@ -104,6 +104,35 @@ namespace PcmHacking
             return Response.Create(ResponseStatus.UnexpectedResponse, (ushort)0);
         }
 
+        /// <summary>
+        /// 40-bit unlock (0x27 0x02 + 5 key bytes), for PCMs whose seed/key is 5 bytes (e.g. E92).
+        /// </summary>
+        public Message CreateUnlockRequest40(byte[] key5)
+        {
+            byte[] msg = new byte[2 + 5];
+            msg[0] = 0x27;
+            msg[1] = 0x02;
+            Buffer.BlockCopy(key5, 0, msg, 2, 5);
+            return new Message(msg);
+        }
+
+        /// <summary>
+        /// Parse a 40-bit seed response (0x67 0x01 + 5 seed bytes). Returns the 5 seed bytes.
+        /// </summary>
+        public Response<byte[]> ParseSeed40(Message message)
+        {
+            byte[] bytes = GetBytes(message);
+            if (bytes.Length >= 7 && bytes[0] == SecurityAccessResponse && bytes[1] == 0x01)
+            {
+                byte[] seed = new byte[5];
+                Buffer.BlockCopy(bytes, 2, seed, 0, 5);
+                return Response.Create(ResponseStatus.Success, seed);
+            }
+            if (bytes.Length >= 1 && bytes[0] == NegativeResponse)
+                return Response.Create(ResponseStatus.Error, Array.Empty<byte>());
+            return Response.Create(ResponseStatus.UnexpectedResponse, Array.Empty<byte>());
+        }
+
         public Response<bool> ParseUnlockResponse(Message message)
         {
             byte[] bytes = GetBytes(message);
@@ -274,7 +303,23 @@ namespace PcmHacking
 
         public Message CreateKernelVersionRequest() => new Message(new byte[] { 0x3D, 0x00 });
 
-        public Response<uint> ParseKernelVersionResponse(Message message) => ParseMode3DUInt32(message, 0x00);
+        /// <summary>
+        /// Parse the kernel version as a packed value 0x7D 0x00 [epoch 4 bytes] [pcmType 1 byte],
+        /// returned as (epoch &lt;&lt; 8) | pcmType - the same packing the VPW kernels use, so both
+        /// protocols share one "&lt;date&gt; PCM=0xXX" version string. A kernel that omits the pcmType
+        /// byte (E38 replies with only the four epoch bytes) yields pcmType 0.
+        /// </summary>
+        public Response<ulong> ParseKernelVersionResponse(Message message)
+        {
+            byte[] bytes = GetBytes(message);
+            if (bytes.Length >= 1 && bytes[0] == NegativeResponse)
+                return Response.Create(ResponseStatus.Error, 0ul);
+            if (bytes.Length < 6 || bytes[0] != Mode3DResponse || bytes[1] != 0x00)
+                return Response.Create(ResponseStatus.Refused, 0ul);
+            ulong epoch = ((ulong)bytes[2] << 24) | ((ulong)bytes[3] << 16) | ((ulong)bytes[4] << 8) | bytes[5];
+            byte pcmType = bytes.Length >= 7 ? bytes[6] : (byte)0;
+            return Response.Create(ResponseStatus.Success, (epoch << 8) | pcmType);
+        }
 
         public Message CreateFlashIdRequest() => new Message(new byte[] { 0x3D, 0x01 });
 

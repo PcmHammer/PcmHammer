@@ -32,6 +32,57 @@ namespace PcmHacking
         public static IReadOnlyList<string> SupportedExtensions =>
             Formats.Select(f => f.Extension).ToList();
 
+        // Where the last saved package went, remembered across sessions. In-memory value plus the file
+        // it is cached in; loaded lazily so the disk is touched at most once per run.
+        private static string? lastSaveDirectory;
+        private static bool lastSaveDirectoryLoaded;
+
+        private static readonly string LastSaveDirectoryPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "PcmHammer",
+            "last-save-directory.txt");
+
+        /// <summary>
+        /// The folder the most recently saved package was written to, remembered across sessions, or
+        /// null if nothing has been saved yet. Recorded by <see cref="Save(string, PcmPackage)"/>.
+        /// </summary>
+        public static string? LastSaveDirectory
+        {
+            get
+            {
+                if (!lastSaveDirectoryLoaded)
+                {
+                    lastSaveDirectoryLoaded = true;
+                    try
+                    {
+                        if (File.Exists(LastSaveDirectoryPath))
+                        {
+                            lastSaveDirectory = File.ReadAllText(LastSaveDirectoryPath).Trim();
+                        }
+                    }
+                    catch (Exception)
+                    {
+                        // Not worth failing a save over; the caller's directory is used instead.
+                    }
+                }
+
+                return lastSaveDirectory;
+            }
+        }
+
+        /// <summary>
+        /// Where a package save dialog should open, and the folder the "_N" sequence in
+        /// <see cref="DefaultBaseName"/> is counted against: the folder packages were last saved to,
+        /// falling back to the caller's configured folder.
+        /// </summary>
+        /// <remarks>
+        /// A front end MUST use this for its dialog's initial directory. The suggested name's sequence
+        /// number is only correct for the folder it was counted against, so a dialog that opens anywhere
+        /// else can offer a name that silently overwrites an existing read.
+        /// </remarks>
+        public static string? DefaultSaveDirectory(string? configuredDirectory)
+            => DirectoryIsUsable(LastSaveDirectory) ? LastSaveDirectory : configuredDirectory;
+
         /// <summary>
         /// The base file name (no extension) to suggest when saving a document: the name it already
         /// has, or for a document that has never been saved, one built from what was read -
@@ -76,7 +127,9 @@ namespace PcmHacking
                 ? module + "_" + osid + "_" + date
                 : module + "_" + date;
 
-            return NextFreeInSequence(Sanitize(name), directory);
+            // Count the sequence against the folder the dialog will actually open in, so the suggested
+            // name cannot collide with a read already sitting there.
+            return NextFreeInSequence(Sanitize(name), DefaultSaveDirectory(directory));
         }
 
         /// <summary>
@@ -104,6 +157,37 @@ namespace PcmHacking
             }
 
             return stem + "_" + DateTime.Now.ToString("HHmmss");
+        }
+
+        /// <summary>
+        /// Record where packages are being saved, so the next suggested name is sequenced against that
+        /// folder and the next save dialog opens there - including after a restart. Best effort: if it
+        /// cannot be cached, naming falls back to the caller's configured folder.
+        /// </summary>
+        private static void RememberSaveDirectory(string? directory)
+        {
+            if (string.IsNullOrWhiteSpace(directory))
+            {
+                return;
+            }
+
+            lastSaveDirectory = directory;
+            lastSaveDirectoryLoaded = true;
+
+            try
+            {
+                string? cacheDirectory = Path.GetDirectoryName(LastSaveDirectoryPath);
+                if (!string.IsNullOrEmpty(cacheDirectory))
+                {
+                    Directory.CreateDirectory(cacheDirectory);
+                }
+
+                File.WriteAllText(LastSaveDirectoryPath, directory);
+            }
+            catch (Exception)
+            {
+                // The save itself already succeeded; only the convenience of remembering is lost.
+            }
         }
 
         private static bool DirectoryIsUsable(string? directory)
@@ -226,6 +310,8 @@ namespace PcmHacking
                 }
                 if (File.Exists(path)) File.Delete(path);
                 File.Move(temp, path);
+
+                RememberSaveDirectory(Path.GetDirectoryName(path));
             }
             catch (PackageException)
             {

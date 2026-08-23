@@ -14,7 +14,7 @@ goto beginning
 * Revision Date: 2023-05-23 - Antus <pcmhacking.net> Update P04 loader address.
 * Revision Date: 2026-06-01 - Antus <pcmhacking.net> Restructure: 68k-VPW-C, 68k-VPW-Asm, 68k-VPW-Asm-P04; build/ for outputs.
 * Revision Date: 2026-06-18 - Use BuildKernel.cmd scripts in kernel dirs, or binary only artifact
-* Revision Date: 2026-08-22 - Antus <pcmhacking.net> Build sources then copy all committed bins; add bootlib-*
+* Revision Date: 2026-08-22 - Antus <pcmhacking.net> Build sources then copy all committed bins; add BootLib-*
 *
 * Authors disclaimer
 *   It is what it is, you can do with it as you please. (with respect)
@@ -79,7 +79,7 @@ rem * Build scripts have already run. A kernel directory may hold committed bina
 rem * sources, and the sources need not cover every binary, so copy them all unconditionally.
 for /d %%D in (*) do (
   if /i not "%%~nxD" == "build" (
-    for %%F in ("%%D\Kernel-*.bin" "%%D\Loader-*.bin" "%%D\bootlib-*.bin") do (
+    for %%F in ("%%D\Kernel-*.bin" "%%D\Loader-*.bin" "%%D\BootLib-*.bin") do (
       if exist "%%F" (
         echo Staging %%~nxF from %%D
         if not exist build mkdir build
@@ -207,9 +207,9 @@ if exist "build\Loader-*.bin" (
   copy /Y build\Loader-*.bin "%TARGET%\" 1>nul 2>nul
 )
 
-if exist "build\bootlib-*.bin" (
-  echo   Copying build\bootlib-*.bin to "%TARGET%"
-  copy /Y build\bootlib-*.bin "%TARGET%\" 1>nul 2>nul
+if exist "build\BootLib-*.bin" (
+  echo   Copying build\BootLib-*.bin to "%TARGET%"
+  copy /Y build\BootLib-*.bin "%TARGET%\" 1>nul 2>nul
 )
 
 set /a COPY_TARGET_COUNT+=1
