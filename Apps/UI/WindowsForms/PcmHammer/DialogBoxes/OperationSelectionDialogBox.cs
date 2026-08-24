@@ -216,12 +216,12 @@ namespace PcmHacking
             }
 
             // Clone is always available when writing is supported; the per-segment types need by-segment
-            // support (e.g. the E38 is clone-only).
+            // support (e.g. the E38 is clone-only). A parameter write also needs a parameter block.
             bool bySegment = detected.IsSupportedWriteBySegment;
             this.fullCloneRadioButton.Enabled = true;
             this.osCalRadioButton.Enabled = bySegment;
             this.calibrationRadioButton.Enabled = bySegment;
-            this.parametersRadioButton.Enabled = bySegment;
+            this.parametersRadioButton.Enabled = detected.HasParameterBlocks;
 
             this.detectionLabel.Text = bySegment
                 ? string.Format("Detected: {0}", detected.HardwareType)

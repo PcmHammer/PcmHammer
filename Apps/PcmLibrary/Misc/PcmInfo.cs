@@ -99,6 +99,21 @@ namespace PcmHacking
         /// </summary>
         public bool IsSupportedWriteBySegment { get; private set; }
 
+        // Null defers to IsSupportedWriteBySegment.
+        private bool? hasParameterBlocks;
+
+        /// <summary>
+        /// Whether this PCM keeps a parameter block in flash that can be written on its own, which is
+        /// what a <see cref="WriteType.Parameters"/> write targets. A separately writable parameter block
+        /// is the reason segment write exists, so this follows <see cref="IsSupportedWriteBySegment"/>
+        /// unless a type sets it.
+        /// </summary>
+        public bool HasParameterBlocks
+        {
+            get => this.hasParameterBlocks ?? this.IsSupportedWriteBySegment;
+            private set => this.hasParameterBlocks = value;
+        }
+
         /// <summary>
         /// PCM requires a kernel loader
         /// </summary>
@@ -174,10 +189,28 @@ namespace PcmHacking
         public bool IsSupportedBootLoaderWrite { get; private set; }
 
         /// <summary>
+        /// True when the resident boot loader is the only way to program this PCM, because its kernel
+        /// cannot erase or program flash. Every destructive write then goes through
+        /// <see cref="CanBootLoaderWriter"/>; reads, comparisons and CRCs still run on the kernel.
+        /// </summary>
+        public bool RequiresBootLoaderWrite { get; private set; }
+
+        /// <summary>
         /// Address the boot loader stages module data at, before programming the flash named by the
         /// module header.
         /// </summary>
         public uint BootLoaderStagingAddress { get; private set; }
+
+        /// <summary>
+        /// Address the boot loader loads the master flash routines to.
+        /// </summary>
+        public uint BootLoaderLibraryAddress { get; private set; }
+
+        /// <summary>
+        /// RequestDownload data format identifier for a calibration module: 0x00 streams the segment
+        /// as-is, 0x10 streams it run-length coded by <see cref="E92ModuleCodec"/>.
+        /// </summary>
+        public byte BootLoaderModuleDataFormat { get; private set; }
 
         /// <summary>
         /// Maximum boot loader download message length, including the six byte TransferData header.
@@ -202,9 +235,10 @@ namespace PcmHacking
         public byte BootLoaderMasterHandshakeDid { get; private set; }
 
         /// <summary>
-        /// DID of the handshake that engages the slave.
+        /// DIDs of the handshake that engages the slave, in the order they are sent. The slave has to
+        /// answer all of them or it cannot be programmed.
         /// </summary>
-        public byte BootLoaderSlaveHandshakeDid { get; private set; }
+        public byte[] BootLoaderSlaveHandshakeDids { get; private set; } = Array.Empty<byte>();
 
         /// <summary>
         /// Name of the flash routine file the boot loader runs to program the master.
@@ -340,6 +374,7 @@ namespace PcmHacking
             this.IsSupportedWrite = false;
             this.IsSupportedWriteSlaveCPU = false;
             this.IsSupportedWriteBySegment = false;
+            this.hasParameterBlocks = null;
             this.IsSupportedWriteBootSector = true;
             this.Description = "Not Set";
             this.LoaderRequired = false;
@@ -353,12 +388,15 @@ namespace PcmHacking
             this.KernelBaseAddress = 0x0;
             this.KernelRunAddress = 0x0;
             this.IsSupportedBootLoaderWrite = false;
+            this.RequiresBootLoaderWrite = false;
             this.BootLoaderStagingAddress = 0x0;
+            this.BootLoaderLibraryAddress = 0x0;
+            this.BootLoaderModuleDataFormat = Gmlan.DataFormatUncompressed;
             this.BootLoaderBlockSize = 0x0;
             this.BootLoaderMasterHeaderLength = 0x0;
             this.BootLoaderSlaveHeaderLength = 0x0;
             this.BootLoaderMasterHandshakeDid = 0x0;
-            this.BootLoaderSlaveHandshakeDid = 0x0;
+            this.BootLoaderSlaveHandshakeDids = Array.Empty<byte>();
             this.BootLoaderMasterLibraryFileName = string.Empty;
             this.BootLoaderSlaveDriverFileName = string.Empty;
             this.SramEraseStart = 0x0;
@@ -728,11 +766,12 @@ namespace PcmHacking
                     this.KernelRunAddress = 0x003FC434;
                     this.IsSupportedBootLoaderWrite = true;
                     this.BootLoaderStagingAddress = 0x003F9090;
+                    this.BootLoaderLibraryAddress = 0x003FC430;
                     this.BootLoaderBlockSize = 0x0FFE;
                     this.BootLoaderMasterHeaderLength = 0x800;
                     this.BootLoaderSlaveHeaderLength = 0x80;
                     this.BootLoaderMasterHandshakeDid = 0xC1;
-                    this.BootLoaderSlaveHandshakeDid = 0xC9;
+                    this.BootLoaderSlaveHandshakeDids = new byte[] { 0xC9 };
                     this.BootLoaderMasterLibraryFileName = "BootLib-E38-Master.bin";
                     this.BootLoaderSlaveDriverFileName = "BootLib-E38-Slave.bin";
                     // The mirror's validity marker lives below the staging address, so the fill survives
@@ -757,7 +796,6 @@ namespace PcmHacking
                     this.HardwareType = PcmType.E92;
                     this.HardwareSlaveCPU = true;
                     // The slave CPU's flash modules, and the SWMI DIDs that report their part numbers.
-                    // (Used by write, which is not yet enabled; recorded here for completeness.)
                     this.SlaveModules = new[]
                     {
                         new SlaveModuleId("slave-os", 0xC9),          // SWMI 09
@@ -765,8 +803,29 @@ namespace PcmHacking
                     };
                     this.IsSupported = true;
                     this.IsSupportedRead = true;
-                    this.IsSupportedWrite = false;
+                    this.IsSupportedWrite = true;
+                    // The boot loader programs one named flash segment per module, and reaches the slave.
+                    this.IsSupportedWriteBySegment = true;
+                    this.IsSupportedWriteSlaveCPU = true;
+                    // Segment aligned, but the parameter block is not in this flash.
+                    this.HasParameterBlocks = false;
                     this.BusProtocol = BusProtocol.Can500k;
+                    // No kernel write path: the boot loader stages every module at one address and burns
+                    // it there.
+                    this.IsSupportedBootLoaderWrite = true;
+                    this.RequiresBootLoaderWrite = true;
+                    this.BootLoaderStagingAddress = 0x40007000;
+                    this.BootLoaderLibraryAddress = 0x40000400;
+                    this.BootLoaderBlockSize = 0x0FFE;
+                    this.BootLoaderMasterHeaderLength = 0x800;
+                    this.BootLoaderSlaveHeaderLength = 0x80;
+                    // The master burn needs no handshake; the slave answers for both of its modules.
+                    this.BootLoaderMasterHandshakeDid = 0x0;
+                    this.BootLoaderSlaveHandshakeDids = new byte[] { 0xC9, 0xCA };
+                    this.BootLoaderModuleDataFormat = Gmlan.DataFormatCompressed;
+                    this.BootLoaderMasterLibraryFileName = "BootLib-E92-Master.bin";
+                    // No separate slave driver file: the slave OS module carries its own flash routines.
+                    this.BootLoaderSlaveDriverFileName = string.Empty;
                     // E38-style boot loader seam: the image lands at load+4 and the loader jumps to
                     // *(load), so the kernel runs at load+4 and is linked there.
                     this.GMLANProtocol = GMLANProtocol.E38;

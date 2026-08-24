@@ -800,6 +800,14 @@ namespace PcmHacking
         /// Send one message of a boot loader download and return the reply. Long receive window: the
         /// boot loader programs flash as the download streams, so a message can take a while to answer.
         /// </summary>
+        /// <summary>
+        /// Send a boot loader message without waiting for an answer, for the ones that may not get one.
+        /// </summary>
+        public async Task SendBootLoaderNotification(Message message)
+        {
+            await this.device.SendMessage(message);
+        }
+
         public async Task<Response<byte[]>> SendBootLoaderMessage(Message message, CancellationToken cancellationToken)
         {
             await this.device.SetTimeout(TimeoutScenario.EraseMemoryBlock);

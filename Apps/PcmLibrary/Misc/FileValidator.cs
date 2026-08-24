@@ -1596,6 +1596,37 @@ namespace PcmHacking
             ("Engine",     0xC01F2, 0x020, 0xC01FA, 2, 0x000, 0xC020A, 1),
         };
 
+        /// <summary>
+        /// The six E92 master flash segments, in the order a boot loader write streams them: the OS
+        /// first, then the calibration segments. Each segment runs from its pointer-table start to the
+        /// end of the last block its Sum covers. Throws <see cref="InvalidOperationException"/> if the
+        /// table is missing or inconsistent.
+        /// </summary>
+        public static List<FlashSegment> GetE92MasterSegments(byte[] image)
+        {
+            var segments = new List<FlashSegment>();
+            foreach (var segment in E92Layout)
+            {
+                int startAddr = unchecked((int)U32BE(image, segment.AddrPtr));
+                int endAddr = unchecked((int)U32BE(image, segment.SumBlockPtr + (8 * (segment.SumBlockCount - 1)) + 4));
+
+                if (startAddr < 0 || startAddr >= image.Length)
+                    throw new InvalidOperationException(string.Format("{0} start out of range: 0x{1:X6}", segment.Name, startAddr));
+                if (endAddr < 0 || endAddr >= image.Length)
+                    throw new InvalidOperationException(string.Format("{0} end out of range: 0x{1:X6}", segment.Name, endAddr));
+                if (endAddr <= startAddr)
+                    throw new InvalidOperationException(string.Format("{0} range invalid: 0x{1:X6}-0x{2:X6}", segment.Name, startAddr, endAddr));
+                if (endAddr - startAddr < segment.CvnOffset)
+                    throw new InvalidOperationException(string.Format("{0} range too short: 0x{1:X6}-0x{2:X6}", segment.Name, startAddr, endAddr));
+
+                // The Sum sits at the head of the segment's own header record, which is what the OS
+                // module leads with.
+                segments.Add(new FlashSegment(startAddr, endAddr, segment.Name, segment.SumOffset));
+            }
+
+            return segments;
+        }
+
         // 28-byte code signature that locates the extra 32-bit word-sum regions (null = wildcard byte).
         private static readonly byte?[] E92ExtSignature =
         {
