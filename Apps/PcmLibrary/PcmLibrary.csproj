@@ -71,22 +71,33 @@
                 raw.Write(bytes, 0, bytes.Length);
             }
 
-            using (var output = File.Create(OutputFile))
-            using (var deflate = new DeflateStream(output, CompressionLevel.Optimal))
+            byte[] packed;
+            using (var compressed = new MemoryStream())
             {
-                raw.Position = 0;
-                raw.CopyTo(deflate);
+                using (var deflate = new DeflateStream(compressed, CompressionLevel.Optimal, true))
+                {
+                    raw.Position = 0;
+                    raw.CopyTo(deflate);
+                }
+
+                packed = compressed.ToArray();
+            }
+
+            // The target runs every build, because a file added with an older timestamp than the
+            // archive leaves an Inputs/Outputs check thinking the archive is current. Writing only on
+            // change stops that from rebuilding everything downstream.
+            if (!File.Exists(OutputFile) || !File.ReadAllBytes(OutputFile).SequenceEqual(packed))
+            {
+                File.WriteAllBytes(OutputFile, packed);
+                Log.LogMessage(MessageImportance.High,
+                    "Packed {0} slave library files into {1} bytes.", entries.Count, packed.Length);
             }
         }
-
-        Log.LogMessage(MessageImportance.High,
-            "Packed {0} slave library files into {1} bytes.", entries.Count, new FileInfo(OutputFile).Length);
       ]]></Code>
     </Task>
   </UsingTask>
 
-  <Target Name="PackSlaveLibraryArchive" BeforeTargets="PrepareForBuild"
-          Inputs="@(SlaveLibraryBinary)" Outputs="$(IntermediateOutputPath)SlaveLibrary.archive">
+  <Target Name="PackSlaveLibraryArchive" BeforeTargets="PrepareForBuild">
     <Warning Condition="'@(SlaveLibraryBinary)' == ''"
              Text="No slave library files found at $(MSBuildThisFileDirectory)..\..\SlaveLibrary\*.bin; packages that reference a slave image will not resolve." />
     <PackSlaveLibrary Condition="'@(SlaveLibraryBinary)' != ''"

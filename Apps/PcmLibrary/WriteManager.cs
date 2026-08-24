@@ -135,7 +135,7 @@ namespace PcmHacking
 
                     if (missing.Count == 0)
                     {
-                        return await this.WriteMasterAndSlave(main.Data, slaveModules, pcmInfo);
+                        return await this.RunBootLoaderWrite(main.Data, slaveModules, pcmInfo);
                     }
 
                     // This file includes the slave, so do not quietly downgrade to a master-only write.
@@ -190,12 +190,12 @@ namespace PcmHacking
         }
 
         /// <summary>
-        /// Write the master and the slave through the resident boot loader in one download. The master
-        /// image is split into flash modules by <see cref="FlashModuleBuilder"/>; streaming the master OS
-        /// module arms the slave, then the slave modules are programmed. This can brick the PCM, so it is
-        /// gated on a confirmation.
+        /// Write through the resident boot loader in one download. The master image is split into flash
+        /// modules by <see cref="FlashModuleBuilder"/>; where slave modules are supplied, streaming the
+        /// master OS module arms the slave and the slave modules are programmed after it. A calibration
+        /// write leaves the OS segment alone. This can brick the PCM, so it is gated on a confirmation.
         /// </summary>
-        private async Task<bool> WriteMasterAndSlave(byte[] masterImage, IList<byte[]> slaveModules, OSIDInfo pcmInfo)
+        private async Task<bool> RunBootLoaderWrite(byte[] masterImage, IList<byte[]> slaveModules, OSIDInfo pcmInfo)
         {
             // Checksum-validate the master first, the same gate as a normal write: a bad sum means the
             // image is corrupt and would render the PCM unusable.
@@ -209,13 +209,41 @@ namespace PcmHacking
             logger.AddUserMessage("File OSID: " + validator.GetOsidFromImage());
             logger.AddUserMessage("File Description: " + new OSIDInfo(validator.GetFileType()).Description + ".");
 
-            logger.AddUserMessage(
-                "Programming the FULL PCM - the master flash AND the slave CPU - through the boot loader.");
+            // Which segments this write covers. Stated rather than derived: the boot loader erases and
+            // programs whatever it is handed, so an unrecognised write type must stop here rather than
+            // fall through to a wider write than the user asked for.
+            bool includeOperatingSystem;
+            switch (this.writeType)
+            {
+                case WriteType.Calibration:
+                    includeOperatingSystem = false;
+                    break;
 
-            List<byte[]> masterModules;
+                // The boot block is not writable on these PCMs, so OS+Cal+Boot writes what it can.
+                case WriteType.Full:
+                case WriteType.OsPlusCalibrationPlusBoot:
+                    includeOperatingSystem = true;
+                    break;
+
+                default:
+                    logger.AddUserMessage(string.Format(
+                        "The {0} cannot do a {1} write through its boot loader.", pcmInfo.Description, this.writeType));
+                    return false;
+            }
+
+            logger.AddUserMessage(
+                slaveModules.Count > 0
+                    ? "Programming the FULL PCM - the master flash AND the slave CPU - through the boot loader."
+                    : includeOperatingSystem
+                        ? "Programming the master flash through the boot loader."
+                        : "Programming the master calibration through the boot loader.");
+
+            List<FlashModule> masterModules;
+            List<FlashModule> slaveFlashModules;
             try
             {
-                masterModules = FlashModuleBuilder.Build(masterImage, pcmInfo);
+                masterModules = FlashModuleBuilder.Build(masterImage, pcmInfo, includeOperatingSystem);
+                slaveFlashModules = FlashModuleBuilder.BuildSlaveModules(slaveModules, pcmInfo);
             }
             catch (Exception exception)
             {
@@ -224,10 +252,16 @@ namespace PcmHacking
             }
 
             // Boot libraries ship and load like kernels, so --kernel-dir and a loose file next to the
-            // exe override the embedded copy for them too.
+            // exe override the embedded copy for them too. The slave driver is optional: where no file
+            // is named, the slave OS module carries its own flash routines.
             Response<byte[]> masterLibraryResponse = await this.vehicle.LoadKernelFromFile(pcmInfo.BootLoaderMasterLibraryFileName);
-            Response<byte[]> slaveDriverResponse = await this.vehicle.LoadKernelFromFile(pcmInfo.BootLoaderSlaveDriverFileName);
-            if (masterLibraryResponse.Status != ResponseStatus.Success || slaveDriverResponse.Status != ResponseStatus.Success)
+            bool needSlaveDriver = !string.IsNullOrEmpty(pcmInfo.BootLoaderSlaveDriverFileName);
+            Response<byte[]>? slaveDriverResponse = needSlaveDriver
+                ? await this.vehicle.LoadKernelFromFile(pcmInfo.BootLoaderSlaveDriverFileName)
+                : null;
+
+            if (masterLibraryResponse.Status != ResponseStatus.Success
+                || (slaveDriverResponse != null && slaveDriverResponse.Status != ResponseStatus.Success))
             {
                 logger.AddUserMessage("Missing the boot loader flash routines:");
                 if (masterLibraryResponse.Status != ResponseStatus.Success)
@@ -235,7 +269,7 @@ namespace PcmHacking
                     logger.AddUserMessage("    " + pcmInfo.BootLoaderMasterLibraryFileName);
                 }
 
-                if (slaveDriverResponse.Status != ResponseStatus.Success)
+                if (slaveDriverResponse != null && slaveDriverResponse.Status != ResponseStatus.Success)
                 {
                     logger.AddUserMessage("    " + pcmInfo.BootLoaderSlaveDriverFileName);
                 }
@@ -244,7 +278,7 @@ namespace PcmHacking
             }
 
             byte[] masterFlashLibrary = masterLibraryResponse.Value;
-            byte[] slaveFlashDriver = slaveDriverResponse.Value;
+            byte[]? slaveFlashDriver = slaveDriverResponse?.Value;
 
             if (!await this.vehicle.SelectBus(pcmInfo.BusProtocol))
             {
@@ -256,7 +290,7 @@ namespace PcmHacking
             CanCommands commands = this.vehicle.CreateCanCommands();
             CanBootLoaderWriter writer = new CanBootLoaderWriter(this.vehicle, commands, pcmInfo, this.logger);
             bool success = await writer.Write(
-                masterFlashLibrary, masterModules, slaveFlashDriver, slaveModules, this.cancellationToken);
+                masterFlashLibrary, masterModules, slaveFlashDriver, slaveFlashModules, this.cancellationToken);
             logger.AddUserMessage("Elapsed time " + DateTime.Now.Subtract(start));
 
             if (success)
@@ -318,6 +352,15 @@ namespace PcmHacking
                     logger.AddUserMessage("User chose not to proceed.");
                     return false;
                 }
+            }
+
+            // A PCM whose kernel cannot program flash goes through its resident boot loader instead.
+            // Comparisons and test writes stay on the kernel, which reads and CRCs flash it cannot
+            // program. No slave modules here: this path writes the master alone, and a file that carries
+            // the slave reaches the boot loader through Write(PcmPackage) instead.
+            if (destructive && pcmInfo.RequiresBootLoaderWrite)
+            {
+                return await this.RunBootLoaderWrite(image, Array.Empty<byte[]>(), pcmInfo);
             }
 
             CanCommands commands = this.vehicle.CreateCanCommands();
@@ -420,6 +463,30 @@ namespace PcmHacking
                     // to VPW for the full VPW detection below (which has its own retries).
                     await this.vehicle.SelectBus(BusProtocol.Vpw);
                 }
+            }
+            else if (new OSIDInfo(forcedPcmType).BusProtocol == BusProtocol.Can500k)
+            {
+                // Forcing a type skips the detection above, and everything below is the VPW flow, so a
+                // forced CAN PCM is handed to the CAN writer here rather than falling through to a VPW
+                // write that could only time out.
+                //
+                // The forced type IS the declared hardware, so the gate is the same one the forced VPW
+                // path applies below: the file's own content must agree with the selection. We do NOT
+                // query the PCM for an OSID - forcing a type is precisely what the user reaches for when
+                // the OSID-to-type database is wrong for their PCM, so consulting it here would defeat
+                // the point. RunCanWrite then builds its profile from validator.GetFileType(), which
+                // returns the forced type, so selecting E92 writes as an E92.
+                PcmType fileContentType = validator.DetectFileType();
+                if (fileContentType != forcedPcmType && !RuntimeSettings.AllowCrossFlashing)
+                {
+                    string msg = $"Abort: this file is for a {fileContentType} PCM, but {forcedPcmType} was selected.";
+                    logger.AddUserMessage(msg);
+                    await this.alert(msg, "Abort");
+                    return false;
+                }
+
+                logger.AddUserMessage("Writing " + forcedPcmType + " PCM.");
+                return await this.RunCanWrite(image, validator);
             }
 
             UInt64 kernelVersion = 0;
