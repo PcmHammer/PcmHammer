@@ -13,10 +13,18 @@ namespace PcmHacking
     /// master modules, then upload the slave flash routines and program the slave modules. Streaming
     /// the master OS module is what arms the slave, so the master phase always runs first.
     /// </summary>
+    /// <remarks>
+    /// The phases are the same for every boot loader; what varies is data on <see cref="OSIDInfo"/>. A
+    /// phase whose data is empty is skipped, rather than being a separate code path.
+    /// </remarks>
     public class CanBootLoaderWriter
     {
         // TransferData header: the service and mode bytes plus a four byte address.
         private const int TransferDataHeaderLength = 6;
+
+        // Settling time between ReturnToNormal and the finalize. Without a gap the PCM is still busy
+        // with the last module and ignores the finalize.
+        private static readonly TimeSpan ReturnToNormalSettleTime = TimeSpan.FromMilliseconds(500);
 
         // Message factory. Stateless, so the wire format has one source of truth.
         private static readonly Gmlan gmlan = new Gmlan();
@@ -35,14 +43,15 @@ namespace PcmHacking
         }
 
         /// <summary>
-        /// Program the master, and the slave when slave data is supplied. Modules must be complete
-        /// module images, as built by <see cref="FlashModuleBuilder"/>.
+        /// Program the master, and the slave when slave modules are supplied. Modules must be complete
+        /// module images, as built by <see cref="FlashModuleBuilder"/>. The slave flash driver is null
+        /// where the slave OS module carries its own flash routines.
         /// </summary>
         public async Task<bool> Write(
             byte[] masterFlashLibrary,
-            IList<byte[]> masterModules,
-            byte[] slaveFlashDriver,
-            IList<byte[]> slaveModules,
+            IList<FlashModule> masterModules,
+            byte[]? slaveFlashDriver,
+            IList<FlashModule>? slaveModules,
             CancellationToken cancellationToken)
         {
             try
@@ -133,6 +142,16 @@ namespace PcmHacking
                     }
 
                     byte[] request = message.GetBytes();
+
+                    if (IsReturnToNormal(request))
+                    {
+                        // Answered late, or not at all when the PCM resets on it, so send and move on.
+                        await this.commands.SendBootLoaderNotification(message);
+                        this.logger.AddDebugMessage(Describe(request) + " (no reply expected)");
+                        await Task.Delay(ReturnToNormalSettleTime, cancellationToken);
+                        continue;
+                    }
+
                     Response<byte[]> response = await this.commands.SendBootLoaderMessage(message, cancellationToken);
                     if (response.Status != ResponseStatus.Success)
                     {
@@ -171,7 +190,8 @@ namespace PcmHacking
         {
             bool rejected = response.Length >= 1 && response[0] == Gmlan.NegativeResponse;
 
-            if (IsHandshake(request, this.pcmInfo.BootLoaderMasterHandshakeDid))
+            if (this.pcmInfo.BootLoaderMasterHandshakeDid != 0
+                && IsHandshake(request, this.pcmInfo.BootLoaderMasterHandshakeDid))
             {
                 if (rejected)
                 {
@@ -181,7 +201,7 @@ namespace PcmHacking
                 return true;
             }
 
-            if (IsHandshake(request, this.pcmInfo.BootLoaderSlaveHandshakeDid))
+            if (IsSlaveHandshake(request))
             {
                 if (response.Length < 2
                     || response[0] != Gmlan.ReadDataByIdentifierResponse
@@ -232,9 +252,9 @@ namespace PcmHacking
         public static List<DownloadPhase> BuildPhases(
             OSIDInfo pcmInfo,
             byte[] masterFlashLibrary,
-            IList<byte[]> masterModules,
-            byte[] slaveFlashDriver,
-            IList<byte[]> slaveModules)
+            IList<FlashModule>? masterModules,
+            byte[]? slaveFlashDriver,
+            IList<FlashModule>? slaveModules)
         {
             var phases = new List<DownloadPhase>();
 
@@ -259,51 +279,64 @@ namespace PcmHacking
             phases.Add(new DownloadPhase(
                 "Uploading the master flash routines.",
                 "Uploading flash routines...",
-                BuildUploadMessages(pcmInfo, (uint)pcmInfo.KernelBaseAddress, masterFlashLibrary)));
+                BuildUploadMessages(pcmInfo, pcmInfo.BootLoaderLibraryAddress, masterFlashLibrary)));
 
-            // The handshake starts the master burn, then the modules stream. The OS module comes first
-            // and is what arms the slave.
-            var masterMessages = new List<Message>
+            // Where a handshake starts the master burn it comes first, then the modules stream. The OS
+            // module comes first and is what arms the slave.
+            var masterMessages = new List<Message>();
+            if (pcmInfo.BootLoaderMasterHandshakeDid != 0)
             {
-                gmlan.CreateReadByIdRequest(pcmInfo.BootLoaderMasterHandshakeDid)
-            };
+                masterMessages.Add(gmlan.CreateReadByIdRequest(pcmInfo.BootLoaderMasterHandshakeDid));
+            }
 
             if (masterModules != null)
             {
-                for (int i = 0; i < masterModules.Count; i++)
+                foreach (FlashModule module in masterModules)
                 {
-                    int headerLength = i == 0 ? pcmInfo.BootLoaderMasterHeaderLength : 0;
-                    masterMessages.AddRange(BuildModuleMessages(pcmInfo, masterModules[i], headerLength));
+                    masterMessages.AddRange(BuildModuleMessages(pcmInfo, module));
                 }
             }
 
             phases.Add(new DownloadPhase("Programming the master flash.", "Programming master flash...", masterMessages));
 
-            if (slaveFlashDriver != null && slaveModules != null && slaveModules.Count > 0)
+            if (slaveModules != null && slaveModules.Count > 0)
             {
-                // Order matters: declare the driver, engage the armed slave, then relay the driver data
-                // and the modules. The handshake sits between the driver's RequestDownload and its
-                // TransferData.
-                var slaveMessages = new List<Message>
-                {
-                    gmlan.CreateRequestDownloadRequest(slaveFlashDriver.Length, 3),
-                    gmlan.CreateReadByIdRequest(pcmInfo.BootLoaderSlaveHandshakeDid),
-                };
+                var slaveMessages = new List<Message>();
 
-                AppendTransferData(pcmInfo, slaveMessages, (uint)pcmInfo.KernelBaseAddress, slaveFlashDriver, incrementAddress: true);
-
-                for (int i = 0; i < slaveModules.Count; i++)
+                if (slaveFlashDriver != null)
                 {
-                    int headerLength = i == 0 ? pcmInfo.BootLoaderSlaveHeaderLength : 0;
-                    slaveMessages.AddRange(BuildModuleMessages(pcmInfo, slaveModules[i], headerLength));
+                    // Order matters: declare the driver, engage the armed slave, then relay the driver
+                    // data. The handshake sits between the driver's RequestDownload and its TransferData.
+                    slaveMessages.Add(gmlan.CreateRequestDownloadRequest(slaveFlashDriver.Length, 3));
+                    AppendSlaveHandshake(slaveMessages, pcmInfo);
+                    AppendTransferData(pcmInfo, slaveMessages, pcmInfo.BootLoaderLibraryAddress, slaveFlashDriver, incrementAddress: true);
+                }
+                else
+                {
+                    // No separate driver: the slave OS module carries its own flash routines, so there is
+                    // no download for the handshake to sit inside and it leads the phase.
+                    AppendSlaveHandshake(slaveMessages, pcmInfo);
+                }
+
+                foreach (FlashModule module in slaveModules)
+                {
+                    slaveMessages.AddRange(BuildModuleMessages(pcmInfo, module));
                 }
 
                 phases.Add(new DownloadPhase(
                     "Programming the slave CPU.", "Programming slave CPU...", slaveMessages));
             }
 
+            // ReturnToNormal ends the programming session for every module on the bus, then DeviceControl
+            // ends it for this PCM.
             phases.Add(new DownloadPhase(
-                "Finalizing.", "Finalizing...", new List<Message> { gmlan.CreateBootLoaderFinalizeRequest() }));
+                "Finalizing.",
+                "Finalizing...",
+                new List<Message>
+                {
+                    gmlan.CreateReturnToNormalRequest(),
+                    gmlan.CreateBootLoaderFinalizeRequest(),
+                }));
 
             return phases;
         }
@@ -320,24 +353,36 @@ namespace PcmHacking
         }
 
         /// <summary>
-        /// One module: RequestDownload declares the fixed block size, then every block streams to the
-        /// staging address, which the boot loader consumes as it programs the flash its header names.
-        /// A module with a header sends that header as a message of its own, because the boot loader
-        /// parses it before the module data arrives and rejects a header merged into a larger message.
+        /// One module: RequestDownload declares the fixed block size and how the payload is coded, then
+        /// every block streams to the staging address, which the boot loader consumes as it programs the
+        /// flash its header names. A module with a header sends that header as a message of its own,
+        /// because the boot loader parses it before the module data arrives and rejects a header merged
+        /// into a larger message.
         /// </summary>
-        private static List<Message> BuildModuleMessages(OSIDInfo pcmInfo, byte[] module, int headerLength)
+        private static List<Message> BuildModuleMessages(OSIDInfo pcmInfo, FlashModule module)
         {
-            var messages = new List<Message> { gmlan.CreateRequestDownloadRequest(pcmInfo.BootLoaderBlockSize, 2) };
+            var messages = new List<Message>
+            {
+                gmlan.CreateRequestDownloadRequest(pcmInfo.BootLoaderBlockSize, 2, module.DataFormat)
+            };
 
             int offset = 0;
-            if (headerLength > 0 && headerLength < module.Length)
+            if (module.HeaderLength > 0 && module.HeaderLength < module.Data.Length)
             {
-                messages.Add(TransferDataMessage(pcmInfo.BootLoaderStagingAddress, module, 0, headerLength));
-                offset = headerLength;
+                messages.Add(TransferDataMessage(pcmInfo.BootLoaderStagingAddress, module.Data, 0, module.HeaderLength));
+                offset = module.HeaderLength;
             }
 
-            AppendTransferData(pcmInfo, messages, pcmInfo.BootLoaderStagingAddress, module, incrementAddress: false, offset: offset);
+            AppendTransferData(pcmInfo, messages, pcmInfo.BootLoaderStagingAddress, module.Data, incrementAddress: false, offset: offset);
             return messages;
+        }
+
+        private static void AppendSlaveHandshake(List<Message> messages, OSIDInfo pcmInfo)
+        {
+            foreach (byte did in pcmInfo.BootLoaderSlaveHandshakeDids)
+            {
+                messages.Add(gmlan.CreateReadByIdRequest(did));
+            }
         }
 
         /// <summary>
@@ -366,6 +411,22 @@ namespace PcmHacking
         private static bool IsHandshake(byte[] request, byte did) =>
             request.Length >= 2 && request[0] == Gmlan.ReadDataByIdentifier && request[1] == did;
 
+        private static bool IsReturnToNormal(byte[] request) =>
+            request.Length == 1 && request[0] == Gmlan.ReturnToNormalMode;
+
+        private bool IsSlaveHandshake(byte[] request)
+        {
+            foreach (byte did in this.pcmInfo.BootLoaderSlaveHandshakeDids)
+            {
+                if (IsHandshake(request, did))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         /// <summary>Payload bytes a message carries; anything but TransferData moves no data.</summary>
         private static int DataByteCount(byte[] message) =>
             message.Length > TransferDataHeaderLength && message[0] == Gmlan.TransferData
@@ -392,6 +453,9 @@ namespace PcmHacking
 
                 case Gmlan.ReadDataByIdentifier:
                     return string.Format("ReadDataByIdentifier 0x{0:X2}", request.Length > 1 ? request[1] : 0);
+
+                case Gmlan.ReturnToNormalMode:
+                    return "ReturnToNormal";
 
                 case Gmlan.DeviceControl:
                     return "DeviceControl";

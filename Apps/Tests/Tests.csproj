@@ -76,11 +76,13 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AvtTests.cs" />
+    <Compile Include="BootLoaderWriteTests.cs" />
     <Compile Include="BusMonitorFilterTests.cs" />
     <Compile Include="CanKernelBootPolicyTests.cs" />
     <Compile Include="CanKernelUploadProtocolTests.cs" />
     <Compile Include="CanLoggerTests.cs" />
     <Compile Include="CanParserTests.cs" />
+    <Compile Include="E92ModuleCodecTests.cs" />
     <Compile Include="FlashChipTests.cs" />
     <Compile Include="GmlanTests.cs" />
     <Compile Include="IsoTpCodecTests.cs" />

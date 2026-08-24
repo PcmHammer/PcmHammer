@@ -23,7 +23,12 @@ namespace PcmHacking
         public const byte ReadDataByIdentifierResponse = 0x5A;
         public const byte RequestDownload = 0x34;
         public const byte TransferData = 0x36;
+        public const byte ReturnToNormalMode = 0x20;
         public const byte DeviceControl = 0xAE;
+
+        // RequestDownload data format identifiers: the payload is streamed as-is, or run length coded.
+        public const byte DataFormatUncompressed = 0x00;
+        public const byte DataFormatCompressed = 0x10;
         public const byte WriteDataByIdentifier = 0x3B;
         public const byte WriteDataByIdentifierResponse = 0x7B;
         public const byte VinDataIdentifier = 0x90;
@@ -170,14 +175,15 @@ namespace PcmHacking
         // ---- RequestDownload (0x34) ---------------------------------------------------------------
 
         /// <summary>
-        /// GM CAN PCM RequestDownload: 0x34 0x00 [size, big-endian]. The size width is the boot loader's
-        /// dialect - 3 bytes on E38, 2 bytes on P05c - so it is supplied by the caller.
+        /// GM CAN PCM RequestDownload: 0x34 [data format] [size, big-endian]. The size width is the boot
+        /// loader's dialect - 3 bytes on E38, 2 bytes on P05c - so it is supplied by the caller, as is
+        /// the data format identifier (0x00 as-is, 0x10 compressed).
         /// </summary>
-        public Message CreateRequestDownloadRequest(int totalBytes, int sizeBytes = 3)
+        public Message CreateRequestDownloadRequest(int totalBytes, int sizeBytes = 3, byte dataFormat = 0x00)
         {
             byte[] msg = new byte[2 + sizeBytes];
             msg[0] = 0x34;
-            msg[1] = 0x00;
+            msg[1] = dataFormat;
             for (int i = 0; i < sizeBytes; i++)
             {
                 msg[2 + i] = (byte)((totalBytes >> (8 * (sizeBytes - 1 - i))) & 0xFF);
