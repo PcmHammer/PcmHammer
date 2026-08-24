@@ -165,7 +165,7 @@ namespace PcmHacking
         }
 
         /// <summary>Create a CanCommands bound to this vehicle's device.</summary>
-        public CanCommands CreateCanCommands() => new CanCommands(this.device, this.logger, this.UserDefinedKey);
+        public CanCommands CreateCanCommands() => new CanCommands(this.device, this.logger, this.UserDefinedKey, this.SecurityKeyProvider);
 
         /// <summary>
         /// Point the command layer at a specific module: set the VPW destination used by the

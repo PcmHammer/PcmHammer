@@ -110,7 +110,7 @@ Source: "{#CliRoot}\pcmhammer-cli.exe"; DestDir: "{app}\Cli"; Components: cli; F
 Source: "{#WinFormsRoot}\PcmHammer\Kernel-*.bin"; DestDir: "{app}\Cli"; Components: cli; Flags: ignoreversion skipifsourcedoesntexist
 Source: "{#WinFormsRoot}\PcmHammer\Loader-*.bin"; DestDir: "{app}\Cli"; Components: cli; Flags: ignoreversion skipifsourcedoesntexist
 ; Boot loader flash libraries (E38). Not kernels, but loaded the same way and needed on disk.
-Source: "{#WinFormsRoot}\PcmHammer\bootlib-*.bin"; DestDir: "{app}\Cli"; Components: cli; Flags: ignoreversion skipifsourcedoesntexist
+Source: "{#WinFormsRoot}\PcmHammer\BootLib-*.bin"; DestDir: "{app}\Cli"; Components: cli; Flags: ignoreversion skipifsourcedoesntexist
 
 ; --- Shared shortcut icon ---
 Source: "{#AppIcon}"; DestDir: "{app}"; DestName: "pcmhammer.ico"; Flags: ignoreversion

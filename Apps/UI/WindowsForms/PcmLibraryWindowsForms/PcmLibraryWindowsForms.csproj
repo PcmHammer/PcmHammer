@@ -48,6 +48,9 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ContentLoader.cs" />
+    <Compile Include="SecurityKeyDialogBox.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="DialogBoxes\CanForm.cs">
       <SubType>Form</SubType>
     </Compile>

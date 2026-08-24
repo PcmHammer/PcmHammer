@@ -129,6 +129,13 @@ namespace PcmHacking
         } = -1;
 
         /// <summary>
+        /// Supplies the unlock key for a PCM with external 40-bit security (e.g. E92): given the
+        /// seed the PCM returned, return the key bytes (or null to abort). The host sets this to a
+        /// prompt (CLI stdin, GUI dialog). Null means no interactive key entry is available.
+        /// </summary>
+        public SecurityKeyProvider? SecurityKeyProvider { get; set; }
+
+        /// <summary>
         /// Silences Kernel ID reporting
         /// </summary>
         /// <remarks>

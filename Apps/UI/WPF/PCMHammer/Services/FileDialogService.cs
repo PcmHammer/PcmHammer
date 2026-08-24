@@ -1,4 +1,5 @@
 ﻿using Microsoft.Win32;
+using PcmHacking;
 
 namespace PCMHammer.Services
 {
@@ -76,8 +77,11 @@ namespace PCMHammer.Services
                 OverwritePrompt = true
             };
 
-            if (!string.IsNullOrWhiteSpace(Properties.Settings.Default.BinDirectory))
-                saveFileDialog.InitialDirectory = Properties.Settings.Default.BinDirectory;
+            // The library decides which folder this opens in, and sequences the suggested name against
+            // that same folder - open anywhere else and the name could overwrite an existing read.
+            string? initialDirectory = PackageStore.DefaultSaveDirectory(Properties.Settings.Default.BinDirectory);
+            if (!string.IsNullOrWhiteSpace(initialDirectory))
+                saveFileDialog.InitialDirectory = initialDirectory;
 
             return saveFileDialog.ShowDialog() == true ? saveFileDialog.FileName : null;
         }

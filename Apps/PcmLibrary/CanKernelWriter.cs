@@ -88,14 +88,14 @@ namespace PcmHacking
                 // The kernel needs a moment after the start ack before it answers queries.
                 await Task.Delay(300, cancellationToken);
 
-                Response<uint> version = await this.commands.GetKernelVersion(cancellationToken);
+                Response<ulong> version = await this.commands.GetKernelVersion(cancellationToken);
                 if (cancellationToken.IsCancellationRequested)
                 {
                     return false;
                 }
                 if (version.Status == ResponseStatus.Success)
                 {
-                    this.logger.AddUserMessage("Kernel version: " + CanCommands.FormatKernelVersion(version.Value));
+                    this.logger.AddUserMessage("Kernel version: " + Vehicle.FormatKernelVersion(version.Value));
                 }
                 else
                 {
@@ -433,7 +433,11 @@ namespace PcmHacking
 
                 string rangeType = range.Type.ToString();
 
-                if (((range.Type & relevantBlocks) == 0) || (range.Address >= this.effectiveImageSize))
+                // Skip ranges that are not relevant, past the usable image, or entirely below the
+                // readable start (the E92 protected boot block cannot be read, so it cannot be verified).
+                if (((range.Type & relevantBlocks) == 0)
+                    || (range.Address >= this.effectiveImageSize)
+                    || (range.Address + range.Size <= (uint)this.pcmInfo.ReadStartAddress))
                 {
                     this.logger.AddUserMessage(string.Format(
                         formatString, range.Address, range.Address + (range.Size - 1), "not needed", "not needed", "n/a", rangeType));

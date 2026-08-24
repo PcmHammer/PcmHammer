@@ -24,6 +24,9 @@ namespace PcmHacking
 
         private static readonly TimeSpan SecurityDelayLockout = TimeSpan.FromSeconds(11);
 
+        /// <summary>Seed and key length, in bytes, for PCMs with 40-bit external security.</summary>
+        private const int SeedKeyLength40 = 5;
+
         private readonly Device device;
         private readonly Gmlan gmlan;
         private readonly ILogger logger;
@@ -32,12 +35,18 @@ namespace PcmHacking
         // computed key to recover a PCM with corrupt security data.
         private readonly int userDefinedKey;
 
-        public CanCommands(Device device, ILogger logger, int userDefinedKey = -1)
+        // Supplies the key for PCMs with external 40-bit security (e.g. E92); null when the host
+        // offers no interactive key entry. Proven pairs are cached in keyStore for reuse.
+        private readonly SecurityKeyProvider? securityKeyProvider;
+        private readonly SecurityKeyStore keyStore = SecurityKeyStore.Default();
+
+        public CanCommands(Device device, ILogger logger, int userDefinedKey = -1, SecurityKeyProvider? securityKeyProvider = null)
         {
             this.device = device;
             this.gmlan = new Gmlan();
             this.logger = logger;
             this.userDefinedKey = userDefinedKey;
+            this.securityKeyProvider = securityKeyProvider;
         }
 
         // Inbound filters. The device already filters to the target's response id; these drop the
@@ -75,31 +84,24 @@ namespace PcmHacking
         /// </summary>
         public async Task<bool> Unlock(OSIDInfo pcmInfo, CancellationToken cancellationToken)
         {
+            if (pcmInfo.Uses40BitSecurity)
+            {
+                return await this.Unlock40Bit(pcmInfo, cancellationToken);
+            }
+
             await this.device.SetTimeout(TimeoutScenario.ReadProperty);
 
             for (int seedAttempt = 1; seedAttempt <= 2; seedAttempt++)
             {
                 Response<ushort> seed = await this.RequestSeed(cancellationToken);
 
-                if (seed.Status == ResponseStatus.Refused)
+                bool waitAndRetry;
+                if (!this.SeedIsUsable(seed.Status, seedAttempt, out waitAndRetry))
                 {
-                    // Lockout (NRC 0x37): wait out the delay once, then retry.
-                    if (seedAttempt == 1)
+                    if (waitAndRetry)
                     {
-                        this.logger.AddUserMessage("Security lockout, waiting to retry.");
                         await Task.Delay(SecurityDelayLockout, cancellationToken);
                         continue;
-                    }
-                    this.logger.AddUserMessage("Still in security lockout.");
-                    return false;
-                }
-
-                if (seed.Status != ResponseStatus.Success)
-                {
-                    // Cancellation is not a failure; let the caller's notice stand alone.
-                    if (seed.Status != ResponseStatus.Cancelled)
-                    {
-                        this.logger.AddUserMessage("No seed response (" + seed.Status + ").");
                     }
                     return false;
                 }
@@ -148,18 +150,164 @@ namespace PcmHacking
             return false;
         }
 
-        private async Task<Response<ushort>> RequestSeed(CancellationToken cancellationToken)
+        /// <summary>
+        /// Unlock a PCM with external 40-bit security (e.g. E92). Request the 5-byte seed, show it,
+        /// use a saved key for this PCM type + seed if we have one, otherwise ask the host's key
+        /// provider (which prompts the user). A key the PCM accepts is cached for next time; a
+        /// rejected one is forgotten. The key algorithm itself lives outside this app.
+        /// </summary>
+        private async Task<bool> Unlock40Bit(OSIDInfo pcmInfo, CancellationToken cancellationToken)
         {
-            Query<ushort> query = new Query<ushort>(
+            await this.device.SetTimeout(TimeoutScenario.ReadProperty);
+
+            for (int seedAttempt = 1; seedAttempt <= 2; seedAttempt++)
+            {
+                Response<byte[]> seed = await this.RequestSeed40(cancellationToken);
+
+                bool waitAndRetry;
+                if (!this.SeedIsUsable(seed.Status, seedAttempt, out waitAndRetry))
+                {
+                    if (waitAndRetry)
+                    {
+                        await Task.Delay(SecurityDelayLockout, cancellationToken);
+                        continue;
+                    }
+                    return false;
+                }
+
+                // All-zero seed means the PCM is already unlocked.
+                if (Utility.IsAllBytes(seed.Value, 0, seed.Value.Length, 0x00))
+                {
+                    this.logger.AddUserMessage("Already unlocked (seed is all zero).");
+                    return true;
+                }
+
+                string seedHex = seed.Value.ToHex(string.Empty);
+                this.logger.AddUserMessage("Security seed: " + seedHex);
+
+                byte[]? key = this.keyStore.TryGet(pcmInfo.HardwareType, seed.Value);
+                bool fromUser = false;
+                if (key != null)
+                {
+                    this.logger.AddUserMessage("Using saved key for this seed.");
+                }
+                else if (this.securityKeyProvider == null)
+                {
+                    this.logger.AddUserMessage(
+                        "No saved key for this seed and no interactive key entry is available. " +
+                        "Compute the key from the seed above and provide it, then retry.");
+                    return false;
+                }
+                else
+                {
+                    // The prompt blocks this operation, so do not raise one for an operation the user
+                    // has already cancelled.
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        return false;
+                    }
+
+                    key = this.securityKeyProvider(pcmInfo.HardwareType, seed.Value, cancellationToken);
+                    fromUser = true;
+                }
+
+                if (key == null || key.Length != SeedKeyLength40)
+                {
+                    // Declining the prompt, or cancelling while it is up, is not an error worth reporting.
+                    if (!cancellationToken.IsCancellationRequested)
+                    {
+                        this.logger.AddUserMessage("No valid 5-byte key was provided.");
+                    }
+                    return false;
+                }
+
+                this.logger.AddDebugMessage("seed=" + seedHex + " key=" + key.ToHex(string.Empty));
+
+                Query<bool> unlock = this.MakeQuery(
+                    () => this.gmlan.CreateUnlockRequest40(key),
+                    this.gmlan.ParseUnlockResponse,
+                    cancellationToken,
+                    maxTimeouts: 5);
+                Response<bool> result = await unlock.Execute();
+                if (result.Status == ResponseStatus.Success && result.Value)
+                {
+                    string? saveError = this.keyStore.Save(pcmInfo.HardwareType, seed.Value, key);
+                    if (fromUser)
+                    {
+                        this.logger.AddUserMessage(saveError == null
+                            ? "Key accepted and saved for next time."
+                            : "Key accepted, but it could not be saved: " + saveError);
+                    }
+                    return true;
+                }
+
+                // A rejected key must not stay cached.
+                this.keyStore.Remove(pcmInfo.HardwareType, seed.Value);
+                this.logger.AddUserMessage("Unlock rejected (" + result.Status + ").");
+                return false;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Common handling of a seed response for both unlock paths. Returns true when the seed can be
+        /// used; otherwise <paramref name="waitAndRetry"/> says whether the caller should wait out a
+        /// security lockout (NRC 0x37) and ask again, or give up.
+        /// </summary>
+        private bool SeedIsUsable(ResponseStatus status, int seedAttempt, out bool waitAndRetry)
+        {
+            waitAndRetry = false;
+
+            if (status == ResponseStatus.Refused)
+            {
+                // Lockout (NRC 0x37): wait out the delay once, then retry.
+                if (seedAttempt == 1)
+                {
+                    this.logger.AddUserMessage("Security lockout, waiting to retry.");
+                    waitAndRetry = true;
+                    return false;
+                }
+
+                this.logger.AddUserMessage("Still in security lockout.");
+                return false;
+            }
+
+            if (status != ResponseStatus.Success)
+            {
+                // Cancellation is not a failure; let the caller's notice stand alone.
+                if (status != ResponseStatus.Cancelled)
+                {
+                    this.logger.AddUserMessage("No seed response (" + status + ").");
+                }
+                return false;
+            }
+
+            return true;
+        }
+
+        private Task<Response<byte[]>> RequestSeed40(CancellationToken cancellationToken)
+            => this.SeedQuery(this.gmlan.ParseSeed40, Array.Empty<byte>(), cancellationToken);
+
+        private Task<Response<ushort>> RequestSeed(CancellationToken cancellationToken)
+            => this.SeedQuery(this.gmlan.ParseSeed, (ushort)0, cancellationToken);
+
+        /// <summary>
+        /// Request a security seed (0x27 0x01) and parse it with <paramref name="parser"/>: 16-bit for
+        /// most PCMs, 40-bit for those with external security. A timed lockout (NRC 0x37) is reported as
+        /// Refused so the caller can wait it out and retry.
+        /// </summary>
+        private async Task<Response<T>> SeedQuery<T>(Func<Message, Response<T>> parser, T refusedValue, CancellationToken cancellationToken)
+        {
+            Query<T> query = new Query<T>(
                 this.device,
                 () => this.gmlan.CreateSeedRequest(),
                 (message) =>
                 {
                     byte[] bytes = message?.GetBytes() ?? Array.Empty<byte>();
-                    // Lockout (..37): Refused, so the caller waits and retries.
                     if (bytes.Length >= 3 && bytes[0] == Gmlan.NegativeResponse && bytes[2] == Gmlan.NrcSecurityDelay)
-                        return Response.Create(ResponseStatus.Refused, (ushort)0);
-                    return this.gmlan.ParseSeed(message!);
+                        return Response.Create(ResponseStatus.Refused, refusedValue);
+                    return parser(message!);
                 },
                 this.logger, cancellationToken, notifier: null, acceptInbound: AcceptAll);
             query.MaxTimeouts = 5;
@@ -387,7 +535,7 @@ namespace PcmHacking
         // answers the version query (mode 0x3D 0x00); the stock boot loader does not.
         private async Task<bool> KernelRespondsToProbe(CancellationToken cancellationToken)
         {
-            Response<uint> version = await this.GetKernelVersion(cancellationToken);
+            Response<ulong> version = await this.GetKernelVersion(cancellationToken);
             return version.Status == ResponseStatus.Success;
         }
 
@@ -416,19 +564,13 @@ namespace PcmHacking
 
         // ---- Kernel queries (mode 0x3D) -----------------------------------------------------------
 
-        public Task<Response<uint>> GetKernelVersion(CancellationToken cancellationToken)
+        /// <summary>
+        /// Kernel version, packed as (epoch &lt;&lt; 8) | pcmType - the same value and format as the VPW
+        /// path (<see cref="Vehicle.FormatKernelVersion"/>), so every PCM's version string carries the
+        /// PCM type byte.
+        /// </summary>
+        public Task<Response<ulong>> GetKernelVersion(CancellationToken cancellationToken)
             => this.KernelQuery(() => this.gmlan.CreateKernelVersionRequest(), this.gmlan.ParseKernelVersionResponse, cancellationToken);
-
-        /// <summary>Format a kernel version (a 32-bit Unix build timestamp) as a date/time.</summary>
-        public static string FormatKernelVersion(uint version)
-        {
-            if (version == 0)
-            {
-                return "unknown";
-            }
-
-            return DateTimeOffset.FromUnixTimeSeconds(version).UtcDateTime.ToString("yyyy-MM-dd HH:mm:ss");
-        }
 
         public Task<Response<uint>> GetFlashId(CancellationToken cancellationToken)
             => this.KernelQuery(() => this.gmlan.CreateFlashIdRequest(), this.gmlan.ParseFlashIdResponse, cancellationToken);
@@ -442,10 +584,10 @@ namespace PcmHacking
             => this.KernelQuery(() => this.gmlan.CreateCrcRequest(address, length), this.gmlan.ParseCrcResponse, cancellationToken, maxTimeouts: 8);
 
         // Kernel info/CRC replies are not instant (compute + watchdog), so use the long ReadCrc timeout.
-        private async Task<Response<uint>> KernelQuery(Func<Message> generator, Func<Message, Response<uint>> parser, CancellationToken cancellationToken, int maxTimeouts = 5)
+        private async Task<Response<T>> KernelQuery<T>(Func<Message> generator, Func<Message, Response<T>> parser, CancellationToken cancellationToken, int maxTimeouts = 5)
         {
             await this.device.SetTimeout(TimeoutScenario.ReadCrc);
-            Query<uint> query = new Query<uint>(this.device, generator, parser, this.logger, cancellationToken, notifier: null, acceptInbound: AcceptMode3D);
+            Query<T> query = new Query<T>(this.device, generator, parser, this.logger, cancellationToken, notifier: null, acceptInbound: AcceptMode3D);
             query.MaxTimeouts = maxTimeouts;
             return await query.Execute();
         }
@@ -565,8 +707,7 @@ namespace PcmHacking
         // ---- Reboot -------------------------------------------------------------------------------
 
         /// <summary>
-        /// ReturnToNormalMode (0x20). Stock PCM answers 0x60; the read kernel answers 0x98 then resets.
-        /// Best-effort - the PCM returns to normal either way, so a missing reply does not fail it.
+        /// ReturnToNormalMode (0x20)
         /// </summary>
         public async Task<bool> Reboot(CancellationToken cancellationToken, bool announce = true)
         {

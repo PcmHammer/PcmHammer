@@ -1,6 +1,6 @@
 ## Overview
 
-PCM Hammer and tools support reading, writing, and data logging with General Motors P01, P04, P05 (VPW), P08, P10, P11, P12, P59, E54, 4 connector 98-02 Black Box and E38 Powertrain Control Modules (PCMs).
+PCM Hammer and tools support reading, writing, and data logging with General Motors 98+ Black Box, P01, P04, P05, P08, P10, P11, P12, P59, E38 and E54 Powertrain Control Modules (PCMs). E92/E92a for read only.
 
 ```
 +-----------+--------+-------+---------+----------+---------+-------+--------+-------------+---------+
@@ -20,6 +20,7 @@ PCM Hammer and tools support reading, writing, and data logging with General Mot
 |P59        | Yes    | Yes   | Yes     | Yes      | Yes     | N/A   | N/A    | Yes         | Assembly|
 |E38        | Yes    | Yes   | Yes     | No       | No      | No    | N/A    | Yes         | Assembly|
 |E54        | Yes    | Yes   | Yes     | N/A      | No      | N/A   | N/A    | Yes         | Assembly|
+|E92/E92a   | Yes    | Yes   | No      | No       | No      | N/A   | N/A    | No          | Assembly|
 +-----------+--------+-------+---------+----------+---------+-------+--------+-------------+---------+
 ```
 
@@ -27,14 +28,20 @@ Yes means an operation is supported by the PCM, and tested in PCM Hammer.
 No means an operation is possible in the PCM, or not supported.
 N/A means the operation is not applicable (eg PCM does not have a slave cpu).
 
-The C kernels are the original kernel, superceded by smaller kernels written in asm.
-The Assembly kernels are the smaller new generation of kernel.
+### Hardware
+PCM Hammer recommends the OBD XPro GT interface. Buying with [this link](https://obdxpro.com/?ref=pcmhacking) helps support the project.
+
+J2534 is supported. Quality and OEM interfaces generally work well. Cheap interfaces often do not. We can't test them all, so you will need to do your own searching for trusted reports of what is good.
+
+Scantool OBDlink interfaces are not recommended. We often see issues specific to these interfaces and we cannot test the whole product range. We have seen soft bricks occuring on Black Box PCMs with these due to them being too slow and missing the OK response from the flash write. Be warned. Not Recommended.
+
+### Usage
+
 The PCM Hammer team recommends to flash PCMs on the bench and with a good power supply of around 12.5v to 14v. 
 The required current is around 1 amp. Phone chargers and other cheap switch mode power supplies often cause
 flash failure due to poor quality power.
 Very thin power wires can cause voltage drop under load and cause problems.
 Quality lab type power supplies, or charged car batteries with good floating voltages are recommended.
-There are mutiple revisions of P05 PCM. PCMHammer only works with VPW capable units (P05a, P05b) and does not support CAN (P05c).
 
 ## Installation
 
@@ -53,7 +60,7 @@ If you get an error about not having the right version of .NET, you need to down
 
 ## Building
 
-You will need Visual Studio 2019 or later, and the .NET 4.6.2 SDK.
+You will need Visual Studio 2019 or later, and the .NET 4.6.2 SDK. C# 2026 recommened.
 
 You can get the .NET 4.6.2 SDK [here](https://go.microsoft.com/fwlink/?linkid=2099466)
 
@@ -63,14 +70,12 @@ You can get the .NET 4.6.2 SDK [here](https://go.microsoft.com/fwlink/?linkid=20
 
 [Announcements on Facebook](https://www.facebook.com/PcmHammer)
 
-[A shortcut to the project's GitHub page](http://pcmhammer.org/)
-
 [Universal Patcher](https://universalpatcher.net/)
 
 ## What do I need to edit bin files?
 
 Most people use tunerpro. To do so you need to know the operating system id of your computer (OSID) and use that to find a matching XDF file which tells tunerpro what is in the XDF and how to edit it. XDFs can be found on pcmhacking.net and other places. Also check out [Universal Patcher](https://universalpatcher.net/) which does a lot more than just patching!
 
-## Where did the Arduino stuff go?
+## What is a phz file?
 
-[Here.](https://github.com/LegacyNsfw/ArduinoVpw)
+/phz stands for PCM Hammer Zip. It is a zip file that can contain multiple bin files and is suited for more modern PCMs. It is required for PCMs that have slave CPUs, and will be required for vehicles that have PCM and TCM in the future when PCM Hammer gets TCM support. PCM Hammer can still read and write bins, and has import and export bin options. If you have a phz and need a bin for editing in a 3rd party program you can use the import and export bin features.
