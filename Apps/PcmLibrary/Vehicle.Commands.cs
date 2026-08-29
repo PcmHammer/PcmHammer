@@ -6,9 +6,8 @@ using System.Threading.Tasks;
 namespace PcmHacking
 {
     /// <summary>
-    /// The VPW side of <see cref="IPcmCommands"/>. Most members forward to the operations Vehicle
-    /// already exposes; they are implemented explicitly so the existing signatures, which callers all
-    /// over the app depend on, stay exactly as they are.
+    /// The VPW side of <see cref="IPcmCommands"/>: the single-block identifier read, plus the cleanup
+    /// forwarder. The interface carries only what shared code consumes through it today.
     /// </summary>
     public partial class Vehicle : IPcmCommands
     {
@@ -55,33 +54,6 @@ namespace PcmHacking
             Buffer.BlockCopy(bytes, 3, payload, 0, payload.Length);
             return Response.Create(ResponseStatus.Success, payload);
         }
-
-        Task<Response<uint>> IPcmCommands.GetFlashId(CancellationToken cancellationToken)
-            => this.QueryFlashChipId(cancellationToken);
-
-        async Task<Response<ulong>> IPcmCommands.GetKernelVersion(CancellationToken cancellationToken)
-        {
-            // The VPW query reports "nobody answered" as version zero; the interface reports it as an
-            // error, as the CAN implementation does.
-            UInt64 version = await this.GetKernelVersion(cancellationToken);
-            return version == 0
-                ? Response.Create(ResponseStatus.Error, version)
-                : Response.Create(ResponseStatus.Success, version);
-        }
-
-        async Task<bool> IPcmCommands.Reboot(CancellationToken cancellationToken, bool announce)
-        {
-            if (announce)
-            {
-                this.logger.AddUserMessage("Returning to normal mode.");
-            }
-
-            await this.ExitKernel();
-            return true;
-        }
-
-        Task IPcmCommands.ClearDiagnosticCodes(CancellationToken cancellationToken, bool announce)
-            => this.ClearTroubleCodes(announce);
 
         async Task IPcmCommands.Cleanup(CancellationToken cancellationToken)
         {

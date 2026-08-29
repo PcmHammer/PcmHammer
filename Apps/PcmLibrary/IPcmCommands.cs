@@ -5,15 +5,16 @@ using System.Threading.Tasks;
 namespace PcmHacking
 {
     /// <summary>
-    /// The command set every PCM offers, whichever bus it is reached on. <see cref="CanCommands"/>
-    /// implements it over GMLAN and <see cref="Vehicle"/> over VPW, so code that needs only these
-    /// operations can be written once instead of once per bus.
+    /// The command set that shared, bus-agnostic code needs from a PCM, whichever bus it is reached
+    /// on. <see cref="CanCommands"/> implements it over GMLAN and <see cref="Vehicle"/> over VPW.
     /// </summary>
     /// <remarks>
-    /// The names and shapes are the CAN implementation's, which is the more recently factored of the
-    /// two, so that side implements this without changing. Flash and memory operations are
-    /// deliberately absent: their VPW and CAN forms still differ in more than naming, and they belong
-    /// here only once the readers and writers that drive them are merged.
+    /// This carries only the operations that are actually consumed through the interface today: the
+    /// identifier read (by <see cref="IdentifierSweep"/>) and cleanup (by <see cref="KernelReader"/>
+    /// via <see cref="IKernelSession"/>). Both concrete classes expose more shared operations - flash
+    /// id, kernel version, reboot, clear codes - but their callers use the concrete types, so those
+    /// stay off the interface until the writer merge consumes them polymorphically. The names and
+    /// shapes follow the CAN implementation, the more recently factored side.
     /// </remarks>
     public interface IPcmCommands : ISecurityAccess
     {
@@ -24,21 +25,6 @@ namespace PcmHacking
         /// a caller sweeping identifiers is asking.
         /// </summary>
         Task<Response<byte[]>> ReadDataByIdentifier(byte did, CancellationToken cancellationToken);
-
-        /// <summary>Ask the running kernel for the flash chip's manufacturer and device id.</summary>
-        Task<Response<uint>> GetFlashId(CancellationToken cancellationToken);
-
-        /// <summary>
-        /// Ask the running kernel for its version, packed as (epoch &lt;&lt; 8) | pcmType. An error
-        /// means no kernel answered, which is how callers detect that none is running.
-        /// </summary>
-        Task<Response<ulong>> GetKernelVersion(CancellationToken cancellationToken);
-
-        /// <summary>Return the PCM to its stock operating system, without clearing codes.</summary>
-        Task<bool> Reboot(CancellationToken cancellationToken, bool announce = true);
-
-        /// <summary>Clear the trouble codes a programming session provokes across the bus.</summary>
-        Task ClearDiagnosticCodes(CancellationToken cancellationToken, bool announce = true);
 
         /// <summary>
         /// Reboot and then clear codes: the "back to normal" step an operation ends with. Best
