@@ -634,7 +634,10 @@ namespace PcmHacking
                 case PcmType.P10:
                     this.Description = "P10 1Mb";
                     this.HardwareType = PcmType.P10;
-                    this.HardwareSlaveCPU = true;
+                    // No slave CPU. Nothing found so far points to one: the five modules a P10
+                    // reports (0x3C 0A-0E) are all master flash segments, and the master image has
+                    // no room for slave firmware. The slave appears to arrive with the P12.
+                    this.HardwareSlaveCPU = false;
                     this.IsSupported = true;
                     this.IsSupportedRead = true;
                     this.IsSupportedWrite = true;

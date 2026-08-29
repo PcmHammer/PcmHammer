@@ -6,7 +6,8 @@ namespace PcmHacking.ECU.Controllers {
         public P10() {
             Description = "P10 1Mb";
             HardwareType = PcmType.P10;
-            HardwareSlaveCPU = true;
+            // No slave CPU; see the note on PcmType.P10 in PcmInfo.
+            HardwareSlaveCPU = false;
             IsSupported = true;
             IsSupportedRead = true;
             IsSupportedWrite = true;

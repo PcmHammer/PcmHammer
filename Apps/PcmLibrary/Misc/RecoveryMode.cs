@@ -85,10 +85,10 @@ namespace PcmHacking
         /// The log line reporting whether the PCM is asking to be programmed. Advisory in both
         /// directions: several interfaces cannot see the broadcast, so silence proves nothing.
         /// </summary>
-        public static string DescribeProgrammingRequest(byte? state)
+        public static string DescribeProgrammingRequest(ProgrammingRequest? request)
         {
-            return state.HasValue
-                ? "The PCM is asking to be programmed: " + DescribeProgrammedState(state.Value) + "."
+            return request != null
+                ? $"The PCM is asking to be programmed on {request.Bus}: {DescribeProgrammedState(request.State)}."
                 : "No programming request seen. Continuing anyway - not every interface can detect one.";
         }
 

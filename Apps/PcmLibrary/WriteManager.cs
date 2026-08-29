@@ -90,7 +90,7 @@ namespace PcmHacking
             }
 
             logger.AddUserMessage(RecoveryMode.DescribeEntry(pcmType, isWrite: true));
-            await this.ReportProgrammingRequest();
+            await this.ReportProgrammingRequest(pcmType);
 
             // Forcing the type is what takes us straight into the recovery flow.
             this.isRecovery = true;
@@ -105,13 +105,15 @@ namespace PcmHacking
         }
 
         /// <summary>
-        /// Note whether the PCM is broadcasting the unsolicited programming request. Advisory only:
-        /// not every interface can see it, so a negative result must never stop a recovery attempt.
+        /// Look for the PCM's programming request, which also settles which bus to work over. Advisory
+        /// only: not every interface can see the request, so a negative result must never stop a
+        /// recovery attempt - it just leaves the bus as the selected PCM type implies.
         /// </summary>
-        private async Task ReportProgrammingRequest()
+        private async Task ReportProgrammingRequest(PcmType pcmType)
         {
-            byte? state = await this.vehicle.CheckForRecoveryMode(this.cancellationToken);
-            logger.AddUserMessage(RecoveryMode.DescribeProgrammingRequest(state));
+            ProgrammingRequest? request = await this.vehicle.FindProgrammingRequest(
+                new OSIDInfo(pcmType).BusProtocol, this.cancellationToken);
+            logger.AddUserMessage(RecoveryMode.DescribeProgrammingRequest(request));
         }
 
         public async Task<bool> Write(PcmPackage package, PcmType forcedPcmType = PcmType.Undefined)
@@ -627,7 +629,7 @@ namespace PcmHacking
                         //
                         // There is deliberately no recovery probe here. A PCM in recovery announces itself
                         // by broadcasting unsolicited (0xA2, "programming prompt") - see
-                        // Vehicle.CheckForRecoveryMode, which listens for exactly that. The old active
+                        // Vehicle.FindProgrammingRequest, which listens for exactly that. The old active
                         // "recovery query" sent mode 0x62 and parsed the reply, which is a programming-mode
                         // style request rather than recovery detection; it only ever worked on ObdLink
                         // ScanTool hardware and both of its outcomes did the same thing, so it decided

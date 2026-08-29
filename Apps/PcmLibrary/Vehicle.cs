@@ -300,14 +300,64 @@ namespace PcmHacking
         // filter from and run directly on the device (not via Query<T>), so they should be
         // unaffected — but confirm on hardware that an unsolicited recovery broadcast is
         // still seen once the filter feature is in use.
+        /// <summary>How long to keep listening for a programming request before giving up on a bus.</summary>
+        private static readonly TimeSpan ProgrammingRequestListenTime = TimeSpan.FromSeconds(1.5);
+
         /// <summary>
-        /// Listen for the unsolicited programming request a PCM sends when it cannot run. Returns the
-        /// state byte that came with it, or null when nothing was heard - which does NOT mean the PCM
-        /// is healthy, as several interfaces cannot see the broadcast at all.
+        /// Listen for the programming request a PCM sends when it cannot run, on each bus this device
+        /// can use, and leave the device on the bus that answered - a PCM that is asking to be
+        /// programmed is by definition reachable on the bus we heard it on, so that is where the
+        /// recovery continues.
         /// </summary>
-        public Task<byte?> CheckForRecoveryMode(CancellationToken cancellationToken)
+        /// <param name="preferred">
+        /// The bus to try first and to fall back to. Nothing heard does NOT mean the PCM is healthy:
+        /// several interfaces cannot see the request at all, so the caller carries on regardless.
+        /// </param>
+        public async Task<ProgrammingRequest?> FindProgrammingRequest(BusProtocol preferred, CancellationToken cancellationToken)
         {
-            return this.device.ReadBroadcastState(Mode.ReportProgrammedState);
+            foreach (BusProtocol bus in Buses(preferred))
+            {
+                if (cancellationToken.IsCancellationRequested || !await this.device.SetProtocol(bus))
+                {
+                    continue;
+                }
+
+                this.SetTarget(Target.Pcm);
+
+                // The request repeats every few hundred milliseconds, and one receive can easily land
+                // between two of them, so listen across several before deciding a bus is silent.
+                DateTime deadline = DateTime.Now + ProgrammingRequestListenTime;
+                do
+                {
+                    byte? state = await this.device.ReadBroadcastState(Mode.ReportProgrammedState);
+                    if (state.HasValue)
+                    {
+                        return new ProgrammingRequest(bus, state.Value);
+                    }
+                }
+                while (DateTime.Now < deadline && !cancellationToken.IsCancellationRequested);
+            }
+
+            // Nothing answered, so leave the device where the caller expects it.
+            if (await this.device.SetProtocol(preferred))
+            {
+                this.SetTarget(Target.Pcm);
+            }
+
+            return null;
+        }
+
+        /// <summary>The preferred bus first, then the others, so a hit on the expected one is quickest.</summary>
+        private static IEnumerable<BusProtocol> Buses(BusProtocol preferred)
+        {
+            yield return preferred;
+            foreach (BusProtocol bus in new[] { BusProtocol.Vpw, BusProtocol.Can500k })
+            {
+                if (bus != preferred)
+                {
+                    yield return bus;
+                }
+            }
         }
 
 

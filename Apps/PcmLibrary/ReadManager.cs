@@ -138,10 +138,12 @@ namespace PcmHacking
 
             logger.AddUserMessage(RecoveryMode.DescribeEntry(pcmType, isWrite: false));
 
-            // Advisory only: not every interface can see the broadcast, so a negative result must
-            // never stop a recovery attempt.
-            byte? state = await this.vehicle.CheckForRecoveryMode(this.cancellationToken);
-            logger.AddUserMessage(RecoveryMode.DescribeProgrammingRequest(state));
+            // Also settles which bus to work over. Advisory only: not every interface can see the
+            // request, so a negative result must never stop a recovery attempt - it just leaves the
+            // bus as the selected PCM type implies.
+            ProgrammingRequest? request = await this.vehicle.FindProgrammingRequest(
+                new OSIDInfo(pcmType).BusProtocol, this.cancellationToken);
+            logger.AddUserMessage(RecoveryMode.DescribeProgrammingRequest(request));
 
             // Forcing the type is what takes us straight into the recovery flow.
             this.isRecovery = true;
