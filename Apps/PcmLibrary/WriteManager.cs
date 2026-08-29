@@ -20,6 +20,11 @@ namespace PcmHacking
         private Func<string, string, Task<bool>> promptForYesNo;
         private CancellationToken cancellationToken;
 
+        // Set for the duration of a RecoveryWrite. A PCM in recovery sits in its boot loader with no
+        // operating system, so the steps a healthy PCM must pass - security access, the 4X switch -
+        // become best-effort: failing them is expected and must not stop the rescue.
+        private bool isRecovery;
+
         public WriteManager(
             ILogger logger,
             Vehicle vehicle,
@@ -85,9 +90,30 @@ namespace PcmHacking
             }
 
             logger.AddUserMessage(RecoveryMode.DescribeEntry(pcmType, isWrite: true));
+            await this.ReportProgrammingRequest();
 
             // Forcing the type is what takes us straight into the recovery flow.
-            return await this.Write(package, pcmType);
+            this.isRecovery = true;
+            try
+            {
+                return await this.Write(package, pcmType);
+            }
+            finally
+            {
+                this.isRecovery = false;
+            }
+        }
+
+        /// <summary>
+        /// Note whether the PCM is broadcasting the unsolicited programming request. Advisory only:
+        /// not every interface can see it, so a negative result must never stop a recovery attempt.
+        /// </summary>
+        private async Task ReportProgrammingRequest()
+        {
+            Response<bool> broadcasting = await this.vehicle.CheckForRecoveryMode(this.cancellationToken);
+            logger.AddUserMessage(broadcasting.Status == ResponseStatus.Success && broadcasting.Value
+                ? "The PCM is broadcasting a programming request, so it is waiting to be programmed."
+                : "No programming request seen. Continuing anyway - not every interface can detect one.");
         }
 
         public async Task<bool> Write(PcmPackage package, PcmType forcedPcmType = PcmType.Undefined)
@@ -753,10 +779,21 @@ namespace PcmHacking
                 if (!unlocked)
                 {
                     logger.AddUserMessage("Unlock was not successful.");
-                    return false;
-                }
 
-                logger.AddUserMessage("Unlock succeeded.");
+                    // A PCM in recovery has no operating system to run security access, so a refusal
+                    // here says nothing about whether it can be programmed. Carry on and let the boot
+                    // loader answer for itself.
+                    if (!this.isRecovery || this.cancellationToken.IsCancellationRequested)
+                    {
+                        return false;
+                    }
+
+                    logger.AddUserMessage("Recovery: continuing without security access.");
+                }
+                else
+                {
+                    logger.AddUserMessage("Unlock succeeded.");
+                }
             }
 
             DateTime start = DateTime.Now;
@@ -766,7 +803,8 @@ namespace PcmHacking
                 pcmInfo,
                 new Protocol(),
                 writeType,
-                this.logger);
+                this.logger,
+                this.isRecovery);
 
             await writer.Write(
                 image,

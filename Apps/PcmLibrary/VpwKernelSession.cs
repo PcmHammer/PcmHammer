@@ -24,6 +24,12 @@ namespace PcmHacking
         /// <summary>Delay between CRC polls during verification.</summary>
         public int CrcPollingDelayMs { get; set; } = 50;
 
+        /// <summary>
+        /// Set for a recovery read. The PCM is in its boot loader with no operating system, so the 4X
+        /// switch may go unanswered; that is expected and must not stop the read.
+        /// </summary>
+        public bool IsRecovery { get; set; }
+
         public VpwKernelSession(Vehicle vehicle, ILogger logger)
         {
             this.vehicle = vehicle;
@@ -61,8 +67,13 @@ namespace PcmHacking
                 // 1X and everything after this fails.
                 if (!await this.vehicle.VehicleSetVPW4x(pcmInfo, VpwSpeed.FourX))
                 {
-                    this.logger.AddUserMessage("Stopping here because we were unable to switch to 4X.");
-                    return false;
+                    if (!this.IsRecovery)
+                    {
+                        this.logger.AddUserMessage("Stopping here because we were unable to switch to 4X.");
+                        return false;
+                    }
+
+                    this.logger.AddUserMessage("Recovery: 4X was refused, continuing at 1X. This will be slow.");
                 }
             }
             else

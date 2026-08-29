@@ -22,6 +22,11 @@ namespace PcmHacking
         private Func<string, string, Task<bool>> promptForYesNo;
         private CancellationToken cancellationToken;
 
+        // Set for the duration of a RecoveryRead. A PCM in recovery sits in its boot loader with no
+        // operating system, so security access and the 4X switch become best-effort: failing them is
+        // expected and must not stop the read.
+        private bool isRecovery;
+
         // Slave modules identified by part number. A slave cannot be read, so the package records a
         // reference to each one rather than its bytes.
         private readonly List<PackageImage> capturedSlaveReferences = new List<PackageImage>();
@@ -133,8 +138,23 @@ namespace PcmHacking
 
             logger.AddUserMessage(RecoveryMode.DescribeEntry(pcmType, isWrite: false));
 
+            // Advisory only: not every interface can see the broadcast, so a negative result must
+            // never stop a recovery attempt.
+            Response<bool> broadcasting = await this.vehicle.CheckForRecoveryMode(this.cancellationToken);
+            logger.AddUserMessage(broadcasting.Status == ResponseStatus.Success && broadcasting.Value
+                ? "The PCM is broadcasting a programming request, so it is waiting to be programmed."
+                : "No programming request seen. Continuing anyway - not every interface can detect one.");
+
             // Forcing the type is what takes us straight into the recovery flow.
-            return await this.ReadToPackage(progress, pcmType);
+            this.isRecovery = true;
+            try
+            {
+                return await this.ReadToPackage(progress, pcmType);
+            }
+            finally
+            {
+                this.isRecovery = false;
+            }
         }
 
         /// <summary>As <see cref="ReadToPackage(PcmType)"/>, reporting progress during the read.</summary>
@@ -453,10 +473,21 @@ namespace PcmHacking
             if (!unlocked)
             {
                 logger.AddUserMessage("Unlock was not successful.");
-                return null;
-            }
 
-            logger.AddUserMessage("Unlock succeeded.");
+                // A PCM in recovery has no operating system to run security access, so a refusal here
+                // says nothing about whether it can be read. Carry on and let the boot loader answer
+                // for itself.
+                if (!this.isRecovery || this.cancellationToken.IsCancellationRequested)
+                {
+                    return null;
+                }
+
+                logger.AddUserMessage("Recovery: continuing without security access.");
+            }
+            else
+            {
+                logger.AddUserMessage("Unlock succeeded.");
+            }
 
             if (cancellationToken.IsCancellationRequested)
             {
@@ -467,6 +498,7 @@ namespace PcmHacking
 
             VpwKernelSession session = new VpwKernelSession(this.vehicle, this.logger)
             {
+                IsRecovery = this.isRecovery,
                 CrcPollingDelayMs = this.CrcPollingDelayMs,
             };
 

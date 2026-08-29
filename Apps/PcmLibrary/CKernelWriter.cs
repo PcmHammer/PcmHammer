@@ -39,13 +39,18 @@ namespace PcmHacking
         // so a retry does not force again. Mirrors CanKernelWriter.
         private bool forceWriteAllSectorsPending;
 
-        public CKernelWriter(Vehicle vehicle, OSIDInfo pcmInfo, Protocol protocol, WriteType writeType, ILogger logger)
+        // Set for a recovery write. The PCM is in its boot loader with no operating system, so the 4X
+        // switch may go unanswered; that is expected and must not stop the rescue.
+        private readonly bool isRecovery;
+
+        public CKernelWriter(Vehicle vehicle, OSIDInfo pcmInfo, Protocol protocol, WriteType writeType, ILogger logger, bool isRecovery = false)
         {
             this.vehicle = vehicle;
             this.pcmInfo = pcmInfo;
             this.protocol = protocol;
             this.writeType = writeType;
             this.logger = logger;
+            this.isRecovery = isRecovery;
         }
 
         /// <summary>
@@ -76,8 +81,13 @@ namespace PcmHacking
                         // if the vehicle bus switches but the device does not, the bus will need to time out to revert back to 1x, and the next steps will fail.
                         if (!await this.vehicle.VehicleSetVPW4x(this.pcmInfo, VpwSpeed.FourX))
                         {
-                            logger.AddUserMessage("Stopping here because we were unable to switch to 4X.");
-                            return false;
+                            if (!this.isRecovery)
+                            {
+                                logger.AddUserMessage("Stopping here because we were unable to switch to 4X.");
+                                return false;
+                            }
+
+                            logger.AddUserMessage("Recovery: 4X was refused, continuing at 1X. This will be slow.");
                         }
                     }
                     else
