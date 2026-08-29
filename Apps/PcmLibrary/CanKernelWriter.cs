@@ -152,7 +152,7 @@ namespace PcmHacking
             {
                 // Always return the PCM to normal, on every exit path. Cleanup is best-effort and
                 // swallows its own errors, so it is safe to run even while a cancellation unwinds.
-                await this.Cleanup();
+                await this.commands.Cleanup(CancellationToken.None);
                 logger.StatusUpdateReset();
             }
         }
@@ -681,24 +681,6 @@ namespace PcmHacking
             }
 
             return Response.Create(ResponseStatus.Success, true, retryCount);
-        }
-
-        /// <summary>
-        /// Return the PCM to its stock OS and clear the codes the kernel session provokes. Uses
-        /// CancellationToken.None so cleanup completes after a cancel. Never throws.
-        /// </summary>
-        private async Task Cleanup()
-        {
-            try
-            {
-                this.logger.AddDebugMessage("Returning PCM to normal mode.");
-                await this.commands.Reboot(CancellationToken.None);
-                await this.commands.ClearDiagnosticCodes(CancellationToken.None);
-            }
-            catch (Exception exception)
-            {
-                this.logger.AddDebugMessage("Cleanup after write failed: " + exception.Message);
-            }
         }
 
         private enum RangeCompareResult

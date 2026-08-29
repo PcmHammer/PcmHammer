@@ -13,7 +13,7 @@ namespace PcmHacking
     /// keeps reading. Response-pending (7F .. 78) keepalives are handled once, generically, in
     /// <see cref="Device.ReceiveMessage"/>, so no parser here needs to special-case them.
     /// </summary>
-    public class CanCommands : ISecurityAccess
+    public class CanCommands : IPcmCommands
     {
         /// <summary>Selects the GMLAN security key table.</summary>
         public BusProtocol Bus => BusProtocol.Can500k;
@@ -767,6 +767,25 @@ namespace PcmHacking
             {
                 target.TxCanId = savedTx;
                 target.RxCanId = savedRx;
+            }
+        }
+
+        /// <summary>
+        /// Return the PCM to its stock OS and clear the codes the session provokes. Uses
+        /// CancellationToken.None for the steps themselves so cleanup completes after a cancel.
+        /// Never throws.
+        /// </summary>
+        public async Task Cleanup(CancellationToken cancellationToken)
+        {
+            try
+            {
+                this.logger.AddDebugMessage("Returning PCM to normal mode.");
+                await this.Reboot(CancellationToken.None);
+                await this.ClearDiagnosticCodes(CancellationToken.None);
+            }
+            catch (Exception exception)
+            {
+                this.logger.AddDebugMessage("Cleanup failed: " + exception.Message);
             }
         }
 

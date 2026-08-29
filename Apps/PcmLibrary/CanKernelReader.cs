@@ -224,16 +224,7 @@ namespace PcmHacking
             {
                 // Always return the PCM to its stock OS and clear the codes the kernel session provokes,
                 // even on cancel (CancellationToken.None), so the kernel is never left running.
-                try
-                {
-                    this.logger.AddDebugMessage("Returning PCM to normal mode.");
-                    await this.commands.Reboot(CancellationToken.None);
-                    await this.commands.ClearDiagnosticCodes(CancellationToken.None);
-                }
-                catch (Exception exception)
-                {
-                    this.logger.AddDebugMessage("Cleanup after read failed: " + exception.Message);
-                }
+                await this.commands.Cleanup(CancellationToken.None);
 
                 this.logger.StatusUpdateReset();
             }
