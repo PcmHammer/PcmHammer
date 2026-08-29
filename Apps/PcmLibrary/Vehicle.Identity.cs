@@ -52,7 +52,7 @@ namespace PcmHacking
                 () => this.QueryCalibrationId());
 
             string hardwareId = await ReadProperty(lines, "Hardware ID",
-                type != PcmType.P05 && type != PcmType.P05b && type != PcmType.P10 && type != PcmType.P12 && type != PcmType.E54,
+                type != PcmType.P05 && type != PcmType.P05b && type != PcmType.P10 && type != PcmType.P12 && type != PcmType.P12b && type != PcmType.E54,
                 () => this.QueryHardwareId());
 
             string serialNumber = await ReadProperty(lines, "Serial Number",

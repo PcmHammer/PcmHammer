@@ -21,6 +21,7 @@ namespace PcmHacking
         P10,
         P11,
         P12,
+        P12b, // As P12, with a 2 MiB flash chip and image
         E38,
         E92,  // GM 4 MB PowerPC e200 CAN PCM (FlexCAN), service no 12704475
         E92a, // E92 variant placeholder (to be physically confirmed)
@@ -699,6 +700,35 @@ namespace PcmHacking
                     this.LoaderBaseAddress = 0x0;
                     this.ImageBaseAddress = 0x0;
                     this.ImageSize = 1024 * 1024;
+                    this.KeyAlgorithm = 91;
+                    this.ChecksumSupport = true;
+                    this.FlashCRCSupport = true;
+                    this.FlashIDSupport = true;
+                    this.KernelVersionSupport = true;
+                    this.KernelMaxBlockSize = 4096;
+                    break;
+
+                // The P12b is a P12 with twice the flash. It is a type of its own rather than a size
+                // override on the P12, because a variant that only exists inside an OSID lookup is
+                // lost the moment anything builds a profile from the type alone - which is what a
+                // manually selected type, and every recovery operation, does.
+                case PcmType.P12b:
+                    this.Description = "P12b 2Mb (Atlas I4/I5/I6)";
+                    this.HardwareType = PcmType.P12b;
+                    this.HardwareSlaveCPU = true;
+                    this.IsSupported = true;
+                    this.IsSupportedRead = true;
+                    this.IsSupportedWrite = true;
+                    this.IsSupportedWriteSlaveCPU = false;
+                    this.IsSupportedWriteBySegment = true;
+                    this.IsSupportedWriteBootSector = false;
+                    this.LoaderRequired = false;
+                    this.KernelFileName = "Kernel-P12.bin";
+                    this.KernelBaseAddress = 0xFF2000;
+                    this.LoaderFileName = string.Empty;
+                    this.LoaderBaseAddress = 0x0;
+                    this.ImageBaseAddress = 0x0;
+                    this.ImageSize = 2048 * 1024;
                     this.KeyAlgorithm = 91;
                     this.ChecksumSupport = true;
                     this.FlashCRCSupport = true;
@@ -3736,9 +3766,8 @@ namespace PcmHacking
                 case 12611642:
                 case 12613422: //2007 Chevy Trailblazer 4.2L
                 case 12618164:
-                    PCMInfo(PcmType.P12);
+                    PCMInfo(PcmType.P12b);
                     this.Description = "P12b (2Mb) Service No 12569773";
-                    this.ImageSize = 2048 * 1024;
                     this.ServiceNumber = 12569773;
                     break;
 

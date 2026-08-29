@@ -63,6 +63,7 @@ namespace PcmHacking
                 case PcmType.P10:
                 case PcmType.P11:
                 case PcmType.P12:
+                case PcmType.P12b:
                     byte[] requestBytesP12 = { Priority.Physical0, TargetVpwId, ToolId, Mode.PCMUploadRequest };
                     return new Message(requestBytesP12);
 
@@ -96,6 +97,7 @@ namespace PcmHacking
                 // TODO: Both of these appear the same. Do we need a switch here at all? Remove and re-test against all platforms.
                 case PcmType.P10:
                 case PcmType.P12:
+                case PcmType.P12b:
                     Response<bool> response = DoSimpleValidation(message, Priority.Physical0, Mode.PCMUploadRequest);
                     if (response.Status == ResponseStatus.Success || response.Status == ResponseStatus.Refused)
                     {
