@@ -36,5 +36,45 @@ namespace PcmHacking
         public const byte SystemCalLvl       = 0x99; // System Segment Calibration Level
         public const byte SpeedCalLvl        = 0x9A; // Speed Calibration Level
         public const byte MEC                = 0xA0; // Manufacturers Enable Counter
+
+        /// <summary>
+        /// Display names for a sweep of the 0x3C block ids.
+        /// </summary>
+        /// <remarks>
+        /// These names are the P01/P59 convention. Later VPW PCMs reuse the same ids for their own
+        /// segments - a P10 answers 0x0A-0x0E with its five segments (operating system, engine
+        /// calibration, transmission calibration, system, speedometer) - so treat a name as a hint
+        /// about which id it is, not about what this PCM keeps there.
+        /// </remarks>
+        public static IReadOnlyDictionary<byte, string> Names { get; } = new Dictionary<byte, string>
+        {
+            { Vin1,               "VIN part 1" },
+            { Vin2,               "VIN part 2" },
+            { Vin3,               "VIN part 3" },
+            { HardwareID,         "Hardware ID" },
+            { Serial1,            "Serial part 1" },
+            { Serial2,            "Serial part 2" },
+            { Serial3,            "Serial part 3" },
+            { CalibrationID,      "Calibration ID" },
+            { OperatingSystemID,  "Operating system ID" },
+            { EngineCalID,        "Engine calibration ID" },
+            { EngineDiagCalID,    "Engine diagnostic calibration ID" },
+            { TransCalID,         "Transmission calibration ID" },
+            { TransDiagID,        "Transmission diagnostic calibration ID" },
+            { FuelCalID,          "Fuel calibration ID" },
+            { SystemCalID,        "System calibration ID" },
+            { SpeedCalID,         "Speedometer calibration ID" },
+            { BCC,                "Broadcast code" },
+            { OilLifePerc,        "Oil life remaining" },
+            { OperatingSystemLvl, "Operating system level" },
+            { EngineCalLvl,       "Engine calibration level" },
+            { EngineDiagCalLvl,   "Engine diagnostic calibration level" },
+            { TransCalLvl,        "Transmission calibration level" },
+            { TransDiagLvl,       "Transmission diagnostic calibration level" },
+            { FuelCalLvl,         "Fuel calibration level" },
+            { SystemCalLvl,       "System calibration level" },
+            { SpeedCalLvl,        "Speedometer calibration level" },
+            { MEC,                "Manufacturers enable counter" },
+        };
     }
 }

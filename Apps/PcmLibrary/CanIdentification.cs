@@ -165,70 +165,9 @@ namespace PcmHacking
             return new List<string>(identity.Lines);
         }
 
-        /// <summary>
-        /// Read every data identifier the module answers, not just the ones <see cref="Identifiers"/>
-        /// names. Each answer is shown as raw bytes, as a big-endian uint32 where it is four bytes
-        /// wide, and as text where it is printable, because which of those a DID means is exactly what
-        /// a sweep is run to find out. Read-only: 0x1A cannot change anything.
-        /// </summary>
-        public static async Task<List<string>> SweepDataIdentifiers(
-            CanCommands commands, ILogger logger, CancellationToken cancellationToken)
-        {
-            var lines = new List<string>();
-            Dictionary<byte, string> known = Identifiers.ToDictionary(i => i.Did, i => i.Name);
-            int refused = 0;
-
-            for (int did = 0x00; did <= 0xFF; did++)
-            {
-                if (cancellationToken.IsCancellationRequested)
-                {
-                    lines.Add("Sweep cancelled.");
-                    break;
-                }
-
-                // Most of the range is unsupported and answers with an NRC, so say something every so
-                // often; a silent sweep looks like a hang.
-                if (did % 0x20 == 0)
-                {
-                    logger.AddUserMessage(string.Format("Sweeping 0x{0:X2}-0x{1:X2}...", did, did + 0x1F));
-                }
-
-                Response<byte[]> response = await commands.ReadDataByIdentifier((byte)did, cancellationToken);
-                if (response.Status != ResponseStatus.Success
-                    || response.Value.Length < 3
-                    || response.Value[0] != Gmlan.ReadDataByIdentifierResponse)
-                {
-                    refused++;
-                    continue;
-                }
-
-                byte[] data = new byte[response.Value.Length - 2];
-                Buffer.BlockCopy(response.Value, 2, data, 0, data.Length);
-
-                var described = new List<string> { BitConverter.ToString(data).Replace("-", " ") };
-                if (TryGetUint32(response.Value, out uint number) && data.Length == 4)
-                {
-                    described.Add("uint32 " + number);
-                }
-
-                string text = FormatAscii(response.Value);
-                if (text.Length > 0 && text.All(c => c >= ' ' && c <= '~'))
-                {
-                    described.Add("text \"" + text + "\"");
-                }
-
-                string name = known.TryGetValue((byte)did, out string knownName) ? knownName : "unnamed";
-                string line = string.Format("DID {0:X2} ({1}): {2}", did, name, string.Join("  |  ", described));
-                lines.Add(line);
-                logger.AddUserMessage(line);
-            }
-
-            string summary = string.Format(
-                "{0} data identifier(s) answered, {1} did not.", lines.Count, refused);
-            lines.Add(summary);
-            logger.AddUserMessage(summary);
-            return lines;
-        }
+        /// <summary>The names this module's known DIDs are displayed under, for a sweep.</summary>
+        public static IReadOnlyDictionary<byte, string> IdentifierNames { get; } =
+            Identifiers.ToDictionary(i => i.Did, i => i.Name);
 
         // resp is the full positive response: [0x5A, did, data...].
         private static string FormatAscii(byte[] resp)

@@ -581,8 +581,9 @@ namespace PcmHacking
             return true;
         }
 
-        // Reads every data identifier a CAN PCM answers, to find which one carries a value the named
-        // identifiers do not cover. Read-only.
+        // Reads every identifier the PCM answers, to find which one carries a value the named
+        // identifiers do not cover. Read-only, and works on either bus: VPW reads 0x3C blocks, CAN
+        // reads 0x1A DIDs.
         static async Task<bool> SweepDataIdentifiers(Vehicle vehicle, ILogger logger, CancellationToken token)
         {
             DetectedModule? detected = await vehicle.DetectAndSelectPcm(token);
@@ -592,14 +593,13 @@ namespace PcmHacking
                 return false;
             }
 
-            if (detected.Bus != BusProtocol.Can500k)
-            {
-                logger.AddUserMessage($"The data identifier sweep is a GMLAN/CAN query; this PCM is on {detected.Bus}.");
-                return false;
-            }
+            bool isCan = detected.Bus == BusProtocol.Can500k;
+            IPcmCommands commands = isCan ? (IPcmCommands)vehicle.CreateCanCommands() : vehicle;
+            IReadOnlyDictionary<byte, string> names = isCan ? CanIdentification.IdentifierNames : BlockId.Names;
 
-            logger.AddUserMessage($"Sweeping data identifiers 0x00-0xFF on the {new OSIDInfo(detected.Osid).HardwareType}.");
-            await CanIdentification.SweepDataIdentifiers(vehicle.CreateCanCommands(), logger, token);
+            logger.AddUserMessage(
+                $"Sweeping {(isCan ? "data identifiers" : "0x3C blocks")} 0x00-0xFF on the {new OSIDInfo(detected.Osid).HardwareType}.");
+            await IdentifierSweep.Run(commands, names, logger, token);
             return true;
         }
 
