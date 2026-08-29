@@ -110,10 +110,8 @@ namespace PcmHacking
         /// </summary>
         private async Task ReportProgrammingRequest()
         {
-            Response<bool> broadcasting = await this.vehicle.CheckForRecoveryMode(this.cancellationToken);
-            logger.AddUserMessage(broadcasting.Status == ResponseStatus.Success && broadcasting.Value
-                ? "The PCM is broadcasting a programming request, so it is waiting to be programmed."
-                : "No programming request seen. Continuing anyway - not every interface can detect one.");
+            byte? state = await this.vehicle.CheckForRecoveryMode(this.cancellationToken);
+            logger.AddUserMessage(RecoveryMode.DescribeProgrammingRequest(state));
         }
 
         public async Task<bool> Write(PcmPackage package, PcmType forcedPcmType = PcmType.Undefined)

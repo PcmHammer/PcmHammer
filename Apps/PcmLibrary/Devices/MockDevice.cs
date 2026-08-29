@@ -128,9 +128,9 @@ namespace PcmHacking
             }
         }
 
-        public async override Task<bool> IsCommandBroadcasting(byte command)
+        public override Task<byte?> ReadBroadcastState(byte command)
         {
-            return false;
+            return Task.FromResult<byte?>(null);
         }
 
         public override string GetDeviceType()

@@ -25,9 +25,10 @@ namespace PcmHacking
             {
                 this.SetTarget(Target.Pcm);
 
-                Response<bool> recovery = await this.CheckForRecoveryMode(cancellationToken);
-                if (recovery.Status == ResponseStatus.Success && recovery.Value)
+                byte? programmedState = await this.CheckForRecoveryMode(cancellationToken);
+                if (programmedState.HasValue)
                 {
+                    this.logger.AddUserMessage(RecoveryMode.DescribeProgrammingRequest(programmedState));
                     return VehicleStatus.Recovery();
                 }
 

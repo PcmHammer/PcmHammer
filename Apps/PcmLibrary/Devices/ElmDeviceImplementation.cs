@@ -138,9 +138,43 @@ namespace PcmHacking
             throw new NotImplementedException("This is only implemented by derived classes.");
         }
 
-        public virtual Task<bool> IsCommandBroadcasting(byte command)
+        public virtual Task<byte?> ReadBroadcastState(byte command)
         {
             throw new NotImplementedException("This is only implemented by derived classes.");
+        }
+
+        /// <summary>
+        /// Find a header+command in a monitor-mode dump and return the byte that follows it. Null when
+        /// the header is absent, or present with nothing after it.
+        /// </summary>
+        protected static byte? FindBroadcastState(string monitorResponse, byte command)
+        {
+            string header = $"{Priority.Physical0:X2}{DeviceId.Tool:X2}{DeviceId.Pcm:X2}{command:X2}";
+            int index = monitorResponse.IndexOf(header, StringComparison.OrdinalIgnoreCase);
+            if (index < 0)
+            {
+                return null;
+            }
+
+            // Monitor output may or may not space out the bytes, so take the next two hex digits
+            // wherever they fall rather than assuming a fixed offset.
+            var digits = new StringBuilder(2);
+            for (int i = index + header.Length; i < monitorResponse.Length && digits.Length < 2; i++)
+            {
+                char c = monitorResponse[i];
+                if (Uri.IsHexDigit(c))
+                {
+                    digits.Append(c);
+                }
+                else if (c != ' ')
+                {
+                    break;
+                }
+            }
+
+            return digits.Length == 2
+                ? Convert.ToByte(digits.ToString(), 16)
+                : (byte?)null;
         }
         /// <summary>
         /// Send a request in string form, wait for a response (for init)

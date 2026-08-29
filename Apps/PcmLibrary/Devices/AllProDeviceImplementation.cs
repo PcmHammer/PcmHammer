@@ -219,19 +219,14 @@ namespace PcmHacking
         }
 
         // Based on scantool method, changed to use AT MA and added extra timing. Needs testing!
-        public override async Task<bool> IsCommandBroadcasting(byte command)
+        public override async Task<byte?> ReadBroadcastState(byte command)
         {
             await this.SendNoReply("AT MA");
             await Task.Delay(600);
             await this.SendNoReply("\r");
             string monitorResponse = await this.ReadELMLine();
-            string testString = $"{Priority.Physical0:X2}{DeviceId.Tool:X2}{DeviceId.Pcm:X2}{command:X2}";
             this.Logger.AddDebugMessage("Response to AT MA: " + monitorResponse);
-            if (monitorResponse.Contains(testString))
-            {
-                return true;
-            }
-            return false;
+            return FindBroadcastState(monitorResponse, command);
         }
 
 

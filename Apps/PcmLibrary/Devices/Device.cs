@@ -285,11 +285,33 @@ namespace PcmHacking
         public abstract Task<TimeoutScenario> SetTimeout(TimeoutScenario scenario);
 
         /// <summary>
-        /// This reusable method is primarily used for searching for recovery prompts from the PCM.
+        /// Listen for a message the PCM sends unprompted, addressed to the tool. Used to catch the
+        /// recovery prompt, where the PCM asks to be programmed.
         /// </summary>
-        /// <param name="command"></param>
-        /// <returns></returns>
-        public abstract Task<bool> IsCommandBroadcasting(byte command);
+        /// <returns>
+        /// The byte following the command, or null when nothing was heard. That byte is the payload
+        /// the caller is after, so "heard nothing" has to be distinct from "heard, value zero".
+        /// </returns>
+        public abstract Task<byte?> ReadBroadcastState(byte command);
+
+        /// <summary>
+        /// Match a received frame against the broadcast this caller is listening for, returning the
+        /// byte that follows the command. Shared by the devices that hand back parsed messages.
+        /// </summary>
+        protected static byte? MatchBroadcast(Message incoming, byte command)
+        {
+            byte[] received = incoming?.GetBytes() ?? Array.Empty<byte>();
+            if (received.Length < 5
+                || received[0] != Priority.Physical0
+                || received[1] != DeviceId.Tool
+                || received[2] != DeviceId.Pcm
+                || received[3] != command)
+            {
+                return null;
+            }
+
+            return received[4];
+        }
 
         public abstract string GetDeviceType();
 

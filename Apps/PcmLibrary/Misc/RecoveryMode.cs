@@ -34,11 +34,12 @@ namespace PcmHacking
 
             OSIDInfo info = new OSIDInfo(type);
 
-            // CAN recovery is not implemented yet. Say so plainly rather than starting a VPW flow on a
-            // CAN PCM, which would simply time out.
+            // Recovery applies to CAN PCMs too - GMW3110 defines the programmed state and the
+            // programming flow for both buses - but only the VPW side is built. Say that plainly
+            // rather than starting a VPW flow on a CAN PCM, which would simply time out.
             if (info.BusProtocol == BusProtocol.Can500k)
             {
-                reason = $"Recovery is not yet supported for {type} (CAN bus). Only VPW PCMs can be recovered.";
+                reason = $"Recovery for {type} (CAN bus) is not built yet. Only the VPW flow is implemented so far.";
                 return false;
             }
 
@@ -50,6 +51,45 @@ namespace PcmHacking
 
             reason = string.Empty;
             return true;
+        }
+
+        /// <summary>
+        /// Describe what a PCM broadcasting the programming request ($A2) says about itself.
+        /// </summary>
+        /// <remarks>
+        /// The state byte follows GMW3110's programmedState levels, except at 0x00. This generation of
+        /// PCM sends 0x00 to mean programming is needed, where the 2010 standard assigns it to "fully
+        /// programmed" - and a fully programmed PCM would boot and run rather than sit here asking.
+        /// So 0x00 is reported as a request without a level, and only the levels that mean the same
+        /// thing in both generations are named.
+        /// </remarks>
+        public static string DescribeProgrammedState(byte state)
+        {
+            switch (state)
+            {
+                case 0x00:
+                    return "programming is needed (this generation does not say which parts are missing)";
+
+                case 0x01:
+                    return "it has no operating system and no calibration";
+
+                case 0x02:
+                    return "it has an operating system but no calibration";
+
+                default:
+                    return $"it reports programmed state 0x{state:X2}";
+            }
+        }
+
+        /// <summary>
+        /// The log line reporting whether the PCM is asking to be programmed. Advisory in both
+        /// directions: several interfaces cannot see the broadcast, so silence proves nothing.
+        /// </summary>
+        public static string DescribeProgrammingRequest(byte? state)
+        {
+            return state.HasValue
+                ? "The PCM is asking to be programmed: " + DescribeProgrammedState(state.Value) + "."
+                : "No programming request seen. Continuing anyway - not every interface can detect one.";
         }
 
         /// <summary>The log line announcing that a recovery operation is starting.</summary>

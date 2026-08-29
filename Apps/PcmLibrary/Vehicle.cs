@@ -300,14 +300,14 @@ namespace PcmHacking
         // filter from and run directly on the device (not via Query<T>), so they should be
         // unaffected — but confirm on hardware that an unsolicited recovery broadcast is
         // still seen once the filter feature is in use.
-        public async Task<Response<bool>> CheckForRecoveryMode(CancellationToken cancellationToken)
+        /// <summary>
+        /// Listen for the unsolicited programming request a PCM sends when it cannot run. Returns the
+        /// state byte that came with it, or null when nothing was heard - which does NOT mean the PCM
+        /// is healthy, as several interfaces cannot see the broadcast at all.
+        /// </summary>
+        public Task<byte?> CheckForRecoveryMode(CancellationToken cancellationToken)
         {
-            bool result = await this.device.IsCommandBroadcasting(0xA2);
-            if (result)
-            {
-                return Response.Create(ResponseStatus.Success, result);
-            }
-            return Response.Create(ResponseStatus.Success, false);
+            return this.device.ReadBroadcastState(Mode.ReportProgrammedState);
         }
 
 

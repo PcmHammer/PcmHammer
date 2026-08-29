@@ -140,10 +140,8 @@ namespace PcmHacking
 
             // Advisory only: not every interface can see the broadcast, so a negative result must
             // never stop a recovery attempt.
-            Response<bool> broadcasting = await this.vehicle.CheckForRecoveryMode(this.cancellationToken);
-            logger.AddUserMessage(broadcasting.Status == ResponseStatus.Success && broadcasting.Value
-                ? "The PCM is broadcasting a programming request, so it is waiting to be programmed."
-                : "No programming request seen. Continuing anyway - not every interface can detect one.");
+            byte? state = await this.vehicle.CheckForRecoveryMode(this.cancellationToken);
+            logger.AddUserMessage(RecoveryMode.DescribeProgrammingRequest(state));
 
             // Forcing the type is what takes us straight into the recovery flow.
             this.isRecovery = true;
