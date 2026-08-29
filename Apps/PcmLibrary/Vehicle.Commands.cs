@@ -15,15 +15,16 @@ namespace PcmHacking
         /// <summary>
         /// Read one 0x3C block. The VIN and serial reads in Vehicle.Properties are three blocks
         /// stitched into a string; this is the single-block read, which is what identifying a module
-        /// or sweeping the block ids needs.
+        /// or sweeping the block ids needs. Named for the CAN equivalent rather than for VPW's "read
+        /// block", which would be too easily confused with a memory read.
         /// </summary>
-        public async Task<Response<byte[]>> ReadBlock(byte blockId, CancellationToken cancellationToken)
+        public async Task<Response<byte[]>> ReadDataByIdentifier(byte did, CancellationToken cancellationToken)
         {
             await this.device.SetTimeout(TimeoutScenario.ReadProperty);
 
             Query<byte[]> query = this.CreateQuery(
-                () => this.protocol.CreateReadRequest(blockId),
-                message => ParseBlockResponse(message, blockId),
+                () => this.protocol.CreateReadRequest(did),
+                message => ParseBlockResponse(message, did),
                 cancellationToken);
 
             return await query.Execute();
@@ -54,9 +55,6 @@ namespace PcmHacking
             Buffer.BlockCopy(bytes, 3, payload, 0, payload.Length);
             return Response.Create(ResponseStatus.Success, payload);
         }
-
-        Task<Response<byte[]>> IPcmCommands.ReadDataByIdentifier(byte did, CancellationToken cancellationToken)
-            => this.ReadBlock(did, cancellationToken);
 
         Task<Response<uint>> IPcmCommands.GetFlashId(CancellationToken cancellationToken)
             => this.QueryFlashChipId(cancellationToken);

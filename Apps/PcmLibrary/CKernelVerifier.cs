@@ -34,7 +34,7 @@ namespace PcmHacking
         /// the detected flash chip size, not the PCM-type default size (which can be smaller, e.g.
         /// a P04_Early carrying a 512KiB chip but defaulting to 256KiB). The P10/P11 are the
         /// intentional exception, where the chip is larger than the usable image and the caller
-        /// passes the smaller PCM-type size. The callers compute this; see CKernelReader/CKernelWriter.
+        /// passes the smaller PCM-type size. The callers compute this; see KernelReader/CKernelWriter.
         /// </param>
         public CKernelVerifier(
             byte[] image,

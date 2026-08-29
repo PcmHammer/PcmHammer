@@ -81,7 +81,8 @@ namespace PcmHacking
                     description = "Default 512KiB";
                     memoryRanges = new MemoryRange[]
                     {
-                        // Used by CKernelReader to initialise FlashChip default value
+                        // Placeholder ranges. The readers now express "chip not identified" as a null
+                        // FlashChip, so nothing in the app reaches for this entry any more.
                         new MemoryRange(0x60000, 0x20000, BlockType.OperatingSystem), // 128kb main block
                         new MemoryRange(0x40000, 0x20000, BlockType.OperatingSystem), // 128kb main block
                         new MemoryRange(0x20000, 0x20000, BlockType.OperatingSystem), // 128kb main block

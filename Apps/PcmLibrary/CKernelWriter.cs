@@ -289,7 +289,7 @@ namespace PcmHacking
             // intentional exception - they carry a larger chip than they use (only the lower
             // 512KiB is wired up), so we keep the smaller PCM-type size for those. The size check
             // above guarantees the file matches whichever size we settle on, so we never read past
-            // the end of the image below. This mirrors the read path in CKernelReader.
+            // the end of the image below. This mirrors KernelReader.EffectiveImageSize on the read path.
             if (pcmInfo.HardwareType == PcmType.P10 || pcmInfo.HardwareType == PcmType.P11)
             {
                 this.effectiveImageSize = (UInt32)this.pcmInfo.ImageSize;

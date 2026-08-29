@@ -320,7 +320,8 @@ namespace PcmHacking
             }
 
             DateTime start = DateTime.Now;
-            CanKernelReader reader = new CanKernelReader(this.vehicle, commands, pcmInfo, this.logger);
+            CanKernelSession session = new CanKernelSession(this.vehicle, commands, this.logger);
+            KernelReader reader = new KernelReader(session, pcmInfo, this.logger);
             Response<Stream> readResponse = await reader.ReadContents(this.cancellationToken, progress);
 
             logger.AddUserMessage("Elapsed time " + DateTime.Now.Subtract(start));
@@ -464,14 +465,12 @@ namespace PcmHacking
 
             DateTime start = DateTime.Now;
 
-            CKernelReader reader = new CKernelReader(
-                this.vehicle,
-                pcmInfo,
-                this.logger)
+            VpwKernelSession session = new VpwKernelSession(this.vehicle, this.logger)
             {
                 CrcPollingDelayMs = this.CrcPollingDelayMs,
             };
 
+            KernelReader reader = new KernelReader(session, pcmInfo, this.logger);
             Response<Stream> readResponse = await reader.ReadContents(this.cancellationToken, progress);
 
             logger.AddUserMessage("Elapsed time " + DateTime.Now.Subtract(start));
