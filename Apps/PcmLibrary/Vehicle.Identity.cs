@@ -66,11 +66,51 @@ namespace PcmHacking
             string mec = await ReadProperty(lines, "MEC", true, () => this.QueryMEC());
             string voltage = await ReadProperty(lines, "Voltage", true, () => this.QueryVoltage());
 
+            // Per-segment calibration IDs.
+            List<CanIdentification.Item> modules = await this.ReadSegmentIds(lines);
+
             return new PcmIdentity(
                 pcm.Bus, pcm.Osid, info.Description,
                 vin, calibrationId, hardwareId, serialNumber, broadcastCode, mec, voltage,
-                Array.Empty<CanIdentification.Item>(),
+                modules,
                 lines);
+        }
+
+        // The 0x3C blocks that hold a segment's part number. A PCM answers the ones it has (a P10 has
+        // five, a P12 eight), so unsupported blocks are simply skipped rather than gated by type.
+        private static readonly byte[] SegmentIdBlocks =
+        {
+            BlockId.OperatingSystemID, BlockId.EngineCalID, BlockId.EngineDiagCalID,
+            BlockId.TransCalID, BlockId.TransDiagID, BlockId.FuelCalID,
+            BlockId.SystemCalID, BlockId.SpeedCalID,
+        };
+
+        /// <summary>
+        /// Read each segment's part number and return the ones the PCM reports. A block that is not
+        /// supported answers with a negative response and is left out; so is an empty slot (0 or
+        /// 0xFFFFFFFF). Every reported segment is also appended to <paramref name="lines"/>.
+        /// </summary>
+        private async Task<List<CanIdentification.Item>> ReadSegmentIds(List<string> lines)
+        {
+            var modules = new List<CanIdentification.Item>();
+            foreach (byte block in SegmentIdBlocks)
+            {
+                Response<UInt32> response = await this.QueryUnsignedValue(
+                    () => this.protocol.CreateReadRequest(block), CancellationToken.None);
+
+                if (response.Status != ResponseStatus.Success
+                    || response.Value == 0
+                    || response.Value == 0xFFFFFFFF)
+                {
+                    continue;
+                }
+
+                string name = BlockId.Names.TryGetValue(block, out string blockName) ? blockName : $"Block 0x{block:X2}";
+                lines.Add(name + ": " + response.Value);
+                modules.Add(new CanIdentification.Item(name, response.Value.ToString()));
+            }
+
+            return modules;
         }
 
         private async Task<PcmIdentity> ReadCanIdentity(DetectedModule pcm, CancellationToken cancellationToken)
