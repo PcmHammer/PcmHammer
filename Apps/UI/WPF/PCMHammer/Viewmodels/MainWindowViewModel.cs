@@ -124,7 +124,6 @@ namespace PCMHammer.Viewmodels
             ReadPropertiesCommand.NotifyCanExecuteChanged();
             ReadPCMCommand.NotifyCanExecuteChanged();
             WritePCMCommand.NotifyCanExecuteChanged();
-            TestWriteCommand.NotifyCanExecuteChanged();
             VerifyPCMCommand.NotifyCanExecuteChanged();
             WriteParametersCommand.NotifyCanExecuteChanged();
             WriteOSCalibrationBootCommand.NotifyCanExecuteChanged();
@@ -391,8 +390,6 @@ namespace PCMHammer.Viewmodels
         }
         [RelayCommand(CanExecute = nameof(CanWriteDocument))]
         public async Task WritePCM() => await ExecuteWritePCMAsyncWithDialog();
-        [RelayCommand(CanExecute = nameof(CanWriteDocument))]
-        public async Task TestWrite() => await ExecuteWritePCMAsync(WriteType.TestWrite);
         [RelayCommand(CanExecute = nameof(IsOperationRunning))]
         public async Task CancelCurrent()
         {
@@ -993,7 +990,34 @@ namespace PCMHammer.Viewmodels
 
         private async Task ExecuteWritePCMAsyncWithDialog()
         {
-            WriteOperationDialogBox dialog = new() { Owner = Application.Current.MainWindow };
+            // Probe the bus first so the dialog can offer only the write types this PCM supports. On
+            // failure it falls back to offering them all, and the writer rejects the ones that do not fit.
+            OSIDInfo? detected = null;
+            if (Vehicle != null)
+            {
+                try
+                {
+                    IsOperationRunning = true;
+                    StatusText = "Detecting PCM...";
+                    DetectedModule? pcm = await Vehicle.DetectAndSelectPcm(CancellationToken.None);
+                    if (pcm != null)
+                    {
+                        detected = new OSIDInfo(pcm.Osid);
+                        _logger.AddUserMessage($"Detected {detected.HardwareType} on {pcm.Bus}");
+                    }
+                }
+                catch (Exception exception)
+                {
+                    _logger.AddDebugMessage("PCM detection failed: " + exception.Message);
+                }
+                finally
+                {
+                    IsOperationRunning = false;
+                    StatusText = "Ready";
+                }
+            }
+
+            WriteOperationDialogBox dialog = new(detected) { Owner = Application.Current.MainWindow };
             if (dialog.ShowDialog() == true)
             {
                 await ExecuteWritePCMAsync(dialog.SelectedWriteType, dialog.SelectedPCMType);

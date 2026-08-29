@@ -196,6 +196,13 @@ namespace PcmHacking
         public bool RequiresBootLoaderWrite { get; private set; }
 
         /// <summary>
+        /// Whether a write can be rehearsed without programming anything. The rehearsal drives the
+        /// kernel's erase and write path with the writes suppressed, so it needs a kernel that has one.
+        /// A boot loader has no equivalent: it programs whatever it is handed.
+        /// </summary>
+        public bool IsSupportedTestWrite => this.IsSupportedWrite && !this.RequiresBootLoaderWrite;
+
+        /// <summary>
         /// Address the boot loader stages module data at, before programming the flash named by the
         /// module header.
         /// </summary>

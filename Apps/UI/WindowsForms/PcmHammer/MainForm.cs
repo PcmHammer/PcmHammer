@@ -453,7 +453,6 @@ namespace PcmHacking
             this.saveFileButton.Enabled = loaded;
             this.exportBinButton.Enabled = loaded;
             this.writeCalibrationButton.Enabled = loaded;
-            this.testWriteButton.Enabled = loaded;
             this.verifyPcmButton.Enabled = loaded;
 
             this.saveFileToolStripMenuItem.Enabled = loaded;
@@ -1235,7 +1234,6 @@ namespace PcmHacking
             this.readPcmButton.Enabled = false;
             this.verifyPcmButton.Enabled = false;
 
-            this.testWriteButton.Enabled = false;
             this.writeCalibrationButton.Enabled = false;
             this.exitKernelButton.Enabled = false;
             this.reinitializeButton.Enabled = false;
@@ -1283,7 +1281,6 @@ namespace PcmHacking
                 this.readPcmButton.Enabled = true;
                 this.verifyPcmButton.Enabled = true;
 
-                this.testWriteButton.Enabled = true;
                 this.writeCalibrationButton.Enabled = true;
                 this.exitKernelButton.Enabled = true;
                 this.reinitializeButton.Enabled = true;
@@ -1908,16 +1905,6 @@ namespace PcmHacking
             if (!BackgroundWorker.IsAlive)
             {
                 BackgroundWorker = new System.Threading.Thread(() => write_BackgroundThread(WriteType.Compare));
-                BackgroundWorker.IsBackground = true;
-                BackgroundWorker.Start();
-            }
-        }
-
-        private void testWriteButton_Click(object sender, EventArgs e)
-        {
-            if (!BackgroundWorker.IsAlive)
-            {
-                BackgroundWorker = new System.Threading.Thread(() => write_BackgroundThread(WriteType.TestWrite));
                 BackgroundWorker.IsBackground = true;
                 BackgroundWorker.Start();
             }

@@ -328,6 +328,20 @@ namespace PcmHacking
                 return false;
             }
 
+            // A test write rehearses the kernel's erase and write path with the writes suppressed, so a
+            // PCM whose kernel has no such path cannot rehearse one. Say so instead of sending block
+            // writes that nothing will answer.
+            if (this.writeType == WriteType.TestWrite && !pcmInfo.IsSupportedTestWrite)
+            {
+                string msg = pcmInfo.IsSupportedWrite
+                    ? $"Abort: the {pcmInfo.HardwareType} is programmed through its boot loader, which has no test mode. "
+                        + "Use Verify to compare the file against the PCM."
+                    : $"Abort: The connected {pcmInfo.HardwareType} PCM is not supported for write operations.";
+                logger.AddUserMessage(msg);
+                await this.alert(msg, "Abort");
+                return false;
+            }
+
             // Comparisons and test writes are non-destructive, so they are allowed even where a real
             // write is not. A real write is gated on the PCM's write support like the VPW path.
             bool destructive = this.writeType != WriteType.Compare && this.writeType != WriteType.TestWrite;

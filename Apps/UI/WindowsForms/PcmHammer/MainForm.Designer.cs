@@ -36,7 +36,6 @@
             this.operationsBox = new System.Windows.Forms.GroupBox();
             this.verifyPcmButton = new System.Windows.Forms.Button();
             this.readPcmButton = new System.Windows.Forms.Button();
-            this.testWriteButton = new System.Windows.Forms.Button();
             this.exitKernelButton = new System.Windows.Forms.Button();
             this.cancelButton = new System.Windows.Forms.Button();
             this.writeCalibrationButton = new System.Windows.Forms.Button();
@@ -160,7 +159,6 @@
             | System.Windows.Forms.AnchorStyles.Left)));
             this.operationsBox.Controls.Add(this.verifyPcmButton);
             this.operationsBox.Controls.Add(this.readPcmButton);
-            this.operationsBox.Controls.Add(this.testWriteButton);
             this.operationsBox.Controls.Add(this.exitKernelButton);
             this.operationsBox.Controls.Add(this.cancelButton);
             this.operationsBox.Controls.Add(this.writeCalibrationButton);
@@ -176,11 +174,11 @@
             // 
             // verifyPcmButton
             // 
-            this.verifyPcmButton.Location = new System.Drawing.Point(4, 134);
+            this.verifyPcmButton.Location = new System.Drawing.Point(4, 105);
             this.verifyPcmButton.Margin = new System.Windows.Forms.Padding(2);
             this.verifyPcmButton.Name = "verifyPcmButton";
             this.verifyPcmButton.Size = new System.Drawing.Size(182, 25);
-            this.verifyPcmButton.TabIndex = 7;
+            this.verifyPcmButton.TabIndex = 6;
             this.verifyPcmButton.Text = "&Verify PCM";
             this.verifyPcmButton.UseVisualStyleBackColor = true;
             this.verifyPcmButton.Click += new System.EventHandler(this.quickComparisonButton_Click);
@@ -195,18 +193,7 @@
             this.readPcmButton.Text = "Read P&CM";
             this.readPcmButton.UseVisualStyleBackColor = true;
             this.readPcmButton.Click += new System.EventHandler(this.readFullContentsButton_Click);
-            // 
-            // testWriteButton
-            // 
-            this.testWriteButton.Location = new System.Drawing.Point(4, 105);
-            this.testWriteButton.Margin = new System.Windows.Forms.Padding(2);
-            this.testWriteButton.Name = "testWriteButton";
-            this.testWriteButton.Size = new System.Drawing.Size(182, 25);
-            this.testWriteButton.TabIndex = 6;
-            this.testWriteButton.Text = "T&est Write";
-            this.testWriteButton.UseVisualStyleBackColor = true;
-            this.testWriteButton.Click += new System.EventHandler(this.testWriteButton_Click);
-            // 
+            //
             // exitKernelButton
             // 
             this.exitKernelButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
@@ -814,7 +801,6 @@
         private System.Windows.Forms.TabPage helpTab;
         private System.Windows.Forms.WebBrowser helpWebBrowser;
         private System.Windows.Forms.Button exitKernelButton;
-        private System.Windows.Forms.Button testWriteButton;
         private System.Windows.Forms.TabPage creditsTab;
         private System.Windows.Forms.WebBrowser creditsWebBrowser;
         private System.Windows.Forms.MenuStrip menuStripMain;

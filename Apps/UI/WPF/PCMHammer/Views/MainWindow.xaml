@@ -98,12 +98,12 @@
                 <GroupBox Header="Operations" Grid.Row="1" VerticalAlignment="Center">
                     <StackPanel>
                         <!-- Enablement is owned by each command's CanExecute: Read/Read Properties need a
-                             connected device (CanStartOperation); Write/Test Write/Verify additionally
-                             need a loaded document (CanWriteDocument). -->
+                             connected device (CanStartOperation); Write/Verify additionally need a loaded
+                             document (CanWriteDocument). Write offers the write types the detected PCM
+                             supports, test write among them. -->
                         <Button Content="Read _Properties"      Command="{Binding ReadPropertiesCommand}"   HorizontalAlignment="Stretch" Margin="0,0,0,5"/>
                         <Button Content="Read P_CM"             Command="{Binding ReadPCMCommand}"          HorizontalAlignment="Stretch" Margin="0,0,0,5"/>
                         <Button Content="_Write PCM"            Command="{Binding WritePCMCommand}"         HorizontalAlignment="Stretch" Margin="0,0,0,5"/>
-                        <Button Content="T_est Write"           Command="{Binding TestWriteCommand}"        HorizontalAlignment="Stretch" Margin="0,0,0,5"/>
                         <Button Content="_Verify PCM"           Command="{Binding VerifyPCMCommand}"        HorizontalAlignment="Stretch" Margin="0,0,0,5"/>
                     </StackPanel>
                 </GroupBox>

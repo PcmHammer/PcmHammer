@@ -69,6 +69,9 @@ namespace PcmHacking
                     case "--identify-pcm":
                         operation = "identify-pcm";
                         break;
+                    case "--did-sweep":
+                        operation = "did-sweep";
+                        break;
                     case "--detect":
                         operation = "detect";
                         break;
@@ -166,7 +169,7 @@ namespace PcmHacking
                 return 1;
             }
 
-            if (filePath == null && operation != "read" && operation != "test-read" && operation != "identify-pcm" && operation != "brute-force" && operation != "detect" && operation != "monitor")
+            if (filePath == null && operation != "read" && operation != "test-read" && operation != "identify-pcm" && operation != "did-sweep" && operation != "brute-force" && operation != "detect" && operation != "monitor")
             {
                 Console.Error.WriteLine($"Error: No file path specified for --{operation}.");
                 return 1;
@@ -307,6 +310,11 @@ namespace PcmHacking
                         case "identify-pcm":
                         {
                             success = await IdentifyPcm(vehicle, logger, cts.Token);
+                            break;
+                        }
+                        case "did-sweep":
+                        {
+                            success = await SweepDataIdentifiers(vehicle, logger, cts.Token);
                             break;
                         }
                         case "detect":
@@ -573,6 +581,28 @@ namespace PcmHacking
             return true;
         }
 
+        // Reads every data identifier a CAN PCM answers, to find which one carries a value the named
+        // identifiers do not cover. Read-only.
+        static async Task<bool> SweepDataIdentifiers(Vehicle vehicle, ILogger logger, CancellationToken token)
+        {
+            DetectedModule? detected = await vehicle.DetectAndSelectPcm(token);
+            if (detected == null)
+            {
+                logger.AddUserMessage("No PCM detected.");
+                return false;
+            }
+
+            if (detected.Bus != BusProtocol.Can500k)
+            {
+                logger.AddUserMessage($"The data identifier sweep is a GMLAN/CAN query; this PCM is on {detected.Bus}.");
+                return false;
+            }
+
+            logger.AddUserMessage($"Sweeping data identifiers 0x00-0xFF on the {new OSIDInfo(detected.Osid).HardwareType}.");
+            await CanIdentification.SweepDataIdentifiers(vehicle.CreateCanCommands(), logger, token);
+            return true;
+        }
+
         // Brute-forces the PCM's security access: optionally sweeps the 256 known GM key algorithms
         // first, then tries the numeric key range. All the search/timing logic lives in PcmLibrary's
         // BruteForcer; this just parses the CLI options, selects the bus, and surfaces the outcome.
@@ -813,9 +843,11 @@ namespace PcmHacking
             Console.WriteLine("  --read [file]             Read entire PCM to file (auto-names if omitted)");
             Console.WriteLine("  --test-read               Read entire PCM (auto-detects VPW or CAN) without saving");
             Console.WriteLine("  --write <file>            Write entire PCM from file");
-            Console.WriteLine("  --test-write <file>       Test write (no permanent changes)");
+            Console.WriteLine("  --test-write <file>       Test write (no permanent changes; needs a PCM");
+            Console.WriteLine("                            whose kernel can write, so not boot loader PCMs)");
             Console.WriteLine("  --verify <file>           CRC-compare file against PCM (no erase/write)");
             Console.WriteLine("  --identify-pcm            Read VIN, OSID, calibration, serial, voltage");
+            Console.WriteLine("  --did-sweep               Read every data identifier a CAN PCM answers");
             Console.WriteLine("  --detect                  Scan the buses (VPW, CAN) and list the modules that respond");
             Console.WriteLine("  --monitor [vpw|can] [ids] Passively display bus traffic until Ctrl+C (default vpw)");
             Console.WriteLine($"                            CAN: list hex ids to filter (default {BusMonitor.DefaultCanFilter}), or 'all'");

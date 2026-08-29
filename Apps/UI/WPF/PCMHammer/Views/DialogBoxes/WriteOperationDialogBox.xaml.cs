@@ -26,10 +26,13 @@ namespace PCMHammer.Views.DialogBoxes
             set => _selectedWriteType = value;
         }
 
-        public WriteOperationDialogBox()
+        /// <param name="detected">
+        /// The PCM found by probing the bus before the dialog opened, or null if nothing was detected.
+        /// </param>
+        public WriteOperationDialogBox(OSIDInfo? detected = null)
         {
             InitializeComponent();
-            _viewModel = new WriteTypeViewModel();
+            _viewModel = new WriteTypeViewModel(detected);
             DataContext = _viewModel;
             // The initial selections come from the view model's constructor, not from
             // ComboBox.SelectedIndex here - see WriteTypeViewModel for why that was unreliable.

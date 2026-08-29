@@ -43,9 +43,14 @@ namespace Tests
             Assert.IsFalse(e92.HasParameterBlocks, "There is no parameter block in E92 flash to write.");
 
             // The kernel reads and CRCs but cannot program, so a destructive write must never reach the
-            // kernel writer. The E38 has a write kernel and uses the boot loader only for its slave.
+            // kernel writer, and there is no write path to rehearse a test write against.
             Assert.IsTrue(e92.RequiresBootLoaderWrite);
-            Assert.IsFalse(new OSIDInfo(PcmType.E38).RequiresBootLoaderWrite);
+            Assert.IsFalse(e92.IsSupportedTestWrite);
+
+            // The E38 has a write kernel and uses the boot loader only for its slave.
+            var e38 = new OSIDInfo(PcmType.E38);
+            Assert.IsFalse(e38.RequiresBootLoaderWrite);
+            Assert.IsTrue(e38.IsSupportedTestWrite);
         }
 
         /// <summary>
