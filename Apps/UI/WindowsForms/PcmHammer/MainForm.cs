@@ -723,7 +723,7 @@ namespace PcmHacking
         /// <summary>
         /// Export Bin: write selected images from the loaded document out as raw .bin files, for editing
         /// elsewhere. The dialog defaults to the main image; each selection is written as
-        /// "&lt;base&gt;_&lt;PCMType&gt;_&lt;target&gt;.bin" so multiple selections never collide.
+        /// "<base>_<PCMType>_<target>.bin" so multiple selections never collide.
         /// </summary>
         private void exportBinButton_Click(object sender, EventArgs e)
         {
@@ -1203,7 +1203,7 @@ namespace PcmHacking
                 SaveLog(this.debugLog, fileName);
             }
 
-            this.Vehicle?.Dispose();
+            this.ReleaseVehicle();
         }
 
         /// <summary>

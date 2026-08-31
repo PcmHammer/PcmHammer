@@ -23,7 +23,13 @@ namespace PcmHacking
         /// the optional loader, and the kernel upload; on CAN the kernel upload alone. Identifying the
         /// flash chip is part of it, because the two buses disagree about whether failing to is fatal.
         /// </summary>
-        Task<bool> Start(OSIDInfo pcmInfo, KernelOperation operation, CancellationToken cancellationToken);
+        /// <param name="kernelAlreadyRunning">
+        /// True when a kernel is already live (the write manager found one before calling), so the
+        /// upload is skipped and only the chip is (re)identified. The read path always passes false.
+        /// The IAC probe runs only for <see cref="KernelOperation.Read"/>; a write never needs it, and
+        /// on a P01/P59 it crashes the kernel.
+        /// </param>
+        Task<bool> Start(OSIDInfo pcmInfo, KernelOperation operation, bool kernelAlreadyRunning, CancellationToken cancellationToken);
 
         /// <summary>
         /// The flash chip <see cref="Start"/> identified, or null where it could not be. Null means
@@ -55,5 +61,51 @@ namespace PcmHacking
         /// checksums - so each session reports its own result and logs its own detail.
         /// </summary>
         Task<ResponseStatus> Verify(byte[] image, int imageSize, CancellationToken cancellationToken);
+
+        // ---- Write operations, driven by KernelWriter -------------------------------------------
+
+        /// <summary>
+        /// Compare each in-scope range's on-device CRC against the image and record both on the range
+        /// (DesiredCrc/ActualCrc), so the caller's write plan can tell which ranges differ. VPW polls
+        /// the kernel through <see cref="KernelVerifier"/>; CAN asks for each range's CRC directly.
+        /// Also prints the comparison table.
+        /// </summary>
+        Task<CrcVerificationResult> CompareRanges(
+            byte[] image, BlockType relevantBlocks, uint effectiveImageSize, uint baseAddress, CancellationToken cancellationToken);
+
+        /// <summary>Erase the sector that contains this range's base address.</summary>
+        Task<bool> EraseRange(MemoryRange range, uint baseAddress, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Write one range in device-sized blocks, reporting progress. Returns Success with the retry
+        /// count on the response; a non-Success status aborts the write.
+        /// </summary>
+        Task<Response<bool>> WriteRange(
+            MemoryRange range, byte[] image, uint baseAddress, bool justTestWrite,
+            System.DateTime startTime, uint totalSize, uint bytesRemaining, CancellationToken cancellationToken);
+
+        /// <summary>Largest payload this session writes in one block.</summary>
+        int MaxWriteBlockSize { get; }
+
+        /// <summary>Called at the start of each erase/write pass, so a session can reset its throughput timer.</summary>
+        void BeginWritePass();
+
+        /// <summary>
+        /// A recovery aid a bus may run after a failed write - the VPW writer erases calibration to
+        /// force the PCM into recovery mode. A no-op where the bus has no such step.
+        /// </summary>
+        Task AfterFailedWrite(BlockType relevantBlocks, WriteType writeType, CancellationToken cancellationToken);
+
+        /// <summary>Ask the user for diagnostic logs after a hardware-looking failure. A no-op on buses that do not.</summary>
+        void RequestDiagnostics(CancellationToken cancellationToken);
+
+        /// <summary>
+        /// After the kernel is running and before any erase/write, confirm the operating system on the
+        /// PCM matches the file. Returns false to abort. The VPW writer asks the kernel for the OSID
+        /// and halts on a mismatch when a partial write requires it; CAN has no equivalent and returns
+        /// true.
+        /// </summary>
+        Task<bool> VerifyOperatingSystem(
+            FileValidator validator, bool needToCheckOperatingSystem, WriteType writeType, CancellationToken cancellationToken);
     }
 }

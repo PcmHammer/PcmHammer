@@ -115,7 +115,7 @@ namespace PcmHacking
             }
         }
 
-        /// <summary>Archive path for an image: "&lt;controller.Id&gt;/&lt;file&gt;" (e.g. "1/main.bin").</summary>
+        /// <summary>Archive path for an image: "<controller.Id>/<file>" (e.g. "1/main.bin").</summary>
         private static string ImageEntryPath(PackageController controller, PackageImage image)
         {
             if (string.IsNullOrEmpty(image.FileName))

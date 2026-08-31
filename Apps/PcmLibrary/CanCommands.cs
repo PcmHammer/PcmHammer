@@ -565,7 +565,7 @@ namespace PcmHacking
         // ---- Kernel queries (mode 0x3D) -----------------------------------------------------------
 
         /// <summary>
-        /// Kernel version, packed as (epoch &lt;&lt; 8) | pcmType - the same value and format as the VPW
+        /// Kernel version, packed as (epoch << 8) | pcmType - the same value and format as the VPW
         /// path (<see cref="Vehicle.FormatKernelVersion"/>), so every PCM's version string carries the
         /// PCM type byte.
         /// </summary>

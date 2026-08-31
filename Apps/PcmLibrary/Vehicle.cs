@@ -274,7 +274,7 @@ namespace PcmHacking
 
         /// <summary>
         /// Open an inbound message-filter scope for a request/response exchange driven
-        /// through this Vehicle (e.g. the CKernel* read/verify loops, which don't hold a
+        /// through this Vehicle (e.g. the VPW kernel read/verify loops, which don't hold a
         /// direct Device reference). While the returned scope is held, bus traffic that
         /// isn't a reply to the given request is dropped; dispose it when the exchange is
         /// done. Mirrors how the Query class filters its own exchanges.

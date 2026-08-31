@@ -454,7 +454,10 @@ namespace PcmHacking
                     this.FlashCRCSupport = true;
                     this.FlashIDSupport = true;
                     this.KernelVersionSupport = true;
-                    this.DetectIAC = true;
+                    // Disabled: the IAC presence probe (3D 06) crashes the P01/P59 kernel, which breaks
+                    // the read. Re-enable once the kernel's IAC handler is fixed. See also the read-only
+                    // gating in VpwKernelSession.Start.
+                    this.DetectIAC = false;
                     this.KernelMaxBlockSize = 4096;
                     break;
 
@@ -479,7 +482,10 @@ namespace PcmHacking
                     this.FlashCRCSupport = true;
                     this.FlashIDSupport = true;
                     this.KernelVersionSupport = true;
-                    this.DetectIAC = true;
+                    // Disabled: the IAC presence probe (3D 06) crashes the P01/P59 kernel, which breaks
+                    // the read. Re-enable once the kernel's IAC handler is fixed. See also the read-only
+                    // gating in VpwKernelSession.Start.
+                    this.DetectIAC = false;
                     this.KernelMaxBlockSize = 4096;
                     break;
 

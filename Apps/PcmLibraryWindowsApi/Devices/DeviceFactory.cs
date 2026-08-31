@@ -190,6 +190,15 @@ namespace PcmHacking
 
             return null;
             }
+            catch (Exception exception)
+            {
+                // A probe that throws - a port lost or re-opened mid-detect, an unexpected device
+                // response - means we could not identify a device on this port. Report it and move on
+                // rather than letting it crash auto-detect. The finally still disposes the unowned port.
+                logger.AddUserMessage($"Unable to auto-detect a device on {serialPortName}.");
+                logger.AddDebugMessage(exception.ToString());
+                return null;
+            }
             finally
             {
                 // No Device took ownership of the port (no match, or an exception was thrown).

@@ -6,7 +6,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace Tests
 {
     /// <summary>
-    /// Unit tests for the CAN writer's boot-sector write policy (CanKernelWriter.BootPolicyAllowsWritePlan).
+    /// Unit tests for the CAN writer's boot-sector write policy (WritePlan.BootPolicyAllowsWritePlan).
     /// This is the gate that, on a PCM whose IsSupportedWriteBootSector is false (e.g. P05c), aborts a
     /// destructive write before any erase when the plan would rewrite a boot range that differs from the
     /// image. It mirrors the long-standing VPW protection so the CAN path cannot clobber the boot sector.
@@ -36,7 +36,7 @@ namespace Tests
             // Boot CRC mismatch -> the plan would erase/write boot -> abort.
             var ranges = Layout(bootActualCrc: 0xAAAA, bootDesiredCrc: 0xBBBB, calActualCrc: 1, calDesiredCrc: 1);
 
-            bool allowed = CanKernelWriter.BootPolicyAllowsWritePlan(
+            bool allowed = WritePlan.BootPolicyAllowsWritePlan(
                 WriteType.Full, supportsBootSectorWrite: false, BlockType.All, ImageSize, ranges);
 
             Assert.IsFalse(allowed);
@@ -49,7 +49,7 @@ namespace Tests
             // calibration is written. A normal reflash of the same hardware proceeds.
             var ranges = Layout(bootActualCrc: 0xAAAA, bootDesiredCrc: 0xAAAA, calActualCrc: 0x1111, calDesiredCrc: 0x2222);
 
-            bool allowed = CanKernelWriter.BootPolicyAllowsWritePlan(
+            bool allowed = WritePlan.BootPolicyAllowsWritePlan(
                 WriteType.Full, supportsBootSectorWrite: false, BlockType.All, ImageSize, ranges);
 
             Assert.IsTrue(allowed);
@@ -62,7 +62,7 @@ namespace Tests
             // so the boot range is never in the plan.
             var ranges = Layout(bootActualCrc: 0xAAAA, bootDesiredCrc: 0xBBBB, calActualCrc: 0x1111, calDesiredCrc: 0x2222);
 
-            bool allowed = CanKernelWriter.BootPolicyAllowsWritePlan(
+            bool allowed = WritePlan.BootPolicyAllowsWritePlan(
                 WriteType.Calibration, supportsBootSectorWrite: false, BlockType.Calibration, ImageSize, ranges);
 
             Assert.IsTrue(allowed);
@@ -73,7 +73,7 @@ namespace Tests
         {
             var ranges = Layout(bootActualCrc: 0xAAAA, bootDesiredCrc: 0xBBBB, calActualCrc: 1, calDesiredCrc: 1);
 
-            bool allowed = CanKernelWriter.BootPolicyAllowsWritePlan(
+            bool allowed = WritePlan.BootPolicyAllowsWritePlan(
                 WriteType.Compare, supportsBootSectorWrite: false, BlockType.All, ImageSize, ranges);
 
             Assert.IsTrue(allowed);
@@ -85,7 +85,7 @@ namespace Tests
             // Test write never erases or programs, so it is safe regardless of the boot CRC.
             var ranges = Layout(bootActualCrc: 0xAAAA, bootDesiredCrc: 0xBBBB, calActualCrc: 1, calDesiredCrc: 1);
 
-            bool allowed = CanKernelWriter.BootPolicyAllowsWritePlan(
+            bool allowed = WritePlan.BootPolicyAllowsWritePlan(
                 WriteType.TestWrite, supportsBootSectorWrite: false, BlockType.Calibration, ImageSize, ranges);
 
             Assert.IsTrue(allowed);
@@ -98,7 +98,7 @@ namespace Tests
         {
             var ranges = Layout(bootActualCrc: 0xAAAA, bootDesiredCrc: 0xBBBB, calActualCrc: 1, calDesiredCrc: 1);
 
-            bool allowed = CanKernelWriter.BootPolicyAllowsWritePlan(
+            bool allowed = WritePlan.BootPolicyAllowsWritePlan(
                 WriteType.Full, supportsBootSectorWrite: true, BlockType.All, ImageSize, ranges);
 
             Assert.IsTrue(allowed);
@@ -110,7 +110,7 @@ namespace Tests
         public void ShouldProcessRange_SkipsMatchingCrc_OnRealWrite()
         {
             var range = new MemoryRange(0x00000, 0x04000, BlockType.Boot) { ActualCrc = 7, DesiredCrc = 7 };
-            Assert.IsFalse(CanKernelWriter.ShouldProcessRange(
+            Assert.IsFalse(WritePlan.ShouldProcessRange(
                 range, BlockType.All, WriteType.Full, ImageSize,
                 forceAllSectors: false, supportsBootSectorWrite: true));
         }
@@ -120,7 +120,7 @@ namespace Tests
         {
             // A test write exercises every relevant range regardless of CRC.
             var range = new MemoryRange(0x08000, 0x08000, BlockType.Calibration) { ActualCrc = 7, DesiredCrc = 7 };
-            Assert.IsTrue(CanKernelWriter.ShouldProcessRange(
+            Assert.IsTrue(WritePlan.ShouldProcessRange(
                 range, BlockType.Calibration, WriteType.TestWrite, ImageSize,
                 forceAllSectors: false, supportsBootSectorWrite: true));
         }
@@ -129,7 +129,7 @@ namespace Tests
         public void ShouldProcessRange_SkipsRangeOutsideImage()
         {
             var range = new MemoryRange(ImageSize, 0x04000, BlockType.OperatingSystem) { ActualCrc = 1, DesiredCrc = 2 };
-            Assert.IsFalse(CanKernelWriter.ShouldProcessRange(
+            Assert.IsFalse(WritePlan.ShouldProcessRange(
                 range, BlockType.All, WriteType.Full, ImageSize,
                 forceAllSectors: false, supportsBootSectorWrite: true));
         }
@@ -138,7 +138,7 @@ namespace Tests
         public void ShouldProcessRange_SkipsIrrelevantBlockType()
         {
             var range = new MemoryRange(0x00000, 0x04000, BlockType.Boot) { ActualCrc = 1, DesiredCrc = 2 };
-            Assert.IsFalse(CanKernelWriter.ShouldProcessRange(
+            Assert.IsFalse(WritePlan.ShouldProcessRange(
                 range, BlockType.Calibration, WriteType.Full, ImageSize,
                 forceAllSectors: false, supportsBootSectorWrite: true));
         }
@@ -156,7 +156,7 @@ namespace Tests
             // forced write proceeds with every other sector.
             var ranges = Layout(bootActualCrc: 0xAAAA, bootDesiredCrc: 0xAAAA, calActualCrc: 0x1111, calDesiredCrc: 0x2222);
 
-            bool allowed = CanKernelWriter.BootPolicyAllowsWritePlan(
+            bool allowed = WritePlan.BootPolicyAllowsWritePlan(
                 WriteType.Full, supportsBootSectorWrite: false, BlockType.All, ImageSize, ranges,
                 forceAllSectors: true);
 
@@ -172,7 +172,7 @@ namespace Tests
             // Boot genuinely needs writing and this PCM cannot do it. Refuse before anything is erased.
             var ranges = Layout(bootActualCrc: 0xAAAA, bootDesiredCrc: 0xBBBB, calActualCrc: 0x1111, calDesiredCrc: 0x2222);
 
-            bool allowed = CanKernelWriter.BootPolicyAllowsWritePlan(
+            bool allowed = WritePlan.BootPolicyAllowsWritePlan(
                 WriteType.Full, supportsBootSectorWrite: false, BlockType.All, ImageSize, ranges,
                 forceAllSectors: true);
 
@@ -197,7 +197,7 @@ namespace Tests
             // for a calibration write, so the clone is still allowed on a no-boot-write PCM.
             var ranges = Layout(bootActualCrc: 0xAAAA, bootDesiredCrc: 0xBBBB, calActualCrc: 0x1111, calDesiredCrc: 0x2222);
 
-            bool allowed = CanKernelWriter.BootPolicyAllowsWritePlan(
+            bool allowed = WritePlan.BootPolicyAllowsWritePlan(
                 WriteType.Calibration, supportsBootSectorWrite: false, BlockType.Calibration, ImageSize, ranges,
                 forceAllSectors: true);
 
@@ -209,7 +209,7 @@ namespace Tests
         {
             var ranges = Layout(bootActualCrc: 0xAAAA, bootDesiredCrc: 0xAAAA, calActualCrc: 1, calDesiredCrc: 1);
 
-            bool allowed = CanKernelWriter.BootPolicyAllowsWritePlan(
+            bool allowed = WritePlan.BootPolicyAllowsWritePlan(
                 WriteType.Full, supportsBootSectorWrite: true, BlockType.All, ImageSize, ranges,
                 forceAllSectors: true);
 
@@ -221,7 +221,7 @@ namespace Tests
         {
             // A PCM that CAN rewrite boot honours the force flag everywhere, boot included.
             var range = new MemoryRange(0x00000, 0x04000, BlockType.Boot) { ActualCrc = 7, DesiredCrc = 7 };
-            Assert.IsTrue(CanKernelWriter.ShouldProcessRange(
+            Assert.IsTrue(WritePlan.ShouldProcessRange(
                 range, BlockType.All, WriteType.Full, ImageSize,
                 forceAllSectors: true, supportsBootSectorWrite: true));
         }
@@ -232,7 +232,7 @@ namespace Tests
             // Same forced write on a PCM that cannot rewrite boot: the identical boot range is left
             // out rather than erased and rewritten as a no-op.
             var range = new MemoryRange(0x00000, 0x04000, BlockType.Boot) { ActualCrc = 7, DesiredCrc = 7 };
-            Assert.IsFalse(CanKernelWriter.ShouldProcessRange(
+            Assert.IsFalse(WritePlan.ShouldProcessRange(
                 range, BlockType.All, WriteType.Full, ImageSize,
                 forceAllSectors: true, supportsBootSectorWrite: false));
         }
@@ -242,7 +242,7 @@ namespace Tests
         {
             // Differing boot stays in the plan so the boot-policy gate can refuse the whole operation.
             var range = new MemoryRange(0x00000, 0x04000, BlockType.Boot) { ActualCrc = 7, DesiredCrc = 8 };
-            Assert.IsTrue(CanKernelWriter.ShouldProcessRange(
+            Assert.IsTrue(WritePlan.ShouldProcessRange(
                 range, BlockType.All, WriteType.Full, ImageSize,
                 forceAllSectors: true, supportsBootSectorWrite: false));
         }
@@ -252,7 +252,7 @@ namespace Tests
         {
             // The boot carve-out must not weaken forcing anywhere else.
             var cal = new MemoryRange(0x08000, 0x08000, BlockType.Calibration) { ActualCrc = 7, DesiredCrc = 7 };
-            Assert.IsTrue(CanKernelWriter.ShouldProcessRange(
+            Assert.IsTrue(WritePlan.ShouldProcessRange(
                 cal, BlockType.All, WriteType.Full, ImageSize,
                 forceAllSectors: true, supportsBootSectorWrite: false));
         }
@@ -262,12 +262,12 @@ namespace Tests
         {
             // Force must not widen scope: out-of-image and irrelevant-block ranges stay skipped.
             var outside = new MemoryRange(ImageSize, 0x04000, BlockType.OperatingSystem) { ActualCrc = 1, DesiredCrc = 2 };
-            Assert.IsFalse(CanKernelWriter.ShouldProcessRange(
+            Assert.IsFalse(WritePlan.ShouldProcessRange(
                 outside, BlockType.All, WriteType.Full, ImageSize,
                 forceAllSectors: true, supportsBootSectorWrite: true));
 
             var irrelevant = new MemoryRange(0x00000, 0x04000, BlockType.Boot) { ActualCrc = 1, DesiredCrc = 2 };
-            Assert.IsFalse(CanKernelWriter.ShouldProcessRange(
+            Assert.IsFalse(WritePlan.ShouldProcessRange(
                 irrelevant, BlockType.Calibration, WriteType.Full, ImageSize,
                 forceAllSectors: true, supportsBootSectorWrite: true));
         }

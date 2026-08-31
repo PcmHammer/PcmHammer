@@ -330,8 +330,8 @@ namespace PcmHacking
         }
 
         /// <summary>
-        /// Write a CAN-bus PCM. Mirrors the VPW write process but goes through the CAN kernel
-        /// writer: identify, run the brick-risk gates, unlock, then hand off to <see cref="CanKernelWriter"/>
+        /// Write a CAN-bus PCM. Mirrors the VPW write process but builds a CAN kernel session:
+        /// identify, run the brick-risk gates, unlock, then hand off to <see cref="KernelWriter"/>
         /// for the upload + compare/erase/write/verify loop. Assumes the device is already selected on
         /// CAN. A test write is non-destructive and is always allowed.
         /// </summary>
@@ -423,8 +423,9 @@ namespace PcmHacking
             }
 
             DateTime start = DateTime.Now;
-            CanKernelWriter writer = new CanKernelWriter(this.vehicle, commands, pcmInfo, this.writeType, this.logger);
-            bool success = await writer.Write(image, validator, this.cancellationToken);
+            CanKernelSession session = new CanKernelSession(this.vehicle, commands, this.logger);
+            KernelWriter writer = new KernelWriter(session, pcmInfo, this.writeType, this.logger);
+            bool success = await writer.Write(image, validator, needToCheckOperatingSystem: false, kernelAlreadyRunning: false, this.cancellationToken);
             logger.AddUserMessage("Elapsed time " + DateTime.Now.Subtract(start));
             return success;
         }
@@ -798,19 +799,18 @@ namespace PcmHacking
 
             DateTime start = DateTime.Now;
 
-            CKernelWriter writer = new CKernelWriter(
-                this.vehicle,
-                pcmInfo,
-                new Protocol(),
-                writeType,
-                this.logger,
-                this.isRecovery);
+            VpwKernelSession session = new VpwKernelSession(this.vehicle, this.logger)
+            {
+                IsRecovery = this.isRecovery,
+            };
+
+            KernelWriter writer = new KernelWriter(session, pcmInfo, writeType, this.logger);
 
             await writer.Write(
                 image,
-                kernelVersion,
                 validator,
                 needToCheckOperatingSystem,
+                kernelAlreadyRunning: kernelVersion != 0,
                 this.cancellationToken);
             logger.AddUserMessage("Elapsed time " + DateTime.Now.Subtract(start));
             return true;

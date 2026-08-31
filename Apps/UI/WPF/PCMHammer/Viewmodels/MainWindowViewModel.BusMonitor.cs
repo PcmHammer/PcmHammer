@@ -5,7 +5,7 @@ using CommunityToolkit.Mvvm.Input;
 namespace PCMHammer.Viewmodels
 {
     /// <summary>
-    /// Host side of the Bus Monitor tab. The tab and its Save entry stay hidden until Tools &gt; Bus
+    /// Host side of the Bus Monitor tab. The tab and its Save entry stay hidden until Tools > Bus
     /// Monitor is used, as WinForms only adds its tab page on demand.
     /// </summary>
     public partial class MainWindowViewModel

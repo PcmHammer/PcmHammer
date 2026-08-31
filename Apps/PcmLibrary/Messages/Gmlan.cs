@@ -311,8 +311,8 @@ namespace PcmHacking
 
         /// <summary>
         /// Parse the kernel version as a packed value 0x7D 0x00 [epoch 4 bytes] [pcmType 1 byte],
-        /// returned as (epoch &lt;&lt; 8) | pcmType - the same packing the VPW kernels use, so both
-        /// protocols share one "&lt;date&gt; PCM=0xXX" version string. A kernel that omits the pcmType
+        /// returned as (epoch << 8) | pcmType - the same packing the VPW kernels use, so both
+        /// protocols share one "<date> PCM=0xXX" version string. A kernel that omits the pcmType
         /// byte (E38 replies with only the four epoch bytes) yields pcmType 0.
         /// </summary>
         public Response<ulong> ParseKernelVersionResponse(Message message)

@@ -36,7 +36,7 @@ namespace PcmHacking
         {
             try
             {
-                if (!await this.session.Start(this.pcmInfo, KernelOperation.Read, cancellationToken))
+                if (!await this.session.Start(this.pcmInfo, KernelOperation.Read, kernelAlreadyRunning: false, cancellationToken))
                 {
                     return Response.Create(
                         cancellationToken.IsCancellationRequested ? ResponseStatus.Cancelled : ResponseStatus.Error,
@@ -199,7 +199,7 @@ namespace PcmHacking
         /// <remarks>
         /// The P10 and P11 are the exception: they carry a 1MiB chip but only the lower 512KiB is
         /// wired up, so the profile size has to stand. This mirrors the same special case in
-        /// CKernelWriter, which deliberately writes a 512KiB image to a 1MiB chip.
+        /// KernelWriter, which deliberately writes a 512KiB image to a 1MiB chip.
         /// </remarks>
         public static int EffectiveImageSize(OSIDInfo pcmInfo, FlashChip? flashChip, ILogger logger)
         {
