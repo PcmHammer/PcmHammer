@@ -124,7 +124,7 @@ namespace PcmHacking
             // The OSID lives in a different SWMI slot across families, so it is derived from the first
             // candidate that answered with a usable value rather than fixed to one DID. A module that
             // answers but leaves the slot empty (all zeroes or all ones) falls through to the next.
-            // Shown on top of the SWMI list because downstream lookups key off it.
+            // The caller formats the OSID/Type header from this value; here we only derive it.
             uint operatingSystemId = 0;
             foreach (byte did in Gmlan.OperatingSystemDids)
             {
@@ -133,7 +133,6 @@ namespace PcmHacking
                     && Gmlan.IsUsableOsid(osidValue))
                 {
                     operatingSystemId = osidValue;
-                    lines.Add("OSID: " + osidValue);
                     break;
                 }
             }

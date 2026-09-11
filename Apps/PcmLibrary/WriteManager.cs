@@ -477,7 +477,7 @@ namespace PcmHacking
                     // known type. When it does and it disagrees with the file, reject the mismatch - the
                     // same gate the VPW path applies below. When it does not resolve we cannot verify the
                     // hardware, so warn about the brick risk and let the user decide.
-                    PcmType connectedType = new OSIDInfo(detected.Osid).HardwareType;
+                    PcmType connectedType = detected.HardwareType;
                     if (connectedType == PcmType.Undefined)
                     {
                         string msg = "PCM Hardware is not known/verified. The PCM may brick if the file is not compatible. Continue?";

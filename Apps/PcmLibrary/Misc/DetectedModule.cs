@@ -17,11 +17,18 @@ namespace PcmHacking
         /// <summary>The operating system id the module reported.</summary>
         public uint Osid { get; }
 
+        /// <summary>The PCM profile resolved from the OSID (type + capabilities); a forced or recovery type is resolved separately, not from here.</summary>
+        public OSIDInfo Info { get; }
+
+        /// <summary>The PCM type from the resolved OSID.</summary>
+        public PcmType HardwareType => this.Info.HardwareType;
+
         public DetectedModule(BusProtocol bus, Target target, uint osid)
         {
             this.Bus = bus;
             this.Target = target;
             this.Osid = osid;
+            this.Info = new OSIDInfo(osid);
         }
     }
 }

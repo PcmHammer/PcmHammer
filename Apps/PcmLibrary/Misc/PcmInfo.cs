@@ -3388,7 +3388,8 @@ namespace PcmHacking
                     this.ServiceNumber = 12591279;
                     break;
 
-                // P05c (CAN only). OSID is DID 0xC1 (OS segment / Module 1), not 0xC9.
+                // P05c (CAN only).
+                case 12612055: // service no 12600930
                 case 12616867: // service no 12600930
                     PCMInfo(PcmType.P05c);
                     this.Description = "P05c (CAN) Service No 12600930";
@@ -3396,7 +3397,6 @@ namespace PcmHacking
                     break;
 
                 // 2006-2009 P05 service number 12604962 is also CAN only (OSID not yet known)
-
                 case 12603217:
                     PCMInfo(PcmType.P05);
                     this.Description = "2005 P05 (VPW+CAN) Service No 12604963";
@@ -3807,6 +3807,7 @@ namespace PcmHacking
                     break;
 
                 // E92 (GM 4 MB PowerPC e200 CAN PCM). Service number 12704475.
+                case 12659455:
                 case 12691156: // SWMI1 / OSID 12691156, service no 12704475
                     PCMInfo(PcmType.E92);
                     this.ServiceNumber = 12704475;

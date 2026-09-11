@@ -718,12 +718,19 @@ namespace PcmHacking
 
             await this.device.SetTimeout(TimeoutScenario.Detect);
 
-            await this.MakeQuery(
+            // Discard anything already queued before we send, so a leftover unsolicited marker cannot
+            // be mistaken for the reboot ack. 0x98 ("end of programming / leaving boot loader") is a
+            // GM CAN status marker broadcast unsolicited, and a stale one used to false-match here in
+            // ~2ms - leaving the kernel running because the real reboot never happened. The genuine ack
+            // to ReturnToNormal is 0x60, which the kernel sends immediately before it software-resets.
+            this.device.ClearMessageQueue();
+
+            Response<bool> result = await this.MakeQuery(
                 () => this.gmlan.CreateReturnToNormalRequest(),
-                this.Confirm(b => b[0] == 0x60 || b[0] == 0x98),
+                this.Confirm(b => b[0] == 0x60),
                 cancellationToken, maxTimeouts: 3).Execute();
 
-            return true;
+            return result.Status == ResponseStatus.Success;
         }
 
         /// <summary>

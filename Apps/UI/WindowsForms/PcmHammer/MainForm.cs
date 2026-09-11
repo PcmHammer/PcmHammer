@@ -1256,6 +1256,12 @@ namespace PcmHacking
         /// </summary>
         protected override void EnableUserInput()
         {
+            // Returning to the interactive state ends the operation, so clear the transient status bar
+            // (activity/percent/progress/etc.) back to idle. Every operation ends by calling this from
+            // its finally, including the failure paths, so a stage that aborts part-way (e.g. a failed
+            // kernel upload) doesn't leave its "Uploading kernel to PCM..." text stuck in the status bar.
+            this.StatusUpdateReset();
+
             this.Invoke((MethodInvoker)delegate ()
             {
                 this.interfaceBox.Enabled = true;
@@ -1737,7 +1743,7 @@ namespace PcmHacking
                     DetectedModule? pcm = await this.Vehicle.DetectAndSelectPcm(CancellationToken.None);
                     if (pcm != null)
                     {
-                        detected = new OSIDInfo(pcm.Osid);
+                        detected = pcm.Info;
                         this.AddUserMessage(string.Format(
                             "Detected {0} on {1}", detected.HardwareType, pcm.Bus));
                     }

@@ -1002,7 +1002,7 @@ namespace PCMHammer.Viewmodels
                     DetectedModule? pcm = await Vehicle.DetectAndSelectPcm(CancellationToken.None);
                     if (pcm != null)
                     {
-                        detected = new OSIDInfo(pcm.Osid);
+                        detected = pcm.Info;
                         _logger.AddUserMessage($"Detected {detected.HardwareType} on {pcm.Bus}");
                     }
                 }

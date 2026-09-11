@@ -34,13 +34,14 @@ namespace PcmHacking
 
         private async Task<PcmIdentity> ReadVpwIdentity(DetectedModule pcm, CancellationToken cancellationToken)
         {
-            OSIDInfo info = new OSIDInfo(pcm.Osid);
+            OSIDInfo info = pcm.Info;
             PcmType type = info.HardwareType;
 
             List<string> lines = new List<string>
             {
                 "Detected PCM on " + pcm.Bus,
                 "OSID: " + pcm.Osid,
+                "Type: " + type,
                 "Description: " + info.Description,
             };
 
@@ -118,9 +119,19 @@ namespace PcmHacking
             CanIdentification.Identity identity = await CanIdentification.Query(this.CreateCanCommands(), cancellationToken);
 
             List<string> lines = new List<string> { "Detected PCM on " + pcm.Bus, "PCM Identification:" };
+
+            // Resolve the OSID/Type/Description header here - the same place the VPW path resolves it -
+            // so CanIdentification stays a raw DID formatter and the type database is consulted once.
+            OSIDInfo? osidInfo = identity.Osid == 0 ? null : new OSIDInfo(identity.Osid);
+            if (osidInfo != null)
+            {
+                lines.Add("OSID: " + identity.Osid);
+                lines.Add("Type: " + osidInfo.HardwareType);
+            }
+
             lines.AddRange(identity.Lines);
 
-            string description = identity.Osid == 0 ? PcmIdentity.Unavailable : new OSIDInfo(identity.Osid).Description;
+            string description = osidInfo?.Description ?? PcmIdentity.Unavailable;
             string vin = string.IsNullOrEmpty(identity.Vin) ? PcmIdentity.Unavailable : identity.Vin;
 
             // The VIN has its own field; the rest of the identifiers are the software module list. The

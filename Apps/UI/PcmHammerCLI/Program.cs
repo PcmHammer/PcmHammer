@@ -598,7 +598,7 @@ namespace PcmHacking
             IReadOnlyDictionary<byte, string> names = isCan ? CanIdentification.IdentifierNames : BlockId.Names;
 
             logger.AddUserMessage(
-                $"Sweeping {(isCan ? "data identifiers" : "0x3C blocks")} 0x00-0xFF on the {new OSIDInfo(detected.Osid).HardwareType}.");
+                $"Sweeping {(isCan ? "data identifiers" : "0x3C blocks")} 0x00-0xFF on the {detected.HardwareType}.");
             await IdentifierSweep.Run(commands, names, logger, token);
             return true;
         }

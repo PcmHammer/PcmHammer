@@ -371,8 +371,7 @@ namespace PcmHacking
                 if (detected != null && detected.Bus == BusProtocol.Can500k)
                 {
                     // Auto-detect on CAN: resolve the PCM from its OSID
-                    OSIDInfo detectedInfo = new OSIDInfo(detected.Osid);
-                    return await this.RunCanRead(progress, detectedInfo);
+                    return await this.RunCanRead(progress, detected.Info);
                 }
                 if (detected == null)
                 {
