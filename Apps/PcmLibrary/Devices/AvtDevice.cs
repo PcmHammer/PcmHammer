@@ -514,22 +514,11 @@ namespace PcmHacking
         }
 
         // This needs testing, but in theory should work.
-        public override async Task<bool> IsCommandBroadcasting(byte command)
+        public override async Task<byte?> ReadBroadcastState(byte command)
         {
             this.ClearMessageQueue();
-            byte[] expectedMsg = [Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, command, 0x00];
             Message incoming = await ReceiveMessage();
-            if (incoming != null)
-            {
-                byte[] recv = incoming.GetBytes();
-                if (recv.Length >= 5)
-                {
-                    expectedMsg[4] = recv[4];
-                }
-                if (Utility.CompareArrays(recv, expectedMsg))
-                    return true;
-            }
-            return false;
+            return MatchBroadcast(incoming, command);
         }
 
         // There might be a better way to achieve this with AVT.

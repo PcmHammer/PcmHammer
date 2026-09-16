@@ -20,6 +20,11 @@ namespace PcmHacking
         private Func<string, string, Task<bool>> promptForYesNo;
         private CancellationToken cancellationToken;
 
+        // Set for the duration of a RecoveryWrite. A PCM in recovery sits in its boot loader with no
+        // operating system, so the steps a healthy PCM must pass - security access, the 4X switch -
+        // become best-effort: failing them is expected and must not stop the rescue.
+        private bool isRecovery;
+
         public WriteManager(
             ILogger logger,
             Vehicle vehicle,
@@ -85,9 +90,30 @@ namespace PcmHacking
             }
 
             logger.AddUserMessage(RecoveryMode.DescribeEntry(pcmType, isWrite: true));
+            await this.ReportProgrammingRequest(pcmType);
 
             // Forcing the type is what takes us straight into the recovery flow.
-            return await this.Write(package, pcmType);
+            this.isRecovery = true;
+            try
+            {
+                return await this.Write(package, pcmType);
+            }
+            finally
+            {
+                this.isRecovery = false;
+            }
+        }
+
+        /// <summary>
+        /// Look for the PCM's programming request, which also settles which bus to work over. Advisory
+        /// only: not every interface can see the request, so a negative result must never stop a
+        /// recovery attempt - it just leaves the bus as the selected PCM type implies.
+        /// </summary>
+        private async Task ReportProgrammingRequest(PcmType pcmType)
+        {
+            ProgrammingRequest? request = await this.vehicle.FindProgrammingRequest(
+                new OSIDInfo(pcmType).BusProtocol, this.cancellationToken);
+            logger.AddUserMessage(RecoveryMode.DescribeProgrammingRequest(request));
         }
 
         public async Task<bool> Write(PcmPackage package, PcmType forcedPcmType = PcmType.Undefined)
@@ -304,8 +330,8 @@ namespace PcmHacking
         }
 
         /// <summary>
-        /// Write a CAN-bus PCM. Mirrors the VPW write process but goes through the CAN kernel
-        /// writer: identify, run the brick-risk gates, unlock, then hand off to <see cref="CanKernelWriter"/>
+        /// Write a CAN-bus PCM. Mirrors the VPW write process but builds a CAN kernel session:
+        /// identify, run the brick-risk gates, unlock, then hand off to <see cref="KernelWriter"/>
         /// for the upload + compare/erase/write/verify loop. Assumes the device is already selected on
         /// CAN. A test write is non-destructive and is always allowed.
         /// </summary>
@@ -323,6 +349,20 @@ namespace PcmHacking
             if (!pcmInfo.IsSupported)
             {
                 string msg = $"Abort: The connected {pcmInfo.HardwareType.ToString()} PCM is not supported.";
+                logger.AddUserMessage(msg);
+                await this.alert(msg, "Abort");
+                return false;
+            }
+
+            // A test write rehearses the kernel's erase and write path with the writes suppressed, so a
+            // PCM whose kernel has no such path cannot rehearse one. Say so instead of sending block
+            // writes that nothing will answer.
+            if (this.writeType == WriteType.TestWrite && !pcmInfo.IsSupportedTestWrite)
+            {
+                string msg = pcmInfo.IsSupportedWrite
+                    ? $"Abort: the {pcmInfo.HardwareType} is programmed through its boot loader, which has no test mode. "
+                        + "Use Verify to compare the file against the PCM."
+                    : $"Abort: The connected {pcmInfo.HardwareType} PCM is not supported for write operations.";
                 logger.AddUserMessage(msg);
                 await this.alert(msg, "Abort");
                 return false;
@@ -383,8 +423,9 @@ namespace PcmHacking
             }
 
             DateTime start = DateTime.Now;
-            CanKernelWriter writer = new CanKernelWriter(this.vehicle, commands, pcmInfo, this.writeType, this.logger);
-            bool success = await writer.Write(image, validator, this.cancellationToken);
+            CanKernelSession session = new CanKernelSession(this.vehicle, commands, this.logger);
+            KernelWriter writer = new KernelWriter(session, pcmInfo, this.writeType, this.logger);
+            bool success = await writer.Write(image, validator, needToCheckOperatingSystem: false, kernelAlreadyRunning: false, this.cancellationToken);
             logger.AddUserMessage("Elapsed time " + DateTime.Now.Subtract(start));
             return success;
         }
@@ -436,7 +477,7 @@ namespace PcmHacking
                     // known type. When it does and it disagrees with the file, reject the mismatch - the
                     // same gate the VPW path applies below. When it does not resolve we cannot verify the
                     // hardware, so warn about the brick risk and let the user decide.
-                    PcmType connectedType = new OSIDInfo(detected.Osid).HardwareType;
+                    PcmType connectedType = detected.HardwareType;
                     if (connectedType == PcmType.Undefined)
                     {
                         string msg = "PCM Hardware is not known/verified. The PCM may brick if the file is not compatible. Continue?";
@@ -589,7 +630,7 @@ namespace PcmHacking
                         //
                         // There is deliberately no recovery probe here. A PCM in recovery announces itself
                         // by broadcasting unsolicited (0xA2, "programming prompt") - see
-                        // Vehicle.CheckForRecoveryMode, which listens for exactly that. The old active
+                        // Vehicle.FindProgrammingRequest, which listens for exactly that. The old active
                         // "recovery query" sent mode 0x62 and parsed the reply, which is a programming-mode
                         // style request rather than recovery detection; it only ever worked on ObdLink
                         // ScanTool hardware and both of its outcomes did the same thing, so it decided
@@ -739,26 +780,37 @@ namespace PcmHacking
                 if (!unlocked)
                 {
                     logger.AddUserMessage("Unlock was not successful.");
-                    return false;
-                }
 
-                logger.AddUserMessage("Unlock succeeded.");
+                    // A PCM in recovery has no operating system to run security access, so a refusal
+                    // here says nothing about whether it can be programmed. Carry on and let the boot
+                    // loader answer for itself.
+                    if (!this.isRecovery || this.cancellationToken.IsCancellationRequested)
+                    {
+                        return false;
+                    }
+
+                    logger.AddUserMessage("Recovery: continuing without security access.");
+                }
+                else
+                {
+                    logger.AddUserMessage("Unlock succeeded.");
+                }
             }
 
             DateTime start = DateTime.Now;
 
-            CKernelWriter writer = new CKernelWriter(
-                this.vehicle,
-                pcmInfo,
-                new Protocol(),
-                writeType,
-                this.logger);
+            VpwKernelSession session = new VpwKernelSession(this.vehicle, this.logger)
+            {
+                IsRecovery = this.isRecovery,
+            };
+
+            KernelWriter writer = new KernelWriter(session, pcmInfo, writeType, this.logger);
 
             await writer.Write(
                 image,
-                kernelVersion,
                 validator,
                 needToCheckOperatingSystem,
+                kernelAlreadyRunning: kernelVersion != 0,
                 this.cancellationToken);
             logger.AddUserMessage("Elapsed time " + DateTime.Now.Subtract(start));
             return true;

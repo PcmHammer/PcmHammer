@@ -23,6 +23,7 @@ namespace PcmHacking
         private readonly RadioButton osCalRadioButton;
         private readonly RadioButton calibrationRadioButton;
         private readonly RadioButton parametersRadioButton;
+        private readonly RadioButton testWriteRadioButton;
         private readonly ComboBox pcmTypeComboBox;
         private readonly Label detectionLabel;
         private readonly Button okButton;
@@ -41,7 +42,7 @@ namespace PcmHacking
             this.StartPosition = FormStartPosition.CenterParent;
             this.MaximizeBox = false;
             this.MinimizeBox = false;
-            this.ClientSize = new Size(430, 300);
+            this.ClientSize = new Size(430, 323);
 
             GroupBox operationGroup = new GroupBox
             {
@@ -71,7 +72,7 @@ namespace PcmHacking
             {
                 Text = "Write Type",
                 Location = new Point(220, 12),
-                Size = new Size(196, 138)
+                Size = new Size(196, 161)
             };
 
             this.fullCloneRadioButton = new RadioButton
@@ -98,10 +99,17 @@ namespace PcmHacking
                 Location = new Point(12, 91),
                 AutoSize = true
             };
+            this.testWriteRadioButton = new RadioButton
+            {
+                Text = "Test Write (writes nothing)",
+                Location = new Point(12, 114),
+                AutoSize = true
+            };
             this.writeGroup.Controls.Add(this.fullCloneRadioButton);
             this.writeGroup.Controls.Add(this.osCalRadioButton);
             this.writeGroup.Controls.Add(this.calibrationRadioButton);
             this.writeGroup.Controls.Add(this.parametersRadioButton);
+            this.writeGroup.Controls.Add(this.testWriteRadioButton);
 
             this.detectionLabel = new Label
             {
@@ -113,7 +121,7 @@ namespace PcmHacking
             GroupBox pcmTypeGroup = new GroupBox
             {
                 Text = "PCM Type",
-                Location = new Point(12, 160),
+                Location = new Point(12, 183),
                 Size = new Size(404, 88)
             };
             Label pcmTypeLabel = new Label
@@ -152,14 +160,14 @@ namespace PcmHacking
             {
                 Text = "OK",
                 DialogResult = DialogResult.OK,
-                Location = new Point(260, 258),
+                Location = new Point(260, 281),
                 Size = new Size(75, 25)
             };
             this.cancelButton = new Button
             {
                 Text = "Cancel",
                 DialogResult = DialogResult.Cancel,
-                Location = new Point(341, 258),
+                Location = new Point(341, 281),
                 Size = new Size(75, 25)
             };
 
@@ -212,16 +220,19 @@ namespace PcmHacking
                 this.osCalRadioButton.Enabled = false;
                 this.calibrationRadioButton.Enabled = false;
                 this.parametersRadioButton.Enabled = false;
+                this.testWriteRadioButton.Enabled = false;
                 return;
             }
 
             // Clone is always available when writing is supported; the per-segment types need by-segment
-            // support (e.g. the E38 is clone-only). A parameter write also needs a parameter block.
+            // support (e.g. the E38 is clone-only). A parameter write also needs a parameter block, and a
+            // test write needs a kernel write path to rehearse.
             bool bySegment = detected.IsSupportedWriteBySegment;
             this.fullCloneRadioButton.Enabled = true;
             this.osCalRadioButton.Enabled = bySegment;
             this.calibrationRadioButton.Enabled = bySegment;
             this.parametersRadioButton.Enabled = detected.HasParameterBlocks;
+            this.testWriteRadioButton.Enabled = detected.IsSupportedTestWrite;
 
             this.detectionLabel.Text = bySegment
                 ? string.Format("Detected: {0}", detected.HardwareType)
@@ -241,6 +252,9 @@ namespace PcmHacking
         {
             switch (writeType)
             {
+                case WriteType.TestWrite:
+                    return this.testWriteRadioButton;
+
                 case WriteType.Parameters:
                     return this.parametersRadioButton;
 
@@ -288,6 +302,11 @@ namespace PcmHacking
 
         private WriteType GetWriteType()
         {
+            if (this.testWriteRadioButton.Checked)
+            {
+                return WriteType.TestWrite;
+            }
+
             if (this.parametersRadioButton.Checked)
             {
                 return WriteType.Parameters;

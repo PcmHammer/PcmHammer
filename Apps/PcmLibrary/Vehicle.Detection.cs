@@ -125,8 +125,7 @@ namespace PcmHacking
 
             foreach (DetectedModule module in found)
             {
-                OSIDInfo info = new OSIDInfo(module.Osid);
-                this.logger.AddUserMessage($"Found {module.Target.Name} on {module.Bus}: OSID {module.Osid} ({info.Description})");
+                this.logger.AddUserMessage($"Found {module.Target.Name} on {module.Bus}: OSID {module.Osid} ({module.Info.Description})");
             }
 
             return true;

@@ -208,10 +208,20 @@ namespace PcmHacking
             }
         }
 
+        /// <summary>
+        /// The open serial port, or a clear failure if it is not open. Every I/O member goes through
+        /// this so a port that was never opened, failed to open, or was detached mid-operation (e.g.
+        /// disposed or re-opened by another step during device auto-detect) surfaces a meaningful
+        /// "not open" error instead of a NullReferenceException that crashes the caller.
+        /// </summary>
+        private SerialPort RequirePort() =>
+            this.port ?? throw new InvalidOperationException($"Serial port '{this.name}' is not open.");
+
         public Task ChangeBaudRate(int baudRate)
         {
-            this.port!.BaudRate = baudRate;
-            this.port.DiscardInBuffer();
+            SerialPort p = this.RequirePort();
+            p.BaudRate = baudRate;
+            p.DiscardInBuffer();
             return Task.CompletedTask;
         }
 
@@ -306,11 +316,11 @@ namespace PcmHacking
         /// </summary>
         async Task IPort.Send(byte[] buffer)
         {
-
-            await this.port!.BaseStream.WriteAsync(buffer, 0, buffer.Length).AwaitWithTimeout(TimeSpan.FromSeconds(5));
+            SerialPort p = this.RequirePort();
+            await p.BaseStream.WriteAsync(buffer, 0, buffer.Length).AwaitWithTimeout(TimeSpan.FromSeconds(5));
 
             // This flush is probably not strictly necessary, but just in case...
-            await this.port.BaseStream.FlushAsync().AwaitWithTimeout(TimeSpan.FromSeconds(5));
+            await p.BaseStream.FlushAsync().AwaitWithTimeout(TimeSpan.FromSeconds(5));
         }
 
         /// <summary>
@@ -324,7 +334,7 @@ namespace PcmHacking
                 try
                 {
                     // If the SerialPort's internal ReadTimeout is reached, it throws a TimeoutException
-                    return this.port!.Read(buffer, offset, count);
+                    return this.RequirePort().Read(buffer, offset, count);
                 }
                 catch (TimeoutException)
                 {
@@ -343,8 +353,9 @@ namespace PcmHacking
         /// </summary>
         public Task DiscardBuffers()
         {
-            this.port!.DiscardInBuffer();
-            this.port.DiscardOutBuffer();
+            SerialPort p = this.RequirePort();
+            p.DiscardInBuffer();
+            p.DiscardOutBuffer();
             return Task.FromResult(0);
         }
 
@@ -353,7 +364,7 @@ namespace PcmHacking
         /// </summary>
         public void SetTimeout(int milliseconds)
         {
-            this.port!.ReadTimeout = milliseconds;
+            this.RequirePort().ReadTimeout = milliseconds;
         }
 
         /// <summary>
@@ -361,10 +372,12 @@ namespace PcmHacking
         /// </summary>
         private async void Port_DataReceived(object sender, SerialDataReceivedEventArgs args)
         {
-            if (args.EventType == SerialData.Chars)
+            // async void event handler: an exception here is unhandled and crashes the process, so a
+            // detached port must return quietly rather than throw.
+            if (args.EventType == SerialData.Chars && this.port is SerialPort p)
             {
                 byte[] buffer = new byte[1000];
-                int bytesReceived = await this.port!.BaseStream.ReadAsync(buffer, 0, buffer.Length);
+                int bytesReceived = await p.BaseStream.ReadAsync(buffer, 0, buffer.Length);
                 this.dataReceived?.Invoke(buffer, bytesReceived);
 
             }
@@ -375,7 +388,7 @@ namespace PcmHacking
         /// </summary>
         Task<int> IPort.GetReceiveQueueSize()
         {
-            return Task.FromResult(this.port!.BytesToRead);
+            return Task.FromResult(this.RequirePort().BytesToRead);
         }
     }
 }

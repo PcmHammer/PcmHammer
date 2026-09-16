@@ -50,8 +50,14 @@
                         <DataTrigger Binding="{Binding}" Value="OsPlusCalibrationPlusBoot">
                             <Setter TargetName="DisplayTextBlock" Property="Text" Value="OS, Calibration, Boot"/>
                         </DataTrigger>
+                        <DataTrigger Binding="{Binding}" Value="Calibration">
+                            <Setter TargetName="DisplayTextBlock" Property="Text" Value="Calibration"/>
+                        </DataTrigger>
                         <DataTrigger Binding="{Binding}" Value="Parameters">
                             <Setter TargetName="DisplayTextBlock" Property="Text" Value="Parameters"/>
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding}" Value="TestWrite">
+                            <Setter TargetName="DisplayTextBlock" Property="Text" Value="Test Write (writes nothing)"/>
                         </DataTrigger>
                     </DataTemplate.Triggers>
                 </DataTemplate>

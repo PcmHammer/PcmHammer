@@ -150,6 +150,7 @@ namespace PcmHacking
         public const byte PCMUploadRequest = 0x34;
         public const byte PCMUpload = 0x36;
         public const byte TestDevicePresent = 0x3F;
+        public const byte ReportProgrammedState = 0xA2;
         public const byte HighSpeedPrepare = 0xA0;
         public const byte HighSpeed = 0xA1;
         public const byte SpecialFunctions = 0xAE;

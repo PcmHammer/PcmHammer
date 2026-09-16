@@ -45,7 +45,11 @@ namespace PcmHacking
         /// </summary>
         public override string ToString()
         {
-            return this.GetDeviceType() + " on " + this.Port.ToString();
+            // Port is null once this device has been disposed (e.g. switching interfaces), but the
+            // UI may still call ToString() on the stale instance to refresh a label - so never
+            // dereference a null port here.
+            IPort port = this.Port;
+            return this.GetDeviceType() + " on " + (port != null ? port.ToString() : "(closed)");
         }
     }
 }

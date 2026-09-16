@@ -270,6 +270,7 @@ namespace PcmHacking
 
                 case PcmType.P11:
                 case PcmType.P12:
+                case PcmType.P12b:
                     osid = ReadUnsigned(image, 0x8004);
                     break;
 
@@ -325,6 +326,7 @@ namespace PcmHacking
 
                 // has a special segment table, handled in ValidateRangeP12()
                 case PcmType.P12:
+                case PcmType.P12b:
                     tableAddress = 0x2000C;
                     segments = 5;
                     break;
@@ -380,7 +382,9 @@ namespace PcmHacking
                     LogChecksumTableHeader();
                     success &= ValidateRangeWordSum(type, 0, 0x7FFFB, 0x8000, "Whole File");
                     break;
+                // The P12b shares the P12's checksum records; only the flash behind them is bigger.
                 case PcmType.P12:
+                case PcmType.P12b:
                     LogChecksumTableHeader();
                     success &= ValidateRangeP12(0x922, 0x900, 0x94A, 2, "Boot Block");
                     success &= ValidateRangeP12(0x8022, 0, 0x804A, 2, "Operating System");
@@ -688,10 +692,10 @@ namespace PcmHacking
                     return PcmType.E38;
                 }
 
-                logger.AddDebugMessage("Trying P12 2048KiB");
+                logger.AddDebugMessage("Trying P12b 2048KiB");
                 if ((image[0x17FFF8] == 0xAA) && (image[0x17FFF9] == 0x55))
                 {
-                    return PcmType.P12;
+                    return PcmType.P12b;
                 }
 
             }
@@ -1175,8 +1179,13 @@ namespace PcmHacking
                         this.IsKnownP11BootSector();
 
                 case PcmType.P12:
-                    return this.HasSize(1024 * 1024, 2048 * 1024) &&
+                    return this.HasSize(1024 * 1024) &&
                         this.HasRange(0x8004, 4, "P12 OSID") &&
+                        this.ValidateP12Layout();
+
+                case PcmType.P12b:
+                    return this.HasSize(2048 * 1024) &&
+                        this.HasRange(0x8004, 4, "P12b OSID") &&
                         this.ValidateP12Layout();
 
                 case PcmType.E38:

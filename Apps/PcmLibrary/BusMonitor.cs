@@ -29,7 +29,7 @@ namespace PcmHacking
         // Drop back to 1X after this much VPW silence at 4X: the bus reverts to standard speed when it
         // goes idle and there is no "return to 1X" frame to watch for. Long enough to span the gaps
         // inside an active 4X read so we don't downshift mid-read.
-        private static readonly TimeSpan FourXIdleRevert = TimeSpan.FromSeconds(5);
+        private static readonly TimeSpan FourXIdleRevert = TimeSpan.FromSeconds(10);
 
         // Broadcast mode that ends 4X by request: the factory tool sends e.g. "49 FE 10 06" to drop the
         // bus back to standard speed. Watched alongside the idle timeout so we follow it down immediately.

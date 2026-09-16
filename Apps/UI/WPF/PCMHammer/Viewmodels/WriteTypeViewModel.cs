@@ -34,9 +34,14 @@ namespace PCMHammer.Viewmodels
         public void AcceptAndClose() => RequestAcceptandClose?.Invoke();
 
         // Constructor
-        public WriteTypeViewModel()
+        /// <param name="detected">
+        /// The PCM found by probing the bus before the dialog opened, or null if nothing was detected.
+        /// Decides which write types are offered; with nothing detected they all are, and the writer
+        /// rejects any the PCM turns out not to support.
+        /// </param>
+        public WriteTypeViewModel(OSIDInfo? detected = null)
         {
-            WriteTypes = [WriteType.Full, WriteType.OsPlusCalibrationPlusBoot, WriteType.Parameters];
+            WriteTypes = [.. OfferedWriteTypes(detected)];
 
             PCMTypes = [.. Enum.GetValues<PcmType>()];
 
@@ -49,6 +54,38 @@ namespace PCMHammer.Viewmodels
             // been uploaded and was running on the PCM.
             SelectedWriteType = WriteTypes[0];   // Clone (Full Flash)
             SelectedPCMType = PcmType.Undefined; // Auto (Query OSID)
+        }
+
+        /// <summary>
+        /// Clone is always available; the rest each need something of the PCM. Clone stays first so it
+        /// remains the default selection.
+        /// </summary>
+        private static List<WriteType> OfferedWriteTypes(OSIDInfo? detected)
+        {
+            if (detected == null || !detected.IsSupported || !detected.IsSupportedWrite)
+            {
+                return [WriteType.Full, WriteType.OsPlusCalibrationPlusBoot, WriteType.Calibration,
+                        WriteType.Parameters, WriteType.TestWrite];
+            }
+
+            List<WriteType> offered = [WriteType.Full];
+            if (detected.IsSupportedWriteBySegment)
+            {
+                offered.Add(WriteType.OsPlusCalibrationPlusBoot);
+                offered.Add(WriteType.Calibration);
+            }
+
+            if (detected.HasParameterBlocks)
+            {
+                offered.Add(WriteType.Parameters);
+            }
+
+            if (detected.IsSupportedTestWrite)
+            {
+                offered.Add(WriteType.TestWrite);
+            }
+
+            return offered;
         }
     }
 }

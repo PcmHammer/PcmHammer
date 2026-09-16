@@ -199,10 +199,12 @@ namespace PcmHacking
             return Task.FromResult(false);
         }
 
-        public override Task<bool> IsCommandBroadcasting(byte command)
+        public override Task<byte?> ReadBroadcastState(byte command)
         {
-            // VPW recovery-prompt detection does not apply to a CAN-only interface.
-            return Task.FromResult(false);
+            // CAN PCMs report a programmed state too, but they answer a $A2 request with $E2 rather
+            // than broadcasting unprompted, so this passive listen cannot find them. Reading it on CAN
+            // needs the request/response exchange, which is not implemented yet.
+            return Task.FromResult<byte?>(null);
         }
 
         public override Task<bool> CheckDeviceConnection()

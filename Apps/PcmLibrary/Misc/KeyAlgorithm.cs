@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace PcmHacking
 {
-    public class KeyAlgorithm
+    public partial class KeyAlgorithm
     {
         /// <summary>
         /// Gets the unlock key for the given bus protocol, algorithm index and seed. The protocol
@@ -444,23 +444,47 @@ namespace PcmHacking
 
         // ── GMLAN key algorithm ────────────────────────────────────────────
 
+        // Algorithms at or above this value select the GM_OTHER table (see bytearray_CAN_OTHER)
+        // instead of the GMLAN table; the low bits are the index into it.
+        public const int GmOtherAlgorithmBase = 0x100;
+
         /// <summary>
-        /// Gets the unlock key for a CAN-bus PCM (e.g. E38).
-        /// Uses the GM LAN key table which has a different opcode set to the VPW table.
+        /// The older E92/E92a (2-byte security variant) uses GM_OTHER algorithm 1. Verified on
+        /// OSID 12672612: seed 0x9D19 -> key 0x04EB.
+        /// </summary>
+        public const int E92LegacyCanAlgorithm = GmOtherAlgorithmBase + 1;
+
+        /// <summary>
+        /// Gets the unlock key for a CAN-bus PCM (e.g. E38). Uses the GMLAN key table, or the GM_OTHER
+        /// table for algorithms at or above <see cref="GmOtherAlgorithmBase"/>; both use the same opcode
+        /// set, which differs from the VPW table.
         /// </summary>
         public static UInt16 GetCanKey(int algo, UInt16 seed)
         {
-            if (algo < 0 || algo > 255) return 0x0000;
             if (seed == 0xFFFF) return 0xFFFF;
 
-            int baseIdx = algo * 13;
+            if (algo >= GmOtherAlgorithmBase)
+            {
+                int index = algo - GmOtherAlgorithmBase;
+                if (index > 255) return 0x0000;
+                return RunCanKeyProgram(bytearray_CAN_OTHER, index * 13, seed);
+            }
+
+            if (algo < 0 || algo > 255) return 0x0000;
+
+            return RunCanKeyProgram(bytearray_CAN, algo * 13, seed);
+        }
+
+        // Run one GMLAN key program: four steps of [opcode, operand, operand] from the given offset.
+        private static UInt16 RunCanKeyProgram(byte[] program, int baseIdx, ushort seed)
+        {
             ushort keyValue = seed;
 
             for (int step = 0; step < 4; step++)
             {
-                byte op = bytearray_CAN[baseIdx];
-                byte b0 = bytearray_CAN[baseIdx + 1];
-                byte b1 = bytearray_CAN[baseIdx + 2];
+                byte op = program[baseIdx];
+                byte b0 = program[baseIdx + 1];
+                byte b1 = program[baseIdx + 2];
 
                 if (op > 0x52)
                 {

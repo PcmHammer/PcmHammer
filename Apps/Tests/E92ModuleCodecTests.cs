@@ -7,15 +7,15 @@ using PcmHacking;
 namespace Tests
 {
     /// <summary>
-    /// The run-length coding the E92 boot loader accepts. The decode vectors are lifted straight out of
-    /// a captured vendor write, so they prove we read the vendor's encoding and not just our own.
+    /// The run-length coding the E92 boot loader accepts. The decode vectors are the encoding the boot
+    /// loader expects, so they prove the codec round-trips that format and not just its own output.
     /// </summary>
     [TestClass]
     public class E92ModuleCodecTests
     {
-        // The first 46 coded bytes of the captured System module (part 12675364), and the 97 bytes of
+        // The first 46 coded bytes of a reference System module, and the 97 bytes of
         // flash they expand to at 0x040000. Exercises the literal run and the one byte fill.
-        private static readonly byte[] VendorCoded =
+        private static readonly byte[] ReferenceCoded =
         {
             0x0D, 0xB2, 0xC6, 0x81, 0x02, 0x20, 0x00, 0xC1, 0x69, 0x24, 0x41, 0x47,
             0xFF, 0xFF, 0x43, 0x00, 0x08, 0x31, 0x32, 0x36, 0x37, 0x35, 0x33, 0x36,
@@ -23,7 +23,7 @@ namespace Tests
             0x0E, 0x44, 0xFF, 0x02, 0xAA, 0x55, 0x4E, 0xFF, 0x61, 0x00,
         };
 
-        private static readonly byte[] VendorDecoded =
+        private static readonly byte[] ReferenceDecoded =
         {
             0xB2, 0xC6, 0x81, 0x02, 0x20, 0x00, 0xC1, 0x69, 0x24, 0x41, 0x47, 0xFF,
             0xFF, 0x00, 0x00, 0x00, 0x31, 0x32, 0x36, 0x37, 0x35, 0x33, 0x36, 0x34,
@@ -37,9 +37,9 @@ namespace Tests
         };
 
         [TestMethod]
-        public void Decompress_ReadsTheVendorEncoding()
+        public void Decompress_ReadsTheReferenceEncoding()
         {
-            CollectionAssert.AreEqual(VendorDecoded, E92ModuleCodec.Decompress(VendorCoded));
+            CollectionAssert.AreEqual(ReferenceDecoded, E92ModuleCodec.Decompress(ReferenceCoded));
         }
 
         [TestMethod]
@@ -83,11 +83,11 @@ namespace Tests
         }
 
         [TestMethod]
-        public void Compress_MatchesTheVendorOnDataTheVendorCoded()
+        public void Compress_MatchesTheReferenceCoding()
         {
-            // The coding is not unique - vendor builds of one calibration differ by a few dozen bytes -
+            // The coding is not unique - different builds of one calibration differ by a few dozen bytes -
             // but on this run of literals and fills the greedy choice is the only sensible one.
-            CollectionAssert.AreEqual(VendorCoded, E92ModuleCodec.Compress(VendorDecoded));
+            CollectionAssert.AreEqual(ReferenceCoded, E92ModuleCodec.Compress(ReferenceDecoded));
         }
 
         [TestMethod]
@@ -134,7 +134,7 @@ namespace Tests
             byte[] floats = Enumerable.Range(0, 1000).SelectMany(_ => new byte[] { 0x3F, 0x80, 0x00, 0x00 }).ToArray();
             byte[] pairs = { 0x11, 0x11, 0x22, 0x22, 0x33, 0x33 };
 
-            return new[] { Array.Empty<byte>(), new byte[] { 0x01 }, pairs, noise, longRun, words, floats, VendorDecoded };
+            return new[] { Array.Empty<byte>(), new byte[] { 0x01 }, pairs, noise, longRun, words, floats, ReferenceDecoded };
         }
     }
 }

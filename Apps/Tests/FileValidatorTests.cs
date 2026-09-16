@@ -24,7 +24,7 @@ namespace Tests
         private static readonly string[] DetectionOrder =
         {
             "E54", "BlackBox", "P01", "P04", "P04_Early", "P10", "P11", "P08",
-            "P59", "P05c", "P05b", "P05", "P12", "E38", "E92",
+            "P59", "P05c", "P05b", "P05", "P12", "P12b", "E38", "E92",
         };
 
         private sealed class Sample

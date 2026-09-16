@@ -285,11 +285,33 @@ namespace PcmHacking
         public abstract Task<TimeoutScenario> SetTimeout(TimeoutScenario scenario);
 
         /// <summary>
-        /// This reusable method is primarily used for searching for recovery prompts from the PCM.
+        /// Listen for a message the PCM sends unprompted, addressed to the tool. Used to catch the
+        /// recovery prompt, where the PCM asks to be programmed.
         /// </summary>
-        /// <param name="command"></param>
-        /// <returns></returns>
-        public abstract Task<bool> IsCommandBroadcasting(byte command);
+        /// <returns>
+        /// The byte following the command, or null when nothing was heard. That byte is the payload
+        /// the caller is after, so "heard nothing" has to be distinct from "heard, value zero".
+        /// </returns>
+        public abstract Task<byte?> ReadBroadcastState(byte command);
+
+        /// <summary>
+        /// Match a received frame against the broadcast this caller is listening for, returning the
+        /// byte that follows the command. Shared by the devices that hand back parsed messages.
+        /// </summary>
+        protected static byte? MatchBroadcast(Message incoming, byte command)
+        {
+            byte[] received = incoming?.GetBytes() ?? Array.Empty<byte>();
+            if (received.Length < 5
+                || received[0] != Priority.Physical0
+                || received[1] != DeviceId.Tool
+                || received[2] != DeviceId.Pcm
+                || received[3] != command)
+            {
+                return null;
+            }
+
+            return received[4];
+        }
 
         public abstract string GetDeviceType();
 
@@ -327,7 +349,7 @@ namespace PcmHacking
         private const int MaxResponsePending = 50;
 
         /// <summary>
-        /// True for an ISO-14229 "response pending" negative response (7F &lt;service&gt; 78): the module
+        /// True for an ISO-14229 "response pending" negative response (7F <service> 78): the module
         /// accepted the request but is still working and will send the real response later. CAN payloads
         /// reach this layer normalised to the UDS bytes (the device strips the CAN id on receive), so the
         /// service byte is at index 0. VPW messages carry header bytes first and so will not match, which
@@ -464,7 +486,7 @@ namespace PcmHacking
         /// </summary>
         /// <param name="logReceived">
         /// When true (the default) an "RX:" line is written to the debug stream. CAN devices
-        /// pass false and log their own "RX: &lt;id&gt; &lt;payload&gt;" line instead, so the queued
+        /// pass false and log their own "RX: <id> <payload>" line instead, so the queued
         /// payload is reported once, where the CAN id is known.
         /// </param>
         protected bool Enqueue(Message message, bool logReceived = true)

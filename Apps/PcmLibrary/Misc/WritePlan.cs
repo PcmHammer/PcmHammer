@@ -5,8 +5,8 @@ using System.Collections.Generic;
 namespace PcmHacking
 {
     /// <summary>
-    /// The single decision about what a write operation will actually touch, shared by the VPW
-    /// (<see cref="CKernelWriter"/>) and CAN (<see cref="CanKernelWriter"/>) writers.
+    /// The single decision about what a write operation will actually touch, used by
+    /// <see cref="KernelWriter"/> for both VPW and CAN.
     /// </summary>
     /// <remarks>
     /// Both writers ask two questions: "will this range be erased/written?" and "does that plan
@@ -91,7 +91,7 @@ namespace PcmHacking
             BlockType relevantBlocks,
             UInt32 effectiveImageSize,
             IEnumerable<MemoryRange> memoryRanges,
-            bool forceAllSectors)
+            bool forceAllSectors = false)
         {
             // Compare and test-write are non-destructive.
             if (writeType == WriteType.Compare || writeType == WriteType.TestWrite)

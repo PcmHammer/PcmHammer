@@ -21,9 +21,12 @@ namespace PcmHacking
         P10,
         P11,
         P12,
+        P12b, // As P12, with a 2 MiB flash chip and image
         E38,
         E92,  // GM 4 MB PowerPC e200 CAN PCM (FlexCAN), service no 12704475
         E92a, // E92 variant placeholder (to be physically confirmed)
+        E39,  // GM 3 MB PowerPC e200z6 (MPC5566) CAN PCM
+        E39a, // E39 variant; shares the E39 config until a difference is found
         E54, // 01-04 LB7 Duramax
         E60, // 4-05 LLY Duramax
         BlackBox
@@ -196,6 +199,13 @@ namespace PcmHacking
         public bool RequiresBootLoaderWrite { get; private set; }
 
         /// <summary>
+        /// Whether a write can be rehearsed without programming anything. The rehearsal drives the
+        /// kernel's erase and write path with the writes suppressed, so it needs a kernel that has one.
+        /// A boot loader has no equivalent: it programs whatever it is handed.
+        /// </summary>
+        public bool IsSupportedTestWrite => this.IsSupportedWrite && !this.RequiresBootLoaderWrite;
+
+        /// <summary>
         /// Address the boot loader stages module data at, before programming the flash named by the
         /// module header.
         /// </summary>
@@ -303,17 +313,25 @@ namespace PcmHacking
         public int KernelReadBlockSize { get; private set; }
 
         /// <summary>
+        /// Address of the CPU's shadow-block password, from the CPU datasheet. When non-zero, the read
+        /// kernel reads <see cref="ShadowPasswordLength"/> bytes there and the result log shows the
+        /// value. Zero means the PCM has no shadow password to read.
+        /// </summary>
+        public uint ShadowPasswordAddress { get; private set; }
+
+        /// <summary>Number of password bytes to read at <see cref="ShadowPasswordAddress"/>.</summary>
+        public int ShadowPasswordLength { get; private set; }
+
+        /// <summary>
+        /// Number of bytes immediately after the password to read and show in brackets (e.g. the
+        /// adjacent censorship control word). Zero shows the password alone.
+        /// </summary>
+        public int ShadowPasswordSuffixLength { get; private set; }
+
+        /// <summary>
         /// Which key algorithm to use to unlock the PCM.
         /// </summary>
         public int KeyAlgorithm { get; private set; }
-
-        /// <summary>
-        /// True when the PCM uses the newer 40-bit (5-byte) seed/key security instead of the
-        /// 16-bit <see cref="KeyAlgorithm"/> path. The key algorithm lives outside this app: the
-        /// tool shows the seed, the user enters the key, and a successful pair is cached per PCM
-        /// type + seed for reuse (see CanCommands.Unlock and SecurityKeyStore).
-        /// </summary>
-        public bool Uses40BitSecurity { get; private set; }
 
         /// <summary>
         /// Supports file validation checksums?
@@ -414,6 +432,9 @@ namespace PcmHacking
             this.DetectIAC = false;
             this.KernelMaxBlockSize = 4096;
             this.KernelReadBlockSize = Gmlan.KernelBlockSize;
+            this.ShadowPasswordAddress = 0x0;
+            this.ShadowPasswordLength = 0;
+            this.ShadowPasswordSuffixLength = 0;
             this.IsUnderDevelopment = false;
 
 
@@ -446,7 +467,10 @@ namespace PcmHacking
                     this.FlashCRCSupport = true;
                     this.FlashIDSupport = true;
                     this.KernelVersionSupport = true;
-                    this.DetectIAC = true;
+                    // Disabled: the IAC presence probe (3D 06) crashes the P01/P59 kernel, which breaks
+                    // the read. Re-enable once the kernel's IAC handler is fixed. See also the read-only
+                    // gating in VpwKernelSession.Start.
+                    this.DetectIAC = false;
                     this.KernelMaxBlockSize = 4096;
                     break;
 
@@ -471,7 +495,10 @@ namespace PcmHacking
                     this.FlashCRCSupport = true;
                     this.FlashIDSupport = true;
                     this.KernelVersionSupport = true;
-                    this.DetectIAC = true;
+                    // Disabled: the IAC presence probe (3D 06) crashes the P01/P59 kernel, which breaks
+                    // the read. Re-enable once the kernel's IAC handler is fixed. See also the read-only
+                    // gating in VpwKernelSession.Start.
+                    this.DetectIAC = false;
                     this.KernelMaxBlockSize = 4096;
                     break;
 
@@ -627,7 +654,10 @@ namespace PcmHacking
                 case PcmType.P10:
                     this.Description = "P10 1Mb";
                     this.HardwareType = PcmType.P10;
-                    this.HardwareSlaveCPU = true;
+                    // No slave CPU. Nothing found so far points to one: the five modules a P10
+                    // reports (0x3C 0A-0E) are all master flash segments, and the master image has
+                    // no room for slave firmware. The slave appears to arrive with the P12.
+                    this.HardwareSlaveCPU = false;
                     this.IsSupported = true;
                     this.IsSupportedRead = true;
                     this.IsSupportedWrite = true;
@@ -689,6 +719,35 @@ namespace PcmHacking
                     this.LoaderBaseAddress = 0x0;
                     this.ImageBaseAddress = 0x0;
                     this.ImageSize = 1024 * 1024;
+                    this.KeyAlgorithm = 91;
+                    this.ChecksumSupport = true;
+                    this.FlashCRCSupport = true;
+                    this.FlashIDSupport = true;
+                    this.KernelVersionSupport = true;
+                    this.KernelMaxBlockSize = 4096;
+                    break;
+
+                // The P12b is a P12 with twice the flash. It is a type of its own rather than a size
+                // override on the P12, because a variant that only exists inside an OSID lookup is
+                // lost the moment anything builds a profile from the type alone - which is what a
+                // manually selected type, and every recovery operation, does.
+                case PcmType.P12b:
+                    this.Description = "P12b 2Mb (Atlas I4/I5/I6)";
+                    this.HardwareType = PcmType.P12b;
+                    this.HardwareSlaveCPU = true;
+                    this.IsSupported = true;
+                    this.IsSupportedRead = true;
+                    this.IsSupportedWrite = true;
+                    this.IsSupportedWriteSlaveCPU = false;
+                    this.IsSupportedWriteBySegment = true;
+                    this.IsSupportedWriteBootSector = false;
+                    this.LoaderRequired = false;
+                    this.KernelFileName = "Kernel-P12.bin";
+                    this.KernelBaseAddress = 0xFF2000;
+                    this.LoaderFileName = string.Empty;
+                    this.LoaderBaseAddress = 0x0;
+                    this.ImageBaseAddress = 0x0;
+                    this.ImageSize = 2048 * 1024;
                     this.KeyAlgorithm = 91;
                     this.ChecksumSupport = true;
                     this.FlashCRCSupport = true;
@@ -791,7 +850,7 @@ namespace PcmHacking
 
                 case PcmType.E92:
                     // GM 4 MB PowerPC e200 (Book E) CAN PCM. Service number 12704475.
-                    // Reverse-engineered from bench captures; read is under development.
+                    // Read support is under development.
                     this.Description = "E92 (service no 12704475)";
                     this.HardwareType = PcmType.E92;
                     this.HardwareSlaveCPU = true;
@@ -838,9 +897,40 @@ namespace PcmHacking
                     this.ReadStartAddress = 0x040000;
                     this.ImageSize = 0x400000;       // full 4 MiB
                     this.KernelReadBlockSize = 0x800; // E92 kernel returns 0x800 bytes per read block
-                    this.KeyAlgorithm = 0x92;
-                    this.Uses40BitSecurity = true;
+                    // MPC5674F shadow block: the 64-bit censorship password (NVPWD0/NVPWD1), with the
+                    // adjacent censorship control word (NVSCC0) shown in brackets after it.
+                    this.ShadowPasswordAddress = 0x00FFFDD8;
+                    this.ShadowPasswordLength = 8;
+                    this.ShadowPasswordSuffixLength = 4;
+                    // Older PCMs answer a 2-byte seed and use this 16-bit algorithm; newer ones answer a
+                    // 5-byte seed and the external 40-bit key. The unlock picks the scheme by seed length.
+                    this.KeyAlgorithm = PcmHacking.KeyAlgorithm.E92LegacyCanAlgorithm;
                     this.ChecksumSupport = true;
+                    this.FlashCRCSupport = true;
+                    this.FlashIDSupport = true;
+                    this.KernelVersionSupport = true;
+                    this.IsUnderDevelopment = true;
+                    break;
+
+                case PcmType.E39:
+                case PcmType.E39a:
+                    // GM 3 MB PowerPC e200z6 (MPC5566) CAN PCM. E39 and E39a share this profile and
+                    // one kernel until a difference is found. Read support is under development.
+                    this.Description = pcmType == PcmType.E39a ? "E39a" : "E39";
+                    this.HardwareType = pcmType;
+                    this.IsSupported = true;
+                    this.IsSupportedRead = true;
+                    this.BusProtocol = BusProtocol.Can500k;
+                    // Boot loader seam as E92: the image lands at load+4 and the loader jumps to
+                    // *(load), so the kernel runs at load+4 and is linked there.
+                    this.GMLANProtocol = GMLANProtocol.E38;
+                    this.KernelFileName = "Kernel-E39.bin";
+                    this.KernelBaseAddress = 0x40007000;
+                    this.KernelRunAddress = 0x40007004;
+                    this.ImageBaseAddress = 0x000000;
+                    this.ImageSize = 0x300000;       // 3 MiB
+                    this.KernelReadBlockSize = 0x800; // E39 kernel returns 0x800 bytes per read block
+                    this.KeyAlgorithm = 0xDC;
                     this.FlashCRCSupport = true;
                     this.FlashIDSupport = true;
                     this.KernelVersionSupport = true;
@@ -3342,7 +3432,8 @@ namespace PcmHacking
                     this.ServiceNumber = 12591279;
                     break;
 
-                // P05c (CAN only). OSID is DID 0xC1 (OS segment / Module 1), not 0xC9.
+                // P05c (CAN only).
+                case 12612055: // service no 12600930
                 case 12616867: // service no 12600930
                     PCMInfo(PcmType.P05c);
                     this.Description = "P05c (CAN) Service No 12600930";
@@ -3350,7 +3441,6 @@ namespace PcmHacking
                     break;
 
                 // 2006-2009 P05 service number 12604962 is also CAN only (OSID not yet known)
-
                 case 12603217:
                     PCMInfo(PcmType.P05);
                     this.Description = "2005 P05 (VPW+CAN) Service No 12604963";
@@ -3726,9 +3816,8 @@ namespace PcmHacking
                 case 12611642:
                 case 12613422: //2007 Chevy Trailblazer 4.2L
                 case 12618164:
-                    PCMInfo(PcmType.P12);
+                    PCMInfo(PcmType.P12b);
                     this.Description = "P12b (2Mb) Service No 12569773";
-                    this.ImageSize = 2048 * 1024;
                     this.ServiceNumber = 12569773;
                     break;
 
@@ -3762,9 +3851,25 @@ namespace PcmHacking
                     break;
 
                 // E92 (GM 4 MB PowerPC e200 CAN PCM). Service number 12704475.
+                case 12659455:
                 case 12691156: // SWMI1 / OSID 12691156, service no 12704475
                     PCMInfo(PcmType.E92);
                     this.ServiceNumber = 12704475;
+                    break;
+
+                case 12672612: // Service number 12673195
+                    PCMInfo(PcmType.E92);
+                    this.ServiceNumber = 12673195;
+                    break;
+
+                // E39a (GM 3 MB PowerPC e200z6 CAN PCM).
+                case 12642819:
+                    PCMInfo(PcmType.E39a);
+                    this.ServiceNumber = 12642665;
+                    break;
+
+                case 12655477: // 2013 Captiva, service number unknown
+                    PCMInfo(PcmType.E39a);
                     break;
 
                 // E38

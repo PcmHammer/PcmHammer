@@ -32,7 +32,7 @@ namespace PcmHacking
 
         /// <summary>
         /// Show the Bus Monitor tab (and its Save menu item) for this session. It is off by default and
-        /// only appears via Tools &gt; Bus Monitor; once shown it stays until the app closes.
+        /// only appears via Tools > Bus Monitor; once shown it stays until the app closes.
         /// </summary>
         private void ShowBusMonitorTab()
         {

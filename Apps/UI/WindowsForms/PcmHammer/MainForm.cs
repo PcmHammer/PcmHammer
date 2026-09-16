@@ -453,7 +453,6 @@ namespace PcmHacking
             this.saveFileButton.Enabled = loaded;
             this.exportBinButton.Enabled = loaded;
             this.writeCalibrationButton.Enabled = loaded;
-            this.testWriteButton.Enabled = loaded;
             this.verifyPcmButton.Enabled = loaded;
 
             this.saveFileToolStripMenuItem.Enabled = loaded;
@@ -724,7 +723,7 @@ namespace PcmHacking
         /// <summary>
         /// Export Bin: write selected images from the loaded document out as raw .bin files, for editing
         /// elsewhere. The dialog defaults to the main image; each selection is written as
-        /// "&lt;base&gt;_&lt;PCMType&gt;_&lt;target&gt;.bin" so multiple selections never collide.
+        /// "<base>_<PCMType>_<target>.bin" so multiple selections never collide.
         /// </summary>
         private void exportBinButton_Click(object sender, EventArgs e)
         {
@@ -1204,7 +1203,7 @@ namespace PcmHacking
                 SaveLog(this.debugLog, fileName);
             }
 
-            this.Vehicle?.Dispose();
+            this.ReleaseVehicle();
         }
 
         /// <summary>
@@ -1235,7 +1234,6 @@ namespace PcmHacking
             this.readPcmButton.Enabled = false;
             this.verifyPcmButton.Enabled = false;
 
-            this.testWriteButton.Enabled = false;
             this.writeCalibrationButton.Enabled = false;
             this.exitKernelButton.Enabled = false;
             this.reinitializeButton.Enabled = false;
@@ -1258,6 +1256,12 @@ namespace PcmHacking
         /// </summary>
         protected override void EnableUserInput()
         {
+            // Returning to the interactive state ends the operation, so clear the transient status bar
+            // (activity/percent/progress/etc.) back to idle. Every operation ends by calling this from
+            // its finally, including the failure paths, so a stage that aborts part-way (e.g. a failed
+            // kernel upload) doesn't leave its "Uploading kernel to PCM..." text stuck in the status bar.
+            this.StatusUpdateReset();
+
             this.Invoke((MethodInvoker)delegate ()
             {
                 this.interfaceBox.Enabled = true;
@@ -1283,7 +1287,6 @@ namespace PcmHacking
                 this.readPcmButton.Enabled = true;
                 this.verifyPcmButton.Enabled = true;
 
-                this.testWriteButton.Enabled = true;
                 this.writeCalibrationButton.Enabled = true;
                 this.exitKernelButton.Enabled = true;
                 this.reinitializeButton.Enabled = true;
@@ -1740,7 +1743,7 @@ namespace PcmHacking
                     DetectedModule? pcm = await this.Vehicle.DetectAndSelectPcm(CancellationToken.None);
                     if (pcm != null)
                     {
-                        detected = new OSIDInfo(pcm.Osid);
+                        detected = pcm.Info;
                         this.AddUserMessage(string.Format(
                             "Detected {0} on {1}", detected.HardwareType, pcm.Bus));
                     }
@@ -1908,16 +1911,6 @@ namespace PcmHacking
             if (!BackgroundWorker.IsAlive)
             {
                 BackgroundWorker = new System.Threading.Thread(() => write_BackgroundThread(WriteType.Compare));
-                BackgroundWorker.IsBackground = true;
-                BackgroundWorker.Start();
-            }
-        }
-
-        private void testWriteButton_Click(object sender, EventArgs e)
-        {
-            if (!BackgroundWorker.IsAlive)
-            {
-                BackgroundWorker = new System.Threading.Thread(() => write_BackgroundThread(WriteType.TestWrite));
                 BackgroundWorker.IsBackground = true;
                 BackgroundWorker.Start();
             }

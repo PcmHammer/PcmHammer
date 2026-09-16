@@ -10,8 +10,8 @@ namespace Tests
 {
     /// <summary>
     /// The boot loader download: how a master image is split into flash modules, and the message
-    /// sequence those modules turn into. The E92 expectations come from captured vendor writes, the E38
-    /// ones lock in the sequence that is already known to work on hardware.
+    /// sequence those modules turn into. Locks in the expected module split and download sequence for
+    /// the E92 and E38.
     /// </summary>
     [TestClass]
     public class BootLoaderWriteTests
@@ -43,9 +43,14 @@ namespace Tests
             Assert.IsFalse(e92.HasParameterBlocks, "There is no parameter block in E92 flash to write.");
 
             // The kernel reads and CRCs but cannot program, so a destructive write must never reach the
-            // kernel writer. The E38 has a write kernel and uses the boot loader only for its slave.
+            // kernel writer, and there is no write path to rehearse a test write against.
             Assert.IsTrue(e92.RequiresBootLoaderWrite);
-            Assert.IsFalse(new OSIDInfo(PcmType.E38).RequiresBootLoaderWrite);
+            Assert.IsFalse(e92.IsSupportedTestWrite);
+
+            // The E38 has a write kernel and uses the boot loader only for its slave.
+            var e38 = new OSIDInfo(PcmType.E38);
+            Assert.IsFalse(e38.RequiresBootLoaderWrite);
+            Assert.IsTrue(e38.IsSupportedTestWrite);
         }
 
         /// <summary>
@@ -103,7 +108,7 @@ namespace Tests
             Assert.AreEqual(pcmInfo.BootLoaderMasterHeaderLength, os.HeaderLength);
             Assert.AreEqual(Gmlan.DataFormatUncompressed, os.DataFormat);
 
-            // 0x800 header + the whole segment: the size the vendor's own OS module files have.
+            // 0x800 header + the whole segment: the expected OS module size.
             Assert.AreEqual(0x800 + 0x340000, os.Data.Length);
             CollectionAssert.AreEqual(
                 Slice(image, 0x0C0000 + E92OsHeaderOffset, 0x800), os.Data.Take(0x800).ToArray(), "OS module header");
@@ -135,9 +140,9 @@ namespace Tests
                     name + " decodes back to the segment");
             }
 
-            // Capture fidelity: the vendor's own System module for this image is 5541 bytes. The coding
-            // is not unique, so a change here is not automatically wrong - but it is worth knowing.
-            Assert.AreEqual(5541, modules[1].Data.Length, "System module size differs from the captured vendor write.");
+            // The System module for this image is expected to be 5541 bytes. The coding is not unique,
+            // so a change here is not automatically wrong - but it is worth knowing.
+            Assert.AreEqual(5541, modules[1].Data.Length, "System module size differs from the expected value.");
         }
 
         [TestMethod]
@@ -152,7 +157,7 @@ namespace Tests
         }
 
         [TestMethod]
-        public void E92_Phases_MatchTheCapturedVendorWrite()
+        public void E92_Phases_MatchTheExpectedSequence()
         {
             var pcmInfo = new OSIDInfo(PcmType.E92);
             byte[] library = Filler(17952);

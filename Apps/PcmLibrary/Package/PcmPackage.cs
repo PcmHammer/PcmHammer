@@ -59,7 +59,7 @@ namespace PcmHacking
         [JsonProperty("target")] public string? Target { get; set; }
 
         /// <summary>File name within the controller's folder (e.g. "main.bin", "12625892.bin").
-        /// The archive path is "&lt;controller.Id&gt;/&lt;FileName&gt;".</summary>
+        /// The archive path is "<controller.Id>/<FileName>".</summary>
         [JsonProperty("file")] public string? FileName { get; set; }
 
         [JsonProperty("size")] public long Size { get; set; }

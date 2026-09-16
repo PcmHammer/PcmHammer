@@ -93,8 +93,13 @@ public class StandardPort : IPort
 
     public Task ChangeBaudRate(int baudRate)
     {
-        this.port!.BaudRate = baudRate;
-        this.port.DiscardInBuffer();
+        // A detached port has no baud rate to change; the next Send surfaces the "not open" error.
+        if (this.port != null)
+        {
+            this.port.BaudRate = baudRate;
+            this.port.DiscardInBuffer();
+        }
+
         return Task.CompletedTask;
     }
 

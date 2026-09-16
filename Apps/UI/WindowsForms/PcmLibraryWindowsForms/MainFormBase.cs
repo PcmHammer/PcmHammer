@@ -74,11 +74,7 @@ namespace PcmHacking
             // connection is already holding (e.g. "Access to the port 'COM3' is denied" when the
             // picker pre-selects the device that is already in use).
             bool hadDevice = this.vehicle != null;
-            if (this.vehicle != null)
-            {
-                this.vehicle.Dispose();
-                this.vehicle = null!;
-            }
+            this.ReleaseVehicle();
 
             using (DevicePicker picker = new DevicePicker(this))
             {
@@ -127,15 +123,28 @@ namespace PcmHacking
         }
 
         /// <summary>
+        /// Release the connected vehicle and its device so the serial/J2534 port is actually freed.
+        /// Vehicle.Dispose only disposes the underlying device once its ShutdownSignalSource is
+        /// cancelled (a device-reuse hook for the Uno front end), so cancel it first. Without this the
+        /// port stays open after a disconnect or interface change, and the next open - the picker's
+        /// Auto Detect, or reconnecting - fails with "Access to the port 'COMxx' is denied".
+        /// </summary>
+        protected void ReleaseVehicle()
+        {
+            if (this.vehicle != null)
+            {
+                this.vehicle.ShutdownSignalSource.Cancel();
+                this.vehicle.Dispose();
+                this.vehicle = null!;
+            }
+        }
+
+        /// <summary>
         /// Close the old interface device and open a new one.
         /// </summary>
         protected async Task<bool> ResetDevice()
         {
-            if (this.vehicle != null)
-            {
-                this.vehicle.Dispose();
-                this.vehicle = null!;
-            }
+            this.ReleaseVehicle();
             Device? device = DeviceFactory.CreateDeviceFromConfigurationSettings(this);
             if (device == null)
             {
@@ -168,14 +177,10 @@ namespace PcmHacking
 
             if (!await this.InitializeCurrentDevice())
             {
-                // Initialization failed (e.g. a defunct port). Dispose the vehicle so the
-                // device and its serial port are released, instead of leaking an open port
+                // Initialization failed (e.g. a defunct port). Release the vehicle so the
+                // device and its serial port are freed, instead of leaking an open port
                 // and a running Receiver loop that we can never reach again.
-                if (this.vehicle != null)
-                {
-                    this.vehicle.Dispose();
-                    this.vehicle = null!;
-                }
+                this.ReleaseVehicle();
                 return false;
             }
 

@@ -22,6 +22,11 @@ namespace PcmHacking
         private Func<string, string, Task<bool>> promptForYesNo;
         private CancellationToken cancellationToken;
 
+        // Set for the duration of a RecoveryRead. A PCM in recovery sits in its boot loader with no
+        // operating system, so security access and the 4X switch become best-effort: failing them is
+        // expected and must not stop the read.
+        private bool isRecovery;
+
         // Slave modules identified by part number. A slave cannot be read, so the package records a
         // reference to each one rather than its bytes.
         private readonly List<PackageImage> capturedSlaveReferences = new List<PackageImage>();
@@ -133,8 +138,23 @@ namespace PcmHacking
 
             logger.AddUserMessage(RecoveryMode.DescribeEntry(pcmType, isWrite: false));
 
+            // Also settles which bus to work over. Advisory only: not every interface can see the
+            // request, so a negative result must never stop a recovery attempt - it just leaves the
+            // bus as the selected PCM type implies.
+            ProgrammingRequest? request = await this.vehicle.FindProgrammingRequest(
+                new OSIDInfo(pcmType).BusProtocol, this.cancellationToken);
+            logger.AddUserMessage(RecoveryMode.DescribeProgrammingRequest(request));
+
             // Forcing the type is what takes us straight into the recovery flow.
-            return await this.ReadToPackage(progress, pcmType);
+            this.isRecovery = true;
+            try
+            {
+                return await this.ReadToPackage(progress, pcmType);
+            }
+            finally
+            {
+                this.isRecovery = false;
+            }
         }
 
         /// <summary>As <see cref="ReadToPackage(PcmType)"/>, reporting progress during the read.</summary>
@@ -320,7 +340,8 @@ namespace PcmHacking
             }
 
             DateTime start = DateTime.Now;
-            CanKernelReader reader = new CanKernelReader(this.vehicle, commands, pcmInfo, this.logger);
+            CanKernelSession session = new CanKernelSession(this.vehicle, commands, this.logger);
+            KernelReader reader = new KernelReader(session, pcmInfo, this.logger);
             Response<Stream> readResponse = await reader.ReadContents(this.cancellationToken, progress);
 
             logger.AddUserMessage("Elapsed time " + DateTime.Now.Subtract(start));
@@ -350,8 +371,7 @@ namespace PcmHacking
                 if (detected != null && detected.Bus == BusProtocol.Can500k)
                 {
                     // Auto-detect on CAN: resolve the PCM from its OSID
-                    OSIDInfo detectedInfo = new OSIDInfo(detected.Osid);
-                    return await this.RunCanRead(progress, detectedInfo);
+                    return await this.RunCanRead(progress, detected.Info);
                 }
                 if (detected == null)
                 {
@@ -452,10 +472,21 @@ namespace PcmHacking
             if (!unlocked)
             {
                 logger.AddUserMessage("Unlock was not successful.");
-                return null;
-            }
 
-            logger.AddUserMessage("Unlock succeeded.");
+                // A PCM in recovery has no operating system to run security access, so a refusal here
+                // says nothing about whether it can be read. Carry on and let the boot loader answer
+                // for itself.
+                if (!this.isRecovery || this.cancellationToken.IsCancellationRequested)
+                {
+                    return null;
+                }
+
+                logger.AddUserMessage("Recovery: continuing without security access.");
+            }
+            else
+            {
+                logger.AddUserMessage("Unlock succeeded.");
+            }
 
             if (cancellationToken.IsCancellationRequested)
             {
@@ -464,14 +495,13 @@ namespace PcmHacking
 
             DateTime start = DateTime.Now;
 
-            CKernelReader reader = new CKernelReader(
-                this.vehicle,
-                pcmInfo,
-                this.logger)
+            VpwKernelSession session = new VpwKernelSession(this.vehicle, this.logger)
             {
+                IsRecovery = this.isRecovery,
                 CrcPollingDelayMs = this.CrcPollingDelayMs,
             };
 
+            KernelReader reader = new KernelReader(session, pcmInfo, this.logger);
             Response<Stream> readResponse = await reader.ReadContents(this.cancellationToken, progress);
 
             logger.AddUserMessage("Elapsed time " + DateTime.Now.Subtract(start));

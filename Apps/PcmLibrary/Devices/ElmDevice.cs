@@ -280,9 +280,9 @@ namespace PcmHacking
             this.Port.DiscardBuffers();
         }
 
-        public override Task<bool> IsCommandBroadcasting(byte command)
+        public override Task<byte?> ReadBroadcastState(byte command)
         {
-            return this.implementation?.IsCommandBroadcasting(command) ?? Task.FromResult(false);
+            return this.implementation?.ReadBroadcastState(command) ?? Task.FromResult<byte?>(null);
         }
 
         public override async Task<bool> CheckDeviceConnection()
