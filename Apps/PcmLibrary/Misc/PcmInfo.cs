@@ -25,6 +25,8 @@ namespace PcmHacking
         E38,
         E92,  // GM 4 MB PowerPC e200 CAN PCM (FlexCAN), service no 12704475
         E92a, // E92 variant placeholder (to be physically confirmed)
+        E39,  // GM 3 MB PowerPC e200z6 (MPC5566) CAN PCM
+        E39a, // E39 variant; shares the E39 config until a difference is found
         E54, // 01-04 LB7 Duramax
         E60, // 4-05 LLY Duramax
         BlackBox
@@ -311,17 +313,25 @@ namespace PcmHacking
         public int KernelReadBlockSize { get; private set; }
 
         /// <summary>
+        /// Address of the CPU's shadow-block password, from the CPU datasheet. When non-zero, the read
+        /// kernel reads <see cref="ShadowPasswordLength"/> bytes there and the result log shows the
+        /// value. Zero means the PCM has no shadow password to read.
+        /// </summary>
+        public uint ShadowPasswordAddress { get; private set; }
+
+        /// <summary>Number of password bytes to read at <see cref="ShadowPasswordAddress"/>.</summary>
+        public int ShadowPasswordLength { get; private set; }
+
+        /// <summary>
+        /// Number of bytes immediately after the password to read and show in brackets (e.g. the
+        /// adjacent censorship control word). Zero shows the password alone.
+        /// </summary>
+        public int ShadowPasswordSuffixLength { get; private set; }
+
+        /// <summary>
         /// Which key algorithm to use to unlock the PCM.
         /// </summary>
         public int KeyAlgorithm { get; private set; }
-
-        /// <summary>
-        /// True when the PCM uses the newer 40-bit (5-byte) seed/key security instead of the
-        /// 16-bit <see cref="KeyAlgorithm"/> path. The key algorithm lives outside this app: the
-        /// tool shows the seed, the user enters the key, and a successful pair is cached per PCM
-        /// type + seed for reuse (see CanCommands.Unlock and SecurityKeyStore).
-        /// </summary>
-        public bool Uses40BitSecurity { get; private set; }
 
         /// <summary>
         /// Supports file validation checksums?
@@ -422,6 +432,9 @@ namespace PcmHacking
             this.DetectIAC = false;
             this.KernelMaxBlockSize = 4096;
             this.KernelReadBlockSize = Gmlan.KernelBlockSize;
+            this.ShadowPasswordAddress = 0x0;
+            this.ShadowPasswordLength = 0;
+            this.ShadowPasswordSuffixLength = 0;
             this.IsUnderDevelopment = false;
 
 
@@ -884,9 +897,40 @@ namespace PcmHacking
                     this.ReadStartAddress = 0x040000;
                     this.ImageSize = 0x400000;       // full 4 MiB
                     this.KernelReadBlockSize = 0x800; // E92 kernel returns 0x800 bytes per read block
-                    this.KeyAlgorithm = 0x92;
-                    this.Uses40BitSecurity = true;
+                    // MPC5674F shadow block: the 64-bit censorship password (NVPWD0/NVPWD1), with the
+                    // adjacent censorship control word (NVSCC0) shown in brackets after it.
+                    this.ShadowPasswordAddress = 0x00FFFDD8;
+                    this.ShadowPasswordLength = 8;
+                    this.ShadowPasswordSuffixLength = 4;
+                    // Older PCMs answer a 2-byte seed and use this 16-bit algorithm; newer ones answer a
+                    // 5-byte seed and the external 40-bit key. The unlock picks the scheme by seed length.
+                    this.KeyAlgorithm = PcmHacking.KeyAlgorithm.E92LegacyCanAlgorithm;
                     this.ChecksumSupport = true;
+                    this.FlashCRCSupport = true;
+                    this.FlashIDSupport = true;
+                    this.KernelVersionSupport = true;
+                    this.IsUnderDevelopment = true;
+                    break;
+
+                case PcmType.E39:
+                case PcmType.E39a:
+                    // GM 3 MB PowerPC e200z6 (MPC5566) CAN PCM. E39 and E39a share this profile and
+                    // one kernel until a difference is found. Read support is under development.
+                    this.Description = pcmType == PcmType.E39a ? "E39a" : "E39";
+                    this.HardwareType = pcmType;
+                    this.IsSupported = true;
+                    this.IsSupportedRead = true;
+                    this.BusProtocol = BusProtocol.Can500k;
+                    // Boot loader seam as E92: the image lands at load+4 and the loader jumps to
+                    // *(load), so the kernel runs at load+4 and is linked there.
+                    this.GMLANProtocol = GMLANProtocol.E38;
+                    this.KernelFileName = "Kernel-E39.bin";
+                    this.KernelBaseAddress = 0x40007000;
+                    this.KernelRunAddress = 0x40007004;
+                    this.ImageBaseAddress = 0x000000;
+                    this.ImageSize = 0x300000;       // 3 MiB
+                    this.KernelReadBlockSize = 0x800; // E39 kernel returns 0x800 bytes per read block
+                    this.KeyAlgorithm = 0xDC;
                     this.FlashCRCSupport = true;
                     this.FlashIDSupport = true;
                     this.KernelVersionSupport = true;
@@ -3811,6 +3855,21 @@ namespace PcmHacking
                 case 12691156: // SWMI1 / OSID 12691156, service no 12704475
                     PCMInfo(PcmType.E92);
                     this.ServiceNumber = 12704475;
+                    break;
+
+                case 12672612: // Service number 12673195
+                    PCMInfo(PcmType.E92);
+                    this.ServiceNumber = 12673195;
+                    break;
+
+                // E39a (GM 3 MB PowerPC e200z6 CAN PCM).
+                case 12642819:
+                    PCMInfo(PcmType.E39a);
+                    this.ServiceNumber = 12642665;
+                    break;
+
+                case 12655477: // 2013 Captiva, service number unknown
+                    PCMInfo(PcmType.E39a);
                     break;
 
                 // E38

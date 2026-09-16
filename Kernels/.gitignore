@@ -16,5 +16,8 @@ PPC-CAN-Asm-E38/*
 PPC-CAN-Asm-E92/*
 !PPC-CAN-Asm-E92/Kernel-*.bin
 !PPC-CAN-Asm-E92/BootLib-*.bin
+PPC-CAN-Asm-E39/*
+!PPC-CAN-Asm-E39/Kernel-*.bin
+!PPC-CAN-Asm-E39/BootLib-*.bin
 
 /build/

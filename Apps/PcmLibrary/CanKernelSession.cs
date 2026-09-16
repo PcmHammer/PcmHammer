@@ -85,6 +85,7 @@ namespace PcmHacking
                 : "Kernel did not report a version (" + version.Status + "); continuing.");
 
             await this.IdentifyFlashChip(cancellationToken);
+            await this.ReadShadowPassword(cancellationToken);
             return true;
         }
 
@@ -110,6 +111,56 @@ namespace PcmHacking
             {
                 this.logger.AddUserMessage(string.Format("Flash chip ID {0:X8} is not in the known-chip table.", chipId.Value));
             }
+        }
+
+        /// <summary>
+        /// Read and show the CPU's shadow-block password, when the PCM profile gives its address. Any
+        /// suffix bytes are shown in brackets after it. A failed read is not fatal, so it is reported
+        /// and skipped.
+        /// </summary>
+        private async Task ReadShadowPassword(CancellationToken cancellationToken)
+        {
+            uint address = this.pcmInfo.ShadowPasswordAddress;
+            int length = this.pcmInfo.ShadowPasswordLength;
+            if (address == 0 || length <= 0)
+            {
+                return;
+            }
+
+            int total = length + Math.Max(0, this.pcmInfo.ShadowPasswordSuffixLength);
+            byte[] data = new byte[total];
+            for (int offset = 0; offset < total; )
+            {
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    return;
+                }
+
+                int chunk = Math.Min(this.MaxReadBlockSize, total - offset);
+                Response<byte[]> block = await this.commands.ReadMemoryBlock(address + (uint)offset, chunk, cancellationToken);
+                if (block.Status != ResponseStatus.Success || block.Value == null || block.Value.Length != chunk)
+                {
+                    this.logger.AddUserMessage(string.Format(
+                        "Shadow password read failed at 0x{0:X6} ({1}).", address + (uint)offset, block.Status));
+                    return;
+                }
+
+                Buffer.BlockCopy(block.Value, 0, data, offset, chunk);
+                offset += chunk;
+            }
+
+            string password = Slice(data, 0, length).ToHex(string.Empty);
+            string message = total > length
+                ? string.Format("Shadow Password: {0} ({1})", password, Slice(data, length, total - length).ToHex(string.Empty))
+                : "Shadow Password: " + password;
+            this.logger.AddUserMessage(message);
+        }
+
+        private static byte[] Slice(byte[] data, int from, int count)
+        {
+            byte[] slice = new byte[count];
+            Buffer.BlockCopy(data, from, slice, 0, count);
+            return slice;
         }
 
         public Task<Response<byte[]>> ReadMemoryBlock(uint address, int length, CancellationToken cancellationToken)

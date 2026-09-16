@@ -124,13 +124,17 @@ namespace PcmHacking
         /// <summary>
         /// Parse a 40-bit seed response (0x67 0x01 + 5 seed bytes). Returns the 5 seed bytes.
         /// </summary>
-        public Response<byte[]> ParseSeed40(Message message)
+        /// <summary>
+        /// Parse a security seed reply (0x67 0x01) into its raw seed bytes: two for the 16-bit GMLAN
+        /// scheme, five for the 40-bit scheme. The length is what tells the two schemes apart.
+        /// </summary>
+        public Response<byte[]> ParseSeedRaw(Message message)
         {
             byte[] bytes = GetBytes(message);
-            if (bytes.Length >= 7 && bytes[0] == SecurityAccessResponse && bytes[1] == 0x01)
+            if (bytes.Length >= 3 && bytes[0] == SecurityAccessResponse && bytes[1] == 0x01)
             {
-                byte[] seed = new byte[5];
-                Buffer.BlockCopy(bytes, 2, seed, 0, 5);
+                byte[] seed = new byte[bytes.Length - 2];
+                Buffer.BlockCopy(bytes, 2, seed, 0, seed.Length);
                 return Response.Create(ResponseStatus.Success, seed);
             }
             if (bytes.Length >= 1 && bytes[0] == NegativeResponse)

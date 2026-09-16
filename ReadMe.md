@@ -21,6 +21,7 @@ PCM Hammer and tools support reading, writing, and data logging with General Mot
 |E38        | Yes    | Yes   | Yes     | No       | No      | No    | N/A    | Yes         | Assembly|
 |E54        | Yes    | Yes   | Yes     | N/A      | No      | N/A   | N/A    | Yes         | Assembly|
 |E92/E92a   | Yes    | Yes   | No      | No       | No      | N/A   | N/A    | No          | Assembly|
+|E39/E39a   | ?      | ?     | No      | No       | No      | No    | N/A    | No          | Assembly|
 +-----------+--------+-------+---------+----------+---------+-------+--------+-------------+---------+
 ```
 

@@ -80,20 +80,17 @@ namespace PcmHacking
 
         /// <summary>
         /// Seed/key unlock (0x27/01 then 0x27/02). GM CAN PCMs grant security without an extended
-        /// session first. Seed 0x0000 means already unlocked; NRC 0x37 is a timed lockout.
+        /// session first. An all-zero seed means already unlocked; NRC 0x37 is a timed lockout. The
+        /// seed length selects the scheme: five bytes is the external 40-bit key, otherwise the in-app
+        /// 16-bit key.
         /// </summary>
         public async Task<bool> Unlock(OSIDInfo pcmInfo, CancellationToken cancellationToken)
         {
-            if (pcmInfo.Uses40BitSecurity)
-            {
-                return await this.Unlock40Bit(pcmInfo, cancellationToken);
-            }
-
             await this.device.SetTimeout(TimeoutScenario.ReadProperty);
 
             for (int seedAttempt = 1; seedAttempt <= 2; seedAttempt++)
             {
-                Response<ushort> seed = await this.RequestSeed(cancellationToken);
+                Response<byte[]> seed = await this.RequestSeedRaw(cancellationToken);
 
                 bool waitAndRetry;
                 if (!this.SeedIsUsable(seed.Status, seedAttempt, out waitAndRetry))
@@ -106,147 +103,140 @@ namespace PcmHacking
                     return false;
                 }
 
-                // 0x0000/0xFFFF usually means corrupt security data; suggest a user key.
-                if (((seed.Value == 0x0000) || (seed.Value == 0xFFFF)) && (this.userDefinedKey == -1))
-                {
-                    this.logger.AddUserMessage($"***NOTICE**** Seed is 0x{seed.Value:X4}, if this process fails, try setting a user defined key of 0x{seed.Value:X4}");
-                }
-
-                // Seed 0x0000 = already unlocked. With a user key set, still send it (corrupt-param recovery).
-                if ((seed.Value == 0x0000) && (this.userDefinedKey == -1))
-                {
-                    this.logger.AddUserMessage("Already unlocked (seed 0x0000).");
-                    return true;
-                }
-
-                ushort key;
-                if (this.userDefinedKey == -1)
-                {
-                    key = KeyAlgorithm.GetKey(pcmInfo.BusProtocol, pcmInfo.KeyAlgorithm, seed.Value);
-                }
-                else
-                {
-                    this.logger.AddUserMessage($"User Defined Key: 0x{this.userDefinedKey:X4}");
-                    key = (ushort)this.userDefinedKey;
-                }
-
-                this.logger.AddDebugMessage(string.Format("seed=0x{0:X4} key=0x{1:X4}", seed.Value, key));
-
-                Query<bool> unlock = this.MakeQuery(
-                    () => this.gmlan.CreateUnlockRequest(key),
-                    this.gmlan.ParseUnlockResponse,
-                    cancellationToken,
-                    maxTimeouts: 5);
-                Response<bool> result = await unlock.Execute();
-                if (result.Status == ResponseStatus.Success && result.Value)
-                {
-                    return true;
-                }
-
-                this.logger.AddUserMessage("Unlock rejected (" + result.Status + ").");
-                return false;
+                return seed.Value.Length == SeedKeyLength40
+                    ? await this.Unlock40Bit(pcmInfo, seed.Value, cancellationToken)
+                    : await this.Unlock16Bit(pcmInfo, seed.Value, cancellationToken);
             }
 
             return false;
         }
 
         /// <summary>
-        /// Unlock a PCM with external 40-bit security (e.g. E92). Request the 5-byte seed, show it,
-        /// use a saved key for this PCM type + seed if we have one, otherwise ask the host's key
-        /// provider (which prompts the user). A key the PCM accepts is cached for next time; a
-        /// rejected one is forgotten. The key algorithm itself lives outside this app.
+        /// Complete a 16-bit GMLAN unlock from an already-requested seed: compute the key with the
+        /// PCM's algorithm (or use a user-defined key), then send 0x27/02.
         /// </summary>
-        private async Task<bool> Unlock40Bit(OSIDInfo pcmInfo, CancellationToken cancellationToken)
+        private async Task<bool> Unlock16Bit(OSIDInfo pcmInfo, byte[] seedBytes, CancellationToken cancellationToken)
         {
-            await this.device.SetTimeout(TimeoutScenario.ReadProperty);
+            ushort seed = (ushort)((seedBytes[0] << 8) | (seedBytes.Length > 1 ? seedBytes[1] : 0));
 
-            for (int seedAttempt = 1; seedAttempt <= 2; seedAttempt++)
+            // 0x0000/0xFFFF usually means corrupt security data; suggest a user key.
+            if (((seed == 0x0000) || (seed == 0xFFFF)) && (this.userDefinedKey == -1))
             {
-                Response<byte[]> seed = await this.RequestSeed40(cancellationToken);
+                this.logger.AddUserMessage($"***NOTICE**** Seed is 0x{seed:X4}, if this process fails, try setting a user defined key of 0x{seed:X4}");
+            }
 
-                bool waitAndRetry;
-                if (!this.SeedIsUsable(seed.Status, seedAttempt, out waitAndRetry))
+            // Seed 0x0000 = already unlocked. With a user key set, still send it (corrupt-param recovery).
+            if ((seed == 0x0000) && (this.userDefinedKey == -1))
+            {
+                this.logger.AddUserMessage("Already unlocked (seed 0x0000).");
+                return true;
+            }
+
+            ushort key;
+            if (this.userDefinedKey == -1)
+            {
+                key = KeyAlgorithm.GetKey(pcmInfo.BusProtocol, pcmInfo.KeyAlgorithm, seed);
+            }
+            else
+            {
+                this.logger.AddUserMessage($"User Defined Key: 0x{this.userDefinedKey:X4}");
+                key = (ushort)this.userDefinedKey;
+            }
+
+            this.logger.AddDebugMessage(string.Format("seed=0x{0:X4} key=0x{1:X4}", seed, key));
+
+            Query<bool> unlock = this.MakeQuery(
+                () => this.gmlan.CreateUnlockRequest(key),
+                this.gmlan.ParseUnlockResponse,
+                cancellationToken,
+                maxTimeouts: 5);
+            Response<bool> result = await unlock.Execute();
+            if (result.Status == ResponseStatus.Success && result.Value)
+            {
+                return true;
+            }
+
+            this.logger.AddUserMessage("Unlock rejected (" + result.Status + ").");
+            return false;
+        }
+
+        /// <summary>
+        /// Complete an external 40-bit unlock from an already-requested seed: use a saved key for this
+        /// PCM type + seed if we have one, otherwise ask the host's key provider (which prompts the
+        /// user). A key the PCM accepts is cached for next time; a rejected one is forgotten. The key
+        /// algorithm itself lives outside this app.
+        /// </summary>
+        private async Task<bool> Unlock40Bit(OSIDInfo pcmInfo, byte[] seedBytes, CancellationToken cancellationToken)
+        {
+            // All-zero seed means the PCM is already unlocked.
+            if (Utility.IsAllBytes(seedBytes, 0, seedBytes.Length, 0x00))
+            {
+                this.logger.AddUserMessage("Already unlocked (seed is all zero).");
+                return true;
+            }
+
+            string seedHex = seedBytes.ToHex(string.Empty);
+            this.logger.AddUserMessage("Security seed: " + seedHex);
+
+            byte[]? key = this.keyStore.TryGet(pcmInfo.HardwareType, seedBytes);
+            bool fromUser = false;
+            if (key != null)
+            {
+                this.logger.AddUserMessage("Using saved key for this seed.");
+            }
+            else if (this.securityKeyProvider == null)
+            {
+                this.logger.AddUserMessage(
+                    "No saved key for this seed and no interactive key entry is available. " +
+                    "Compute the key from the seed above and provide it, then retry.");
+                return false;
+            }
+            else
+            {
+                // The prompt blocks this operation, so do not raise one for an operation the user
+                // has already cancelled.
+                if (cancellationToken.IsCancellationRequested)
                 {
-                    if (waitAndRetry)
-                    {
-                        await Task.Delay(SecurityDelayLockout, cancellationToken);
-                        continue;
-                    }
                     return false;
                 }
 
-                // All-zero seed means the PCM is already unlocked.
-                if (Utility.IsAllBytes(seed.Value, 0, seed.Value.Length, 0x00))
+                key = this.securityKeyProvider(pcmInfo.HardwareType, seedBytes, cancellationToken);
+                fromUser = true;
+            }
+
+            if (key == null || key.Length != SeedKeyLength40)
+            {
+                // Declining the prompt, or cancelling while it is up, is not an error worth reporting.
+                if (!cancellationToken.IsCancellationRequested)
                 {
-                    this.logger.AddUserMessage("Already unlocked (seed is all zero).");
-                    return true;
+                    this.logger.AddUserMessage("No valid 5-byte key was provided.");
                 }
-
-                string seedHex = seed.Value.ToHex(string.Empty);
-                this.logger.AddUserMessage("Security seed: " + seedHex);
-
-                byte[]? key = this.keyStore.TryGet(pcmInfo.HardwareType, seed.Value);
-                bool fromUser = false;
-                if (key != null)
-                {
-                    this.logger.AddUserMessage("Using saved key for this seed.");
-                }
-                else if (this.securityKeyProvider == null)
-                {
-                    this.logger.AddUserMessage(
-                        "No saved key for this seed and no interactive key entry is available. " +
-                        "Compute the key from the seed above and provide it, then retry.");
-                    return false;
-                }
-                else
-                {
-                    // The prompt blocks this operation, so do not raise one for an operation the user
-                    // has already cancelled.
-                    if (cancellationToken.IsCancellationRequested)
-                    {
-                        return false;
-                    }
-
-                    key = this.securityKeyProvider(pcmInfo.HardwareType, seed.Value, cancellationToken);
-                    fromUser = true;
-                }
-
-                if (key == null || key.Length != SeedKeyLength40)
-                {
-                    // Declining the prompt, or cancelling while it is up, is not an error worth reporting.
-                    if (!cancellationToken.IsCancellationRequested)
-                    {
-                        this.logger.AddUserMessage("No valid 5-byte key was provided.");
-                    }
-                    return false;
-                }
-
-                this.logger.AddDebugMessage("seed=" + seedHex + " key=" + key.ToHex(string.Empty));
-
-                Query<bool> unlock = this.MakeQuery(
-                    () => this.gmlan.CreateUnlockRequest40(key),
-                    this.gmlan.ParseUnlockResponse,
-                    cancellationToken,
-                    maxTimeouts: 5);
-                Response<bool> result = await unlock.Execute();
-                if (result.Status == ResponseStatus.Success && result.Value)
-                {
-                    string? saveError = this.keyStore.Save(pcmInfo.HardwareType, seed.Value, key);
-                    if (fromUser)
-                    {
-                        this.logger.AddUserMessage(saveError == null
-                            ? "Key accepted and saved for next time."
-                            : "Key accepted, but it could not be saved: " + saveError);
-                    }
-                    return true;
-                }
-
-                // A rejected key must not stay cached.
-                this.keyStore.Remove(pcmInfo.HardwareType, seed.Value);
-                this.logger.AddUserMessage("Unlock rejected (" + result.Status + ").");
                 return false;
             }
 
+            this.logger.AddDebugMessage("seed=" + seedHex + " key=" + key.ToHex(string.Empty));
+
+            Query<bool> unlock = this.MakeQuery(
+                () => this.gmlan.CreateUnlockRequest40(key),
+                this.gmlan.ParseUnlockResponse,
+                cancellationToken,
+                maxTimeouts: 5);
+            Response<bool> result = await unlock.Execute();
+            if (result.Status == ResponseStatus.Success && result.Value)
+            {
+                string? saveError = this.keyStore.Save(pcmInfo.HardwareType, seedBytes, key);
+                if (fromUser)
+                {
+                    this.logger.AddUserMessage(saveError == null
+                        ? "Key accepted and saved for next time."
+                        : "Key accepted, but it could not be saved: " + saveError);
+                }
+                return true;
+            }
+
+            // A rejected key must not stay cached.
+            this.keyStore.Remove(pcmInfo.HardwareType, seedBytes);
+            this.logger.AddUserMessage("Unlock rejected (" + result.Status + ").");
             return false;
         }
 
@@ -286,16 +276,12 @@ namespace PcmHacking
             return true;
         }
 
-        private Task<Response<byte[]>> RequestSeed40(CancellationToken cancellationToken)
-            => this.SeedQuery(this.gmlan.ParseSeed40, Array.Empty<byte>(), cancellationToken);
-
-        private Task<Response<ushort>> RequestSeed(CancellationToken cancellationToken)
-            => this.SeedQuery(this.gmlan.ParseSeed, (ushort)0, cancellationToken);
+        private Task<Response<byte[]>> RequestSeedRaw(CancellationToken cancellationToken)
+            => this.SeedQuery(this.gmlan.ParseSeedRaw, Array.Empty<byte>(), cancellationToken);
 
         /// <summary>
-        /// Request a security seed (0x27 0x01) and parse it with <paramref name="parser"/>: 16-bit for
-        /// most PCMs, 40-bit for those with external security. A timed lockout (NRC 0x37) is reported as
-        /// Refused so the caller can wait it out and retry.
+        /// Request a security seed (0x27 0x01) and parse it with <paramref name="parser"/>. A timed
+        /// lockout (NRC 0x37) is reported as Refused so the caller can wait it out and retry.
         /// </summary>
         private async Task<Response<T>> SeedQuery<T>(Func<Message, Response<T>> parser, T refusedValue, CancellationToken cancellationToken)
         {

@@ -61,6 +61,22 @@ namespace Tests
         }
 
         [TestMethod]
+        public void ParseSeedRaw_KeepsSeedLength_WhichSelectsTheUnlockScheme()
+        {
+            // Two bytes = 16-bit GMLAN scheme.
+            var two = new Gmlan().ParseSeedRaw(Msg(0x67, 0x01, 0x12, 0x34));
+            Assert.AreEqual(ResponseStatus.Success, two.Status);
+            CollectionAssert.AreEqual(new byte[] { 0x12, 0x34 }, two.Value);
+
+            // Five bytes = external 40-bit scheme.
+            var five = new Gmlan().ParseSeedRaw(Msg(0x67, 0x01, 0x9D, 0x52, 0xB8, 0xE6, 0xF8));
+            Assert.AreEqual(ResponseStatus.Success, five.Status);
+            CollectionAssert.AreEqual(new byte[] { 0x9D, 0x52, 0xB8, 0xE6, 0xF8 }, five.Value);
+
+            Assert.AreEqual(ResponseStatus.Error, new Gmlan().ParseSeedRaw(Msg(0x7F, 0x27, 0x35)).Status);
+        }
+
+        [TestMethod]
         public void ParseUnlock_Positive_IsSuccess()
         {
             Assert.AreEqual(ResponseStatus.Success, new Gmlan().ParseUnlockResponse(Msg(0x67, 0x02)).Status);
