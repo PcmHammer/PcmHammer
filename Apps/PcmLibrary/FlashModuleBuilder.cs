@@ -5,22 +5,25 @@ using System.Collections.Generic;
 namespace PcmHacking
 {
     /// <summary>
-    /// One flash segment of a master image: inclusive start and end, plus the segment name. HeaderOffset
-    /// is where the segment's own header record sits, which is what the OS module leads with.
+    /// One flash segment of a master image: inclusive start and end, the segment name, and which block
+    /// group it belongs to (so a write can select operating system vs calibration). HeaderOffset is
+    /// where the segment's own header record sits, which is what the OS module leads with.
     /// </summary>
     public readonly struct FlashSegment
     {
         public int Start { get; }
         public int End { get; }
         public string Name { get; }
+        public BlockType BlockType { get; }
         public int HeaderOffset { get; }
         public int Length => this.End - this.Start + 1;
 
-        public FlashSegment(int start, int end, string name, int headerOffset = 0)
+        public FlashSegment(int start, int end, string name, BlockType blockType, int headerOffset = 0)
         {
             this.Start = start;
             this.End = end;
             this.Name = name;
+            this.BlockType = blockType;
             this.HeaderOffset = headerOffset;
         }
     }
@@ -61,12 +64,13 @@ namespace PcmHacking
     public static class FlashModuleBuilder
     {
         /// <summary>
-        /// Build the flash modules for a master image. Pass false for
-        /// <paramref name="includeOperatingSystem"/> to build a calibration-only download, which leaves
-        /// the OS segment alone. Throws <see cref="InvalidOperationException"/> if the PCM has no known
-        /// segment layout, or the image does not match it.
+        /// Build the flash modules for the block groups named by <paramref name="groups"/> - e.g.
+        /// <see cref="BlockType.Calibration"/> for a calibration-only download, or
+        /// <c>OperatingSystem | Calibration</c> for the whole master. Segments outside those groups are
+        /// left out. Throws <see cref="InvalidOperationException"/> if the PCM has no known segment
+        /// layout, or the image does not match it.
         /// </summary>
-        public static List<FlashModule> Build(byte[] masterImage, OSIDInfo pcmInfo, bool includeOperatingSystem = true)
+        public static List<FlashModule> Build(byte[] masterImage, OSIDInfo pcmInfo, BlockType groups)
         {
             if (masterImage == null)
             {
@@ -77,24 +81,22 @@ namespace PcmHacking
             int headerLength = pcmInfo.BootLoaderMasterHeaderLength;
             var modules = new List<FlashModule>(segments.Count);
 
-            for (int i = 0; i < segments.Count; i++)
+            foreach (FlashSegment segment in segments)
             {
-                if (i == 0 && !includeOperatingSystem)
+                if ((segment.BlockType & groups) == 0)
                 {
                     continue;
                 }
 
-                FlashSegment segment = segments[i];
-
                 if (segment.Start < 0 || segment.End >= masterImage.Length || segment.Length <= 0)
                 {
                     throw new InvalidOperationException(string.Format(
-                        "Segment {0} ({1}) is outside the image: 0x{2:X6}-0x{3:X6}.", i + 1, segment.Name, segment.Start, segment.End));
+                        "The {0} segment is outside the image: 0x{1:X6}-0x{2:X6}.", segment.Name, segment.Start, segment.End));
                 }
 
-                // The first segment is the OS. Its module leads with a copy of the segment's own header,
-                // which the boot loader parses before the module data arrives.
-                if (i == 0)
+                // The OS module leads with a copy of the segment's own header, which the boot loader
+                // parses before the module data arrives; calibration modules have no such header.
+                if (segment.BlockType == BlockType.OperatingSystem)
                 {
                     if (segment.Length < segment.HeaderOffset + headerLength)
                     {
@@ -144,6 +146,48 @@ namespace PcmHacking
             }
 
             return modules;
+        }
+
+        // GM part number: eight ASCII digits at this offset in a slave module's segment header.
+        private const int SlavePartNumberOffset = 0x10;
+        private const int SlavePartNumberDigits = 8;
+
+        /// <summary>
+        /// The GM part number a slave module carries, for comparing the file against the ids the PCM
+        /// reports over its SWMI DIDs. A wrapped module is decoded first. Returns false when the bytes
+        /// there are not a part number, so the caller writes the slave rather than skip it on a guess.
+        /// </summary>
+        public static bool TryGetSlaveModulePartNumber(byte[] module, out uint partNumber)
+        {
+            partNumber = 0;
+            if (module == null)
+            {
+                return false;
+            }
+
+            byte[] segment = E92ModuleCodec.IsWrapped(module)
+                ? E92ModuleCodec.Decompress(E92ModuleCodec.Unwrap(module))
+                : module;
+
+            if (segment.Length < SlavePartNumberOffset + SlavePartNumberDigits)
+            {
+                return false;
+            }
+
+            uint value = 0;
+            for (int i = 0; i < SlavePartNumberDigits; i++)
+            {
+                byte c = segment[SlavePartNumberOffset + i];
+                if (c < (byte)'0' || c > (byte)'9')
+                {
+                    return false;
+                }
+
+                value = (value * 10) + (uint)(c - '0');
+            }
+
+            partNumber = value;
+            return true;
         }
 
         /// <summary>

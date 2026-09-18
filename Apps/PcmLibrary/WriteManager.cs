@@ -183,7 +183,92 @@ namespace PcmHacking
                     "This file has slave modules, but this PCM has no boot loader write path. Writing the master only.");
             }
 
+            // A calibration write updates only the master calibration; the slave CPU can only be
+            // programmed by a full write (its boot-loader path needs the master OS module first). If the
+            // file's slave differs from the PCM, say so, so the user is not left with a stale slave.
+            if (slaveImages.Count > 0 && this.writeType == WriteType.Calibration)
+            {
+                OSIDInfo? calPcmInfo = forcedPcmType != PcmType.Undefined
+                    ? new OSIDInfo(forcedPcmType)
+                    : PackageCompleteness.ResolvePlatform(controller);
+                if (calPcmInfo != null && calPcmInfo.IsSupportedBootLoaderWrite)
+                {
+                    await this.WarnIfSlaveDiffers(slaveImages, calPcmInfo);
+                }
+            }
+
             return await Write(main.Data, forcedPcmType);
+        }
+
+        /// <summary>
+        /// Best-effort check, before a calibration write, of whether the file's slave modules differ
+        /// from the PCM. If they do, warn that a calibration write does not touch the slave and a full
+        /// write is needed. Silent when the slave cannot be resolved or read - it must never block the
+        /// calibration write it precedes.
+        /// </summary>
+        private async Task WarnIfSlaveDiffers(List<PackageImage> slaveImages, OSIDInfo pcmInfo)
+        {
+            try
+            {
+                var slaveModules = new List<byte[]>();
+                foreach (PackageImage slave in slaveImages)
+                {
+                    byte[]? data = slave.Data ?? SlaveLibrary.Resolve(slave.FileName);
+                    if (data == null)
+                    {
+                        return;
+                    }
+
+                    slaveModules.Add(data);
+                }
+
+                if (!await this.vehicle.SelectBus(pcmInfo.BusProtocol))
+                {
+                    return;
+                }
+
+                CanCommands commands = this.vehicle.CreateCanCommands();
+                bool anyDiffers = false;
+                for (int i = 0; i < slaveModules.Count && i < pcmInfo.SlaveModules.Count; i++)
+                {
+                    if (!FlashModuleBuilder.TryGetSlaveModulePartNumber(slaveModules[i], out uint filePartNumber))
+                    {
+                        anyDiffers = true;
+                        break;
+                    }
+
+                    Response<byte[]> response = await commands.ReadDataByIdentifier(pcmInfo.SlaveModules[i].Did, this.cancellationToken);
+                    if (response.Status != ResponseStatus.Success
+                        || response.Value.Length < 6
+                        || response.Value[0] != Gmlan.ReadDataByIdentifierResponse)
+                    {
+                        return;
+                    }
+
+                    uint pcmPartNumber = (uint)((response.Value[2] << 24) | (response.Value[3] << 16)
+                        | (response.Value[4] << 8) | response.Value[5]);
+                    if (pcmPartNumber != filePartNumber)
+                    {
+                        anyDiffers = true;
+                        break;
+                    }
+                }
+
+                if (!anyDiffers)
+                {
+                    return;
+                }
+
+                logger.AddUserMessage("=================================================================");
+                logger.AddUserMessage("NOTE: the file's slave CPU modules differ from the PCM, but a");
+                logger.AddUserMessage("calibration write updates only the master calibration - the slave");
+                logger.AddUserMessage("CPU is NOT written. Do a full write to update the slave.");
+                logger.AddUserMessage("=================================================================");
+            }
+            catch (Exception exception)
+            {
+                logger.AddDebugMessage("Slave-difference check skipped: " + exception.Message);
+            }
         }
 
         private static bool IsSlaveTarget(string? target) =>
@@ -235,20 +320,20 @@ namespace PcmHacking
             logger.AddUserMessage("File OSID: " + validator.GetOsidFromImage());
             logger.AddUserMessage("File Description: " + new OSIDInfo(validator.GetFileType()).Description + ".");
 
-            // Which segments this write covers. Stated rather than derived: the boot loader erases and
+            // Which block groups this write may touch. Stated rather than derived: the boot loader
             // programs whatever it is handed, so an unrecognised write type must stop here rather than
-            // fall through to a wider write than the user asked for.
-            bool includeOperatingSystem;
+            // fall through to a wider write than the user asked for. Boot is protected, so an
+            // OS+Cal+Boot write covers only what it can.
+            BlockType requestedBlocks;
             switch (this.writeType)
             {
                 case WriteType.Calibration:
-                    includeOperatingSystem = false;
+                    requestedBlocks = BlockType.Calibration;
                     break;
 
-                // The boot block is not writable on these PCMs, so OS+Cal+Boot writes what it can.
                 case WriteType.Full:
                 case WriteType.OsPlusCalibrationPlusBoot:
-                    includeOperatingSystem = true;
+                    requestedBlocks = BlockType.OperatingSystem | BlockType.Calibration;
                     break;
 
                 default:
@@ -257,19 +342,89 @@ namespace PcmHacking
                     return false;
             }
 
-            logger.AddUserMessage(
-                slaveModules.Count > 0
-                    ? "Programming the FULL PCM - the master flash AND the slave CPU - through the boot loader."
-                    : includeOperatingSystem
-                        ? "Programming the master flash through the boot loader."
-                        : "Programming the master calibration through the boot loader.");
+            // Method decision: PCM Hammer kernel vs OEM boot loader.
+            bool slaveInScope = this.writeType == WriteType.Full && slaveModules.Count > 0;
+            this.logger.AddDebugMessage(string.Format(
+                "[decide] Slave in scope: {0} (write type {1}, {2} slave module(s) supplied).",
+                slaveInScope, this.writeType, slaveModules.Count));
+
+            bool forced = RuntimeSettings.ForceWriteAllSectors;
+            bool slaveDiffers;
+            if (!slaveInScope)
+            {
+                slaveDiffers = false;
+            }
+            else if (forced)
+            {
+                slaveDiffers = true;
+                this.logger.AddDebugMessage("[decide] Force write: the slave will be written without an id comparison.");
+            }
+            else
+            {
+                // We cannot read slave flash, but only factory slave files are used, so the slave's
+                // reported module ids are trusted to decide whether it needs writing.
+                if (!await this.vehicle.SelectBus(pcmInfo.BusProtocol))
+                {
+                    this.logger.AddUserMessage("Failed to select the " + pcmInfo.BusProtocol + " bus.");
+                    return false;
+                }
+
+                slaveDiffers = await this.SlaveModulesDiffer(this.vehicle.CreateCanCommands(), pcmInfo, slaveModules);
+                this.logger.AddDebugMessage("[decide] Slave differs from the file: " + slaveDiffers + ".");
+            }
+
+            bool writeSlave = slaveInScope && (forced || slaveDiffers);
+
+            // Writing the slave has no short-circuit: it needs the whole master programmed through the OEM
+            // boot loader to arm it. When no slave write is needed and the kernel can program flash, use
+            // the PCM Hammer kernel differential write instead - only the sectors that differ.
+            if (!writeSlave && !pcmInfo.RequiresBootLoaderWrite)
+            {
+                this.logger.AddDebugMessage(
+                    "[decide] Method: PCM Hammer kernel (differential master write; no slave write needed).");
+                return await this.RunKernelWrite(masterImage, validator, pcmInfo);
+            }
+
+            this.logger.AddDebugMessage(writeSlave
+                ? "[decide] Method: OEM boot loader (master + slave; slave differs, so the full master is written to arm it)."
+                : "[decide] Method: OEM boot loader (master only; this PCM has no kernel write path).");
+
+            // Forced write: program every requested group without a CRC comparison, so even unchanged
+            // sectors are written. That needs no read kernel and no reboot - it runs cold from the stock
+            // OS, the way the factory tool does, which also keeps the forced path a clean, limited test.
+            BootLoaderWritePlan? plan;
+            if (forced)
+            {
+                plan = BootLoaderWritePlan.Forced(requestedBlocks, slaveInScope);
+                logger.AddUserMessage("Force write: programming the requested blocks without a CRC comparison.");
+            }
+            else
+            {
+                // Plan phase: run the read kernel and CRC the flash against the file, so only the master
+                // groups that differ are written. The kernel and the boot loader are separate resident
+                // modes, so this reboots to the stock OS before returning.
+                plan = await this.BuildBootLoaderWritePlan(masterImage, slaveModules, pcmInfo, requestedBlocks, slaveDiffers);
+                if (plan == null)
+                {
+                    return false;
+                }
+            }
+
+            logger.AddUserMessage("Write plan: " + plan.Describe() + ".");
+            if (plan.NothingToWrite)
+            {
+                logger.AddUserMessage("The PCM already matches the file. Nothing to write.");
+                return true;
+            }
 
             List<FlashModule> masterModules;
             List<FlashModule> slaveFlashModules;
             try
             {
-                masterModules = FlashModuleBuilder.Build(masterImage, pcmInfo, includeOperatingSystem);
-                slaveFlashModules = FlashModuleBuilder.BuildSlaveModules(slaveModules, pcmInfo);
+                masterModules = FlashModuleBuilder.Build(masterImage, pcmInfo, plan.MasterBlocks);
+                slaveFlashModules = plan.WriteSlave
+                    ? FlashModuleBuilder.BuildSlaveModules(slaveModules, pcmInfo)
+                    : new List<FlashModule>();
             }
             catch (Exception exception)
             {
@@ -326,6 +481,111 @@ namespace PcmHacking
             }
 
             logger.AddUserMessage("The write did not complete. Review the log.");
+            return false;
+        }
+
+        // After the read kernel software-resets, the stock OS needs time to boot and bring its CAN
+        // comms back up before it will answer the boot loader's programming requests.
+        private static readonly TimeSpan BootLoaderRebootDelay = TimeSpan.FromSeconds(10);
+
+        /// <summary>
+        /// Decide what a boot-loader write needs to program. Reads the slave module ids from the stock
+        /// OS, runs the read kernel to CRC the master flash against the file, then reboots to the stock
+        /// OS ready for the write. Returns null on failure or cancellation.
+        /// </summary>
+        private async Task<BootLoaderWritePlan?> BuildBootLoaderWritePlan(
+            byte[] image, IList<byte[]> slaveModules, OSIDInfo pcmInfo, BlockType requestedBlocks, bool slaveDiffers)
+        {
+            if (!await this.vehicle.SelectBus(pcmInfo.BusProtocol))
+            {
+                logger.AddUserMessage("Failed to select the " + pcmInfo.BusProtocol + " bus.");
+                return null;
+            }
+
+            CanCommands commands = this.vehicle.CreateCanCommands();
+
+            // slaveDiffers was already decided by the caller from the slave module ids (read from the
+            // stock OS before the kernel took over).
+            bool slaveInScope = this.writeType == WriteType.Full && slaveModules.Count > 0;
+
+            // No pre-session unlock: the read kernel upload (session.Start -> UploadKernel ->
+            // EnterProgrammingMode) grants security access in-session. Unlocking here would be discarded
+            // by the 0x10 0x02 session change and could trip a 0x27 delay.
+            this.logger.AddDebugMessage("[kernel] Survey kernel (chip id + CRC): " + pcmInfo.GetKernelFileName(KernelOperation.Read) + ".");
+            CanKernelSession session = new CanKernelSession(this.vehicle, commands, this.logger);
+            if (!await session.Start(pcmInfo, KernelOperation.Read, kernelAlreadyRunning: false, this.cancellationToken))
+            {
+                return null;
+            }
+
+            FlashChip? flashChip = session.FlashChip;
+            if (flashChip == null)
+            {
+                logger.AddUserMessage("The flash chip was not identified, so the write plan cannot be built.");
+                return null;
+            }
+
+            CrcVerificationResult crc = await session.CompareRanges(
+                image, requestedBlocks, (uint)image.Length, (uint)pcmInfo.ImageBaseAddress, this.cancellationToken);
+            if (crc == CrcVerificationResult.Cancelled)
+            {
+                return null;
+            }
+
+            if (crc == CrcVerificationResult.Timeout)
+            {
+                logger.AddUserMessage("PCM stopped responding during the CRC check. Aborting.");
+                return null;
+            }
+
+            BootLoaderWritePlan plan = BootLoaderWritePlan.FromComparison(
+                flashChip.MemoryRanges, requestedBlocks, RuntimeSettings.ForceWriteAllSectors, slaveInScope, slaveDiffers);
+
+            // The boot loader lives in the stock OS, not the read kernel, so return there before writing.
+            logger.StatusUpdateActivity("Returning to the boot loader...");
+            await commands.Reboot(this.cancellationToken);
+            await Task.Delay(BootLoaderRebootDelay, this.cancellationToken);
+
+            return plan;
+        }
+
+        /// <summary>
+        /// Whether any slave module in the file differs from what the PCM reports. Compares the file's
+        /// module part numbers to the PCM's SWMI DID values; a value it cannot read on either side is
+        /// treated as different, so the slave is written rather than skipped on a guess.
+        /// </summary>
+        private async Task<bool> SlaveModulesDiffer(CanCommands commands, OSIDInfo pcmInfo, IList<byte[]> slaveModules)
+        {
+            for (int i = 0; i < slaveModules.Count && i < pcmInfo.SlaveModules.Count; i++)
+            {
+                SlaveModuleId id = pcmInfo.SlaveModules[i];
+
+                if (!FlashModuleBuilder.TryGetSlaveModulePartNumber(slaveModules[i], out uint filePartNumber))
+                {
+                    return true;
+                }
+
+                Response<byte[]> response = await commands.ReadDataByIdentifier(id.Did, this.cancellationToken);
+                if (response.Status != ResponseStatus.Success
+                    || response.Value.Length < 6
+                    || response.Value[0] != Gmlan.ReadDataByIdentifierResponse)
+                {
+                    return true;
+                }
+
+                uint pcmPartNumber = (uint)((response.Value[2] << 24) | (response.Value[3] << 16)
+                    | (response.Value[4] << 8) | response.Value[5]);
+
+                if (pcmPartNumber != filePartNumber)
+                {
+                    logger.AddUserMessage(string.Format(
+                        "Slave {0}: PCM has {1}, file has {2}; it will be written.", id.Target, pcmPartNumber, filePartNumber));
+                    return true;
+                }
+
+                logger.AddUserMessage(string.Format("Slave {0}: {1} already matches.", id.Target, pcmPartNumber));
+            }
+
             return false;
         }
 
@@ -403,20 +663,23 @@ namespace PcmHacking
                 return await this.RunBootLoaderWrite(image, Array.Empty<byte[]>(), pcmInfo);
             }
 
+            return await this.RunKernelWrite(image, validator, pcmInfo);
+        }
+
+        /// <summary>
+        /// Write the master flash with the PCM Hammer kernel: unlock, upload the kernel, then run the
+        /// compare/erase/write loop, which programs only the sectors that differ. Used when no slave
+        /// write is needed (the slave cannot be reached without the OEM boot loader).
+        /// </summary>
+        private async Task<bool> RunKernelWrite(byte[] image, FileValidator validator, OSIDInfo pcmInfo)
+        {
+            this.logger.AddDebugMessage("[kernel] Write kernel: " + pcmInfo.GetKernelFileName(KernelOperation.Write) + ".");
+
             CanCommands commands = this.vehicle.CreateCanCommands();
 
-            logger.StatusUpdateActivity("Unlocking PCM...");
-            if (!await commands.Unlock(pcmInfo, this.cancellationToken))
-            {
-                // On a user-requested abort the unlock simply stops; don't report it as a failure.
-                if (!this.cancellationToken.IsCancellationRequested)
-                {
-                    logger.AddUserMessage("Unlock was not successful.");
-                }
-                return false;
-            }
-            logger.AddUserMessage("Unlock succeeded.");
-
+            // No pre-session unlock: the kernel upload (UploadKernel -> EnterProgrammingMode) now grants
+            // security access inside the programming session, which is what the PCM requires. Unlocking
+            // here first would be discarded by the 0x10 0x02 session change and could trip a 0x27 delay.
             if (this.cancellationToken.IsCancellationRequested)
             {
                 return false;

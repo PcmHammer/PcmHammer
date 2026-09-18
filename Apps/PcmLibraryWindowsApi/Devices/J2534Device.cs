@@ -64,6 +64,18 @@ namespace PcmHacking
         /// <summary>CAN ID to accept (target to tool).</summary>
         public uint RxCanId { get; set; } = CanId.PcmPhysicalResponse;
 
+        /// <summary>ISO-TP addressing for transmitted frames.</summary>
+        public IsoTpAddressing TxAddressing { get; set; } = IsoTpAddressing.Normal;
+
+        /// <summary>ISO-TP addressing for received frames.</summary>
+        public IsoTpAddressing RxAddressing { get; set; } = IsoTpAddressing.Normal;
+
+        /// <summary>
+        /// ISO15765 extended addressing is part of the J2534 API: the address extension follows the
+        /// CAN id in the message data and the transmit carries ISO15765_ADDR_TYPE.
+        /// </summary>
+        public bool SupportsExtendedAddressing => true;
+
         /// <summary>
         /// global error variable for reading/writing. (Could be done on the fly)
         /// TODO, keep record of all errors for debug
@@ -345,19 +357,22 @@ namespace PcmHacking
                 byte[] rxData = PassMess.Data;
                 if (this.CurrentProtocol == BusProtocol.Can500k)
                 {
-                    if (rxData.Length <= 4)
+                    // ISO15765 frames are prefixed with the 4-byte CAN ID, and on an extended-addressed
+                    // conversation by the address extension as well.
+                    int prefixLength = 4 + this.RxAddressing.HeaderLength;
+                    if (rxData.Length <= prefixLength)
                     {
-                        // Header-only CAN frame: the 4-byte transmit echo / TxDone with no UDS payload
+                        // Header-only CAN frame: the transmit echo / TxDone with no UDS payload
                         // (some J2534 stacks surface it without the TX_MSG_TYPE flag). Not a response -
                         // keep reading so we read past it to the real reply rather than handing the
                         // upper layers a bare CAN id (which looked like an "unexpected response").
                         continue;
                     }
 
-                    // ISO15765 frames are prefixed with the 4-byte CAN ID; strip it so the upper layers
-                    // see the bare UDS payload (J2534 already reassembled any multi-frame message).
-                    byte[] stripped = new byte[rxData.Length - 4];
-                    Array.Copy(rxData, 4, stripped, 0, stripped.Length);
+                    // Strip the prefix so the upper layers see the bare UDS payload (J2534 already
+                    // reassembled any multi-frame message).
+                    byte[] stripped = new byte[rxData.Length - prefixLength];
+                    Array.Copy(rxData, prefixLength, stripped, 0, stripped.Length);
                     rxData = stripped;
                 }
 
@@ -410,16 +425,35 @@ namespace PcmHacking
 
             if (this.CurrentProtocol == BusProtocol.Can500k)
             {
-                // Prepend the 4-byte destination CAN ID; J2534 ISO15765 adds the ISO-TP framing.
+                // Prepend the 4-byte destination CAN ID; J2534 ISO15765 adds the ISO-TP framing. An
+                // extended-addressed conversation puts the address extension between the id and the
+                // payload, and flags the transmit so the driver frames it that way.
                 byte[] uds = message.GetBytes();
-                byte[] data = new byte[4 + uds.Length];
+                IsoTpAddressing addressing = this.TxAddressing;
+                int extension = addressing.HeaderLength;
+                byte[] data = new byte[4 + extension + uds.Length];
                 byte[] idBytes = CanIdToBytes(this.TxCanId);
                 Array.Copy(idBytes, 0, data, 0, 4);
-                Array.Copy(uds, 0, data, 4, uds.Length);
-                this.Logger.AddDebugMessage($"TX: {this.TxCanId:X3} {uds.ToHex()}");
+                if (addressing.IsExtended)
+                {
+                    data[4] = addressing.AddressExtension;
+                }
+                Array.Copy(uds, 0, data, 4 + extension, uds.Length);
+
+                TxFlag canFlags = TxFlag.ISO15765_FRAME_PAD;
+                if (addressing.IsExtended)
+                {
+                    canFlags |= TxFlag.ISO15765_ADDR_TYPE;
+                    this.Logger.AddDebugMessage($"TX: {this.TxCanId:X3} {addressing.AddressExtension:X2} {uds.ToHex()}");
+                }
+                else
+                {
+                    this.Logger.AddDebugMessage($"TX: {this.TxCanId:X3} {uds.ToHex()}");
+                }
+
                 // ISO15765 send blocks until the segmented transfer completes; give large CAN blocks
                 // enough headroom (see CanWriteTimeout) so a slow device is not falsely failed.
-                MyError = SendNetworkMessage(new Message(data), TxFlag.ISO15765_FRAME_PAD, this.CanWriteTimeout);
+                MyError = SendNetworkMessage(new Message(data), canFlags, this.CanWriteTimeout);
             }
             else
             {

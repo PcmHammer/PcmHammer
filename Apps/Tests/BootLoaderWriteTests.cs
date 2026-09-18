@@ -30,8 +30,11 @@ namespace Tests
         // The OS segment's header record sits 0x100 in, and the module leads with 0x800 bytes of it.
         private const int E92OsHeaderOffset = 0x100;
 
+        // The whole master: operating system plus calibration.
+        private const BlockType AllMaster = BlockType.OperatingSystem | BlockType.Calibration;
+
         [TestMethod]
-        public void E92_IsWrittenThroughItsBootLoader()
+        public void E92_UsesKernelWriteLikeTheE38()
         {
             var e92 = new OSIDInfo(PcmType.E92);
 
@@ -42,12 +45,11 @@ namespace Tests
             Assert.IsTrue(e92.IsUnderDevelopment, "Untested on hardware: the brick-risk prompt must still appear.");
             Assert.IsFalse(e92.HasParameterBlocks, "There is no parameter block in E92 flash to write.");
 
-            // The kernel reads and CRCs but cannot program, so a destructive write must never reach the
-            // kernel writer, and there is no write path to rehearse a test write against.
-            Assert.IsTrue(e92.RequiresBootLoaderWrite);
-            Assert.IsFalse(e92.IsSupportedTestWrite);
+            // The kernel programs the master flash directly (so a test write is possible); the boot
+            // loader is used for the slave. Same dual model as the E38.
+            Assert.IsFalse(e92.RequiresBootLoaderWrite);
+            Assert.IsTrue(e92.IsSupportedTestWrite);
 
-            // The E38 has a write kernel and uses the boot loader only for its slave.
             var e38 = new OSIDInfo(PcmType.E38);
             Assert.IsFalse(e38.RequiresBootLoaderWrite);
             Assert.IsTrue(e38.IsSupportedTestWrite);
@@ -102,7 +104,7 @@ namespace Tests
         {
             byte[] image = LoadE92Image();
             var pcmInfo = new OSIDInfo(PcmType.E92);
-            FlashModule os = FlashModuleBuilder.Build(image, pcmInfo)[0];
+            FlashModule os = FlashModuleBuilder.Build(image, pcmInfo, AllMaster)[0];
 
             Assert.AreEqual("OS", os.Name);
             Assert.AreEqual(pcmInfo.BootLoaderMasterHeaderLength, os.HeaderLength);
@@ -117,10 +119,10 @@ namespace Tests
         }
 
         [TestMethod]
-        public void E92_CalibrationModules_AreCompressedAndDecodeBackToTheSegment()
+        public void E92_CalibrationModules_AreRawSegments()
         {
             byte[] image = LoadE92Image();
-            List<FlashModule> modules = FlashModuleBuilder.Build(image, new OSIDInfo(PcmType.E92));
+            List<FlashModule> modules = FlashModuleBuilder.Build(image, new OSIDInfo(PcmType.E92), AllMaster);
 
             Assert.AreEqual(E92Segments.Length, modules.Count);
             for (int i = 1; i < modules.Count; i++)
@@ -130,30 +132,22 @@ namespace Tests
 
                 Assert.AreEqual(name, module.Name);
                 Assert.AreEqual(0, module.HeaderLength, name + " carries no header");
-                Assert.AreEqual(Gmlan.DataFormatCompressed, module.DataFormat, name + " data format");
-                Assert.IsTrue(E92ModuleCodec.IsWrapped(module.Data), name + " is wrapped");
-                Assert.IsTrue(module.Data.Length < end - start + 1, name + " is smaller than the segment");
+                Assert.AreEqual(Gmlan.DataFormatUncompressed, module.DataFormat, name + " data format");
 
                 CollectionAssert.AreEqual(
-                    Slice(image, start, end - start + 1),
-                    E92ModuleCodec.Decompress(E92ModuleCodec.Unwrap(module.Data)),
-                    name + " decodes back to the segment");
+                    Slice(image, start, end - start + 1), module.Data, name + " is the raw segment");
             }
-
-            // The System module for this image is expected to be 5541 bytes. The coding is not unique,
-            // so a change here is not automatically wrong - but it is worth knowing.
-            Assert.AreEqual(5541, modules[1].Data.Length, "System module size differs from the expected value.");
         }
 
         [TestMethod]
         public void E92_CalibrationWrite_LeavesTheOsAlone()
         {
             List<FlashModule> modules = FlashModuleBuilder.Build(
-                LoadE92Image(), new OSIDInfo(PcmType.E92), includeOperatingSystem: false);
+                LoadE92Image(), new OSIDInfo(PcmType.E92), BlockType.Calibration);
 
             Assert.AreEqual(E92Segments.Length - 1, modules.Count);
             Assert.IsFalse(modules.Any(m => m.Name == "OS"));
-            Assert.IsTrue(modules.All(m => m.DataFormat == Gmlan.DataFormatCompressed));
+            Assert.IsTrue(modules.All(m => m.DataFormat == Gmlan.DataFormatUncompressed));
         }
 
         [TestMethod]
@@ -161,7 +155,7 @@ namespace Tests
         {
             var pcmInfo = new OSIDInfo(PcmType.E92);
             byte[] library = Filler(17952);
-            List<FlashModule> master = FlashModuleBuilder.Build(LoadE92Image(), pcmInfo);
+            List<FlashModule> master = FlashModuleBuilder.Build(LoadE92Image(), pcmInfo, AllMaster);
             List<FlashModule> slave = FlashModuleBuilder.BuildSlaveModules(
                 new[] { Filler(11392), E92ModuleCodec.Wrap(E92ModuleCodec.Compress(Filler(512))) }, pcmInfo);
 
@@ -180,8 +174,8 @@ namespace Tests
             List<byte[]> masterMessages = Bytes(phases[1]);
             CollectionAssert.AreEqual(new byte[] { 0x34, 0x00, 0x0F, 0xFE }, masterMessages[0], "OS module is streamed as-is");
             Assert.AreEqual(0x800, DataLengthOf(masterMessages[1]), "The OS header is a message of its own.");
-            Assert.AreEqual(0x40007000u, AddressOf(masterMessages[1]));
-            Assert.AreEqual(0x40007000u, AddressOf(masterMessages[2]), "Every block stages at one address.");
+            Assert.AreEqual(0x40006000u, AddressOf(masterMessages[1]));
+            Assert.AreEqual(0x40006000u, AddressOf(masterMessages[2]), "Every block stages at one address.");
 
             byte[][] calibrationDownloads = masterMessages
                 .Where(m => m[0] == 0x34)
@@ -190,7 +184,7 @@ namespace Tests
             Assert.AreEqual(5, calibrationDownloads.Length);
             foreach (byte[] request in calibrationDownloads)
             {
-                CollectionAssert.AreEqual(new byte[] { 0x34, 0x10, 0x0F, 0xFE }, request, "Calibration modules are compressed");
+                CollectionAssert.AreEqual(new byte[] { 0x34, 0x00, 0x0F, 0xFE }, request, "Calibration modules are streamed uncompressed");
             }
 
             // The slave answers for both its modules, then the modules stream; there is no driver upload.
@@ -211,7 +205,7 @@ namespace Tests
         {
             var pcmInfo = new OSIDInfo(PcmType.E92);
             List<CanBootLoaderWriter.DownloadPhase> phases = CanBootLoaderWriter.BuildPhases(
-                pcmInfo, Filler(17952), FlashModuleBuilder.Build(LoadE92Image(), pcmInfo), null, null);
+                pcmInfo, Filler(17952), FlashModuleBuilder.Build(LoadE92Image(), pcmInfo, AllMaster), null, null);
 
             foreach (CanBootLoaderWriter.DownloadPhase phase in phases)
             {

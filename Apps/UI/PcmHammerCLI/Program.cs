@@ -55,6 +55,18 @@ namespace PcmHacking
                         operation = "write";
                         if (i + 1 < args.Length && !args[i + 1].StartsWith("-")) filePath = args[++i];
                         break;
+                    case "--read-range":
+                        // Read an arbitrary flash range (e.g. the E92 boot block) with --range start-end.
+                        operation = "read-range";
+                        if (i + 1 < args.Length && !args[i + 1].StartsWith("-")) filePath = args[++i];
+                        break;
+                    case "--write-calibration":
+                        operation = "write-calibration";
+                        if (i + 1 < args.Length && !args[i + 1].StartsWith("-")) filePath = args[++i];
+                        break;
+                    case "--force":
+                        RuntimeSettings.ForceWriteAllSectors = true;
+                        break;
                     case "--test-write":
                         operation = "test-write";
                         if (i + 1 < args.Length && !args[i + 1].StartsWith("-")) filePath = args[++i];
@@ -169,7 +181,7 @@ namespace PcmHacking
                 return 1;
             }
 
-            if (filePath == null && operation != "read" && operation != "test-read" && operation != "identify-pcm" && operation != "did-sweep" && operation != "brute-force" && operation != "detect" && operation != "monitor")
+            if (filePath == null && operation != "read" && operation != "read-range" && operation != "test-read" && operation != "identify-pcm" && operation != "did-sweep" && operation != "brute-force" && operation != "detect" && operation != "monitor")
             {
                 Console.Error.WriteLine($"Error: No file path specified for --{operation}.");
                 return 1;
@@ -252,6 +264,31 @@ namespace PcmHacking
                             success = await readManager.Read(filePath, forcePcmType);
                             break;
                         }
+                        case "read-range":
+                        {
+                            if (rangeSpec == null || !TryParseHexRange32(rangeSpec, out uint rangeStart, out uint rangeEnd))
+                            {
+                                Console.Error.WriteLine("Error: --read-range needs --range <startHex>-<endHex>, e.g. --range 0-40000.");
+                                success = false;
+                                break;
+                            }
+                            if (filePath == null)
+                            {
+                                filePath = $"pcm_range_{rangeStart:X6}_{rangeEnd:X6}.bin";
+                                logger.AddUserMessage("No filename specified, saving to: " + filePath);
+                            }
+                            var readManager = new ReadManager(
+                                logger,
+                                vehicle,
+                                invoke,
+                                () => Task.FromResult<string?>(null),
+                                () => Task.FromResult(forcePcmType),
+                                alert,
+                                promptForYesNo,
+                                cts.Token);
+                            success = await readManager.ReadRawRange((uint)rangeStart, (uint)(rangeEnd - rangeStart), filePath, forcePcmType);
+                            break;
+                        }
                         case "test-read":
                         {
                             var readManager = new ReadManager(
@@ -274,6 +311,18 @@ namespace PcmHacking
                                 logger,
                                 vehicle,
                                 WriteType.Full,
+                                alert,
+                                promptForYesNo,
+                                cts.Token);
+                            success = await writeManager.Write(filePath!);
+                            break;
+                        }
+                        case "write-calibration":
+                        {
+                            var writeManager = new WriteManager(
+                                logger,
+                                vehicle,
+                                WriteType.Calibration,
                                 alert,
                                 promptForYesNo,
                                 cts.Token);
@@ -646,6 +695,21 @@ namespace PcmHacking
         // Parses a "START-END" hex range into two 16-bit values. Hex parsing stays in the front
         // end (PcmLibrary is not called to parse UI input), using the same UInt16.TryParse +
         // NumberStyles.HexNumber idiom as the WinForms dialogs.
+        // A 32-bit "START-END" hex range (addresses), for --read-range. end must be above start.
+        static bool TryParseHexRange32(string spec, out uint start, out uint end)
+        {
+            start = 0;
+            end = 0;
+            string[] parts = spec.Split('-');
+            if (parts.Length != 2)
+                return false;
+            if (!uint.TryParse(parts[0].Trim(), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out start))
+                return false;
+            if (!uint.TryParse(parts[1].Trim(), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out end))
+                return false;
+            return end > start;
+        }
+
         static bool TryParseHexRange(string spec, out int start, out int end)
         {
             start = 0x0000;
@@ -843,6 +907,8 @@ namespace PcmHacking
             Console.WriteLine("  --read [file]             Read entire PCM to file (auto-names if omitted)");
             Console.WriteLine("  --test-read               Read entire PCM (auto-detects VPW or CAN) without saving");
             Console.WriteLine("  --write <file>            Write entire PCM from file");
+            Console.WriteLine("  --write-calibration <f>   Write the calibration from file (boot-loader PCMs)");
+            Console.WriteLine("  --force                   Write every requested sector even if it already matches");
             Console.WriteLine("  --test-write <file>       Test write (no permanent changes; needs a PCM");
             Console.WriteLine("                            whose kernel can write, so not boot loader PCMs)");
             Console.WriteLine("  --verify <file>           CRC-compare file against PCM (no erase/write)");

@@ -61,15 +61,11 @@ namespace PcmHacking
                 List<DownloadPhase> phases = BuildPhases(
                     this.pcmInfo, masterFlashLibrary, masterModules, slaveFlashDriver, slaveModules);
 
-                this.logger.StatusUpdateActivity("Unlocking PCM...");
-                if (!await this.commands.Unlock(this.pcmInfo, cancellationToken))
-                {
-                    this.logger.AddUserMessage("Unable to unlock the PCM.");
-                    return false;
-                }
-
+                // Security access must be granted INSIDE the programming session (after 0x10 0x02), or
+                // RequestDownload is refused 7F 34 22 even after a "successful" unlock. EnterProgrammingMode
+                // does the 0x27 exchange in-session.
                 this.logger.StatusUpdateActivity("Entering programming mode...");
-                if (!await this.commands.EnterProgrammingMode(cancellationToken))
+                if (!await this.commands.EnterProgrammingMode(cancellationToken, this.pcmInfo))
                 {
                     return false;
                 }

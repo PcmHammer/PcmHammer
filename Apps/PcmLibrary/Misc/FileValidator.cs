@@ -1528,7 +1528,9 @@ namespace PcmHacking
                 if ((endAddr - startAddr) < 0x24)
                     throw new InvalidOperationException(string.Format("Segment {0} range too short: 0x{1:X6}-0x{2:X6}", segNum, startAddr, endAddr));
 
-                segments.Add(new FlashSegment(startAddr, endAddr, layout[i].Name));
+                // The first segment is the operating system; the rest are calibration.
+                BlockType blockType = i == 0 ? BlockType.OperatingSystem : BlockType.Calibration;
+                segments.Add(new FlashSegment(startAddr, endAddr, layout[i].Name, blockType));
             }
 
             return segments;
@@ -1628,9 +1630,10 @@ namespace PcmHacking
                 if (endAddr - startAddr < segment.CvnOffset)
                     throw new InvalidOperationException(string.Format("{0} range too short: 0x{1:X6}-0x{2:X6}", segment.Name, startAddr, endAddr));
 
-                // The Sum sits at the head of the segment's own header record, which is what the OS
-                // module leads with.
-                segments.Add(new FlashSegment(startAddr, endAddr, segment.Name, segment.SumOffset));
+                // The first segment is the operating system; the rest are calibration. The Sum sits at
+                // the head of the segment's own header record, which is what the OS module leads with.
+                BlockType blockType = segments.Count == 0 ? BlockType.OperatingSystem : BlockType.Calibration;
+                segments.Add(new FlashSegment(startAddr, endAddr, segment.Name, blockType, segment.SumOffset));
             }
 
             return segments;
