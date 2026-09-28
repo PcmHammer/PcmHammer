@@ -869,11 +869,12 @@ namespace PcmHacking
                     // Segment aligned, but the parameter block is not in this flash.
                     this.HasParameterBlocks = false;
                     this.BusProtocol = BusProtocol.Can500k;
-                    // No kernel write path: the boot loader stages every module at one address and burns
-                    // it there.
+                    // Two write paths (E38 model): the kernel programs the master flash directly
+                    // (calibration and test write), and the OEM boot loader does the whole-PCM /
+                    // slave-CPU write. So the boot loader is supported but not required.
                     this.IsSupportedBootLoaderWrite = true;
-                    this.RequiresBootLoaderWrite = true;
-                    this.BootLoaderStagingAddress = 0x40007000;
+                    this.RequiresBootLoaderWrite = false;
+                    this.BootLoaderStagingAddress = 0x40006000;
                     this.BootLoaderLibraryAddress = 0x40000400;
                     this.BootLoaderBlockSize = 0x0FFE;
                     this.BootLoaderMasterHeaderLength = 0x800;
@@ -881,7 +882,8 @@ namespace PcmHacking
                     // The master burn needs no handshake; the slave answers for both of its modules.
                     this.BootLoaderMasterHandshakeDid = 0x0;
                     this.BootLoaderSlaveHandshakeDids = new byte[] { 0xC9, 0xCA };
-                    this.BootLoaderModuleDataFormat = Gmlan.DataFormatCompressed;
+                    // This boot loader takes module data raw; it rejects the compressed format (0x85).
+                    this.BootLoaderModuleDataFormat = Gmlan.DataFormatUncompressed;
                     this.BootLoaderMasterLibraryFileName = "BootLib-E92-Master.bin";
                     // No separate slave driver file: the slave OS module carries its own flash routines.
                     this.BootLoaderSlaveDriverFileName = string.Empty;
@@ -3860,6 +3862,10 @@ namespace PcmHacking
                 case 12672612: // Service number 12673195
                     PCMInfo(PcmType.E92);
                     this.ServiceNumber = 12673195;
+                    break;
+
+                case 12663390: // early, 2-byte key (2014 Silverado L83); issue #87
+                    PCMInfo(PcmType.E92);
                     break;
 
                 // E39a (GM 3 MB PowerPC e200z6 CAN PCM).

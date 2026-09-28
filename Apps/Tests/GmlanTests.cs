@@ -267,8 +267,10 @@ namespace Tests
         [TestMethod]
         public void GetCanKey_BoundaryCases()
         {
+            // 0..255 index the GMLAN table; 0x100..0x1FF index the GM_OTHER table. Out of range is a
+            // negative algo, the gap between the tables, or past GM_OTHER.
             Assert.AreEqual((ushort)0x0000, KeyAlgorithm.GetCanKey(-1, 0x1234), "algo out of range -> 0.");
-            Assert.AreEqual((ushort)0x0000, KeyAlgorithm.GetCanKey(256, 0x1234), "algo out of range -> 0.");
+            Assert.AreEqual((ushort)0x0000, KeyAlgorithm.GetCanKey(0x100 + 256, 0x1234), "past GM_OTHER -> 0.");
             Assert.AreEqual((ushort)0xFFFF, KeyAlgorithm.GetCanKey(5, 0xFFFF), "seed 0xFFFF -> 0xFFFF.");
         }
 

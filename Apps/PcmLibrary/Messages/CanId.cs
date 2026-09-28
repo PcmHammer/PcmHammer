@@ -25,6 +25,19 @@ namespace PcmHacking
         /// <summary>Base for 11-bit physical response IDs; add ECU index 0-7 (ECU 0 = 0x7E8).</summary>
         public const uint PhysicalResponseBase = 0x7E8;
 
+        // ── GMLAN all-nodes functional (ISO-TP extended addressing) ──────────────
+
+        /// <summary>
+        /// GMLAN all-nodes functional request id. Frames on this id use ISO-TP extended addressing:
+        /// the first data byte is <see cref="GmlanAllNodesExtension"/>, then the usual PCI and
+        /// service bytes (e.g. 101 FE 02 A5 01). Modules answer physically on their own response id
+        /// with normal addressing.
+        /// </summary>
+        public const uint GmlanAllNodesRequest = 0x101;
+
+        /// <summary>ISO-TP address extension selecting every node, used with <see cref="GmlanAllNodesRequest"/>.</summary>
+        public const byte GmlanAllNodesExtension = 0xFE;
+
         // ── GMLAN 29-bit extended ────────────────────────────────────────────────
 
         /// <summary>GMLAN functional (broadcast) request, 29-bit extended.</summary>

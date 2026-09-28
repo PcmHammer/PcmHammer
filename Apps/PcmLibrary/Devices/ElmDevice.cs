@@ -50,6 +50,18 @@ namespace PcmHacking
             set { if (this.implementation is ScanToolDeviceImplementation scanTool) scanTool.RxCanId = value; }
         }
 
+        /// <summary>ISO-TP addressing for transmitted frames.</summary>
+        public IsoTpAddressing TxAddressing { get; set; } = IsoTpAddressing.Normal;
+
+        /// <summary>ISO-TP addressing for received frames.</summary>
+        public IsoTpAddressing RxAddressing { get; set; } = IsoTpAddressing.Normal;
+
+        /// <summary>
+        /// The STN firmware owns the ISO-TP framing and this implementation never programs an
+        /// address extension (AT CEA), so extended-addressed conversations are not available here.
+        /// </summary>
+        public bool SupportsExtendedAddressing => false;
+
         /// <summary>
         /// The ScanTool (STN) family has a small CAN message buffer, so a kernel must be uploaded in
         /// blocks of that size; other ELM-based devices use the default.

@@ -62,6 +62,23 @@ namespace PcmHacking
         public async Task<bool> Write(
             byte[] image, FileValidator validator, bool needToCheckOperatingSystem, bool kernelAlreadyRunning, CancellationToken cancellationToken)
         {
+            try
+            {
+                return await this.WriteCore(image, validator, needToCheckOperatingSystem, kernelAlreadyRunning, cancellationToken);
+            }
+            finally
+            {
+                // Always return the PCM to its stock OS, so the kernel is never left running - after a
+                // verify, a successful write (letting the new OS boot), or an abort. A failed write's
+                // recovery has already run in WriteCore. Mirrors KernelReader.
+                await this.session.Commands.Cleanup(CancellationToken.None);
+                this.logger.StatusUpdateReset();
+            }
+        }
+
+        private async Task<bool> WriteCore(
+            byte[] image, FileValidator validator, bool needToCheckOperatingSystem, bool kernelAlreadyRunning, CancellationToken cancellationToken)
+        {
             if (!await this.session.Start(this.pcmInfo, KernelOperation.Write, kernelAlreadyRunning, cancellationToken))
             {
                 return false;

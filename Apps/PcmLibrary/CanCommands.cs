@@ -378,46 +378,94 @@ namespace PcmHacking
         /// <summary>
         /// Put the PCM in programming mode, which every download starts with. PCM must already be
         /// unlocked. Sequence: 0x10/02 ProgrammingSession (optional), 0x28 DisableNormalCommunication
-        /// (optional), tester present, 0xA5/01 ProgrammingMode (required), 0xA5/03 (optional).
+        /// (optional), tester present, 0xA5/01 ProgrammingMode (required), 0xA5/03 (no response).
+        /// GMLAN specifies these as all-nodes requests, so they are broadcast functionally when the
+        /// interface can frame extended addressing; every module answers physically as usual.
         /// </summary>
-        public async Task<bool> EnterProgrammingMode(CancellationToken cancellationToken)
+        public async Task<bool> EnterProgrammingMode(CancellationToken cancellationToken, OSIDInfo? unlockInSession = null)
         {
             await this.device.SetTimeout(TimeoutScenario.ReadProperty);
 
-            // ProgrammingSession (0x10 0x02). The factory sequence enters this session before the
-            // upload; it puts the OS's CAN comms in the state the launched kernel expects (so the kernel's
-            // re-armed RX mailbox actually matches). Optional/best-effort: answer is 0x50.
-            await this.MakeQuery(
-                () => this.gmlan.CreateProgrammingSessionRequest(),
-                this.Confirm(b => b[0] == 0x50),
-                cancellationToken, maxTimeouts: 2).Execute();
-
-            // Optional: some PCMs answer 0x68/0x60, others reject it; programming mode is tried next regardless.
-            await this.MakeQuery(
-                () => this.gmlan.CreateDisableNormalCommunicationRequest(),
-                this.Confirm(b => b[0] == 0x68 || b[0] == 0x60),
-                cancellationToken, maxTimeouts: 2).Execute();
-
-            await this.device.SendMessage(this.gmlan.CreateTesterPresentRequest());
-
-            this.logger.AddUserMessage("Requesting programming mode.");
-            Response<bool> progMode = await this.MakeQuery(
-                () => this.gmlan.CreateProgrammingModeRequest(),
-                this.gmlan.ParseProgrammingModeResponse,
-                cancellationToken, maxTimeouts: 5).Execute();
-            if (progMode.Status != ResponseStatus.Success)
+            using (this.BroadcastToAllNodes())
             {
-                this.logger.AddUserMessage("Programming mode rejected (" + progMode.Status + ").");
-                return false;
+                // ProgrammingSession (0x10 0x02), entered before the upload so the OS CAN comms are in
+                // the state the launched kernel expects. Best-effort; answer is 0x50.
+                await this.MakeQuery(
+                    () => this.gmlan.CreateProgrammingSessionRequest(),
+                    this.Confirm(b => b[0] == 0x50),
+                    cancellationToken, maxTimeouts: 2).Execute();
+
+                // Optional: some PCMs answer 0x68/0x60, others reject it; programming mode is tried next regardless.
+                await this.MakeQuery(
+                    () => this.gmlan.CreateDisableNormalCommunicationRequest(),
+                    this.Confirm(b => b[0] == 0x68 || b[0] == 0x60),
+                    cancellationToken, maxTimeouts: 2).Execute();
+
+                await this.device.SendMessage(this.gmlan.CreateTesterPresentRequest());
             }
 
-            // 0xA5/03 is optional and usually unanswered; one quick attempt to keep the session alive.
-            await this.MakeQuery(
-                () => this.gmlan.CreateProgrammingModeStep3Request(),
-                this.gmlan.ParseProgrammingModeResponse,
-                cancellationToken, maxTimeouts: 1).Execute();
+            // Security access is per-session: unlock AFTER ProgrammingSession (0x10 0x02), not before,
+            // or RequestDownload is refused 7F 34 22 even though the earlier unlock "succeeded". The
+            // 0x27 exchange is physical, so it sits outside the all-nodes broadcast scopes.
+            if (unlockInSession != null)
+            {
+                if (!await this.Unlock(unlockInSession, cancellationToken))
+                {
+                    this.logger.AddUserMessage("Unable to unlock inside the programming session.");
+                    return false;
+                }
+            }
+
+            using (this.BroadcastToAllNodes())
+            {
+                this.logger.AddUserMessage("Requesting programming mode.");
+                Response<bool> progMode = await this.MakeQuery(
+                    () => this.gmlan.CreateProgrammingModeRequest(),
+                    this.gmlan.ParseProgrammingModeResponse,
+                    cancellationToken, maxTimeouts: 5).Execute();
+                if (progMode.Status != ResponseStatus.Success)
+                {
+                    this.logger.AddUserMessage("Programming mode rejected (" + progMode.Status + ").");
+                    return false;
+                }
+
+                // After A5 01 the PCM is not ready immediately; A5 03 and RequestDownload fired
+                // back-to-back get 7F 34 22. Wait ~2s with TesterPresent so it has entered programming
+                // mode first.
+                await this.device.SendMessage(this.gmlan.CreateTesterPresentRequest());
+                await Task.Delay(TimeSpan.FromSeconds(2), cancellationToken);
+
+                // A5 03 enableProgrammingMode has no positive response by design (GMW3110 8.17).
+                await this.device.SendMessage(this.gmlan.CreateProgrammingModeStep3Request());
+                await Task.Delay(TimeSpan.FromMilliseconds(300), cancellationToken);
+            }
 
             return true;
+        }
+
+        /// <summary>
+        /// Address the programming-mode requests to every node (GMLAN id 0x101 with the all-nodes
+        /// address extension), which is how GMLAN specifies them. Interfaces whose firmware owns the
+        /// ISO-TP framing cannot emit an address extension, so those keep addressing the PCM
+        /// directly - which these PCMs also accept.
+        /// </summary>
+        private CanTargetScope BroadcastToAllNodes()
+        {
+            if (!(this.device is ICanTarget target) || !target.SupportsExtendedAddressing)
+            {
+                this.logger.AddDebugMessage("Programming mode addressed to the PCM directly; this interface cannot frame extended addressing.");
+                return CanTargetScope.None;
+            }
+
+            this.logger.AddDebugMessage(string.Format(
+                "Programming mode broadcast to all nodes on {0:X3}, address extension {1:X2}.",
+                CanId.GmlanAllNodesRequest,
+                CanId.GmlanAllNodesExtension));
+
+            return CanTargetScope.Retarget(
+                target,
+                CanId.GmlanAllNodesRequest,
+                IsoTpAddressing.Extended(CanId.GmlanAllNodesExtension));
         }
 
         /// <summary>
@@ -431,13 +479,17 @@ namespace PcmHacking
             uint loadAddress = (uint)pcmInfo.KernelBaseAddress;
             uint runAddress = (uint)pcmInfo.KernelRunAddress;
 
-            if (!await this.EnterProgrammingMode(cancellationToken))
+            // Pass pcmInfo so EnterProgrammingMode unlocks in-session; otherwise RequestDownload is
+            // refused 7F 34 22.
+            if (!await this.EnterProgrammingMode(cancellationToken, pcmInfo))
             {
                 return false;
             }
 
+            int maxBlockSize = this.device.MaxCanKernelBlockSize;
+
             CanKernelUpload upload = protocol.BuildUpload(
-                this.gmlan, payload, loadAddress, runAddress, this.device.MaxCanKernelBlockSize);
+                this.gmlan, payload, loadAddress, runAddress, maxBlockSize);
 
             // Total framed bytes actually put on the wire, for progress (distinct from the size the
             // RequestDownload declares, which is the dialect's business).
@@ -736,30 +788,27 @@ namespace PcmHacking
                 logger.AddUserMessage("Clearing trouble codes.");
             }
 
-            uint savedTx = target.TxCanId;
-            uint savedRx = target.RxCanId;
             try
             {
-                // Functional broadcast (0x7DF) so all modules clear; the replies are ignored.
-                target.TxCanId = CanId.OBD2Functional;
-                await this.device.SetTimeout(TimeoutScenario.Detect);
-
-                Message clear = this.gmlan.CreateClearDiagnosticsRequest();
-                for (int attempt = 0; attempt < 2; attempt++)
+                // Functional broadcast (0x7DF) so all modules clear; the replies are ignored. OBD-II
+                // functional addressing is normal, so say so rather than inheriting whatever the
+                // previous exchange left set.
+                using (CanTargetScope.Retarget(target, CanId.OBD2Functional, IsoTpAddressing.Normal))
                 {
-                    this.device.ClearMessageQueue();
-                    await this.device.SendMessage(clear);
-                    await Task.Delay(250, cancellationToken);
+                    await this.device.SetTimeout(TimeoutScenario.Detect);
+
+                    Message clear = this.gmlan.CreateClearDiagnosticsRequest();
+                    for (int attempt = 0; attempt < 2; attempt++)
+                    {
+                        this.device.ClearMessageQueue();
+                        await this.device.SendMessage(clear);
+                        await Task.Delay(250, cancellationToken);
+                    }
                 }
             }
             catch
             {
                 // Best-effort: a failed DTC clear must not turn a successful read into a failure.
-            }
-            finally
-            {
-                target.TxCanId = savedTx;
-                target.RxCanId = savedRx;
             }
         }
 

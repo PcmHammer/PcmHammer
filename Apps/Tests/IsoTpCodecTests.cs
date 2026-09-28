@@ -257,22 +257,131 @@ namespace Tests
             Assert.IsNull(codec.FeedFrame(new byte[] { 0x23, 7, 8, 9, 10, 11, 12, 13 }), "No payload should emerge from the abandoned message.");
         }
 
+        // ── extended addressing ──────────────────────────────────────────────────
+
+        [TestMethod]
+        public void Encode_Extended_SingleFrame_MatchesGmlanProgrammingRequest()
+        {
+            // The GMLAN all-nodes programming request as the factory tool sends it: 101 FE 02 A5 01.
+            var frames = new IsoTpCodec()
+                .Encode(new byte[] { 0xA5, 0x01 }, IsoTpAddressing.Extended(CanId.GmlanAllNodesExtension))
+                .ToList();
+
+            Assert.AreEqual(1, frames.Count, "Two payload bytes still fit one frame under extended addressing.");
+            CollectionAssert.AreEqual(
+                new byte[] { 0xFE, 0x02, 0xA5, 0x01, 0xAA, 0xAA, 0xAA, 0xAA },
+                frames[0],
+                "Address extension leads, then the PCI byte, then the service.");
+        }
+
+        [TestMethod]
+        public void Encode_Extended_SixBytePayload_IsTheLargestSingleFrame()
+        {
+            var frames = new IsoTpCodec()
+                .Encode(new byte[] { 1, 2, 3, 4, 5, 6 }, IsoTpAddressing.Extended(0xFE))
+                .ToList();
+
+            Assert.AreEqual(1, frames.Count, "The extension byte costs one byte, so six is the single-frame maximum.");
+            Assert.AreEqual(0x06, frames[0][1], "PCI byte follows the extension and carries the length.");
+        }
+
+        [TestMethod]
+        public void Encode_Extended_SevenBytePayload_NeedsMultipleFrames()
+        {
+            // Seven bytes is a single frame under normal addressing but no longer fits under extended.
+            byte[] payload = { 1, 2, 3, 4, 5, 6, 7 };
+
+            var frames = new IsoTpCodec().Encode(payload, IsoTpAddressing.Extended(0xFE)).ToList();
+
+            Assert.AreEqual(2, frames.Count, "Seven bytes no longer fits one extended-addressed frame.");
+            CollectionAssert.AreEqual(
+                new byte[] { 0xFE, 0x10, 0x07, 1, 2, 3, 4, 5 },
+                frames[0],
+                "First Frame carries five data bytes under extended addressing.");
+            CollectionAssert.AreEqual(
+                new byte[] { 0xFE, 0x21, 6, 7, 0xAA, 0xAA, 0xAA, 0xAA },
+                frames[1],
+                "Consecutive Frame carries up to six data bytes under extended addressing.");
+        }
+
+        [TestMethod]
+        public void RoundTrip_Extended_VariousLengths_PreservePayload()
+        {
+            IsoTpAddressing extended = IsoTpAddressing.Extended(0xFE);
+            foreach (int length in new[] { 1, 2, 6, 7, 13, 96, 113, 1024 })
+            {
+                byte[] payload = Enumerable.Range(0, length).Select(i => (byte)(i * 7 + 1)).ToArray();
+                CollectionAssert.AreEqual(
+                    payload,
+                    RoundTrip(payload, extended),
+                    $"Extended-addressed round trip failed for length {length}.");
+            }
+        }
+
+        [TestMethod]
+        public void Decode_Extended_DifferentExtension_IsNotOurConversation()
+        {
+            // Same CAN id, different address extension: another conversation, not ours.
+            byte[]? result = new IsoTpCodec()
+                .FeedFrame(new byte[] { 0xFD, 0x02, 0xA5, 0x01, 0xAA, 0xAA, 0xAA, 0xAA }, IsoTpAddressing.Extended(0xFE));
+
+            Assert.IsNull(result, "A frame carrying another extension must not be decoded as ours.");
+        }
+
+        [TestMethod]
+        public void Decode_Extended_NormalFrameNotMistakenForExtended()
+        {
+            // A normally-addressed frame read as extended would treat its PCI byte as the extension.
+            Assert.IsNull(
+                new IsoTpCodec().FeedFrame(new byte[] { 0x02, 0xA5, 0x01, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA }, IsoTpAddressing.Extended(0xFE)),
+                "Normal-addressed frame should not decode on an extended-addressed conversation.");
+        }
+
+        [TestMethod]
+        public void MakeFlowControl_Extended_PutsExtensionBeforeFlowStatus()
+        {
+            byte[] fc = new IsoTpCodec().MakeFlowControl(blockSize: 0x08, stMin: 0xF2, addressing: IsoTpAddressing.Extended(0xFE));
+
+            Assert.AreEqual(0xFE, fc[0], "Address extension.");
+            Assert.AreEqual(0x30, fc[1], "Flow status byte.");
+            Assert.AreEqual(0x08, fc[2], "Block size.");
+            Assert.AreEqual(0xF2, fc[3], "STmin.");
+        }
+
+        [TestMethod]
+        public void FrameType_Extended_ReadsPciAfterTheExtension()
+        {
+            IsoTpAddressing extended = IsoTpAddressing.Extended(0xFE);
+
+            Assert.AreEqual(IsoTpFrameType.SingleFrame, IsoTpCodec.FrameType(new byte[] { 0xFE, 0x03, 1, 2, 3 }, extended));
+            Assert.AreEqual(IsoTpFrameType.FirstFrame, IsoTpCodec.FrameType(new byte[] { 0xFE, 0x10, 0x08, 1 }, extended));
+            Assert.AreEqual(IsoTpFrameType.FlowControl, IsoTpCodec.FrameType(new byte[] { 0xFE, 0x30, 0, 0 }, extended));
+        }
+
+        [TestMethod]
+        public void Addressing_DefaultIsNormal()
+        {
+            Assert.IsFalse(default(IsoTpAddressing).IsExtended, "The default addressing must be normal.");
+            Assert.AreEqual(0, default(IsoTpAddressing).HeaderLength, "Normal addressing reserves no leading byte.");
+            Assert.AreEqual(1, IsoTpAddressing.Extended(0xFE).HeaderLength, "Extended addressing reserves one leading byte.");
+        }
+
         // ── helpers ──────────────────────────────────────────────────────────────
 
         /// <summary>
         /// Encode a payload, then feed every frame back through a fresh decoder (sending Flow
         /// Control after the First Frame, exactly as a device would) and return the result.
         /// </summary>
-        private static byte[] RoundTrip(byte[] payload)
+        private static byte[] RoundTrip(byte[] payload, IsoTpAddressing addressing = default)
         {
             var encoder = new IsoTpCodec();
             var decoder = new IsoTpCodec();
 
             byte[]? result =null;
-            List<byte[]> frames = encoder.Encode(payload).ToList();
+            List<byte[]> frames = encoder.Encode(payload, addressing).ToList();
             for (int i = 0; i < frames.Count; i++)
             {
-                byte[]? assembled = decoder.FeedFrame(frames[i]);
+                byte[]? assembled = decoder.FeedFrame(frames[i], addressing);
                 if (assembled != null)
                 {
                     result = assembled;
@@ -281,7 +390,7 @@ namespace Tests
                 // the test honest about the handshake even though the decoder doesn't consume it.
                 if (i == 0 && frames.Count > 1)
                 {
-                    decoder.MakeFlowControl();
+                    decoder.MakeFlowControl(addressing: addressing);
                 }
             }
 

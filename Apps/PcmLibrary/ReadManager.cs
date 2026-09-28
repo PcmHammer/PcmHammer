@@ -294,6 +294,138 @@ namespace PcmHacking
             return null;
         }
 
+        /// <summary>
+        /// Read an arbitrary flash range - including below <see cref="OSIDInfo.ReadStartAddress"/>, e.g.
+        /// the E92 protected boot block - and save the raw bytes. Tolerant of sectors that fault the
+        /// read kernel: a block that fails to read is filled with 0xFF, the rest of its 16 KiB sector is
+        /// skipped, the kernel is re-established (the fault may have reset it), and the read continues,
+        /// so everything readable is still captured. CAN PCMs only.
+        /// </summary>
+        public async Task<bool> ReadRawRange(uint startAddress, uint length, string filePath, PcmType forcedPcmType = PcmType.Undefined)
+        {
+            OSIDInfo pcmInfo;
+            if (forcedPcmType != PcmType.Undefined)
+            {
+                pcmInfo = new OSIDInfo(forcedPcmType);
+            }
+            else
+            {
+                DetectedModule? detected = await this.vehicle.DetectAndSelectPcm(this.cancellationToken);
+                if (detected == null || detected.Bus != BusProtocol.Can500k)
+                {
+                    logger.AddUserMessage("Raw range read is only supported for CAN PCMs.");
+                    return false;
+                }
+
+                pcmInfo = detected.Info;
+            }
+
+            if (!await this.vehicle.SelectBus(pcmInfo.BusProtocol))
+            {
+                logger.AddUserMessage("Failed to select the " + pcmInfo.BusProtocol + " bus.");
+                return false;
+            }
+
+            logger.AddUserMessage(string.Format(
+                "Raw range read: 0x{0:X6}-0x{1:X6} on {2}.", startAddress, startAddress + length, pcmInfo.Description));
+
+            CanCommands commands = this.vehicle.CreateCanCommands();
+            CanKernelSession session = new CanKernelSession(this.vehicle, commands, this.logger);
+            if (!await this.StartRawKernel(commands, pcmInfo, session, firstStart: true))
+            {
+                return false;
+            }
+
+            byte[] buffer = new byte[length];
+            for (int i = 0; i < buffer.Length; i++)
+            {
+                buffer[i] = 0xFF;
+            }
+
+            const uint SectorSize = 0x4000;   // smallest E92 flash sector; the skip granularity on a fault
+            uint blockSize = (uint)session.MaxReadBlockSize;
+            var skipped = new List<uint>();
+            DateTime start = DateTime.Now;
+            uint offset = 0;
+
+            while (offset < length)
+            {
+                if (this.cancellationToken.IsCancellationRequested)
+                {
+                    break;
+                }
+
+                uint address = startAddress + offset;
+                int thisBlock = (int)Math.Min(blockSize, length - offset);
+
+                await session.KeepAlive(this.cancellationToken);
+                Response<byte[]> block = await session.ReadMemoryBlock(address, thisBlock, this.cancellationToken);
+
+                if (block.Status == ResponseStatus.Success && block.Value.Length == thisBlock)
+                {
+                    Buffer.BlockCopy(block.Value, 0, buffer, (int)offset, thisBlock);
+                    logger.StatusUpdateProgressBar((double)(offset + (uint)thisBlock) / length, true);
+                    offset += (uint)thisBlock;
+                    continue;
+                }
+
+                // The block did not read - most likely it faulted and reset the kernel. Skip the rest of
+                // its 16 KiB sector (left 0xFF), re-establish the kernel, and press on.
+                uint nextSector = ((address / SectorSize) + 1) * SectorSize;
+                logger.AddUserMessage(string.Format(
+                    "Block 0x{0:X6} did not read ({1}); skipping to 0x{2:X6} and re-establishing the kernel.",
+                    address, block.Status, nextSector));
+                skipped.Add(address);
+
+                if (!await this.StartRawKernel(commands, pcmInfo, session, firstStart: false))
+                {
+                    logger.AddUserMessage("Could not re-establish the kernel; stopping the range read.");
+                    break;
+                }
+
+                offset = nextSector - startAddress;
+            }
+
+            await commands.Reboot(this.cancellationToken);
+
+            try
+            {
+                File.WriteAllBytes(filePath, buffer);
+            }
+            catch (Exception exception)
+            {
+                logger.AddUserMessage("Could not save the range: " + exception.Message);
+                return false;
+            }
+
+            logger.AddUserMessage(string.Format(
+                "Saved 0x{0:X} bytes to {1}. {2} block(s)/sector(s) could not be read.", length, filePath, skipped.Count));
+            foreach (uint address in skipped)
+            {
+                logger.AddUserMessage(string.Format("  unreadable near 0x{0:X6}", address));
+            }
+            logger.AddUserMessage("Elapsed time " + DateTime.Now.Subtract(start));
+            return true;
+        }
+
+        // Unlock and upload the read kernel. When re-establishing after a suspected fault reset, give the
+        // stock OS a moment to come back before unlocking.
+        private async Task<bool> StartRawKernel(CanCommands commands, OSIDInfo pcmInfo, CanKernelSession session, bool firstStart)
+        {
+            if (!firstStart)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(2), this.cancellationToken);
+            }
+
+            if (!await commands.Unlock(pcmInfo, this.cancellationToken))
+            {
+                logger.AddUserMessage("Unlock was not successful.");
+                return false;
+            }
+
+            return await session.Start(pcmInfo, KernelOperation.Read, kernelAlreadyRunning: false, this.cancellationToken);
+        }
+
         private static string GetBadReadPath(string path)
         {
             string dir = Path.GetDirectoryName(path);

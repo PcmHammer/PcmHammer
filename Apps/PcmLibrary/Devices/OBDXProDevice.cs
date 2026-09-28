@@ -46,6 +46,18 @@ namespace PcmHacking
         /// <summary>CAN ID accepted when receiving (target to tool).</summary>
         public uint RxCanId { get; set; } = CanId.PcmPhysicalResponse;
 
+        /// <summary>ISO-TP addressing for transmitted frames.</summary>
+        public IsoTpAddressing TxAddressing { get; set; } = IsoTpAddressing.Normal;
+
+        /// <summary>ISO-TP addressing for received frames.</summary>
+        public IsoTpAddressing RxAddressing { get; set; } = IsoTpAddressing.Normal;
+
+        /// <summary>
+        /// Only on the software-ISO-TP path: in native mode the firmware owns the framing and offers
+        /// no way to set an address extension.
+        /// </summary>
+        public bool SupportsExtendedAddressing => UseSoftwareIsoTpForCan;
+
         /// <summary>No-progress wait the ISO-TP transport applies on the software-ISO-TP path.</summary>
         public int ReceiveTimeoutMilliseconds => this.GetReceiveTimeout();
 

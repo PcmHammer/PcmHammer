@@ -30,6 +30,14 @@ namespace PcmHacking
         /// <summary>CAN ID the ECU answers on; frames with any other ID are ignored.</summary>
         uint RxCanId { get; }
 
+        /// <summary>ISO-TP addressing for frames we transmit. Normal unless a functional/extended
+        /// conversation is selected.</summary>
+        IsoTpAddressing TxAddressing { get; }
+
+        /// <summary>ISO-TP addressing for frames we receive. Separate from <see cref="TxAddressing"/>
+        /// because a GMLAN extended-addressed broadcast is answered with normal addressing.</summary>
+        IsoTpAddressing RxAddressing { get; }
+
         /// <summary>
         /// How long the transport should keep waiting for a frame on its own conversation (RxCanId)
         /// before giving up, in milliseconds. On an adapter with a hardware acceptance filter only our
@@ -75,7 +83,7 @@ namespace PcmHacking
         /// </summary>
         public async Task<bool> SendMessage(Message message)
         {
-            List<byte[]> frames = new List<byte[]>(this.codec.Encode(message.GetBytes()));
+            List<byte[]> frames = new List<byte[]>(this.codec.Encode(message.GetBytes(), this.channel.TxAddressing));
 
             await this.channel.SendCanFrame(this.channel.TxCanId, frames[0]);
             if (frames.Count == 1)
@@ -162,7 +170,8 @@ namespace PcmHacking
 
                 framesSinceProgress++;
 
-                if (incoming.id != this.channel.RxCanId)
+                IsoTpAddressing rxAddressing = this.channel.RxAddressing;
+                if (incoming.id != this.channel.RxCanId || !IsoTpCodec.BelongsTo(incoming.frame, rxAddressing))
                 {
                     // Not our conversation; keep reading but don't count it as progress, so unrelated
                     // bus traffic can't keep the wait alive.
@@ -173,12 +182,14 @@ namespace PcmHacking
                 sinceProgress.Restart();
                 framesSinceProgress = 0;
 
-                if (IsoTpCodec.FrameType(incoming.frame) == IsoTpFrameType.FirstFrame)
+                if (IsoTpCodec.FrameType(incoming.frame, rxAddressing) == IsoTpFrameType.FirstFrame)
                 {
-                    await this.channel.SendCanFrame(this.channel.TxCanId, this.codec.MakeFlowControl(blockSize: 0, stMin: ReadBlockStMin));
+                    await this.channel.SendCanFrame(
+                        this.channel.TxCanId,
+                        this.codec.MakeFlowControl(blockSize: 0, stMin: ReadBlockStMin, addressing: this.channel.TxAddressing));
                 }
 
-                byte[]? assembled = this.codec.FeedFrame(incoming.frame);
+                byte[]? assembled = this.codec.FeedFrame(incoming.frame, rxAddressing);
                 if (assembled != null)
                 {
                     return new Message(assembled);
@@ -191,17 +202,21 @@ namespace PcmHacking
 
         private async Task<FlowControl> WaitForFlowControl()
         {
+            IsoTpAddressing rxAddressing = this.channel.RxAddressing;
+            int header = rxAddressing.HeaderLength;
+
             for (int attempt = 0; attempt < MaxFlowControlAttempts; attempt++)
             {
                 (uint id, byte[] frame) incoming = await this.channel.ReceiveCanFrame();
                 if (incoming.id != this.channel.RxCanId ||
-                    incoming.frame.Length < 3 ||
-                    IsoTpCodec.FrameType(incoming.frame) != IsoTpFrameType.FlowControl)
+                    incoming.frame.Length < header + 3 ||
+                    !IsoTpCodec.BelongsTo(incoming.frame, rxAddressing) ||
+                    IsoTpCodec.FrameType(incoming.frame, rxAddressing) != IsoTpFrameType.FlowControl)
                 {
                     continue;
                 }
 
-                int flowStatus = incoming.frame[0] & 0x0F;
+                int flowStatus = incoming.frame[header] & 0x0F;
                 if (flowStatus == 0x01)   // Wait: keep listening for ContinueToSend
                 {
                     continue;
@@ -210,7 +225,7 @@ namespace PcmHacking
                 {
                     return FlowControl.Fail;
                 }
-                return FlowControl.ContinueToSend(incoming.frame[1], DecodeStMinMicros(incoming.frame[2]));
+                return FlowControl.ContinueToSend(incoming.frame[header + 1], DecodeStMinMicros(incoming.frame[header + 2]));
             }
 
             return FlowControl.Fail;

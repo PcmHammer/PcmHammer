@@ -181,6 +181,60 @@ namespace Tests
             Assert.Fail("Expected ArgumentNullException for a null channel.");
         }
 
+        // ── extended addressing (GMLAN functional) ────────────────────────────────
+
+        [TestMethod]
+        public async Task SendMessage_ExtendedAddressing_SendsGmlanFunctionalRequest()
+        {
+            var channel = new FakeCanChannel(CanId.GmlanAllNodesRequest, Rx)
+            {
+                TxAddressing = IsoTpAddressing.Extended(CanId.GmlanAllNodesExtension),
+            };
+            var transport = new IsoTpTransport(channel);
+
+            bool ok = await transport.SendMessage(new Message(new byte[] { 0xA5, 0x01 }));
+
+            Assert.IsTrue(ok);
+            Assert.AreEqual(1, channel.Sent.Count, "A programming request is one Single Frame.");
+            Assert.AreEqual(CanId.GmlanAllNodesRequest, channel.Sent[0].id, "Broadcast on the GMLAN all-nodes id.");
+            CollectionAssert.AreEqual(
+                new byte[] { 0xFE, 0x02, 0xA5, 0x01, 0xAA, 0xAA, 0xAA, 0xAA },
+                channel.Sent[0].frame,
+                "101 FE 02 A5 01, as the factory tool sends it.");
+        }
+
+        [TestMethod]
+        public async Task ReceiveMessage_MixedAddressing_ExtendedRequestIsAnsweredNormally()
+        {
+            // GMLAN mixes the two: the request is broadcast with extended addressing, but each
+            // module answers physically on its own id with normal addressing.
+            var channel = new FakeCanChannel(CanId.GmlanAllNodesRequest, Rx)
+            {
+                TxAddressing = IsoTpAddressing.Extended(CanId.GmlanAllNodesExtension),
+                RxAddressing = IsoTpAddressing.Normal,
+            };
+            channel.QueueIncoming(Rx, 0x01, 0xE5, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA);
+            var transport = new IsoTpTransport(channel);
+
+            Message? response = await transport.ReceiveMessage();
+
+            Assert.IsNotNull(response, "The physical reply should be received.");
+            CollectionAssert.AreEqual(new byte[] { 0xE5 }, response!.GetBytes(), "Positive ProgrammingMode reply.");
+        }
+
+        [TestMethod]
+        public async Task ReceiveMessage_ExtendedAddressing_IgnoresAnotherExtensionOnTheSameId()
+        {
+            var channel = new FakeCanChannel(Tx, Rx)
+            {
+                RxAddressing = IsoTpAddressing.Extended(0xFE),
+            };
+            channel.QueueIncoming(Rx, 0xFD, 0x01, 0xE5, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA);
+            var transport = new IsoTpTransport(channel);
+
+            Assert.IsNull(await transport.ReceiveMessage(), "Another extension on our id is a different conversation.");
+        }
+
         // ── fake hardware ─────────────────────────────────────────────────────────
 
         /// <summary>
@@ -191,6 +245,8 @@ namespace Tests
         {
             public uint TxCanId { get; }
             public uint RxCanId { get; }
+            public IsoTpAddressing TxAddressing { get; set; } = IsoTpAddressing.Normal;
+            public IsoTpAddressing RxAddressing { get; set; } = IsoTpAddressing.Normal;
             public int ReceiveTimeoutMilliseconds => 1000;
             public readonly List<(uint id, byte[] frame)> Sent = new List<(uint id, byte[] frame)>();
             private readonly Queue<(uint id, byte[] frame)> incoming = new Queue<(uint id, byte[] frame)>();

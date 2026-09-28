@@ -37,6 +37,15 @@ namespace PcmHacking
         /// <summary>CAN id to accept (module to tool).</summary>
         public uint RxCanId { get; set; } = CanId.PcmPhysicalResponse;
 
+        /// <summary>ISO-TP addressing for transmitted frames.</summary>
+        public IsoTpAddressing TxAddressing { get; set; } = IsoTpAddressing.Normal;
+
+        /// <summary>ISO-TP addressing for received frames.</summary>
+        public IsoTpAddressing RxAddressing { get; set; } = IsoTpAddressing.Normal;
+
+        /// <summary>Software ISO-TP builds every frame here, so any addressing can be framed.</summary>
+        public bool SupportsExtendedAddressing => true;
+
         /// <summary>
         /// No-progress wait the ISO-TP transport applies. This adapter has no hardware acceptance
         /// filter, so the transport relies on this to stop reading other modules' traffic once our

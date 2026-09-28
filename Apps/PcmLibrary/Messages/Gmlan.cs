@@ -167,8 +167,9 @@ namespace PcmHacking
 
         public Response<bool> ParseProgrammingModeResponse(Message message)
         {
-            // The PCM answers 0xA5/01 and 0xA5/03 with a single 0xE5 byte (no sub-function echo),
-            // so match on the response SID alone rather than requiring 0xE5 0x01.
+            // The PCM answers 0xA5/01 with a single 0xE5 byte (no sub-function echo), so match on the
+            // response SID alone rather than requiring 0xE5 0x01. 0xA5/03 has no positive response at
+            // all (GMW3110 8.17) and is not parsed here.
             byte[] bytes = GetBytes(message);
             if (bytes.Length < 1) return Response.Create(ResponseStatus.Error, false);
             if (bytes[0] == ProgrammingModeResponse) return Response.Create(ResponseStatus.Success, true);

@@ -21,10 +21,15 @@ namespace PcmHacking
     /// segments a payload into CAN frames to transmit; <see cref="FeedFrame"/> reassembles incoming
     /// frames. The class never touches a device - <see cref="MakeFlowControl"/> returns the Flow
     /// Control frame for the caller to send. One instance tracks one in-flight reassembly.
+    /// <para>
+    /// Every operation takes an <see cref="IsoTpAddressing"/>, defaulting to normal addressing.
+    /// Extended addressing reserves the frame's first byte for the address extension, so the PCI and
+    /// all data shift along by one and each frame carries one byte less payload.
+    /// </para>
     /// </summary>
     public class IsoTpCodec
     {
-        // ── frame geometry ───────────────────────────────────────────────────────
+        // ── frame geometry (normal addressing; extended addressing costs one byte per frame) ─────
         private const int  CanFrameSize  = 8;
         private const byte Padding       = 0xAA;   // GM testers pad unused trailing bytes with 0xAA
 
@@ -48,14 +53,21 @@ namespace PcmHacking
         /// Classify a CAN frame payload by its ISO-TP PCI type. Returns
         /// <see cref="IsoTpFrameType.Unknown"/> for an empty frame or a reserved PCI value.
         /// </summary>
-        public static IsoTpFrameType FrameType(byte[] frame)
+        public static IsoTpFrameType FrameType(byte[] frame) => FrameType(frame, IsoTpAddressing.Normal);
+
+        /// <summary>
+        /// Classify a CAN frame payload whose conversation uses <paramref name="addressing"/>; under
+        /// extended addressing the PCI byte sits after the address extension.
+        /// </summary>
+        public static IsoTpFrameType FrameType(byte[] frame, IsoTpAddressing addressing)
         {
-            if (frame == null || frame.Length == 0)
+            int header = addressing.HeaderLength;
+            if (frame == null || frame.Length <= header)
             {
                 return IsoTpFrameType.Unknown;
             }
 
-            switch ((frame[0] & 0xF0) >> 4)
+            switch ((frame[header] & 0xF0) >> 4)
             {
                 case (int)IsoTpFrameType.SingleFrame:      return IsoTpFrameType.SingleFrame;
                 case (int)IsoTpFrameType.FirstFrame:       return IsoTpFrameType.FirstFrame;
@@ -65,18 +77,33 @@ namespace PcmHacking
             }
         }
 
+        /// <summary>
+        /// Whether an incoming frame belongs to a conversation using <paramref name="addressing"/>.
+        /// Under extended addressing a frame addressed to a different extension is another
+        /// conversation sharing the same CAN id, and must not be decoded as ours.
+        /// </summary>
+        public static bool BelongsTo(byte[] frame, IsoTpAddressing addressing)
+        {
+            if (frame == null || frame.Length <= addressing.HeaderLength)
+            {
+                return false;
+            }
+
+            return !addressing.IsExtended || frame[0] == addressing.AddressExtension;
+        }
+
         // ── transmit ─────────────────────────────────────────────────────────────
 
         /// <summary>
-        /// Segment a full payload into one or more 8-byte CAN frame payloads. A payload of up to
-        /// 7 bytes is a single Single Frame; a larger one is a First Frame followed by Consecutive
+        /// Segment a full payload into one or more 8-byte CAN frame payloads. A payload that fits one
+        /// frame is a single Single Frame; a larger one is a First Frame followed by Consecutive
         /// Frames. The caller transmits them in order and handles Flow Control between the First
         /// Frame and the Consecutive Frames.
         /// </summary>
         /// <exception cref="ArgumentNullException">payload is null.</exception>
         /// <exception cref="ArgumentException">payload is empty.</exception>
         /// <exception cref="ArgumentOutOfRangeException">payload exceeds the 4095-byte ISO-TP classic limit.</exception>
-        public IEnumerable<byte[]> Encode(byte[] payload)
+        public IEnumerable<byte[]> Encode(byte[] payload, IsoTpAddressing addressing = default)
         {
             // Validate eagerly: the iterator below would otherwise defer these throws until the
             // caller starts enumerating.
@@ -95,37 +122,41 @@ namespace PcmHacking
                     $"Payload of {payload.Length} bytes exceeds the ISO-TP classic limit of {MaxClassicLength}.");
             }
 
-            return EncodeFrames(payload);
+            return EncodeFrames(payload, addressing);
         }
 
-        private IEnumerable<byte[]> EncodeFrames(byte[] payload)
+        private IEnumerable<byte[]> EncodeFrames(byte[] payload, IsoTpAddressing addressing)
         {
-            if (payload.Length <= MaxSingleFrameLength)
+            int header = addressing.HeaderLength;
+
+            if (payload.Length <= MaxSingleFrameLength - header)
             {
                 // Single Frame: PCI byte = 0x0N where N is the data length.
-                byte[] frame = NewPaddedFrame();
-                frame[0] = (byte)(Pci(IsoTpFrameType.SingleFrame) | payload.Length);
-                Array.Copy(payload, 0, frame, 1, payload.Length);
+                byte[] frame = NewPaddedFrame(addressing);
+                frame[header] = (byte)(Pci(IsoTpFrameType.SingleFrame) | payload.Length);
+                Array.Copy(payload, 0, frame, header + 1, payload.Length);
                 yield return frame;
                 yield break;
             }
 
-            // First Frame: PCI = 0x1H 0xLL (12-bit total length), then the first 6 payload bytes.
-            byte[] ff = NewPaddedFrame();
-            ff[0] = (byte)(Pci(IsoTpFrameType.FirstFrame) | ((payload.Length >> 8) & 0x0F));
-            ff[1] = (byte)(payload.Length & 0xFF);
-            Array.Copy(payload, 0, ff, 2, FirstFrameDataLength);
+            // First Frame: PCI = 0x1H 0xLL (12-bit total length), then the first payload bytes.
+            int firstFrameData = FirstFrameDataLength - header;
+            byte[] ff = NewPaddedFrame(addressing);
+            ff[header]     = (byte)(Pci(IsoTpFrameType.FirstFrame) | ((payload.Length >> 8) & 0x0F));
+            ff[header + 1] = (byte)(payload.Length & 0xFF);
+            Array.Copy(payload, 0, ff, header + 2, firstFrameData);
             yield return ff;
 
             // Consecutive Frames: PCI = 0x2N, sequence number 1..F then wrapping to 0.
-            int offset = FirstFrameDataLength;
+            int consecutiveData = ConsecutiveFrameDataLength - header;
+            int offset = firstFrameData;
             byte sequence = 1;
             while (offset < payload.Length)
             {
-                int dataBytes = Math.Min(ConsecutiveFrameDataLength, payload.Length - offset);
-                byte[] cf = NewPaddedFrame();
-                cf[0] = (byte)(Pci(IsoTpFrameType.ConsecutiveFrame) | (sequence & 0x0F));
-                Array.Copy(payload, offset, cf, 1, dataBytes);
+                int dataBytes = Math.Min(consecutiveData, payload.Length - offset);
+                byte[] cf = NewPaddedFrame(addressing);
+                cf[header] = (byte)(Pci(IsoTpFrameType.ConsecutiveFrame) | (sequence & 0x0F));
+                Array.Copy(payload, offset, cf, header + 1, dataBytes);
                 yield return cf;
 
                 offset += dataBytes;
@@ -141,30 +172,37 @@ namespace PcmHacking
         /// completes a multi-frame message; returns null while still waiting for more frames or
         /// when the frame is not part of a valid message.
         /// </summary>
-        public byte[]? FeedFrame(byte[] canFramePayload)
+        public byte[]? FeedFrame(byte[] canFramePayload, IsoTpAddressing addressing = default)
         {
-            switch (FrameType(canFramePayload))
+            if (!BelongsTo(canFramePayload, addressing))
+            {
+                return null;
+            }
+
+            int header = addressing.HeaderLength;
+
+            switch (FrameType(canFramePayload, addressing))
             {
                 case IsoTpFrameType.SingleFrame:
                 {
-                    int length = canFramePayload[0] & 0x0F;
-                    // A Single Frame must carry 1..7 bytes that actually fit in the frame.
-                    if (length == 0 || length > canFramePayload.Length - 1)
+                    int length = canFramePayload[header] & 0x0F;
+                    // A Single Frame must carry at least one byte, and no more than actually fit.
+                    if (length == 0 || length > canFramePayload.Length - header - 1)
                     {
                         return null;
                     }
                     Reset();
-                    return Slice(canFramePayload, 1, length);
+                    return Slice(canFramePayload, header + 1, length);
                 }
 
                 case IsoTpFrameType.FirstFrame:
                 {
                     // The length spans two PCI bytes; ignore a runt frame that can't hold them.
-                    if (canFramePayload.Length < 2)
+                    if (canFramePayload.Length < header + 2)
                     {
                         return null;
                     }
-                    int total = ((canFramePayload[0] & 0x0F) << 8) | canFramePayload[1];
+                    int total = ((canFramePayload[header] & 0x0F) << 8) | canFramePayload[header + 1];
                     if (total == 0)
                     {
                         return null;
@@ -173,11 +211,11 @@ namespace PcmHacking
                     expectedLength   = total;
                     receiveBuffer    = new byte[total];
                     expectedSequence = 1;
-                    // A First Frame normally carries 6 data bytes, but some ECUs send a shorter
-                    // frame (the E38 read-block First Frame is DLC 7 = 5 data bytes), so clamp to
-                    // what the frame and the declared length actually contain.
-                    int firstData = Min3(FirstFrameDataLength, total, canFramePayload.Length - 2);
-                    Array.Copy(canFramePayload, 2, receiveBuffer, 0, firstData);
+                    // A First Frame normally fills the frame, but some ECUs send a shorter one (the
+                    // E38 read-block First Frame is DLC 7 = 5 data bytes), so clamp to what the frame
+                    // and the declared length actually contain.
+                    int firstData = Min3(FirstFrameDataLength - header, total, canFramePayload.Length - header - 2);
+                    Array.Copy(canFramePayload, header + 2, receiveBuffer, 0, firstData);
                     receivedLength = firstData;
                     return null;
                 }
@@ -188,7 +226,7 @@ namespace PcmHacking
                     {
                         return null; // no First Frame yet
                     }
-                    byte sequence = (byte)(canFramePayload[0] & 0x0F);
+                    byte sequence = (byte)(canFramePayload[header] & 0x0F);
                     if (sequence != expectedSequence)
                     {
                         // A gap or out-of-order frame: abandon the message rather than splice
@@ -198,8 +236,8 @@ namespace PcmHacking
                     }
 
                     int remaining = expectedLength - receivedLength;
-                    int dataBytes = Min3(ConsecutiveFrameDataLength, remaining, canFramePayload.Length - 1);
-                    Array.Copy(canFramePayload, 1, receiveBuffer, receivedLength, dataBytes);
+                    int dataBytes = Min3(ConsecutiveFrameDataLength - header, remaining, canFramePayload.Length - header - 1);
+                    Array.Copy(canFramePayload, header + 1, receiveBuffer, receivedLength, dataBytes);
                     receivedLength += dataBytes;
                     expectedSequence = NextSequence(expectedSequence);
 
@@ -226,13 +264,18 @@ namespace PcmHacking
         /// Build a Flow Control frame to send after receiving a First Frame. blockSize 0 = send
         /// all remaining frames without another Flow Control; stMin 0 = no minimum separation time.
         /// </summary>
-        public byte[] MakeFlowControl(byte blockSize = 0, byte stMin = 0)
+        public byte[] MakeFlowControl(byte blockSize = 0, byte stMin = 0, IsoTpAddressing addressing = default)
         {
+            int header = addressing.HeaderLength;
             byte[] frame = new byte[CanFrameSize];
-            frame[0] = FlowControlContinue;
-            frame[1] = blockSize;
-            frame[2] = stMin;
-            // bytes 3..7 are reserved and left 0.
+            if (addressing.IsExtended)
+            {
+                frame[0] = addressing.AddressExtension;
+            }
+            frame[header]     = FlowControlContinue;
+            frame[header + 1] = blockSize;
+            frame[header + 2] = stMin;
+            // Remaining bytes are reserved and left 0.
             return frame;
         }
 
@@ -250,13 +293,19 @@ namespace PcmHacking
         /// <summary>The PCI byte (high nibble set) for a frame type; OR in the low-nibble field.</summary>
         private static int Pci(IsoTpFrameType type) => (int)type << 4;
 
-        private static byte[] NewPaddedFrame()
+        private static byte[] NewPaddedFrame(IsoTpAddressing addressing)
         {
             byte[] frame = new byte[CanFrameSize];
             for (int i = 0; i < frame.Length; i++)
             {
                 frame[i] = Padding;
             }
+
+            if (addressing.IsExtended)
+            {
+                frame[0] = addressing.AddressExtension;
+            }
+
             return frame;
         }
 
