@@ -8,10 +8,9 @@ A large expansion of supported GM VPW PCMs, with per-OSID identification and
 service-numbers (where known):
 
 - **P04 / P04_Early (all variants)**, including a dedicated P04 assembly kernel
-  fork pinned to a known-good layout, and correct 512&nbsp;KB vs 256&nbsp;KB
+  fork pinned to a known-good layout, and correct 512KiB vs 256KiB
   handling when the P04_Early type is selected manually.
 - **P05, P05b (VPW)** read and write support, with file-format detection.
-  (P05c is CAN only and remains not supported)
 - **P08** supported
 - **P11** support: flash kernel, file-format detection and checksums, and
   boot-sector write (using a verified, cross-flash-compatible boot sector).
@@ -22,6 +21,14 @@ service-numbers (where known):
   CRC-read fixes.
 - **P59** split out from P01, plus COS handling and many additional OSID entries.
 
+CAN (GMLAN) PowerPC PCMs:
+- **P05c (CAN)** read and write support, with file-format detection.
+- **E39a (Freescale MPC5566)** read and write: a new PowerPC CAN assembly
+  kernel with native C90FL flash erase/program, file-format detection, per-segment
+  checksums and CVNs, and the resident boot-loader (master + slave CPU) whole-PCM
+  write path.
+- **E92**  read and write support, with file-format detection.
+  
 ### New applications and platforms
 
 - **Command-line interface (`pcmhammer-cli`):** a scriptable CLI for read,
@@ -39,6 +46,8 @@ service-numbers (where known):
 
 - New **m68k assembly kernel build system** (alongside the original C kernels),
   driven from CI, covering the expanded PCM list.
+- New **E39 (MPC5566) PowerPC CAN kernel** with native C90FL flash erase/program,
+  alongside the existing E38 / E92 CAN kernels.
 - Fixed a **DLC RX FIFO overflow during CRC calculation** and an **early-silicon
   PCM start-up DLC crash**.
 - Kernel size optimisations; ISO 8601 / build-epoch versioning; build-system

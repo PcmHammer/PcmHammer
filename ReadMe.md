@@ -1,6 +1,6 @@
 ## Overview
 
-PCM Hammer and tools support reading, writing, and data logging with General Motors 98+ Black Box, P01, P04, P05, P08, P10, P11, P12, P59, E38 and E54 Powertrain Control Modules (PCMs). E92/E92a for read only.
+PCM Hammer and tools support reading, writing, and data logging with General Motors 98+ Black Box, P01, P04, P05, P08, P10, P11, P12, P59, E38 and E54 Powertrain Control Modules (PCMs). E92 for read only.
 
 ```
 +-----------+--------+-------+---------+----------+---------+-------+--------+-------------+---------+
@@ -20,8 +20,8 @@ PCM Hammer and tools support reading, writing, and data logging with General Mot
 |P59        | Yes    | Yes   | Yes     | Yes      | Yes     | N/A   | N/A    | Yes         | Assembly|
 |E38        | Yes    | Yes   | Yes     | No       | No      | No    | N/A    | Yes         | Assembly|
 |E54        | Yes    | Yes   | Yes     | N/A      | No      | N/A   | N/A    | Yes         | Assembly|
-|E92/E92a   | Yes    | Yes   | No      | No       | No      | N/A   | N/A    | No          | Assembly|
-|E39/E39a   | ?      | ?     | No      | No       | No      | No    | N/A    | No          | Assembly|
+|E39/E39a   | Yes    | Yes   | Yes     | Yes      | No      | Yes   | N/A    | No          | Assembly|
+|E92        | Yes    | Yes   | No      | No       | No      | N/A   | N/A    | No          | Assembly|
 +-----------+--------+-------+---------+----------+---------+-------+--------+-------------+---------+
 ```
 
@@ -34,7 +34,7 @@ PCM Hammer recommends the OBD XPro GT interface. Buying with [this link](https:/
 
 J2534 is supported. Quality and OEM interfaces generally work well. Cheap interfaces often do not. We can't test them all, so you will need to do your own searching for trusted reports of what is good.
 
-Scantool OBDlink interfaces are not recommended. We often see issues specific to these interfaces and we cannot test the whole product range. We have seen soft bricks occuring on Black Box PCMs with these due to them being too slow and missing the OK response from the flash write. Be warned. Not Recommended.
+Scantool OBDlink interfaces are VPW only (they cannot be used for CAN PCMs), and are not recommended. We often see issues specific to these interfaces and we cannot test the whole product range. We have seen soft bricks occuring on Black Box PCMs with these due to them being too slow and missing the OK response from the flash write. Be warned. Not Recommended.
 
 ### Usage
 

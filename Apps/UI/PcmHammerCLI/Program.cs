@@ -75,6 +75,11 @@ namespace PcmHacking
                         operation = "verify";
                         if (i + 1 < args.Length && !args[i + 1].StartsWith("-")) filePath = args[++i];
                         break;
+                    case "--test-file-checksums":
+                        // Offline: identify a bin/phz and check its checksums/CVNs. No device needed.
+                        operation = "test-file-checksums";
+                        if (i + 1 < args.Length && !args[i + 1].StartsWith("-")) filePath = args[++i];
+                        break;
                     case "--test-read":
                         operation = "test-read";
                         break;
@@ -185,6 +190,12 @@ namespace PcmHacking
             {
                 Console.Error.WriteLine($"Error: No file path specified for --{operation}.");
                 return 1;
+            }
+
+            // Testing file checksums is offline - no device, no kernel needed.
+            if (operation == "test-file-checksums")
+            {
+                return FileValidator.TestFileChecksums(filePath!, logger) ? 0 : 1;
             }
 
             string? kernelDir = ResolveKernelDir(kernelDirArg, logger);
@@ -912,6 +923,7 @@ namespace PcmHacking
             Console.WriteLine("  --test-write <file>       Test write (no permanent changes; needs a PCM");
             Console.WriteLine("                            whose kernel can write, so not boot loader PCMs)");
             Console.WriteLine("  --verify <file>           CRC-compare file against PCM (no erase/write)");
+            Console.WriteLine("  --test-file-checksums <f> Test file checksums: identify a bin/phz and check its checksums/CVNs (offline)");
             Console.WriteLine("  --identify-pcm            Read VIN, OSID, calibration, serial, voltage");
             Console.WriteLine("  --did-sweep               Read every data identifier a CAN PCM answers");
             Console.WriteLine("  --detect                  Scan the buses (VPW, CAN) and list the modules that respond");

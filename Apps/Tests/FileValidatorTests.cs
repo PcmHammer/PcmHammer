@@ -12,7 +12,7 @@ namespace Tests
     /// Runs FileValidator over a corpus of real PCM images (Apps/Tests/TestData), each named
     /// [PcmType]_[size]_[OSID].bin - the file name IS the expected result. The four checks run over the
     /// whole corpus in order: (1) type identification, (2) OSID, (3) checksum, (4) CVN (only where it
-    /// applies, i.e. E38). This is the regression guard for detection: a new file type whose signature is
+    /// applies: E38, E92, E39a). This is the regression guard for detection: a new file type whose signature is
     /// too loose will grab one of these known files first and fail Check 1. Add a variant by dropping a
     /// correctly-named .bin into TestData - no code change needed.
     /// </summary>
@@ -24,7 +24,7 @@ namespace Tests
         private static readonly string[] DetectionOrder =
         {
             "E54", "BlackBox", "P01", "P04", "P04_Early", "P10", "P11", "P08",
-            "P59", "P05c", "P05b", "P05", "P12", "P12b", "E38", "E92",
+            "P59", "P05c", "P05b", "P05", "P12", "P12b", "E38", "E39a", "E92",
         };
 
         private sealed class Sample
@@ -133,8 +133,11 @@ namespace Tests
                     case PcmType.E92:
                         verdict = validator.ValidateE92SumAndCvn();
                         break;
+                    case PcmType.E39a:
+                        verdict = validator.ValidateE39SumAndCvn();
+                        break;
                     default:
-                        continue; // Sum/CVN only applies to types that carry one (E38, E92).
+                        continue; // Sum/CVN only applies to types that carry one (E38, E92, E39a).
                 }
                 if (verdict != FileValidator.SumCvnVerdict.Good)
                 {

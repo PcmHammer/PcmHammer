@@ -213,6 +213,10 @@ namespace PcmHacking.DialogBoxes
             {
                 this.logger.AddUserMessage("Module import enabled (File -> Import Bin is now available).");
             }
+            else
+            {
+                this.logger.AddUserMessage("Module import disabled (File -> Import Bin is now hidden).");
+            }
         }
     }
 }

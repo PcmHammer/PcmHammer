@@ -228,6 +228,10 @@ namespace PcmHacking
                 case PcmType.E38:
                     return FileValidator.GetE38MasterSegments(masterImage);
 
+                case PcmType.E39:
+                case PcmType.E39a:
+                    return FileValidator.GetE39MasterSegments(masterImage);
+
                 case PcmType.E92:
                     return FileValidator.GetE92MasterSegments(masterImage);
 

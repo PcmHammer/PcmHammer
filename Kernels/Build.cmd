@@ -89,7 +89,7 @@ goto beginning
   echo     -cpu^<value^>
   echo       Set the target CPU, given as the gcc -mcpu value (no space). Required, no default.
   echo       68332 = Motorola 68k (m68k-elf, all VPW PCMs); 505 = PowerPC MPC5xx (powerpc-eabi, E38 CAN);
-  echo       8540 = PowerPC e200 / Book E (powerpc-eabi, E92 CAN).
+  echo       8540 = PowerPC e200 / Book E (powerpc-eabi, E39/E92 CAN).
   echo       Value: %CPU%
   echo.
   echo     -l^<address^>
@@ -227,7 +227,7 @@ rem *        8540  - PowerPC e200 / Book E. Again a gcc -mcpu name, not a part
 rem *                number: gcc has no e200 or MPC5674F option, and 8540 is the
 rem *                Book E target whose instruction set the e200 shares (it
 rem *                enables wrteei and the Book E SPRs, so no separate -mbooke is
-rem *                needed). powerpc-eabi toolchain. Used by: E92 (CAN).
+rem *                needed). powerpc-eabi toolchain. Used by: E39, E92 (CAN).
 set CPU=
 
 
@@ -289,11 +289,11 @@ if /i "%CPU%"=="68332" (
 ) else if /i "%CPU%"=="505" (
   call :SetPowerPc
 ) else if /i "%CPU%"=="8540" (
-  rem e200 / Book E (E92). Same toolchain and flags as 505; only -mcpu differs, and
-  rem -mcpu=8540 is what enables the Book E instructions the E92 kernel uses.
+  rem e200 / Book E (E39, E92). Same toolchain and flags as 505; only -mcpu differs, and
+  rem -mcpu=8540 is what enables the Book E instructions the E39/E92 kernels use.
   call :SetPowerPc
 ) else (
-  echo ERROR: -cpu^<value^> is required. Supported: 68332 ^(m68k VPW PCMs^), 505 ^(PowerPC E38^), 8540 ^(PowerPC E92^).
+  echo ERROR: -cpu^<value^> is required. Supported: 68332 ^(m68k VPW PCMs^), 505 ^(PowerPC E38^), 8540 ^(PowerPC E39/E92^).
   exit /b 1
 )
 

@@ -1860,13 +1860,14 @@ namespace PcmHacking
         }
 
         /// <summary>
-        /// Write Calibration.
+        /// Write PCM. Defaults the dialog to the write type from WritePlan.DefaultWriteType()
+        /// (a full clone when "force write all sectors" is on, otherwise calibration).
         /// </summary>
         private void writeCalibrationButton_Click(object sender, EventArgs e)
         {
             if (!BackgroundWorker.IsAlive)
             {
-                this.StartOperationFromDialog(true, WriteType.Calibration);
+                this.StartOperationFromDialog(true, WritePlan.DefaultWriteType());
             }
         }
 
@@ -2247,38 +2248,7 @@ namespace PcmHacking
                 return;
             }
 
-            this.AddUserMessage("Examining " + path);
-
-            byte[]? image;
-            try
-            {
-                // A .phz is a package: pull its master image out. A .bin is returned as-is.
-                image = PackageStore.LoadMainImage(path);
-            }
-            catch (PackageException ex)
-            {
-                this.AddUserMessage("Unable to open file: " + ex.Message);
-                return;
-            }
-
-            if (image == null)
-            {
-                this.AddUserMessage("This file has no main image to check.");
-                return;
-            }
-
-            // Sanity checks.
-            FileValidator validator = new FileValidator(image, this);
-            if (validator.IdentifyAndValidate())
-            {
-                this.AddUserMessage("File operating system ID: " + validator.GetOsidFromImage());
-                this.AddUserMessage("File is " + new OSIDInfo(validator.GetFileType()).Description + ".");
-                this.AddUserMessage("All checksums are valid.");
-            }
-            else
-            {
-                this.AddUserMessage("This file is corrupt or its format is unknown to PCMHammer. It would render your PCM unusable.");
-            }
+            FileValidator.TestFileChecksums(path, this);
         }
     }
 }

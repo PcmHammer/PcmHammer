@@ -58,6 +58,10 @@ namespace PcmHacking
         /// </summary>
         protected BusProtocol CurrentProtocol { get; private set; } = BusProtocol.Vpw;
 
+        // ScanTool / OBDLink is VPW-only for release. The CAN (ISO 15765) implementation below is
+        // kept intact but gated off here, so CAN can be re-enabled later by flipping this to true.
+        private static readonly bool CanProtocolEnabled = false;
+
         // CAN target addresses. Default to the standard OBD2 PCM ids (from the shared CanId
         // constants), but are settable so the command layer can address a different module.
         /// <summary>CAN id used when transmitting (tool to module).</summary>
@@ -427,6 +431,14 @@ namespace PcmHacking
             if (protocol == this.CurrentProtocol)
             {
                 return true;
+            }
+
+            // VPW-only for release: refuse CAN so ScanTool/OBDLink is never selected for a CAN PCM.
+            // The CAN block below is retained; flip CanProtocolEnabled to bring it back.
+            if (protocol == BusProtocol.Can500k && !CanProtocolEnabled)
+            {
+                this.Logger.AddDebugMessage("ScanTool: CAN (ISO 15765) is disabled; this device is VPW only.");
+                return false;
             }
 
             if (protocol == BusProtocol.Can500k)

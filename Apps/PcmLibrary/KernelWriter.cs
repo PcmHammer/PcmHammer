@@ -109,6 +109,15 @@ namespace PcmHacking
             this.forceWriteAllSectorsPending = RuntimeSettings.ForceWriteAllSectors;
             this.messageRetryCount = 0;
 
+            // A forced write rewrites even sectors that already match the file, so log it prominently.
+            if (this.forceWriteAllSectorsPending && this.writeType != WriteType.Compare && this.writeType != WriteType.TestWrite)
+            {
+                this.logger.AddUserMessage("===========================================================");
+                this.logger.AddUserMessage("FORCED WRITE OPTION SELECTED: Every in-scope sector will");
+                this.logger.AddUserMessage("be erased and rewritten, including sectors with no changes.");
+                this.logger.AddUserMessage("===========================================================");
+            }
+
             bool allRangesMatch = false;
             for (int attempt = 1; attempt <= 5; attempt++)
             {
