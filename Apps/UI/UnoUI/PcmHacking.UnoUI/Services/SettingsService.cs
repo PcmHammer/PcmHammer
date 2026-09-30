@@ -195,7 +195,8 @@ public class SettingsService : ISettingsService
             deviceCategory,
             nameOrPort,
             _settingsListInterface[CanEnabledKey] as string == "true",
-            _settingsListInterface[CanSerialPortNameKey] as string ?? string.Empty);
+            _settingsListInterface[CanSerialPortNameKey] as string ?? string.Empty,
+            _settingsListInterface[Obd2SerialDeviceNameKey] as string ?? string.Empty);
     }
 
     public void SaveConnectionSettings(CurrentSettings settings)
@@ -213,6 +214,7 @@ public class SettingsService : ISettingsService
                 _settingsListInterface[BluetoothDeviceNameKey] = settings.DeviceNameOrPort;
                 break;
         }
+        _settingsListInterface[Obd2SerialDeviceNameKey] = settings.DeviceType;
         _settingsListInterface[CanEnabledKey] = settings.CanEnabled ? "true" : "false";
         _settingsListInterface[CanSerialPortNameKey] = settings.CanPort;
     }

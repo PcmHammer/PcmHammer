@@ -35,6 +35,28 @@ namespace PcmHacking.UnoUI.Platforms.Android
             }
         }
 
+        // The Link metadata in the csproj is preserved verbatim under assets/, hence the doubled name.
+        private const string KernelAssetFolder = "Assets/Kernels";
+
+        /// <summary>
+        /// Vehicle's base path on Android: the user-visible PCMHammer\Bins folder. Rooted at the
+        /// external-storage path the OS reports, which is /storage/emulated/&lt;user&gt; - not always
+        /// user 0, on a device with a work profile or a second user.
+        /// </summary>
+        public static string KernelDirectory
+        {
+            get
+            {
+                string root = global::Android.OS.Environment.ExternalStorageDirectory?.AbsolutePath
+                    ?? "/storage/emulated/0";
+                return Path.Combine(root, "PCMHammer", "Bins");
+            }
+        }
+
+        /// <summary>
+        /// Copy every embedded kernel and boot library to the folder the library loads them from.
+        /// The list comes from the APK's assets so it cannot drift from what was built.
+        /// </summary>
         public static async Task ExtractKernelsToFileAndroid()
         {
             bool result = global::Android.OS.Environment.IsExternalStorageManager;
@@ -43,18 +65,30 @@ namespace PcmHacking.UnoUI.Platforms.Android
                 Droid.MainActivity.RequestFilePermisions();
                 return;
             }
-            string[] KernelNames = ["Kernel-BlackBox.bin", "Kernel-P01.bin", "Kernel-P04.bin", "Kernel-P04_Early.bin", "Kernel-P05.bin", "Kernel-P08.bin", "Kernel-P10.bin", "Kernel-P11.bin", "Kernel-P12.bin", "Kernel-E54.bin", "Loader-P04.bin"];
-            foreach (string kernel in KernelNames)
+
+            global::Android.Content.Res.AssetManager? assets =
+                global::Android.App.Application.Context.Assets;
+            string[] kernelNames = assets?.List(KernelAssetFolder) ?? [];
+
+            Directory.CreateDirectory(KernelDirectory);
+            foreach (string kernel in kernelNames)
             {
-                string directory = "/storage/emulated/0/PCMHammer/Bins";
-                string filePath = $"{directory}/{kernel}";
-                Directory.CreateDirectory(directory);
-                if (!File.Exists(filePath))
+                if (!kernel.EndsWith(".bin", StringComparison.OrdinalIgnoreCase))
                 {
-                    var file = await Windows.Storage.StorageFile.GetFileFromApplicationUriAsync(new Uri($"ms-appx:///Assets/Kernels/{kernel}"));
-                    var content = await file.OpenReadAsync();
-                    Directory.CreateDirectory(directory);
-                    File.WriteAllBytes(filePath, content.AsStream().ToMemoryStream().ToArray());
+                    continue;
+                }
+
+                // A file already there wins, so a hand-pushed kernel can be tested without a rebuild.
+                string filePath = Path.Combine(KernelDirectory, kernel);
+                if (File.Exists(filePath))
+                {
+                    continue;
+                }
+
+                using (Stream asset = assets!.Open($"{KernelAssetFolder}/{kernel}"))
+                using (FileStream destination = File.Create(filePath))
+                {
+                    await asset.CopyToAsync(destination);
                 }
             }
         }

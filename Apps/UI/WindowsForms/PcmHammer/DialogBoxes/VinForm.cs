@@ -24,11 +24,10 @@ namespace PcmHacking.DialogBoxes
         public string? Vin { get; set; }
 
         /// <summary>
-        /// When the VIN's only problem is its check digit, this holds the correct check digit so the
-        /// "Fix VIN" button can apply it. It is 'X' whenever the VIN is valid or wrong for any other
-        /// reason (so "Fix VIN" stays disabled).
+        /// The latest assessment of what is in the text box. Holds the message, whether the VIN can be
+        /// written, and the check digit the "Fix VIN" button would apply.
         /// </summary>
-        private char correctCheckDigit = 'X';
+        private VinAssessment assessment = VinAssessment.Of(string.Empty);
 
         /// <summary>
         /// Constructor.
@@ -52,7 +51,9 @@ namespace PcmHacking.DialogBoxes
         /// </summary>
         private void okButton_Click(object sender, EventArgs e)
         {
-            if (!this.IsLegal())
+            // Only the 17-character rule blocks OK. A VIN that fails the standard's check digit is
+            // still accepted, because CAN PCMs are routinely found with one (see VinAssessment).
+            if (!this.assessment.CanWrite)
             {
                 return;
             }
@@ -77,71 +78,27 @@ namespace PcmHacking.DialogBoxes
         /// </summary>
         private void vinBox_TextChanged(object? sender, EventArgs? e)
         {
-            bool legal = this.IsLegal();
-            this.okButton.Enabled = legal;
+            if (this.vinBox.Text.Length == 17)
+            {
+                this.vinBox.Text = this.vinBox.Text.ToUpper();
+            }
 
-            // "Fix VIN" is offered only when the sole problem is the check digit (IsLegal sets
-            // correctCheckDigit in that case). Applying the fix makes the VIN valid, which clears
-            // correctCheckDigit on the next validation and disables the button again.
-            this.fixVinButton.Enabled = !legal && this.correctCheckDigit != 'X';
+            this.assessment = VinAssessment.Of(this.vinBox.Text);
+            this.prompt.Text = this.assessment.Message;
+            this.okButton.Enabled = this.assessment.CanWrite;
+
+            // "Fix VIN" is offered only when the check digit is the thing that does not match, and only
+            // as a convenience - the VIN is writable either way.
+            this.fixVinButton.Enabled = this.assessment.SuggestedCheckDigit != 'X';
         }
 
         /// <summary>
-        /// Replace the check digit (position 9) with the calculated correct value.
+        /// Replace the check digit (position 9) with the value the standard calls for.
         /// </summary>
         private void fixVinButton_Click(object sender, EventArgs e)
         {
-            if (this.correctCheckDigit == 'X' || this.vinBox.Text.Length != 17)
-            {
-                return;
-            }
-
-            char[] chars = this.vinBox.Text.ToCharArray();
-            chars[8] = this.correctCheckDigit;   // position 9 (one-based) is index 8
-            this.vinBox.Text = new string(chars); // re-validates via TextChanged, then disables this button
-        }
-
-        /// <summary>
-        /// Validate the VIN.
-        /// </summary>
-        private bool IsLegal()
-        {
-            this.correctCheckDigit = 'X';
-
-            if (this.vinBox.Text.Length != 17)
-            {
-                this.prompt.Text = $"The VIN must be 17 characters long.\nThis is {this.vinBox.Text.Length} characters.";
-                return false;
-            }
-
-            this.vinBox.Text = this.vinBox.Text.ToUpper();
-
-            int invalidCharacterIndex = -1;
-            char requiredCheckDigit = 'X';
-            if (VinValidator.IsValid(this.vinBox.Text, out invalidCharacterIndex, out requiredCheckDigit))
-            {
-                this.prompt.Text = "The VIN is valid. Good!";
-                return true;
-            }
-            else
-            {
-                if (invalidCharacterIndex >= 0)
-                {
-                    char invalidCharacter = this.vinBox.Text[invalidCharacterIndex];
-                    this.prompt.Text = $"The \"{invalidCharacter}\" at position {invalidCharacterIndex + 1} is not a letter or number.";
-                    return false;
-                }
-
-                if (requiredCheckDigit != 'X')
-                {
-                    this.correctCheckDigit = requiredCheckDigit;
-                    this.prompt.Text = $"The VIN check digit on position 9 is incorrect.\nCorrect check digit is: {requiredCheckDigit}";
-                    return false;
-                }
-
-                this.prompt.Text = "The VIN is invalid.";
-                return false;
-            }
+            // Re-validates via TextChanged, which then disables this button.
+            this.vinBox.Text = this.assessment.ApplySuggestedCheckDigit(this.vinBox.Text);
         }
     }
 }

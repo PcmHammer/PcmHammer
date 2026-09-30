@@ -630,47 +630,36 @@ namespace PCMHammer.Viewmodels
         {
             try
             {
-                Response<uint> osidResponse = await Vehicle!.QueryOperatingSystemId(CancellationToken.None);
-                if (osidResponse.Status != ResponseStatus.Success)
+                // One shared flow detects the bus and reads the VIN over VPW or CAN; this only shows
+                // the dialog and reports the outcome.
+                VinReadResult? current = await Vehicle!.ReadVin(CancellationToken.None);
+                if (current == null)
                 {
-                    _logger.AddUserMessage($"Operating system query failed: {osidResponse.Status}");
                     return;
                 }
 
-                OSIDInfo info = new(osidResponse.Value);
+                _logger.AddUserMessage("VIN: " + current.Vin);
 
-                var vinResponse = await Vehicle.QueryVin();
-                if (vinResponse.Status != ResponseStatus.Success)
-                {
-                    _logger.AddUserMessage($"VIN query failed: {vinResponse.Status}");
-                    return;
-                }
-
-                var vinViewModel = new ChangeVinViewModel(vinResponse.Value);
+                var vinViewModel = new ChangeVinViewModel(current.Vin);
                 var vinDialog = new ChangeVinDialogBox(vinViewModel) { Owner = _parentWindow };
 
                 if (vinDialog.ShowDialog() == true)
                 {
-                    string cleanVin = vinViewModel.Vin.Trim();
+                    string cleanVin = vinViewModel.Vin.Trim().ToUpperInvariant();
                     _logger.AddUserMessage($"Attempting to write updated VIN: {cleanVin}");
+
                     // No cancellation source in the VIN flow; the unlock is bounded by its own time budget.
-                    bool unlocked = await Vehicle.UnlockEcu(info.KeyAlgorithm, CancellationToken.None);
-                    if (!unlocked)
+                    if (await Vehicle.WriteVin(cleanVin, current.Bus, current.PcmInfo, CancellationToken.None))
                     {
-                        _logger.AddUserMessage("Unable to unlock PCM. Authorization Denied.");
-                        MessageBox.Show("Unable to unlock PCM. Operation aborted.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                        return;
-                    }
-                    Response<bool> vinModified = await Vehicle.UpdateVin(cleanVin);
-                    if (vinModified.Value)
-                    {
-                        _logger.AddUserMessage($"VIN successfully updated to: {cleanVin}");
-                        MessageBox.Show($"VIN updated to {cleanVin} successfully.", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+                        MessageBox.Show(
+                            $"VIN updated to {cleanVin} successfully.\n\n{Vehicle.VinWriteFollowUp}",
+                            "Success", MessageBoxButton.OK, MessageBoxImage.Information);
                     }
                     else
                     {
-                        _logger.AddUserMessage($"Failed to commit changes. Error code: {vinModified.Status}");
-                        MessageBox.Show($"Unable to change the VIN. Error: {vinModified.Status}", "Operation Failed", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        MessageBox.Show(
+                            $"Unable to change the VIN to {cleanVin}.",
+                            "Operation Failed", MessageBoxButton.OK, MessageBoxImage.Warning);
                     }
                 }
             }

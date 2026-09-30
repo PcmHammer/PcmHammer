@@ -143,9 +143,17 @@
     <ProjectReference Include="..\..\..\PcmLibrary\PcmLibrary.csproj" />
   </ItemGroup>
 
+  <!-- Kernels\BuildAll.cmd stages both the built VPW kernels and the committed CAN ones into build\. -->
   <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
-    <AndroidAsset Include="Assets\Kernels\*.bin" />
+    <AndroidAsset Include="..\..\..\..\Kernels\build\*.bin" Link="Assets\Kernels\%(Filename)%(Extension)" />
   </ItemGroup>
+
+  <Target Name="WarnIfNoKernels"
+          BeforeTargets="Build"
+          Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
+    <Warning Condition="'@(AndroidAsset)' == ''"
+             Text="No kernels found in Kernels\build. Run Kernels\BuildAll.cmd first, or this APK cannot read or write any PCM." />
+  </Target>
 
   <ItemGroup>
     <Compile Update="Presentation\DataLoggingParametersPage.xaml.cs">

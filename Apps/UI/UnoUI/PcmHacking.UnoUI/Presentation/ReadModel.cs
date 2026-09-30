@@ -16,6 +16,7 @@ public partial record ReadModel : IAsyncLogger
     private readonly ISettingsService settingsService;
     private readonly LoggerAdapter loggerAdapter;
     private readonly IPlatformService platformService;
+    private readonly IPromptService promptService;
     private readonly IDispatcher dispatcher;
     private StorageFile _selectedFile = null!;
 
@@ -40,6 +41,19 @@ public partial record ReadModel : IAsyncLogger
     public IState<bool> UseCustomKeyEnabled => State<bool>.Value(this, () => true);
     public IState<string> CustomKey => State<string>.Value(this, () => "");
     public IState<bool> CustomKeyEnabled => State<bool>.Value(this, () => true);
+
+    /// <summary>Whether the PCM-type choice can be changed (not while a read runs).</summary>
+    public IState<bool> OptionsEnabled => State<bool>.Value(this, () => true);
+
+    /// <summary>
+    /// The PCM type override: Auto, or a specific type. Forcing a type skips the operating-system query,
+    /// which is how a PCM that will not report its OSID can still be read.
+    /// </summary>
+    public IListFeed<PcmTypeOption> PcmTypes =>
+        ListFeed.Async(ct => this.GetPcmTypes(ct)).Selection(this.SelectedPcmTypeOption);
+
+    public IState<PcmTypeOption> SelectedPcmTypeOption => State<PcmTypeOption>
+        .Value(this, () => new PcmTypeOption(PcmType.Undefined));
     private List<string> _localUserMessages;
 
     public ReadModel(
@@ -48,6 +62,7 @@ public partial record ReadModel : IAsyncLogger
         ISettingsService settingsService,
         LoggerAdapter loggerAdapter,
         IPlatformService platformService,
+        IPromptService promptService,
         IDispatcher dispatcher)
     {
         this.navigator = navigator ?? throw new ArgumentNullException(nameof(navigator));
@@ -55,12 +70,27 @@ public partial record ReadModel : IAsyncLogger
         this.settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
         this.loggerAdapter = loggerAdapter ?? throw new ArgumentNullException(nameof(loggerAdapter));
         this.platformService = platformService ?? throw new ArgumentNullException(nameof(platformService));
+        this.promptService = promptService ?? throw new ArgumentNullException(nameof(promptService));
         this.dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
         
         var _1 = this.UseCustomKey.SetAsync(this.settingsService.GetUseCustomKey());
         var _2 = this.CustomKey.SetAsync(this.settingsService.GetCustomKey());
         var _3 = this.EnableControls(false);
         _localUserMessages = [];
+    }
+
+    private ValueTask<IImmutableList<PcmTypeOption>> GetPcmTypes(CancellationToken ct)
+    {
+        List<PcmTypeOption> types = [new PcmTypeOption(PcmType.Undefined)];
+        types.AddRange(OperationOptions.SelectablePcmTypes().Select(type => new PcmTypeOption(type)));
+        return ValueTask.FromResult((IImmutableList<PcmTypeOption>)ImmutableList.CreateRange(types));
+    }
+
+    /// <summary>The PCM type to force, or Undefined to let the read manager identify it.</summary>
+    private async Task<PcmType> GetForcedPcmType()
+    {
+        PcmTypeOption? selected = await this.SelectedPcmTypeOption.Value();
+        return selected?.Type ?? PcmType.Undefined;
     }
 
     private async ValueTask UseCustomKeyChanged(bool value, CancellationToken ct)
@@ -80,6 +110,7 @@ public partial record ReadModel : IAsyncLogger
         await this.StartEnabled.SetAsync(!busy);
         await this.UseCustomKeyEnabled.SetAsync(!busy);
         await this.CustomKeyEnabled.SetAsync(!busy);
+        await this.OptionsEnabled.SetAsync(!busy);
 
         await this.CancelEnabled.SetAsync(busy);
     }
@@ -153,10 +184,16 @@ public partial record ReadModel : IAsyncLogger
                     this.Alert,
                     this.PromptForYesNo,
                     readCancellationToken);
+
+                PcmType forcedPcmType = await this.GetForcedPcmType();
+                if (forcedPcmType != PcmType.Undefined)
+                {
+                    await this.AddUserMessage("Forcing PCM type: " + forcedPcmType);
+                }
 #if WINDOWS
                 using (new AwayMode())
                 {
-                    await performRead(path, lease, readManager);
+                    await performRead(path, lease, readManager, forcedPcmType);
                     lease.Dispose();
                 }
 #elif ANDROID
@@ -164,7 +201,7 @@ public partial record ReadModel : IAsyncLogger
                     _ = UpdateProgress(progress);
                 });
 
-                Platforms.Android.DataService.StartService("Read PCM", performRead(path, lease, readManager, progress),
+                Platforms.Android.DataService.StartService("Read PCM", performRead(path, lease, readManager, forcedPcmType, progress),
                     async () =>
                     {
                         if (readCancellationToken.IsCancellationRequested)
@@ -205,7 +242,12 @@ public partial record ReadModel : IAsyncLogger
         }
     }
 
-    private async Task performRead(string path, ConnectionLease lease, ReadManager readManager, IProgress<ProgressUpdate>? progress = null)
+    private async Task performRead(
+        string path,
+        ConnectionLease lease,
+        ReadManager readManager,
+        PcmType forcedPcmType,
+        IProgress<ProgressUpdate>? progress = null)
     {
         // Save as a .phz package (master image + any slave references) when the chosen file is .phz;
         // otherwise write the raw master image, as before.
@@ -216,7 +258,7 @@ public partial record ReadModel : IAsyncLogger
         {
             if (asPackage)
             {
-                PcmPackage? package = await readManager.ReadToPackage(progress);
+                PcmPackage? package = await readManager.ReadToPackage(progress, forcedPcmType);
                 if (_selectedFile != null && package != null)
                 {
                     Stream writeStream = await _selectedFile.OpenStreamForWriteAsync();
@@ -226,7 +268,7 @@ public partial record ReadModel : IAsyncLogger
             }
             else
             {
-                Stream? readContents = await readManager.Read(progress);
+                Stream? readContents = await readManager.Read(progress, forcedPcmType);
                 if (_selectedFile != null && readContents != null)
                 {
                     Stream writeStream = await _selectedFile.OpenStreamForWriteAsync();
@@ -326,24 +368,13 @@ public partial record ReadModel : IAsyncLogger
         return file.Name;
     }
 
-    private Task<PcmType> PromptForPcmType()
-    {
-        // TODO: PCM type selection dialog box
-        return Task.FromResult(PcmType.P01);
-    }
+    private Task<PcmType> PromptForPcmType() => this.promptService.AskPcmType();
 
-    private Task<bool> PromptForYesNo(string message, string title)
-    {
-        // TODO: Yes/No dialog box
-        return Task.FromResult(true);
-    }
+    private Task<bool> PromptForYesNo(string message, string title) => this.promptService.AskYesNo(message, title);
 
-    private Task Alert(string message, string title)
-    {
-        // TODO: Alert popup
-        return Task.CompletedTask;
-    }
-    
+    private Task Alert(string message, string title) => this.promptService.Alert(message, title);
+
+
     public async Task AddUserMessage(string message)
     {
         _localUserMessages.Add(message);

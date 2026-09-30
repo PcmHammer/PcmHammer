@@ -1476,146 +1476,46 @@ namespace PcmHacking
         {
             try
             {
-                // Detect the bus and select its protocol first (parity with Identify PCM); CAN
-                // PCMs use the GMLAN VIN write path.
-                DetectedModule? pcm = await this.Vehicle.DetectAndSelectPcm(CancellationToken.None);
-                if (pcm == null)
+                // One shared flow detects the bus and reads the VIN over VPW or CAN; this only shows
+                // the dialog and reports the outcome.
+                VinReadResult? current = await this.Vehicle.ReadVin(CancellationToken.None);
+                if (current == null)
                 {
-                    this.AddUserMessage("No PCM detected.");
                     return;
                 }
 
-                if (pcm.Bus == BusProtocol.Can500k)
-                {
-                    await this.ModifyVinCan();
-                    return;
-                }
-
-                Response<uint> osidResponse = await this.Vehicle.QueryOperatingSystemId(CancellationToken.None);
-                if (osidResponse.Status != ResponseStatus.Success)
-                {
-                    this.AddUserMessage("Operating system query failed: " + osidResponse.Status);
-                    return;
-                }
-
-                OSIDInfo info = new OSIDInfo(osidResponse.Value);
-
-                var vinResponse = await this.Vehicle.QueryVin();
-                if (vinResponse.Status != ResponseStatus.Success)
-                {
-                    this.AddUserMessage("VIN query failed: " + vinResponse.Status.ToString());
-                    return;
-                }
+                this.AddUserMessage("VIN: " + current.Vin);
 
                 DialogBoxes.VinForm vinForm = new DialogBoxes.VinForm();
-                vinForm.Vin = vinResponse.Value;
-                DialogResult dialogResult = vinForm.ShowDialog();
-
-                if (dialogResult == DialogResult.OK)
+                vinForm.Vin = current.Vin;
+                if (vinForm.ShowDialog() != DialogResult.OK)
                 {
-                    // No cancellation source in the VIN flow; the unlock is bounded by its own time budget.
-                    bool unlocked = await this.Vehicle.UnlockEcu(info.KeyAlgorithm, CancellationToken.None);
-                    if (!unlocked)
-                    {
-                        this.AddUserMessage("Unable to unlock PCM.");
-                        return;
-                    }
+                    return;
+                }
 
-                    Response<bool> vinmodified = await this.Vehicle.UpdateVin(vinForm.Vin.Trim());
-                    if (vinmodified.Value)
-                    {
-                        this.AddUserMessage("VIN successfully updated to " + vinForm.Vin);
-                        MessageBox.Show(
-                            "VIN updated to " + vinForm.Vin + " successfully.\n\n" +
-                            "Turn ignition off while leaving power connected for a few seconds to finish the save to flash.",
-                            "Good news.", MessageBoxButtons.OK);
-                    }
-                    else
-                    {
-                        MessageBox.Show("Unable to change the VIN to " + vinForm.Vin + ". Error: " + vinmodified.Status, "Bad news.", MessageBoxButtons.OK);
-                    }
+                string newVin = vinForm.Vin.Trim().ToUpperInvariant();
+                if (newVin.Length != 17)
+                {
+                    MessageBox.Show("The VIN must be 17 characters.", "VIN", MessageBoxButtons.OK);
+                    return;
+                }
+
+                // No cancellation source in the VIN flow; the unlock is bounded by its own time budget.
+                if (await this.Vehicle.WriteVin(newVin, current.Bus, current.PcmInfo, CancellationToken.None))
+                {
+                    MessageBox.Show(
+                        "VIN updated to " + newVin + " successfully.\n\n" + Vehicle.VinWriteFollowUp,
+                        "Good news.", MessageBoxButtons.OK);
+                }
+                else
+                {
+                    MessageBox.Show("Unable to change the VIN to " + newVin + ".", "Bad news.", MessageBoxButtons.OK);
                 }
             }
             catch (Exception exception)
             {
                 this.AddUserMessage("VIN change failed: " + exception.ToString());
             }
-        }
-
-        /// <summary>
-        /// Change the VIN on a CAN PCM (E38): read the current VIN (1A 90), prompt for the new one,
-        /// unlock the PCM (seed/key), then write it (3B 90 + 17 ASCII bytes).
-        /// </summary>
-        private async Task ModifyVinCan()
-        {
-            OSIDInfo pcmInfo = new OSIDInfo(PcmType.E38);
-            CanCommands commands = this.Vehicle.CreateCanCommands();
-
-            Response<byte[]> vinResponse = await commands.ReadDataByIdentifier(Gmlan.VinDataIdentifier, CancellationToken.None);
-            string? currentVin = DecodeCanVin(vinResponse);
-            if (currentVin == null)
-            {
-                this.AddUserMessage("VIN query failed: " + vinResponse.Status.ToString());
-                return;
-            }
-            this.AddUserMessage("VIN: " + currentVin);
-
-            DialogBoxes.VinForm vinForm = new DialogBoxes.VinForm();
-            vinForm.Vin = currentVin;
-            if (vinForm.ShowDialog() != DialogResult.OK)
-            {
-                return;
-            }
-
-            string newVin = vinForm.Vin.Trim().ToUpperInvariant();
-            if (newVin.Length != 17)
-            {
-                MessageBox.Show("The VIN must be 17 characters.", "VIN", MessageBoxButtons.OK);
-                return;
-            }
-
-            this.AddUserMessage("Unlocking PCM...");
-            if (!await commands.Unlock(pcmInfo, CancellationToken.None))
-            {
-                this.AddUserMessage("Unable to unlock PCM.");
-                return;
-            }
-
-            byte[] vinBytes = Encoding.ASCII.GetBytes(newVin);
-            if (await commands.WriteDataByIdentifier(Gmlan.VinDataIdentifier, vinBytes, CancellationToken.None))
-            {
-                this.AddUserMessage("VIN successfully updated to " + newVin);
-                MessageBox.Show(
-                    "VIN updated to " + newVin + " successfully.\n\n" +
-                    "Now turn the ignition off and leave the power connected for\n" +
-                    "5 seconds to complete the process and save the change to flash.",
-                    "Good news.", MessageBoxButtons.OK);
-            }
-            else
-            {
-                MessageBox.Show("Unable to change the VIN to " + newVin + ".", "Bad news.", MessageBoxButtons.OK);
-            }
-        }
-
-        /// <summary>Decode the VIN from a GMLAN 1A 90 response [5A 90 ...]; null if it is not one.</summary>
-        private static string? DecodeCanVin(Response<byte[]> response)
-        {
-            if (response.Status != ResponseStatus.Success)
-            {
-                return null;
-            }
-            byte[] bytes = response.Value;
-            if (bytes == null || bytes.Length < 3 || bytes[0] != Gmlan.ReadDataByIdentifierResponse || bytes[1] != Gmlan.VinDataIdentifier)
-            {
-                return null;
-            }
-            string text = Encoding.ASCII.GetString(bytes.Skip(2).ToArray());
-            text = new string(text.ToUpperInvariant().Where(ch => char.IsLetterOrDigit(ch)).ToArray());
-            if (text.Length > 17)
-            {
-                text = text.Substring(0, 17);
-            }
-            return text;
         }
 
         /// <summary>
@@ -1775,7 +1675,7 @@ namespace PcmHacking
 
                 if (selection.IsWrite)
                 {
-                    if (!ConfirmBeforeWrite(this.GetWriteConfirmationText(selection.WriteType)))
+                    if (!ConfirmBeforeWrite(OperationOptions.DescribeWrite(selection.WriteType)))
                     {
                         return;
                     }
@@ -1791,27 +1691,6 @@ namespace PcmHacking
 
                 BackgroundWorker.IsBackground = true;
                 BackgroundWorker.Start();
-            }
-        }
-
-        private string GetWriteConfirmationText(WriteType writeType)
-        {
-            switch (writeType)
-            {
-                case WriteType.Parameters:
-                    return "This will update the parameter block on your PCM.";
-
-                case WriteType.OsPlusCalibrationPlusBoot:
-                    return "This will replace the operating system and calibration on your PCM.";
-
-                case WriteType.Calibration:
-                    return "This will replace the calibration on your PCM.";
-
-                case WriteType.Full:
-                    return "This will replace the contents of the flash memory on your PCM.";
-
-                default:
-                    return "This will update your PCM.";
             }
         }
 

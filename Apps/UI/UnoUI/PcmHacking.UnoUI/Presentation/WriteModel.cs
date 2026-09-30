@@ -13,6 +13,54 @@ namespace PcmHacking.UnoUI.Presentation;
 
 public record WriteTypeEntity(WriteType Type) : Entity("WriteType");
 
+/// <summary>
+/// A write type as offered in the write-type list. A plain struct, not a record: State.SetAsync takes
+/// only value types, and the reactive generator's proxy for a record assumes reference semantics.
+/// </summary>
+public readonly struct WriteTypeOption : IEquatable<WriteTypeOption>
+{
+    public WriteTypeOption(WriteType type)
+    {
+        this.Type = type;
+    }
+
+    public WriteType Type { get; }
+
+    public string DisplayName => OperationOptions.Label(this.Type);
+
+    public bool Equals(WriteTypeOption other) => this.Type == other.Type;
+
+    public override bool Equals(object? obj) => obj is WriteTypeOption other && this.Equals(other);
+
+    public override int GetHashCode() => this.Type.GetHashCode();
+
+    public override string ToString() => this.DisplayName;
+}
+
+/// <summary>
+/// A PCM type as offered in the override list. <see cref="PcmType.Undefined"/> is the "Auto" entry,
+/// which leaves the managers to identify the PCM from its operating system ID.
+/// </summary>
+public readonly struct PcmTypeOption : IEquatable<PcmTypeOption>
+{
+    public PcmTypeOption(PcmType type)
+    {
+        this.Type = type;
+    }
+
+    public PcmType Type { get; }
+
+    public string DisplayName => this.Type == PcmType.Undefined ? "Auto (query OSID)" : this.Type.ToString();
+
+    public bool Equals(PcmTypeOption other) => this.Type == other.Type;
+
+    public override bool Equals(object? obj) => obj is PcmTypeOption other && this.Equals(other);
+
+    public override int GetHashCode() => this.Type.GetHashCode();
+
+    public override string ToString() => this.DisplayName;
+}
+
 public partial record WriteModel : IAsyncLogger
 {
     private readonly WriteType writeType;
@@ -23,9 +71,13 @@ public partial record WriteModel : IAsyncLogger
     private readonly ISettingsService settingsService;
     private readonly LoggerAdapter loggerAdapter;
     private readonly IPlatformService platformService;
+    private readonly IPromptService promptService;
     private readonly IDispatcher dispatcher;
 #pragma warning disable CS0414
     private byte[] _fileBuffer = Array.Empty<byte>();
+
+    /// <summary>Whether the chosen file is a .phz package rather than a raw .bin.</summary>
+    private bool _isPackageFile;
 #pragma warning restore CS0414
 
     private CancellationTokenSource? tokenSource;
@@ -35,7 +87,8 @@ public partial record WriteModel : IAsyncLogger
 
     public IState<bool> StartEnabled => State<bool>.Value(this, () => true);
     public IState<bool> CancelEnabled => State<bool>.Value(this, () => false);
-    public IState<bool> PreferCalibrationWriteEnabled => State<bool>.Value(this, () => true);
+    /// <summary>Whether the write-type and PCM-type choices can be changed (not while a write runs).</summary>
+    public IState<bool> OptionsEnabled => State<bool>.Value(this, () => true);
 
     public IState<string> Path => State<string>.Value(this, () => defaultPath);
     public IState<string> UserLog => State<string>.Value(this, () => String.Empty);
@@ -46,9 +99,40 @@ public partial record WriteModel : IAsyncLogger
     public IState<string> Kbps => State<string>.Value(this, () => String.Empty);
     public IState<double> Progress => State<double>.Value(this, () => 0.0);
     public IState<string> StartButtonText => State<string>.Value(this, () => this.GetStartButtonText());
-    public IState<string> CalibrationOnlyCheckboxText => State<string>.Value(this, () => this.GetCalibrationOnlyCheckboxText());
-    public IState<bool> PreferCalibrationWrite => State<bool>.Value(this, () => false)
-        .ForEach((value, ct) => this.PreferCalibrationWriteChanged(value, ct));
+
+    /// <summary>
+    /// The write types this PCM supports, per <see cref="OperationOptions"/>. Stops a clone-only CAN
+    /// PCM being asked for a calibration write, which otherwise only fails once the kernel is running.
+    /// </summary>
+    public IListFeed<WriteTypeOption> WriteTypes =>
+        ListFeed.Async(ct => this.GetWriteTypes(ct)).Selection(this.SelectedWriteTypeOption);
+
+    public IState<WriteTypeOption> SelectedWriteTypeOption => State<WriteTypeOption>
+        .Value(this, () => new WriteTypeOption(WritePlan.DefaultWriteType()))
+        .ForEach((value, ct) => this.SelectedWriteTypeChanged(value, ct));
+
+    /// <summary>The PCM type override: Auto, or a specific type when detection cannot identify it.</summary>
+    public IListFeed<PcmTypeOption> PcmTypes =>
+        ListFeed.Async(ct => this.GetPcmTypes(ct)).Selection(this.SelectedPcmTypeOption);
+
+    public IState<PcmTypeOption> SelectedPcmTypeOption => State<PcmTypeOption>
+        .Value(this, () => new PcmTypeOption(PcmType.Undefined));
+
+    /// <summary>What detection found, for a label beside the write-type list.</summary>
+    public IState<string> DetectionMessage => State<string>.Value(this, () => "Detecting PCM...");
+
+    /// <summary>What the selected write type will do, so the user reads it before starting.</summary>
+    public IState<string> WriteDescription => State<string>.Value(this, () => String.Empty);
+
+    /// <summary>
+    /// Whether to show the write-type list. A test write and a comparison are chosen from the menu and
+    /// are not a choice on this page.
+    /// </summary>
+    public IState<bool> ShowWriteTypeList => State<bool>.Value(
+        this, () => this.writeType != WriteType.TestWrite && this.writeType != WriteType.Compare);
+
+    /// <summary>What the offered write types were, so Start can fall back sensibly.</summary>
+    private OperationOptions? detectedOptions;
 
     public IState<bool> UseCustomKey => State<bool>.Value(this, () => false).ForEach((value, ct) => UseCustomKeyChanged(value, ct));
     public IState<bool> UseCustomKeyEnabled => State<bool>.Value(this, () => true);
@@ -62,6 +146,7 @@ public partial record WriteModel : IAsyncLogger
         ISettingsService settingsService,
         LoggerAdapter loggerAdapter,
         IPlatformService platformService,
+        IPromptService promptService,
         IDispatcher dispatcher)
     {
         this.navigator = navigator;
@@ -69,16 +154,16 @@ public partial record WriteModel : IAsyncLogger
         this.settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
         this.loggerAdapter = loggerAdapter ?? throw new ArgumentNullException(nameof(loggerAdapter));
         this.platformService = platformService ?? throw new ArgumentNullException(nameof(platformService));
+        this.promptService = promptService ?? throw new ArgumentNullException(nameof(promptService));
         this.dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
 
         this.writeType = WriteModel.WriteType; // hacky workaround
 
-        // Fire-and-forget initialization
+        // Fire-and-forget init. The write-type selection is seeded by detection, not here.
         var _1 = this.Path.SetAsync(this.settingsService.GetLastWrittenFile());
-        var _2 = this.PreferCalibrationWrite.SetAsync(this.settingsService.IsCalibrationWritePreferred());
-        var _3 = this.UseCustomKey.SetAsync(this.settingsService.GetUseCustomKey());
-        var _4 = this.CustomKey.SetAsync(this.settingsService.GetCustomKey());
-        var _5 = this.EnableControls(false);
+        var _2 = this.UseCustomKey.SetAsync(this.settingsService.GetUseCustomKey());
+        var _3 = this.CustomKey.SetAsync(this.settingsService.GetCustomKey());
+        var _4 = this.EnableControls(false);
         _localUserMessages = [];
     }
 
@@ -92,19 +177,6 @@ public partial record WriteModel : IAsyncLogger
                 return "Start Comparison";
             default:
                 return "Start Writing";
-        }
-    }
-
-    private string GetCalibrationOnlyCheckboxText()
-    {
-        switch (this.writeType)
-        {
-            case WriteType.TestWrite:
-                return "Test Calibration Only (if possible)";
-            case WriteType.Compare:
-                return "Compare Calibration Only (if possible)";
-            default:
-                return "Write Calibration Only (if possible)";
         }
     }
 
@@ -130,14 +202,93 @@ public partial record WriteModel : IAsyncLogger
             case WriteType.Compare:
                 return this.writeType;
             default:
-                return await this.PreferCalibrationWrite.Value() ? WriteType.Calibration : WriteType.Full;
+                WriteTypeOption? selected = await this.SelectedWriteTypeOption.Value();
+
+                // A clone-only PCM must not get a calibration write just because nothing was selected.
+                if (selected == null
+                    || selected.Value.Type == WriteType.None
+                    || (this.detectedOptions != null && !this.detectedOptions.Offers(selected.Value.Type)))
+                {
+                    return this.detectedOptions?.PreferredWriteType(WritePlan.DefaultWriteType())
+                        ?? WritePlan.DefaultWriteType();
+                }
+
+                return selected.Value.Type;
         }
     }
 
-    private ValueTask PreferCalibrationWriteChanged(bool preferCalibrationWrite, CancellationToken cancellationToken)
+    /// <summary>The PCM type to force, or Undefined to let the manager identify it.</summary>
+    private async Task<PcmType> GetForcedPcmType()
     {
-        this.settingsService.ShouldPreferCalibrationWrite(preferCalibrationWrite);
-        return ValueTask.CompletedTask;
+        PcmTypeOption? selected = await this.SelectedPcmTypeOption.Value();
+        return selected?.Type ?? PcmType.Undefined;
+    }
+
+    /// <summary>
+    /// Detect the PCM and work out which write types it supports. A failure here is expected (nothing
+    /// connected yet) and falls back to offering everything; the write still refuses what it cannot do.
+    /// </summary>
+    private async ValueTask<IImmutableList<WriteTypeOption>> GetWriteTypes(CancellationToken ct)
+    {
+        OSIDInfo? detected = null;
+        try
+        {
+            using (ConnectionLease lease = await this.connectionService.BeginActivity("Detecting PCM", true))
+            {
+                if (lease != null)
+                {
+                    DetectedModule? pcm = await lease.Vehicle.DetectAndSelectPcm(ct);
+                    if (pcm != null)
+                    {
+                        detected = pcm.Info;
+                        this.loggerAdapter.AddUserMessage($"Detected {detected.HardwareType} on {pcm.Bus}");
+                    }
+                }
+            }
+        }
+        catch (Exception exception)
+        {
+            this.loggerAdapter.AddDebugMessage("WriteModel: unable to detect the PCM. " + exception.Message);
+        }
+
+        OperationOptions options = OperationOptions.For(detected);
+        this.detectedOptions = options;
+        await this.DetectionMessage.SetAsync(options.DetectionMessage, ct);
+
+        // Preselect the user's standing preference when this PCM supports it; the policy decides.
+        WriteType requested = this.settingsService.IsCalibrationWritePreferred()
+            ? WriteType.Calibration
+            : WritePlan.DefaultWriteType();
+        WriteType preferred = options.PreferredWriteType(requested);
+        await this.SelectedWriteTypeOption.SetAsync(new WriteTypeOption(preferred), ct);
+        await this.WriteDescription.SetAsync(OperationOptions.DescribeWrite(preferred), ct);
+
+        if (!options.CanWrite)
+        {
+            await this.StartEnabled.SetAsync(false, ct);
+        }
+
+        return ImmutableList.CreateRange(options.WriteTypes.Select(type => new WriteTypeOption(type)));
+    }
+
+    private ValueTask<IImmutableList<PcmTypeOption>> GetPcmTypes(CancellationToken ct)
+    {
+        List<PcmTypeOption> types = [new PcmTypeOption(PcmType.Undefined)];
+        types.AddRange(OperationOptions.SelectablePcmTypes().Select(type => new PcmTypeOption(type)));
+        return ValueTask.FromResult((IImmutableList<PcmTypeOption>)ImmutableList.CreateRange(types));
+    }
+
+    private async ValueTask SelectedWriteTypeChanged(WriteTypeOption? selected, CancellationToken ct)
+    {
+        if (selected == null || selected.Value.Type == WriteType.None)
+        {
+            return;
+        }
+
+        await this.WriteDescription.SetAsync(OperationOptions.DescribeWrite(selected.Value.Type), ct);
+
+        // Remember the preference, as the old checkbox did.
+        this.settingsService.ShouldPreferCalibrationWrite(selected.Value.Type == WriteType.Calibration);
     }
 
     private async ValueTask UseCustomKeyChanged(bool value, CancellationToken ct)
@@ -158,16 +309,11 @@ public partial record WriteModel : IAsyncLogger
         await this.UseCustomKeyEnabled.SetAsync(!busy);
         await this.CustomKeyEnabled.SetAsync(!busy);
 
-        await this.CancelEnabled.SetAsync(busy);        
+        await this.CancelEnabled.SetAsync(busy);
 
-        if ((this.writeType == WriteType.TestWrite) || (this.writeType == WriteType.Compare))
-        {
-            await PreferCalibrationWriteEnabled.SetAsync(false);
-        }
-        else
-        {
-            await PreferCalibrationWriteEnabled.SetAsync(!busy);
-        }
+        // The PCM-type override applies to every write; only the write-type list is hidden for a test
+        // write or comparison (see ShowWriteTypeList).
+        await this.OptionsEnabled.SetAsync(!busy);
     }
 
     [Command]
@@ -245,13 +391,19 @@ public partial record WriteModel : IAsyncLogger
                     this.PromptForYesNo,
                     writeCancellationToken);
 
+                PcmType forcedPcmType = await this.GetForcedPcmType();
+                if (forcedPcmType != PcmType.Undefined)
+                {
+                    await this.AddUserMessage("Forcing PCM type: " + forcedPcmType);
+                }
+
 #if WINDOWS
                 using (new AwayMode())
                 {
-                    await PerformWrite(path, writeManager);
+                    await PerformWrite(path, writeManager, forcedPcmType);
                 }
 #elif ANDROID
-                await PerformWrite(path, writeManager);
+                await PerformWrite(path, writeManager, forcedPcmType);
 #endif
             }
         }
@@ -270,12 +422,38 @@ public partial record WriteModel : IAsyncLogger
         }
     }
 
-    private async Task PerformWrite(string path, WriteManager writeManager)
+    private async Task PerformWrite(string path, WriteManager writeManager, PcmType forcedPcmType)
     {
 #if ANDROID
-        await writeManager.Write(_fileBuffer);
+        // A StorageFile path is not reliably re-openable, so the package is parsed from the bytes read
+        // at pick time. The raw-image overload cannot carry the slave references a .phz holds.
+        if (_isPackageFile)
+        {
+            PcmPackage package;
+            try
+            {
+                using (MemoryStream stream = new MemoryStream(_fileBuffer, writable: false))
+                {
+                    package = PackageStore.Load(stream, path);
+                }
+            }
+            catch (PackageException exception)
+            {
+                await this.AddUserMessage("Unable to load file: " + exception.Message);
+                return;
+            }
+
+            if (await writeManager.Write(package, forcedPcmType))
+            {
+                await this.AddUserMessage("Write succeeded!");
+            }
+
+            return;
+        }
+
+        await writeManager.Write(_fileBuffer, forcedPcmType);
 #else
-        if (writeManager.Write(path).Result)
+        if (await writeManager.Write(path, forcedPcmType))
         {
             await this.AddUserMessage("Write succeeded!");
             this.tokenSource = null;
@@ -322,6 +500,9 @@ public partial record WriteModel : IAsyncLogger
         {
             return null;
         }
+
+        _isPackageFile = System.IO.Path.GetExtension(file.Name)
+            .Equals(".phz", StringComparison.OrdinalIgnoreCase);
 #if ANDROID
         var openedFile = await file.OpenReadAsync();
         _fileBuffer = openedFile.AsStream().ToMemoryStream().ToArray();
@@ -333,17 +514,9 @@ public partial record WriteModel : IAsyncLogger
 #endif
     }
 
-    private Task Alert(string message, string title)
-    {
-        // TODO: Alert popup
-        return Task.CompletedTask;
-    }
+    private Task Alert(string message, string title) => this.promptService.Alert(message, title);
 
-    private Task<bool> PromptForYesNo(string message, string title)
-    {
-        // TODO: Yes/No dialog box
-        return Task.FromResult(true);
-    }
+    private Task<bool> PromptForYesNo(string message, string title) => this.promptService.AskYesNo(message, title);
 
     public async Task AddUserMessage(string message)
     {
