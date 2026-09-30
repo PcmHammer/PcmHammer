@@ -32,6 +32,7 @@ namespace PcmHacking
             this.j2534RadioButton = new System.Windows.Forms.RadioButton();
             this.serialRadioButton = new System.Windows.Forms.RadioButton();
             this.serialOptionsGroupBox = new System.Windows.Forms.GroupBox();
+            this.buyDeviceLink = new System.Windows.Forms.LinkLabel();
             this.serialDeviceList = new System.Windows.Forms.ComboBox();
             this.label2 = new System.Windows.Forms.Label();
             this.serialPortList = new System.Windows.Forms.ComboBox();
@@ -109,7 +110,18 @@ namespace PcmHacking
             this.serialDeviceList.Size = new System.Drawing.Size(347, 21);
             this.serialDeviceList.TabIndex = 3;
             this.serialDeviceList.SelectedIndexChanged += new System.EventHandler(this.serialDeviceList_SelectedIndexChanged);
-            // 
+            //
+            // buyDeviceLink
+            //
+            this.buyDeviceLink.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.buyDeviceLink.AutoSize = true;
+            this.buyDeviceLink.Location = new System.Drawing.Point(12, 353);
+            this.buyDeviceLink.Name = "buyDeviceLink";
+            this.buyDeviceLink.Size = new System.Drawing.Size(0, 13);
+            this.buyDeviceLink.TabIndex = 10;
+            this.buyDeviceLink.Visible = false;
+            this.buyDeviceLink.LinkClicked += new System.Windows.Forms.LinkLabelLinkClickedEventHandler(this.buyDeviceLink_LinkClicked);
+            //
             // label2
             // 
             this.label2.AutoSize = true;
@@ -171,7 +183,7 @@ namespace PcmHacking
             // autoDetectButton
             // 
             this.autoDetectButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-            this.autoDetectButton.Location = new System.Drawing.Point(12, 350);
+            this.autoDetectButton.Location = new System.Drawing.Point(12, 376);
             this.autoDetectButton.Name = "autoDetectButton";
             this.autoDetectButton.Size = new System.Drawing.Size(85, 23);
             this.autoDetectButton.TabIndex = 3;
@@ -183,7 +195,7 @@ namespace PcmHacking
             // 
             this.okButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
             this.okButton.DialogResult = System.Windows.Forms.DialogResult.OK;
-            this.okButton.Location = new System.Drawing.Point(196, 350);
+            this.okButton.Location = new System.Drawing.Point(196, 376);
             this.okButton.Name = "okButton";
             this.okButton.Size = new System.Drawing.Size(85, 23);
             this.okButton.TabIndex = 5;
@@ -195,7 +207,7 @@ namespace PcmHacking
             // 
             this.cancelButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
             this.cancelButton.DialogResult = System.Windows.Forms.DialogResult.Cancel;
-            this.cancelButton.Location = new System.Drawing.Point(287, 350);
+            this.cancelButton.Location = new System.Drawing.Point(287, 376);
             this.cancelButton.Name = "cancelButton";
             this.cancelButton.Size = new System.Drawing.Size(85, 23);
             this.cancelButton.TabIndex = 6;
@@ -206,7 +218,7 @@ namespace PcmHacking
             // testButton
             // 
             this.testButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-            this.testButton.Location = new System.Drawing.Point(103, 350);
+            this.testButton.Location = new System.Drawing.Point(103, 376);
             this.testButton.Name = "testButton";
             this.testButton.Size = new System.Drawing.Size(85, 23);
             this.testButton.TabIndex = 4;
@@ -251,10 +263,11 @@ namespace PcmHacking
             this.CancelButton = this.cancelButton;
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(384, 385);
+            this.ClientSize = new System.Drawing.Size(384, 411);
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
             this.MinimizeBox = false;
+            this.Controls.Add(this.buyDeviceLink);
             this.Controls.Add(this.optionsGroupBox);
             this.Controls.Add(this.status);
             this.Controls.Add(this.testButton);
@@ -287,6 +300,7 @@ namespace PcmHacking
         private System.Windows.Forms.RadioButton j2534RadioButton;
         private System.Windows.Forms.RadioButton serialRadioButton;
         private System.Windows.Forms.GroupBox serialOptionsGroupBox;
+        private System.Windows.Forms.LinkLabel buyDeviceLink;
         private System.Windows.Forms.ComboBox serialDeviceList;
         private System.Windows.Forms.Label label2;
         private System.Windows.Forms.ComboBox serialPortList;

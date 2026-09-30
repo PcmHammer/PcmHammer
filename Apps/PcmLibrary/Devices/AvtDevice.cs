@@ -15,7 +15,12 @@ namespace PcmHacking
     /// 
     public class AvtDevice : SerialDevice, ICanChannel, ICanTarget
     {
+        // One driver, two picker entries: the 838 is VPW-only, the 842/852 also do CAN. They are
+        // distinct keys (the picker persists the key and must tell the two apart) but both create this
+        // same AvtDevice, which detects the actual model on reset. DeviceType is kept as the 842/852
+        // key so existing saved settings still resolve.
         public const string DeviceType = "AVT (838/842/852)";
+        public const string DeviceType838 = "AVT 838";
         public short Model = 0; // 0 = unknown or 838, 842, 852
 
         public static readonly Message AVT_RESET                = new Message(new byte[] { 0xF1, 0xA5 });
@@ -558,6 +563,15 @@ namespace PcmHacking
 
             if (protocol == BusProtocol.Can500k)
             {
+                // The 838 is VPW-only hardware; only the 842 and 852 have a CAN transceiver. Fail with
+                // a clear reason rather than sending a CAN command the 838 cannot honour and relying on
+                // it to reject it.
+                if (this.Model == 838)
+                {
+                    this.Logger.AddUserMessage("The AVT 838 is VPW only and cannot be used with CAN-bus PCMs; an AVT 842 or 852 is required.");
+                    return false;
+                }
+
                 await this.Port.DiscardBuffers();
                 await this.Port.Send(AVT_ENTER_CAN_MODE.GetBytes());
                 Response<Message> m = await ReadAVTPacket();

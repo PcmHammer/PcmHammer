@@ -59,10 +59,12 @@ namespace PcmHacking
                         break;
 
                     case AvtDevice.DeviceType:
+                    case AvtDevice.DeviceType838: // same driver; the picker split is display-only (model is auto-detected)
                         device = new AvtDevice(port, logger);
                         break;
 
                     case SlcanDevice.DeviceType:
+                    case "SLCAN (CAN only)": // legacy saved value before the type was renamed to "SLCAN"
                         device = new SlcanDevice(port, logger);
                         break;
 

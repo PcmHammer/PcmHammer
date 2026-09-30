@@ -13,7 +13,7 @@
 </head>
 
 <body>
-    <h1>PCM Hammer 2.0.0</h1>
+    <h1>PCM Hammer 2</h1>
 
     <ol>
         <li><a target="_self" href="#recommended">Recommended Interface</a></li>
@@ -21,6 +21,7 @@
         <li><a target="_self" href="#devices">Supported Devices</a></li>
         <li><a target="_self" href="#pcms">Supported PCMs</a></li>
         <li><a target="_self" href="#basics">Basic Operations</a></li>
+        <li><a target="_self" href="#files">Working with Files</a></li>
         <li><a target="_self" href="#online">Getting Help Online</a></li>
         <li><a target="_self" href="#licensing">Licensing</a></li>
         <li><a target="_self" href="#contributing">Contributing</a></li>
@@ -56,27 +57,27 @@
     <h4><a href="http://obdxpro.com/?ref=pcmhacking">OBDX Pro</a> <span class="status">- recommended</span></h4>
     <p>The best bang for the buck. It supports 4x bus speeds and large data packets, which makes it both fast and reliable. Full disclosure: the people behind this company have also helped with PCM Hammer development and testing, and buying through this link helps cover our hardware costs and fund future development.</p>
 
-    <h4><a href="https://www.scantool.net/obdlink-sx/">ObdLink Scantool SX</a> <span class="status">- VPW only; works, but slow; not recommended</span></h4>
-    <p>An inexpensive, basic interface. It is better than ELM knock-off devices, but it does not support 4x (high-speed) mode and only handles relatively short messages, so it is very slow - a full read of a 512&nbsp;KB PCM takes a little over 20 minutes. Wired only (no Bluetooth).</p>
-
-    <h4><a href="https://www.scantool.net/obdlink-mxp/">ObdLink Scantool MX / MX+</a> <span class="status">- VPW only; not recommended</span></h4>
-    <p>Similar to the SX, but with Bluetooth. The Bluetooth connection to Windows can be troublesome, but it does work once it is correctly configured.</p>
-
-    <h4><a href="https://www.scantool.net/obdlink-lx/">ObdLink Scantool LX</a> <span class="status">- VPW only; not recommended</span></h4>
-    <p>Like an SX or MX+, but wireless.</p>
-
     <h4>Scanmatik version 2 (firmware 2.21.23+ and version 3) <span class="status">- supported</span></h4>
     <p><a href="https://scanmatik.ru/about/news/4537/">Scanmatik added official long-packet support with firmware 2.21.23</a>, after being contacted by PCM Hammer users in 2023. Reports are that this tool works well at 4x, via J2534.</p>
 
     <h4>GM or Bosch MDI and MDI2 tools <span class="status">- supported</span></h4>
     <p>These are supported J2534 devices with the needed protocol support. They are not cheap, but they are strong performers. Tech2 with J2534 passthrough should work, but is not tested.</p>
 
-    <h4><a href="http://www.avt-hq.com/852_hw.htm">AVT 852</a> <span class="status">- supported</span></h4>
-    <p>An expensive option. The original company has closed down, but the device is being manufactured again by Mobilechanix, who have a website and an eBay store. This was one of the first interfaces to properly support J1850 VPW high-speed mode.</p>
+    <h4>AVT 838 / 842 / 852 <span class="status">- supported</span></h4>
+    <p>An expensive option, and one of the first interfaces to properly support J1850 VPW high-speed mode. Note that the 838 model is VPW only. The original company has closed down; now sold by <a href="https://mobilechanic.com/shop/">Mobilechanix</a>.</p>
 
     <h4>Other J2534-compatible interfaces <span class="status">- work in theory, but often don't</span></h4>
     <p>Any J2534 interface that supports J1850 VPW <i>and</i> large packets should work, at least in theory. There are quite a few on the market and we cannot test them all, but if you have one, give it a try; over time we will list the ones that are proven to work. The genuine GM MDI is one device that is known to work well. Cheaper J2534 devices are generally very basic and either skip the VPW protocol or cannot handle large packets - as a general rule, sub-$50 J2534 tools usually do not work.</p>
     <p>Note that the Tactrix OpenPort 2.0 does <i>not</i> support J1850 VPW, despite some advertising that says it does. VPW is required, and the OpenPort cannot provide it.</p>
+
+    <h4><a href="https://www.scantool.net/obdlink-sx/">ObdLink Scantool SX</a> <span class="status">- VPW only; works, but slow; not recommended</span></h4>
+    <p>An inexpensive, basic interface. It is better than ELM knock-off devices, but it does not support 4x (high-speed) mode and only handles relatively short messages, so it is very slow - a full read of a 512 KiB PCM takes a little over 20 minutes. Wired only (no Bluetooth). Like the other ScanTool interfaces, it is VPW only, so it cannot be used to read or write CAN-bus PCMs.</p>
+
+    <h4><a href="https://www.scantool.net/obdlink-mxp/">ObdLink Scantool MX / MX+</a> <span class="status">- VPW only; not recommended</span></h4>
+    <p>Similar to the SX, but with Bluetooth. The Bluetooth connection to Windows can be troublesome, but it does work once it is correctly configured.</p>
+
+    <h4><a href="https://www.scantool.net/obdlink-lx/">ObdLink Scantool LX</a> <span class="status">- VPW only; not recommended</span></h4>
+    <p>Like an SX or MX+, but wireless.</p>
 
     <h4>ObdDiag AllPro <span class="status">- no longer available; not recommended</span></h4>
     <p>Only the USB and dev-board versions are supported (not Bluetooth). The AllPro devices were quite inexpensive, and ObdDiag was an early partner in this project, incorporating changes and responding to feedback. However, the person behind the company has moved on to other things, so these devices are no longer available. If you happen to have one, it can be used, but they are uncommon. Note that AllPro devices purchased before early June 2018 need a firmware update to version 1.21 or later.</p>
@@ -113,8 +114,8 @@
         <li>Either way, check the Results tab in the main window: it will either print an error message or show some information about the selected device.</li>
     </ol>
 
-    <h4>Read Properties</h4>
-    <p>Reads the VIN, serial number, and other properties from the PCM. You should generally do this before anything else, to confirm that the device can communicate with the PCM.</p>
+    <h4>Identify PCM</h4>
+    <p>Reads the VIN, serial number, and other identification from the PCM. You should generally do this before anything else, to confirm that the device can communicate with the PCM.</p>
 
     <h4>Test Write</h4>
     <p>Simulates the process of updating your PCM's calibration block from a file on your computer, without changing the contents of your PCM. This is useful for verifying the quality of the connection between your computer and your PCM.</p>
@@ -148,6 +149,30 @@
 
     <hr />
 
+    <h3 id="files">Working with Files</h3>
+
+    <p>PCM Hammer keeps one <b>loaded file</b> in memory - the working document. Reading a PCM fills it, and the Load File button opens one from disk. The Save File button writes it out, and Write, Test Write and Verify act on it. The window title shows the loaded file's name, with a "*" when it has unsaved changes. Save, Import Bin, Export Bin, Write, Test Write and Verify stay greyed out until a file is loaded.</p>
+
+    <h4>Two file types</h4>
+    <p>A <b>.bin</b> is a single raw flash image - the same file TunerPro and Universal Patcher edit. A <b>.phz</b> is a PCM Hammer <i>package</i>: it holds the main image together with a manifest (operating system ID, VIN, integrity checksums) and, for a PCM that has a throttle (slave) processor such as the E38, a record of which slave modules the PCM uses. The slave is stored <i>by reference</i> - its part numbers, not its bytes - because the slave cannot be read; PCM Hammer supplies the matching slave data from its own local library when you write.</p>
+
+    <h4>Load File</h4>
+    <p>Opens a .phz or a .bin into memory. A .bin becomes a main-image-only document; a .phz restores the full package. If a document you have loaded is a bare main image for a PCM that needs a slave (for example a downloaded E38 .bin), PCM Hammer says so: you can still write it - the master is programmed and the PCM's existing slave is left in place - but it is not a complete package.</p>
+
+    <h4>Save File / Save File As</h4>
+    <p>Writes the working document to disk. A complete package can be saved as either a .phz (which keeps the metadata and the slave record) or a plain .bin. A document that is only a main image for a slave PCM can be saved <i>only as a .bin</i>: PCM Hammer will not write a .phz that is missing modules, so a package on disk is always complete.</p>
+
+    <h4>Read</h4>
+    <p>Reads the PCM into the working document (rather than straight to a file) and then offers to save it. Choose .phz to keep the slave record and checksums; choose .bin for a plain image. Either way the read stays loaded, so you can write it to another PCM straight away.</p>
+
+    <h4>Export Bin</h4>
+    <p>Writes the main image out as a raw .bin so you can edit it in TunerPro or Universal Patcher. A picker lists the images in the document (the main image is selected by default). Each selection is written as <code>&lt;name&gt;_&lt;PCM type&gt;_&lt;module&gt;.bin</code>, for example <code>corvette_E38_main.bin</code>.</p>
+
+    <h4>Import Bin</h4>
+    <p>Brings an edited .bin back into the loaded package, replacing the main image while keeping the rest of the package (such as the slave record). PCM Hammer identifies and checksum-validates the file first; a corrupt or unrecognised file is refused. If the package's slave was recorded for one operating system and the imported image is a different one, PCM Hammer warns that the recorded slave may no longer match. The usual round trip is: read a PCM, save the .phz, Export Bin, edit it, Import Bin, then write.</p>
+
+    <hr />
+
     <h3 id="online">Getting Help Online</h3>
 
     <p>If you have questions about the app or how to use it, head to <a href="https://pcmhacking.net/forums/viewforum.php?f=42">this section of the pcmhacking.net forum</a> to talk with other like-minded users.</p>
@@ -177,7 +202,7 @@
         <dd>
             TunerPro is a generic editing tool: it does not know anything about your PCM or your .bin file.
             It needs a <i>definition file</i> to tell it which bytes of the .bin file control which aspects of the PCM.
-            PCM Hammer reports the operating system ID (OSID) of your PCM once you are set up and click "Read Properties". You can search for that OSID together with "XDF" to see what is available online.
+            PCM Hammer reports the operating system ID (OSID) of your PCM once you are set up and click "Identify PCM". You can search for that OSID together with "XDF" to see what is available online.
             You will need to judge which XDFs are of good quality; the better ones usually come recommended online, or appear in PCMHacking.net posts with lots of downloads and positive comments in the thread.
             Sometimes it is best to change the operating system to a more common, compatible OSID so that you can get extra features or a better XDF.
         </dd>

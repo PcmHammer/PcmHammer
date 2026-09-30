@@ -21,7 +21,8 @@
                         <RadioButton x:Name="SerialDeviceRadioButton" GroupName="DeviceCategory" Content="Serial Device" Margin="5"
                                      IsChecked="{Binding IsSerialDeviceSelected, Mode=TwoWay}"/>
                         <RadioButton x:Name="J2534DeviceRadioButton" GroupName="DeviceCategory" Content="J2534 Device" Margin="5"
-                                     IsChecked="{Binding IsJ2534DeviceSelected, Mode=TwoWay}"/>
+                                     IsChecked="{Binding IsJ2534DeviceSelected, Mode=TwoWay}"
+                                     Visibility="{Binding IsJ2534Available, Converter={StaticResource BooleanToVisibility}}"/>
                     </StackPanel>
                 </GroupBox>
                 <GroupBox Header="Serial Device Options" IsEnabled="{Binding ElementName=SerialDeviceRadioButton, Path=IsChecked}">
@@ -33,22 +34,32 @@
                                   ItemsSource="{Binding SerialPorts}" 
                                   DisplayMemberPath="PortName"
                                   SelectedItem="{Binding SerialPort, UpdateSourceTrigger=PropertyChanged}"/>
-                        <Label Content="Device Type" 
+                        <Label Content="Device Type"
                                Target="{Binding ElementName=SerialDeviceTypeComboBox}"/>
-                        <ComboBox x:Name="SerialDeviceTypeComboBox" 
-                                  ItemsSource="{Binding SerialDevices}" 
-                                  SelectedItem="{Binding SerialPortDeviceType, UpdateSourceTrigger=PropertyChanged}"/>
+                        <ComboBox x:Name="SerialDeviceTypeComboBox"
+                                  ItemsSource="{Binding SerialDevices}"
+                                  DisplayMemberPath="DisplayName"
+                                  SelectedValuePath="Key"
+                                  SelectedValue="{Binding SerialPortDeviceType, UpdateSourceTrigger=PropertyChanged}"/>
                     </StackPanel>
                 </GroupBox>
                 <GroupBox Header="J2534 Device Options" IsEnabled="{Binding ElementName=J2534DeviceRadioButton, Path=IsChecked}">
                     <StackPanel>
                         <Label Content="Device Type" Target="{Binding ElementName=J2534DeviceTypeComboBox}"/>
-                        <ComboBox x:Name="J2534DeviceTypeComboBox" ItemsSource="{Binding J2534Devices}" 
-                                  SelectedItem="{Binding J2534DeviceType, UpdateSourceTrigger=PropertyChanged}"/>
+                        <ComboBox x:Name="J2534DeviceTypeComboBox" ItemsSource="{Binding J2534Devices}"
+                                  DisplayMemberPath="DisplayName"
+                                  SelectedValuePath="Name"
+                                  SelectedValue="{Binding J2534DeviceType, UpdateSourceTrigger=PropertyChanged}"/>
                     </StackPanel>
                 </GroupBox>
                 <CheckBox x:Name="Enable4xCommunication" Content="Enable 4x Communication" Margin="5,0,0,0"
                           IsChecked="{Binding Enable4xReadWrite, UpdateSourceTrigger=PropertyChanged}"/>
+                <TextBlock Margin="5,10,0,0"
+                           Visibility="{Binding IsBuyDeviceVisible, Converter={StaticResource BooleanToVisibility}}">
+                    <Hyperlink Command="{Binding BuyDeviceCommand}">
+                        <Run Text="{Binding BuyDeviceText, Mode=OneWay}"/>
+                    </Hyperlink>
+                </TextBlock>
                 <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
                     <Button Content="Auto Detect"   Margin="5,0,0,5" Width="120" Command="{Binding AutoDetectCommand}"/>
                     <Button Content="Test"          Margin="5,0,0,5" Width="120" Command="{Binding TestCommand}"/>

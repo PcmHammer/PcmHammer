@@ -671,23 +671,12 @@ namespace PcmHacking
         }
 
         /// <summary>
-        /// Whether the installed driver declares a channel for this bus. CAN is read from the
-        /// ISO15765 channel count, because that is the mode these PCMs are talked to in.
+        /// Whether the installed driver declares a channel for this bus. The VPW/CAN mapping is shared
+        /// with the device picker (see <see cref="J2534DeviceDescriptor.SupportedBuses"/>) so the label
+        /// and what the device will actually open cannot drift.
         /// </summary>
-        private bool SupportsProtocol(BusProtocol protocol)
-        {
-            switch (protocol)
-            {
-                case BusProtocol.Vpw:
-                    return this.J2534Port.LoadedDevice.IsJ1850VPWSupported;
-
-                case BusProtocol.Can500k:
-                    return this.J2534Port.LoadedDevice.IsISO15765Supported;
-
-                default:
-                    return false;
-            }
-        }
+        private bool SupportsProtocol(BusProtocol protocol) =>
+            J2534DeviceDescriptor.SupportedBuses(this.J2534Port.LoadedDevice).Contains(protocol);
 
         private bool SetProtocolInternal(BusProtocol protocol)
         {

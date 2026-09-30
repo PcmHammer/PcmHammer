@@ -90,8 +90,14 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Resource Include="credits.html" />
-    <Resource Include="help.html" />
+    <!-- Help/credits are shared with the WinForms front end from Apps\UI\Shared; Link keeps the
+         pack://application:,,,/<name> URI that MainWindow loads them by. -->
+    <Resource Include="..\..\Shared\credits.html">
+      <Link>credits.html</Link>
+    </Resource>
+    <Resource Include="..\..\Shared\help.html">
+      <Link>help.html</Link>
+    </Resource>
   </ItemGroup>
 
   <ItemGroup>

@@ -1109,11 +1109,12 @@ namespace PcmHacking
         /// <summary>
         /// The credits page is loaded after the window appears, so that it doesn't slow down app initialization.
         /// </summary>
-        private async void LoadCredits(object unused)
+        private void LoadCredits(object unused)
         {
-            ContentLoader loader = new ContentLoader("credits.html", null, Assembly.GetExecutingAssembly(), this);
-            Stream? content = await loader.GetContentStream();
-            this.helpWebBrowser.Invoke(
+            // Credits are static, so they always come from the embedded copy - no network fetch.
+            // (ContentLoader's network/cache path is kept for the Help page only.)
+            Stream? content = Assembly.GetExecutingAssembly().GetManifestResourceStream("PcmHammer.credits.html");
+            this.creditsWebBrowser.Invoke(
                 (MethodInvoker)delegate ()
                 {
                     try
