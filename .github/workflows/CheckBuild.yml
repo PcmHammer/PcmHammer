@@ -435,10 +435,29 @@ jobs:
     - name: Restore solution dependencies (dotnet restore)
       run: dotnet restore Apps/PcmApps.sln
 
-    - name: Ensure .NET Framework 4.6.2 Developer Pack
+    - name: Ensure .NET Framework 4.8 targeting pack
+      shell: pwsh
       run: |
-        Invoke-WebRequest https://go.microsoft.com/fwlink/?linkid=2099466 -OutFile .\NDP462-DevPack-KB3151934-ENU.exe
-        .\NDP462-DevPack-KB3151934-ENU.exe /passive /norestart
+        # The apps target .NET Framework 4.8, so the build needs the v4.8 reference assemblies.
+        # windows-latest ships them today; install the 4.8 Developer Pack only if a future runner
+        # image drops them, so the build keeps working if the environment changes.
+        $refDll = Join-Path ${env:ProgramFiles(x86)} 'Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8\mscorlib.dll'
+        if (Test-Path $refDll) {
+          Write-Host "net48 targeting pack present: $refDll"
+        } else {
+          Write-Host "net48 targeting pack not found; installing the .NET Framework 4.8 Developer Pack."
+          $installer = Join-Path $env:RUNNER_TEMP 'ndp48-devpack-enu.exe'
+          Invoke-WebRequest 'https://go.microsoft.com/fwlink/?linkid=2088517' -OutFile $installer
+          $proc = Start-Process -FilePath $installer -ArgumentList '/quiet','/norestart' -PassThru -Wait
+          # 0 = installed, 3010 = installed but a reboot is pending (fine for this build).
+          if ($proc.ExitCode -ne 0 -and $proc.ExitCode -ne 3010) {
+            throw "4.8 Developer Pack install failed with exit code $($proc.ExitCode)."
+          }
+          if (-not (Test-Path $refDll)) {
+            throw "net48 reference assemblies still missing after installing the Developer Pack."
+          }
+          Write-Host "Installed .NET Framework 4.8 Developer Pack."
+        }
 
     - name: Determine build configuration and version
       shell: pwsh
