@@ -429,6 +429,8 @@ namespace PcmHacking
                 return true;
             }
 
+            // CAN is gated at the ElmDevice facade from DeviceCatalog (ObdLink/AllPro are VPW only),
+            // so this block only runs if the catalog re-enables CAN for this device type.
             if (protocol == BusProtocol.Can500k)
             {
                 // STP 33 = ISO 15765, 11-bit Tx, 500 kbps, DLC=8. The STN runs the full ISO-TP

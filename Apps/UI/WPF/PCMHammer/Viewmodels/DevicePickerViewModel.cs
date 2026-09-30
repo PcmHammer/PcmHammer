@@ -12,7 +12,6 @@ namespace PCMHammer.Viewmodels
 {
     public partial class DevicePickerViewModel(ILogger logger) : ObservableObject
     {
-        private const string _prompt = "Select...";
         public Device? SelectedDevice = null;
         public event Action? RequestClose;
         public event Action? RequestAcceptAndClose;
@@ -81,6 +80,25 @@ namespace PCMHammer.Viewmodels
         public async Task Test() => _ = ExecuteTestSelectedDevice();
 
         [RelayCommand]
+        public void BuyDevice()
+        {
+            string? url = DeviceCatalog.Recommended?.PurchaseUrl;
+            if (string.IsNullOrEmpty(url))
+            {
+                return;
+            }
+
+            try
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });
+            }
+            catch (Exception exception)
+            {
+                logger.AddDebugMessage("Unable to open purchase link: " + exception.ToString());
+            }
+        }
+
+        [RelayCommand]
         public void Cancel() => RequestClose?.Invoke();
 
         [RelayCommand]
@@ -89,8 +107,19 @@ namespace PCMHammer.Viewmodels
 
         // Collections for UI drop-downs
         public ObservableCollection<SerialPortInfo> SerialPorts { get; } = [];
-        public ObservableCollection<string> SerialDevices { get; } = [];
-        public ObservableCollection<object> J2534Devices { get; } = [];
+        public ObservableCollection<DeviceDescriptor> SerialDevices { get; } = [];
+        public ObservableCollection<J2534DeviceDescriptor> J2534Devices { get; } = [];
+
+        /// <summary>Whether the J2534 category is offered (hidden where the platform has no J2534 support).</summary>
+        public bool IsJ2534Available => DeviceCatalog.J2534Available;
+
+        /// <summary>Link text for the recommended interface's purchase page, or null if none is flagged.</summary>
+        public string? BuyDeviceText =>
+            DeviceCatalog.Recommended is DeviceDescriptor recommended && recommended.PurchaseUrl != null
+                ? "Buy an " + recommended.BaseName + " (supports this project)"
+                : null;
+
+        public bool IsBuyDeviceVisible => BuyDeviceText != null;
 
         // Notification States
         public string StatusText { get; set; } = "Ready.";
@@ -337,7 +366,7 @@ namespace PCMHammer.Viewmodels
             await AddDiscoveredJ2534DevicesAsync();
 
             // Set default category based on device discovery layout
-            if (SerialDevices.Count > 1) // Count includes prompt
+            if (SerialDevices.Count > 0)
             {
                 DeviceCategory = "Serial";
             }
@@ -352,7 +381,7 @@ namespace PCMHammer.Viewmodels
             }
 
             // Apply persistent user configurations
-            if (DeviceConfiguration.Settings.DeviceCategory.Equals("Serial") && SerialDevices.Count > 1)
+            if (DeviceConfiguration.Settings.DeviceCategory.Equals("Serial") && SerialDevices.Count > 0)
             {
                 DeviceCategory = "Serial";
             }
@@ -370,10 +399,13 @@ namespace PCMHammer.Viewmodels
 
         private void FillSerialDeviceList()
         {
-            SerialDevices.Add(_prompt);
-            SerialDevices.Add(ElmDevice.DeviceType);
-            SerialDevices.Add(AvtDevice.DeviceType);
-            SerialDevices.Add(OBDXProDevice.DeviceType);
+            // Device types come from the shared catalog. Each renders as its DisplayName (name +
+            // protocols, e.g. "OBDX Pro (VPW, CAN)") and is persisted by its stable Key.
+            SerialDevices.Clear();
+            foreach (DeviceDescriptor descriptor in DeviceCatalog.SerialDevices)
+            {
+                SerialDevices.Add(descriptor);
+            }
         }
 
         private async Task AddDiscoveredPortsAsync()
@@ -412,9 +444,11 @@ namespace PCMHammer.Viewmodels
                 {
                     Application.Current.Dispatcher.Invoke(() =>
                     {
+                        // Wrap so the list shows the driver's protocols in brackets (e.g. "OBDX Pro VT
+                        // (VPW, CAN)") while still keying selection and settings on the driver Name.
                         J2534Devices.Clear();
                         foreach (var device in devicesTask.Result)
-                            J2534Devices.Add(device);
+                            J2534Devices.Add(new J2534DeviceDescriptor(device));
                     });
                 }
                 else

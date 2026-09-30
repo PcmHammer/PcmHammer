@@ -174,4 +174,100 @@ namespace Tests
                 "The top thirteen 256 KiB sectors are the operating system.");
         }
     }
+
+    /// <summary>
+    /// Pins the Freescale MPC5566 on-chip C90FL flash layout used by the GM E39/E39a. Each MemoryRange is
+    /// one hardware erase sector. The 3 MiB array is a 256 KiB low address space (16K, 48K, 48K, 16K,
+    /// then 64K x2), a 256 KiB mid address space (128K x2), and a 2.5 MiB high address space (128K x20).
+    /// Sizes are byte counts (embedded flash is byte-addressed). The 0..0x20000 boot region is protected.
+    /// </summary>
+    [TestClass]
+    public class Mpc5566FlashChipTests
+    {
+        private const uint Mpc5566ChipId = 0x55666000;
+
+        private static FlashChip Mpc5566() => FlashChip.Create(Mpc5566ChipId, new MockLogger());
+
+        // MemoryRanges sorted by ascending address, which is the order the sectors sit in flash.
+        private static List<MemoryRange> RangesByAddress() =>
+            Mpc5566().MemoryRanges.OrderBy(r => r.Address).ToList();
+
+        [TestMethod]
+        public void Mpc5566_IsThreeMebibytes()
+        {
+            Assert.AreEqual(3072u * 1024u, Mpc5566().Size);
+        }
+
+        [TestMethod]
+        public void Mpc5566_HasOneRangePerHardwareSector()
+        {
+            // Low: 16K,48K,48K,16K,64K,64K = 6 sectors. Mid: 128K x2 = 2. High: 128K x20 = 20.
+            Assert.AreEqual(6 + 2 + 20, RangesByAddress().Count);
+        }
+
+        [TestMethod]
+        public void Mpc5566_LowAddressSpace_MatchesTheC90flBlockSizes()
+        {
+            List<uint> sizes = RangesByAddress().Select(r => r.Size).ToList();
+
+            CollectionAssert.AreEqual(
+                new uint[] { 0x4000, 0xC000, 0xC000, 0x4000, 0x10000, 0x10000 },
+                sizes.Take(6).ToArray(),
+                "Low space is 16K, 48K, 48K, 16K, then two 64K blocks.");
+        }
+
+        [TestMethod]
+        public void Mpc5566_MidAndHighAddressSpaces_Are128KiB()
+        {
+            List<uint> sizes = RangesByAddress().Select(r => r.Size).ToList();
+
+            Assert.IsTrue(sizes.Skip(6).All(s => s == 0x20000), "Mid and high spaces are all 128 KiB blocks.");
+        }
+
+        [TestMethod]
+        public void Mpc5566_AddressSpaceBoundaries_AreWhereExpected()
+        {
+            List<MemoryRange> ranges = RangesByAddress();
+
+            Assert.AreEqual(0x000000u, ranges[0].Address, "Low address space starts at zero.");
+            Assert.AreEqual(0x040000u, ranges[6].Address, "Mid address space follows the 256 KiB low space.");
+            Assert.AreEqual(0x080000u, ranges[8].Address, "High address space follows the 256 KiB mid space.");
+            Assert.AreEqual(0x2E0000u, ranges[27].Address, "Last sector is the top 128 KiB block.");
+        }
+
+        [TestMethod]
+        public void Mpc5566_Ranges_CoverTheWholeChipContiguously()
+        {
+            FlashChip chip = Mpc5566();
+
+            uint expected = 0;
+            foreach (MemoryRange range in RangesByAddress())
+            {
+                Assert.AreEqual(expected, range.Address, $"Gap or overlap before 0x{range.Address:X6}.");
+                expected += range.Size;
+            }
+
+            Assert.AreEqual(chip.Size, expected, "Ranges must cover exactly the whole chip.");
+        }
+
+        [TestMethod]
+        public void Mpc5566_BlockTypes_MatchTheChecksumSegmentMap()
+        {
+            List<MemoryRange> ranges = RangesByAddress();
+
+            // Low blocks 0..3 (0x000000..0x020000) are the protected boot region.
+            Assert.IsTrue(ranges.Take(4).All(r => r.Type == BlockType.Boot),
+                "The 0x000000..0x020000 boot region is protected.");
+            Assert.AreEqual(0x020000u, ranges[4].Address, "Calibration begins at 0x020000.");
+
+            // Calibration is 0x020000..0x080000: two 64 KiB low blocks plus both 128 KiB mid blocks.
+            Assert.IsTrue(ranges.Skip(4).Take(4).All(r => r.Type == BlockType.Calibration),
+                "Calibration is 0x020000..0x080000.");
+            Assert.AreEqual(0x080000u, ranges[8].Address, "Operating system begins at 0x080000.");
+
+            // Operating system is 0x080000..0x300000: the twenty 128 KiB high blocks.
+            Assert.IsTrue(ranges.Skip(8).All(r => r.Type == BlockType.OperatingSystem),
+                "The twenty 128 KiB high blocks are the operating system.");
+        }
+    }
 }

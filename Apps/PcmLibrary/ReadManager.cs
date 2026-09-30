@@ -331,7 +331,7 @@ namespace PcmHacking
 
             CanCommands commands = this.vehicle.CreateCanCommands();
             CanKernelSession session = new CanKernelSession(this.vehicle, commands, this.logger);
-            if (!await this.StartRawKernel(commands, pcmInfo, session, firstStart: true))
+            if (!await this.StartRawKernel(pcmInfo, session, firstStart: true))
             {
                 return false;
             }
@@ -377,7 +377,7 @@ namespace PcmHacking
                     address, block.Status, nextSector));
                 skipped.Add(address);
 
-                if (!await this.StartRawKernel(commands, pcmInfo, session, firstStart: false))
+                if (!await this.StartRawKernel(pcmInfo, session, firstStart: false))
                 {
                     logger.AddUserMessage("Could not re-establish the kernel; stopping the range read.");
                     break;
@@ -408,19 +408,14 @@ namespace PcmHacking
             return true;
         }
 
-        // Unlock and upload the read kernel. When re-establishing after a suspected fault reset, give the
-        // stock OS a moment to come back before unlocking.
-        private async Task<bool> StartRawKernel(CanCommands commands, OSIDInfo pcmInfo, CanKernelSession session, bool firstStart)
+        // Upload the read kernel. The upload's EnterProgrammingMode unlocks in-session, so there is no
+        // separate pre-session unlock here. When re-establishing after a suspected fault reset, give the
+        // stock OS a moment to come back first.
+        private async Task<bool> StartRawKernel(OSIDInfo pcmInfo, CanKernelSession session, bool firstStart)
         {
             if (!firstStart)
             {
                 await Task.Delay(TimeSpan.FromSeconds(2), this.cancellationToken);
-            }
-
-            if (!await commands.Unlock(pcmInfo, this.cancellationToken))
-            {
-                logger.AddUserMessage("Unlock was not successful.");
-                return false;
             }
 
             return await session.Start(pcmInfo, KernelOperation.Read, kernelAlreadyRunning: false, this.cancellationToken);
@@ -458,14 +453,9 @@ namespace PcmHacking
             // takes over.
             await this.CaptureSlaveReferences(commands, pcmInfo);
 
-            logger.StatusUpdateActivity("Unlocking PCM...");
-            if (!await commands.Unlock(pcmInfo, this.cancellationToken))
-            {
-                logger.AddUserMessage("Unlock was not successful.");
-                return null;
-            }
-            logger.AddUserMessage("Unlock succeeded.");
-
+            // No pre-session unlock: the kernel upload's EnterProgrammingMode unlocks in-session (security
+            // access is per programming session). Unlocking here as well just re-runs 0x27, and the
+            // in-session attempt then reports "already unlocked" (seed 0x0000).
             if (this.cancellationToken.IsCancellationRequested)
             {
                 return null;

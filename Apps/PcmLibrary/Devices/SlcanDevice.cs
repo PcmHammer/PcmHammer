@@ -16,7 +16,7 @@ namespace PcmHacking
     /// </summary>
     public class SlcanDevice : SerialDevice, ICanChannel, ICanTarget
     {
-        public const string DeviceType = "SLCAN (CAN only)";
+        public const string DeviceType = "SLCAN";
 
         // Serial line speed to the adapter (not the CAN bitrate). These high-performance SLCAN
         // adapters run their USB serial link at 2 Mbaud, which is what keeps the ASCII protocol fast.

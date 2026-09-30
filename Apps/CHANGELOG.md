@@ -7,21 +7,25 @@
 A large expansion of supported GM VPW PCMs, with per-OSID identification and
 service-numbers (where known):
 
-- **P04 / P04_Early (all variants)**, including a dedicated P04 assembly kernel
-  fork pinned to a known-good layout, and correct 512&nbsp;KB vs 256&nbsp;KB
-  handling when the P04_Early type is selected manually.
+- **P04 / P04_Early (all variants)**, with correct 512KiB vs 256KiB handling
+  when the P04_Early type is selected manually.
 - **P05, P05b (VPW)** read and write support, with file-format detection.
-  (P05c is CAN only and remains not supported)
 - **P08** supported
-- **P11** support: flash kernel, file-format detection and checksums, and
-  boot-sector write (using a verified, cross-flash-compatible boot sector).
-- **P12 / P12b** support on the assembly kernel, with write enabled and clear
-  warnings before any operation that writes the slave (throttle) CPU.
+- **P11** support: file-format detection and checksums, and boot-sector write
+  (using a verified, cross-flash-compatible boot sector).
+- **P12 / P12b** support, with write enabled and clear warnings before any
+  operation that writes the slave (throttle) CPU.
 - **E54** (Duramax) support.
 - **98/99 Vortec "Black Box"** support, with checksum and old-style DLC / OBDLink
   CRC-read fixes.
 - **P59** split out from P01, plus COS handling and many additional OSID entries.
 
+CAN (GMLAN) PowerPC PCMs:
+- **P05c (CAN)** read and write support, with file-format detection.
+- **E39a (Freescale MPC5566)** read and write support, with file-format
+  detection, per-segment checksums and CVNs, and full-flash (clone) write.
+- **E92** read and write support, with file-format detection.
+  
 ### New applications and platforms
 
 - **Command-line interface (`pcmhammer-cli`):** a scriptable CLI for read,
@@ -39,6 +43,8 @@ service-numbers (where known):
 
 - New **m68k assembly kernel build system** (alongside the original C kernels),
   driven from CI, covering the expanded PCM list.
+- New **E39a (MPC5566) PowerPC CAN kernel** with native C90FL flash erase/program,
+  alongside the existing E38 / E92 CAN kernels.
 - Fixed a **DLC RX FIFO overflow during CRC calculation** and an **early-silicon
   PCM start-up DLC crash**.
 - Kernel size optimisations; ISO 8601 / build-epoch versioning; build-system
@@ -67,8 +73,8 @@ service-numbers (where known):
   from incomplete images found in the wild.
 - **Brick-risk confirmation** before writing a PCM type still marked as under
   development.
-- **Boot-sector write protection** blocks on hardware-write-protected sections of P05
-  an brick risk with P11 / P12 as applicable.
+- **Boot-sector write protection** blocks writes to hardware-write-protected sections
+  of P05, and warns of brick risk with P11 / P12 as applicable.
 - Use the **flash chip size** for the read size, and improved file validation,
   including validation with no device connected. Allows an unsupported PCM bin to be
   read as a known type if the kernel is compatible and key is known.
@@ -91,7 +97,7 @@ service-numbers (where known):
   **portable** package can be just run and includes the CLI release.
 - **Release-process documentation** (`Apps/RELEASE.md`) and shared build scripts
   (`Apps/build/`) used by both local builds and CI.
-- Upgraded to **.NET Framework 4.6.2**, standardised dates to ISO 8601, fixed
+- Upgraded to **.NET Framework 4.8**, standardised dates to ISO 8601, fixed
   hundreds of nullability/warning issues for current .NET, and updated vulnerable
   packages.
 

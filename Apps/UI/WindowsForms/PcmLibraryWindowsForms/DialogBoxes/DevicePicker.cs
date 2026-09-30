@@ -61,6 +61,11 @@ namespace PcmHacking
         {
             this.logger = logger;
 
+            // This WinForms picker is Windows-only and links the J2534 driver model, so J2534 is
+            // always available here. Non-Windows front ends leave DeviceCatalog.J2534Available false,
+            // which hides the J2534 option.
+            DeviceCatalog.J2534Available = true;
+
             InitializeComponent();
         }
 
@@ -80,8 +85,20 @@ namespace PcmHacking
 
             this.FillSerialDeviceList();
 
+            // Offer a link to buy the recommended interface, if the catalog flags one with a
+            // purchase URL. Buying through it supports the project.
+            DeviceDescriptor? recommended = DeviceCatalog.Recommended;
+            if (recommended?.PurchaseUrl != null)
+            {
+                this.buyDeviceLink.Text = "Buy an " + recommended.BaseName + " (supports this project)";
+                this.buyDeviceLink.Visible = true;
+            }
+
             this.j2534DeviceList.Items.Add(prompt);
             this.j2534DeviceList.SelectedIndex = 0;
+
+            // Hide the J2534 option where the platform has no J2534 support (always shown here).
+            this.j2534RadioButton.Visible = DeviceCatalog.J2534Available;
 
             await this.AddDiscoveredPorts();
 
@@ -129,12 +146,12 @@ namespace PcmHacking
 
             SetDefault(
                 this.serialDeviceList,
-                x => x.ToString(),
+                x => (x as DeviceDescriptor)?.Key,
                 DeviceConfiguration.Settings.SerialPortDeviceType);
 
             SetDefault(
-                this.j2534DeviceList, 
-                x => x.ToString(),
+                this.j2534DeviceList,
+                x => (x as J2534DeviceDescriptor)?.Name,
                 DeviceConfiguration.Settings.J2534DeviceType);
 
             this.Enable4xReadWrite = this.enable4xReadWriteCheckBox.Checked = DeviceConfiguration.Settings.Enable4xReadWrite;
@@ -206,10 +223,14 @@ namespace PcmHacking
         {
             this.serialDeviceList.Items.Add(prompt);
             this.serialDeviceList.SelectedIndex = 0;
-            this.serialDeviceList.Items.Add(ElmDevice.DeviceType);
-            this.serialDeviceList.Items.Add(AvtDevice.DeviceType);
-            this.serialDeviceList.Items.Add(OBDXProDevice.DeviceType);
-            this.serialDeviceList.Items.Add(SlcanDevice.DeviceType);
+
+            // Device types come from the shared catalog. Each item renders as its DisplayName
+            // (name + protocols, e.g. "OBDX Pro (VPW, CAN)") and carries its Key for the factory
+            // and saved settings.
+            foreach (DeviceDescriptor descriptor in DeviceCatalog.SerialDevices)
+            {
+                this.serialDeviceList.Items.Add(descriptor);
+            }
 
             // This is useful for testing without an actual PCM.
             // You'll need to uncomment a line in FillPortList as well as this one.
@@ -251,7 +272,9 @@ namespace PcmHacking
 
             foreach (J2534DotNet.J2534Device device in devices)
             {
-                this.j2534DeviceList.Items.Add(device);
+                // Wrap so the list shows the driver's protocols in brackets (e.g. "OBDX Pro VT (VPW,
+                // CAN)") while still keying selection and settings on the driver Name.
+                this.j2534DeviceList.Items.Add(new J2534DeviceDescriptor(device));
             }
         }
 
@@ -319,7 +342,7 @@ namespace PcmHacking
                 // just click OK to keep it.
                 this.serialRadioButton.Checked = true;
                 SetDefault(this.serialPortList, x => (x as SerialPortInfo)?.PortName, portName!);
-                SetDefault(this.serialDeviceList, x => x.ToString(), deviceType);
+                SetDefault(this.serialDeviceList, x => (x as DeviceDescriptor)?.Key, deviceType);
 
                 this.status.Text = "Found " + deviceType + " on " + portName + ".";
                 MessageBox.Show(
@@ -427,13 +450,30 @@ namespace PcmHacking
         /// </summary>
         private void serialDeviceList_SelectedIndexChanged(object sender, EventArgs e)
         {
-            string? item = this.serialDeviceList.SelectedItem?.ToString();
-            if (item == prompt)
+            // Items are DeviceDescriptors (plus the "Select..." prompt string); persist the stable
+            // Key, not the display name. The prompt is a plain string, so the cast yields null.
+            this.SerialPortDeviceType = (this.serialDeviceList.SelectedItem as DeviceDescriptor)?.Key;
+        }
+
+        /// <summary>
+        /// Open the recommended interface's purchase page in the default browser.
+        /// </summary>
+        private void buyDeviceLink_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
+        {
+            string? url = DeviceCatalog.Recommended?.PurchaseUrl;
+            if (string.IsNullOrEmpty(url))
             {
-                item = null;
+                return;
             }
 
-            this.SerialPortDeviceType = item;
+            try
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });
+            }
+            catch (Exception exception)
+            {
+                this.logger.AddDebugMessage("Unable to open purchase link: " + exception.ToString());
+            }
         }
 
         /// <summary>
@@ -441,13 +481,9 @@ namespace PcmHacking
         /// </summary>
         private void j2534DeviceList_SelectedIndexChanged(object sender, EventArgs e)
         {
-            string? item = this.j2534DeviceList.SelectedItem?.ToString();
-            if (item == prompt)
-            {
-                item = null;
-            }
-
-            this.J2534DeviceType = item;
+            // Items are J2534DeviceDescriptors (plus the "Select..." prompt string); persist the driver
+            // Name, not the display name. The prompt is a plain string, so the cast yields null.
+            this.J2534DeviceType = (this.j2534DeviceList.SelectedItem as J2534DeviceDescriptor)?.Name;
         }
 
         /// <summary>

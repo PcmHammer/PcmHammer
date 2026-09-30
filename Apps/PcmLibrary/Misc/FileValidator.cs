@@ -131,6 +131,10 @@ namespace PcmHacking
             {
                 logger.AddUserMessage("Identifying 2048KiB file.");
             }
+            else if (this.image.Length == 3072 * 1024)
+            {
+                logger.AddUserMessage("Identifying 3072KiB file.");
+            }
             else if (this.image.Length == 4096 * 1024)
             {
                 logger.AddUserMessage("Identifying 4096KiB file.");
@@ -139,7 +143,7 @@ namespace PcmHacking
             {
                 logger.AddUserMessage(
                     string.Format(
-                        "Files must be 256KiB, 512KiB, 1024KiB, 2048KiB or 4096KiB. This file is {0} / {1:X} bytes long.",
+                        "Files must be 256KiB, 512KiB, 1024KiB, 2048KiB, 3072KiB or 4096KiB. This file is {0} / {1:X} bytes long.",
                         this.image.Length,
                         this.image.Length));
                 return false;
@@ -161,6 +165,46 @@ namespace PcmHacking
                 logger.AddDebugMessage(exception.ToString());
                 return false;
             }
+        }
+
+        /// <summary>
+        /// Load a .bin or .phz file, identify it, and validate its checksums/CVNs, logging the report the
+        /// "Test File Checksums" tool shows. Shared by every UI so the tool behaves identically. Returns
+        /// true if the file is a recognised, valid image.
+        /// </summary>
+        public static bool TestFileChecksums(string path, ILogger logger)
+        {
+            logger.AddUserMessage("Examining " + path);
+
+            byte[]? image;
+            try
+            {
+                // A .phz is a package: pull its master image out. A .bin is returned as-is.
+                image = PackageStore.LoadMainImage(path);
+            }
+            catch (PackageException exception)
+            {
+                logger.AddUserMessage("Unable to open file: " + exception.Message);
+                return false;
+            }
+
+            if (image == null)
+            {
+                logger.AddUserMessage("This file has no main image to check.");
+                return false;
+            }
+
+            FileValidator validator = new FileValidator(image, logger);
+            if (validator.IdentifyAndValidate())
+            {
+                logger.AddUserMessage("File operating system ID: " + validator.GetOsidFromImage());
+                logger.AddUserMessage("File is " + new OSIDInfo(validator.GetFileType()).Description + ".");
+                logger.AddUserMessage("All checksums are valid.");
+                return true;
+            }
+
+            logger.AddUserMessage("This file is corrupt or its format is unknown to PCMHammer. It would render your PCM unusable.");
+            return false;
         }
 
         /// <summary>
@@ -290,6 +334,12 @@ namespace PcmHacking
                     // start + 0x105 (the OS segment starts at the address stored at 0xC0126).
                     osid = this.GetU32BE(unchecked((int)this.GetU32BE(0xC0126)) + 0x105);
                     break;
+
+                case PcmType.E39:
+                case PcmType.E39a:
+                    // The OS part number is the OSID: a big-endian uint32 in the OS checksum record.
+                    osid = this.GetU32BE(E39OSPartNumberAddress);
+                    break;
             }
 
             return osid;
@@ -306,10 +356,13 @@ namespace PcmHacking
 
             switch (type)
             {
-                // The E38 and E92 use their own per-segment Sum and CVN scheme, validated below by
-                // ValidateSumAndCvn()/ValidateE92SumAndCvn() rather than the generic segment-table path.
+                // The E38, E39 and E92 use their own per-segment Sum and CVN scheme, validated below by
+                // ValidateSumAndCvn()/ValidateE92SumAndCvn()/ValidateE39SumAndCvn() rather than the
+                // generic segment-table path.
                 case PcmType.E38:
                 case PcmType.E92:
+                case PcmType.E39:
+                case PcmType.E39a:
                     break;
 
                 // have a segment table
@@ -403,6 +456,11 @@ namespace PcmHacking
                 case PcmType.E92:
                     // The E92 uses the same policy with its own per-segment Sum and CVN scheme.
                     return this.ValidateE92SumAndCvn() != SumCvnVerdict.SumError;
+
+                case PcmType.E39:
+                case PcmType.E39a:
+                    // The E39/E39a use the same policy with their own per-segment Sum and CVN scheme.
+                    return this.ValidateE39SumAndCvn() != SumCvnVerdict.SumError;
 
                 case PcmType.E54:
                     LogChecksumTableHeader();
@@ -530,8 +588,8 @@ namespace PcmHacking
         /// </summary>
         public PcmType DetectFileType()
         {
-            // All currently supported bins are 256KiB, 512KiB, 1024KiB, 2048KiB or 4096KiB
-            if ((image.Length != 256 * 1024) && (image.Length != 512 * 1024) && (image.Length != 1024 * 1024) && (image.Length != 2048 * 1024) && (image.Length != 4096 * 1024))
+            // All currently supported bins are 256KiB, 512KiB, 1024KiB, 2048KiB, 3072KiB or 4096KiB
+            if ((image.Length != 256 * 1024) && (image.Length != 512 * 1024) && (image.Length != 1024 * 1024) && (image.Length != 2048 * 1024) && (image.Length != 3072 * 1024) && (image.Length != 4096 * 1024))
             {
                 logger.AddUserMessage("Files of size " + image.Length.ToString("X8") + " are not supported.");
                 return PcmType.Undefined;
@@ -698,6 +756,22 @@ namespace PcmHacking
                     return PcmType.P12b;
                 }
 
+            }
+
+            // 3072KiB types
+            if (image.Length == 3072 * 1024)
+            {
+                logger.AddDebugMessage("Trying E39/E39a 3072KiB");
+                if (this.LooksLikeE39())
+                {
+                    // E39 and E39a share this structure; the OSID service-number lookup decides which.
+                    UInt32 osid = this.GetOsidFromImage(PcmType.E39a);
+                    if (osid != 0 && new OSIDInfo(osid).HardwareType == PcmType.E39)
+                    {
+                        return PcmType.E39;
+                    }
+                    return PcmType.E39a;
+                }
             }
 
             // 4096KiB types
@@ -1191,6 +1265,10 @@ namespace PcmHacking
                 case PcmType.E38:
                     return this.HasSize(2048 * 1024) && this.LooksLikeE38();
 
+                case PcmType.E39:
+                case PcmType.E39a:
+                    return this.HasSize(3072 * 1024) && this.LooksLikeE39();
+
                 case PcmType.E92:
                     return this.HasSize(4096 * 1024) && this.LooksLikeE92();
 
@@ -1639,6 +1717,58 @@ namespace PcmHacking
             return segments;
         }
 
+        /// <summary>
+        /// The E39/E39a master flash segments, in the order a boot loader write streams them.
+        /// The OS first, then the five calibration segments. Each segment runs from
+        /// its Address pointer to the end of the last block its Sum covers. The OS module leads with the
+        /// 0x800 master checksum table at 0xCB000, so its header offset points there. Throws
+        /// <see cref="InvalidOperationException"/> if the table is missing or inconsistent.
+        /// </summary>
+        public static List<FlashSegment> GetE39MasterSegments(byte[] image)
+        {
+            var segments = new List<FlashSegment>();
+
+            int osStart = E39SegmentStartStatic(image, "OS", E39OSAddressPtr);
+            int osEnd = E39SumBlockEnd(image, "OS", E39OSSumBlockPtr, E39OSSumBlockCount);
+            E39CheckSegment("OS", osStart, osEnd, image.Length, E39OSSumAddress - osStart);
+            // The OS module leads with the master checksum table (the 0x800 header at 0xCB000).
+            segments.Add(new FlashSegment(osStart, osEnd, "OS", BlockType.OperatingSystem, E39OSSumAddress - osStart));
+
+            foreach (var segment in E39CalLayout)
+            {
+                int start = E39SegmentStartStatic(image, segment.Name, segment.AddrPtr);
+                int end = E39SumBlockEnd(image, segment.Name, segment.SumBlockPtr, segment.SumBlockCount);
+                E39CheckSegment(segment.Name, start, end, image.Length, 0);
+                segments.Add(new FlashSegment(start, end, segment.Name, BlockType.Calibration));
+            }
+
+            return segments;
+        }
+
+        private static int E39SegmentStartStatic(byte[] image, string name, int addrPtr)
+        {
+            int start = unchecked((int)U32BE(image, addrPtr));
+            if (start < 0 || start >= image.Length)
+                throw new InvalidOperationException(string.Format("{0} start out of range: 0x{1:X6}", name, start));
+            return start;
+        }
+
+        private static int E39SumBlockEnd(byte[] image, string name, int sumBlockPtr, int sumBlockCount)
+        {
+            int end = unchecked((int)U32BE(image, sumBlockPtr + (8 * (sumBlockCount - 1)) + 4));
+            if (end < 0 || end >= image.Length)
+                throw new InvalidOperationException(string.Format("{0} end out of range: 0x{1:X6}", name, end));
+            return end;
+        }
+
+        private static void E39CheckSegment(string name, int start, int end, int imageLength, int headerOffset)
+        {
+            if (end <= start)
+                throw new InvalidOperationException(string.Format("{0} range invalid: 0x{1:X6}-0x{2:X6}", name, start, end));
+            if (headerOffset < 0 || start + headerOffset >= imageLength)
+                throw new InvalidOperationException(string.Format("{0} header offset out of range: 0x{1:X6}", name, headerOffset));
+        }
+
         // 28-byte code signature that locates the extra 32-bit word-sum regions (null = wildcard byte).
         private static readonly byte?[] E92ExtSignature =
         {
@@ -1925,6 +2055,179 @@ namespace PcmHacking
             try
             {
                 this.CollectE92Cvns();
+                return true;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+
+        // GM E39/E39a (Freescale MPC5566) 3 MiB checksum scheme. Six segments described by a master
+        // record table - the OS record at 0xCB000, then five calibration records - each carry a 16-bit
+        // two's-complement word Sum and a byte-swapped GM CRC-16 CVN over blocks read from pointer
+        // tables. The 0..0x20000 boot block is protected (reads all 0xFF from a PCM) and is reported n/a
+        // rather than failed. A bad Sum means the image is corrupt; a bad CVN is only a warning - the
+        // same policy and presentation as the E38 and E92, and the same machinery is reused here.
+        //
+        // Thanks to Joukoy and Kur4o for Universal Patcher: the segment layout and offsets came from there.
+
+        private const int E39BootBlockSize = 0x20000;
+
+        // The OS record sits at the head of the master table, so its Sum and CVN are stored there
+        // directly rather than at a segment-relative offset like the calibration records below.
+        private const int E39OSSumAddress = 0xCB000;
+        private const int E39OSCvnAddress = 0xCB020;
+        private const int E39OSSumBlockPtr = 0xCB046;
+        private const int E39OSSumBlockCount = 2;
+        private const int E39OSCvnBlockPtr = 0xCB02E;
+        private const int E39OSCvnBlockCount = 3;
+        private const int E39OSPartNumberAddress = 0xCB005;
+        private const int E39OSAddressPtr = 0xCB026;   // big-endian pointer to the OS segment start
+
+        // The five calibration records. AddrPtr holds a big-endian pointer to the segment start; the Sum
+        // is stored at start+0x00 and the CVN at start+0x20, with blocks from the pointer tables.
+        private const int E39CalSumOffset = 0x00;
+        private const int E39CalCvnOffset = 0x20;
+        private static readonly (string Name, int AddrPtr, int SumBlockPtr, int SumBlockCount, int CvnBlockPtr, int CvnBlockCount)[] E39CalLayout =
+        {
+            ("System",     0xCB05A, 0xCB072, 1, 0xCB062, 2),
+            ("Fuel",       0xCB07E, 0xCB096, 1, 0xCB086, 2),
+            ("Speedo",     0xCB0A2, 0xCB0BA, 1, 0xCB0AA, 2),
+            ("EngineDiag", 0xCB0C6, 0xCB0DE, 1, 0xCB0CE, 2),
+            ("Engine",     0xCB0EA, 0xCB102, 1, 0xCB0F2, 2),
+        };
+
+        /// <summary>The six segments' Sums, then the protected boot block (n/a).</summary>
+        private List<E92Checksum> CollectE39Sums()
+        {
+            List<E92Checksum> sums = new List<E92Checksum>
+            {
+                new E92Checksum { Name = "OS", Address = E39OSSumAddress, Blocks = this.ReadE92Blocks(E39OSSumBlockPtr, E39OSSumBlockCount) },
+            };
+            foreach (var segment in E39CalLayout)
+            {
+                int start = this.E39SegmentStart(segment.Name, segment.AddrPtr);
+                sums.Add(new E92Checksum { Name = segment.Name, Address = start + E39CalSumOffset, Blocks = this.ReadE92Blocks(segment.SumBlockPtr, segment.SumBlockCount) });
+            }
+            sums.Add(this.E39BootChecksum());
+            return sums;
+        }
+
+        /// <summary>The six segments' CVNs, then the protected boot block (n/a).</summary>
+        private List<E92Checksum> CollectE39Cvns()
+        {
+            List<E92Checksum> cvns = new List<E92Checksum>
+            {
+                new E92Checksum { Name = "OS", Address = E39OSCvnAddress, Blocks = this.ReadE92Blocks(E39OSCvnBlockPtr, E39OSCvnBlockCount) },
+            };
+            foreach (var segment in E39CalLayout)
+            {
+                int start = this.E39SegmentStart(segment.Name, segment.AddrPtr);
+                cvns.Add(new E92Checksum { Name = segment.Name, Address = start + E39CalCvnOffset, Blocks = this.ReadE92Blocks(segment.CvnBlockPtr, segment.CvnBlockCount) });
+            }
+            cvns.Add(this.E39BootChecksum());
+            return cvns;
+        }
+
+        private int E39SegmentStart(string name, int addrPtr)
+        {
+            int start = unchecked((int)this.GetU32BE(addrPtr));
+            if (start < 0 || start >= this.image.Length)
+                throw new InvalidOperationException(string.Format("{0} start out of range: 0x{1:X6}", name, start));
+            return start;
+        }
+
+        /// <summary>
+        /// The boot block entry. The block is protected, so a PCM read leaves it all 0xFF and there is
+        /// nothing to check; it is listed for completeness as n/a and never counted as a failure.
+        /// </summary>
+        private E92Checksum E39BootChecksum()
+        {
+            return new E92Checksum
+            {
+                Name = "Boot Block",
+                Applicable = false,
+                Blocks = new List<Tuple<int, int>> { Tuple.Create(0, E39BootBlockSize - 1) },
+            };
+        }
+
+        /// <summary>
+        /// Validate a 3 MiB E39/E39a image: a Sum table then a CVN table, both in the standard checksum
+        /// table format. A bad Sum is an error; a bad CVN is only a warning; the protected boot block is
+        /// n/a and never fails. Mirrors <see cref="ValidateE92SumAndCvn"/>.
+        /// </summary>
+        public SumCvnVerdict ValidateE39SumAndCvn()
+        {
+            if (this.image.Length != 0x300000)
+            {
+                logger.AddUserMessage(string.Format(
+                    "File must be 0x300000 bytes; this file is 0x{0:X} bytes.", this.image.Length));
+                return SumCvnVerdict.NotApplicable;
+            }
+
+            List<E92Checksum> sums;
+            List<E92Checksum> cvns;
+            try
+            {
+                sums = this.CollectE39Sums();
+                cvns = this.CollectE39Cvns();
+            }
+            catch (Exception exception)
+            {
+                logger.AddUserMessage("Checksum table is invalid: " + exception.Message);
+                return SumCvnVerdict.NotApplicable;
+            }
+
+            logger.AddUserMessage("Validating 3MB file.");
+
+            logger.AddUserMessage("Checksum validation:");
+            LogChecksumTableHeader();
+            bool anySumBad = false;
+            foreach (E92Checksum sum in sums)
+            {
+                anySumBad |= !this.LogE92Row(sum, this.CalcE92Sum(sum));
+            }
+
+            logger.AddUserMessage("CVN validation:");
+            LogChecksumTableHeader();
+            bool anyCvnBad = false;
+            foreach (E92Checksum cvn in cvns)
+            {
+                anyCvnBad |= !this.LogE92Row(cvn, this.CalcE92Cvn(cvn));
+            }
+
+            if (anySumBad)
+            {
+                logger.AddUserMessage("This file is corrupt. It would render your PCM unusable.");
+                return SumCvnVerdict.SumError;
+            }
+
+            logger.AddUserMessage("All checksums are valid.");
+            if (anyCvnBad)
+            {
+                logger.AddUserMessage("Warning: One or more CVNs are bad.");
+                return SumCvnVerdict.CvnWarning;
+            }
+
+            return SumCvnVerdict.Good;
+        }
+
+        /// <summary>
+        /// Identify an E39/E39a image by structure: a 3 MiB file whose master checksum table parses into
+        /// the expected six well-formed segments. Reuses the same table reader the checksum validation
+        /// uses, so detection and validation never diverge.
+        /// </summary>
+        private bool LooksLikeE39()
+        {
+            if (this.image.Length != 0x300000)
+            {
+                return false;
+            }
+
+            try
+            {
+                this.CollectE39Cvns();
                 return true;
             }
             catch (Exception)

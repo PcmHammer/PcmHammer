@@ -691,41 +691,17 @@ namespace PCMHammer.Viewmodels
                 return;
             }
 
-            _logger.AddUserMessage($"Examining {selectedFilePath}");
             StatusText = "Validating binary checksums...";
 
             try
             {
                 IsOperationRunning = true;
 
-                // Offload the synchronous disk IO and deep block calculations entirely off the UI thread
-                string validationResult = await Task.Run(async () =>
-                {
-                    // Read the binary image into a memory block byte buffer
-                    using Stream stream = File.OpenRead(selectedFilePath);
-                    byte[] image = new byte[stream.Length];
-                    int bytesRead = await stream.ReadAsync(image.AsMemory(0, (int)stream.Length));
+                // Offload the synchronous disk IO and deep block calculations off the UI thread. The
+                // shared backend loads the file (.bin or .phz), identifies it, and logs the report.
+                bool valid = await Task.Run(() => FileValidator.TestFileChecksums(selectedFilePath, _logger));
 
-                    if (bytesRead != stream.Length)
-                        return "Error: Unable to fully load file into memory stream context.";
-
-                    // Perform original validation routines from the backend library
-                    FileValidator validator = new(image, _logger); // Pass your standard shared logger
-
-                    if (validator.IdentifyAndValidate())
-                    {
-                        string pcmDescription = new OSIDInfo(validator.GetFileType()).Description;
-                        return $"File is {pcmDescription}.\r\nAll checksums are valid.";
-                    }
-                    else
-                    {
-                        return "This file is corrupt or its format is unknown to PCMHammer. It would render your PCM unusable.";
-                    }
-                });
-
-                // Post the processed feedback back to the UI logger
-                _logger.AddUserMessage(validationResult);
-                StatusText = "Validation Complete.";
+                StatusText = valid ? "Validation Complete." : "Error verifying file.";
             }
             catch (Exception ex)
             {

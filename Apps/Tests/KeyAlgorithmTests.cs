@@ -8,7 +8,7 @@ namespace Tests
     public class KeyAlgorithmTests
     {
         /// <summary>
-        /// The older E92/E92a (2-byte security) key algorithm (GM_OTHER #1), captured from a bench
+        /// The older E92 (2-byte security) key algorithm (GM_OTHER #1), captured from a bench
         /// unlock: seed 0x9D19 -> key 0x04EB (OSID 12672612).
         /// </summary>
         [TestMethod]

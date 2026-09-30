@@ -18,6 +18,14 @@ namespace PcmHacking
     public static class WritePlan
     {
         /// <summary>
+        /// The write type a UI should default to. "Force write all sectors" means rewrite
+        /// everything, so the default becomes a full clone; otherwise it is a calibration write.
+        /// This only sets the default - an explicit user selection is still honoured.
+        /// </summary>
+        public static WriteType DefaultWriteType()
+            => RuntimeSettings.ForceWriteAllSectors ? WriteType.Full : WriteType.Calibration;
+
+        /// <summary>
         /// Whether this range will be erased and written by the operation.
         /// </summary>
         /// <param name="forceAllSectors">

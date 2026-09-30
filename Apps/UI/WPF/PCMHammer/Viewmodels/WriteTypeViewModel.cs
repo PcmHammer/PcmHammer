@@ -52,7 +52,11 @@ namespace PCMHammer.Viewmodels
             // WriteType.None (= 0), which is not a real operation - it survived all the way into
             // CanKernelWriter and threw "Unsuppported operation type: None" only AFTER the kernel had
             // been uploaded and was running on the PCM.
-            SelectedWriteType = WriteTypes[0];   // Clone (Full Flash)
+            // Default from the shared policy (WritePlan.DefaultWriteType): a full clone when "force
+            // write all sectors" is on, otherwise calibration - falling back to the first offered type
+            // (Clone) if the preferred one is not available for this PCM.
+            WriteType preferred = WritePlan.DefaultWriteType();
+            SelectedWriteType = WriteTypes.Contains(preferred) ? preferred : WriteTypes[0];
             SelectedPCMType = PcmType.Undefined; // Auto (Query OSID)
         }
 

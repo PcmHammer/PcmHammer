@@ -23,10 +23,10 @@ namespace PcmHacking
         P12,
         P12b, // As P12, with a 2 MiB flash chip and image
         E38,
-        E92,  // GM 4 MB PowerPC e200 CAN PCM (FlexCAN), service no 12704475
-        E92a, // E92 variant placeholder (to be physically confirmed)
         E39,  // GM 3 MB PowerPC e200z6 (MPC5566) CAN PCM
         E39a, // E39 variant; shares the E39 config until a difference is found
+        E78,  // GM 3 MB PowerPC CAN PCM
+        E92,  // GM 4 MB PowerPC e200 CAN PCM (FlexCAN), service no 12704475
         E54, // 01-04 LB7 Duramax
         E60, // 4-05 LLY Duramax
         BlackBox
@@ -848,6 +848,74 @@ namespace PcmHacking
                     this.IsUnderDevelopment = false;
                     break;
 
+                case PcmType.E39:
+                case PcmType.E39a:
+                    this.Description = pcmType == PcmType.E39a ? "E39a" : "E39";
+                    this.HardwareType = pcmType;
+                    this.IsSupported = true;
+                    this.IsSupportedRead = true;
+                    this.BusProtocol = BusProtocol.Can500k;
+                    this.GMLANProtocol = GMLANProtocol.E38;
+                    this.KernelFileName = "Kernel-E39.bin";
+                    this.KernelBaseAddress = 0x40007000;
+                    this.KernelRunAddress = 0x40007004;
+                    this.ImageBaseAddress = 0x000000;
+                    // The 0..0x20000 boot block has invalid ECC and faults the kernel's flash read, so
+                    // the reader starts above it and leaves it 0xFF.
+                    this.ReadStartAddress = 0x020000;
+                    this.ImageSize = 0x300000;
+                    this.KernelReadBlockSize = 0x800;
+                    this.KeyAlgorithm = 0xDC;
+                    // MPC5566 shadow row (memory-mapped at 0x00FFC000): the 64-bit censorship password
+                    // (NVPWD0/NVPWD1) is at 0x00FFFDD8 with the censorship control word (NVSCC0) at
+                    // 0x00FFFDE0 - the same MPC55xx C90FL shadow layout as the E92. Left disabled for now:
+                    // on this hardware a kernel read of the shadow row faults (machine-check) and resets
+                    // the kernel, which would break the main read. See the probe/notes; re-enable if the
+                    // shadow becomes possible to read without faulting and if it is useful.
+                    this.ShadowPasswordAddress = 0x0;    // 0x00FFFDD8
+                    this.ShadowPasswordLength = 0;       // 8
+                    this.ShadowPasswordSuffixLength = 0; // 4
+                    this.FlashCRCSupport = true;
+                    this.FlashIDSupport = true;
+                    this.KernelVersionSupport = true;
+                    this.HardwareSlaveCPU = true;
+                    this.SlaveModules = new[]
+                    {
+                        new SlaveModuleId("slave-os", 0xC9),
+                        new SlaveModuleId("slave-calibration", 0xCA),
+                    };
+                    // Two write paths (E92 model): the read kernel programs the master flash directly
+                    // (native C90FL erase/program - calibration and test write), and the boot loader
+                    // does the whole-PCM / slave-CPU write.
+                    this.IsSupportedWrite = true;
+                    this.IsSupportedBootLoaderWrite = true;
+                    this.RequiresBootLoaderWrite = false;
+                    this.IsSupportedWriteBySegment = true;
+                    this.IsSupportedWriteSlaveCPU = true;
+                    this.HasParameterBlocks = false;
+                    // The boot block (0..0x20000) has invalid ECC and the kernel's erase rejects it
+                    // (7D 05 code 2), so it stays out of any write, forced included.
+                    this.IsSupportedWriteBootSector = false;
+                    this.ChecksumSupport = true;
+                    this.BootLoaderStagingAddress = 0x40002000;
+                    this.BootLoaderLibraryAddress = 0x40007000;
+                    this.BootLoaderBlockSize = 0x0FFE;
+                    this.BootLoaderMasterHeaderLength = 0x800;
+                    this.BootLoaderSlaveHeaderLength = 0x80;
+                    this.BootLoaderModuleDataFormat = Gmlan.DataFormatUncompressed;
+                    this.BootLoaderMasterHandshakeDid = 0x0;
+                    this.BootLoaderSlaveHandshakeDids = new byte[] { 0xC9 };
+                    this.BootLoaderMasterLibraryFileName = "BootLib-E39-Master.bin";
+                    // No separate slave driver: stream the slave modules straight after the master.
+                    this.BootLoaderSlaveDriverFileName = string.Empty;
+                    this.IsUnderDevelopment = true;
+                    break;
+
+                case PcmType.E78:
+                    this.Description = "E78";
+                    this.HardwareType = PcmType.E78;
+                    break;
+
                 case PcmType.E92:
                     // GM 4 MB PowerPC e200 (Book E) CAN PCM. Service number 12704475.
                     // Read support is under development.
@@ -870,8 +938,8 @@ namespace PcmHacking
                     this.HasParameterBlocks = false;
                     this.BusProtocol = BusProtocol.Can500k;
                     // Two write paths (E38 model): the kernel programs the master flash directly
-                    // (calibration and test write), and the OEM boot loader does the whole-PCM /
-                    // slave-CPU write. So the boot loader is supported but not required.
+                    // (calibration and test write), and the boot loader does the whole-PCM /
+                    // slave-CPU write.
                     this.IsSupportedBootLoaderWrite = true;
                     this.RequiresBootLoaderWrite = false;
                     this.BootLoaderStagingAddress = 0x40006000;
@@ -879,7 +947,7 @@ namespace PcmHacking
                     this.BootLoaderBlockSize = 0x0FFE;
                     this.BootLoaderMasterHeaderLength = 0x800;
                     this.BootLoaderSlaveHeaderLength = 0x80;
-                    // The master burn needs no handshake; the slave answers for both of its modules.
+                    // The master needs no handshake; the slave answers for both of its modules.
                     this.BootLoaderMasterHandshakeDid = 0x0;
                     this.BootLoaderSlaveHandshakeDids = new byte[] { 0xC9, 0xCA };
                     // This boot loader takes module data raw; it rejects the compressed format (0x85).
@@ -908,31 +976,6 @@ namespace PcmHacking
                     // 5-byte seed and the external 40-bit key. The unlock picks the scheme by seed length.
                     this.KeyAlgorithm = PcmHacking.KeyAlgorithm.E92LegacyCanAlgorithm;
                     this.ChecksumSupport = true;
-                    this.FlashCRCSupport = true;
-                    this.FlashIDSupport = true;
-                    this.KernelVersionSupport = true;
-                    this.IsUnderDevelopment = true;
-                    break;
-
-                case PcmType.E39:
-                case PcmType.E39a:
-                    // GM 3 MB PowerPC e200z6 (MPC5566) CAN PCM. E39 and E39a share this profile and
-                    // one kernel until a difference is found. Read support is under development.
-                    this.Description = pcmType == PcmType.E39a ? "E39a" : "E39";
-                    this.HardwareType = pcmType;
-                    this.IsSupported = true;
-                    this.IsSupportedRead = true;
-                    this.BusProtocol = BusProtocol.Can500k;
-                    // Boot loader seam as E92: the image lands at load+4 and the loader jumps to
-                    // *(load), so the kernel runs at load+4 and is linked there.
-                    this.GMLANProtocol = GMLANProtocol.E38;
-                    this.KernelFileName = "Kernel-E39.bin";
-                    this.KernelBaseAddress = 0x40007000;
-                    this.KernelRunAddress = 0x40007004;
-                    this.ImageBaseAddress = 0x000000;
-                    this.ImageSize = 0x300000;       // 3 MiB
-                    this.KernelReadBlockSize = 0x800; // E39 kernel returns 0x800 bytes per read block
-                    this.KeyAlgorithm = 0xDC;
                     this.FlashCRCSupport = true;
                     this.FlashIDSupport = true;
                     this.KernelVersionSupport = true;
@@ -3852,32 +3895,6 @@ namespace PcmHacking
                     this.ServiceNumber = 0;
                     break;
 
-                // E92 (GM 4 MB PowerPC e200 CAN PCM). Service number 12704475.
-                case 12659455:
-                case 12691156: // SWMI1 / OSID 12691156, service no 12704475
-                    PCMInfo(PcmType.E92);
-                    this.ServiceNumber = 12704475;
-                    break;
-
-                case 12672612: // Service number 12673195
-                    PCMInfo(PcmType.E92);
-                    this.ServiceNumber = 12673195;
-                    break;
-
-                case 12663390: // early, 2-byte key (2014 Silverado L83); issue #87
-                    PCMInfo(PcmType.E92);
-                    break;
-
-                // E39a (GM 3 MB PowerPC e200z6 CAN PCM).
-                case 12642819:
-                    PCMInfo(PcmType.E39a);
-                    this.ServiceNumber = 12642665;
-                    break;
-
-                case 12655477: // 2013 Captiva, service number unknown
-                    PCMInfo(PcmType.E39a);
-                    break;
-
                 // E38
                 case 12602922:
                 case 12605732:
@@ -3932,6 +3949,194 @@ namespace PcmHacking
                 case 12656930:
                 case 12658778:
                     PCMInfo(PcmType.E38);
+                    break;
+
+                // E39 (GM 3 MB PowerPC e200z6 CAN PCM). Falls through to the E39a profile
+                // until an E39/E39a difference is found.
+                // Service number 12651994.
+                case 12648907:
+                case 12650103:
+                case 12650249:
+                case 12651855:
+                case 12652815:
+                case 12653091:
+                case 12655481:
+                case 12663030:
+                    PCMInfo(PcmType.E39);
+                    this.ServiceNumber = 12651994;
+                    break;
+
+                // E39a (GM 3 MB PowerPC e200z6 CAN PCM).
+                // Service number 12642665.
+                case 12642819:
+                    PCMInfo(PcmType.E39a);
+                    this.ServiceNumber = 12642665;
+                    break;
+
+                // Service number 12653998.
+                case 12644447:
+                case 12651632:
+                case 12651808:
+                case 12654753:
+                case 12655008:
+                case 12655477:
+                case 12655479:
+                case 12656454:
+                case 12657777:
+                case 12657779:
+                case 12657782:
+                case 12658499:
+                case 12659502:
+                case 12659671:
+                case 12663375:
+                case 12664221:
+                case 12666069:
+                case 12666077:
+                case 12666133:
+                case 12666135:
+                case 12666723:
+                case 12667190:
+                case 12668443:
+                case 12669512:
+                case 12670802:
+                case 12670803:
+                case 12670804:
+                case 12672625:
+                    PCMInfo(PcmType.E39a);
+                    this.ServiceNumber = 12653998;
+                    break;
+
+                // E78 (GM 3 MB PowerPC CAN PCM).
+                // Service number 12642100.
+                case 12640467:
+                case 12645607:
+                case 12692706:
+                    PCMInfo(PcmType.E78);
+                    this.ServiceNumber = 12642100;
+                    break;
+
+                // Service number 12643636.
+                case 12646746:
+                case 12647731:
+                case 12654014:
+                case 12655492:
+                case 12655493:
+                case 12656286:
+                case 12657063:
+                case 12659378:
+                case 12662405:
+                case 12663054:
+                case 12663404:
+                case 12663782:
+                case 12669124:
+                case 12669508:
+                case 12669509:
+                case 12675504:
+                case 12677353:
+                case 12677542:
+                case 12683718:
+                case 12692707:
+                case 12692708:
+                case 12692710:
+                case 12692711:
+                case 12695340:
+                case 12705608:
+                case 12705610:
+                    PCMInfo(PcmType.E78);
+                    this.ServiceNumber = 12643636;
+                    break;
+
+                // Service number 12668986.
+                case 12687343:
+                case 12695101:
+                case 12697401:
+                    PCMInfo(PcmType.E78);
+                    this.ServiceNumber = 12668986;
+                    break;
+
+                // E92 (GM 4 MB PowerPC e200 CAN PCM).
+                // Service number 12656993 (early, 2-byte key).
+                case 12656658:
+                case 12658729:
+                case 12659566:
+                case 12660065:
+                case 12662762:
+                case 12663372:
+                case 12663390: // 2014 Silverado L83; issue #87
+                case 12663436:
+                case 12664769:
+                case 12665218:
+                case 12666661:
+                case 12670743:
+                case 12670745:
+                case 12670948:
+                case 12671993:
+                case 12673596:
+                case 19330115:
+                case 19331516:
+                    PCMInfo(PcmType.E92);
+                    this.ServiceNumber = 12656993;
+                    break;
+
+                // Service number 12672537 (early, 2-byte key).
+                case 12670573:
+                case 12672585:
+                case 12673677:
+                case 12677012:
+                    PCMInfo(PcmType.E92);
+                    this.ServiceNumber = 12672537;
+                    break;
+
+                // Service number 12673195.
+                case 12672612:
+                    PCMInfo(PcmType.E92);
+                    this.ServiceNumber = 12673195;
+                    break;
+
+                // Service number 12674052.
+                case 12674021:
+                case 12677878:
+                case 12678648:
+                case 12679004:
+                case 12682377:
+                case 12688929:
+                case 12691210:
+                case 12696753:
+                case 12698025:
+                case 12699552:
+                case 12700913:
+                case 12710466:
+                case 12711158:
+                case 12711160:
+                case 12711161:
+                case 12711166:
+                    PCMInfo(PcmType.E92);
+                    this.ServiceNumber = 12674052;
+                    break;
+
+                // Service number 12703872.
+                case 12690174:
+                case 12694524:
+                case 12698119:
+                case 12709263:
+                    PCMInfo(PcmType.E92);
+                    this.ServiceNumber = 12703872;
+                    break;
+
+                // Service number 12704475.
+                case 12659455:
+                case 12683365:
+                case 12686391:
+                case 12686744:
+                case 12688025:
+                case 12688228:
+                case 12691156:
+                case 12691157:
+                case 12711163:
+                case 12711165:
+                case 12711167:
+                    PCMInfo(PcmType.E92);
+                    this.ServiceNumber = 12704475;
                     break;
 
                 default:

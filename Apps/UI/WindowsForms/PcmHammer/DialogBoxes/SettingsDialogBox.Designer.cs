@@ -170,10 +170,10 @@
             //
             this.allowCrossFlashingCheckBox.AutoSize = true;
             this.allowCrossFlashingCheckBox.ForeColor = System.Drawing.Color.Red;
-            this.allowCrossFlashingCheckBox.Location = new System.Drawing.Point(6, 68);
+            this.allowCrossFlashingCheckBox.Location = new System.Drawing.Point(6, 88);
             this.allowCrossFlashingCheckBox.Name = "allowCrossFlashingCheckBox";
             this.allowCrossFlashingCheckBox.Size = new System.Drawing.Size(121, 17);
-            this.allowCrossFlashingCheckBox.TabIndex = 3;
+            this.allowCrossFlashingCheckBox.TabIndex = 4;
             this.allowCrossFlashingCheckBox.Text = "Allow cross flashing";
             this.allowCrossFlashingCheckBox.UseVisualStyleBackColor = true;
             this.allowCrossFlashingCheckBox.CheckedChanged += new System.EventHandler(this.allowCrossFlashingCheckBox_CheckedChanged);
@@ -181,10 +181,10 @@
             // allowModuleImportCheckBox
             //
             this.allowModuleImportCheckBox.AutoSize = true;
-            this.allowModuleImportCheckBox.Location = new System.Drawing.Point(6, 88);
+            this.allowModuleImportCheckBox.Location = new System.Drawing.Point(6, 68);
             this.allowModuleImportCheckBox.Name = "allowModuleImportCheckBox";
             this.allowModuleImportCheckBox.Size = new System.Drawing.Size(123, 17);
-            this.allowModuleImportCheckBox.TabIndex = 4;
+            this.allowModuleImportCheckBox.TabIndex = 3;
             this.allowModuleImportCheckBox.Text = "Allow module import";
             this.allowModuleImportCheckBox.UseVisualStyleBackColor = true;
             this.allowModuleImportCheckBox.CheckedChanged += new System.EventHandler(this.allowModuleImportCheckBox_CheckedChanged);

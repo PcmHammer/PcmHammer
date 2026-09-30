@@ -185,6 +185,7 @@ public static class DeviceFactory
             {
                 var t when t == OBDXProDevice.DeviceType => new OBDXProDevice(port, logger),
                 var t when t == AvtDevice.DeviceType => new AvtDevice(port, logger),
+                var t when t == AvtDevice.DeviceType838 => new AvtDevice(port, logger),
                 var t when t == SlcanDevice.DeviceType => new SlcanDevice(port, logger),
                 var t when t == MockDevice.DeviceType => new MockDevice(port, logger),
                 var t when t == ElmDevice.DeviceType => new ElmDevice(port, logger),

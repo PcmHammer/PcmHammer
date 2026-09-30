@@ -449,7 +449,7 @@ namespace PcmHacking
         public const int GmOtherAlgorithmBase = 0x100;
 
         /// <summary>
-        /// The older E92/E92a (2-byte security variant) uses GM_OTHER algorithm 1. Verified on
+        /// The older E92 (2-byte security variant) uses GM_OTHER algorithm 1. Verified on
         /// OSID 12672612: seed 0x9D19 -> key 0x04EB.
         /// </summary>
         public const int E92LegacyCanAlgorithm = GmOtherAlgorithmBase + 1;

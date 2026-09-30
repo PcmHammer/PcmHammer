@@ -57,18 +57,19 @@ namespace Tests
 
         /// <summary>
         /// A separately writable parameter block is the reason segment write exists, so the two agree
-        /// unless a PCM states otherwise.
+        /// unless a PCM states otherwise. The MPC-based clone-write PCMs (E92, E39, E39a) are the
+        /// exception: they write by named flash segment but carry no parameter block in flash.
         /// </summary>
         [TestMethod]
-        public void ParameterBlocksFollowSegmentWrite_ExceptOnTheE92()
+        public void ParameterBlocksFollowSegmentWrite_ExceptOnTheMpcClones()
         {
             foreach (PcmType type in Enum.GetValues(typeof(PcmType)))
             {
                 var info = new OSIDInfo(type);
-                if (type == PcmType.E92)
+                if (type == PcmType.E92 || type == PcmType.E39 || type == PcmType.E39a)
                 {
-                    Assert.IsTrue(info.IsSupportedWriteBySegment, "E92 writes by segment.");
-                    Assert.IsFalse(info.HasParameterBlocks, "E92 has no parameter block in flash.");
+                    Assert.IsTrue(info.IsSupportedWriteBySegment, type + " writes by segment.");
+                    Assert.IsFalse(info.HasParameterBlocks, type + " has no parameter block in flash.");
                     continue;
                 }
 

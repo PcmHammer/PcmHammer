@@ -227,8 +227,16 @@
     </BootstrapperPackage>
     <Content Include="0411_256px.ico" />
     <EmbeddedResource Include="start.txt" />
-    <EmbeddedResource Include="credits.html" />
-    <EmbeddedResource Include="help.html" />
+    <!-- Help/credits are shared with the WPF front end from Apps\UI\Shared; LogicalName keeps the
+         resource name (PcmHammer.*) that ContentLoader's embedded fallback looks up. -->
+    <EmbeddedResource Include="..\..\Shared\credits.html">
+      <Link>credits.html</Link>
+      <LogicalName>PcmHammer.credits.html</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\..\Shared\help.html">
+      <Link>help.html</Link>
+      <LogicalName>PcmHammer.help.html</LogicalName>
+    </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\..\J2534DotNet\J2534DotNet\J2534DotNet.csproj">

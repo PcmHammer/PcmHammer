@@ -25,6 +25,11 @@ namespace PCMHammer.Views
 
         public DevicePickerDialogBox(ILogger logger)
         {
+            // This WPF picker is Windows-only and links the J2534 driver model, so J2534 is always
+            // available here. Non-Windows front ends leave DeviceCatalog.J2534Available false, which
+            // hides the J2534 option. Set before the DataContext binds so IsJ2534Available reads true.
+            DeviceCatalog.J2534Available = true;
+
             InitializeComponent();
             _viewModel = new DevicePickerViewModel(logger);
             DataContext = _viewModel;

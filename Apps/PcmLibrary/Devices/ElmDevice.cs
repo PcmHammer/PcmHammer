@@ -75,6 +75,14 @@ namespace PcmHacking
         /// </summary>
         public override async Task<bool> SetProtocol(BusProtocol protocol)
         {
+            // The catalog is the single source for the buses this device type offers (ObdLink / AllPro
+            // are VPW only). Gating here keeps the picker label and what the device accepts in step;
+            // re-enabling CAN is a one-line change in DeviceCatalog.SerialDevices.
+            if (!DeviceCatalog.Supports(ElmDevice.DeviceType, protocol))
+            {
+                return false;
+            }
+
             if (this.implementation is ScanToolDeviceImplementation scanTool)
             {
                 bool ok = await scanTool.SetBusProtocol(protocol);

@@ -342,7 +342,7 @@ namespace PcmHacking
                     return false;
             }
 
-            // Method decision: PCM Hammer kernel vs OEM boot loader.
+            // Method decision: PCM Hammer kernel vs boot loader.
             bool slaveInScope = this.writeType == WriteType.Full && slaveModules.Count > 0;
             this.logger.AddDebugMessage(string.Format(
                 "[decide] Slave in scope: {0} (write type {1}, {2} slave module(s) supplied).",
@@ -375,7 +375,7 @@ namespace PcmHacking
 
             bool writeSlave = slaveInScope && (forced || slaveDiffers);
 
-            // Writing the slave has no short-circuit: it needs the whole master programmed through the OEM
+            // Writing the slave has no short-circuit: it needs the whole master programmed through the
             // boot loader to arm it. When no slave write is needed and the kernel can program flash, use
             // the PCM Hammer kernel differential write instead - only the sectors that differ.
             if (!writeSlave && !pcmInfo.RequiresBootLoaderWrite)
@@ -386,8 +386,8 @@ namespace PcmHacking
             }
 
             this.logger.AddDebugMessage(writeSlave
-                ? "[decide] Method: OEM boot loader (master + slave; slave differs, so the full master is written to arm it)."
-                : "[decide] Method: OEM boot loader (master only; this PCM has no kernel write path).");
+                ? "[decide] Method: boot loader (master + slave; slave differs, so the full master is written to arm it)."
+                : "[decide] Method: boot loader (master only; this PCM has no kernel write path).");
 
             // Forced write: program every requested group without a CRC comparison, so even unchanged
             // sectors are written. That needs no read kernel and no reboot - it runs cold from the stock
@@ -669,7 +669,7 @@ namespace PcmHacking
         /// <summary>
         /// Write the master flash with the PCM Hammer kernel: unlock, upload the kernel, then run the
         /// compare/erase/write loop, which programs only the sectors that differ. Used when no slave
-        /// write is needed (the slave cannot be reached without the OEM boot loader).
+        /// write is needed (the slave cannot be reached without the boot loader).
         /// </summary>
         private async Task<bool> RunKernelWrite(byte[] image, FileValidator validator, OSIDInfo pcmInfo)
         {

@@ -16,7 +16,7 @@ namespace PcmHacking
     /// This class encapsulates all code that is unique to the AVT 852 interface.
     /// </summary>
     ///
-    class J2534Device : Device, ICanTarget, IRawCanMonitor
+    class J2534Device : Device, ICanTarget, ICanChannel
     {
         /// <summary>
         /// Configuration settings
@@ -56,6 +56,14 @@ namespace PcmHacking
         /// <summary>True while the channel is in raw CAN mode for monitoring (not ISO15765).</summary>
         private bool monitoringRawCan;
 
+        // Software ISO-TP for CAN. Some J2534 firmware (e.g. OBDX) mishandles the kernel read reply
+        // (a 0x75 single frame followed by a 0x36 multi-frame block), never surfacing the reassembled
+        // block. Driving ISO-TP on the PC over a raw CAN channel avoids that. Flip to false to use the
+        // device's native ISO15765 instead.
+        private static readonly bool UseSoftwareIsoTpForCan = true;
+        private bool softwareIsoTp;
+        private readonly IsoTpTransport isoTp;
+
         // CAN target addresses; default from the shared CanId constants, settable so the command
         // layer can address a different module or id.
         /// <summary>CAN ID to transmit to (tool to target).</summary>
@@ -75,6 +83,9 @@ namespace PcmHacking
         /// CAN id in the message data and the transmit carries ISO15765_ADDR_TYPE.
         /// </summary>
         public bool SupportsExtendedAddressing => true;
+
+        /// <summary>ICanChannel: how long the software ISO-TP transport waits for a frame on our id.</summary>
+        public int ReceiveTimeoutMilliseconds => this.ReadTimeout;
 
         /// <summary>
         /// global error variable for reading/writing. (Could be done on the fly)
@@ -98,6 +109,7 @@ namespace PcmHacking
             J2534Port = new J2534_Struct();
             J2534Port.Functions = new J2534();
             J2534Port.LoadedDevice = jport;
+            this.isoTp = new IsoTpTransport(this);
 
             // Reduced from 4096+12 for the MDI2
             this.MaxSendSize = 2048 + 12;    // J2534 Standard is 4KB
@@ -318,8 +330,29 @@ namespace PcmHacking
         /// <summary>
         /// Read an network packet from the interface, and return a Response/Message
         /// </summary>
-        protected override Task Receive()
+        protected async override Task Receive()
         {
+            if (this.CurrentProtocol == BusProtocol.Can500k && this.softwareIsoTp)
+            {
+                // Software ISO-TP reassembles a whole message from raw CAN frames. Keep reassembling
+                // until the active inbound filter accepts one (the reply this exchange awaits) or the
+                // bus goes quiet; off-conversation traffic is filtered out, not mistaken for silence.
+                while (true)
+                {
+                    var assembled = await this.isoTp.ReceiveMessage();
+                    if (assembled == null)
+                    {
+                        return;
+                    }
+
+                    if (this.Enqueue(assembled, logReceived: false))
+                    {
+                        this.Logger.AddDebugMessage($"RX: {this.RxCanId:X3} {assembled.GetBytes().ToHex()}");
+                        return;
+                    }
+                }
+            }
+
             //this.Logger.AddDebugMessage("Trace: Read Network Packet");
 
             int NumMessages = 1;
@@ -344,7 +377,7 @@ namespace PcmHacking
                 {
                     // No (more) frames within the read window: a genuine transport timeout.
                     this.Logger.AddDebugMessage("ReadMsgs OBDError: " + OBDError);
-                    return Task.FromResult(0);
+                    return;
                 }
 
                 PassMess = rxMsgs.Last();
@@ -387,12 +420,12 @@ namespace PcmHacking
                     {
                         this.Logger.AddDebugMessage("RX: " + rxData.ToHex());
                     }
-                    return Task.FromResult(0);
+                    return;
                 }
                 // Off-conversation frame, dropped by the inbound filter: keep reading for the response.
             }
 
-            return Task.FromResult(0);
+            return;
         }
 
         /// <summary>
@@ -422,6 +455,14 @@ namespace PcmHacking
         {
             //this.Logger.AddDebugMessage("Send request called");
             Response<J2534Err> MyError;
+
+            if (this.CurrentProtocol == BusProtocol.Can500k && this.softwareIsoTp)
+            {
+                // Software ISO-TP: the transport segments the payload and calls SendCanFrame per frame,
+                // pacing Consecutive Frames by the flow control's STmin.
+                this.Logger.AddDebugMessage($"TX: {this.TxCanId:X3} {message.GetBytes().ToHex()}");
+                return this.isoTp.SendMessage(message);
+            }
 
             if (this.CurrentProtocol == BusProtocol.Can500k)
             {
@@ -630,23 +671,12 @@ namespace PcmHacking
         }
 
         /// <summary>
-        /// Whether the installed driver declares a channel for this bus. CAN is read from the
-        /// ISO15765 channel count, because that is the mode these PCMs are talked to in.
+        /// Whether the installed driver declares a channel for this bus. The VPW/CAN mapping is shared
+        /// with the device picker (see <see cref="J2534DeviceDescriptor.SupportedBuses"/>) so the label
+        /// and what the device will actually open cannot drift.
         /// </summary>
-        private bool SupportsProtocol(BusProtocol protocol)
-        {
-            switch (protocol)
-            {
-                case BusProtocol.Vpw:
-                    return this.J2534Port.LoadedDevice.IsJ1850VPWSupported;
-
-                case BusProtocol.Can500k:
-                    return this.J2534Port.LoadedDevice.IsISO15765Supported;
-
-                default:
-                    return false;
-            }
-        }
+        private bool SupportsProtocol(BusProtocol protocol) =>
+            J2534DeviceDescriptor.SupportedBuses(this.J2534Port.LoadedDevice).Contains(protocol);
 
         private bool SetProtocolInternal(BusProtocol protocol)
         {
@@ -672,6 +702,30 @@ namespace PcmHacking
                 DisconnectFromProtocol();
                 Filters.Clear();
 
+                if (UseSoftwareIsoTpForCan)
+                {
+                    // Software ISO-TP: open a raw CAN channel and let IsoTpTransport do the framing and
+                    // flow control on the PC. A PASS filter for the response id keeps only our frames.
+                    Response<J2534Err> rc = ConnectToProtocol(ProtocolID.CAN, BaudRate.CAN, ConnectFlag.NONE);
+                    if (rc.Status != ResponseStatus.Success)
+                    {
+                        this.Logger.AddUserMessage("J2534: failed to open raw CAN channel, error 0x" + rc.Value.ToString("X"));
+                        return false;
+                    }
+
+                    Response<J2534Err> rf = SetCanReceiveFilter();
+                    if (rf.Status != ResponseStatus.Success)
+                    {
+                        this.Logger.AddDebugMessage("J2534: CAN receive filter warning 0x" + rf.Value.ToString("X") + " (may still work).");
+                    }
+
+                    this.softwareIsoTp = true;
+                    this.Supports4X = false;
+                    this.CurrentProtocol = BusProtocol.Can500k;
+                    this.Logger.AddDebugMessage($"J2534 CAN ready: 500k software ISO-TP (raw CAN), tx {this.TxCanId:X3}, rx {this.RxCanId:X3}.");
+                    return true;
+                }
+
                 Response<J2534Err> c = ConnectToProtocol(ProtocolID.ISO15765, BaudRate.ISO15765, ConnectFlag.NONE);
                 if (c.Status != ResponseStatus.Success)
                 {
@@ -686,6 +740,7 @@ namespace PcmHacking
                     this.Logger.AddDebugMessage("J2534: CAN flow-control filter warning 0x" + f.Value.ToString("X") + " (may still work).");
                 }
 
+                this.softwareIsoTp = false;
                 this.Supports4X = false;
                 this.CurrentProtocol = BusProtocol.Can500k;
                 this.Logger.AddDebugMessage($"J2534 CAN ready: 500k ISO15765, tx {this.TxCanId:X3}, rx {this.RxCanId:X3}.");
@@ -758,12 +813,22 @@ namespace PcmHacking
         {
             if (this.monitoringRawCan)
             {
-                // Restore the operational ISO15765 (native ISO-TP) CAN channel for later read/write.
+                // Restore the operational CAN channel for later read/write, matching the ISO-TP mode.
                 this.monitoringRawCan = false;
                 DisconnectFromProtocol();
                 Filters.Clear();
-                ConnectToProtocol(ProtocolID.ISO15765, BaudRate.ISO15765, ConnectFlag.NONE);
-                SetCanFlowControlFilter();
+                if (UseSoftwareIsoTpForCan)
+                {
+                    ConnectToProtocol(ProtocolID.CAN, BaudRate.CAN, ConnectFlag.NONE);
+                    SetCanReceiveFilter();
+                    this.softwareIsoTp = true;
+                }
+                else
+                {
+                    ConnectToProtocol(ProtocolID.ISO15765, BaudRate.ISO15765, ConnectFlag.NONE);
+                    SetCanFlowControlFilter();
+                    this.softwareIsoTp = false;
+                }
             }
             else if (this.monitorFilterId >= 0)
             {
@@ -860,6 +925,44 @@ namespace PcmHacking
             }
 
             return Task.FromResult((0u, Array.Empty<byte>()));
+        }
+
+        /// <summary>
+        /// ICanChannel: send one raw CAN frame ([4-byte id][payload]) on the raw CAN channel. Used by
+        /// the software ISO-TP transport; with a raw CAN channel the bytes go out verbatim.
+        /// </summary>
+        public Task SendCanFrame(uint canId, byte[] framePayload)
+        {
+            byte[] withId = new byte[4 + framePayload.Length];
+            byte[] idBytes = CanIdToBytes(canId);
+            Array.Copy(idBytes, 0, withId, 0, 4);
+            Array.Copy(framePayload, 0, withId, 4, framePayload.Length);
+
+            PassThruMsg msg = new PassThruMsg(ProtocolID.CAN, TxFlag.NONE, withId);
+            int numMsgs = 1;
+            OBDError = J2534Port.Functions.WriteMsgs((int)ChannelID, ref msg, ref numMsgs, this.WriteTimeout);
+            return Task.CompletedTask;
+        }
+
+        /// <summary>PASS filter on the raw CAN channel that passes only the target's response id.</summary>
+        private Response<J2534Err> SetCanReceiveFilter()
+        {
+            byte[] mask    = CanIdToBytes(0xFFFFFFFF);
+            byte[] pattern = CanIdToBytes(this.RxCanId);
+
+            PassThruMsg maskMsg    = new PassThruMsg(ProtocolID.CAN, TxFlag.NONE, mask);
+            PassThruMsg patternMsg = new PassThruMsg(ProtocolID.CAN, TxFlag.NONE, pattern);
+            int filterId = 0;
+
+            OBDError = J2534Port.Functions.StartMsgFilter(ChannelID, FilterType.PASS_FILTER,
+                ref maskMsg, ref patternMsg, ref filterId);
+            if (OBDError != J2534Err.STATUS_NOERROR)
+            {
+                return Response.Create(ResponseStatus.Error, OBDError);
+            }
+
+            Filters.Add((ulong)filterId);
+            return Response.Create(ResponseStatus.Success, OBDError);
         }
 
         /// <summary>Stop and forget every installed message filter.</summary>

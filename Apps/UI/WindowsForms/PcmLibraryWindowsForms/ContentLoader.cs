@@ -89,7 +89,7 @@ namespace PcmHacking
             {
                 HttpRequestMessage request = new HttpRequestMessage(
                     HttpMethod.Get,
-                    GetFileUrl("/Apps/UI/WindowsForms/PcmHammer/" + fileName));
+                    GetFileUrl("/Apps/UI/Shared/" + fileName));
 
                 request.Headers.Add("Cache-Control", "no-cache");
                 HttpClient client = new HttpClient();
