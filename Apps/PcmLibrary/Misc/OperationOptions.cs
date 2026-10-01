@@ -167,6 +167,25 @@ namespace PcmHacking
             }
         }
 
+        /// <summary>
+        /// What to report when an operation of this type succeeds. A comparison and a test write do not
+        /// change the PCM, so neither may claim that a write happened.
+        /// </summary>
+        public static string DescribeCompletion(WriteType writeType)
+        {
+            switch (writeType)
+            {
+                case WriteType.Compare:
+                    return "Comparison completed.";
+
+                case WriteType.TestWrite:
+                    return "Test completed.";
+
+                default:
+                    return "Write succeeded!";
+            }
+        }
+
         /// <summary>A short label for a write type, for radio buttons and list items.</summary>
         public static string Label(WriteType writeType)
         {

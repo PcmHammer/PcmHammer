@@ -27,7 +27,8 @@ namespace PcmHacking
         private CancellationTokenSource _cancellationTokenSource = new();
         private Task? _ReceiverTask = null;
         private int _packetTimeout = 3000;
-        private int _connectionFailTimeout = 2000;
+        // 2s was not enough for a real adapter to finish pairing/connecting.
+        private int _connectionFailTimeout = 6000;
         private bool _localDebug = false;
 
         public async Task DiscardBuffers()
@@ -80,7 +81,9 @@ namespace PcmHacking
             DateTime startTime = DateTime.Now;
             while (await GetReceiveQueueSize() == 0)
             {
-                await Task.Delay(10);
+                // Blocks rather than yields, matching the receiver loop below. A 10ms poll added more
+                // latency per message than the lost thread costs, and only one operation runs at a time.
+                Thread.Sleep(1);
                 if ((DateTime.Now - startTime).TotalMilliseconds > _packetTimeout)
                 {
                     throw new TimeoutException();

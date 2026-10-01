@@ -44,6 +44,10 @@ namespace PcmHacking
         /// </summary>
         public override Task<bool> Initialize()
         {
+            // Without these the 100-byte base defaults apply, which chunks mock transfers far more
+            // finely than any real device would. 1 KiB plus header overhead is representative.
+            this.MaxSendSize = 1024 + 12;
+            this.MaxReceiveSize = 1024 + 12;
             return Task.FromResult(true);
         }
 

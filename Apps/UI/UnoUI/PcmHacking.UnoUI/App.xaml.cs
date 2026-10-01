@@ -229,10 +229,16 @@ public partial class App : Application
             );
         MainWindow = builder.Window;
         StaticMainWindow = builder.Window;
-        MainWindow.AppWindow.Closing += (s, e) =>
+        MainWindow.AppWindow.Closing += async (s, e) =>
         {
             App.ApplicationShutdownSource.Cancel();
+            await App.GetService<Services.IConnectionService>().AwaitConnectionShutdown();
         };
+
+#if !WINDOWS
+        // Mobile suspends rather than closes, and would otherwise leave the port open.
+        App.Current.Suspending += Current_Suspending;
+#endif
 
 #if WINDOWS
         StaticMainWindow.Title = "PCM Hammer";
@@ -249,6 +255,14 @@ public partial class App : Application
 
         Host = await builder.NavigateAsync<Shell>();
     }
+
+#if !WINDOWS
+    private async void Current_Suspending(object sender, SuspendingEventArgs e)
+    {
+        App.ApplicationShutdownSource.Cancel();
+        await App.GetService<Services.IConnectionService>().AwaitConnectionShutdown();
+    }
+#endif
 
     private static void RegisterRoutes(IViewRegistry views, IRouteRegistry routes)
     {

@@ -703,6 +703,14 @@ namespace PcmHacking
             return Response.Create(ResponseStatus.Success, true);
         }
 
+        /// <summary>
+        /// Battery voltage from the interface, which works on any bus.
+        /// </summary>
+        public override async Task<Response<double>> ReadDeviceVoltage()
+        {
+            return await this.ReadVoltage();
+        }
+
         async private Task<Response<double>> ReadVoltage()
         {
             byte[] Msg = new byte[] { 0x3A, 2, 0x0, (byte)0, 0 };

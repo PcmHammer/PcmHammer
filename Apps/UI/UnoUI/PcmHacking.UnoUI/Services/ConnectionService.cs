@@ -108,6 +108,12 @@ public interface IConnectionService
 
     Task<bool> TryConnect(CurrentSettings settings);
     Task<ConnectionLease> BeginActivity(string activity, bool canInterrupt = false);
+
+    /// <summary>
+    /// Let any in-progress operation finish, then release the vehicle and device. Called on app close
+    /// and (off Windows) on suspend, so the port is not left open.
+    /// </summary>
+    Task AwaitConnectionShutdown();
 }
 
 public class ConnectionService : IConnectionService
@@ -138,7 +144,8 @@ public class ConnectionService : IConnectionService
     private ConnectionStates internalState = ConnectionStates.NotConfigured;
     private SemaphoreSlim stateChangeSemaphore = new SemaphoreSlim(1, 1);
     private CurrentSettings? newSettings;
-    private CurrentSettings? lastSettings;
+    // One field, not a new/last pair: the pair could disagree, and the timer then reconnected on its
+    // own schedule instead of when the user changed something.
     private int retryPeriod = SlowRetryPeriod;
     private DateTime _leftActiveState = DateTime.MinValue;
     private const string _recoveryString = "** RECOVERY **";
@@ -197,6 +204,12 @@ public class ConnectionService : IConnectionService
             await this.ResetVehicleInfo();
             await Task.Delay(100);
 
+            // Nothing chosen yet; probing would only churn the UI through a guaranteed failure.
+            if (string.IsNullOrEmpty(settings.DeviceCategory) || string.IsNullOrEmpty(settings.DeviceNameOrPort))
+            {
+                return false;
+            }
+
             (Device? newDevice, Vehicle? newVehicle) = await TryReconnect(settings);
 
             if (newDevice == null || newVehicle == null)
@@ -218,8 +231,6 @@ public class ConnectionService : IConnectionService
 #endif
                 logger.AddUserMessage("Copyright (C) 2018-2026 PcmHacking.net - GPL v3");
                 logger.AddUserMessage("Connection test succeeded.");
-                this.newSettings = settings;
-                this.lastSettings = settings;
                 this.settingsService.SaveConnectionSettings(settings);
                 isConnected = true;
                 this.device = newDevice;
@@ -228,11 +239,6 @@ public class ConnectionService : IConnectionService
             else
             {
                 logger.AddUserMessage("Connection test failed.");
-                this.newSettings = settings;
-                if(this.lastSettings == null)
-                {
-                    this.lastSettings = newSettings; // This avoids inactivity if device/PCM fails first try, unless this was intended.
-                }
                 newVehicle.Dispose();
                 newVehicle = null;
                 newDevice.Dispose();
@@ -257,6 +263,35 @@ public class ConnectionService : IConnectionService
         return isConnected;
     }
 
+    /// <summary>How long to let an in-progress operation wind down before releasing the port anyway.</summary>
+    private static readonly TimeSpan ShutdownTimeout = TimeSpan.FromSeconds(10);
+
+    public async Task AwaitConnectionShutdown()
+    {
+        if (!App.ApplicationShutdownSource.IsCancellationRequested)
+        {
+            App.ApplicationShutdownSource.Cancel();
+        }
+
+        // Bounded, unlike the original: a wedged operation must not stop the app from closing.
+        DateTime deadline = DateTime.UtcNow + ShutdownTimeout;
+        while (this.internalState >= ConnectionStates.Connected && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(10);
+        }
+
+        if (this.vehicle != null)
+        {
+            this.vehicle.ShutdownSignalSource.Cancel();
+            this.vehicle.Dispose();
+            this.vehicle = null;
+        }
+
+        this.device?.Dispose();
+        this.device = null;
+        this.StopTimer();
+    }
+
     /// <summary>
     /// Reconnect after a connection loss.
     /// </summary>
@@ -266,7 +301,7 @@ public class ConnectionService : IConnectionService
     /// </remarks>
     public async Task<Vehicle?> Reconnect()
     {
-        (Device? newDevice, Vehicle? newVehicle) = await TryReconnect(this.lastSettings!);
+        (Device? newDevice, Vehicle? newVehicle) = await TryReconnect(this.newSettings!);
         this.device = newDevice;
         this.vehicle = newVehicle;
         return this.vehicle;
@@ -278,6 +313,10 @@ public class ConnectionService : IConnectionService
         {
             this.vehicle.ShutdownSignalSource.Cancel();
             this.vehicle?.Dispose();
+
+            // The device outlives the vehicle, so it has to be released here too or the port stays open.
+            this.device?.Dispose();
+            this.device = null;
             return (null, null);
         }
         if (this.vehicle != null)
@@ -289,7 +328,9 @@ public class ConnectionService : IConnectionService
         {
             try
             {
-                if (!await this.device.CheckDeviceConnection())
+                // Settings that differ from the live ones mean a different interface, so the existing
+                // device must go even if it is still answering.
+                if (this.newSettings != settings || !await this.device.CheckDeviceConnection())
                 {
                     this.device.Dispose();
                     this.device = null;
@@ -310,6 +351,7 @@ public class ConnectionService : IConnectionService
         }
         if (this.device == null || settings != this.newSettings)
         {
+            this.newSettings = settings;
             if (string.IsNullOrEmpty(portDesc))
             {
                 await this.DeviceName.SetAsync("Select a device.");
@@ -479,11 +521,10 @@ public class ConnectionService : IConnectionService
                     throw new ConnectionUnavailableException("Not connected. " + errorMessage);
                 }
 
-                // The main reason for hiding these is that I don't want to give the user
-                // a false sense of security about the voltage. It might go down while they
-                // are flashing or logging, but it won't be updated in the UI.
-                await this.OperatingSystemId.SetAsync(String.Empty);
-                await this.Voltage.SetAsync(String.Empty);
+                // These used to be blanked here, so that a stale voltage could not be mistaken for a
+                // live one. Blanking lost the reading entirely for the whole operation, which is when
+                // it is most wanted; the last known values are kept instead. Polling is suspended
+                // during an activity, so neither is refreshed until it ends.
 
                 logger.AddUserMessage("Beginning activity: " + activity);
                 break;
@@ -620,26 +661,11 @@ public class ConnectionService : IConnectionService
             // This log line made more sense before logging was disabled in this scenario...
             logger.AddDebugMessage($"ConnectionService timer callback. Internal state: {this.internalState}.");
 
-            // Re-create the connection if the settings have changed.
-            if (this.newSettings != null && this.newSettings != this.lastSettings)
+            // Re-create the connection if it was lost. Changed settings are applied by the settings
+            // page calling TryConnect directly, so the timer no longer has to notice them.
+            if (this.internalState == ConnectionStates.NotConnected && this.newSettings != null)
             {
-                // This will call TryPollOnce, and will return true if that succeeds.
-                // It will also update this.lastSettings when it succeeds.
                 if (await this.TryConnect(this.newSettings))
-                {
-                    logger.AddUserMessage("Connected with new settings.");
-                }
-                else
-                {
-                    logger.AddUserMessage("Unable to connect with new settings.");
-                    return;
-                }
-            }
-
-            // Re-create the connection if the connection was lost.
-            if (this.internalState == ConnectionStates.NotConnected && this.lastSettings != null)
-            {
-                if (await this.TryConnect(this.lastSettings))
                 {
                     logger.AddUserMessage("Re-connected with current settings.");
                 }

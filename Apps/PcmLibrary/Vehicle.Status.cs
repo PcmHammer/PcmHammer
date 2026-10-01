@@ -46,8 +46,9 @@ namespace PcmHacking
                 return null;
             }
 
-            // Voltage comes from a VPW PID. There is no GMLAN equivalent implemented, so a CAN PCM
-            // reports no voltage rather than a wrong one.
+            // Voltage comes from a VPW PID, which has no GMLAN equivalent. Where that is unavailable -
+            // on CAN, or when the PCM does not answer - fall back to the interface's own measurement,
+            // which is bus-independent. Devices that cannot measure it still report nothing.
             string voltage = string.Empty;
             if (pcm.Bus == BusProtocol.Vpw)
             {
@@ -56,6 +57,20 @@ namespace PcmHacking
                 {
                     voltage = response.Value;
                 }
+            }
+
+            if (string.IsNullOrEmpty(voltage))
+            {
+                Response<double> deviceVoltage = await this.device.ReadDeviceVoltage();
+                if (deviceVoltage.Status == ResponseStatus.Success)
+                {
+                    voltage = deviceVoltage.Value.ToString("F1");
+                }
+            }
+
+            if (string.IsNullOrEmpty(voltage))
+            {
+                voltage = VehicleStatus.VoltageUnavailable;
             }
 
             return VehicleStatus.OperatingSystem(pcm.Bus, pcm.Osid, voltage);

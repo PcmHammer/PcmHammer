@@ -49,7 +49,10 @@
     </UnoFeatures>
     <PackageCertificateThumbprint>E9055ABE166B5A0901A78706D44BBCA8573A5143</PackageCertificateThumbprint>
     <AppxPackageSigningEnabled>True</AppxPackageSigningEnabled>
-    <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">34.0</SupportedOSPlatformVersion>
+    <!-- API 31 (Android 12): the floor is arbitrary, so pick the one that costs no compatibility code.
+         The BLUETOOTH_SCAN/ADVERTISE/CONNECT permissions arrive here, so there is no legacy Bluetooth
+         path to carry; MANAGE_EXTERNAL_STORAGE (API 30) is already below it. -->
+    <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">31.0</SupportedOSPlatformVersion>
     <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.19041.1</SupportedOSPlatformVersion>
     <TargetPlatformMinVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.19041.1</TargetPlatformMinVersion>
     <RuntimeIdentifiers Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">win-x86</RuntimeIdentifiers>

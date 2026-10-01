@@ -121,11 +121,14 @@ public partial record SettingsModel
         this.dispatcherQueue = dispatcherQueue;
     }
 
+    /// <summary>Re-enumerates the device lists; they are otherwise only read once.</summary>
+    private readonly Signal deviceRefreshSignal = new();
+
     public IListFeed<string> DeviceCategories => ListFeed<string>.Async(ct => this.GetDeviceCategories(ct)).Selection(SelectedDeviceType);
-    public IListFeed<string> BTDevices => ListFeed<string>.Async(ct => this.GetBluetoothDevices(ct)).Selection(SelectedBluetoothDevice);
-    public IListFeed<J2534DeviceListing> JDevices => ListFeed.Async(ct => this.GetJDevices(ct)).Selection(SelectedJDevice);
-    public IListFeed<SerialPortListing> Obd2Ports => ListFeed.Async(ct => this.GetPortNames(ct)).Selection(SelectedObd2Port);
-    public IListFeed<SerialPortListing> CanPorts => ListFeed.Async(ct => this.GetPortNames(ct)).Selection(SelectedCanPort);
+    public IListFeed<string> BTDevices => ListFeed<string>.Async(ct => this.GetBluetoothDevices(ct), deviceRefreshSignal).Selection(SelectedBluetoothDevice);
+    public IListFeed<J2534DeviceListing> JDevices => ListFeed.Async(ct => this.GetJDevices(ct), deviceRefreshSignal).Selection(SelectedJDevice);
+    public IListFeed<SerialPortListing> Obd2Ports => ListFeed.Async(ct => this.GetPortNames(ct), deviceRefreshSignal).Selection(SelectedObd2Port);
+    public IListFeed<SerialPortListing> CanPorts => ListFeed.Async(ct => this.GetPortNames(ct), deviceRefreshSignal).Selection(SelectedCanPort);
     public IListFeed<DeviceTypeListing> DeviceTypes => ListFeed.Async(ct => this.GetDeviceTypes(ct)).Selection(SelectedDeviceTypeEntry);
     
     public IState<string> SelectedDeviceType => State<string>
@@ -294,6 +297,9 @@ public partial record SettingsModel
         await UseJ2534Device.SetAsync(newValue as string == DeviceConstants.DeviceCategoryJ2534);
         await UseBTDevice.SetAsync(newValue as string == DeviceConstants.DeviceCategoryBT);
         await UseDeviceTypeList.SetAsync(newValue as string != DeviceConstants.DeviceCategoryJ2534);
+
+        // Ports and paired devices change while the page is open; re-read them on every switch.
+        this.deviceRefreshSignal.Raise();
         await ConnectionSettingsChanged(newValue, ct);
     }
 

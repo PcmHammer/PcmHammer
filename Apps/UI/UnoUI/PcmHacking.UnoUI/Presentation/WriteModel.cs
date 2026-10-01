@@ -138,7 +138,7 @@ public partial record WriteModel : IAsyncLogger
     public IState<bool> UseCustomKeyEnabled => State<bool>.Value(this, () => true);
     public IState<string> CustomKey => State<string>.Value(this, () => "");
     public IState<bool> CustomKeyEnabled => State<bool>.Value(this, () => true);
-    private List<string> _localUserMessages;
+    private readonly UserLogBuffer _localUserMessages;
 
     public WriteModel(
         INavigator navigator,
@@ -164,7 +164,7 @@ public partial record WriteModel : IAsyncLogger
         var _2 = this.UseCustomKey.SetAsync(this.settingsService.GetUseCustomKey());
         var _3 = this.CustomKey.SetAsync(this.settingsService.GetCustomKey());
         var _4 = this.EnableControls(false);
-        _localUserMessages = [];
+        _localUserMessages = new UserLogBuffer(text => this.UserLog.SetAsync(text).AsTask());
     }
 
     private string GetStartButtonText()
@@ -179,6 +179,8 @@ public partial record WriteModel : IAsyncLogger
                 return "Start Writing";
         }
     }
+
+    private string GetCompletionText() => OperationOptions.DescribeCompletion(this.writeType);
 
     private string GetActivityText()
     {
@@ -320,7 +322,13 @@ public partial record WriteModel : IAsyncLogger
     public async ValueTask Start(CancellationToken cancellationToken)
     {
 #if ANDROID
-        await Platforms.Android.PermissionMethods.ExtractKernelsToFileAndroid(); // Approach with a fire-and-forget tactic - Should complete well before an action will run.
+        if (!await Platforms.Android.PermissionMethods.ExtractKernelsToFileAndroid())
+        {
+            // Say so here; otherwise this surfaces later as an unexplained missing-kernel error.
+            await this.AddUserMessage("Storage access was not granted, so the kernels could not be installed. Grant it and try again.");
+            await this.EnableControls(false);
+            return;
+        }
 #endif
         await this.EnableControls(true);
         string? path = string.Empty;
@@ -417,6 +425,8 @@ public partial record WriteModel : IAsyncLogger
         }
         finally
         {
+            // The buffer publishes on a timer, so the closing lines need an explicit flush.
+            await _localUserMessages.FlushNow();
             this.tokenSource = null;
             await this.EnableControls(false);
         }
@@ -445,7 +455,7 @@ public partial record WriteModel : IAsyncLogger
 
             if (await writeManager.Write(package, forcedPcmType))
             {
-                await this.AddUserMessage("Write succeeded!");
+                await this.AddUserMessage(this.GetCompletionText());
             }
 
             return;
@@ -455,7 +465,7 @@ public partial record WriteModel : IAsyncLogger
 #else
         if (await writeManager.Write(path, forcedPcmType))
         {
-            await this.AddUserMessage("Write succeeded!");
+            await this.AddUserMessage(this.GetCompletionText());
             this.tokenSource = null;
             await this.EnableControls(false);
         }
@@ -520,8 +530,8 @@ public partial record WriteModel : IAsyncLogger
 
     public async Task AddUserMessage(string message)
     {
-        _localUserMessages.Add(message);
-        await this.UserLog.SetAsync(_localUserMessages.ToArray().JoinBy("\r\n"));
+        _localUserMessages.Append(message);
+        await Task.CompletedTask;
     }
 
     public async Task AddDebugMessage(string message)

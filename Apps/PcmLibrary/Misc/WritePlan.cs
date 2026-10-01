@@ -26,6 +26,18 @@ namespace PcmHacking
             => RuntimeSettings.ForceWriteAllSectors ? WriteType.Full : WriteType.Calibration;
 
         /// <summary>
+        /// Whether this operation erases or programs flash. A comparison only reads and CRCs, and a
+        /// test write rehearses with the writes suppressed, so neither touches the PCM's contents.
+        /// </summary>
+        /// <remarks>
+        /// This predicate decides whether a PCM can be damaged, so it is stated once. It was previously
+        /// re-derived at four call sites, which is how a non-destructive comparison came to report that
+        /// a write had succeeded.
+        /// </remarks>
+        public static bool IsDestructive(WriteType writeType)
+            => writeType != WriteType.Compare && writeType != WriteType.TestWrite;
+
+        /// <summary>
         /// Whether this range will be erased and written by the operation.
         /// </summary>
         /// <param name="forceAllSectors">
@@ -102,7 +114,7 @@ namespace PcmHacking
             bool forceAllSectors = false)
         {
             // Compare and test-write are non-destructive.
-            if (writeType == WriteType.Compare || writeType == WriteType.TestWrite)
+            if (!IsDestructive(writeType))
             {
                 return true;
             }

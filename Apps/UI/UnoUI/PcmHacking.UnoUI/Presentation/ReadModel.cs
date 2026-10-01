@@ -54,7 +54,7 @@ public partial record ReadModel : IAsyncLogger
 
     public IState<PcmTypeOption> SelectedPcmTypeOption => State<PcmTypeOption>
         .Value(this, () => new PcmTypeOption(PcmType.Undefined));
-    private List<string> _localUserMessages;
+    private readonly UserLogBuffer _localUserMessages;
 
     public ReadModel(
         INavigator navigator,
@@ -76,7 +76,7 @@ public partial record ReadModel : IAsyncLogger
         var _1 = this.UseCustomKey.SetAsync(this.settingsService.GetUseCustomKey());
         var _2 = this.CustomKey.SetAsync(this.settingsService.GetCustomKey());
         var _3 = this.EnableControls(false);
-        _localUserMessages = [];
+        _localUserMessages = new UserLogBuffer(text => this.UserLog.SetAsync(text).AsTask());
     }
 
     private ValueTask<IImmutableList<PcmTypeOption>> GetPcmTypes(CancellationToken ct)
@@ -119,7 +119,13 @@ public partial record ReadModel : IAsyncLogger
     public async ValueTask Start(CancellationToken cancellationToken)
     {
 #if ANDROID
-        await Platforms.Android.PermissionMethods.ExtractKernelsToFileAndroid(); // Approach with a fire-and-forget tactic - Should complete well before an action will run.
+        if (!await Platforms.Android.PermissionMethods.ExtractKernelsToFileAndroid())
+        {
+            // Say so here; otherwise this surfaces later as an unexplained missing-kernel error.
+            await this.AddUserMessage("Storage access was not granted, so the kernels could not be installed. Grant it and try again.");
+            await this.EnableControls(false);
+            return;
+        }
 #endif
         await this.EnableControls(true);
 
@@ -235,6 +241,8 @@ public partial record ReadModel : IAsyncLogger
         }
         finally
         {
+            // The buffer publishes on a timer, so the closing lines need an explicit flush.
+            await _localUserMessages.FlushNow();
 #if !ANDROID
             this.tokenSource = null;
             await this.EnableControls(false);
@@ -261,9 +269,13 @@ public partial record ReadModel : IAsyncLogger
                 PcmPackage? package = await readManager.ReadToPackage(progress, forcedPcmType);
                 if (_selectedFile != null && package != null)
                 {
-                    Stream writeStream = await _selectedFile.OpenStreamForWriteAsync();
-                    PackageStore.Save(writeStream, package, _selectedFile.Name);
-                    await writeStream.DisposeAsync();
+                    using (Stream writeStream = await _selectedFile.OpenStreamForWriteAsync())
+                    {
+                        // Opening for write does not truncate, so saving over a larger existing file
+                        // would leave its tail behind and produce a corrupt, oversized image.
+                        writeStream.SetLength(0);
+                        PackageStore.Save(writeStream, package, _selectedFile.Name);
+                    }
                 }
             }
             else
@@ -271,9 +283,16 @@ public partial record ReadModel : IAsyncLogger
                 Stream? readContents = await readManager.Read(progress, forcedPcmType);
                 if (_selectedFile != null && readContents != null)
                 {
-                    Stream writeStream = await _selectedFile.OpenStreamForWriteAsync();
-                    await readContents.CopyToAsync(writeStream);
-                    await writeStream.DisposeAsync();
+                    using (Stream writeStream = await _selectedFile.OpenStreamForWriteAsync())
+                    {
+                        writeStream.SetLength(0);
+                        if (readContents.CanSeek)
+                        {
+                            readContents.Position = 0;
+                        }
+
+                        await readContents.CopyToAsync(writeStream);
+                    }
                 }
             }
         }
@@ -377,8 +396,8 @@ public partial record ReadModel : IAsyncLogger
 
     public async Task AddUserMessage(string message)
     {
-        _localUserMessages.Add(message);
-        await this.UserLog.SetAsync(_localUserMessages.ToArray().JoinBy("\r\n"));
+        _localUserMessages.Append(message);
+        await Task.CompletedTask;
     }
     
     public Task AddDebugMessage(string message)
