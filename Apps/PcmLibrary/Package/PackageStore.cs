@@ -275,6 +275,34 @@ namespace PcmHacking
         }
 
         /// <summary>
+        /// Load a package from an open stream, using <paramref name="nameForExtension"/> only to choose
+        /// the format. The counterpart to the stream-based <see cref="Save(Stream, PcmPackage, string)"/>,
+        /// for platforms that cannot re-open a file by path - Android reads the user's chosen file into
+        /// memory up front, and without this a .phz there could not be parsed at all.
+        /// </summary>
+        public static PcmPackage Load(Stream stream, string nameForExtension)
+        {
+            if (stream == null) throw new ArgumentNullException(nameof(stream));
+            if (string.IsNullOrEmpty(nameForExtension)) throw new ArgumentNullException(nameof(nameForExtension));
+
+            IPackageFormat format = FormatFor(nameForExtension);
+            try
+            {
+                return format.Load(stream, nameForExtension);
+            }
+            catch (PackageException)
+            {
+                throw; // already has a clear, user-facing message
+            }
+            catch (Exception ex)
+            {
+                throw new PackageException(string.Format(
+                    "Could not read \"{0}\" as a {1}: {2}",
+                    Path.GetFileName(nameForExtension), format.Name, ex.Message), ex);
+            }
+        }
+
+        /// <summary>
         /// Load a file (.phz or .bin) and return its main (master flash) image bytes - what a checksum or
         /// identify examines. Extracts the master from a .phz; a .bin is returned as-is. Null when the
         /// package carries no main image with data.

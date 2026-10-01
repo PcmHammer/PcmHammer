@@ -50,40 +50,10 @@ namespace PcmHacking
             try
             {
                 IPort port = CreatePortForDevice(serialPortName, logger);
-
-                Device? device;
-                switch (serialPortDeviceType)
-                {
-                    case OBDXProDevice.DeviceType:
-                        device = new OBDXProDevice(port, logger);
-                        break;
-
-                    case AvtDevice.DeviceType:
-                    case AvtDevice.DeviceType838: // same driver; the picker split is display-only (model is auto-detected)
-                        device = new AvtDevice(port, logger);
-                        break;
-
-                    case SlcanDevice.DeviceType:
-                    case "SLCAN (CAN only)": // legacy saved value before the type was renamed to "SLCAN"
-                        device = new SlcanDevice(port, logger);
-                        break;
-
-                    case MockDevice.DeviceType:
-                        device = new MockDevice(port, logger);
-                        break;
-
-                    case ElmDevice.DeviceType:
-                        device = new ElmDevice(port, logger);
-                        break;
-
-                    default:
-                        device = null;
-                        break;
-                }
-
+                Device? device = SerialDeviceDetector.CreateKnownDevice(port, serialPortDeviceType, logger);
                 if (device == null)
                 {
-                    return null;
+                    port.Dispose();
                 }
 
                 return device;
@@ -98,11 +68,6 @@ namespace PcmHacking
 
         public async static Task<Device?> AutoDetectSerialDevice(string serialPortName, ILogger logger)
         {
-            SerialPortConfiguration startConfig = new()
-            {
-                BaudRate = 57600,
-                Timeout = 1500
-            };
             IPort port = CreatePortForDevice(serialPortName, logger);
 
             // Track the device that ends up owning the port. On EVERY exit path that does not
@@ -112,85 +77,11 @@ namespace PcmHacking
             Device? detected = null;
             try
             {
-            await port.OpenAsync(startConfig);
+                await port.OpenAsync(SerialDeviceDetector.ProbeConfiguration);
 
-            if(serialPortName == MockPort.PortName)
-            {
-                return detected = new MockDevice(port, logger);
-            }
-
-            AvtDevice avt = new AvtDevice(port, logger);
-            if ((await avt.ResetDevice()).Status == ResponseStatus.Success)
-            {
-                return detected = avt;
-            }
-
-            await port.ChangeBaudRate(115200);
-            await port.Send(Encoding.ASCII.GetBytes("\r")); // Send this to make sure we have readiness.
-            System.Threading.Thread.Sleep(200);
-
-            // An OBDX Pro left in DVI (binary) mode answers every text command with a DVI error
-            // frame instead of a reply, so return it to the ELM API blind: 31 02 06 00 = set API
-            // protocol to ELM, C6 = checksum. Sent before the AT setup below so that setup reaches
-            // the device; other devices see it as junk and ignore it.
-            await port.Send([0x31, 0x02, 0x06, 0x00, 0xC6]);
-            System.Threading.Thread.Sleep(200);
-            await port.DiscardBuffers();
-
-            await port.Send(Encoding.ASCII.GetBytes("AT E0\r")); // Disable echo for these tests.
-            System.Threading.Thread.Sleep(200);
-            await port.DiscardBuffers();
-
-            // Silence a CAN-only adapter (e.g. SLCAN) that may have been left with its channel open and
-            // is streaming bus frames on this port: "C" closes the SLCAN channel. Without this the
-            // streamed frames are read as a bogus reply to the identify probes below and the adapter is
-            // misdetected as an ELM / ScanTool / AllPro. The command is harmless to the other devices.
-            await port.Send(Encoding.ASCII.GetBytes("C\r"));
-            System.Threading.Thread.Sleep(200);
-            await port.DiscardBuffers();
-
-            // Ask for the identity first. The ELM probes below accept any non-empty reply that does
-            // not start with "?", so they must not get a chance to claim an OBDX Pro.
-            string result = await TestIDString(port, "AT@1\r"); // Identifies an OBDX Pro.
-            if (result.StartsWith("OBDX"))
-            {
-                return detected = new OBDXProDevice(port, logger);
-            }
-
-            // A CAN-only SLCAN adapter ignores the AT/ELM probes completely, so it can only be found
-            // by its own version command. The ELM family answers "V" with "?", which keeps them out
-            // of this branch, and the OBDX Pro has already been claimed above.
-            result = await TestIDString(port, "V\r");
-            if (result.Length > 0 && !result.StartsWith("?"))
-            {
-                return detected = new SlcanDevice(port, logger);
-            }
-
-            result = await TestIDString(port, "STDI\r"); // Only a scantool device will reply correctly.
-            if (result.Length > 0 && !result.StartsWith("?"))
-            {
-                return detected = new ElmDevice(port, logger);
-            }
-
-            result = await TestIDString(port, "AT #1\r"); //Unique to AllPros.
-            if (result.Length > 0 && !result.StartsWith("?"))
-            {
-                return detected = new ElmDevice(port, logger);
-            }
-
-            result = await TestIDString(port, "AT@1\r"); // Not a unique command, but a specific reply.
-            if (result.StartsWith("OBDX"))
-            {
-                return detected = new OBDXProDevice(port, logger);
-            }
-
-            result = await TestIDString(port, "AT I"); // Didn't detect any specific known device; generic ELM.
-            if (result.Length > 0 && !result.StartsWith("?"))
-            {
-                return detected = new ElmDevice(port, logger);
-            }
-
-            return null;
+                // The probe sequence itself is shared with the other platforms.
+                detected = await SerialDeviceDetector.Detect(port, serialPortName, logger);
+                return detected;
             }
             catch (Exception exception)
             {
@@ -209,56 +100,6 @@ namespace PcmHacking
                     port.Dispose();
                 }
             }
-        }
-
-        private static async Task<byte[]> TestByteSequence(IPort port, byte[] sendBytes) // Special case use for OBDX reset.
-        {
-            await port.DiscardBuffers();
-            System.Threading.Thread.Sleep(500);
-            await port.Send(sendBytes);
-            byte[] buffer = new byte[12];
-            int bytesRead = await port.Receive(buffer, 0, buffer.Length);
-            byte[] result = new byte[bytesRead];
-            Buffer.BlockCopy(buffer, 0, result, 0, bytesRead);
-            return result;
-
-        }
-
-        private static async Task<string> TestIDString(IPort port, string idString)
-        {
-            await port.DiscardBuffers();
-            System.Threading.Thread.Sleep(500);
-            byte[] buffer = new byte[idString.Length + 2];
-            await port.Send(Encoding.ASCII.GetBytes(idString));
-
-            int bytesRead;
-            try
-            {
-                bytesRead = await port.Receive(buffer, 0, buffer.Length);
-            }
-            catch (TimeoutException)
-            {
-                // A device that does not recognise this identify command may not answer at all (a
-                // CAN-only adapter, for example). Treat the silence as an empty reply rather than a
-                // fault, so auto-detect moves on to the next probe instead of aborting.
-                return string.Empty;
-            }
-
-            string result = Encoding.ASCII.GetString(buffer, 0, bytesRead);
-
-            // Keep only printable characters. A real ELM / ScanTool / AllPro answers an identify
-            // command with a printable string; a CAN-only adapter (e.g. SLCAN) answers an unknown
-            // command with a control byte (BELL 0x07), which must not be mistaken for a valid reply.
-            StringBuilder printable = new StringBuilder(result.Length);
-            foreach (char c in result)
-            {
-                if (c >= ' ' && c <= '~')
-                {
-                    printable.Append(c);
-                }
-            }
-
-            return printable.ToString().Trim();
         }
 
         private static IPort CreatePortForDevice(string? serialPortName, ILogger logger)

@@ -46,6 +46,15 @@
                      TextChanged="{x:Bind CustomKey_TextChanged}"/>
         </StackPanel>
 
+        <!-- Forcing a PCM type skips the operating-system query, which is how a PCM that will not
+             report its OSID can still be read. -->
+        <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Margin="10,0,10,0">
+            <TextBlock Text="PCM:" VerticalAlignment="Center" Margin="0,0,8,0" />
+            <ComboBox ItemsSource="{Binding PcmTypes}"
+                      IsEnabled="{Binding OptionsEnabled}"
+                      MinWidth="220" />
+        </StackPanel>
+
         <Button Grid.Row="2" Grid.Column="0" Content="Start Reading" Margin="10"
               HorizontalAlignment="Stretch"
               VerticalAlignment="Stretch"

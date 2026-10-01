@@ -41,7 +41,8 @@ namespace PCMHammer.Viewmodels
         /// </param>
         public WriteTypeViewModel(OSIDInfo? detected = null)
         {
-            WriteTypes = [.. OfferedWriteTypes(detected)];
+            OperationOptions options = OperationOptions.For(detected);
+            WriteTypes = [.. options.WriteTypes];
 
             PCMTypes = [.. Enum.GetValues<PcmType>()];
 
@@ -52,44 +53,12 @@ namespace PCMHammer.Viewmodels
             // WriteType.None (= 0), which is not a real operation - it survived all the way into
             // CanKernelWriter and threw "Unsuppported operation type: None" only AFTER the kernel had
             // been uploaded and was running on the PCM.
-            // Default from the shared policy (WritePlan.DefaultWriteType): a full clone when "force
-            // write all sectors" is on, otherwise calibration - falling back to the first offered type
-            // (Clone) if the preferred one is not available for this PCM.
-            WriteType preferred = WritePlan.DefaultWriteType();
-            SelectedWriteType = WriteTypes.Contains(preferred) ? preferred : WriteTypes[0];
+            // Default from the shared policy (OperationOptions.PreferredWriteType): a full clone when
+            // "force write all sectors" is on, otherwise calibration - falling back to the first
+            // offered type (Clone) if the preferred one is not available for this PCM. Yields
+            // WriteType.None only for a read-only PCM, where no write type is offered at all.
+            SelectedWriteType = options.PreferredWriteType(WritePlan.DefaultWriteType());
             SelectedPCMType = PcmType.Undefined; // Auto (Query OSID)
-        }
-
-        /// <summary>
-        /// Clone is always available; the rest each need something of the PCM. Clone stays first so it
-        /// remains the default selection.
-        /// </summary>
-        private static List<WriteType> OfferedWriteTypes(OSIDInfo? detected)
-        {
-            if (detected == null || !detected.IsSupported || !detected.IsSupportedWrite)
-            {
-                return [WriteType.Full, WriteType.OsPlusCalibrationPlusBoot, WriteType.Calibration,
-                        WriteType.Parameters, WriteType.TestWrite];
-            }
-
-            List<WriteType> offered = [WriteType.Full];
-            if (detected.IsSupportedWriteBySegment)
-            {
-                offered.Add(WriteType.OsPlusCalibrationPlusBoot);
-                offered.Add(WriteType.Calibration);
-            }
-
-            if (detected.HasParameterBlocks)
-            {
-                offered.Add(WriteType.Parameters);
-            }
-
-            if (detected.IsSupportedTestWrite)
-            {
-                offered.Add(WriteType.TestWrite);
-            }
-
-            return offered;
         }
     }
 }

@@ -12,11 +12,16 @@ using Windows.Storage.Pickers;
 
 namespace PcmHacking.UnoUI.Presentation;
 
+/// <param name="DeviceType">
+/// A <see cref="DeviceCatalog"/> key, or empty to auto-detect. An explicit choice is the only way to
+/// reach an interface that answers no probe, such as a CAN-only SLCAN adapter.
+/// </param>
 public record CurrentSettings(
-    string DeviceCategory, 
-    string DeviceNameOrPort, 
-    bool CanEnabled, 
-    string CanPort);
+    string DeviceCategory,
+    string DeviceNameOrPort,
+    bool CanEnabled,
+    string CanPort,
+    string DeviceType = "");
 
 public class SerialPortListing
 {
@@ -67,6 +72,34 @@ public class J2534DeviceListing
     }
 }
 
+/// <summary>
+/// An interface type in the settings list: the catalog's display name over its stable key. The key is
+/// empty for the Auto detect entry.
+/// </summary>
+public class DeviceTypeListing
+{
+    /// <summary>Auto-detection is the absence of a chosen type.</summary>
+    public const string AutoDetectKey = "";
+
+    public string? DisplayName { get; set; }
+    public string? Key { get; set; }
+
+    public override bool Equals(object? obj)
+    {
+        return obj is DeviceTypeListing listing && Key == listing.Key;
+    }
+
+    public override int GetHashCode()
+    {
+        return HashCode.Combine(Key);
+    }
+
+    public override string ToString()
+    {
+        return DisplayName ?? string.Empty;
+    }
+}
+
 public partial record SettingsModel
 {
     private readonly LoggerAdapter progressLogger;
@@ -93,6 +126,7 @@ public partial record SettingsModel
     public IListFeed<J2534DeviceListing> JDevices => ListFeed.Async(ct => this.GetJDevices(ct)).Selection(SelectedJDevice);
     public IListFeed<SerialPortListing> Obd2Ports => ListFeed.Async(ct => this.GetPortNames(ct)).Selection(SelectedObd2Port);
     public IListFeed<SerialPortListing> CanPorts => ListFeed.Async(ct => this.GetPortNames(ct)).Selection(SelectedCanPort);
+    public IListFeed<DeviceTypeListing> DeviceTypes => ListFeed.Async(ct => this.GetDeviceTypes(ct)).Selection(SelectedDeviceTypeEntry);
     
     public IState<string> SelectedDeviceType => State<string>
         .Async(this, ct => ValueTask.FromResult(settingsService.GetObd2DeviceCategory()))
@@ -110,6 +144,16 @@ public partial record SettingsModel
         .ForEach(ConnectionSettingsChanged);
     public IState<bool> DontUseCanDevice => State<bool>
         .Async(this, ct => ValueTask.FromResult(!settingsService.IsCanEnabled()));
+
+    /// <summary>Which interface to use, or Auto detect.</summary>
+    public IState<DeviceTypeListing> SelectedDeviceTypeEntry => State<DeviceTypeListing>
+        .Async(this, ct => ValueTask.FromResult(DescribeDeviceType(settingsService.GetObd2SerialDeviceName())))
+        .ForEach(this.ConnectionSettingsChanged);
+
+    /// <summary>Hidden for J2534, whose own list already names the driver.</summary>
+    public IState<bool> UseDeviceTypeList => State<bool>
+        .Async(this, ct => ValueTask.FromResult(
+            settingsService.GetObd2DeviceCategory() != DeviceConstants.DeviceCategoryJ2534));
 
     public IState<SerialPortListing> SelectedObd2Port => State<SerialPortListing>
         .Async(this, ct => ValueTask.FromResult(settingsService.GetObd2SerialPortName()))
@@ -153,6 +197,33 @@ public partial record SettingsModel
         deviceCategories.Add(DeviceConstants.DeviceCategoryBT);
         IImmutableList<string> res = ImmutableList.CreateRange(deviceCategories);
         return ValueTask.FromResult(res);
+    }
+
+    /// <summary>
+    /// The catalog's interface types, Auto detect first. Its display names state each one's buses.
+    /// </summary>
+    private ValueTask<IImmutableList<DeviceTypeListing>> GetDeviceTypes(CancellationToken ct)
+    {
+        List<DeviceTypeListing> types =
+        [
+            new DeviceTypeListing { DisplayName = "Auto detect", Key = DeviceTypeListing.AutoDetectKey },
+        ];
+
+        foreach (DeviceDescriptor descriptor in DeviceCatalog.SerialDevices)
+        {
+            types.Add(new DeviceTypeListing { DisplayName = descriptor.DisplayName, Key = descriptor.Key });
+        }
+
+        return ValueTask.FromResult((IImmutableList<DeviceTypeListing>)ImmutableList.CreateRange(types));
+    }
+
+    /// <summary>The listing for a saved device-type key, falling back to Auto detect.</summary>
+    private static DeviceTypeListing DescribeDeviceType(string? key)
+    {
+        DeviceDescriptor? descriptor = DeviceCatalog.Find(key);
+        return descriptor == null
+            ? new DeviceTypeListing { DisplayName = "Auto detect", Key = DeviceTypeListing.AutoDetectKey }
+            : new DeviceTypeListing { DisplayName = descriptor.DisplayName, Key = descriptor.Key };
     }
 
     private ValueTask<IImmutableList<SerialPortListing>> GetPortNames(CancellationToken ct)
@@ -222,6 +293,7 @@ public partial record SettingsModel
         await UseSerialDevice.SetAsync(newValue as string == DeviceConstants.DeviceCategorySerial);
         await UseJ2534Device.SetAsync(newValue as string == DeviceConstants.DeviceCategoryJ2534);
         await UseBTDevice.SetAsync(newValue as string == DeviceConstants.DeviceCategoryBT);
+        await UseDeviceTypeList.SetAsync(newValue as string != DeviceConstants.DeviceCategoryJ2534);
         await ConnectionSettingsChanged(newValue, ct);
     }
 
@@ -233,12 +305,18 @@ public partial record SettingsModel
             deviceCategory == DeviceConstants.DeviceCategoryJ2534 ? (await SelectedJDevice.Value())?.Name :
             deviceCategory == DeviceConstants.DeviceCategoryBT ? await SelectedBluetoothDevice.Value() : string.Empty;
 
+        // A J2534 driver is named individually, so its own list already identifies the interface; the
+        // device type only applies to the serial and Bluetooth categories.
+        string deviceType = deviceCategory == DeviceConstants.DeviceCategoryJ2534
+            ? string.Empty
+            : (await this.SelectedDeviceTypeEntry.Value())?.Key ?? string.Empty;
 
         CurrentSettings currentSettings = new CurrentSettings(
             deviceCategory,
             portName ?? string.Empty,
             await this.UseCanDevice.Value(),
-            (await this.SelectedCanPort.Value())?.PortName ?? "");
+            (await this.SelectedCanPort.Value())?.PortName ?? "",
+            deviceType);
 
         if (await this.connectionService.TryConnect(currentSettings))
         {

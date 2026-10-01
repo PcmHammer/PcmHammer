@@ -17,6 +17,12 @@ public partial record VinChangeModel
     private readonly IConnectionService connectionService;
     private readonly LoggerAdapter loggerAdapter;
 
+    /// <summary>
+    /// The bus and PCM the VIN was read from, so the write goes back over the same one without probing
+    /// again. Null until the read succeeds, which is also why the Update button starts disabled.
+    /// </summary>
+    private VinReadResult? currentVin;
+
     public IState<string> OldVin => State<string>.Value(this, () => string.Empty);
     public IState<string> OldVinStatus => State<string>.Value(this, () => string.Empty);
 
@@ -48,11 +54,14 @@ public partial record VinChangeModel
         {
             using (ConnectionLease lease = await this.connectionService.BeginActivity("Reading VIN", false))
             {
-                Response<string> response = await lease.Vehicle.QueryVin();
-                if (response.Status == ResponseStatus.Success)
+                // One shared flow detects the bus and reads the VIN over VPW or CAN.
+                VinReadResult? result = await lease.Vehicle.ReadVin(CancellationToken.None);
+                if (result != null)
                 {
-                    await this.OldVin.SetAsync(response.Value);
-                    await this.NewVin.SetAsync(response.Value);
+                    this.currentVin = result;
+                    await this.OldVin.SetAsync(result.Vin);
+                    await this.NewVin.SetAsync(result.Vin);
+                    await this.OldVinStatus.SetAsync($"Read from {result.Bus}.");
                 }
                 else
                 {
@@ -72,15 +81,6 @@ public partial record VinChangeModel
     [Command]
     public async Task NewVinChanged(string newVin, CancellationToken cancellation)
     {
-        if (newVin.Length != 17)
-        {
-            await this.NewVinStatus.SetAsync(
-                "The VIN must be 17 characters long." + Environment.NewLine +
-                $"This is {newVin.Length} characters long.");
-            await this.UpdateButtonEnabled.SetAsync(false);
-            return;
-        }
-
         if (newVin == (await this.OldVin.Value() ?? string.Empty))
         {
             await this.NewVinStatus.SetAsync("The new VIN is the same as the old VIN.");
@@ -88,29 +88,11 @@ public partial record VinChangeModel
             return;
         }
 
-        int invalidCharacterIndex = -1;
-        char requiredCheckDigit = 'X';
-        if (VinValidator.IsValid(newVin, out invalidCharacterIndex, out requiredCheckDigit))
-        {
-            await this.NewVinStatus.SetAsync("The VIN is valid. Good!");
-            await this.UpdateButtonEnabled.SetAsync(true);
-            return;
-        }
-
-        await this.UpdateButtonEnabled.SetAsync(false);
-
-        if (invalidCharacterIndex >= 0)
-        {
-            char invalidCharacter = newVin[invalidCharacterIndex];
-            await this.NewVinStatus.SetAsync($"The \"{invalidCharacter}\" at position {invalidCharacterIndex + 1} is not a letter or number.");
-            return;
-        }
-
-        if (requiredCheckDigit != 'X')
-        {
-            await this.NewVinStatus.SetAsync($"The VIN check digit on position 9 is incorrect.\nCorrect check digit is: {requiredCheckDigit}");
-            return;
-        }
+        // Only the 17-character rule gates the write. A VIN that fails the standard's check digit is
+        // still offered, because CAN PCMs are routinely found with one (see VinAssessment).
+        VinAssessment assessment = VinAssessment.Of(newVin);
+        await this.NewVinStatus.SetAsync(assessment.Message);
+        await this.UpdateButtonEnabled.SetAsync(assessment.CanWrite && this.currentVin != null);
     }
 
     [Command]
@@ -121,16 +103,17 @@ public partial record VinChangeModel
             using (ConnectionLease lease = await this.connectionService.BeginActivity("Writing VIN", false))
             {
                 string newVin = await this.NewVin.Value() ?? throw new InvalidOperationException("New VIN is empty.");
-                Response<bool> response = await lease.Vehicle.UpdateVin(newVin);
-                if (response.Status == ResponseStatus.Success)
+
+                // The read established the bus and the PCM; reuse them so the write does not probe again.
+                if (await lease.Vehicle.WriteVin(
+                    newVin, this.currentVin?.Bus, this.currentVin?.PcmInfo, cancellationToken))
                 {
                     await this.OldVin.SetAsync(newVin);
                     await this.NewVinStatus.SetAsync("The VIN has been updated.");
-                    this.loggerAdapter.AddUserMessage("VIN write succeeded: " + newVin);
+                    await this.UpdateVinStatus.SetAsync(Vehicle.VinWriteFollowUp);
                 }
                 else
                 {
-                    this.loggerAdapter.AddUserMessage("VIN write failed");
                     await this.UpdateVinStatus.SetAsync("VIN write failed");
                 }
             }

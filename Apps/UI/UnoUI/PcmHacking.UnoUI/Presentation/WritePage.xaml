@@ -45,11 +45,27 @@
                      TextChanged="CustomKey_TextChanged"/>
         </StackPanel>
 
-        <CheckBox Grid.Row="1" Grid.Column="1" 
-                  IsEnabled="{Binding PreferCalibrationWriteEnabled}"
-                  IsChecked="{Binding PreferCalibrationWrite, Mode=TwoWay}"
-                  Margin="10,0,0,0"
-                  Content="{Binding CalibrationOnlyCheckboxText}" />
+        <!-- Write type and PCM type, both driven by what detection found. A CAN PCM is usually
+             clone-only, so the list is what keeps the user from asking for a write it cannot do. -->
+        <StackPanel Grid.Row="1" Grid.Column="1" Margin="10,0,10,0">
+            <TextBlock Text="{Binding DetectionMessage}" TextWrapping="WrapWholeWords" Margin="0,0,0,6" />
+
+            <StackPanel Orientation="Horizontal" Visibility="{Binding ShowWriteTypeList}">
+                <TextBlock Text="Write:" VerticalAlignment="Center" Margin="0,0,8,0" />
+                <ComboBox ItemsSource="{Binding WriteTypes}"
+                          IsEnabled="{Binding OptionsEnabled}"
+                          MinWidth="220" />
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                <TextBlock Text="PCM:" VerticalAlignment="Center" Margin="0,0,8,0" />
+                <ComboBox ItemsSource="{Binding PcmTypes}"
+                          IsEnabled="{Binding OptionsEnabled}"
+                          MinWidth="220" />
+            </StackPanel>
+
+            <TextBlock Text="{Binding WriteDescription}" TextWrapping="WrapWholeWords" Margin="0,6,0,0" />
+        </StackPanel>
 
         <Button Grid.Row="2" Grid.Column="0" Content="{Binding StartButtonText}" Margin="10"
               HorizontalAlignment="Stretch"

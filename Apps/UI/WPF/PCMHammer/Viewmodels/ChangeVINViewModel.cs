@@ -17,21 +17,20 @@ namespace PCMHammer.Viewmodels
         [ObservableProperty]
         public partial string Vin { get; set; } = string.Empty;
 
-        partial void OnVinChanging(string value)
+        partial void OnVinChanged(string value)
         {
-            // Sanitize input before the property updates
-            string upperValue = value?.ToUpper() ?? string.Empty;
-
-            if (ValidateVin(upperValue))
-            {
-                // Update backing field directly when valid
-                Vin = upperValue;
-            }
+            // Assess whatever the user typed; never reject the edit. The old version only assigned the
+            // backing field when the VIN was valid, which made a non-standard VIN impossible to type.
+            Assess(value);
         }
 
         [ObservableProperty]
         private partial string ValidationPrompt { get; set; } = "Enter a 17-character VIN.";
 
+        /// <summary>
+        /// Whether the VIN can be written: 17 characters. A VIN that fails the standard's check digit
+        /// is still writable, because CAN PCMs are routinely found with one (see VinAssessment).
+        /// </summary>
         [ObservableProperty]
         private partial bool IsValid { get; set; }
         #endregion
@@ -50,38 +49,18 @@ namespace PCMHammer.Viewmodels
         public ChangeVinViewModel(string initialVin)
         {
             Vin = initialVin;
-            ValidateVin(Vin);
+            Assess(Vin);
         }
 
-        private bool ValidateVin(string vin)
+        /// <summary>
+        /// Update the prompt and the OK gate from the shared assessment.
+        /// </summary>
+        private void Assess(string vin)
         {
-            if (string.IsNullOrWhiteSpace(vin) || vin.Length != 17)
-            {
-                ValidationPrompt = $"The VIN must be 17 characters long.\nThis is {vin?.Length ?? 0} characters.";
-                IsValid = false;
-                return false;
-            }
-
-            // Call legacy PcmHacking.VinValidator utility
-            if (VinValidator.IsValid(vin, out int invalidCharacterIndex, out char requiredCheckDigit))
-            {
-                ValidationPrompt = "The VIN is valid. Good!";
-                IsValid = true;
-            }
-            else
-            {
-                IsValid = false;
-                if (invalidCharacterIndex >= 0)
-                {
-                    char invalidCharacter = vin[invalidCharacterIndex];
-                    ValidationPrompt = $"The \"{invalidCharacter}\" at position {invalidCharacterIndex + 1} is not a letter or number.";
-                }
-                else if (requiredCheckDigit != 'X')
-                    ValidationPrompt = $"The VIN check digit on position 9 is incorrect.\nCorrect check digit is: {requiredCheckDigit}";
-                else
-                    ValidationPrompt = "The VIN is invalid.";
-            }
-            return IsValid;
+            VinAssessment assessment = VinAssessment.Of(vin);
+            ValidationPrompt = assessment.Message;
+            IsValid = assessment.CanWrite;
+            OkCommand.NotifyCanExecuteChanged();
         }
     }
 }

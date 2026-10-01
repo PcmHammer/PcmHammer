@@ -178,6 +178,7 @@ public partial class App : Application
                     services.AddSingleton<XamlRootService>();
                     services.AddSingleton<Services.INoticeService, Services.NoticeService>();
                     services.AddSingleton<IPlatformService, PlatformService>();
+                    services.AddSingleton<Services.IPromptService, Services.PromptService>();
                 })
 
                 .UseLogging(configure: (context, logBuilder) =>
@@ -270,6 +271,7 @@ public partial class App : Application
             new ViewMap<DumpRamPage, DumpRamModel>(),
             new ViewMap<VinChangePage, VinChangeModel>(),
             new ViewMap<CrankRelearnPage, CrankRelearnModel>(),
+            new ViewMap<BusMonitorPage, BusMonitorModel>(),
 
             // View troubleshooting log (accessible from the Help page)
             new ViewMap<LogPage, LogModel>(),

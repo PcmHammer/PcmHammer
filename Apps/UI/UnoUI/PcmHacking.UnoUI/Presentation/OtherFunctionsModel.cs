@@ -179,6 +179,11 @@ public partial record OtherFunctionsModel
         await this.navigator.NavigateViewModelAsync<CrankRelearnModel>(this);
     }
 
+    public async Task GoToBusMonitor()
+    {
+        await this.navigator.NavigateViewModelAsync<BusMonitorModel>(this);
+    }
+
     public Task ReadCodes()
     {
         // TODO: navigate to a read-OBD2-codes page

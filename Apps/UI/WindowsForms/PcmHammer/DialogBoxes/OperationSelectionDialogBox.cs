@@ -75,33 +75,35 @@ namespace PcmHacking
                 Size = new Size(196, 161)
             };
 
+            // Labels come from the shared OperationOptions so every UI names the same operation the
+            // same way.
             this.fullCloneRadioButton = new RadioButton
             {
-                Text = "Clone (Full Flash)",
+                Text = OperationOptions.Label(WriteType.Full),
                 Location = new Point(12, 22),
                 AutoSize = true
             };
             this.osCalRadioButton = new RadioButton
             {
-                Text = "Operating System + Calibration",
+                Text = OperationOptions.Label(WriteType.OsPlusCalibrationPlusBoot),
                 Location = new Point(12, 45),
                 AutoSize = true
             };
             this.calibrationRadioButton = new RadioButton
             {
-                Text = "Calibration",
+                Text = OperationOptions.Label(WriteType.Calibration),
                 Location = new Point(12, 68),
                 AutoSize = true
             };
             this.parametersRadioButton = new RadioButton
             {
-                Text = "Parameters",
+                Text = OperationOptions.Label(WriteType.Parameters),
                 Location = new Point(12, 91),
                 AutoSize = true
             };
             this.testWriteRadioButton = new RadioButton
             {
-                Text = "Test Write (writes nothing)",
+                Text = OperationOptions.Label(WriteType.TestWrite),
                 Location = new Point(12, 114),
                 AutoSize = true
             };
@@ -137,19 +139,8 @@ namespace PcmHacking
                 Size = new Size(380, 21)
             };
             this.pcmTypeComboBox.Items.Add("Auto (Query OSID)");
-            foreach (PcmType type in Enum.GetValues(typeof(PcmType)).Cast<PcmType>())
+            foreach (PcmType type in OperationOptions.SelectablePcmTypes())
             {
-                if (type == PcmType.Undefined)
-                {
-                    continue;
-                }
-
-                OSIDInfo info = new OSIDInfo(type);
-                if (!info.IsSupported)
-                {
-                    continue;
-                }
-
                 this.pcmTypeComboBox.Items.Add(type.ToString());
             }
             this.pcmTypeComboBox.SelectedIndex = 0;
@@ -195,57 +186,34 @@ namespace PcmHacking
 
         /// <summary>
         /// Offer only the write types the detected PCM supports, default the selection accordingly, and
-        /// preselect the detected PCM type. Falls back to a fully manual choice when nothing was detected.
+        /// preselect the detected PCM type. The rules live in the shared <see cref="OperationOptions"/>,
+        /// so this is presentation only.
         /// </summary>
         private void ApplyDetection(OSIDInfo? detected, WriteType requested)
         {
-            if (detected == null || !detected.IsSupported)
+            OperationOptions options = OperationOptions.For(detected);
+            this.detectionLabel.Text = options.DetectionMessage;
+
+            this.fullCloneRadioButton.Enabled = options.Offers(WriteType.Full);
+            this.osCalRadioButton.Enabled = options.Offers(WriteType.OsPlusCalibrationPlusBoot);
+            this.calibrationRadioButton.Enabled = options.Offers(WriteType.Calibration);
+            this.parametersRadioButton.Enabled = options.Offers(WriteType.Parameters);
+            this.testWriteRadioButton.Enabled = options.Offers(WriteType.TestWrite);
+
+            if (detected != null && detected.IsSupported)
             {
-                this.detectionLabel.Text = "Could not detect a PCM\r\nChoose the options manually";
-                this.SelectWriteType(this.IsWriteTypeEnabled(requested) ? requested : WriteType.Full);
-                return;
+                this.SelectPcmType(detected.HardwareType);
             }
 
-            this.SelectPcmType(detected.HardwareType);
-
-            if (!detected.IsSupportedWrite)
+            if (!options.CanWrite)
             {
                 // Read-only PCM: there is nothing to write, so steer to Read and disable the write side.
-                this.detectionLabel.Text = string.Format(
-                    "Detected: {0}\r\nWriting is not supported",
-                    detected.HardwareType);
                 this.readRadioButton.Checked = true;
                 this.writeRadioButton.Enabled = false;
-                this.fullCloneRadioButton.Enabled = false;
-                this.osCalRadioButton.Enabled = false;
-                this.calibrationRadioButton.Enabled = false;
-                this.parametersRadioButton.Enabled = false;
-                this.testWriteRadioButton.Enabled = false;
                 return;
             }
 
-            // Clone is always available when writing is supported; the per-segment types need by-segment
-            // support (e.g. the E38 is clone-only). A parameter write also needs a parameter block, and a
-            // test write needs a kernel write path to rehearse.
-            bool bySegment = detected.IsSupportedWriteBySegment;
-            this.fullCloneRadioButton.Enabled = true;
-            this.osCalRadioButton.Enabled = bySegment;
-            this.calibrationRadioButton.Enabled = bySegment;
-            this.parametersRadioButton.Enabled = detected.HasParameterBlocks;
-            this.testWriteRadioButton.Enabled = detected.IsSupportedTestWrite;
-
-            this.detectionLabel.Text = bySegment
-                ? string.Format("Detected: {0}", detected.HardwareType)
-                : string.Format(
-                    "Detected: {0}\r\nSegment writes not supported\r\nClone only",
-                    detected.HardwareType);
-
-            // Honour the requested write type when the PCM supports it; otherwise default to calibration
-            // for by-segment PCMs, or a full clone for the rest.
-            WriteType preferred = this.IsWriteTypeEnabled(requested)
-                ? requested
-                : (bySegment ? WriteType.Calibration : WriteType.Full);
-            this.SelectWriteType(preferred);
+            this.SelectWriteType(options.PreferredWriteType(requested));
         }
 
         private RadioButton RadioForWriteType(WriteType writeType)
@@ -268,8 +236,6 @@ namespace PcmHacking
                     return this.fullCloneRadioButton;
             }
         }
-
-        private bool IsWriteTypeEnabled(WriteType writeType) => this.RadioForWriteType(writeType).Enabled;
 
         private void SelectWriteType(WriteType writeType) => this.RadioForWriteType(writeType).Checked = true;
 

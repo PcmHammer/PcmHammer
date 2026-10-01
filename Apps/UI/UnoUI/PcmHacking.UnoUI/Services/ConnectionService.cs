@@ -324,7 +324,16 @@ public class ConnectionService : IConnectionService
             {
                 if (settings.DeviceCategory == DeviceConstants.DeviceCategoryBT) // Bluetooth on multi-platform requires the use of a separtate library written in .NET core, so we have to special case it here.
                 {
-                    newDevice = await BluetoothDeviceFactory.CreateBluetoothDevice(settings.DeviceNameOrPort, this.logger);
+                    newDevice = await BluetoothDeviceFactory.CreateBluetoothDevice(
+                        settings.DeviceNameOrPort, settings.DeviceType, this.logger);
+                }
+                else if (settings.DeviceCategory == DeviceConstants.DeviceCategorySerial
+                    && !string.IsNullOrEmpty(settings.DeviceType))
+                {
+                    // An explicitly chosen type skips detection, which is the only way to reach an
+                    // interface that answers no probe - a CAN-only SLCAN adapter, for instance.
+                    newDevice = DeviceFactory.CreateSerialDevice(
+                        settings.DeviceNameOrPort, settings.DeviceType, this.logger);
                 }
                 else
                 {
@@ -355,7 +364,8 @@ public class ConnectionService : IConnectionService
             string exePath = System.Reflection.Assembly.GetExecutingAssembly().Location;
             basePath = Path.GetDirectoryName(exePath) ?? string.Empty;
 #elif ANDROID
-            basePath = "/storage/emulated/0/PCMHammer/Bins";
+        // Same folder the kernels are extracted to; must not be spelled out a second time here.
+        basePath = Platforms.Android.PermissionMethods.KernelDirectory;
 #endif
         Vehicle newVehicle = new Vehicle(this.device, this.protocol, this.logger, notifier, basePath); // Kernel will use old logic on presence of empty string.
         await this.ConnectionState.SetAsync(ConnectionStates.Connecting);

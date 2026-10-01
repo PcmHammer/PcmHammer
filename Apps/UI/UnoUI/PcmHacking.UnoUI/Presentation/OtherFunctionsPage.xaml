@@ -156,6 +156,7 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="1*" />
                 <RowDefinition Height="1*" />
+                <RowDefinition Height="1*" />
             </Grid.RowDefinitions>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="1*" />
@@ -210,6 +211,14 @@ VerticalAlignment="Stretch">
           HorizontalAlignment="Stretch"
           VerticalAlignment="Stretch">
                 <TextBlock Text="{Binding ResetCodesButtonText}" />
+            </Button>
+
+            <Button Grid.Row="2" Grid.Column="0" Command="{Binding GoToBusMonitor}"
+          Margin="10"
+          Padding="10"
+          HorizontalAlignment="Stretch"
+          VerticalAlignment="Stretch">
+                <TextBlock Text="Bus Monitor" />
             </Button>
         </Grid>
     </Grid>
