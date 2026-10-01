@@ -30,6 +30,10 @@ namespace PcmHacking
         public MainForm()
         {
             InitializeComponent();
+
+            // Window and taskbar icon, taken from the executable's own icon so the image is not
+            // duplicated into this form's resources.
+            this.Icon = System.Drawing.Icon.ExtractAssociatedIcon(Application.ExecutablePath);
         }
 
         #region MainFormBase override methods

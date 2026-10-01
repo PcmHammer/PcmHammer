@@ -57,7 +57,7 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <PropertyGroup>
-    <ApplicationIcon>0411_256px.ico</ApplicationIcon>
+    <ApplicationIcon>..\..\Shared\0411_256px.ico</ApplicationIcon>
   </PropertyGroup>
   <Target Name="Date" BeforeTargets="CoreCompile">
     <!-- BuildTicks can be passed in (/p:BuildTicks=...) so every assembly in one build
@@ -225,7 +225,9 @@
       <ProductName>.NET Framework 3.5 SP1</ProductName>
       <Install>false</Install>
     </BootstrapperPackage>
-    <Content Include="0411_256px.ico" />
+    <Content Include="..\..\Shared\0411_256px.ico">
+      <Link>0411_256px.ico</Link>
+    </Content>
     <EmbeddedResource Include="start.txt" />
     <!-- Help/credits are shared with the WPF front end from Apps\UI\Shared; LogicalName keeps the
          resource name (PcmHammer.*) that ContentLoader's embedded fallback looks up. -->
