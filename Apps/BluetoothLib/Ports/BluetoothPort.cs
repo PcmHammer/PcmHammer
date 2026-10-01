@@ -81,9 +81,10 @@ namespace PcmHacking
             DateTime startTime = DateTime.Now;
             while (await GetReceiveQueueSize() == 0)
             {
-                // Blocks rather than yields, matching the receiver loop below. A 10ms poll added more
-                // latency per message than the lost thread costs, and only one operation runs at a time.
-                Thread.Sleep(1);
+                // Must yield, not block. Thread.Sleep here holds a thread-pool thread, and the receiver
+                // task below needs one to resume from its awaited ReadAsync - on Android, where the
+                // pool is small and grows slowly, that starves the reader and every block times out.
+                await Task.Delay(10);
                 if ((DateTime.Now - startTime).TotalMilliseconds > _packetTimeout)
                 {
                     throw new TimeoutException();
@@ -129,6 +130,14 @@ namespace PcmHacking
 
         private async void ReceiverTask()
         {
+            // A single read failure used to cancel the port's token source, which ended this loop for
+            // good: the port stayed open but received nothing ever again, so every later operation
+            // timed out with nothing in the log to explain it. Dispose shares that token source, so
+            // the port could not recover either. One failed read is usually transient - only a run of
+            // them means the link is really gone.
+            const int maxConsecutiveErrors = 10;
+            int consecutiveErrors = 0;
+
             while (!_cancellationTokenSource.IsCancellationRequested && _deviceStream != null)
             {
                 if (_deviceStream.CanRead)
@@ -138,11 +147,23 @@ namespace PcmHacking
                     try
                     {
                         bytesRead = await _deviceStream.ReadAsync(incomingData); // Read all available bytes.
+                        consecutiveErrors = 0;
                     }
                     catch (Exception ex)
                     {
-                        if (_localDebug) Debug.WriteLine($"Error reading from Bluetooth device {_deviceInfo.DeviceName}: {ex.Message}");
-                        _cancellationTokenSource.Cancel();
+                        // Logged unconditionally: gated behind _localDebug, a dying port left no trace.
+                        consecutiveErrors++;
+                        Debug.WriteLine($"Error reading from Bluetooth device {_deviceInfo.DeviceName} ({consecutiveErrors}/{maxConsecutiveErrors}): {ex.Message}");
+
+                        if (consecutiveErrors >= maxConsecutiveErrors)
+                        {
+                            Debug.WriteLine($"Giving up on Bluetooth device {_deviceInfo.DeviceName} after {consecutiveErrors} consecutive read failures.");
+                            _cancellationTokenSource.Cancel();
+                            return;
+                        }
+
+                        await Task.Delay(50);
+                        continue;
                     }
                     for (int i = 0; i < bytesRead; i++)
                     {
@@ -150,7 +171,10 @@ namespace PcmHacking
                     }
                     if (_localDebug) Debug.WriteLine($"Incoming bytes: {incomingData.ToHex(bytesRead)} ReadLen={bytesRead};BufLen={_incomingQueue.Count}");
                 }
-                Thread.Sleep(1);
+
+                // Yield rather than block: this runs on a thread-pool thread, and on Android the pool
+                // is small and grows slowly, so holding one here starves the rest of the transfer.
+                await Task.Delay(1);
             }
         }
 

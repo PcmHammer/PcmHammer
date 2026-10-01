@@ -104,19 +104,22 @@ namespace PcmHacking.UnoUI.Platforms.Android
         private const string KernelAssetFolder = "Assets/Kernels";
 
         /// <summary>
-        /// Vehicle's base path on Android: the user-visible PCMHammer\Bins folder. Rooted at the
-        /// external-storage path the OS reports, which is /storage/emulated/&lt;user&gt; - not always
-        /// user 0, on a device with a work profile or a second user.
+        /// The user-visible PCMHammer folder. Rooted at the external-storage path the OS reports,
+        /// which is /storage/emulated/&lt;user&gt; - not always user 0, on a device with a work profile
+        /// or a second user.
         /// </summary>
-        public static string KernelDirectory
+        public static string PcmHammerDirectory
         {
             get
             {
                 string root = global::Android.OS.Environment.ExternalStorageDirectory?.AbsolutePath
                     ?? "/storage/emulated/0";
-                return Path.Combine(root, "PCMHammer", "Bins");
+                return Path.Combine(root, "PCMHammer");
             }
         }
+
+        /// <summary>Vehicle's base path on Android: where the kernels are extracted to.</summary>
+        public static string KernelDirectory => Path.Combine(PcmHammerDirectory, "Bins");
 
         /// <summary>
         /// Copy every embedded kernel and boot library to the folder the library loads them from.

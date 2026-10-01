@@ -9,7 +9,7 @@ using AndroidX.Core.App;
 
 namespace PcmHacking.UnoUI.Platforms.Android
 {
-    [Service(Exported = true, Name = "net.PcmHacking.Uno.DataService")]
+    [Service(Exported = true, Name = "net.PCMHammer.Uno.DataService")]
     public class DataService : Service {
         private static string _actionType = string.Empty;
         private static string NOTIFICATION_CHANNEL_ID = "pcmhacking";
@@ -40,7 +40,15 @@ namespace PcmHacking.UnoUI.Platforms.Android
         public static void UpdateProgress(int progress, string details) {
             var notifcationManager = global::Android.App.Application.Context.GetSystemService(Context.NotificationService) as NotificationManager;
             NotificationCompat.Builder? note = BuildNotification(_actionType, progress, details);
-            notifcationManager!.Notify(NOTIFICATION_ID, note!.Build());
+
+            // The operation starts before the service is up, so the first progress report can arrive
+            // while there is still no context to build a notification from. Skipping that update is
+            // correct; the '!' here used to throw instead.
+            if (notifcationManager == null || note == null) {
+                return;
+            }
+
+            notifcationManager.Notify(NOTIFICATION_ID, note.Build());
         }
 
         private static NotificationCompat.Builder? BuildNotification(string actionType, int progress, string details)
@@ -111,10 +119,14 @@ namespace PcmHacking.UnoUI.Platforms.Android
                     _runnerTask.ContinueWith((t) => {
                         StopForeground(StopForegroundFlags.Remove);
                         StopSelfResult(startId);
-                        if (t.IsCompletedSuccessfully && _onSuccessAction != null) {
-                            _onSuccessAction?.Invoke();
-                        } else if (t.IsFaulted && _onFailureAction != null) {
+
+                        // A cancelled task is neither CompletedSuccessfully nor Faulted, so it used
+                        // to match neither branch: no callback ran, and the caller never released
+                        // the connection or re-enabled its controls.
+                        if (t.IsFaulted) {
                             _onFailureAction?.Invoke();
+                        } else {
+                            _onSuccessAction?.Invoke();
                         }
                     });
                 }

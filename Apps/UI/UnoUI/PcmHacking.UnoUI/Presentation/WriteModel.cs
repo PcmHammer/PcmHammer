@@ -420,7 +420,7 @@ public partial record WriteModel : IAsyncLogger
             await this.AddUserMessage("Write failed: ");
             await this.AddUserMessage(exception.Message);
             await Task.Delay(1000, cancellationToken);
-            await this.AddDebugMessage(exception.ToString());
+            this.loggerAdapter.AddDebugMessage(exception.ToString());
             await this.EnableControls(false);
         }
         finally
@@ -491,9 +491,24 @@ public partial record WriteModel : IAsyncLogger
     [Command]
     public async ValueTask Cancel(CancellationToken ct)
     {
-        await this.AddUserMessage("Cancelling.");
-        this.tokenSource?.Cancel();
-        this.tokenSource = null;
+        // Keep the source. Clearing it here meant the first click cancelled and every later click
+        // only logged "Cancelling.", which looked identical to a cancel that was being ignored.
+        CancellationTokenSource? source = this.tokenSource;
+        if (source == null)
+        {
+            await this.AddUserMessage("Nothing to cancel.");
+        }
+        else if (source.IsCancellationRequested)
+        {
+            await this.AddUserMessage("Already cancelling; waiting for the current block to finish.");
+        }
+        else
+        {
+            await this.AddUserMessage("Cancelling.");
+            source.Cancel();
+        }
+
+        await _localUserMessages.FlushNow();
     }
 
     private async Task<string?> PromptForFileOpenPath()
@@ -534,9 +549,13 @@ public partial record WriteModel : IAsyncLogger
         await Task.CompletedTask;
     }
 
-    public async Task AddDebugMessage(string message)
+    public Task AddDebugMessage(string message)
     {
-        // TODO: Debug message logging
+        // Nothing to do: this is the interceptor handing back a message the adapter has already put
+        // in the log buffer, and the Write page shows user messages only. Writing it to the buffer
+        // here would store every library debug line twice. Code in this class that wants something
+        // in the debug log calls loggerAdapter.AddDebugMessage directly.
+        return Task.CompletedTask;
     }
 
     public async Task StatusUpdateActivity(string activity)
@@ -556,12 +575,8 @@ public partial record WriteModel : IAsyncLogger
 
     public async Task StatusUpdateRetryCount(string retries)
     {
-        if (string.IsNullOrWhiteSpace(retries))
-        {
-            retries = "None.";
-        }
-
-        await this.RetryCount.SetAsync("Retried messages: " + retries);
+        // No "None." substitution: the library always sends a count now, so this matches Read.
+        await this.RetryCount.SetAsync("Retries: " + retries);
     }
 
     public async Task StatusUpdateProgressBar(double completed, bool visible)

@@ -266,33 +266,53 @@ public class ConnectionService : IConnectionService
         return isConnected;
     }
 
-    /// <summary>How long to let an in-progress operation wind down before releasing the port anyway.</summary>
+    /// <summary>How long to wait for an in-progress operation to finish before giving up on closing.</summary>
     private static readonly TimeSpan ShutdownTimeout = TimeSpan.FromSeconds(10);
 
+    /// <summary>
+    /// Release the vehicle and device. Only for a real application close - see the remarks.
+    /// </summary>
+    /// <remarks>
+    /// Teardown is guarded by the state-change semaphore rather than by watching internalState. An
+    /// operation holds that semaphore for its whole duration, so taking it here is what makes it
+    /// impossible to dispose the device underneath a running read or write. The old version polled
+    /// internalState for a bounded time and then disposed regardless, which nulled Vehicle.device
+    /// under an in-flight operation; a read died on a NullReferenceException and a write would have
+    /// been cut in half.
+    ///
+    /// If the operation outlasts the timeout we leave everything open and let the process exit take
+    /// the port with it. An abandoned port costs nothing next launch; an interrupted write does not.
+    /// </remarks>
     public async Task AwaitConnectionShutdown()
     {
-        if (!App.ApplicationShutdownSource.IsCancellationRequested)
+        if (!await this.stateChangeSemaphore.WaitAsync(ShutdownTimeout))
         {
-            App.ApplicationShutdownSource.Cancel();
+            logger.AddDebugMessage(
+                $"Shutdown requested while {this.internalState}, which did not finish in {ShutdownTimeout.TotalSeconds}s. "
+                + "Leaving the connection open rather than interrupting it.");
+            return;
         }
 
-        // Bounded, unlike the original: a wedged operation must not stop the app from closing.
-        DateTime deadline = DateTime.UtcNow + ShutdownTimeout;
-        while (this.internalState >= ConnectionStates.Connected && DateTime.UtcNow < deadline)
+        try
         {
-            await Task.Delay(10);
-        }
+            this.StopTimer();
 
-        if (this.vehicle != null)
+            if (this.vehicle != null)
+            {
+                // Vehicle.Dispose only releases the underlying device once this is cancelled.
+                this.vehicle.ShutdownSignalSource.Cancel();
+                this.vehicle.Dispose();
+                this.vehicle = null;
+            }
+
+            this.device?.Dispose();
+            this.device = null;
+            this.ForceTransition(ConnectionStates.NotConnected);
+        }
+        finally
         {
-            this.vehicle.ShutdownSignalSource.Cancel();
-            this.vehicle.Dispose();
-            this.vehicle = null;
+            this.stateChangeSemaphore.Release();
         }
-
-        this.device?.Dispose();
-        this.device = null;
-        this.StopTimer();
     }
 
     /// <summary>
@@ -461,6 +481,26 @@ public class ConnectionService : IConnectionService
 
         try
         {
+            if (nextState == ConnectionStates.Active || nextState == ConnectionStates.Logging)
+            {
+                // A poll suppresses logging and then waits for the connection, so one that queued
+                // ahead of this activity can leave the flag off. An operation must always log.
+                this.logBuffer.Enabled = true;
+
+                // The PCM restarts at the end of an operation, and TryTransition refuses anything
+                // above Connected until it is back. Wait that out instead of failing: a read started
+                // within ten seconds of the last one was rejected as "not connected".
+                int resetRemaining = this.ResetTimeRemaining;
+                if (resetRemaining != -1)
+                {
+                    logger.AddUserMessage($"Waiting {resetRemaining}s for the PCM to finish restarting...");
+                    while (this.ResetTimeRemaining != -1)
+                    {
+                        await Task.Delay(250);
+                    }
+                }
+            }
+
             // We want to be connected in order to proceed. Retry for up to 5 seconds.
             try
             {
@@ -495,7 +535,11 @@ public class ConnectionService : IConnectionService
             // acquired) the 'using' pattern won't call the Dispose method,
             // so the semaphore has to be released explicitly.
             this.stateChangeSemaphore.Release();
-            return null!;
+
+            // Rethrow rather than returning null. Every caller dereferences Vehicle straight away,
+            // so a null lease surfaced as a bare NullReferenceException with no indication that the
+            // real problem was an unavailable connection.
+            throw;
         }
 
         return new ConnectionLease(this, this.vehicle, activity);
@@ -585,6 +629,28 @@ public class ConnectionService : IConnectionService
         this.StopTimer();
     }
 
+    /// <summary>
+    /// Return the PCM to its normal state at the end of an operation, and open the reset window that
+    /// holds off the next one. No-op unless an operation was actually running.
+    /// </summary>
+    /// <remarks>
+    /// This used to live in TryTransition as ExitKernel().Wait() and ClearTroubleCodes().Wait().
+    /// PcmLibrary never uses ConfigureAwait(false), so those continuations post back to whatever
+    /// context started them: blocking on them from the UI thread - which is where EndActivity runs
+    /// when a lease is disposed from a model - is a deadlock.
+    /// </remarks>
+    private async Task LeaveActiveState()
+    {
+        if (this.internalState != ConnectionStates.Active || this.vehicle == null)
+        {
+            return;
+        }
+
+        await this.vehicle.ExitKernel();
+        await this.vehicle.ClearTroubleCodes();
+        _leftActiveState = DateTime.Now;
+    }
+
     public async Task EndActivity(bool isConnected)
     {
         try
@@ -599,6 +665,9 @@ public class ConnectionService : IConnectionService
 
             if (isConnected)
             {
+                // Before the transition, while internalState still says an operation was running.
+                await this.LeaveActiveState();
+
                 ConnectionStates allowed =
                     ConnectionStates.Active |
                     ConnectionStates.Logging |
@@ -619,6 +688,10 @@ public class ConnectionService : IConnectionService
         {
             logger.AddDebugMessage("Exception in ConnectionService.EndActivity: " + exception.ToString());
             this.ForceTransition(ConnectionStates.NotConnected);
+
+            // The public state drives the back button, so it has to follow internalState here too.
+            // Leaving it at Active stranded the user on the operation's page.
+            await this.ConnectionState.SetAsync(ConnectionStates.NotConnected);
         }
         finally
         {
@@ -687,11 +760,6 @@ public class ConnectionService : IConnectionService
             }
             using (ConnectionLease lease = await this.BeginActivity(PollingActivity, true))
             {
-                if(lease == null)
-                {
-                    ForceTransition(ConnectionStates.NotConnected);
-                    return;
-                }
                 acquiredVehicle = lease.Vehicle;
                 if (acquiredVehicle == null)
                 {
@@ -714,6 +782,13 @@ public class ConnectionService : IConnectionService
         }
         catch (ConnectionUnavailableException)
         {
+            // No vehicle means the connection itself is gone, which the state has to reflect;
+            // anything else just means the bus was busy and the poll can be skipped quietly.
+            if (this.vehicle == null)
+            {
+                ForceTransition(ConnectionStates.NotConnected);
+            }
+
             logger.AddDebugMessage("Poll skipped.");
         }
         catch (Exception exception)
@@ -882,12 +957,6 @@ public class ConnectionService : IConnectionService
         {
             logger.AddDebugMessage($"Transition denied due to ECM/PCM reset, staying in: {this.internalState}");
             return false;
-        }
-        if (this.internalState == ConnectionStates.Active && newState == ConnectionStates.Connected)
-        {
-            this.vehicle?.ExitKernel().Wait();
-            this.vehicle?.ClearTroubleCodes().Wait();
-            _leftActiveState = DateTime.Now;
         }
         if (((this.internalState & expected) > 0) || this.internalState == newState && ResetTimeRemaining == -1)
         {

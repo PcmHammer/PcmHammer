@@ -282,15 +282,21 @@ public class SettingsService : ISettingsService
     }
 
 
+    /// <summary>
+    /// What <see cref="GetDataLogFolder"/> returns when no folder has been chosen. This is display
+    /// text, not a path - callers must check for it before using the result as one.
+    /// </summary>
+    public const string NoDataLogFolder = "[no location configured]";
+
     public string GetDataLogFolder()
     {
         string? folder = _settingsListInterface[DataLogFolderKey] as string;
         if (string.IsNullOrEmpty(folder))
         {
-            return "[no location configured]";
+            return NoDataLogFolder;
         }
 
-        return _settingsListInterface[DataLogFolderKey] as string ?? string.Empty;
+        return folder;
     }
     public void SetDataLogFolder(string folder)
     {

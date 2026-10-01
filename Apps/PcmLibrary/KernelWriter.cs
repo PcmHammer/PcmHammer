@@ -268,9 +268,8 @@ namespace PcmHacking
                     this.messageRetryCount += writeResponse.RetryCount;
                 }
 
-                this.logger.StatusUpdateRetryCount(this.messageRetryCount > 0
-                    ? this.messageRetryCount + (this.messageRetryCount > 1 ? " Retries" : " Retry")
-                    : string.Empty);
+                // The bare running total; see the matching note in KernelReader.
+                this.logger.StatusUpdateRetryCount(this.messageRetryCount.ToString());
 
                 if (writeResponse.Status != ResponseStatus.Success)
                 {

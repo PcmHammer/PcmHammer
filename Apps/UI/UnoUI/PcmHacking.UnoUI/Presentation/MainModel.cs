@@ -8,6 +8,9 @@ namespace PcmHacking.UnoUI.Presentation;
 public partial record MainModel
 {
     public static bool CanGoBack { get; private set; }
+
+    /// <summary>True while a read, write or other operation holds the connection.</summary>
+    public static bool OperationInProgress { get; private set; }
     public bool IsBackButtonVisible = true;
     private INavigator navigator;
     private ISettingsService settingsService;
@@ -101,6 +104,11 @@ public partial record MainModel
         bool justPolling = currentActivity == ConnectionService.PollingActivity;
         bool canGoBack = await this.navigator.CanGoBack();
         CanGoBack = canGoBack && (connectionNotActive || justPolling);
+
+        // Separate from CanGoBack, which is also false simply because there is nowhere to go back to.
+        // The back handler needs to tell those apart: at the root it closes the app, but never while
+        // an operation holds the connection.
+        OperationInProgress = !(connectionNotActive || justPolling);
 
         // Enable/disable the back button depending on whether the connection state is Active.
         if (await this.BackButtonEnabled.Value() != CanGoBack)

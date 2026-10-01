@@ -28,11 +28,24 @@ public sealed partial class MainPage : Page
 
     private void MainPage_BackRequested(object? sender, BackRequestedEventArgs e)
     {
-        e.Handled = true;
         if (MainModel.CanGoBack)
         {
+            e.Handled = true;
             this.ContentFrame.GoBack();
+            return;
         }
+
+        // Never leave while a read or write holds the connection, wherever we are in the app.
+        if (MainModel.OperationInProgress)
+        {
+            e.Handled = true;
+            return;
+        }
+
+        // At the main menu with nothing running: leave it unhandled so Android finishes the activity
+        // and closes the app. This used to be handled unconditionally, which swallowed every back
+        // press at the root - there was no way out of the app short of force-stopping it. Finishing
+        // runs MainActivity.OnDestroy, which releases the connection.
     }
 
     private void Page_Unloaded(object sender, RoutedEventArgs e)

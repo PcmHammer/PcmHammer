@@ -20,7 +20,12 @@ public partial class App : Application
     /// </remarks>
     public static Window? StaticMainWindow { get; private set; }
 
-    public static CancellationTokenSource ApplicationShutdownSource = new();
+    /// <summary>
+    /// Cancelled once, when the app is really closing. Not on suspend: that fires for an ordinary
+    /// file picker, and a one-shot source could not be un-cancelled afterwards, so the app stayed
+    /// permanently "shutting down" and every later reconnect refused to hand back a device.
+    /// </summary>
+    public static readonly CancellationTokenSource ApplicationShutdownSource = new();
         
     private DispatcherQueue dispatcherQueue = DispatcherQueue.GetForCurrentThread();
 
@@ -235,10 +240,15 @@ public partial class App : Application
             await App.GetService<Services.IConnectionService>().AwaitConnectionShutdown();
         };
 
-#if !WINDOWS
-        // Mobile suspends rather than closes, and would otherwise leave the port open.
-        App.Current.Suspending += Current_Suspending;
-#endif
+        // Deliberately no Suspending handler, though mobile suspends rather than closes. Android
+        // raises suspend for anything that covers the activity - our own file picker, the screen
+        // blanking, the notification shade - and the event carries nothing that separates those from
+        // the user leaving, because the activity is stopped and unfocused either way. Releasing the
+        // connection there cost a reconnect every time the user glanced away, and connecting to the
+        // interface can take the better part of a minute. Holding the socket while backgrounded is
+        // cheap by comparison, and a long read keeps running in a foreground service regardless.
+        // The connection is released when the app really goes away: MainActivity.OnDestroy while
+        // finishing, the Closing handler above on desktop, and the process exit otherwise.
 
 #if WINDOWS
         StaticMainWindow.Title = "PCM Hammer";
@@ -255,14 +265,6 @@ public partial class App : Application
 
         Host = await builder.NavigateAsync<Shell>();
     }
-
-#if !WINDOWS
-    private async void Current_Suspending(object sender, SuspendingEventArgs e)
-    {
-        App.ApplicationShutdownSource.Cancel();
-        await App.GetService<Services.IConnectionService>().AwaitConnectionShutdown();
-    }
-#endif
 
     private static void RegisterRoutes(IViewRegistry views, IRouteRegistry routes)
     {

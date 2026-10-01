@@ -667,11 +667,14 @@ jobs:
         foreach ($apk in ($apkSelection | Sort-Object FullName -Unique)) {
           $zip = [System.IO.Compression.ZipFile]::OpenRead($apk.FullName)
           try {
+            # Check the path the app actually loads from. PermissionMethods reads the asset folder
+            # "Assets/Kernels", which the csproj's AndroidAsset Link puts at assets/Assets/Kernels.
+            # This used to accept assets/Kernels too, which is only where the "Inject kernels into
+            # Uno assets" step copies them - so the guard passed on that copy alone and would not
+            # have noticed the real embed being empty.
             $kernelEntries = $zip.Entries | Where-Object {
-              $_.FullName -like "assets/Kernel-*.bin" -or
-              $_.FullName -like "assets/Loader-*.bin" -or
-              $_.FullName -like "assets/Kernels/Kernel-*.bin" -or
-              $_.FullName -like "assets/Kernels/Loader-*.bin"
+              $_.FullName -like "assets/Assets/Kernels/Kernel-*.bin" -or
+              $_.FullName -like "assets/Assets/Kernels/Loader-*.bin"
             }
             if (!$kernelEntries -or $kernelEntries.Count -eq 0) {
               throw "APK '$($apk.Name)' does not contain kernel assets."
@@ -683,7 +686,7 @@ jobs:
             # - native-style outputs (lib*.so) for app-specific assemblies
             # - assembly store payloads (assemblies/*.blob or assemblies/*.dll)
             $appAssemblyEntries = $zip.Entries | Where-Object {
-              $_.FullName -match '(?i)(PcmHacking|PcmLibrary|net[._]PcmHacking[._]Uno).*(\.dll(\.so)?$|\.so$)' -or
+              $_.FullName -match '(?i)(PcmHacking|PcmLibrary|net[._]PCMHammer[._]Uno).*(\.dll(\.so)?$|\.so$)' -or
               $_.FullName -match '(?i)^assemblies/.*\.(blob|dll|manifest)$'
             }
             if (!$appAssemblyEntries -or $appAssemblyEntries.Count -eq 0) {

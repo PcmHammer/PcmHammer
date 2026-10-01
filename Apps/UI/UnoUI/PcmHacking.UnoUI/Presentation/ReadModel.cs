@@ -72,7 +72,7 @@ public partial record ReadModel : IAsyncLogger
         this.platformService = platformService ?? throw new ArgumentNullException(nameof(platformService));
         this.promptService = promptService ?? throw new ArgumentNullException(nameof(promptService));
         this.dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
-        
+
         var _1 = this.UseCustomKey.SetAsync(this.settingsService.GetUseCustomKey());
         var _2 = this.CustomKey.SetAsync(this.settingsService.GetCustomKey());
         var _3 = this.EnableControls(false);
@@ -151,103 +151,140 @@ public partial record ReadModel : IAsyncLogger
         // signals.
         this.tokenSource = new CancellationTokenSource();
         CancellationToken readCancellationToken = this.tokenSource.Token;
+
+        // Both are hoisted out of the try so that a failure anywhere below still releases them.
+        // The lease holds the connection's state-change semaphore and leaves the connection in the
+        // Active state, which disables the back button, so dropping one strands the user on this
+        // page with a disabled Start and no way out.
+        ConnectionLease? lease = null;
+        LogInterceptor? interceptor = null;
+        bool handedOffToService = false;
         try
         {
-            ConnectionLease lease = await this.connectionService.BeginActivity("Reading PCM", false);
-            using (new LogInterceptor(this.loggerAdapter, this))
+            lease = await this.connectionService.BeginActivity("Reading PCM", false);
+            interceptor = new LogInterceptor(this.loggerAdapter, this);
+
+            // I suspect a bug in the Uno Platform's ContentDialog implementation, hence the static object in the 'if' statement.
+            // See notes in WriteModel for details.
+            await this.navigator.GetDataAsync<DelayModel, DelayResult>(this, cancellation: cancellationToken);
+            if (DelayModel.Result?.Proceed == false)
             {
-                // I suspect a bug in the Uno Platform's ContentDialog implementation, hence the static object in the 'if' statement.
-                // See notes in WriteModel for details.
-                await this.navigator.GetDataAsync<DelayModel, DelayResult>(this, cancellation: cancellationToken);
-                if (DelayModel.Result?.Proceed == false)
-                {
-                    await this.AddUserMessage("Read aborted.");
-                    return;
-                }
+                await this.AddUserMessage("Read aborted.");
+                return;
+            }
 
-                lease.Vehicle.Enable4xReadWrite = this.settingsService.Is4xReadWriteEnabled();
+            lease.Vehicle.Enable4xReadWrite = this.settingsService.Is4xReadWriteEnabled();
 
-                string customKeyString = await this.CustomKey.Value() ?? String.Empty;
-                uint customKey;
-                if (UInt32.TryParse(customKeyString,
-                    System.Globalization.NumberStyles.HexNumber,
-                    CultureInfo.InvariantCulture,
-                    out customKey) && await this.UseCustomKey.Value())
-                {
-                    lease.Vehicle.UserDefinedKey = (int)customKey;
-                }
-                else
-                {
-                    lease.Vehicle.UserDefinedKey = -1;
-                }
+            string customKeyString = await this.CustomKey.Value() ?? String.Empty;
+            uint customKey;
+            if (UInt32.TryParse(customKeyString,
+                System.Globalization.NumberStyles.HexNumber,
+                CultureInfo.InvariantCulture,
+                out customKey) && await this.UseCustomKey.Value())
+            {
+                lease.Vehicle.UserDefinedKey = (int)customKey;
+            }
+            else
+            {
+                lease.Vehicle.UserDefinedKey = -1;
+            }
 
-                ReadManager readManager = new(
-                    this.loggerAdapter,
-                    lease.Vehicle,
-                    this.Invoke,
-                    this.PromptForFileSavePath,
-                    this.PromptForPcmType,
-                    this.Alert,
-                    this.PromptForYesNo,
-                    readCancellationToken);
+            ReadManager readManager = new(
+                this.loggerAdapter,
+                lease.Vehicle,
+                this.Invoke,
+                this.PromptForFileSavePath,
+                this.PromptForPcmType,
+                this.Alert,
+                this.PromptForYesNo,
+                readCancellationToken);
 
-                PcmType forcedPcmType = await this.GetForcedPcmType();
-                if (forcedPcmType != PcmType.Undefined)
-                {
-                    await this.AddUserMessage("Forcing PCM type: " + forcedPcmType);
-                }
+            PcmType forcedPcmType = await this.GetForcedPcmType();
+            if (forcedPcmType != PcmType.Undefined)
+            {
+                await this.AddUserMessage("Forcing PCM type: " + forcedPcmType);
+            }
 #if WINDOWS
-                using (new AwayMode())
-                {
-                    await performRead(path, lease, readManager, forcedPcmType);
-                    lease.Dispose();
-                }
+            using (new AwayMode())
+            {
+                await performRead(path, lease, readManager, forcedPcmType);
+            }
 #elif ANDROID
-                Progress<ProgressUpdate> progress = new Progress<ProgressUpdate>((progress) => {
-                    _ = UpdateProgress(progress);
+            Progress<ProgressUpdate> progress = new Progress<ProgressUpdate>((progress) => {
+                _ = UpdateProgress(progress);
+            });
+
+            // The read runs in a foreground service after this method returns, so the lease and
+            // the log interceptor outlive the method and are released by the callbacks instead.
+            ConnectionLease startedLease = lease;
+            LogInterceptor startedInterceptor = interceptor;
+            Task readTask = performRead(path, lease, readManager, forcedPcmType, progress);
+
+            Platforms.Android.DataService.StartService("Read PCM", readTask,
+                async () =>
+                {
+                    if (readCancellationToken.IsCancellationRequested)
+                    {
+                        await this.AddUserMessage("Read was canceled.");
+                    }
+                    else
+                    {
+                        await this.AddUserMessage("Read completed successfully.");
+                    }
+
+                    await this.FinishRead(startedLease, startedInterceptor);
+                },
+                async () =>
+                {
+                    // Report what actually failed. This used to log "Read failed: " and nothing else,
+                    // because the exception stayed on the task and was never looked at.
+                    Exception? failure = readTask.Exception?.GetBaseException();
+                    await this.AddUserMessage("Read failed: " + (failure?.Message ?? "unknown error"));
+                    this.loggerAdapter.AddDebugMessage(failure?.ToString() ?? "The read task faulted with no exception.");
+                    await this.FinishRead(startedLease, startedInterceptor);
                 });
 
-                Platforms.Android.DataService.StartService("Read PCM", performRead(path, lease, readManager, forcedPcmType, progress),
-                    async () =>
-                    {
-                        if (readCancellationToken.IsCancellationRequested)
-                        {
-                            await this.AddUserMessage("Read was canceled.");
-                        }
-                        else
-                        {
-                            await this.AddUserMessage("Read completed successfully.");
-                        }
-                        this.tokenSource = null;
-                        await this.EnableControls(false);
-                        lease.Dispose();
-                    },
-                    async () =>
-                    {
-                        await this.AddUserMessage("Read failed: ");
-                        this.tokenSource = null;
-                        await this.EnableControls(false);
-                        lease.Dispose();
-                    });
-                return;
+            handedOffToService = true;
+            return;
 #endif
-            }
         }
         catch (Exception exception)
         {
-            await this.AddUserMessage("Read failed: ");
-            await this.AddUserMessage(exception.Message);
-            await this.AddDebugMessage(exception.ToString());
+            await this.AddUserMessage("Read failed: " + exception.Message);
+            this.loggerAdapter.AddDebugMessage(exception.ToString());
         }
         finally
         {
+            if (!handedOffToService)
+            {
+                await this.FinishRead(lease, interceptor);
+            }
+
             // The buffer publishes on a timer, so the closing lines need an explicit flush.
             await _localUserMessages.FlushNow();
-#if !ANDROID
-            this.tokenSource = null;
-            await this.EnableControls(false);
-#endif
         }
+    }
+
+    /// <summary>
+    /// Release the connection and re-enable the controls. On Android this runs from the service
+    /// callback, long after Start has returned.
+    /// </summary>
+    private async Task FinishRead(ConnectionLease? lease, IDisposable? interceptor)
+    {
+        this.tokenSource = null;
+
+        try
+        {
+            await this.EnableControls(false);
+        }
+        finally
+        {
+            // Last, and unconditionally: the lease is what re-enables the back button.
+            interceptor?.Dispose();
+            lease?.Dispose();
+        }
+
+        await _localUserMessages.FlushNow();
     }
 
     private async Task performRead(
@@ -299,7 +336,7 @@ public partial record ReadModel : IAsyncLogger
         catch (Exception exception)
         {
             await this.AddUserMessage(exception.Message);
-            await this.AddDebugMessage(exception.ToString());
+            this.loggerAdapter.AddDebugMessage(exception.ToString());
             throw;
         }
     }
@@ -307,9 +344,24 @@ public partial record ReadModel : IAsyncLogger
     [Command]
     public async ValueTask Cancel(CancellationToken ct)
     {
-        await this.AddUserMessage("Cancelling.");
-        this.tokenSource?.Cancel();
-        this.tokenSource = null;
+        // Keep the source. Clearing it here meant the first click cancelled and every later click
+        // only logged "Cancelling.", which looked identical to a cancel that was being ignored.
+        CancellationTokenSource? source = this.tokenSource;
+        if (source == null)
+        {
+            await this.AddUserMessage("Nothing to cancel.");
+        }
+        else if (source.IsCancellationRequested)
+        {
+            await this.AddUserMessage("Already cancelling; waiting for the current block to finish.");
+        }
+        else
+        {
+            await this.AddUserMessage("Cancelling.");
+            source.Cancel();
+        }
+
+        await _localUserMessages.FlushNow();
     }
 
     [Command]
@@ -327,25 +379,33 @@ public partial record ReadModel : IAsyncLogger
         }
     }
 
-    private async Task UpdateProgress(ProgressUpdate progress)
+    /// <summary>
+    /// Update Android's foreground-service notification.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately does not touch the on-screen fields. KernelReader.ReportProgress already sends
+    /// those through the logger, which the log interceptor routes to the StatusUpdate methods below,
+    /// so updating them here as well had two writers putting differently formatted versions of the
+    /// same values into the same states - the display flickered between "42%" and "42.00%", two
+    /// spellings of the activity, and two different scalings of the transfer rate. The logger path is
+    /// the one to keep: it is the only one the Windows head has, since that path passes no IProgress.
+    /// </remarks>
+    private Task UpdateProgress(ProgressUpdate progress)
     {
 #if ANDROID
         if (Platforms.Android.DataService.IsServiceRunning())
         {
             int fixedPercentage = (int)(progress.Percentage * 100);
-            Platforms.Android.DataService.UpdateProgress(fixedPercentage, $"Reading {progress.PayloadLength} bytes from 0x{progress.Address:X6}");
-        }
 
+            // Address already carries its "0x" prefix, and it is a string, so the X6 format this
+            // used to apply did nothing except produce "0x0x002B000".
+            Platforms.Android.DataService.UpdateProgress(
+                fixedPercentage,
+                $"Reading {progress.PayloadLength} bytes from {progress.Address}");
+        }
 #endif
-        await Invoke(async () =>
-        {
-            await this.StatusUpdateActivity($"Reading {progress.PayloadLength} bytes from 0x{progress.Address:X6}");
-            await this.StatusUpdateTimeRemaining($"T-{progress.TimeRemaining}");
-            await this.StatusUpdatePercentDone($"{(progress.Percentage * 100.0):0.00}%");
-            await this.StatusUpdateRetryCount(progress.RetryCount.ToString());
-            await this.StatusUpdateProgressBar(progress.Percentage, true);
-            await this.StatusUpdateKbps($"{progress.Rate} Kbps");
-        });
+
+        return Task.CompletedTask;
     }
 
     private async Task Invoke(Action action)
@@ -402,7 +462,10 @@ public partial record ReadModel : IAsyncLogger
     
     public Task AddDebugMessage(string message)
     {
-        // TODO: Debug message logging
+        // Nothing to do: this is the interceptor handing back a message the adapter has already put
+        // in the log buffer, and the Read page shows user messages only. Writing it to the buffer
+        // here would store every library debug line twice. Code in this class that wants something
+        // in the debug log calls loggerAdapter.AddDebugMessage directly.
         return Task.CompletedTask;
     }
 
@@ -423,7 +486,7 @@ public partial record ReadModel : IAsyncLogger
 
     public async Task StatusUpdateRetryCount(string retries)
     {
-        await this.RetryCount.SetAsync("Retried messages: " + retries);
+        await this.RetryCount.SetAsync("Retries: " + retries);
     }
 
     public async Task StatusUpdateProgressBar(double completed, bool visible)
