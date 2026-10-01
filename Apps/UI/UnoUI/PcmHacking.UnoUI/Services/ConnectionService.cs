@@ -148,6 +148,9 @@ public class ConnectionService : IConnectionService
     // own schedule instead of when the user changed something.
     private int retryPeriod = SlowRetryPeriod;
     private DateTime _leftActiveState = DateTime.MinValue;
+    /// <summary>The detected hardware type, kept so it can be shown alone during an operation.</summary>
+    private string pcmTypeName = string.Empty;
+
     private const string _recoveryString = "** RECOVERY **";
     private const string _kernelString = "** KERNEL **";
 
@@ -521,10 +524,17 @@ public class ConnectionService : IConnectionService
                     throw new ConnectionUnavailableException("Not connected. " + errorMessage);
                 }
 
-                // These used to be blanked here, so that a stale voltage could not be mistaken for a
-                // live one. Blanking lost the reading entirely for the whole operation, which is when
-                // it is most wanted; the last known values are kept instead. Polling is suspended
-                // during an activity, so neither is refreshed until it ends.
+                // Show just the hardware type for the duration: during a read or write the type is what
+                // identifies what is being worked on, and the OSID is long.
+                if (this.pcmTypeName.Length > 0)
+                {
+                    await this.OperatingSystemId.SetAsync(this.pcmTypeName);
+                }
+
+                // Polling is suspended for the duration, so there is no live reading to show. The
+                // placeholder says so, where a held value would imply the voltage was still being
+                // watched and a blank would look like a fault.
+                await this.Voltage.SetAsync(VehicleStatus.VoltageUnavailable);
 
                 logger.AddUserMessage("Beginning activity: " + activity);
                 break;
@@ -816,7 +826,16 @@ public class ConnectionService : IConnectionService
             }
 
             logger.AddDebugMessage($"Detected PCM on {status.Bus}.");
-            await this.OperatingSystemId.SetAsync(status.Osid.ToString());
+
+            // Remember the hardware type separately: it stays on screen during an operation, where the
+            // OSID is dropped because it is long and the type is what identifies what is being worked on.
+            PcmType hardwareType = new OSIDInfo(status.Osid).HardwareType;
+            this.pcmTypeName = hardwareType == PcmType.Undefined ? string.Empty : hardwareType.ToString();
+
+            await this.OperatingSystemId.SetAsync(
+                this.pcmTypeName.Length > 0
+                    ? $"{this.pcmTypeName} {status.Osid}"
+                    : status.Osid.ToString());
             await this.Bus.SetAsync(status.Bus.ToString());
             await this.Voltage.SetAsync(status.Voltage);
         }
@@ -840,6 +859,9 @@ public class ConnectionService : IConnectionService
 
     private async Task ResetVehicleInfo()
     {
+        // The cached type goes too, or a stale one would reappear when the next operation starts.
+        this.pcmTypeName = string.Empty;
+
         await this.ConnectionState.SetAsync(ConnectionStates.NotConnected);
         await this.OperatingSystemId.SetAsync(String.Empty);
         await this.Bus.SetAsync(String.Empty);
