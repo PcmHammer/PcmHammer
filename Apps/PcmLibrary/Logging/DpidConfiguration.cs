@@ -115,7 +115,7 @@ namespace PcmHacking
         {
             return this.ParameterGroups.SelectMany(
                     group => group.LogColumns.Select(
-                        parameter => string.Format("{0} ({1})", parameter.Parameter.Name, parameter.Conversion.Units)));
+                        column => LogColumnHeading.For(column.Parameter, column.Conversion.Units)));
         }
 
         public override string ToString()

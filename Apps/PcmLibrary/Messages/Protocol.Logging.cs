@@ -87,7 +87,7 @@ namespace PcmHacking
             byte[] payload = new byte[]
             {
                 Priority.Physical0,
-                TargetVpwId,
+                TargetVPWId,
                 ToolId,
                 Mode.ConfigureDynamicData,
                 dpid,
@@ -107,6 +107,9 @@ namespace PcmHacking
         /// </summary>
         public enum DpidRequestType : byte
         {
+            /// <summary>Stop sending. The PCM keeps streaming until told otherwise.</summary>
+            Halt = Submode.HaltStream,
+
             SingleRow = Submode.SingleRow,
             Stream1 = Submode.Stream1,
             Stream2 = Submode.Stream2
@@ -125,7 +128,7 @@ namespace PcmHacking
                 dpidBytes = dpidBytes.Concat(Enumerable.Repeat((byte)padding, 4 - length));
             }
 
-            byte[] header = new byte[] { Priority.Physical0, TargetVpwId, ToolId, Mode.SendDynamicData, (byte)requestType };
+            byte[] header = new byte[] { Priority.Physical0, TargetVPWId, ToolId, Mode.SendDynamicData, (byte)requestType };
             return new Message(header.Concat(dpidBytes).ToArray());
         }
 
@@ -137,7 +140,7 @@ namespace PcmHacking
             ResponseStatus unused;
 
             // The priority byte changes from 6C to 8C after the first tool-present message is sent.
-            if (!TryVerifyInitialBytes(message.GetBytes(), new byte[] { Priority.Physical0, ToolId, TargetVpwId, 0x6A }, out unused))
+            if (!TryVerifyInitialBytes(message.GetBytes(), new byte[] { Priority.Physical0, ToolId, TargetVPWId, 0x6A }, out unused))
             {
                 rawLogData = null!;
                 return false;
@@ -155,7 +158,7 @@ namespace PcmHacking
 
         public Message CreateCrankRelearnRequest()
         {
-            return new Message(new byte[] { Priority.Physical0, TargetVpwId, ToolId, Mode.SpecialFunctions, 0x01, 0x00, 0x00, 0x00, 0x00, 0x80, 0x00 });
+            return new Message(new byte[] { Priority.Physical0, TargetVPWId, ToolId, Mode.SpecialFunctions, 0x01, 0x00, 0x00, 0x00, 0x00, 0x80, 0x00 });
         }
 
         /// <summary>
@@ -181,7 +184,7 @@ namespace PcmHacking
             */
 
             // Using OBD2 "Physical" addressing.
-            request = new Message(new byte[] { Priority.Physical0, TargetVpwId, ToolId, Mode.GetPid, (byte)(pid >> 8), (byte)pid, 0x01 });
+            request = new Message(new byte[] { Priority.Physical0, TargetVPWId, ToolId, Mode.GetPid, (byte)(pid >> 8), (byte)pid, 0x01 });
 
             return request;
         }
@@ -194,7 +197,7 @@ namespace PcmHacking
             ResponseStatus status;
             if (!TryVerifyInitialBytes(
                 message.GetBytes(), 
-                new byte[] { Priority.Physical0, ToolId, TargetVpwId, Mode.GetPid + Mode.Response }, out status))
+                new byte[] { Priority.Physical0, ToolId, TargetVPWId, Mode.GetPid + Mode.Response }, out status))
             {
                 return Response.Create(status, 0);    
             }
@@ -224,7 +227,7 @@ namespace PcmHacking
         /// </summary>
         public Message CreateRamRequest(int address)
         { 
-            Message request = new Message(new byte[] { Priority.Block, TargetVpwId, ToolId, Mode.GetRam,
+            Message request = new Message(new byte[] { Priority.Block, TargetVPWId, ToolId, Mode.GetRam,
                 (byte)(address >> 16), (byte)(address >> 8), (byte)address, 0x01 });
 
             return request;
@@ -249,7 +252,7 @@ namespace PcmHacking
             ResponseStatus status;
             if (!TryVerifyInitialBytes(
                 message.GetBytes(),
-                new byte[] { Priority.Physical0, ToolId, TargetVpwId, Mode.GetRam + Mode.Response }, out status))
+                new byte[] { Priority.Physical0, ToolId, TargetVPWId, Mode.GetRam + Mode.Response }, out status))
             {
                 return Response.Create(status, (uint)0);
             }

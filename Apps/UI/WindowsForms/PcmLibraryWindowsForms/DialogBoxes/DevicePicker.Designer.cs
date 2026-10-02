@@ -31,6 +31,7 @@ namespace PcmHacking
             this.categories = new System.Windows.Forms.GroupBox();
             this.j2534RadioButton = new System.Windows.Forms.RadioButton();
             this.serialRadioButton = new System.Windows.Forms.RadioButton();
+            this.noneRadioButton = new System.Windows.Forms.RadioButton();
             this.serialOptionsGroupBox = new System.Windows.Forms.GroupBox();
             this.buyDeviceLink = new System.Windows.Forms.LinkLabel();
             this.serialDeviceList = new System.Windows.Forms.ComboBox();
@@ -55,6 +56,7 @@ namespace PcmHacking
             // 
             // categories
             // 
+            this.categories.Controls.Add(this.noneRadioButton);
             this.categories.Controls.Add(this.j2534RadioButton);
             this.categories.Controls.Add(this.serialRadioButton);
             this.categories.Location = new System.Drawing.Point(12, 12);
@@ -67,7 +69,7 @@ namespace PcmHacking
             // j2534RadioButton
             // 
             this.j2534RadioButton.AutoSize = true;
-            this.j2534RadioButton.Location = new System.Drawing.Point(142, 20);
+            this.j2534RadioButton.Location = new System.Drawing.Point(205, 20);
             this.j2534RadioButton.Name = "j2534RadioButton";
             this.j2534RadioButton.Size = new System.Drawing.Size(91, 17);
             this.j2534RadioButton.TabIndex = 1;
@@ -75,11 +77,23 @@ namespace PcmHacking
             this.j2534RadioButton.Text = "&J2534 Device";
             this.j2534RadioButton.UseVisualStyleBackColor = true;
             this.j2534RadioButton.CheckedChanged += new System.EventHandler(this.j2534RadioButton_CheckedChanged);
-            // 
+            //
+            // noneRadioButton
+            //
+            this.noneRadioButton.AutoSize = true;
+            this.noneRadioButton.Location = new System.Drawing.Point(7, 20);
+            this.noneRadioButton.Name = "noneRadioButton";
+            this.noneRadioButton.Size = new System.Drawing.Size(51, 17);
+            this.noneRadioButton.TabIndex = 0;
+            this.noneRadioButton.TabStop = true;
+            this.noneRadioButton.Text = "&None";
+            this.noneRadioButton.UseVisualStyleBackColor = true;
+            this.noneRadioButton.CheckedChanged += new System.EventHandler(this.noneRadioButton_CheckedChanged);
+            //
             // serialRadioButton
-            // 
+            //
             this.serialRadioButton.AutoSize = true;
-            this.serialRadioButton.Location = new System.Drawing.Point(7, 20);
+            this.serialRadioButton.Location = new System.Drawing.Point(72, 20);
             this.serialRadioButton.Name = "serialRadioButton";
             this.serialRadioButton.Size = new System.Drawing.Size(110, 17);
             this.serialRadioButton.TabIndex = 0;
@@ -299,6 +313,7 @@ namespace PcmHacking
         private System.Windows.Forms.GroupBox categories;
         private System.Windows.Forms.RadioButton j2534RadioButton;
         private System.Windows.Forms.RadioButton serialRadioButton;
+        private System.Windows.Forms.RadioButton noneRadioButton;
         private System.Windows.Forms.GroupBox serialOptionsGroupBox;
         private System.Windows.Forms.LinkLabel buyDeviceLink;
         private System.Windows.Forms.ComboBox serialDeviceList;

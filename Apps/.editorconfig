@@ -61,7 +61,9 @@ dotnet_style_null_propagation = true
 dotnet_style_object_initializer = true
 dotnet_style_operator_placement_when_wrapping = beginning_of_line
 dotnet_style_prefer_auto_properties = true
-dotnet_style_prefer_collection_expression = when_types_loosely_match
+# The codebase writes "new List<T>()" throughout. Suggesting "[]" on every one of them was noise
+# rather than guidance; turn it on deliberately if the style is ever adopted across the tree.
+dotnet_style_prefer_collection_expression = never
 dotnet_style_prefer_compound_assignment = true
 dotnet_style_prefer_conditional_expression_over_assignment = true
 dotnet_style_prefer_conditional_expression_over_return = true
@@ -122,18 +124,23 @@ csharp_style_prefer_readonly_struct_member = true
 
 # Code-block preferences
 csharp_prefer_braces = true
-csharp_prefer_simple_using_statement = true
+# "using (x) { }" blocks, not using declarations: the braces make the scope of a port, a dialog or a
+# claim visible, which matters in code that holds hardware open.
+csharp_prefer_simple_using_statement = false
 csharp_prefer_system_threading_lock = true
 csharp_style_namespace_declarations = block_scoped
 csharp_style_prefer_method_group_conversion = true
-csharp_style_prefer_primary_constructors = true
+# No primary constructors anywhere in the tree; the explicit form is the house style.
+csharp_style_prefer_primary_constructors = false
 csharp_style_prefer_simple_property_accessors = true
 csharp_style_prefer_top_level_statements = true
 
 # Expression-level preferences
 csharp_prefer_simple_default_expression = true
 csharp_style_deconstructed_variable_declaration = true
-csharp_style_implicit_object_creation_when_type_is_apparent = true
+# "new List<Conversion>()" rather than "new()". Three uses of the short form against hundreds of
+# the explicit one, and the explicit type is worth reading in a file full of similar declarations.
+csharp_style_implicit_object_creation_when_type_is_apparent = false
 csharp_style_inlined_variable_declaration = true
 csharp_style_prefer_implicitly_typed_lambda_expression = true
 csharp_style_prefer_index_operator = true
@@ -220,9 +227,12 @@ dotnet_naming_rule.non_field_members_should_be_pascal_case.severity = suggestion
 dotnet_naming_rule.non_field_members_should_be_pascal_case.symbols = non_field_members
 dotnet_naming_rule.non_field_members_should_be_pascal_case.style = pascal_case
 
-dotnet_naming_rule.private_or_internal_field_should_be__underscoredcamelcase.severity = suggestion
-dotnet_naming_rule.private_or_internal_field_should_be__underscoredcamelcase.symbols = private_or_internal_field
-dotnet_naming_rule.private_or_internal_field_should_be__underscoredcamelcase.style = _underscoredcamelcase
+# Private fields are camelCase with no prefix, and are read through "this." - which is what this
+# codebase has always done. The generated default asked for an underscore prefix that no file in
+# PcmLibrary uses, so every field in every file was flagged and the suggestion was simply noise.
+dotnet_naming_rule.private_or_internal_field_should_be_camel_case.severity = suggestion
+dotnet_naming_rule.private_or_internal_field_should_be_camel_case.symbols = private_or_internal_field
+dotnet_naming_rule.private_or_internal_field_should_be_camel_case.style = camel_case
 
 # Symbol specifications
 
@@ -254,7 +264,7 @@ dotnet_naming_style.begins_with_i.required_suffix =
 dotnet_naming_style.begins_with_i.word_separator = 
 dotnet_naming_style.begins_with_i.capitalization = pascal_case
 
-dotnet_naming_style._underscoredcamelcase.required_prefix = _
-dotnet_naming_style._underscoredcamelcase.required_suffix = 
-dotnet_naming_style._underscoredcamelcase.word_separator = 
-dotnet_naming_style._underscoredcamelcase.capitalization = camel_case
+dotnet_naming_style.camel_case.required_prefix =
+dotnet_naming_style.camel_case.required_suffix =
+dotnet_naming_style.camel_case.word_separator =
+dotnet_naming_style.camel_case.capitalization = camel_case

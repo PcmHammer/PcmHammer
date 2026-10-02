@@ -40,7 +40,7 @@ namespace PcmHacking
     public enum BusProtocol
     {
         /// <summary>J1850 VPW (10.4 kbps standard, 41.6 kbps 4X).</summary>
-        Vpw,
+        VPW,
 
         /// <summary>CAN at 500 kbaud on the standard OBD2 pins (ISO 15765-4).</summary>
         Can500k,
@@ -54,7 +54,7 @@ namespace PcmHacking
     /// Transitions to high speed must be negotiated, and any module that doesn't
     /// want to switch can force the bus to stay at standard speed. Annoying.
     /// </remarks>
-    public enum VpwSpeed
+    public enum VPWSpeed
     {
         /// <summary>
         /// 10.4 kpbs. This is the standard VPW speed.
@@ -188,7 +188,7 @@ namespace PcmHacking
         /// Physical buses this device can passively monitor (sniff all traffic). VPW by default;
         /// CAN-capable devices override to add Can500k. An empty list means no monitoring at all.
         /// </summary>
-        public virtual IReadOnlyList<BusProtocol> MonitorableProtocols { get; } = new[] { BusProtocol.Vpw };
+        public virtual IReadOnlyList<BusProtocol> MonitorableProtocols { get; } = new[] { BusProtocol.VPW };
 
         /// <summary>
         /// Battery voltage measured by the interface itself, if it can. Independent of the bus, so it
@@ -246,7 +246,7 @@ namespace PcmHacking
         /// <summary>
         /// Current speed of the VPW bus.
         /// </summary>
-        protected VpwSpeed Speed { get; private set; }
+        protected VPWSpeed Speed { get; private set; }
 
         /// <summary>
         /// Enable Disable VPW 4x.
@@ -264,7 +264,7 @@ namespace PcmHacking
             this.MaxSendSize = 100;
             this.MaxReceiveSize = 100;
             this.Supports4X = false;
-            this.Speed = VpwSpeed.Standard;
+            this.Speed = VPWSpeed.Standard;
         }
 
         /// <summary>
@@ -420,14 +420,14 @@ namespace PcmHacking
         /// <summary>
         /// Set the device's VPW data rate.
         /// </summary>
-        public async Task<bool> SetVpwSpeed(VpwSpeed newSpeed)
+        public async Task<bool> SetVPWSpeed(VPWSpeed newSpeed)
         {
             if (this.Speed == newSpeed)
             {
                 return true;
             }
 
-            if (((newSpeed == VpwSpeed.FourX) && !this.Enable4xReadWrite) || (!await this.SetVpwSpeedInternal(newSpeed)))
+            if (((newSpeed == VPWSpeed.FourX) && !this.Enable4xReadWrite) || (!await this.SetVPWSpeedInternal(newSpeed)))
             {
                 return false;
             }
@@ -443,7 +443,7 @@ namespace PcmHacking
         /// </summary>
         public virtual Task<bool> SetProtocol(BusProtocol protocol)
         {
-            return Task.FromResult(protocol == BusProtocol.Vpw);
+            return Task.FromResult(protocol == BusProtocol.VPW);
         }
 
         /// <summary>
@@ -465,7 +465,7 @@ namespace PcmHacking
         /// <summary>
         /// Set the interface to low (false) or high (true) speed
         /// </summary>
-        protected abstract Task<bool> SetVpwSpeedInternal(VpwSpeed newSpeed);
+        protected abstract Task<bool> SetVPWSpeedInternal(VPWSpeed newSpeed);
 
         /// <summary>
         /// Clean up anything that this instance has allocated.
@@ -489,6 +489,25 @@ namespace PcmHacking
         {
             return new InboundFilterScope(this, accept);
         }
+
+        /// <summary>
+        /// Install these receive filters, replacing whatever is there.
+        /// </summary>
+        /// <remarks>
+        /// The application asks in the same terms whatever the interface is. One that filters in
+        /// hardware installs them; one that cannot already delivers everything and needs to do
+        /// nothing, so the same code works either way.
+        ///
+        /// Meant to be set for an operation and put back with <see cref="RestoreBusFilters"/>: the
+        /// filters the rest of the app runs with are deliberately narrow, and widening them for good
+        /// would put a lot of traffic nobody asked for through the logging loop.
+        /// </remarks>
+        public virtual Task<bool> SetBusFilters(IReadOnlyList<BusFilter> filters) => Task.FromResult(true);
+
+        /// <summary>
+        /// Put the receive filters back to what the current bus normally uses.
+        /// </summary>
+        public virtual Task<bool> RestoreBusFilters() => Task.FromResult(true);
 
         /// <summary>
         /// Add a received message to the queue, unless an active inbound filter rejects it.
@@ -562,7 +581,7 @@ namespace PcmHacking
         /// shed some light on the differences between AllPro and Scantool LX 
         /// (probably not SX) interfaces.
         /// </summary>
-        protected int GetVpwTimeoutMilliseconds(TimeoutScenario scenario)
+        protected int GetVPWTimeoutMilliseconds(TimeoutScenario scenario)
         {
             int packetSize;
 
@@ -627,7 +646,7 @@ namespace PcmHacking
             }
 
             int bitsPerByte = 9; // 8N1 serial
-            double bitsPerSecond = this.Speed == VpwSpeed.Standard ? 10.4 : 41.6;
+            double bitsPerSecond = this.Speed == VPWSpeed.Standard ? 10.4 : 41.6;
             double milliseconds = (packetSize * bitsPerByte) / bitsPerSecond;
 
             // Add 10% just in case.
@@ -637,7 +656,7 @@ namespace PcmHacking
         /// <summary>
         /// Estimate timeouts. The code above seems to do a pretty good job, but this is easier to experiment with.
         /// </summary>
-        protected int __GetVpwTimeoutMilliseconds(TimeoutScenario scenario)
+        protected int __GetVPWTimeoutMilliseconds(TimeoutScenario scenario)
         {
             switch (scenario)
             {

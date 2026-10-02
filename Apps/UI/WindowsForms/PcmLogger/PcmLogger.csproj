@@ -8,7 +8,9 @@
     <OutputType>WinExe</OutputType>
     <RootNamespace>PcmLogger</RootNamespace>
     <AssemblyName>PcmLogger</AssemblyName>
-    <ApplicationIcon>..\..\Shared\0411_256px.ico</ApplicationIcon>
+    <!-- Its own icon, not the shared one: the logger and PcmHammer are often open at once, and two
+         taskbar buttons with the same picture cannot be told apart. -->
+    <ApplicationIcon>..\..\Shared\pcmlogger_256px.ico</ApplicationIcon>
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <!-- Required for the msbuild release build: a transitive PackageReference (System.Management
          via PcmLibraryWindowsApi) carries runtime-specific assets that VS msbuild's NuGet
@@ -20,6 +22,17 @@
     <!-- Inline package versions (not central) so these are pinned exactly as before the
          packages.config -> PackageReference move, independent of Directory.Packages.props. -->
     <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+    <!--
+      MSB3277: PcmLibrary is netstandard2.0 and is compiled against newer System.Buffers and
+      System.Runtime.CompilerServices.Unsafe (4.0.4.0 and 6.0.1.0) than the packages a net48 app
+      resolves (4.0.3.0 and 6.0.0.0). No package in the graph supplies the higher assembly versions,
+      so build-time resolution cannot reconcile them.
+
+      This is what binding redirects exist for, and App.config already carries the correct ones. The
+      warning is advisory about build-time resolution; the runtime behaviour is defined and working.
+      Acknowledged here rather than left to scroll past 40-odd times per build.
+    -->
+    <MSBuildWarningsAsMessages>$(MSBuildWarningsAsMessages);MSB3277</MSBuildWarningsAsMessages>
     <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
@@ -60,7 +73,9 @@
     <PackageReference Include="DynamicExpresso.Core" Version="2.19.1" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="System.Buffers" Version="4.5.1" />
-    <PackageReference Include="System.Collections.Immutable" Version="8.0.0" />
+    <!-- 9.0.0, not 8.0.0: PcmLibrary and PcmLibraryWindowsApi both resolve 9.0.0.0, and pinning the
+         app a major version behind made every reference to it an unresolvable conflict (MSB3277). -->
+    <PackageReference Include="System.Collections.Immutable" Version="9.0.0" />
     <PackageReference Include="System.Memory" Version="4.5.5" />
     <PackageReference Include="System.Numerics.Vectors" Version="4.5.0" />
     <PackageReference Include="System.Runtime.CompilerServices.Unsafe" Version="6.0.0" />
@@ -74,6 +89,28 @@
     </PackageReference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="DashboardView.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="MonitorView.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="GaugePropertiesDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="MainForm.Dashboard.cs">
+      <DependentUpon>MainForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="MainForm.View.cs">
+      <DependentUpon>MainForm.cs</DependentUpon>
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="MainForm.TroubleCodes.cs">
+      <DependentUpon>MainForm.cs</DependentUpon>
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="AppTheme.cs" />
+    <Compile Include="NativeDarkMode.cs" />
     <Compile Include="MainForm.LoggingThread.cs" />
     <Compile Include="MainForm.ParameterGrid.cs">
       <SubType>Form</SubType>
@@ -127,7 +164,7 @@
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="Parameters.CAN.xml">
+    <Content Include="Parameters.AEM.xml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="Parameters.Math.xml">
@@ -137,6 +174,9 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="Parameters.Standard.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DiagnosticCodes.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>

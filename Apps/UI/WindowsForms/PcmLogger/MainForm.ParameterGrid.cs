@@ -18,6 +18,17 @@ namespace PcmHacking
         private ParameterDatabase database = null!;
         private bool suspendSelectionEvents = true;
 
+        /// <summary>
+        /// Generic PIDs this PCM said it does not have, which nothing may tick on its behalf.
+        /// </summary>
+        /// <remarks>
+        /// The dashboard ticks and locks the rows its gauges need, and a module's own refusal has to
+        /// outrank that - otherwise the default dashboard would keep re-selecting a parameter the
+        /// PCM has already denied, and the row would flip back to ticked every time the locks were
+        /// re-applied.
+        /// </remarks>
+        private readonly HashSet<uint> deniedPids = new HashSet<uint>();
+
         private void FillParameterGrid()
         {
             // First, empty the grid.
@@ -31,7 +42,11 @@ namespace PcmHacking
 
             this.database.LoadDatabase();
 
-            foreach (Parameter parameter in this.database.ListParametersBySupportedOs(osid))
+            // What the PCM interface can supply. The auxiliary bus has its own list on its own tab,
+            // because which connection a value comes from is answered by which list you are in
+            // rather than by a control on every row.
+            foreach (Parameter parameter in
+                this.database.ListParametersForConnection(osid, ParameterSources.PcmConnection))
             {
                 DataGridViewRow row = new DataGridViewRow();
 
@@ -57,6 +72,10 @@ namespace PcmHacking
             }
 
             this.suspendSelectionEvents = false;
+
+            // Rebuilding the grid recreated every row, so the dashboard's selection and locks went
+            // with them.
+            this.ReapplyDashboardSelection();
 
             if (!this.parameterSearch.Focused)
             {
@@ -107,6 +126,10 @@ namespace PcmHacking
             {
                 this.suspendSelectionEvents = false;
             }
+
+            // Opening a profile clears every tick before re-applying its own, so the dashboard's
+            // requirements have to be re-asserted afterwards.
+            this.ReapplyDashboardSelection();
         }
 
         private void parameterGrid_CellContentClick(object sender, DataGridViewCellEventArgs e)
@@ -149,8 +172,121 @@ namespace PcmHacking
             this.LogProfileChanged();
         }
 
+        /// <summary>
+        /// Untick parameters the PCM refused, so the grid shows what is actually being logged.
+        /// </summary>
+        /// <remarks>
+        /// Done without rebuilding the profile: the logger has already been built around the columns
+        /// that survived, and replacing the profile here would have the logging thread tear it down
+        /// and start again. The grid is brought into line with the session, not the other way round.
+        /// </remarks>
+        private void UntickUnsupportedParameters(IReadOnlyList<Parameter> unsupported)
+        {
+            if (unsupported.Count == 0 || this.parameterGrid.Rows.Count == 0)
+            {
+                return;
+            }
+
+            HashSet<string> drop = new HashSet<string>(
+                unsupported.Select(p => p.Id), StringComparer.OrdinalIgnoreCase);
+
+            try
+            {
+                this.suspendSelectionEvents = true;
+
+                foreach (DataGridViewRow row in this.parameterGrid.Rows)
+                {
+                    if (row.Cells[CellIndexParameter].Value is Parameter parameter
+                        && drop.Contains(parameter.Id))
+                    {
+                        row.Cells[CellIndexEnable].Value = false;
+                        row.Cells[CellIndexZoom].Value = false;
+                    }
+                }
+            }
+            finally
+            {
+                this.suspendSelectionEvents = false;
+            }
+
+            this.AddUserMessage(
+                "Removed from the list: " + string.Join(", ", unsupported.Select(p => p.Name)));
+        }
+
+        /// <summary>
+        /// Grey out the generic PIDs the PCM says it does not have.
+        /// </summary>
+        /// <remarks>
+        /// Only the generic range is judged. The manufacturer's own PIDs are absent from the
+        /// reported set whether or not the module has them, so switching those off would hide most
+        /// of the useful parameters on the strength of a question that was never asked about them.
+        ///
+        /// A null set means the PCM could not say, and then nothing is disabled: an older module
+        /// that does not answer is not a module with no parameters.
+        /// </remarks>
+        private void DisableUnsupportedPids(HashSet<uint>? supported)
+        {
+            if (this.parameterGrid.Rows.Count == 0)
+            {
+                return;
+            }
+
+            try
+            {
+                this.suspendSelectionEvents = true;
+
+                int disabled = 0;
+                this.deniedPids.Clear();
+
+                foreach (DataGridViewRow row in this.parameterGrid.Rows)
+                {
+                    if (!(row.Cells[CellIndexParameter].Value is PidParameter pid))
+                    {
+                        continue;
+                    }
+
+                    bool judged = supported != null && pid.PID <= GenericPidCeiling;
+                    bool missing = judged && !supported!.Contains(pid.PID);
+
+                    row.ReadOnly = missing;
+                    row.DefaultCellStyle.ForeColor = missing ? AppTheme.MutedText : AppTheme.Text;
+
+                    if (missing)
+                    {
+                        row.Cells[CellIndexEnable].Value = false;
+                        row.Cells[CellIndexZoom].Value = false;
+                        this.deniedPids.Add(pid.PID);
+                        disabled++;
+                    }
+                }
+
+                if (disabled > 0)
+                {
+                    this.AddUserMessage($"{disabled} parameters are not supported by this PCM.");
+                }
+            }
+            finally
+            {
+                this.suspendSelectionEvents = false;
+            }
+        }
+
+        /// <summary>Whether this PCM has already refused to supply this parameter.</summary>
+        private bool IsDeniedByPcm(Parameter parameter)
+        {
+            return this.deniedPids.Count > 0
+                && parameter is PidParameter pid
+                && this.deniedPids.Contains(pid.PID);
+        }
+
+        /// <summary>
+        /// The highest PID the support masks cover. Above this are the manufacturer's own, which
+        /// the masks say nothing about.
+        /// </summary>
+        private const uint GenericPidCeiling = 0xFF;
+
         private void LogProfileChanged()
-        { 
+        {
             if (this.suspendSelectionEvents)
             {
                 return;
@@ -158,9 +294,15 @@ namespace PcmHacking
  
             this.ResetProfile();
 
-            this.ClearZoomPanel();
+            if (this.ZoomVisible)
+            {
+                this.ClearZoomPanel();
+            }
 
             this.CreateProfileFromGrid();
+
+            // Different parameters means a different width of text in the values pane.
+            this.RefitValuesPaneSoon();
 
             this.SetDirtyFlag(true);
         }

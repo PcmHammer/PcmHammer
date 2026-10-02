@@ -70,7 +70,7 @@ namespace PcmHacking
         /// </summary>
         /// <remarks>
         /// One could argue that this makes thing unnecessarily complicated.
-        /// However, we already had this code, as part of the VpwDecoder app...
+        /// However, we already had this code, as part of the VPWDecoder app...
         /// </remarks>
         public void Push(byte value)
         {
@@ -202,7 +202,7 @@ namespace PcmHacking
                     Buffer.BlockCopy(this.payload.ToArray(), 0, response, blockHeader.Length, this.payload.Count);
                     Buffer.BlockCopy(this.pcmData, 0, response, blockHeader.Length + this.payload.Count, length);
 
-                    UInt16 blockSum = VpwUtilities.CalcBlockChecksum(response);
+                    UInt16 blockSum = VPWUtilities.CalcBlockChecksum(response);
                     response[response.Length - 2] = (byte)(blockSum >> 8);
                     response[response.Length - 1] = (byte)(blockSum & 0xFF);
 

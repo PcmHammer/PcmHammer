@@ -61,12 +61,12 @@ namespace PcmHacking
 
         public static VehicleStatus Recovery()
         {
-            return new VehicleStatus(State.Recovery, BusProtocol.Vpw, 0, 0, string.Empty);
+            return new VehicleStatus(State.Recovery, BusProtocol.VPW, 0, 0, string.Empty);
         }
 
         public static VehicleStatus Kernel(ulong kernelVersion)
         {
-            return new VehicleStatus(State.Kernel, BusProtocol.Vpw, 0, kernelVersion, string.Empty);
+            return new VehicleStatus(State.Kernel, BusProtocol.VPW, 0, kernelVersion, string.Empty);
         }
     }
 }

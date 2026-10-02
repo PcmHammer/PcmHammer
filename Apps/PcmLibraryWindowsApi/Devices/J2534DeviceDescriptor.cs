@@ -39,7 +39,7 @@ namespace PcmHacking
             List<BusProtocol> buses = new List<BusProtocol>();
             if (device.IsJ1850VPWSupported)
             {
-                buses.Add(BusProtocol.Vpw);
+                buses.Add(BusProtocol.VPW);
             }
             if (device.IsISO15765Supported)
             {

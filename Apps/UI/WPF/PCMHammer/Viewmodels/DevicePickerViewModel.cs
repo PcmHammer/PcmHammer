@@ -402,7 +402,7 @@ namespace PCMHammer.Viewmodels
             // Device types come from the shared catalog. Each renders as its DisplayName (name +
             // protocols, e.g. "OBDX Pro (VPW, CAN)") and is persisted by its stable Key.
             SerialDevices.Clear();
-            foreach (DeviceDescriptor descriptor in DeviceCatalog.SerialDevices)
+            foreach (DeviceDescriptor descriptor in DeviceCatalog.OfferedDevices)
             {
                 SerialDevices.Add(descriptor);
             }

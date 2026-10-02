@@ -43,12 +43,24 @@ namespace PcmHacking
         private ProtocolID Protocol;
         public bool IsProtocolOpen;
         public bool IsJ2534Open;
+
+        /// <summary>
+        /// Whether THIS device loaded the driver library.
+        /// </summary>
+        /// <remarks>
+        /// Distinct from <see cref="IsLoaded"/>, which asks whether the DLL is present in the
+        /// process - a process-wide fact that says nothing about who put it there. Initialize used
+        /// the process-wide answer to decide instance-level teardown, so a second device on the same
+        /// driver would see "loaded", find its own open flags false, and free the library out from
+        /// under the first device's live connection.
+        /// </remarks>
+        private bool loadedByThisDevice;
         private const string PortName = "J2534";
         private const uint MessageFilter = 0x6CF010;
         public string ToolName = "";
 
         /// <summary>Current bus protocol; drives send/receive formatting for this device.</summary>
-        private BusProtocol CurrentProtocol = BusProtocol.Vpw;
+        private BusProtocol CurrentProtocol = BusProtocol.VPW;
 
         /// <summary>Id of the extra pass-all filter installed while monitoring; -1 when not monitoring.</summary>
         private int monitorFilterId = -1;
@@ -121,7 +133,27 @@ namespace PcmHacking
 
         protected override void Dispose(bool disposing)
         {
-            DisconnectTool();
+            // Only when disposed properly. Closing the tool calls into the vendor's J2534 DLL, and
+            // on the finalizer thread that happens during process teardown, when the DLL may already
+            // be unloaded - the call then comes back as an AccessViolationException, which is a
+            // corrupted-state exception that no catch block here can stop. A device the process is
+            // abandoning anyway is released by Windows when it exits, so there is nothing to lose by
+            // leaving it; a device disposed while the app keeps running is still closed properly.
+            if (!disposing)
+            {
+                return;
+            }
+
+            if (this.IsJ2534Open)
+            {
+                // Unloads the library on its way out.
+                this.DisconnectTool();
+            }
+            else if (this.loadedByThisDevice)
+            {
+                // The driver was loaded but the tool was never opened, or has been closed already.
+                this.CloseLibrary();
+            }
         }
 
         public override string ToString()
@@ -167,8 +199,9 @@ namespace PcmHacking
             // Check J2534 API
             //this.Logger.AddDebugMessage(J2534Port.Functions.ToString());
 
-            // Check not already loaded
-            if (IsLoaded == true)
+            // Tear down only what this device set up. Asking whether the DLL is in the process would
+            // make a second device on the same driver dismantle the first one's connection.
+            if (this.loadedByThisDevice)
             {
                 // Only disconnect protocol if it was actually opened - a failed previous
                 // init may have left IsLoaded true but never reached ConnectToProtocol.
@@ -219,6 +252,8 @@ namespace PcmHacking
                 this.Logger.AddUserMessage("Unable to load the J2534 DLL: " + J2534Port.LoadedDevice.FunctionLibrary);
                 return false;
             }
+
+            this.loadedByThisDevice = true;
             this.Logger.AddUserMessage("Loaded DLL");
 
             // Connect to scantool
@@ -532,6 +567,10 @@ namespace PcmHacking
         /// </summary>
         private Response<bool> CloseLibrary()
         {
+            // Cleared here rather than at each call site, so every path out leaves this device's
+            // record of what it loaded accurate.
+            this.loadedByThisDevice = false;
+
             if (J2534Port.Functions.FreeLibrary())
             {
                 return Response.Create(ResponseStatus.Success, true);
@@ -747,7 +786,7 @@ namespace PcmHacking
                 return true;
             }
 
-            if (protocol == BusProtocol.Vpw)
+            if (protocol == BusProtocol.VPW)
             {
                 DisconnectFromProtocol();
                 Filters.Clear();
@@ -762,7 +801,7 @@ namespace PcmHacking
                 SetFilter(0xFEFFFF, J2534Device.MessageFilter, 0, TxFlag.NONE, FilterType.PASS_FILTER);
 
                 this.Supports4X = true;
-                this.CurrentProtocol = BusProtocol.Vpw;
+                this.CurrentProtocol = BusProtocol.VPW;
                 this.Logger.AddDebugMessage("J2534 VPW mode restored.");
                 return true;
             }
@@ -771,7 +810,7 @@ namespace PcmHacking
         }
 
         /// <summary>VPW and CAN 500k can both be monitored on this device.</summary>
-        public override IReadOnlyList<BusProtocol> MonitorableProtocols { get; } = new[] { BusProtocol.Vpw, BusProtocol.Can500k };
+        public override IReadOnlyList<BusProtocol> MonitorableProtocols { get; } = new[] { BusProtocol.VPW, BusProtocol.Can500k };
 
         /// <summary>
         /// Begin monitoring. For VPW the init filter only passes the tool/PCM conversation, so install
@@ -792,7 +831,7 @@ namespace PcmHacking
                 return false;
             }
 
-            if (protocol == BusProtocol.Vpw)
+            if (protocol == BusProtocol.VPW)
             {
                 this.StopAllFilters();
                 Response<J2534Err> f = SetFilter(0x000000, 0x000000, 0, TxFlag.NONE, FilterType.PASS_FILTER);
@@ -1037,6 +1076,53 @@ namespace PcmHacking
         /// <summary>
         /// Set filter
         /// </summary>
+        /// <summary>
+        /// Install the application's receive filters in hardware, replacing whatever is there.
+        /// </summary>
+        public override Task<bool> SetBusFilters(IReadOnlyList<BusFilter> filters)
+        {
+            if (filters == null || filters.Count == 0)
+            {
+                return Task.FromResult(true);
+            }
+
+            this.StopAllFilters();
+
+            bool installed = true;
+            foreach (BusFilter filter in filters)
+            {
+                Response<J2534Err> result = this.SetFilter(
+                    filter.Mask, filter.Pattern, 0, TxFlag.NONE, FilterType.PASS_FILTER);
+
+                if (result.Status == ResponseStatus.Success)
+                {
+                    this.Logger.AddDebugMessage("J2534 filter: " + filter);
+                }
+                else
+                {
+                    installed = false;
+                    this.Logger.AddDebugMessage(
+                        $"J2534 filter failed ({filter}), error 0x{result.Value:X}");
+                }
+            }
+
+            return Task.FromResult(installed);
+        }
+
+        /// <summary>
+        /// Put the filters back to what this bus normally uses.
+        /// </summary>
+        public override Task<bool> RestoreBusFilters()
+        {
+            if (this.CurrentProtocol != BusProtocol.VPW || this.monitoringRawCan)
+            {
+                // CAN filtering is set up with the channel; nothing here changes it.
+                return Task.FromResult(true);
+            }
+
+            return this.SetBusFilters(BusFilters.VPW);
+        }
+
         private Response<J2534Err> SetFilter(UInt32 Mask, UInt32 Pattern, UInt32 FlowControl, TxFlag txflag, FilterType Filtertype)
         {
             PassThruMsg maskMsg = new PassThruMsg(Protocol, txflag, new Byte[] { (byte)(0xFF & (Mask >> 16)), (byte)(0xFF & (Mask >> 8)), (byte)(0xFF & Mask) });
@@ -1058,9 +1144,9 @@ namespace PcmHacking
         /// <remarks>
         /// The caller must also tell the PCM to switch speeds
         /// </remarks>
-        protected override Task<bool> SetVpwSpeedInternal(VpwSpeed newSpeed)
+        protected override Task<bool> SetVPWSpeedInternal(VPWSpeed newSpeed)
         {
-            if (newSpeed == VpwSpeed.Standard)
+            if (newSpeed == VPWSpeed.Standard)
             {
                 this.Logger.AddDebugMessage("J2534 setting VPW 1X");
                 // Disconnect from current protocol

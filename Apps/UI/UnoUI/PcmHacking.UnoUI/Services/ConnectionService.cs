@@ -424,10 +424,13 @@ public class ConnectionService : IConnectionService
         }
         await this.DeviceName.SetAsync($"{this.device.GetDeviceType()}({portDesc})");
         ToolPresentNotifier notifier = new ToolPresentNotifier(this.device, this.protocol, this.logger);
-        string basePath = string.Empty; // We will need to pass along a path to target kernel; Android won't path to a proper directory with GetExecutingAssembly().Location.
+        // Where the kernels live, passed to the Vehicle.
+        string basePath = string.Empty;
 #if WINDOWS
-            string exePath = System.Reflection.Assembly.GetExecutingAssembly().Location;
-            basePath = Path.GetDirectoryName(exePath) ?? string.Empty;
+        // AppContext.BaseDirectory, not GetExecutingAssembly().Location: that is empty in a
+        // single-file build, which left this with no path to the kernels. The same substitution is
+        // already made in Vehicle.Kernel and PcmLogger for the WinForms single-exe build.
+        basePath = AppContext.BaseDirectory;
 #elif ANDROID
         // Same folder the kernels are extracted to; must not be spelled out a second time here.
         basePath = Platforms.Android.PermissionMethods.KernelDirectory;

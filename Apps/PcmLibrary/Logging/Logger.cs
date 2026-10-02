@@ -61,16 +61,15 @@ namespace PcmHacking
         private readonly DpidConfiguration dpidConfiguration;
         private readonly MathValueProcessor mathValueProcessor;
         private DpidCollection dpids = null!;
-        private CanLogger canLogger = null!;
         private ILogger uiLogger = null!;
 
         public DpidConfiguration DpidConfiguration {  get { return this.dpidConfiguration; } }
 
         public MathValueProcessor MathValueProcessor {  get { return this.mathValueProcessor; } }
 
-        public CanLogger CanLogger { get { return this.canLogger; } }
-
         protected Vehicle Vehicle { get { return this.vehicle; } }
+
+        protected uint Osid { get { return this.osid; } }
 
         protected DpidCollection Dpids {  get { return this.dpids; } }
 
@@ -80,11 +79,10 @@ namespace PcmHacking
         /// Constructor.
         /// </summary>
         protected Logger(
-            Vehicle vehicle, 
-            CanLogger canLogger,
-            uint osid, 
-            DpidConfiguration dpidConfiguration, 
-            MathValueProcessor mathValueProcessor, 
+            Vehicle vehicle,
+            uint osid,
+            DpidConfiguration dpidConfiguration,
+            MathValueProcessor mathValueProcessor,
             ILogger uiLogger)
         {
             this.vehicle = vehicle;
@@ -92,7 +90,6 @@ namespace PcmHacking
             this.dpidConfiguration = dpidConfiguration;
             this.mathValueProcessor = mathValueProcessor;
             this.uiLogger = uiLogger;
-            this.canLogger = canLogger;
         }
 
         /// <summary>
@@ -104,7 +101,7 @@ namespace PcmHacking
             IEnumerable<LogColumn> columns, 
             bool deviceSupportsSingleDpid,
             bool deviceSupportsStreaming,
-            CanLogger canLogger,
+            BusProtocol bus,
             ILogger uiLogger)
         {
             DpidConfiguration dpidConfiguration = new DpidConfiguration();
@@ -225,6 +222,20 @@ namespace PcmHacking
                 group = null;
             }
 
+            // The groups above are only a row layout on CAN, so the ELM single-DPID quirk guarded
+            // against below cannot apply.
+            if (bus == BusProtocol.Can500k)
+            {
+                return new GmlanPollingLogger(
+                    vehicle,
+                    osid,
+                    dpidConfiguration,
+                    new MathValueProcessor(
+                        dpidConfiguration,
+                        dependencies),
+                    uiLogger);
+            }
+
             if (!deviceSupportsSingleDpid && dpidConfiguration.ParameterGroups.Count == 1)
             {
                 throw new NeedMoreParametersException("Add more parameters to begin logging.");
@@ -240,7 +251,6 @@ namespace PcmHacking
             {
                 return new FastLogger(
                     vehicle,
-                    canLogger,
                     osid,
                     dpidConfiguration,
                     new MathValueProcessor(
@@ -252,7 +262,6 @@ namespace PcmHacking
             {
                 return new SlowLogger(
                     vehicle,
-                    canLogger,
                     osid,
                     dpidConfiguration,
                     new MathValueProcessor(
@@ -266,27 +275,58 @@ namespace PcmHacking
         {
             IEnumerable<string> columns = this.dpidConfiguration.GetParameterNames();
             columns = columns.Concat(this.mathValueProcessor.GetHeaderNames());
-            columns = columns.Concat(this.canLogger.GetParameterNames());
             return columns;
         }
 
         /// <summary>
         /// Invoke this once to begin a logging session.
         /// </summary>
+        /// <summary>
+        /// Parameters the PCM refused during <see cref="StartLogging"/>, which are therefore not in
+        /// the log. Empty unless the profile asked for something this operating system lacks.
+        /// </summary>
+        public IReadOnlyList<Parameter> UnsupportedParameters => this.unsupportedParameters;
+
+        private readonly List<Parameter> unsupportedParameters = new List<Parameter>();
+
         public async Task<bool> StartLogging()
         {
             try
             {
-                this.dpids = await this.vehicle.ConfigureDpids(this.dpidConfiguration, this.osid);
-
-                if (this.dpids == null)
+                this.unsupportedParameters.Clear();
+                if (!await this.ConfigureParameters())
                 {
+                    return false;
+                }
+
+                // After the module has had its say, because what it refused is taken out of the
+                // groups - and a math column computed from something no longer being read has
+                // nothing to work with.
+                foreach (Parameter parameter in this.mathValueProcessor.RemoveColumnsWithMissingDependencies())
+                {
+                    this.uiLogger.AddUserMessage(
+                        parameter.Name
+                        + " is calculated from a parameter this PCM does not supply, so it will not be logged.");
+
+                    this.MarkUnsupported(parameter);
+                }
+
+                // Everything asked for was refused, so there is nothing to poll.
+                if (this.dpidConfiguration.ParameterGroups.Count == 0)
+                {
+                    this.uiLogger.AddUserMessage(
+                        "None of the selected parameters are available on this PCM.");
                     return false;
                 }
 
                 // This part differs for the fast and slow loggers.
                 await this.StartLoggingInternal();
                 return true;
+            }
+            catch (LoggingNotSupportedException)
+            {
+                // Must reach the caller. Reported as a failed attempt, it would be retried forever.
+                throw;
             }
             catch (Exception exception)
             {
@@ -295,6 +335,32 @@ namespace PcmHacking
                 return false;
             }            
         }
+
+        /// <summary>
+        /// Tell the module which parameters to supply, and drop the ones it refuses. DPIDs by
+        /// default; a polling logger has nothing to configure and checks availability instead.
+        /// </summary>
+        protected virtual async Task<bool> ConfigureParameters()
+        {
+            this.dpids = await this.vehicle.ConfigureDpids(
+                this.dpidConfiguration, this.osid, this.unsupportedParameters);
+
+            return this.dpids != null;
+        }
+
+        /// <summary>Record a parameter this module will not supply, so the UI can un-tick it.</summary>
+        protected void MarkUnsupported(Parameter parameter)
+        {
+            this.unsupportedParameters.Add(parameter);
+        }
+
+        /// <summary>
+        /// Stop asking the PCM for data so something else can use the bus, and start again after.
+        /// Nothing to do unless the PCM was told to send data unprompted.
+        /// </summary>
+        public virtual Task Suspend() => Task.CompletedTask;
+
+        public virtual Task Resume() => Task.CompletedTask;
 
         protected abstract Task<bool> StartLoggingInternal();
 
@@ -314,12 +380,10 @@ namespace PcmHacking
                 PcmParameterValues dpidValues = row.Evaluate();
 
                 IEnumerable<string> mathValues = this.mathValueProcessor.GetMathValues(dpidValues);
-                IEnumerable<string> canValues = this.canLogger.GetParameterValues().Select(x => x.ValueAsString);
 
                 return dpidValues
                         .Select(x => x.Value.ValueAsString)
                         .Concat(mathValues)
-                        .Concat(canValues)
                         .ToArray();
             }
             else
@@ -347,11 +411,9 @@ namespace PcmHacking
                         x.Value.ValueAsDouble));
 
                 IEnumerable<LogRowElement> mathValues = this.mathValueProcessor.GetMathValuesV2(dpidValues);
-                IEnumerable<LogRowElement> canValues = this.canLogger.GetParameterValuesV2();
 
                 return pcmValues
                     .Concat(mathValues)
-                    .Concat(canValues)
                     .ToArray();
             }
             else

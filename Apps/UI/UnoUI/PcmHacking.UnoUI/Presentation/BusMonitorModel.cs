@@ -37,11 +37,11 @@ public partial record BusMonitorModel
     /// <summary>Which bus to watch. False is VPW, true is CAN.</summary>
     public IState<bool> UseCan => State<bool>.Value(this, () => false)
         .ForEach((value, ct) => this.UseCanChanged(value, ct));
-    public IState<bool> UseVpw => State<bool>.Value(this, () => true);
+    public IState<bool> UseVPW => State<bool>.Value(this, () => true);
 
     /// <summary>Whether the connected interface can watch each bus; a VPW-only one cannot do CAN.</summary>
     public IState<bool> CanBusAvailable => State<bool>.Value(this, () => true);
-    public IState<bool> VpwBusAvailable => State<bool>.Value(this, () => true);
+    public IState<bool> VPWBusAvailable => State<bool>.Value(this, () => true);
 
     public BusMonitorModel(
         IConnectionService connectionService,
@@ -59,7 +59,7 @@ public partial record BusMonitorModel
 
     private async ValueTask UseCanChanged(bool useCan, CancellationToken ct)
     {
-        await this.UseVpw.SetAsync(!useCan, ct);
+        await this.UseVPW.SetAsync(!useCan, ct);
     }
 
     /// <summary>
@@ -85,9 +85,9 @@ public partial record BusMonitorModel
             return;
         }
 
-        bool vpw = supported.Contains(BusProtocol.Vpw);
+        bool vpw = supported.Contains(BusProtocol.VPW);
         bool can = supported.Contains(BusProtocol.Can500k);
-        await this.VpwBusAvailable.SetAsync(vpw);
+        await this.VPWBusAvailable.SetAsync(vpw);
         await this.CanBusAvailable.SetAsync(can);
 
         if (!vpw && can)
@@ -127,7 +127,7 @@ public partial record BusMonitorModel
     private async Task Run()
     {
         bool useCan = await this.UseCan.Value() == true;
-        BusProtocol protocol = useCan ? BusProtocol.Can500k : BusProtocol.Vpw;
+        BusProtocol protocol = useCan ? BusProtocol.Can500k : BusProtocol.VPW;
         IReadOnlyCollection<uint>? canIds = useCan
             ? BusMonitor.ParseCanIds(await this.CanFilter.Value())
             : null;
@@ -144,15 +144,15 @@ public partial record BusMonitorModel
                 }
 
                 // The 4X rule and its wording live in the library; this only shows the result.
-                if (protocol == BusProtocol.Vpw)
+                if (protocol == BusProtocol.VPW)
                 {
-                    switch (BusMonitor.CheckVpwReadiness(lease.Vehicle, out string readiness))
+                    switch (BusMonitor.CheckVPWReadiness(lease.Vehicle, out string readiness))
                     {
-                        case VpwMonitorReadiness.NoFourXSupport:
+                        case VPWMonitorReadiness.NoFourXSupport:
                             this.logger.AddUserMessage("Bus monitor: " + readiness);
                             break;
 
-                        case VpwMonitorReadiness.FourXDisabled:
+                        case VPWMonitorReadiness.FourXDisabled:
                             await this.promptService.Alert(readiness, "Bus Monitor");
                             return;
                     }

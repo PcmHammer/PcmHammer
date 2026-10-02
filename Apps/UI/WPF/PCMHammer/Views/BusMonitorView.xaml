@@ -13,7 +13,7 @@
             <TextBlock Text="Protocol:" VerticalAlignment="Center" Margin="0,0,8,0"/>
             <RadioButton Content="VPW" GroupName="MonitorProtocol" VerticalAlignment="Center" Margin="0,0,12,0"
                          IsChecked="{Binding IsCanSelected, Converter={StaticResource InverseBoolean}}"
-                         IsEnabled="{Binding IsVpwSelectable}"/>
+                         IsEnabled="{Binding IsVPWSelectable}"/>
             <RadioButton Content="CAN 500k" GroupName="MonitorProtocol" VerticalAlignment="Center" Margin="0,0,20,0"
                          IsChecked="{Binding IsCanSelected}"
                          IsEnabled="{Binding IsCanSelectable}"/>

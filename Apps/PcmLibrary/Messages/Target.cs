@@ -11,7 +11,7 @@ namespace PcmHacking
     public sealed class Target
     {
         /// <summary>VPW device id used as the message destination (0x10 PCM, 0x18.. transmission, etc.).</summary>
-        public byte VpwId { get; }
+        public byte VPWId { get; }
 
         /// <summary>CAN id to transmit to (tool to module). 11-bit OBD2 physical request.</summary>
         public uint CanRequestId { get; }
@@ -25,7 +25,7 @@ namespace PcmHacking
         public Target(string name, byte vpwId, uint canRequestId, uint canResponseId)
         {
             this.Name = name;
-            this.VpwId = vpwId;
+            this.VPWId = vpwId;
             this.CanRequestId = canRequestId;
             this.CanResponseId = canResponseId;
         }

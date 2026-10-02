@@ -202,7 +202,7 @@ namespace PcmHacking
             this.Port.DiscardBuffers();
         }
 
-        protected override Task<bool> SetVpwSpeedInternal(VpwSpeed newSpeed)
+        protected override Task<bool> SetVPWSpeedInternal(VPWSpeed newSpeed)
         {
             // CAN only; there is no VPW speed to set.
             return Task.FromResult(false);

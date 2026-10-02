@@ -5,6 +5,20 @@
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
     <Platforms>AnyCPU;x86</Platforms>
+
+    <!--
+      x86 to match the app under test. PcmHacking.UnoUI pins itself to 32-bit so the process can load
+      32-bit J2534 driver DLLs, which makes its assemblies x86; an MSIL test project referencing them
+      raised MSB3270 about the architecture mismatch.
+
+      Suppressing that would have been wrong: an x86 assembly cannot be loaded into a 64-bit host, so
+      the warning describes a real failure mode rather than a false alarm. Matching the architecture
+      removes the mismatch instead of hiding it. Verified: the tests pass under -p:Platform=x86.
+    -->
+    <PlatformTarget>x86</PlatformTarget>
+
+    <!-- Inherited through PcmHacking.UnoUI; see the explanation in that project file. -->
+    <NoWarn>$(NoWarn);NU1702</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

@@ -38,7 +38,7 @@ namespace PcmHacking
             int delaySeconds = BruteForcer.DefaultSecurityDelaySeconds;
             bool listDevices = false;
             bool debug = false;
-            BusProtocol monitorProtocol = BusProtocol.Vpw;
+            BusProtocol monitorProtocol = BusProtocol.VPW;
             List<uint>? monitorCanIds = null;
             bool monitorCanAll = false;
             PcmType forcePcmType = PcmType.Undefined;
@@ -102,7 +102,7 @@ namespace PcmHacking
                             string proto = args[++i].ToLowerInvariant();
                             monitorProtocol = (proto == "can" || proto == "can500k" || proto == "500k")
                                 ? BusProtocol.Can500k
-                                : BusProtocol.Vpw;
+                                : BusProtocol.VPW;
                         }
                         // Optional CAN id list (hex), or "all" for the whole bus. Ignored for VPW.
                         while (i + 1 < args.Length && !args[i + 1].StartsWith("-"))
@@ -794,17 +794,17 @@ namespace PcmHacking
                 return false;
             }
 
-            if (protocol == BusProtocol.Vpw)
+            if (protocol == BusProtocol.VPW)
             {
                 // Same 4X rule as the GUIs. InitializeVehicle turns 4X on for every CLI run, so in
                 // practice only the "device can't do 4X" warning can fire here.
-                VpwMonitorReadiness readiness = BusMonitor.CheckVpwReadiness(vehicle, out string readinessMessage);
-                if (readiness != VpwMonitorReadiness.Ready)
+                VPWMonitorReadiness readiness = BusMonitor.CheckVPWReadiness(vehicle, out string readinessMessage);
+                if (readiness != VPWMonitorReadiness.Ready)
                 {
                     logger.AddUserMessage(readinessMessage);
                 }
 
-                if (readiness == VpwMonitorReadiness.FourXDisabled)
+                if (readiness == VPWMonitorReadiness.FourXDisabled)
                 {
                     return false;
                 }

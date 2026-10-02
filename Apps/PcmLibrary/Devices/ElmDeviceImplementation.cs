@@ -105,7 +105,7 @@ namespace PcmHacking
         /// <summary>
         /// Get the time required for the given scenario.
         /// </summary>
-        public virtual int GetTimeoutMilliseconds(TimeoutScenario scenario, VpwSpeed speed)
+        public virtual int GetTimeoutMilliseconds(TimeoutScenario scenario, VPWSpeed speed)
         {
             // This base class is only instantiated for device-independent initialization.
             return 250;

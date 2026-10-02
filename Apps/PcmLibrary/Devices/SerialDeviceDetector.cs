@@ -41,6 +41,9 @@ namespace PcmHacking
                 case "SLCAN (CAN only)": // legacy saved value before the type was renamed to "SLCAN"
                     return new SlcanDevice(port, logger);
 
+                case UsbCanAnalyzerDevice.DeviceType:
+                    return new UsbCanAnalyzerDevice(port, logger);
+
                 case MockDevice.DeviceType:
                     return new MockDevice(port, logger);
 
@@ -133,6 +136,14 @@ namespace PcmHacking
             if (result.Length > 0 && !result.StartsWith("?"))
             {
                 return new ElmDevice(port, logger);
+            }
+
+            // Last, because this one answers no text command at all and has to be probed with a
+            // binary exchange at 2 Mbaud. Leaving it until the ASCII probes have all failed keeps it
+            // away from devices that would be confused by that, at the cost of being slowest to find.
+            if (await UsbCanAnalyzerDevice.Probe(port, logger))
+            {
+                return new UsbCanAnalyzerDevice(port, logger);
             }
 
             return null;

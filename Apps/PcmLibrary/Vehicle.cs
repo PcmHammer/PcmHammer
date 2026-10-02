@@ -351,7 +351,7 @@ namespace PcmHacking
         private static IEnumerable<BusProtocol> Buses(BusProtocol preferred)
         {
             yield return preferred;
-            foreach (BusProtocol bus in new[] { BusProtocol.Vpw, BusProtocol.Can500k })
+            foreach (BusProtocol bus in new[] { BusProtocol.VPW, BusProtocol.Can500k })
             {
                 if (bus != preferred)
                 {
