@@ -33,6 +33,10 @@ namespace PcmHacking
         public static readonly Message AVT_CAN0_500K            = new Message(new byte[] { 0x73, 0x0A, 0x00, 0x02 }); // CAN0 baud = 500 kbaud
         public static readonly Message AVT_CAN0_IDMASK_MODE4    = new Message(new byte[] { 0x73, 0x2B, 0x00, 0x04 }); // CAN0 ID/Mask mode 4 (16-bit IDs)
         public static readonly Message AVT_CAN0_MASK0_EXACT     = new Message(new byte[] { 0x75, 0x2C, 0x00, 0x00, 0x00, 0x00 }); // CAN0 Mask0 = must-match all bits
+        // Mask bits are don't-care when set, so 07FF ignores all 11 ID bits. The 0x40 makes RTR
+        // don't-care while leaving IDE must-match, so only 11-bit frames arrive. For monitoring.
+        public static readonly Message AVT_CAN0_MASK0_ANY       = new Message(new byte[] { 0x75, 0x2C, 0x40, 0x00, 0x07, 0xFF }); // CAN0 Mask0 = any 11-bit ID
+        public static readonly Message AVT_CAN0_ACCEPT_ANY      = new Message(new byte[] { 0x75, 0x2A, 0x00, 0x00, 0x00, 0x00 }); // CAN0 acceptance ID0 = 0
         public static readonly Message AVT_CAN0_ISO15765_OFF    = new Message(new byte[] { 0x73, 0x26, 0x00, 0x00 }); // CAN0 ISO 15765 off (raw frames)
         public static readonly Message AVT_ENABLE_CAN0          = new Message(new byte[] { 0x73, 0x11, 0x00, 0x01 }); // CAN0 normal mode
         public static readonly Message AVT_REQUEST_MODEL        = new Message(new byte[] { 0xF0 });
@@ -53,7 +57,7 @@ namespace PcmHacking
         public static readonly Message AVT_BLOCK_TX_ACK         = new Message(new byte[] { 0xF3, 0x60 }); // F3 60
 
         /// <summary>Current bus protocol; drives the send/receive format in this class.</summary>
-        protected BusProtocol CurrentProtocol { get; private set; } = BusProtocol.Vpw;
+        protected BusProtocol CurrentProtocol { get; private set; } = BusProtocol.VPW;
 
         // CAN target addresses. Default to the standard OBD2 PCM IDs (from the shared CanId
         // constants), but are settable so the command layer can address a different module or ID.
@@ -107,8 +111,10 @@ namespace PcmHacking
 
             Response<Message> m;
 
-            SerialPortConfiguration configuration = new SerialPortConfiguration();
-            configuration.BaudRate = 57600; // default RS232 speed for 838, 842. ignored by the USB 852.
+            SerialPortConfiguration configuration = new SerialPortConfiguration
+            {
+                BaudRate = 57600 // default RS232 speed for 838, 842. ignored by the USB 852.
+            };
             await this.Port.OpenAsync(configuration);
             await this.Port.DiscardBuffers();
 
@@ -500,10 +506,10 @@ namespace PcmHacking
         /// <remarks>
         /// The caller must also tell the PCM to switch speeds
         /// </remarks>
-        protected override async Task<bool> SetVpwSpeedInternal(VpwSpeed newSpeed)
+        protected override async Task<bool> SetVPWSpeedInternal(VPWSpeed newSpeed)
         {
 
-            if (newSpeed == VpwSpeed.Standard)
+            if (newSpeed == VPWSpeed.Standard)
             {
                 this.Logger.AddDebugMessage("AVT setting VPW 1X");
                 await this.Port.Send(AvtDevice.AVT_1X_SPEED.GetBytes());
@@ -547,7 +553,101 @@ namespace PcmHacking
         }
 
         /// <summary>VPW and CAN 500k can both be monitored on this device.</summary>
-        public override IReadOnlyList<BusProtocol> MonitorableProtocols { get; } = new[] { BusProtocol.Vpw, BusProtocol.Can500k };
+        public override IReadOnlyList<BusProtocol> MonitorableProtocols { get; } = new[] { BusProtocol.VPW, BusProtocol.Can500k };
+
+        /// <summary>
+        /// Begin monitoring. The destination filter set at startup only passes frames addressed to
+        /// the tool, so a passive monitor would see its own conversation rather than the bus.
+        /// </summary>
+        public override async Task<bool> BeginMonitor(BusProtocol protocol)
+        {
+            if (!await this.SetProtocol(protocol))
+            {
+                return false;
+            }
+
+            if (protocol == BusProtocol.VPW)
+            {
+                await this.SetBusFilters(BusFilters.All);
+            }
+            else if (protocol == BusProtocol.Can500k)
+            {
+                // CAN filters by acceptance id rather than by a header byte, so the common filter
+                // API has nothing to say here: open the acceptance mask instead.
+                //
+                // Mask first. An acceptance id of zero against the exact-match mask still in place
+                // accepts nothing at all, so the other order leaves the device deaf in between -
+                // and permanently so if anything interrupts the pair.
+                await SendCanConfig(AVT_CAN0_MASK0_ANY.GetBytes(), "CAN0 mask0 any 11-bit id");
+                await SendCanConfig(AVT_CAN0_ACCEPT_ANY.GetBytes(), "CAN0 accept any id");
+            }
+
+            return true;
+        }
+
+        public override async Task EndMonitor()
+        {
+            if (this.CurrentProtocol == BusProtocol.VPW)
+            {
+                await this.RestoreBusFilters();
+            }
+            else if (this.CurrentProtocol == BusProtocol.Can500k)
+            {
+                await SendCanConfig(BuildAcceptIdCommand(this.RxCanId), $"CAN0 accept ID {this.RxCanId:X3}");
+                await SendCanConfig(AVT_CAN0_MASK0_EXACT.GetBytes(), "CAN0 mask0 exact-match");
+            }
+        }
+
+        /// <summary>
+        /// Install receive filters, using the destination match byte (AVT-85x manual 11.3).
+        /// </summary>
+        /// <remarks>
+        /// The firmware matches on one destination byte, where zero means don't care. So a set
+        /// naming a single destination becomes that byte, and anything wider clears the filter and
+        /// lets the software sort out the extra traffic.
+        ///
+        /// There is a source match byte alongside it (5C), AND'ed with this one. Nothing here sets
+        /// it, so it stays at its don't-care default.
+        /// </remarks>
+        public override async Task<bool> SetBusFilters(IReadOnlyList<BusFilter> filters)
+        {
+            // Null once disposed, and this runs on paths that can outlive the window closing.
+            if (this.CurrentProtocol != BusProtocol.VPW || this.Port == null)
+            {
+                return false;
+            }
+
+            byte destination = 0x00;
+            if (BusFilters.TryGetDestinations(filters, out IReadOnlyList<byte> destinations) &&
+                destinations.Count == 1)
+            {
+                destination = destinations[0];
+            }
+
+            await this.Port.Send(new byte[] { 0x52, 0x5B, destination });
+
+            Response<Message> confirmation =
+                await this.FindResponse(new Message(new byte[] { 0x5B, destination }));
+
+            if (confirmation.Status != ResponseStatus.Success)
+            {
+                this.Logger.AddDebugMessage($"AVT filter: {destination:X2} was not accepted.");
+                return false;
+            }
+
+            this.Logger.AddDebugMessage(destination == 0x00
+                ? "AVT filter: off, so all traffic is delivered"
+                : $"AVT filter: destination {destination:X2}");
+
+            return true;
+        }
+
+        public override Task<bool> RestoreBusFilters()
+        {
+            return this.CurrentProtocol == BusProtocol.VPW
+                ? this.SetBusFilters(BusFilters.VPW)
+                : Task.FromResult(true);
+        }
 
         /// <summary>
         /// Select the bus protocol the device communicates on. For CAN the AVT enters CAN mode and
@@ -597,7 +697,7 @@ namespace PcmHacking
                 return true;
             }
 
-            if (protocol == BusProtocol.Vpw)
+            if (protocol == BusProtocol.VPW)
             {
                 if (this.Model != 838)
                 {
@@ -611,7 +711,7 @@ namespace PcmHacking
                 }
 
                 // Restore the VPW flag before AVTSetup so its packet reads use VPW framing.
-                this.CurrentProtocol = BusProtocol.Vpw;
+                this.CurrentProtocol = BusProtocol.VPW;
                 await AVTSetup();
                 this.Supports4X = true;
                 return true;
@@ -637,16 +737,29 @@ namespace PcmHacking
         /// </summary>
         private async Task SendCanConfig(byte[] command, string description)
         {
-            await this.Port.Send(command);
+            // Null once the device has been disposed - closing the window during a configuration
+            // sequence, for instance, which is long enough to be interrupted.
+            IPort port = this.Port;
+            if (port == null)
+            {
+                return;
+            }
+
+            await port.Send(command);
 
             byte[] scratch = new byte[1];
-            Stopwatch idle = new Stopwatch();
-            idle.Start();
-            while (idle.ElapsedMilliseconds < 150)
+            Stopwatch idle = Stopwatch.StartNew();
+            Stopwatch total = Stopwatch.StartNew();
+
+            // Bounded on the gap since the last byte and on the whole drain. Waiting for the line
+            // to go quiet is enough while configuring a bus nobody is listening to yet, but this
+            // also runs when monitoring is switched off, with frames still arriving - and then the
+            // line never goes quiet and the idle timer restarts for ever.
+            while (idle.ElapsedMilliseconds < 150 && total.ElapsedMilliseconds < 1000)
             {
-                if (await this.Port.GetReceiveQueueSize() > 0)
+                if (await port.GetReceiveQueueSize() > 0)
                 {
-                    await this.Port.Receive(scratch, 0, 1);
+                    await port.Receive(scratch, 0, 1);
                     idle.Restart();
                 }
             }

@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 namespace PcmHacking
 {
     /// <summary>Whether VPW monitoring can follow a read that switches to 4X.</summary>
-    public enum VpwMonitorReadiness
+    public enum VPWMonitorReadiness
     {
         Ready,
 
@@ -82,12 +82,12 @@ namespace PcmHacking
         }
 
         /// <summary>Shared by all front ends so they apply the same rule and wording.</summary>
-        public static VpwMonitorReadiness CheckVpwReadiness(Vehicle vehicle, out string message)
+        public static VPWMonitorReadiness CheckVPWReadiness(Vehicle vehicle, out string message)
         {
             if (!vehicle.Supports4X)
             {
                 message = "This device can't switch to 4X, so a 4X read will not be captured.";
-                return VpwMonitorReadiness.NoFourXSupport;
+                return VPWMonitorReadiness.NoFourXSupport;
             }
 
             if (!vehicle.Enable4xReadWrite)
@@ -96,11 +96,11 @@ namespace PcmHacking
                     "Bus monitoring needs 4X enabled so it can follow a 4X read." + Environment.NewLine +
                     Environment.NewLine +
                     "Enable 4X for this device, then reconnect.";
-                return VpwMonitorReadiness.FourXDisabled;
+                return VPWMonitorReadiness.FourXDisabled;
             }
 
             message = string.Empty;
-            return VpwMonitorReadiness.Ready;
+            return VPWMonitorReadiness.Ready;
         }
 
         /// <summary>
@@ -132,7 +132,7 @@ namespace PcmHacking
                 }
                 else
                 {
-                    await this.RunVpw(onLine, token);
+                    await this.RunVPW(onLine, token);
                 }
             }
             finally
@@ -141,10 +141,10 @@ namespace PcmHacking
             }
         }
 
-        private async Task RunVpw(Action<string> onLine, CancellationToken token)
+        private async Task RunVPW(Action<string> onLine, CancellationToken token)
         {
             bool follow = this.WillFollowFourX;
-            VpwSpeed speed = VpwSpeed.Standard;
+            VPWSpeed speed = VPWSpeed.Standard;
             DateTime lastFrame = DateTime.UtcNow;
 
             while (!token.IsCancellationRequested)
@@ -152,10 +152,10 @@ namespace PcmHacking
                 Message message = await this.device.ReceiveMessage();
                 if (message == null)
                 {
-                    if (follow && speed == VpwSpeed.FourX && (DateTime.UtcNow - lastFrame) > FourXIdleRevert)
+                    if (follow && speed == VPWSpeed.FourX && (DateTime.UtcNow - lastFrame) > FourXIdleRevert)
                     {
-                        await this.SetMonitorSpeed(VpwSpeed.Standard);
-                        speed = VpwSpeed.Standard;
+                        await this.SetMonitorSpeed(VPWSpeed.Standard);
+                        speed = VPWSpeed.Standard;
                         onLine(Stamp() + "(bus idle - reverted to 1X)");
                     }
                     continue;
@@ -165,16 +165,16 @@ namespace PcmHacking
                 lastFrame = DateTime.UtcNow;
                 onLine(Stamp() + bytes.ToHex());
 
-                if (follow && speed == VpwSpeed.Standard && bytes.Length >= 4 && bytes[3] == Mode.HighSpeed)
+                if (follow && speed == VPWSpeed.Standard && bytes.Length >= 4 && bytes[3] == Mode.HighSpeed)
                 {
-                    await this.SetMonitorSpeed(VpwSpeed.FourX);
-                    speed = VpwSpeed.FourX;
+                    await this.SetMonitorSpeed(VPWSpeed.FourX);
+                    speed = VPWSpeed.FourX;
                     onLine(Stamp() + "(switched to 4X)");
                 }
-                else if (follow && speed == VpwSpeed.FourX && bytes.Length >= 4 && bytes[1] == DeviceId.Broadcast && bytes[3] == ReturnToStandardSpeed)
+                else if (follow && speed == VPWSpeed.FourX && bytes.Length >= 4 && bytes[1] == DeviceId.Broadcast && bytes[3] == ReturnToStandardSpeed)
                 {
-                    await this.SetMonitorSpeed(VpwSpeed.Standard);
-                    speed = VpwSpeed.Standard;
+                    await this.SetMonitorSpeed(VPWSpeed.Standard);
+                    speed = VPWSpeed.Standard;
                     onLine(Stamp() + "(returned to 1X by request)");
                 }
             }
@@ -182,10 +182,10 @@ namespace PcmHacking
 
         // Change VPW speed, then re-assert monitor filtering: a speed change reconnects/reconfigures the
         // device and restores its normal (narrow) acceptance filter, which would hide most traffic.
-        private async Task SetMonitorSpeed(VpwSpeed speed)
+        private async Task SetMonitorSpeed(VPWSpeed speed)
         {
-            await this.device.SetVpwSpeed(speed);
-            await this.device.BeginMonitor(BusProtocol.Vpw);
+            await this.device.SetVPWSpeed(speed);
+            await this.device.BeginMonitor(BusProtocol.VPW);
         }
 
         private async Task RunCan(IReadOnlyCollection<uint>? canAcceptIds, Action<string> onLine, CancellationToken token)

@@ -91,11 +91,11 @@ namespace PcmHacking
         /// <summary>
         /// Get the time required for the given scenario.
         /// </summary>
-        public override int GetTimeoutMilliseconds(TimeoutScenario scenario, VpwSpeed speed)
+        public override int GetTimeoutMilliseconds(TimeoutScenario scenario, VPWSpeed speed)
         {
             int milliseconds;
 
-            if (speed == VpwSpeed.Standard)
+            if (speed == VPWSpeed.Standard)
             {
                 switch (scenario)
                 {

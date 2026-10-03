@@ -49,7 +49,7 @@ public partial class BusMonitorViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanStartOrStop))]
     [NotifyPropertyChangedFor(nameof(StartStopText))]
-    [NotifyPropertyChangedFor(nameof(IsVpwSelectable))]
+    [NotifyPropertyChangedFor(nameof(IsVPWSelectable))]
     [NotifyPropertyChangedFor(nameof(IsCanSelectable))]
     [NotifyPropertyChangedFor(nameof(IsFilterEnabled))]
     [NotifyCanExecuteChangedFor(nameof(StartStopCommand))]
@@ -68,9 +68,9 @@ public partial class BusMonitorViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanStartOrStop))]
-    [NotifyPropertyChangedFor(nameof(IsVpwSelectable))]
+    [NotifyPropertyChangedFor(nameof(IsVPWSelectable))]
     [NotifyCanExecuteChangedFor(nameof(StartStopCommand))]
-    public partial bool IsVpwAvailable { get; set; }
+    public partial bool IsVPWAvailable { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanStartOrStop))]
@@ -79,7 +79,7 @@ public partial class BusMonitorViewModel : ObservableObject, IDisposable
     [NotifyCanExecuteChangedFor(nameof(StartStopCommand))]
     public partial bool IsCanAvailable { get; set; }
 
-    public bool IsVpwSelectable => IsVpwAvailable && !IsRunning;
+    public bool IsVPWSelectable => IsVPWAvailable && !IsRunning;
 
     public bool IsCanSelectable => IsCanAvailable && !IsRunning;
 
@@ -89,7 +89,7 @@ public partial class BusMonitorViewModel : ObservableObject, IDisposable
 
     /// <summary>Stays true while running so Stop still works.</summary>
     public bool CanStartOrStop =>
-        IsRunning || (Vehicle is not null && !IsHostBusy && (IsVpwAvailable || IsCanAvailable));
+        IsRunning || (Vehicle is not null && !IsHostBusy && (IsVPWAvailable || IsCanAvailable));
 
     #endregion
 
@@ -102,14 +102,14 @@ public partial class BusMonitorViewModel : ObservableObject, IDisposable
         }
 
         IReadOnlyList<BusProtocol> supported = Vehicle?.MonitorableProtocols ?? Array.Empty<BusProtocol>();
-        IsVpwAvailable = supported.Contains(BusProtocol.Vpw);
+        IsVPWAvailable = supported.Contains(BusProtocol.VPW);
         IsCanAvailable = supported.Contains(BusProtocol.Can500k);
 
         if (IsCanSelected && !IsCanAvailable)
         {
             IsCanSelected = false;
         }
-        else if (!IsCanSelected && !IsVpwAvailable)
+        else if (!IsCanSelected && !IsVPWAvailable)
         {
             IsCanSelected = IsCanAvailable;
         }
@@ -146,9 +146,9 @@ public partial class BusMonitorViewModel : ObservableObject, IDisposable
             return;
         }
 
-        BusProtocol protocol = IsCanSelected ? BusProtocol.Can500k : BusProtocol.Vpw;
+        BusProtocol protocol = IsCanSelected ? BusProtocol.Can500k : BusProtocol.VPW;
 
-        if (protocol == BusProtocol.Vpw && !ConfirmVpwReadiness())
+        if (protocol == BusProtocol.VPW && !ConfirmVPWReadiness())
         {
             return;
         }
@@ -205,15 +205,15 @@ public partial class BusMonitorViewModel : ObservableObject, IDisposable
     #endregion
 
     /// <summary>False only when the user can fix something first (4X supported but switched off).</summary>
-    private bool ConfirmVpwReadiness()
+    private bool ConfirmVPWReadiness()
     {
-        switch (BusMonitor.CheckVpwReadiness(Vehicle!, out string message))
+        switch (BusMonitor.CheckVPWReadiness(Vehicle!, out string message))
         {
-            case VpwMonitorReadiness.NoFourXSupport:
+            case VPWMonitorReadiness.NoFourXSupport:
                 _logger.AddUserMessage("Bus monitor: " + message);
                 return true;
 
-            case VpwMonitorReadiness.FourXDisabled:
+            case VPWMonitorReadiness.FourXDisabled:
                 MessageBox.Show(message, "Bus Monitor", MessageBoxButton.OK, MessageBoxImage.Information);
                 return false;
 

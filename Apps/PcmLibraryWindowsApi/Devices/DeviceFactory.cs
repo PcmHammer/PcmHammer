@@ -16,13 +16,92 @@ namespace PcmHacking
         /// </summary>
         public static Device? CreateDeviceFromConfigurationSettings(ILogger logger)
         {
-            switch(DeviceConfiguration.Settings.DeviceCategory)
+            return CreateDevice(SelectionFromSettings(), logger);
+        }
+
+        /// <summary>The device selection currently saved in settings.</summary>
+        public static DeviceSelection SelectionFromSettings()
+        {
+            return new DeviceSelection(
+                DeviceConfiguration.Settings.DeviceCategory,
+                DeviceConfiguration.Settings.J2534DeviceType,
+                DeviceConfiguration.Settings.SerialPort,
+                DeviceConfiguration.Settings.SerialPortDeviceType);
+        }
+
+        /// <summary>
+        /// Build the device a selection names, or null when it names none, is incomplete, or is
+        /// already open elsewhere in this process.
+        /// </summary>
+        /// <remarks>
+        /// The in-use check lives here rather than only in the UI so that every caller gets it. Two
+        /// devices on one interface is not a cosmetic problem: on serial it is an access denial, and
+        /// on J2534 the second device's teardown can free the driver library while the first is
+        /// still using it.
+        /// </remarks>
+        public static Device? CreateDevice(DeviceSelection selection, ILogger logger)
+        {
+            if (selection == null || !selection.IsSelected)
+            {
+                return null;
+            }
+
+            if (DeviceRegistry.IsInUse(selection))
+            {
+                logger.AddUserMessage(
+                    selection.Describe() + " is already in use, so it cannot be opened a second time.");
+                return null;
+            }
+
+            return CreateDeviceUnchecked(selection, logger);
+        }
+
+        /// <summary>
+        /// Claim an interface before constructing its device, so concurrent callers cannot both
+        /// enter a native driver for the same hardware. The caller owns the returned claim for as
+        /// long as the created device remains open.
+        /// </summary>
+        public static Device? CreateClaimedDevice(
+            DeviceSelection selection,
+            ILogger logger,
+            out IDisposable? claim)
+        {
+            claim = DeviceRegistry.TryClaim(selection);
+            if (claim == null)
+            {
+                logger.AddUserMessage(
+                    selection.Describe() + " is already in use, so it cannot be opened a second time.");
+                return null;
+            }
+
+            try
+            {
+                Device? device = CreateDeviceUnchecked(selection, logger);
+                if (device == null)
+                {
+                    claim.Dispose();
+                    claim = null;
+                }
+
+                return device;
+            }
+            catch
+            {
+                claim.Dispose();
+                claim = null;
+                throw;
+            }
+        }
+
+        private static Device? CreateDeviceUnchecked(DeviceSelection selection, ILogger logger)
+        {
+            switch (selection.Category)
             {
                 case DeviceConfiguration.Constants.DeviceCategorySerial:
-                    return CreateSerialDevice(DeviceConfiguration.Settings.SerialPort, DeviceConfiguration.Settings.SerialPortDeviceType, logger);
+                    return CreateSerialDevice(selection.SerialPort, selection.SerialPortDeviceType, logger);
 
                 case DeviceConfiguration.Constants.DeviceCategoryJ2534:
-                    return CreateJ2534Device(DeviceConfiguration.Settings.J2534DeviceType, logger);
+                    return CreateJ2534Device(selection.J2534DeviceType, logger);
 
                 default:
                     return null;

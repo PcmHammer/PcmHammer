@@ -167,60 +167,60 @@
       id="O2LeftUpstream"
       pid="0014"
       name="O2 Left Upstream"
-      description=""
-      storageType="int16"
+      description="SAE PID 14, bank 1 sensor 1. Both bytes must be requested - the PCM rejects a partial PID with 7F 2C 12 - so the expression takes byte 1, the voltage, and discards byte 2, which is short term fuel trim."
+      storageType="uint16"
       bitMapped="False">
-    <Conversion units="Volts" expression="x" format="0" />
+    <Conversion units="Volts" expression="((x - (x % 256)) / 256) * 0.005" format="0.000" />
     <OS id="all" />
   </Parameter>
   <Parameter
       id="O2LeftDownstream"
       pid="0015"
       name="O2 Left Downstream"
-      description=""
-      storageType="int16"
+      description="SAE PID 15, bank 1 sensor 2. Both bytes must be requested - the PCM rejects a partial PID with 7F 2C 12 - so the expression takes byte 1, the voltage, and discards byte 2, which is short term fuel trim."
+      storageType="uint16"
       bitMapped="False">
-    <Conversion units="Volts" expression="x" format="0" />
+    <Conversion units="Volts" expression="((x - (x % 256)) / 256) * 0.005" format="0.000" />
     <OS id="all" />
   </Parameter>
   <Parameter
-      id="SecondaryPosition"
+      id="O2LeftBank1Sensor3"
       pid="0016"
-      name="Secondary Position"
-      description=""
-      storageType="uint8"
+      name="O2 Left Bank 1 Sensor 3"
+      description="SAE PID 16, bank 1 sensor 3. Not fitted to a four-sensor V8, which will refuse it. Both bytes are requested; the expression takes byte 1, the voltage, and discards byte 2, which is short term fuel trim."
+      storageType="uint16"
       bitMapped="False">
-    <Conversion units="Degrees" expression="x" format="0" />
+    <Conversion units="Volts" expression="((x - (x % 256)) / 256) * 0.005" format="0.000" />
     <OS id="all" />
   </Parameter>
   <Parameter
-      id="SecondaryVelocity"
+      id="O2LeftBank1Sensor4"
       pid="0017"
-      name="Secondary Velocity"
-      description=""
-      storageType="uint8"
+      name="O2 Left Bank 1 Sensor 4"
+      description="SAE PID 17, bank 1 sensor 4. Not fitted to a four-sensor V8, which will refuse it. Both bytes are requested; the expression takes byte 1, the voltage, and discards byte 2, which is short term fuel trim."
+      storageType="uint16"
       bitMapped="False">
-    <Conversion units="Deg/Sec" expression="x" format="0" />
+    <Conversion units="Volts" expression="((x - (x % 256)) / 256) * 0.005" format="0.000" />
     <OS id="all" />
   </Parameter>
   <Parameter
       id="O2RightUpstream"
       pid="0018"
       name="O2 Right Upstream"
-      description=""
-      storageType="int16"
+      description="SAE PID 18, bank 2 sensor 1. Both bytes must be requested - the PCM rejects a partial PID with 7F 2C 12 - so the expression takes byte 1, the voltage, and discards byte 2, which is short term fuel trim."
+      storageType="uint16"
       bitMapped="False">
-    <Conversion units="Volts" expression="x" format="0" />
+    <Conversion units="Volts" expression="((x - (x % 256)) / 256) * 0.005" format="0.000" />
     <OS id="all" />
   </Parameter>
   <Parameter
       id="O2RightDownstream"
       pid="0019"
       name="O2 Right Downstream"
-      description=""
-      storageType="int16"
+      description="SAE PID 19, bank 2 sensor 2. Both bytes must be requested - the PCM rejects a partial PID with 7F 2C 12 - so the expression takes byte 1, the voltage, and discards byte 2, which is short term fuel trim."
+      storageType="uint16"
       bitMapped="False">
-    <Conversion units="Volts" expression="x" format="0" />
+    <Conversion units="Volts" expression="((x - (x % 256)) / 256) * 0.005" format="0.000" />
     <OS id="all" />
   </Parameter>
   <Parameter
@@ -1586,10 +1586,10 @@
         id="DesiredIACPosition"
         pid="12F7"
         name="Desired IAC Position"
-        description=""
+        description="GM PID 12F7. The raw byte is half the position: the authoritative P01/P59 list gives N = E / 2."
         storageType="uint8"
         bitMapped="False">
-    <Conversion units="Counts" expression="x" format="0.00" />
+    <Conversion units="Counts" expression="x * 2" format="0" />
     <OS id="all" />
   </Parameter>
   <Parameter
@@ -1777,7 +1777,7 @@
       id="EthanolContentSensorFrequency"
       pid="139C"
       name="Ethanol Content Sensor Frequency"
-      description=""
+      description="GM PID 139C. The list gives N = Hz * 256, which needs 16 bits; requesting one byte returns the high byte, which is the frequency in Hz. Do not add a divisor - it is already applied by taking a single byte."
       storageType="uint8"
       bitMapped="False">
     <Conversion units="Hz" expression="x" format="0" />

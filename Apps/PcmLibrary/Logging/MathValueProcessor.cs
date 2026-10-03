@@ -44,11 +44,47 @@ namespace PcmHacking
         }
 
         /// <summary>
+        /// Drop the math columns whose inputs are not being logged, and return what was dropped.
+        /// </summary>
+        /// <remarks>
+        /// A math value is computed from two other columns, and the module gets to refuse those:
+        /// anything it will not supply is taken out of its DPID group as logging starts. The math
+        /// column is then left asking for a value nobody is reading, which surfaced as a bare
+        /// "the given key was not present in the dictionary" against the parameter.
+        ///
+        /// Called once, after the module has had its say and before the headings are read, so the
+        /// columns and the values still agree on how many there are.
+        /// </remarks>
+        public IReadOnlyList<Parameter> RemoveColumnsWithMissingDependencies()
+        {
+            HashSet<LogColumn> logged = new HashSet<LogColumn>(this.dpidConfiguration.AllLogColumns);
+
+            List<MathColumnAndDependencies> kept = new List<MathColumnAndDependencies>();
+            List<Parameter> dropped = new List<Parameter>();
+
+            foreach (MathColumnAndDependencies math in this.mathColumns)
+            {
+                if (logged.Contains(math.XColumn) && logged.Contains(math.YColumn))
+                {
+                    kept.Add(math);
+                }
+                else
+                {
+                    dropped.Add(math.MathColumn.Parameter);
+                }
+            }
+
+            this.mathColumns = kept;
+            return dropped;
+        }
+
+        /// <summary>
         /// Returns the names of the math columns.
         /// </summary>
         public IEnumerable<string> GetHeaderNames()
         {
-            return this.mathColumns.Select(x => x.MathColumn.Parameter.Name);
+            return this.mathColumns.Select(
+                x => LogColumnHeading.For(x.MathColumn.Parameter, x.MathColumn.Conversion.Units));
         }
 
         /// <summary>
@@ -57,6 +93,31 @@ namespace PcmHacking
         public IEnumerable<LogColumn> GetMathColumns()
         {
             return this.mathColumns.Select(x => x.MathColumn);
+        }
+
+        /// <summary>
+        /// The two values a math column is computed from, or false when either is not in this row.
+        /// </summary>
+        /// <remarks>
+        /// <see cref="RemoveColumnsWithMissingDependencies"/> is what normally keeps this from
+        /// happening. This is the guard behind it, because the alternative is a dictionary lookup
+        /// that throws and puts the exception's own wording where a reading belongs.
+        /// </remarks>
+        private static bool TryGetInputs(
+            PcmParameterValues dpidValues, MathColumnAndDependencies math, out double x, out double y)
+        {
+            x = 0;
+            y = 0;
+
+            if (!dpidValues.TryGetValue(math.XColumn, out PcmParameterValue? xValue)
+                || !dpidValues.TryGetValue(math.YColumn, out PcmParameterValue? yValue))
+            {
+                return false;
+            }
+
+            x = xValue.ValueAsDouble;
+            y = yValue.ValueAsDouble;
+            return true;
         }
 
         /// <summary>
@@ -69,12 +130,15 @@ namespace PcmHacking
             {
                 try
                 {
-                    double xParameterValue = dpidValues[value.XColumn].ValueAsDouble;
-                    double yParameterValue = dpidValues[value.YColumn].ValueAsDouble;
+                    if (!TryGetInputs(dpidValues, value, out double x, out double y))
+                    {
+                        result.Add(string.Empty);
+                        continue;
+                    }
 
                     Interpreter finalConverter = new Interpreter();
-                    finalConverter.SetVariable("x", xParameterValue);
-                    finalConverter.SetVariable("y", yParameterValue);
+                    finalConverter.SetVariable("x", x);
+                    finalConverter.SetVariable("y", y);
                     double valueAsNumber = finalConverter.Eval<double>(value.MathColumn.Conversion.Expression);
                     if (double.IsNaN(valueAsNumber))
                     {
@@ -99,12 +163,21 @@ namespace PcmHacking
             {
                 try
                 {
-                    double xParameterValue = dpidValues[value.XColumn].ValueAsDouble;
-                    double yParameterValue = dpidValues[value.YColumn].ValueAsDouble;
+                    if (!TryGetInputs(dpidValues, value, out double x, out double y))
+                    {
+                        result.Add(new LogRowElement(
+                            value.MathColumn.Parameter.Id,
+                            value.MathColumn.Parameter.Name,
+                            value.MathColumn.Conversion.Units,
+                            string.Empty,
+                            double.NaN));
+
+                        continue;
+                    }
 
                     Interpreter finalConverter = new Interpreter();
-                    finalConverter.SetVariable("x", xParameterValue);
-                    finalConverter.SetVariable("y", yParameterValue);
+                    finalConverter.SetVariable("x", x);
+                    finalConverter.SetVariable("y", y);
                     double valueAsNumber = finalConverter.Eval<double>(value.MathColumn.Conversion.Expression);
                     if (double.IsNaN(valueAsNumber))
                     {

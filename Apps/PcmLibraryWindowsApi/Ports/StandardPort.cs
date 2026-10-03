@@ -301,6 +301,29 @@ namespace PcmHacking
             {
                 try
                 {
+                    // Stop the stream's finalizer before closing anything.
+                    //
+                    // Disposing a SerialPort with a read still in flight can leave its SerialStream
+                    // half-disposed, and the finalizer then runs against a handle that is already
+                    // closed and throws ObjectDisposedException. That happens on the finalizer
+                    // thread, where nothing can catch it and the process simply ends - which is why
+                    // the catch below is not enough on its own.
+                    //
+                    // Dispose still releases the handle; this only removes the backup path that
+                    // cannot be made safe. BaseStream throws once the port is closed, so it is read
+                    // while the port is still open and inside its own guard.
+                    if (p.IsOpen)
+                    {
+                        GC.SuppressFinalize(p.BaseStream);
+                    }
+                }
+                catch
+                {
+                    // Already closed, or defunct. Nothing to suppress.
+                }
+
+                try
+                {
                     p.Dispose();
                 }
                 catch

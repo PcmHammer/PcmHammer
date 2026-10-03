@@ -27,8 +27,8 @@
         <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" Margin="10">
             <TextBlock Text="Bus:" VerticalAlignment="Center" Margin="0,0,10,0" />
             <RadioButton Content="VPW"
-                         IsChecked="{Binding UseVpw}"
-                         IsEnabled="{Binding VpwBusAvailable}" />
+                         IsChecked="{Binding UseVPW}"
+                         IsEnabled="{Binding VPWBusAvailable}" />
             <RadioButton Content="CAN 500k"
                          IsChecked="{Binding UseCan, Mode=TwoWay}"
                          IsEnabled="{Binding CanBusAvailable}"

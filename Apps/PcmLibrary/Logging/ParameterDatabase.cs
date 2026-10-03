@@ -16,15 +16,15 @@ namespace PcmHacking
         private string pathToXmlDirectory = null!;
 
         private List<Parameter> parameters = new List<Parameter>();
-        private Dictionary<UInt32, IEnumerable<CanParameter>> canParameters = new Dictionary<UInt32, IEnumerable<CanParameter>>();
+        private Dictionary<UInt32, IEnumerable<BusParameter>> busParameters = new Dictionary<UInt32, IEnumerable<BusParameter>>();
 
-        public IEnumerable<CanParameter> CanParameters
+        public IEnumerable<BusParameter> BusParameters
         {
             get
             {
-                foreach(IEnumerable<CanParameter> parameterSet in canParameters.Values)
+                foreach(IEnumerable<BusParameter> parameterSet in busParameters.Values)
                 {
-                    foreach(CanParameter parameter in parameterSet)
+                    foreach(BusParameter parameter in parameterSet)
                     {
                         yield return parameter;
                     }
@@ -43,9 +43,9 @@ namespace PcmHacking
         /// <summary>
         /// For test use only.
         /// </summary>
-        public ParameterDatabase(Dictionary<UInt32, IEnumerable<CanParameter>> canParameters)
+        public ParameterDatabase(Dictionary<UInt32, IEnumerable<BusParameter>> busParameters)
         {
-            this.canParameters = canParameters;
+            this.busParameters = busParameters;
         }
 
         /// <summary>
@@ -79,9 +79,9 @@ namespace PcmHacking
             }
         }
 
-        public IReadOnlyDictionary<UInt32, IEnumerable<CanParameter>> GetCanParameters()
+        public IReadOnlyDictionary<UInt32, IEnumerable<BusParameter>> GetBusParameters()
         {
-            return this.canParameters;
+            return this.busParameters;
         }
 
         /// <summary>
@@ -92,6 +92,25 @@ namespace PcmHacking
         public IEnumerable<Parameter> ListParametersBySupportedOs(uint osId)
         {
             return this.parameters.Where(p => p.IsSupported(osId));
+        }
+
+        /// <summary>
+        /// The parameters one connection could supply: supported by this operating system, and from
+        /// a source that connection carries.
+        /// </summary>
+        /// <remarks>
+        /// Not filtered by bus. The protocol is not known until the interface connects, so a list
+        /// shows everything its connection could supply either way and anything that turns out not
+        /// to work is dropped by name when logging starts.
+        ///
+        /// Spans both collections, so that which list a parameter appears in is decided by its
+        /// source rather than by which file it was loaded from.
+        /// </remarks>
+        public IEnumerable<Parameter> ListParametersForConnection(uint osId, IReadOnlyList<string> sources)
+        {
+            return this.parameters
+                .Concat(this.BusParameters)
+                .Where(p => p.IsSupported(osId) && sources.Contains(p.Source));
         }
 
         /// <summary>
@@ -116,7 +135,7 @@ namespace PcmHacking
             this.LoadStandardParameters();
             this.LoadRamParameters();
             this.LoadMathParameters();
-            this.LoadCanParameters();
+            this.LoadBusParameters();
         }
 
         /// <summary>
@@ -147,7 +166,8 @@ namespace PcmHacking
                     osids.Add(osid);
                 }
 
-                List<Conversion> conversions = GetConversions(parameterElement);
+                List<Conversion> conversions = GetConversions(
+                    parameterElement, parameterElement.Attribute("storageType").Value);
 
                 PidParameter parameter = new PidParameter(
                     parameterElement.Attribute("id").Value,
@@ -158,6 +178,12 @@ namespace PcmHacking
                     conversions,
                     UnsignedHex.GetUnsignedHex("0x" + parameterElement.Attribute("pid").Value),
                     osids);
+
+                // SAE PIDs are the 00xx range; GM's enhanced set is everything above it. Two
+                // categories to navigate by, but one source: both are requested the same way.
+                parameter.Category = ReadCategory(
+                    parameterElement, parameter.PID <= 0x00FF ? "SAE" : "GM Enhanced");
+                parameter.Source = ReadSource(parameterElement, ParameterSources.GmEnhancedObd);
 
                 AddParameter(parameter);
             }
@@ -185,7 +211,8 @@ namespace PcmHacking
                     addresses[osid] = address;
                 }
 
-                List<Conversion> conversions = GetConversions(parameterElement);
+                List<Conversion> conversions = GetConversions(
+                    parameterElement, parameterElement.Attribute("storageType").Value);
 
                 RamParameter parameter = new RamParameter(
                     parameterElement.Attribute("id").Value,
@@ -195,6 +222,9 @@ namespace PcmHacking
                     bool.Parse(parameterElement.Attribute("bitMapped").Value),
                     conversions,
                     addresses);
+
+                parameter.Category = ReadCategory(parameterElement, "RAM");
+                parameter.Source = ReadSource(parameterElement, ParameterSources.GmEnhancedObd);
 
                 AddParameter(parameter);
             }
@@ -211,7 +241,9 @@ namespace PcmHacking
             {
                 string parameterName = parameterElement.Attribute("name").Value;
 
-                List<Conversion> conversions = GetConversions(parameterElement);
+                // A math parameter has no storage of its own, so its range comes from the file or
+                // from the data.
+                List<Conversion> conversions = GetConversions(parameterElement, string.Empty);
 
                 string xId = parameterElement.Attribute("xParameterId").Value;
                 string xUnits = parameterElement.Attribute("xParameterConversion").Value;
@@ -229,20 +261,23 @@ namespace PcmHacking
                     xLogColumn,
                     yLogColumn);
 
+                parameter.Category = ReadCategory(parameterElement, "Math");
+                parameter.Source = ReadSource(parameterElement, ParameterSources.Math);
+
                 AddParameter(parameter);
             }
         }
 
-        private void LoadCanParameters()
+        private void LoadBusParameters()
         {
-            string pathToXml = Path.Combine(this.pathToXmlDirectory, "Parameters.CAN.xml");
+            string pathToXml = Path.Combine(this.pathToXmlDirectory, "Parameters.AEM.xml");
             XDocument xml = XDocument.Load (pathToXml);
             foreach (XElement messageElement in xml.Root!.Elements("Message"))
             {
                 string messageIdString = messageElement.Attribute("id").Value;
                 UInt32 messageId = UInt32.Parse(messageIdString, NumberStyles.HexNumber);
 
-                List<CanParameter> parameters = new List<CanParameter>();
+                List<BusParameter> parameters = new List<BusParameter>();
 
                 foreach (XElement parameterElement in messageElement.Elements("Parameter"))
                 {
@@ -256,9 +291,12 @@ namespace PcmHacking
                     string aggregationString = parameterElement.Attribute("aggregation").Value;
                     Aggregation aggregation = (Aggregation)Enum.Parse(typeof(Aggregation), aggregationString);
 
-                    List<Conversion> conversions = GetConversions(parameterElement);
+                    // A broadcast parameter's width is its byte count, which gives it a scale the
+                    // same way a PID's storage type does.
+                    List<Conversion> conversions = GetConversions(
+                        parameterElement, byteCount == 1 ? "uint8" : byteCount == 2 ? "uint16" : string.Empty);
 
-                    CanParameter parameter = new CanParameter(
+                    BusParameter parameter = new BusParameter(
                         messageId, 
                         firstByte, 
                         byteCount, 
@@ -266,13 +304,23 @@ namespace PcmHacking
                         id, 
                         name, 
                         description, 
-                        conversions, 
+                        conversions,
                         aggregation);
+
+                    // Broadcast parameters are only meaningful when an auxiliary bus is being
+                    // monitored, so they carry their own category and the grid can hide them until
+                    // there is one.
+                    parameter.Category = ReadCategory(parameterElement, "Auxiliary Bus");
+                    parameter.Source = ReadSource(parameterElement, ParameterSources.Broadcast);
+
+                    // Everything in this file is a vendor gauge that is only built for CAN. A VPW
+                    // broadcast added here would carry bus="any".
+                    parameter.RequiredBus = ReadRequiredBus(parameterElement, BusProtocol.Can500k);
 
                     parameters.Add(parameter);
                 }
 
-                this.canParameters[messageId] = parameters;
+                this.busParameters[messageId] = parameters;
             }
         }
 
@@ -295,20 +343,27 @@ namespace PcmHacking
             return new LogColumn(xParameter, xConversion, false);
         }
 
-        List<Conversion> GetConversions(XElement parameterElement)
+        /// <summary>
+        /// Read a parameter's conversions, giving each one a scale: the file's own rangeLow/rangeHigh
+        /// if it states them, otherwise derived from the expression and the storage width.
+        /// </summary>
+        List<Conversion> GetConversions(XElement parameterElement, string storageType)
         {
             List<Conversion> returnConversions = new List<Conversion>();
+            bool bitMapped = IsBitmapped(parameterElement);
+            string parameterId = parameterElement.Attribute("id")?.Value ?? string.Empty;
 
             foreach (XElement conversionXml in parameterElement.Elements("Conversion"))
             {
-                if (IsBitmapped(parameterElement))
+                if (bitMapped)
                 {
                     int bitIndex = Convert.ToInt32(parameterElement.Attribute("bitIndex")?.Value);
                     returnConversions.Add(CreateBooleanConversion(conversionXml, bitIndex));
                 }
                 else
                 {
-                    returnConversions.Add(CreateNumericConversion(conversionXml));
+                    returnConversions.Add(
+                        CreateNumericConversion(conversionXml, parameterId, storageType));
                 }
             }
 
@@ -347,12 +402,75 @@ namespace PcmHacking
                 values[1]);
         }
 
-        private Conversion CreateNumericConversion(XElement conversionXml)
+        private Conversion CreateNumericConversion(
+            XElement conversionXml, string parameterId, string storageType)
         {
-            return new Conversion(
-                conversionXml.Attribute("units").Value,
-                conversionXml.Attribute("expression").Value,
-                conversionXml.Attribute("format").Value);
+            string units = conversionXml.Attribute("units").Value;
+            string expression = conversionXml.Attribute("expression").Value;
+            string format = conversionXml.Attribute("format").Value;
+
+            // An explicit range in the file wins, so a definition can correct a derived one.
+            double low = ReadDouble(conversionXml, "rangeLow");
+            double high = ReadDouble(conversionXml, "rangeHigh");
+
+            if (high <= low)
+            {
+                (double Low, double High)? derived =
+                    ConversionRange.Derive(parameterId, expression, storageType, bitMapped: false);
+
+                if (derived != null)
+                {
+                    low = derived.Value.Low;
+                    high = derived.Value.High;
+                }
+            }
+
+            return new Conversion(units, expression, format, low, high);
+        }
+
+        private static double ReadDouble(XElement element, string attributeName)
+        {
+            string? text = element.Attribute(attributeName)?.Value;
+            return double.TryParse(
+                text, NumberStyles.Float, CultureInfo.InvariantCulture, out double value) ? value : 0;
+        }
+
+        /// <summary>The parameter's category, or the supplied default when the file does not say.</summary>
+        private static string ReadCategory(XElement element, string fallback)
+        {
+            string? category = element.Attribute("category")?.Value;
+            return string.IsNullOrWhiteSpace(category) ? fallback : category!;
+        }
+
+        /// <summary>
+        /// Which source supplies this parameter. Defaulted per definition file, so existing files
+        /// need no change and only a parameter that breaks its file's pattern has to say so.
+        /// </summary>
+        private static string ReadSource(XElement element, string fallback)
+        {
+            string? source = element.Attribute("source")?.Value;
+            return string.IsNullOrWhiteSpace(source) ? fallback : source!;
+        }
+
+        /// <summary>
+        /// Which bus this parameter is confined to. Defaulted per definition file; "any" overrides a
+        /// file whose default is a specific bus.
+        /// </summary>
+        private static BusProtocol? ReadRequiredBus(XElement element, BusProtocol? fallback)
+        {
+            string? bus = element.Attribute("bus")?.Value;
+
+            if (string.IsNullOrWhiteSpace(bus))
+            {
+                return fallback;
+            }
+
+            if (string.Equals(bus, "any", StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            return (BusProtocol)Enum.Parse(typeof(BusProtocol), bus!, true);
         }
     }
 }

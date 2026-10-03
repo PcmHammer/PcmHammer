@@ -212,7 +212,7 @@ public partial record SettingsModel
             new DeviceTypeListing { DisplayName = "Auto detect", Key = DeviceTypeListing.AutoDetectKey },
         ];
 
-        foreach (DeviceDescriptor descriptor in DeviceCatalog.SerialDevices)
+        foreach (DeviceDescriptor descriptor in DeviceCatalog.OfferedDevices)
         {
             types.Add(new DeviceTypeListing { DisplayName = descriptor.DisplayName, Key = descriptor.Key });
         }

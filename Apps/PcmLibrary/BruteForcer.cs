@@ -841,7 +841,7 @@ namespace PcmHacking
     public partial class Vehicle : ISecurityAccess
     {
         /// <summary>The VPW bus; selects the VPW security key table.</summary>
-        public BusProtocol Bus => BusProtocol.Vpw;
+        public BusProtocol Bus => BusProtocol.VPW;
 
         /// <summary>The VPW brute-force model does not need a keep-alive between attempts.</summary>
         public Task SendKeepAlive(CancellationToken cancellationToken) => Task.CompletedTask;
