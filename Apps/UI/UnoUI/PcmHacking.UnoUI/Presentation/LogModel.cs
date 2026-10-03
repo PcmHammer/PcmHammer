@@ -14,6 +14,9 @@ public partial record LogModel
 
     public IListState<LogEntry> LogEntries => ListState<LogEntry>.Empty(this);
 
+    /// <summary>Where the log was written, or why it could not be. Empty until Save is used.</summary>
+    public IState<string> SaveStatus => State<string>.Value(this, () => string.Empty);
+
     public LogModel(
         ISettingsService settingsService, 
         IConnectionService connectionService, 
@@ -43,12 +46,17 @@ public partial record LogModel
     [Command]
     public async Task Save()
     {
-        // In order to enumerate the log entries, we need to pause polling, so that the collection doesn't get modified.
-        using (var lease = await this.connectionService.BeginActivity("Saving log"))
+        // No connection lease here. Saving a file needs no vehicle, and taking one made the log
+        // impossible to save in exactly the situation it is needed: after a failed operation, when
+        // the connection is gone, acquiring it throws and the button is left greyed out with no
+        // explanation. LogEntries hands back a fresh array, so nothing can modify what is enumerated.
+        try
         {
+            IList<LogEntry> entries = this.LogBuffer.LogEntries;
+
             StringBuilder builder = new StringBuilder();
             builder.AppendLine("<html>");
-            foreach (LogEntry entry in this.LogBuffer.LogEntries)
+            foreach (LogEntry entry in entries)
             {
                 builder.Append(string.Format("<br><span style=\"font-family:'Courier New'\">{0:yyyy-MM-dd HH:mm:ss}</span> ", entry.Time));
                 switch(entry.Type)
@@ -63,14 +71,43 @@ public partial record LogModel
                         builder.Append(entry.Message);
                         break;
                 }
-                //string line = string.Format("{0:yyyy-MM-dd HH:mm:ss} {1,5} {2}", entry.Time, entry.Type, entry.Message);
-                //builder.AppendLine(entry.ToString());
             }
             builder.AppendLine("</html>");
 
             string timestamp = DateTime.Now.ToString("yyyy-MM-dd-HH-mm-ss");
-            string path = Path.Combine(this.settingsService.GetDataLogFolder(), $"pcm-hammer-log-{timestamp}.html");
+            string path = Path.Combine(ResolveLogFolder(), $"pcm-hammer-log-{timestamp}.html");
+
+            // Previously unguarded: with no folder configured this combined the display placeholder
+            // into a relative path, the write threw, and the button silently did nothing.
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             await File.WriteAllTextAsync(path, builder.ToString());
+            await this.SaveStatus.SetAsync($"Saved {entries.Count} lines to {path}");
         }
+        catch (Exception exception)
+        {
+            await this.SaveStatus.SetAsync("Could not save the log: " + exception.Message);
+        }
+    }
+
+    /// <summary>
+    /// Where to write the log. The configured folder when one is set and usable, otherwise the same
+    /// user-visible PCMHammer folder the kernels live in, so Save always has somewhere real to go.
+    /// </summary>
+    private string ResolveLogFolder()
+    {
+        string configured = this.settingsService.GetDataLogFolder();
+        if (!string.IsNullOrWhiteSpace(configured)
+            && configured != SettingsService.NoDataLogFolder
+            && Path.IsPathRooted(configured))
+        {
+            return configured;
+        }
+
+#if ANDROID
+        return Platforms.Android.PermissionMethods.PcmHammerDirectory;
+#else
+        return Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "PCMHammer");
+#endif
     }
 }    

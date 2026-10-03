@@ -108,6 +108,12 @@ public interface IConnectionService
 
     Task<bool> TryConnect(CurrentSettings settings);
     Task<ConnectionLease> BeginActivity(string activity, bool canInterrupt = false);
+
+    /// <summary>
+    /// Let any in-progress operation finish, then release the vehicle and device. Called on app close
+    /// and (off Windows) on suspend, so the port is not left open.
+    /// </summary>
+    Task AwaitConnectionShutdown();
 }
 
 public class ConnectionService : IConnectionService
@@ -138,9 +144,13 @@ public class ConnectionService : IConnectionService
     private ConnectionStates internalState = ConnectionStates.NotConfigured;
     private SemaphoreSlim stateChangeSemaphore = new SemaphoreSlim(1, 1);
     private CurrentSettings? newSettings;
-    private CurrentSettings? lastSettings;
+    // One field, not a new/last pair: the pair could disagree, and the timer then reconnected on its
+    // own schedule instead of when the user changed something.
     private int retryPeriod = SlowRetryPeriod;
     private DateTime _leftActiveState = DateTime.MinValue;
+    /// <summary>The detected hardware type, kept so it can be shown alone during an operation.</summary>
+    private string pcmTypeName = string.Empty;
+
     private const string _recoveryString = "** RECOVERY **";
     private const string _kernelString = "** KERNEL **";
 
@@ -197,6 +207,12 @@ public class ConnectionService : IConnectionService
             await this.ResetVehicleInfo();
             await Task.Delay(100);
 
+            // Nothing chosen yet; probing would only churn the UI through a guaranteed failure.
+            if (string.IsNullOrEmpty(settings.DeviceCategory) || string.IsNullOrEmpty(settings.DeviceNameOrPort))
+            {
+                return false;
+            }
+
             (Device? newDevice, Vehicle? newVehicle) = await TryReconnect(settings);
 
             if (newDevice == null || newVehicle == null)
@@ -218,8 +234,6 @@ public class ConnectionService : IConnectionService
 #endif
                 logger.AddUserMessage("Copyright (C) 2018-2026 PcmHacking.net - GPL v3");
                 logger.AddUserMessage("Connection test succeeded.");
-                this.newSettings = settings;
-                this.lastSettings = settings;
                 this.settingsService.SaveConnectionSettings(settings);
                 isConnected = true;
                 this.device = newDevice;
@@ -228,11 +242,6 @@ public class ConnectionService : IConnectionService
             else
             {
                 logger.AddUserMessage("Connection test failed.");
-                this.newSettings = settings;
-                if(this.lastSettings == null)
-                {
-                    this.lastSettings = newSettings; // This avoids inactivity if device/PCM fails first try, unless this was intended.
-                }
                 newVehicle.Dispose();
                 newVehicle = null;
                 newDevice.Dispose();
@@ -257,6 +266,55 @@ public class ConnectionService : IConnectionService
         return isConnected;
     }
 
+    /// <summary>How long to wait for an in-progress operation to finish before giving up on closing.</summary>
+    private static readonly TimeSpan ShutdownTimeout = TimeSpan.FromSeconds(10);
+
+    /// <summary>
+    /// Release the vehicle and device. Only for a real application close - see the remarks.
+    /// </summary>
+    /// <remarks>
+    /// Teardown is guarded by the state-change semaphore rather than by watching internalState. An
+    /// operation holds that semaphore for its whole duration, so taking it here is what makes it
+    /// impossible to dispose the device underneath a running read or write. The old version polled
+    /// internalState for a bounded time and then disposed regardless, which nulled Vehicle.device
+    /// under an in-flight operation; a read died on a NullReferenceException and a write would have
+    /// been cut in half.
+    ///
+    /// If the operation outlasts the timeout we leave everything open and let the process exit take
+    /// the port with it. An abandoned port costs nothing next launch; an interrupted write does not.
+    /// </remarks>
+    public async Task AwaitConnectionShutdown()
+    {
+        if (!await this.stateChangeSemaphore.WaitAsync(ShutdownTimeout))
+        {
+            logger.AddDebugMessage(
+                $"Shutdown requested while {this.internalState}, which did not finish in {ShutdownTimeout.TotalSeconds}s. "
+                + "Leaving the connection open rather than interrupting it.");
+            return;
+        }
+
+        try
+        {
+            this.StopTimer();
+
+            if (this.vehicle != null)
+            {
+                // Vehicle.Dispose only releases the underlying device once this is cancelled.
+                this.vehicle.ShutdownSignalSource.Cancel();
+                this.vehicle.Dispose();
+                this.vehicle = null;
+            }
+
+            this.device?.Dispose();
+            this.device = null;
+            this.ForceTransition(ConnectionStates.NotConnected);
+        }
+        finally
+        {
+            this.stateChangeSemaphore.Release();
+        }
+    }
+
     /// <summary>
     /// Reconnect after a connection loss.
     /// </summary>
@@ -266,7 +324,7 @@ public class ConnectionService : IConnectionService
     /// </remarks>
     public async Task<Vehicle?> Reconnect()
     {
-        (Device? newDevice, Vehicle? newVehicle) = await TryReconnect(this.lastSettings!);
+        (Device? newDevice, Vehicle? newVehicle) = await TryReconnect(this.newSettings!);
         this.device = newDevice;
         this.vehicle = newVehicle;
         return this.vehicle;
@@ -278,6 +336,10 @@ public class ConnectionService : IConnectionService
         {
             this.vehicle.ShutdownSignalSource.Cancel();
             this.vehicle?.Dispose();
+
+            // The device outlives the vehicle, so it has to be released here too or the port stays open.
+            this.device?.Dispose();
+            this.device = null;
             return (null, null);
         }
         if (this.vehicle != null)
@@ -289,7 +351,9 @@ public class ConnectionService : IConnectionService
         {
             try
             {
-                if (!await this.device.CheckDeviceConnection())
+                // Settings that differ from the live ones mean a different interface, so the existing
+                // device must go even if it is still answering.
+                if (this.newSettings != settings || !await this.device.CheckDeviceConnection())
                 {
                     this.device.Dispose();
                     this.device = null;
@@ -310,6 +374,7 @@ public class ConnectionService : IConnectionService
         }
         if (this.device == null || settings != this.newSettings)
         {
+            this.newSettings = settings;
             if (string.IsNullOrEmpty(portDesc))
             {
                 await this.DeviceName.SetAsync("Select a device.");
@@ -416,6 +481,26 @@ public class ConnectionService : IConnectionService
 
         try
         {
+            if (nextState == ConnectionStates.Active || nextState == ConnectionStates.Logging)
+            {
+                // A poll suppresses logging and then waits for the connection, so one that queued
+                // ahead of this activity can leave the flag off. An operation must always log.
+                this.logBuffer.Enabled = true;
+
+                // The PCM restarts at the end of an operation, and TryTransition refuses anything
+                // above Connected until it is back. Wait that out instead of failing: a read started
+                // within ten seconds of the last one was rejected as "not connected".
+                int resetRemaining = this.ResetTimeRemaining;
+                if (resetRemaining != -1)
+                {
+                    logger.AddUserMessage($"Waiting {resetRemaining}s for the PCM to finish restarting...");
+                    while (this.ResetTimeRemaining != -1)
+                    {
+                        await Task.Delay(250);
+                    }
+                }
+            }
+
             // We want to be connected in order to proceed. Retry for up to 5 seconds.
             try
             {
@@ -450,7 +535,11 @@ public class ConnectionService : IConnectionService
             // acquired) the 'using' pattern won't call the Dispose method,
             // so the semaphore has to be released explicitly.
             this.stateChangeSemaphore.Release();
-            return null!;
+
+            // Rethrow rather than returning null. Every caller dereferences Vehicle straight away,
+            // so a null lease surfaced as a bare NullReferenceException with no indication that the
+            // real problem was an unavailable connection.
+            throw;
         }
 
         return new ConnectionLease(this, this.vehicle, activity);
@@ -479,11 +568,17 @@ public class ConnectionService : IConnectionService
                     throw new ConnectionUnavailableException("Not connected. " + errorMessage);
                 }
 
-                // The main reason for hiding these is that I don't want to give the user
-                // a false sense of security about the voltage. It might go down while they
-                // are flashing or logging, but it won't be updated in the UI.
-                await this.OperatingSystemId.SetAsync(String.Empty);
-                await this.Voltage.SetAsync(String.Empty);
+                // Show just the hardware type for the duration: during a read or write the type is what
+                // identifies what is being worked on, and the OSID is long.
+                if (this.pcmTypeName.Length > 0)
+                {
+                    await this.OperatingSystemId.SetAsync(this.pcmTypeName);
+                }
+
+                // Polling is suspended for the duration, so there is no live reading to show. The
+                // placeholder says so, where a held value would imply the voltage was still being
+                // watched and a blank would look like a fault.
+                await this.Voltage.SetAsync(VehicleStatus.VoltageUnavailable);
 
                 logger.AddUserMessage("Beginning activity: " + activity);
                 break;
@@ -534,6 +629,28 @@ public class ConnectionService : IConnectionService
         this.StopTimer();
     }
 
+    /// <summary>
+    /// Return the PCM to its normal state at the end of an operation, and open the reset window that
+    /// holds off the next one. No-op unless an operation was actually running.
+    /// </summary>
+    /// <remarks>
+    /// This used to live in TryTransition as ExitKernel().Wait() and ClearTroubleCodes().Wait().
+    /// PcmLibrary never uses ConfigureAwait(false), so those continuations post back to whatever
+    /// context started them: blocking on them from the UI thread - which is where EndActivity runs
+    /// when a lease is disposed from a model - is a deadlock.
+    /// </remarks>
+    private async Task LeaveActiveState()
+    {
+        if (this.internalState != ConnectionStates.Active || this.vehicle == null)
+        {
+            return;
+        }
+
+        await this.vehicle.ExitKernel();
+        await this.vehicle.ClearTroubleCodes();
+        _leftActiveState = DateTime.Now;
+    }
+
     public async Task EndActivity(bool isConnected)
     {
         try
@@ -548,6 +665,9 @@ public class ConnectionService : IConnectionService
 
             if (isConnected)
             {
+                // Before the transition, while internalState still says an operation was running.
+                await this.LeaveActiveState();
+
                 ConnectionStates allowed =
                     ConnectionStates.Active |
                     ConnectionStates.Logging |
@@ -568,6 +688,10 @@ public class ConnectionService : IConnectionService
         {
             logger.AddDebugMessage("Exception in ConnectionService.EndActivity: " + exception.ToString());
             this.ForceTransition(ConnectionStates.NotConnected);
+
+            // The public state drives the back button, so it has to follow internalState here too.
+            // Leaving it at Active stranded the user on the operation's page.
+            await this.ConnectionState.SetAsync(ConnectionStates.NotConnected);
         }
         finally
         {
@@ -620,26 +744,11 @@ public class ConnectionService : IConnectionService
             // This log line made more sense before logging was disabled in this scenario...
             logger.AddDebugMessage($"ConnectionService timer callback. Internal state: {this.internalState}.");
 
-            // Re-create the connection if the settings have changed.
-            if (this.newSettings != null && this.newSettings != this.lastSettings)
+            // Re-create the connection if it was lost. Changed settings are applied by the settings
+            // page calling TryConnect directly, so the timer no longer has to notice them.
+            if (this.internalState == ConnectionStates.NotConnected && this.newSettings != null)
             {
-                // This will call TryPollOnce, and will return true if that succeeds.
-                // It will also update this.lastSettings when it succeeds.
                 if (await this.TryConnect(this.newSettings))
-                {
-                    logger.AddUserMessage("Connected with new settings.");
-                }
-                else
-                {
-                    logger.AddUserMessage("Unable to connect with new settings.");
-                    return;
-                }
-            }
-
-            // Re-create the connection if the connection was lost.
-            if (this.internalState == ConnectionStates.NotConnected && this.lastSettings != null)
-            {
-                if (await this.TryConnect(this.lastSettings))
                 {
                     logger.AddUserMessage("Re-connected with current settings.");
                 }
@@ -651,11 +760,6 @@ public class ConnectionService : IConnectionService
             }
             using (ConnectionLease lease = await this.BeginActivity(PollingActivity, true))
             {
-                if(lease == null)
-                {
-                    ForceTransition(ConnectionStates.NotConnected);
-                    return;
-                }
                 acquiredVehicle = lease.Vehicle;
                 if (acquiredVehicle == null)
                 {
@@ -678,6 +782,13 @@ public class ConnectionService : IConnectionService
         }
         catch (ConnectionUnavailableException)
         {
+            // No vehicle means the connection itself is gone, which the state has to reflect;
+            // anything else just means the bus was busy and the poll can be skipped quietly.
+            if (this.vehicle == null)
+            {
+                ForceTransition(ConnectionStates.NotConnected);
+            }
+
             logger.AddDebugMessage("Poll skipped.");
         }
         catch (Exception exception)
@@ -790,7 +901,16 @@ public class ConnectionService : IConnectionService
             }
 
             logger.AddDebugMessage($"Detected PCM on {status.Bus}.");
-            await this.OperatingSystemId.SetAsync(status.Osid.ToString());
+
+            // Remember the hardware type separately: it stays on screen during an operation, where the
+            // OSID is dropped because it is long and the type is what identifies what is being worked on.
+            PcmType hardwareType = new OSIDInfo(status.Osid).HardwareType;
+            this.pcmTypeName = hardwareType == PcmType.Undefined ? string.Empty : hardwareType.ToString();
+
+            await this.OperatingSystemId.SetAsync(
+                this.pcmTypeName.Length > 0
+                    ? $"{this.pcmTypeName} {status.Osid}"
+                    : status.Osid.ToString());
             await this.Bus.SetAsync(status.Bus.ToString());
             await this.Voltage.SetAsync(status.Voltage);
         }
@@ -814,6 +934,9 @@ public class ConnectionService : IConnectionService
 
     private async Task ResetVehicleInfo()
     {
+        // The cached type goes too, or a stale one would reappear when the next operation starts.
+        this.pcmTypeName = string.Empty;
+
         await this.ConnectionState.SetAsync(ConnectionStates.NotConnected);
         await this.OperatingSystemId.SetAsync(String.Empty);
         await this.Bus.SetAsync(String.Empty);
@@ -834,12 +957,6 @@ public class ConnectionService : IConnectionService
         {
             logger.AddDebugMessage($"Transition denied due to ECM/PCM reset, staying in: {this.internalState}");
             return false;
-        }
-        if (this.internalState == ConnectionStates.Active && newState == ConnectionStates.Connected)
-        {
-            this.vehicle?.ExitKernel().Wait();
-            this.vehicle?.ClearTroubleCodes().Wait();
-            _leftActiveState = DateTime.Now;
         }
         if (((this.internalState & expected) > 0) || this.internalState == newState && ResetTimeRemaining == -1)
         {

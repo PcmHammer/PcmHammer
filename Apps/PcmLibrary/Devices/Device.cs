@@ -191,6 +191,16 @@ namespace PcmHacking
         public virtual IReadOnlyList<BusProtocol> MonitorableProtocols { get; } = new[] { BusProtocol.Vpw };
 
         /// <summary>
+        /// Battery voltage measured by the interface itself, if it can. Independent of the bus, so it
+        /// works where the VPW voltage PID does not - on CAN, and while a kernel is running.
+        /// Devices that cannot measure it return an error, which is the default.
+        /// </summary>
+        public virtual Task<Response<double>> ReadDeviceVoltage()
+        {
+            return Task.FromResult(Response.Create(ResponseStatus.Refused, 0.0));
+        }
+
+        /// <summary>
         /// Indicates whether or no the device supports logging just one DPID.
         /// </summary>
         /// <remarks>

@@ -80,8 +80,14 @@ public class MainWindowLogger : ILogger, IDisposable
 
     public void StatusUpdateRetryCount(string retries)
     {
-        if (int.TryParse(retries, out int result))
+        // The library sends the bare count, or an empty string to clear it. The leading token is
+        // taken rather than the whole string so an older counted form ("3 Retries") still parses;
+        // against that form the plain parse failed and the count never moved off zero.
+        string number = (retries ?? string.Empty).Trim().Split(' ')[0];
+        if (int.TryParse(number, out int result))
             Application.Current.Dispatcher.BeginInvoke(() => _viewModel.RetryCount = result);
+        else if (string.IsNullOrWhiteSpace(retries))
+            Application.Current.Dispatcher.BeginInvoke(() => _viewModel.RetryCount = 0);
     }
 
     public void StatusUpdateKbps(string Kbps)

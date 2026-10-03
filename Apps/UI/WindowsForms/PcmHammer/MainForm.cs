@@ -159,7 +159,10 @@ namespace PcmHacking
             this.statusStatusStrip.Invoke(
                 (MethodInvoker)delegate ()
                 {
-                    this.retryCountToolStripStatusLabel.Text = retries;
+                    // The library sends the bare count, and this status cell has no caption of its
+                    // own. An empty string is the reset, which leaves the cell blank.
+                    this.retryCountToolStripStatusLabel.Text =
+                        string.IsNullOrEmpty(retries) ? string.Empty : "Retries: " + retries;
                 });
         }
 

@@ -599,6 +599,16 @@ namespace PcmHacking
         /// </summary>
         async private Task<Response<Message>> SendDVIPacket(Message message, bool logTx = true)
         {
+            // SerialDevice.Dispose sets Port to null, so a device disposed while an operation is in
+            // flight turned every later send into a bare NullReferenceException - including the
+            // cleanup that returns the PCM to normal mode, which then failed the same way.
+            IPort port = this.Port;
+            if (port == null)
+            {
+                this.Logger.AddUserMessage("The interface is closed; cannot send.");
+                return Response.Create(ResponseStatus.Error, message);
+            }
+
             int length = message.GetBytes().Length;
             byte[] RawPacket = message.GetBytes();
             byte[] SendPacket = new byte[length + 3];
@@ -622,7 +632,7 @@ namespace PcmHacking
             SendPacket[SendPacket.Length - 1] = CalcChecksum(SendPacket);
 
             //Send frame
-            await this.Port.Send(SendPacket);
+            await port.Send(SendPacket);
 
             // Wait for confirmation of successful send (the 0x20/0x21 TX acknowledgment).
             //
@@ -701,6 +711,14 @@ namespace PcmHacking
             if (Status == false) return Response.Create(ResponseStatus.Error, false);
 
             return Response.Create(ResponseStatus.Success, true);
+        }
+
+        /// <summary>
+        /// Battery voltage from the interface, which works on any bus.
+        /// </summary>
+        public override async Task<Response<double>> ReadDeviceVoltage()
+        {
+            return await this.ReadVoltage();
         }
 
         async private Task<Response<double>> ReadVoltage()

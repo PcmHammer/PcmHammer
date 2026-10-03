@@ -41,6 +41,15 @@ public partial record HelpModel
         await Launcher.LaunchUriAsync(new Uri("https://github.com/PcmHammer/PcmHammer"));
     }
 
+    /// <summary>
+    /// The interface store, with the project's referrer code. The URL comes from the device catalog
+    /// rather than being spelled out again here, so there is one copy of the referrer.
+    /// </summary>
+    public async Task BuyObdxPro()
+    {
+        await Launcher.LaunchUriAsync(new Uri(DeviceCatalog.ObdxProPurchaseUrl));
+    }
+
     public async Task GoToLog()
     {
         await this.navigator.NavigateViewModelAsync<LogModel>(this);

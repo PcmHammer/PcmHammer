@@ -22,6 +22,11 @@
         <StackPanel Grid.Row="0" Orientation="Horizontal">
             <Button Content="Clear" Margin="5" Command="{Binding Clear}"/>
             <Button Content="Save" Margin="5" Command="{Binding Save}"/>
+            <!-- Where it was written, or why it was not. Saving used to fail silently. -->
+            <TextBlock Text="{Binding SaveStatus}"
+                       VerticalAlignment="Center"
+                       Margin="10,0,5,0"
+                       TextWrapping="WrapWholeWords" />
         </StackPanel>
 
         <ListView Grid.Row="1" ItemsSource="{Binding LogEntries}"

@@ -1,4 +1,4 @@
-# Generates the Inno Setup wizard images from the PCM Hammer app icon, replacing the
+﻿# Generates the Inno Setup wizard images from the PCM Hammer app icon, replacing the
 # default "box + CD" graphics. Produces (next to this script):
 #   WizardImage.png       big left banner (welcome/finish pages)
 #   WizardSmallImage.png   small top-right image (inner pages)
@@ -13,7 +13,7 @@ $ErrorActionPreference = "Stop"
 Add-Type -AssemblyName System.Drawing
 
 $dir = $PSScriptRoot
-if (-not $IconPath) { $IconPath = Join-Path $dir "..\UI\WindowsForms\PcmHammer\0411_256px.ico" }
+if (-not $IconPath) { $IconPath = Join-Path $dir "..\UI\Shared\0411_256px.ico" }
 $IconPath = (Resolve-Path $IconPath).Path
 
 # Largest frame of the icon as a bitmap.

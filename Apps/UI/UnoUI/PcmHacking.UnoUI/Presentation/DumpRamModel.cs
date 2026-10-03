@@ -104,7 +104,7 @@ public partial record DumpRamModel : IAsyncLogger
             await this.AddUserMessage("RAM dump failed: ");
             await this.AddUserMessage(exception.Message);
             await Task.Delay(1000);
-            await this.AddDebugMessage(exception.ToString());
+            this.loggerAdapter.AddDebugMessage(exception.ToString());
         }
         finally
         {
@@ -167,7 +167,7 @@ public partial record DumpRamModel : IAsyncLogger
                     catch (Exception ex)
                     {
                         errorCount++;
-                        await this.AddDebugMessage($"Error reading address 0x{address:X6}: {ex.Message}");
+                        this.loggerAdapter.AddDebugMessage($"Error reading address 0x{address:X6}: {ex.Message}");
                         // Write zeros for exceptions
                         fileStream.Write(new byte[] { 0x00, 0x00, 0x00, 0x00 }, 0, 4);
                     }
@@ -300,7 +300,10 @@ public partial record DumpRamModel : IAsyncLogger
     
     public Task AddDebugMessage(string message)
     {
-        // TODO: Debug message logging
+        // Nothing to do: this is the interceptor handing back a message the adapter has already put
+        // in the log buffer. Writing it to the buffer here would store every library debug line
+        // twice. Code in this class that wants something in the debug log calls
+        // loggerAdapter.AddDebugMessage directly.
         return Task.CompletedTask;
     }
 

@@ -16,12 +16,28 @@ namespace PcmHacking
         /// name. Guessing only recognises the factory names ("OBDX...", "OBDLink..."), so a renamed
         /// adapter - or any other CAN-capable one - can only be reached by naming its type.
         /// </param>
-        /// <returns>The device, or null if the type could not be determined.</returns>
+        /// <param name="nameOrAddress">
+        /// The adapter's address, or its name. An OBDX Pro renames itself between pairings
+        /// ("OBDX Pro GT {MAC}" becomes "OBDX Pro GT BLE"), so the address is matched first - a saved
+        /// name stops resolving the moment the adapter changes it.
+        /// </param>
+        /// <returns>The device, or null if it could not be found or typed.</returns>
         public async static Task<Device?> CreateBluetoothDevice(
-            string deviceName, string? deviceType, ILogger logger)
+            string nameOrAddress, string? deviceType, ILogger logger)
         {
-            BluetoothDeviceInfo bluetoothDeviceInfo = SerialBluetoothDiscovery.GatherPairedDevices()
-                .Where(d => d.DeviceName == deviceName).First();
+            BluetoothDeviceInfo? bluetoothDeviceInfo = SerialBluetoothDiscovery.GatherPairedDevices()
+                .FirstOrDefault(d => d.DeviceAddress?.ToString() == nameOrAddress)
+                ?? SerialBluetoothDiscovery.GatherPairedDevices()
+                .FirstOrDefault(d => d.DeviceName == nameOrAddress);
+
+            if (bluetoothDeviceInfo == null)
+            {
+                // Was .First(), which threw an unhandled InvalidOperationException here.
+                logger.AddUserMessage($"No paired Bluetooth device matches \"{nameOrAddress}\". Re-select it in Settings.");
+                return null;
+            }
+
+            string deviceName = bluetoothDeviceInfo.DeviceName ?? nameOrAddress;
             BluetoothPort port = new(bluetoothDeviceInfo);
             await port.OpenAsync(new BluetoothPortConfiguration(bluetoothDeviceInfo));
 

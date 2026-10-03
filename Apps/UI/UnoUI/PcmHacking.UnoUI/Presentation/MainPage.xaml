@@ -41,7 +41,7 @@
 
         <TextBlock Grid.Row="0" Grid.Column="4" Grid.ColumnSpan="2" TextAlignment="Center" VerticalAlignment="Center" Text="{Binding ConnectionState}" Grid.RowSpan="2" />
 
-        <TextBlock Grid.Row="0" Grid.Column="6" TextAlignment="Right" VerticalAlignment="Center" HorizontalAlignment="Right" Text="OSID:" Margin="4,0"/>
+        <TextBlock Grid.Row="0" Grid.Column="6" TextAlignment="Right" VerticalAlignment="Center" HorizontalAlignment="Right" Text="PCM:" Margin="4,0"/>
         <TextBlock Grid.Row="0" Grid.Column="7" Grid.ColumnSpan="2" TextAlignment="Left" VerticalAlignment="Center" HorizontalAlignment="Left" Text="{Binding OperatingSystemId}" />
 
         <TextBlock Grid.Row="1" Grid.Column="6" TextAlignment="Left" VerticalAlignment="Center" HorizontalAlignment="Right" Text="Volts:" Margin="4,0" />

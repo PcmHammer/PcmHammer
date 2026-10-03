@@ -29,7 +29,9 @@ public partial record OtherFunctionsModel
     private readonly INavigator navigator;
     private readonly IConnectionService connectionService;
     private readonly LoggerAdapter progressLogger;
-    private readonly CancellationTokenSource cancellation = new CancellationTokenSource();
+    // Not readonly: Android reuses the model instance across navigations, so a source cancelled by
+    // NavigatedAway would make the next visit exit its loop immediately and never read the PCM.
+    private CancellationTokenSource cancellation = new CancellationTokenSource();
 
     public IState<string> ResetCodesButtonText => State<string>.Value(this, () => defaultClearCodesButtonText);
     public IState<string> Description => State<string>.Value(this, () => defaultValue);
@@ -39,6 +41,12 @@ public partial record OtherFunctionsModel
     public IState<string> SerialNumber => State<string>.Value(this, () => defaultValue);
     public IState<string> BroadcastCode => State<string>.Value(this, () => defaultValue);
     public IState<string> Mec => State<string>.Value(this, () => defaultValue);
+
+    /// <summary>
+    /// Gates the buttons that need a live connection. Without this they are clickable while
+    /// disconnected or mid-reset, and the operation fails only after navigating into it.
+    /// </summary>
+    public IState<bool> ActionButtonsEnabled => State<bool>.Value(this, () => false);
 
     /// <summary>The software module identifiers a CAN PCM reports; empty for a VPW PCM.</summary>
     public IListState<CanIdentification.Item> SoftwareModules => ListState<CanIdentification.Item>.Empty(this);
@@ -57,10 +65,19 @@ public partial record OtherFunctionsModel
         this.progressLogger = logger;
         this.dispatcherQueue = dispatcherQueue;
 
+        this.connectionService.ConnectionState.ForEach(async (state, ct) => await this.UpdateActionButtonStates(ct));
+
         // Loaded="{Binding IdentifyPcm}"
         this.dispatcherQueue.TryEnqueue(async () => {
             await this.MainLoop();
         });
+    }
+
+    private async Task UpdateActionButtonStates(CancellationToken ct)
+    {
+        ConnectionStates currentState = await this.connectionService.ConnectionState.Value(ct);
+        bool resetting = this.connectionService.ResetTimeRemaining > 0;
+        await this.ActionButtonsEnabled.SetAsync(!resetting && currentState >= ConnectionStates.Connected, ct);
     }
 
     public void NavigatedAway()
@@ -70,6 +87,13 @@ public partial record OtherFunctionsModel
 
     private async Task MainLoop()
     {
+        // Fresh per visit; see the field comment.
+        if (this.cancellation.IsCancellationRequested)
+        {
+            this.cancellation.Dispose();
+            this.cancellation = new CancellationTokenSource();
+        }
+
         await this.ClearDetails();
 
         while (!cancellation.Token.IsCancellationRequested)

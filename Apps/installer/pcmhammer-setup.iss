@@ -1,4 +1,4 @@
-; PCM Hammer - Inno Setup installer script
+﻿; PCM Hammer - Inno Setup installer script
 ; Requires Inno Setup 6.x  (https://jrsoftware.org/isinfo.php)
 ;
 ; Build (from the repo root):
@@ -39,7 +39,7 @@
 #define AppName      "PCM Hammer"
 #define AppPublisher "PCMHacking.net"
 #define AppURL       "https://pcmhacking.net"
-#define AppIcon      "..\UI\WindowsForms\PcmHammer\0411_256px.ico"
+#define AppIcon      "..\UI\Shared\0411_256px.ico"
 
 [Setup]
 ; AppId uniquely identifies the product for upgrades/uninstall - do not change it

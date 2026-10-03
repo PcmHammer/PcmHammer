@@ -165,6 +165,7 @@
             </Grid.ColumnDefinitions>
 
             <Button Grid.Row="0" Grid.Column="0" Command="{Binding GoToRead}"
+                    IsEnabled="{Binding ActionButtonsEnabled}"
           Margin="10"
           Padding="10"
           HorizontalAlignment="Stretch"
@@ -173,6 +174,7 @@
             </Button>
 
             <Button Grid.Row="1" Grid.Column="0" Command="{Binding GoToVerify}"
+                    IsEnabled="{Binding ActionButtonsEnabled}"
 Margin="10"
 Padding="10"
 HorizontalAlignment="Stretch"
@@ -181,6 +183,7 @@ VerticalAlignment="Stretch">
             </Button>
             
             <Button Grid.Row="0" Grid.Column="1" Command="{Binding GoToChangeVin}"
+                    IsEnabled="{Binding ActionButtonsEnabled}"
           Margin="10"
           Padding="10"
           HorizontalAlignment="Stretch"
@@ -189,6 +192,7 @@ VerticalAlignment="Stretch">
             </Button>
 
             <Button Grid.Row="1" Grid.Column="1" Command="{Binding GoToCrankRelearn}"
+                    IsEnabled="{Binding ActionButtonsEnabled}"
           Margin="10"
           Padding="10"
           HorizontalAlignment="Stretch"
@@ -197,6 +201,7 @@ VerticalAlignment="Stretch">
             </Button>
 
             <Button Grid.Row="0" Grid.Column="2" Command="{Binding GoToDumpRam}"
+                    IsEnabled="{Binding ActionButtonsEnabled}"
           Margin="10"
           Padding="10"
           HorizontalAlignment="Stretch"
@@ -206,6 +211,7 @@ VerticalAlignment="Stretch">
 
 
             <Button Grid.Row="1" Grid.Column="2" Command="{Binding ResetCodes}"
+                    IsEnabled="{Binding ActionButtonsEnabled}"
           Margin="10"
           Padding="10"
           HorizontalAlignment="Stretch"
@@ -214,6 +220,7 @@ VerticalAlignment="Stretch">
             </Button>
 
             <Button Grid.Row="2" Grid.Column="0" Command="{Binding GoToBusMonitor}"
+                    IsEnabled="{Binding ActionButtonsEnabled}"
           Margin="10"
           Padding="10"
           HorizontalAlignment="Stretch"

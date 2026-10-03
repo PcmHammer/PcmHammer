@@ -110,7 +110,7 @@ namespace PcmHacking
             this.messageRetryCount = 0;
 
             // A forced write rewrites even sectors that already match the file, so log it prominently.
-            if (this.forceWriteAllSectorsPending && this.writeType != WriteType.Compare && this.writeType != WriteType.TestWrite)
+            if (this.forceWriteAllSectorsPending && WritePlan.IsDestructive(this.writeType))
             {
                 this.logger.AddUserMessage("===========================================================");
                 this.logger.AddUserMessage("FORCED WRITE OPTION SELECTED: Every in-scope sector will");
@@ -209,7 +209,7 @@ namespace PcmHacking
 
             if (allRangesMatch)
             {
-                if (this.writeType != WriteType.Compare && this.writeType != WriteType.TestWrite)
+                if (WritePlan.IsDestructive(this.writeType))
                 {
                     this.logger.AddUserMessage("Flash successful!");
                 }
@@ -268,9 +268,8 @@ namespace PcmHacking
                     this.messageRetryCount += writeResponse.RetryCount;
                 }
 
-                this.logger.StatusUpdateRetryCount(this.messageRetryCount > 0
-                    ? this.messageRetryCount + (this.messageRetryCount > 1 ? " Retries" : " Retry")
-                    : string.Empty);
+                // The bare running total; see the matching note in KernelReader.
+                this.logger.StatusUpdateRetryCount(this.messageRetryCount.ToString());
 
                 if (writeResponse.Status != ResponseStatus.Success)
                 {

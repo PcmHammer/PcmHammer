@@ -33,7 +33,16 @@ namespace PcmHacking
         /// <summary>The kernel version, or zero when no kernel is running.</summary>
         public ulong KernelVersion { get; }
 
-        /// <summary>Battery voltage, or empty when the bus in use has no voltage query.</summary>
+        /// <summary>
+        /// Shown in place of a reading when neither the bus nor the interface can measure voltage, so
+        /// the field reads as "not available" rather than looking like it failed to populate.
+        /// </summary>
+        public const string VoltageUnavailable = "-";
+
+        /// <summary>
+        /// Battery voltage, or <see cref="VoltageUnavailable"/> when nothing in the current setup can
+        /// measure it.
+        /// </summary>
         public string Voltage { get; }
 
         private VehicleStatus(State pcmState, BusProtocol bus, uint osid, ulong kernelVersion, string voltage)

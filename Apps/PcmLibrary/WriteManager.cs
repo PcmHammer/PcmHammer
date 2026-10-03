@@ -630,7 +630,7 @@ namespace PcmHacking
 
             // Comparisons and test writes are non-destructive, so they are allowed even where a real
             // write is not. A real write is gated on the PCM's write support like the VPW path.
-            bool destructive = this.writeType != WriteType.Compare && this.writeType != WriteType.TestWrite;
+            bool destructive = WritePlan.IsDestructive(this.writeType);
             if (destructive && !pcmInfo.IsSupportedWrite)
             {
                 string msg = $"Abort: The connected {pcmInfo.HardwareType.ToString()} PCM is not supported for write operations.";

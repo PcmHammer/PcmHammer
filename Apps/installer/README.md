@@ -1,4 +1,4 @@
-# PCM Hammer installer
+﻿# PCM Hammer installer
 
 Inno Setup script that packages the Windows apps into a single setup executable named
 **`PCMHammer_<version>_Setup.exe`** (e.g. `PCMHammer_1.0.1.0_Setup.exe` for a release,
@@ -25,7 +25,7 @@ optional desktop shortcut for PCM Hammer. Fully uninstallable (Add/Remove Progra
 
 The installer/setup icon, the wizard images (`make-wizard-images.ps1`), and the shortcut
 icon all come from the standard app icon
-(`Apps/UI/WindowsForms/PcmHammer/0411_256px.ico`).
+(`Apps/UI/Shared/0411_256px.ico`).
 
 ## Build locally
 

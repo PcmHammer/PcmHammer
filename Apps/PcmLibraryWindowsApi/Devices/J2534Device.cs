@@ -1008,6 +1008,14 @@ namespace PcmHacking
         };
 
         /// <summary>
+        /// Battery voltage from the interface, which works on any bus.
+        /// </summary>
+        public override Task<Response<double>> ReadDeviceVoltage()
+        {
+            return Task.FromResult(this.ReadVoltage());
+        }
+
+        /// <summary>
         /// Read battery voltage
         /// </summary>
         public Response<double> ReadVoltage()
@@ -1113,21 +1121,23 @@ namespace PcmHacking
             }
         }
 
-        public override Task<bool> CheckDeviceConnection()
+        public async override Task<bool> CheckDeviceConnection()
         {
             try
             {
-                if (Initialize().Result)
+                // Awaited, not .Result: blocking on the initialize deadlocks when the caller has a
+                // synchronization context, which the Uno connection poll does.
+                if (await Initialize())
                 {
-                    return Task.FromResult(true);
+                    return true;
                 }
             }
             catch
             {
-                return Task.FromResult(false);
+                return false;
             }
 
-            return Task.FromResult(false);
+            return false;
         }
     }
 }

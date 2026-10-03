@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
@@ -8,7 +8,7 @@
     <OutputType>Exe</OutputType>
     <RootNamespace>PcmHacking</RootNamespace>
     <AssemblyName>pcmhammer-cli</AssemblyName>
-    <ApplicationIcon>..\WindowsForms\PcmHammer\0411_256px.ico</ApplicationIcon>
+    <ApplicationIcon>..\Shared\0411_256px.ico</ApplicationIcon>
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <!-- Required for the msbuild release build: a transitive PackageReference (System.Management
          via PcmLibraryWindowsApi) carries runtime-specific assets that VS msbuild's NuGet

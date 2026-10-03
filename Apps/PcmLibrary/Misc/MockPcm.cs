@@ -34,9 +34,22 @@ namespace PcmHacking
 
         private byte[]? responseBuffer;
 
+        /// <summary>Simulated flash contents, so a read returns data instead of nothing.</summary>
+        private readonly byte[] pcmData;
+
+        /// <summary>Set once a kernel has been uploaded and started; mode 0x20 returns to normal mode.</summary>
+        private bool switchedToKernel;
+
         public MockPcm(ILogger logger)
         {
             this.logger = logger;
+
+            // 512 KiB of erased flash, which is what a P01 reads back as.
+            this.pcmData = new byte[512 * 1024];
+            for (int index = 0; index < this.pcmData.Length; index++)
+            {
+                this.pcmData[index] = 0xEE;
+            }
         }
 
         /// <summary>
@@ -135,6 +148,12 @@ namespace PcmHacking
                     this.firstByte.ToString("X2"), // 4
                     this.modeName)); // 5
 
+            if (this.modeByte == 0x20)
+            {
+                // Return to normal mode; any uploaded kernel is no longer running.
+                this.switchedToKernel = false;
+            }
+
             if (this.modeByte == 0x27)
             {
                 if (this.payload[0] == 0x01)
@@ -167,9 +186,38 @@ namespace PcmHacking
 
                 this.responseBuffer = response.ToArray();
             }
+            else if (this.modeByte == 0x35)
+            {
+                // Read block: answer with the requested length from the simulated flash, as a block
+                // message with the two-byte block checksum the reader validates.
+                if (this.payload[0] == 0x01)
+                {
+                    logger.AddDebugMessage("Mock PCM: Received Mode 0x35 Read Block.");
+
+                    byte[] blockHeader = new byte[] { Priority.Block, DeviceId.Tool, DeviceId.Pcm, 0x36 };
+                    int length = (this.payload[1] << 8) | this.payload[2];
+                    byte[] response = new byte[blockHeader.Length + this.payload.Count + length + 2];
+
+                    Buffer.BlockCopy(blockHeader, 0, response, 0, blockHeader.Length);
+                    Buffer.BlockCopy(this.payload.ToArray(), 0, response, blockHeader.Length, this.payload.Count);
+                    Buffer.BlockCopy(this.pcmData, 0, response, blockHeader.Length + this.payload.Count, length);
+
+                    UInt16 blockSum = VpwUtilities.CalcBlockChecksum(response);
+                    response[response.Length - 2] = (byte)(blockSum >> 8);
+                    response[response.Length - 1] = (byte)(blockSum & 0xFF);
+
+                    this.responseBuffer = response;
+                }
+            }
             else if (this.modeByte == 0x36)
             {
                 logger.AddDebugMessage("Mock PCM: Received Mode 0x36 Block Transfer. Confirming payload chunk...");
+
+                // 0x80 marks the final block of a kernel upload, after which the kernel is running.
+                if (this.payload.Count > 0 && this.payload[0] == 0x80)
+                {
+                    this.switchedToKernel = true;
+                }
 
                 // Construct a standard J1850 VPW Mode 0x76 positive block response frame
                 // Priority.Physical0 (0x6C), Target (0xF0), Source (0x10), Mode 0x76 success byte, Sub-Status (0x00)
@@ -263,10 +311,30 @@ namespace PcmHacking
             }
             else if (this.modeByte == 0x3D)
             {
-                logger.AddDebugMessage("Mock PCM: Received Mode 0x3D Execute Kernel. Confirming execution changeover...");
+                logger.AddDebugMessage("Mock PCM: Received Mode 0x3D Kernel Command, sub-mode " + this.payload[0].ToString("X2"));
 
-                // Return the absolute clean physical frame with the correct math-validated 0x4A CRC trailer
-                this.responseBuffer = new byte[] { 0x6C, 0xF0, 0x10, 0x7D, 0x00, 0x4A };
+                switch (this.payload[0])
+                {
+                    case 0x00:
+                        // Kernel version. Only answer once a kernel has actually been uploaded, so the
+                        // caller's "is a kernel running?" probe behaves like real hardware.
+                        this.responseBuffer = this.switchedToKernel
+                            ? new byte[] { Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, 0x7D, 0x00, 0x82, 0x40, 0x02, 0x01 }
+                            : new byte[] { 0x6C, 0xF0, 0x10, 0x7D, 0x00, 0x4A };
+                        break;
+
+                    case 0x01:
+                        this.responseBuffer = new byte[] { Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, 0x7D, 0x01, 0x00, 0x89, 0x44, 0x71 };
+                        break;
+
+                    case 0x03:
+                        this.responseBuffer = new byte[] { Priority.Physical0, DeviceId.Tool, DeviceId.Pcm, 0x7D, 0x03, 0x00, 0xBA, 0x57, 0xBC };
+                        break;
+
+                    default:
+                        this.responseBuffer = new byte[] { 0x6C, 0xF0, 0x10, 0x7D, 0x00, 0x4A };
+                        break;
+                }
             }
             else if (modeByte == Mode.GetPid)
             {

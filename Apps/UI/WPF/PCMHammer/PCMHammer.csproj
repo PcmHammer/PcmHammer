@@ -10,7 +10,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <ApplicationIcon>0411_256px.ico</ApplicationIcon>
+    <ApplicationIcon>..\..\Shared\0411_256px.ico</ApplicationIcon>
 	<LangVersion>14.0</LangVersion>
     <!-- Untagged dev builds report 0.0.0.0 so AppInfo shows the build date instead of a version;
          the release pipeline stamps a real version. Matches the WinForms/CLI convention. -->
@@ -86,7 +86,9 @@
   </Target>
 
   <ItemGroup>
-    <Content Include="0411_256px.ico" />
+    <Content Include="..\..\Shared\0411_256px.ico">
+      <Link>0411_256px.ico</Link>
+    </Content>
   </ItemGroup>
 
   <ItemGroup>

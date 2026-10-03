@@ -114,7 +114,14 @@ public partial record BusMonitorModel
             return;
         }
 
-        await this.Run();
+        // Mark it running before launching, so a second click in the window before Run reaches its
+        // own SetRunning cannot start a second capture.
+        await this.SetRunning(true);
+
+        // Not awaited. The generated command disables its button for as long as the handler runs,
+        // and this is the same button that has to stop the capture - awaiting the whole session here
+        // left Stop disabled for its entire duration. Run handles its own exceptions.
+        _ = this.Run();
     }
 
     private async Task Run()
@@ -157,11 +164,13 @@ public partial record BusMonitorModel
 
                 BusMonitor monitor = lease.Vehicle.CreateBusMonitor();
                 await Task.Run(() => monitor.RunAsync(protocol, canIds, this.AppendLine, this.tokenSource.Token));
+                await this.Status.SetAsync("Stopped.");
             }
         }
         catch (OperationCanceledException)
         {
             // Stop was clicked; not an error.
+            await this.Status.SetAsync("Stopped.");
         }
         catch (Exception exception)
         {
@@ -183,10 +192,9 @@ public partial record BusMonitorModel
         await this.IsRunning.SetAsync(running);
         await this.IsStopped.SetAsync(!running);
         await this.StartStopButtonText.SetAsync(running ? "Stop" : "Start");
-        if (!running)
-        {
-            await this.Status.SetAsync("Stopped.");
-        }
+
+        // Status is left to the caller. Setting "Stopped." here ran in the finally, after the catch
+        // had put the failure on screen, so a bus monitor error was overwritten before it was read.
     }
 
     /// <summary>Called on the capture thread for every frame, so it only queues.</summary>

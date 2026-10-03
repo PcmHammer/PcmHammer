@@ -128,9 +128,10 @@ namespace PcmHacking
                 Buffer.BlockCopy(block.Value, 0, image, offset, thisBlock);
                 this.blockTransferBytes += thisBlock;
                 this.ReportProgress(progress, offset + thisBlock, imageSize, address);
-                this.logger.StatusUpdateRetryCount(retryCount > 0
-                    ? retryCount + (retryCount > 1 ? " Retries" : " Retry")
-                    : string.Empty);
+                // The bare running total, which each UI captions for itself. Zero is reported too:
+                // a blank field looks like the count is missing, where "Retries: 0" says the
+                // transfer is clean.
+                this.logger.StatusUpdateRetryCount(retryCount.ToString());
             }
 
             return Response.Create(ResponseStatus.Success, retryCount);
@@ -164,8 +165,14 @@ namespace PcmHacking
                 catch (Exception exception)
                 {
                     response = Response.Create(ResponseStatus.Error, Array.Empty<byte>());
+
+                    // The whole exception, not just the top frame: a NullReferenceException's message
+                    // says nothing about what was null, and one frame was not enough to tell which
+                    // of a method's several dereferences threw. Block failures are rare, so the
+                    // verbosity costs nothing when things are working.
                     this.logger.AddDebugMessage(string.Format(
-                        "Block 0x{0:X6} attempt {1}/{2} threw: {3}", address, attempt, maxAttempts, exception.Message));
+                        "Block 0x{0:X6} attempt {1}/{2} threw: {3}",
+                        address, attempt, maxAttempts, exception.ToString()));
                 }
                 finally
                 {

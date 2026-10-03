@@ -138,7 +138,7 @@ public partial record WriteModel : IAsyncLogger
     public IState<bool> UseCustomKeyEnabled => State<bool>.Value(this, () => true);
     public IState<string> CustomKey => State<string>.Value(this, () => "");
     public IState<bool> CustomKeyEnabled => State<bool>.Value(this, () => true);
-    private List<string> _localUserMessages;
+    private readonly UserLogBuffer _localUserMessages;
 
     public WriteModel(
         INavigator navigator,
@@ -164,7 +164,7 @@ public partial record WriteModel : IAsyncLogger
         var _2 = this.UseCustomKey.SetAsync(this.settingsService.GetUseCustomKey());
         var _3 = this.CustomKey.SetAsync(this.settingsService.GetCustomKey());
         var _4 = this.EnableControls(false);
-        _localUserMessages = [];
+        _localUserMessages = new UserLogBuffer(text => this.UserLog.SetAsync(text).AsTask());
     }
 
     private string GetStartButtonText()
@@ -179,6 +179,8 @@ public partial record WriteModel : IAsyncLogger
                 return "Start Writing";
         }
     }
+
+    private string GetCompletionText() => OperationOptions.DescribeCompletion(this.writeType);
 
     private string GetActivityText()
     {
@@ -320,7 +322,13 @@ public partial record WriteModel : IAsyncLogger
     public async ValueTask Start(CancellationToken cancellationToken)
     {
 #if ANDROID
-        await Platforms.Android.PermissionMethods.ExtractKernelsToFileAndroid(); // Approach with a fire-and-forget tactic - Should complete well before an action will run.
+        if (!await Platforms.Android.PermissionMethods.ExtractKernelsToFileAndroid())
+        {
+            // Say so here; otherwise this surfaces later as an unexplained missing-kernel error.
+            await this.AddUserMessage("Storage access was not granted, so the kernels could not be installed. Grant it and try again.");
+            await this.EnableControls(false);
+            return;
+        }
 #endif
         await this.EnableControls(true);
         string? path = string.Empty;
@@ -412,11 +420,13 @@ public partial record WriteModel : IAsyncLogger
             await this.AddUserMessage("Write failed: ");
             await this.AddUserMessage(exception.Message);
             await Task.Delay(1000, cancellationToken);
-            await this.AddDebugMessage(exception.ToString());
+            this.loggerAdapter.AddDebugMessage(exception.ToString());
             await this.EnableControls(false);
         }
         finally
         {
+            // The buffer publishes on a timer, so the closing lines need an explicit flush.
+            await _localUserMessages.FlushNow();
             this.tokenSource = null;
             await this.EnableControls(false);
         }
@@ -445,7 +455,7 @@ public partial record WriteModel : IAsyncLogger
 
             if (await writeManager.Write(package, forcedPcmType))
             {
-                await this.AddUserMessage("Write succeeded!");
+                await this.AddUserMessage(this.GetCompletionText());
             }
 
             return;
@@ -455,7 +465,7 @@ public partial record WriteModel : IAsyncLogger
 #else
         if (await writeManager.Write(path, forcedPcmType))
         {
-            await this.AddUserMessage("Write succeeded!");
+            await this.AddUserMessage(this.GetCompletionText());
             this.tokenSource = null;
             await this.EnableControls(false);
         }
@@ -481,9 +491,24 @@ public partial record WriteModel : IAsyncLogger
     [Command]
     public async ValueTask Cancel(CancellationToken ct)
     {
-        await this.AddUserMessage("Cancelling.");
-        this.tokenSource?.Cancel();
-        this.tokenSource = null;
+        // Keep the source. Clearing it here meant the first click cancelled and every later click
+        // only logged "Cancelling.", which looked identical to a cancel that was being ignored.
+        CancellationTokenSource? source = this.tokenSource;
+        if (source == null)
+        {
+            await this.AddUserMessage("Nothing to cancel.");
+        }
+        else if (source.IsCancellationRequested)
+        {
+            await this.AddUserMessage("Already cancelling; waiting for the current block to finish.");
+        }
+        else
+        {
+            await this.AddUserMessage("Cancelling.");
+            source.Cancel();
+        }
+
+        await _localUserMessages.FlushNow();
     }
 
     private async Task<string?> PromptForFileOpenPath()
@@ -520,13 +545,17 @@ public partial record WriteModel : IAsyncLogger
 
     public async Task AddUserMessage(string message)
     {
-        _localUserMessages.Add(message);
-        await this.UserLog.SetAsync(_localUserMessages.ToArray().JoinBy("\r\n"));
+        _localUserMessages.Append(message);
+        await Task.CompletedTask;
     }
 
-    public async Task AddDebugMessage(string message)
+    public Task AddDebugMessage(string message)
     {
-        // TODO: Debug message logging
+        // Nothing to do: this is the interceptor handing back a message the adapter has already put
+        // in the log buffer, and the Write page shows user messages only. Writing it to the buffer
+        // here would store every library debug line twice. Code in this class that wants something
+        // in the debug log calls loggerAdapter.AddDebugMessage directly.
+        return Task.CompletedTask;
     }
 
     public async Task StatusUpdateActivity(string activity)
@@ -546,12 +575,8 @@ public partial record WriteModel : IAsyncLogger
 
     public async Task StatusUpdateRetryCount(string retries)
     {
-        if (string.IsNullOrWhiteSpace(retries))
-        {
-            retries = "None.";
-        }
-
-        await this.RetryCount.SetAsync("Retried messages: " + retries);
+        // No "None." substitution: the library always sends a count now, so this matches Read.
+        await this.RetryCount.SetAsync("Retries: " + retries);
     }
 
     public async Task StatusUpdateProgressBar(double completed, bool visible)

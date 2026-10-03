@@ -502,9 +502,14 @@ jobs:
     # cannot be attached to (or block) the release; on normal pushes/PRs it still builds
     # and is published as experimental workflow artifacts. The same gate is applied to
     # every Uno build/stage/upload step below.
+    # Platform=x86 is required, not optional. The project pins a 32-bit apphost (so the process can
+    # load 32-bit J2534 driver DLLs), but the Windows App SDK selects its native binaries from
+    # $(Platform), not from the RuntimeIdentifier. Building without it produces an x86 apphost beside
+    # x64 WinAppSDK natives, and the app dies on startup with BadImageFormatException (0x8007000B)
+    # inside WindowsAppRuntime_EnsureIsLoaded.
     - name: Build Uno Windows (Debug)
       if: ${{ !startsWith(github.ref, 'refs/tags/') }}
-      run: dotnet build Apps/UI/UnoUI/PcmHacking.UnoUI/PcmHacking.UnoUI.csproj -c Debug -f net10.0-windows10.0.26100.0
+      run: dotnet build Apps/UI/UnoUI/PcmHacking.UnoUI/PcmHacking.UnoUI.csproj -c Debug -f net10.0-windows10.0.26100.0 -p:Platform=x86
 
     - name: Publish Uno Android (Release APK)
       if: ${{ !startsWith(github.ref, 'refs/tags/') }}
@@ -592,21 +597,46 @@ jobs:
       if: ${{ !startsWith(github.ref, 'refs/tags/') }}
       shell: pwsh
       run: |
-        $unoWindowsOutput = Get-ChildItem -Path "Apps/UI/UnoUI/PcmHacking.UnoUI/bin" -Recurse -File -ErrorAction SilentlyContinue `
+        # Built with Platform=x86, so the output is under bin\x86\...\win-x86. Matched explicitly
+        # rather than by globbing bin recursively: the old glob took the first match by sorted path
+        # and could pick a stale or wrong-architecture folder.
+        $unoWindowsOutput = Get-ChildItem -Path "Apps/UI/UnoUI/PcmHacking.UnoUI/bin/x86/Debug" -Recurse -File -ErrorAction SilentlyContinue `
           | Where-Object {
-              ($_.Name -like "pcm*.exe" -or $_.Name -like "pcm*.dll") -and
-              $_.FullName -like "*net10.0-windows*"
+              $_.Name -eq "PcmHacking.UnoUI.exe" -and
+              $_.FullName -like "*net10.0-windows*win-x86*"
             } `
-          | Sort-Object FullName `
           | Select-Object -First 1
 
         if (!$unoWindowsOutput) {
-          throw "Uno Windows output file (pcm*.exe or pcm*.dll) not found under Apps/UI/UnoUI/PcmHacking.UnoUI/bin"
+          throw "Uno Windows output not found under Apps/UI/UnoUI/PcmHacking.UnoUI/bin/x86/Debug (expected net10.0-windows*/win-x86/PcmHacking.UnoUI.exe)"
+        }
+
+        # The apphost and the Windows App SDK natives must be the same architecture. When they are not,
+        # the app installs and launches to a BadImageFormatException that no build step would otherwise
+        # notice, so check it here rather than shipping it.
+        function Get-PEArch([string]$p) {
+          $fs = [IO.File]::OpenRead($p); $br = New-Object IO.BinaryReader($fs)
+          try {
+            $fs.Seek(0x3C,'Begin') | Out-Null; $peOff = $br.ReadInt32()
+            $fs.Seek($peOff,'Begin') | Out-Null
+            if ($br.ReadUInt32() -ne 0x4550) { return 'notPE' }
+            switch ($br.ReadUInt16()) { 0x14c {'x86'} 0x8664 {'x64'} 0xAA64 {'arm64'} default {'unknown'} }
+          } finally { $br.Close(); $fs.Close() }
+        }
+
+        $outDir = $unoWindowsOutput.Directory.FullName
+        $hostArch = Get-PEArch $unoWindowsOutput.FullName
+        $native = Join-Path $outDir "Microsoft.ui.xaml.dll"
+        if (!(Test-Path $native)) { throw "Windows App SDK native Microsoft.ui.xaml.dll not found in $outDir" }
+        $nativeArch = Get-PEArch $native
+        Write-Host "Uno Windows apphost: $hostArch, WindowsAppSDK native: $nativeArch"
+        if ($hostArch -ne 'x86' -or $nativeArch -ne 'x86') {
+          throw "Architecture mismatch: apphost is $hostArch and WindowsAppSDK native is $nativeArch - both must be x86. Check that Platform=x86 was passed to the build."
         }
 
         New-Item -ItemType Directory -Force -Path TemporaryArtifactStorage/UnoWindows | Out-Null
         Copy-Item -Path "TemporaryArtifactStorage/Kernels/*.bin" -Destination "TemporaryArtifactStorage/UnoWindows" -Force
-        Copy-Item -Path "$($unoWindowsOutput.Directory.FullName)/*" -Destination "TemporaryArtifactStorage/UnoWindows" -Recurse -Force
+        Copy-Item -Path "$outDir/*" -Destination "TemporaryArtifactStorage/UnoWindows" -Recurse -Force
         Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/*.LogProfile" -Destination "TemporaryArtifactStorage/UnoWindows" -Force
         Copy-Item -Path "Apps/UI/WindowsForms/PcmLogger/Parameters.*.xml" -Destination "TemporaryArtifactStorage/UnoWindows" -Force
 
@@ -637,11 +667,14 @@ jobs:
         foreach ($apk in ($apkSelection | Sort-Object FullName -Unique)) {
           $zip = [System.IO.Compression.ZipFile]::OpenRead($apk.FullName)
           try {
+            # Check the path the app actually loads from. PermissionMethods reads the asset folder
+            # "Assets/Kernels", which the csproj's AndroidAsset Link puts at assets/Assets/Kernels.
+            # This used to accept assets/Kernels too, which is only where the "Inject kernels into
+            # Uno assets" step copies them - so the guard passed on that copy alone and would not
+            # have noticed the real embed being empty.
             $kernelEntries = $zip.Entries | Where-Object {
-              $_.FullName -like "assets/Kernel-*.bin" -or
-              $_.FullName -like "assets/Loader-*.bin" -or
-              $_.FullName -like "assets/Kernels/Kernel-*.bin" -or
-              $_.FullName -like "assets/Kernels/Loader-*.bin"
+              $_.FullName -like "assets/Assets/Kernels/Kernel-*.bin" -or
+              $_.FullName -like "assets/Assets/Kernels/Loader-*.bin"
             }
             if (!$kernelEntries -or $kernelEntries.Count -eq 0) {
               throw "APK '$($apk.Name)' does not contain kernel assets."
@@ -653,7 +686,7 @@ jobs:
             # - native-style outputs (lib*.so) for app-specific assemblies
             # - assembly store payloads (assemblies/*.blob or assemblies/*.dll)
             $appAssemblyEntries = $zip.Entries | Where-Object {
-              $_.FullName -match '(?i)(PcmHacking|PcmLibrary|net[._]PcmHacking[._]Uno).*(\.dll(\.so)?$|\.so$)' -or
+              $_.FullName -match '(?i)(PcmHacking|PcmLibrary|net[._]PCMHammer[._]Uno).*(\.dll(\.so)?$|\.so$)' -or
               $_.FullName -match '(?i)^assemblies/.*\.(blob|dll|manifest)$'
             }
             if (!$appAssemblyEntries -or $appAssemblyEntries.Count -eq 0) {

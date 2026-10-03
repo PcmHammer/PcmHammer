@@ -6,9 +6,9 @@
     <UnoSingleProject>true</UnoSingleProject>
 
     <!-- Display name -->
-    <ApplicationTitle>PcmHacking.Uno</ApplicationTitle>
+    <ApplicationTitle>PCMHammer.Uno</ApplicationTitle>
     <!-- App Identifier -->
-    <ApplicationId>net.PcmHacking.Uno</ApplicationId>
+    <ApplicationId>net.PCMHammer.Uno</ApplicationId>
     <!-- Versions -->
     <Version>0.0.0.0</Version>
     <ApplicationDisplayVersion>0.0.0.0</ApplicationDisplayVersion>
@@ -18,7 +18,7 @@
     <!-- Package Publisher -->
     <ApplicationPublisher>PcmHacking.net</ApplicationPublisher>
     <!-- Package Description -->
-    <Description>PcmHacking.Uno powered by Uno Platform.</Description>
+    <Description>PCMHammer.Uno powered by Uno Platform.</Description>
     <!--
       If you encounter this error message:
 
@@ -47,9 +47,32 @@
       ThemeService;
       Storage;
     </UnoFeatures>
+    <!-- Same icon as the WinForms and WPF front ends, shared from Apps\UI\Shared so there is one copy.
+         Sets the icon on the Windows apphost; the other heads use their own asset pipelines. -->
+    <ApplicationIcon Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">..\..\Shared\0411_256px.ico</ApplicationIcon>
+
+    <!-- The generated launcher icon's foreground. Overriding the Uno.Sdk property replaces the stock
+         Uno logo; adding a UnoIcon item instead only adds a second icon, leaving the default in place.
+         The SDK's per-platform ForegroundScale (0.65 on Android) keeps it inside the adaptive-icon
+         safe zone. The file is named pcmhammer.png because Uno.Resizetizer rejects names that do not
+         start with a letter. -->
+    <UnoIconForegroundFile>Assets\Icons\pcmhammer.png</UnoIconForegroundFile>
+
+    <!-- Splash screen. The stock asset is the Uno logo on white; use the same image as the launcher
+         icon, on the app's own dark page background (ApplicationPageBackgroundThemeBrush in dark
+         mode), so the launch does not flash white. Uno generates a single uno_splash_color with no
+         values-night variant, so this one colour applies in both system themes. The image is a copy
+         of the icon's, not the same file: Uno.Resizetizer rejects a splash that shares a path with
+         UnoIcon.ForegroundFile. -->
+    <UnoSplashScreenFile>Assets\Splash\pcmhammer_splash.png</UnoSplashScreenFile>
+    <UnoSplashScreenColor>#202020</UnoSplashScreenColor>
+
     <PackageCertificateThumbprint>E9055ABE166B5A0901A78706D44BBCA8573A5143</PackageCertificateThumbprint>
     <AppxPackageSigningEnabled>True</AppxPackageSigningEnabled>
-    <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">34.0</SupportedOSPlatformVersion>
+    <!-- API 31 (Android 12): the floor is arbitrary, so pick the one that costs no compatibility code.
+         The BLUETOOTH_SCAN/ADVERTISE/CONNECT permissions arrive here, so there is no legacy Bluetooth
+         path to carry; MANAGE_EXTERNAL_STORAGE (API 30) is already below it. -->
+    <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">31.0</SupportedOSPlatformVersion>
     <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.19041.1</SupportedOSPlatformVersion>
     <TargetPlatformMinVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.19041.1</TargetPlatformMinVersion>
     <RuntimeIdentifiers Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">win-x86</RuntimeIdentifiers>
