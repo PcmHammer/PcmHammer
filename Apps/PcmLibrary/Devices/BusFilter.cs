@@ -47,7 +47,7 @@ namespace PcmHacking
             return true;
         }
 
-        public bool Accepts(byte[] message)
+        public bool Accepts(byte[]? message)
         {
             if (message == null || message.Length < 3)
             {
