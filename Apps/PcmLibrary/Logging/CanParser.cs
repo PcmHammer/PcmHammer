@@ -44,7 +44,13 @@ namespace PcmHacking
             ExpectMessageByte7,
             ExpectMessageByte8,
             Expect55,
-            Complete = Start,
+
+            // Distinct from Start on purpose. These were the same value, which made every byte that
+            // left the machine idle - any non-0xAA byte between frames, and a frame whose terminator
+            // was not 0x55 - report a complete message carrying the previous frame's payload. It went
+            // unnoticed because a clean stream is back-to-back frames, where the only byte that
+            // leaves the machine idle is a valid terminator.
+            Complete,
         }
 
         State state = State.Start;
@@ -68,6 +74,9 @@ namespace PcmHacking
 
             if (this.state == State.Complete)
             {
+                // Either way the frame is finished with, so the next byte starts a new one.
+                this.state = State.ExpectAA;
+
                 try
                 {
                     message = new CanMessage(
@@ -106,6 +115,17 @@ namespace PcmHacking
                     break;
 
                 case State.ExpectType:
+                    // A data frame's type byte always has its top two bits set (the vendor's
+                    // examples are C2, C8, E2, E8). Checking them matters once we transmit as well
+                    // as listen: a configuration command echo begins AA 55, and 0x55 read as a type
+                    // byte claims an extended remote frame of length 5, which desyncs the parser for
+                    // the next several frames.
+                    if ((value & 0xC0) != 0xC0)
+                    {
+                        this.state = State.ExpectAA;
+                        break;
+                    }
+
                     this.isRemoteFrame = (value & 0x10) > 0;
                     this.payloadLength = (value & 0xF);
                     for (int index = 0; index < this.payload.Length; index++)
@@ -246,14 +266,9 @@ namespace PcmHacking
 
 
                 case State.Expect55:
-                    if (value == 0x55)
-                    {
-                        state = State.Complete;
-                    }
-                    else
-                    {
-                        state = State.Start;
-                    }
+                    // A frame whose terminator is missing is discarded rather than reported: the
+                    // bytes that followed are not the payload we counted.
+                    state = (value == 0x55) ? State.Complete : State.ExpectAA;
                     break;
 
                 default:

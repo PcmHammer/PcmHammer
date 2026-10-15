@@ -138,6 +138,26 @@ namespace PcmHacking
         public const byte NegativeResponse = 0x7F;
 
         public const byte ClearDiagnosticTroubleCodes = 0x04;
+
+        /// <summary>Current data. Asked with a block number, it reports which PIDs the module has.</summary>
+        public const byte GetCurrentData = 0x01;
+
+        /// <summary>Stored codes - confirmed faults, the ones that light the lamp.</summary>
+        public const byte GetStoredTroubleCodes = 0x03;
+
+        /// <summary>Pending codes - seen once, not yet confirmed.</summary>
+        public const byte GetPendingTroubleCodes = 0x07;
+
+        /// <summary>Permanent codes - cleared by the module itself, not by a tool.</summary>
+        public const byte GetPermanentTroubleCodes = 0x0A;
+
+        /// <summary>
+        /// Trouble codes by status mask. The manufacturer's own service: physically addressed, and
+        /// it reports everything the module has rather than only the emissions-related codes that
+        /// have matured enough for the generic services to admit to.
+        /// </summary>
+        public const byte GetTroubleCodesByStatus = 0x19;
+
         public const byte ClearDiagnosticInformation = 0x14;
         public const byte ExitKernel = 0x20;
         public const byte GetPid = 0x22;
@@ -181,7 +201,7 @@ namespace PcmHacking
     /// <summary>
     /// General-purpose VPW utilities.
     /// </summary>
-    public class VpwUtilities
+    public class VPWUtilities
     {
         /// <summary>
         /// Calculate the checksum for a given block of VPW data.

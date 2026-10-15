@@ -1,7 +1,8 @@
 ﻿// SPDX-License-Identifier: GPL-3.0-only
-//#define Vpw4x
+//#define VPW4x
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Threading;
@@ -12,17 +13,23 @@ namespace PcmHacking
 {
     public partial class MainForm : MainFormBase
     {
-        private bool saving;
+        private volatile bool saving;
+
+        /// <summary>
+        /// Whether the logging thread should be reading the vehicle. False until Start is pressed,
+        /// so connecting an interface no longer puts traffic on the bus on its own.
+        /// </summary>
+        private volatile bool viewing;
+
         private object loggingLock = new object();
         private bool logStopRequested;
         private TaskScheduler uiThreadScheduler = null!;
         private uint osid;
 
-        private const string appName = "PCM Logger";
-        private const string defaultFileName = "New Profile";
-        private string fileName = defaultFileName;
+        private const string AppName = "PCM Logger";
+        private const string DefaultFileName = "New Profile";
+        private string fileName = DefaultFileName;
 
-        private string? canPortName;
 
         /// <summary>
         /// Constructor
@@ -30,6 +37,10 @@ namespace PcmHacking
         public MainForm()
         {
             InitializeComponent();
+
+            // Offer the interfaces that are good for logging, which includes listen-capable adapters
+            // that are not offered for flashing. Set before any device picker is opened.
+            DeviceCatalog.Use = DeviceUse.Logging;
 
             // Window and taskbar icon, taken from the executable's own icon so the image is not
             // duplicated into this form's resources.
@@ -57,23 +68,15 @@ namespace PcmHacking
         /// </summary>
         public override void AddDebugMessage(string message)
         {
-            if (this.debugLog.InvokeRequired)
-            {
-                var self = new Action<string>(AddDebugMessage);
-                this.BeginInvoke(self, new[] { message });
-                return;
-            }
-
-            lock (this)
-            {
-                string timestamp = DateTime.Now.ToString("HH:mm:ss.fff");
-                this.debugLog.AppendText("[" + timestamp + "]  " + message + Environment.NewLine);
-            }
+            // LogListView queues the line and does no UI work, so this is safe from the logging
+            // threads without marshalling. The BeginInvoke this used to do was both a bottleneck
+            // under a fast PCM and a hazard during shutdown.
+            this.debugLog.AppendLine("[" + DateTime.Now.ToString("HH:mm:ss.fff") + "]  " + message);
         }
 
         public override void ResetLogs()
         {
-            this.debugLog.Clear();
+            this.debugLog.ClearLog();
         }
 
         public override string GetAppNameAndVersion()
@@ -88,7 +91,7 @@ namespace PcmHacking
             this.parameterGrid.Enabled = false;
             this.parameterSearch.Enabled = false;
             this.selectButton.Enabled = false;
-            this.startStopSaving.Enabled = false;
+            this.startStopButton.Enabled = false;
         }
 
         protected override void EnableInterfaceSelection()
@@ -103,8 +106,8 @@ namespace PcmHacking
             this.parameterGrid.Enabled = true;
             this.parameterSearch.Enabled = true;
             this.selectButton.Enabled = true;
-            this.startStopSaving.Enabled = true;
-            this.startStopSaving.Focus();
+            this.startStopButton.Enabled = true;
+            this.startStopButton.Focus();
         }
 
         protected override void NoDeviceSelected()
@@ -128,33 +131,61 @@ namespace PcmHacking
         protected override async Task ValidDeviceSelectedAsync(string deviceName)
         {
             this.AddDebugMessage("ValidDeviceSelectedAsync started.");
-            Response<uint> response = await this.Vehicle.QueryOperatingSystemId(new CancellationToken());
-            if (response.Status != ResponseStatus.Success)
+
+            // Probe for the PCM on every bus the interface supports rather than assuming VPW.
+            // QueryOperatingSystemId, which this used to call, is the VPW-shaped query and never
+            // changes bus - so a CAN PCM was silently polled on the wrong bus forever. Every other
+            // front end already goes through here; this one was the exception.
+            DetectedModule? pcm = await this.Vehicle.DetectAndSelectPcm(new CancellationToken());
+            if (pcm == null)
             {
+                // DetectAndSelectPcm already says once when the interface cannot reach a bus at all,
+                // which is the other reason for silence and is worth distinguishing.
                 this.Invoke((MethodInvoker)delegate ()
                 {
-                    this.deviceDescription.Text = deviceName + " is unable to connect to the PCM";
+                    this.deviceDescription.Text = deviceName + ": no PCM found on VPW or CAN";
                 });
 
                 return;
             }
 
-            // This must be assigned prior to calling FillParameterGrid(), 
+            // This must be assigned prior to calling FillParameterGrid(),
             // otherwise the RAM parameters will not appear in the grid.
-            this.osid = response.Value;
+            this.osid = pcm.Osid;
+
+            this.AddUserMessage($"Found a PCM on {pcm.Bus}, operating system {pcm.Osid}.");
+
+            // Asked before the grid is built, so the rows can be drawn in their final state rather
+            // than appearing and then greying out. Null when the PCM would not say, and then
+            // nothing is disabled.
+            HashSet<uint>? supportedPids = await this.Vehicle.ReadSupportedPids(new CancellationToken());
 
             this.Invoke((MethodInvoker)delegate ()
             {
-                this.deviceDescription.Text = deviceName + " " + osid.ToString();
-                this.startStopSaving.Enabled = true;
+                this.deviceDescription.Text = $"{deviceName} - {osid} on {pcm.Bus}";
+                this.startStopButton.Enabled = true;
                 this.parameterGrid.Enabled = true;
                 this.EnableProfileButtons(true);
+
+                // Finding a PCM is what used to begin reading it. That is still the default, but it
+                // is now a choice: Options on the Configuration tab.
+                if (this.AutoStartEnabled)
+                {
+                    this.viewing = true;
+                    this.recordingStatus.Text = "Reading the vehicle.";
+                }
+
+                this.UpdateLogButtons();
 
                 try
                 {
                     this.FillParameterGrid();
-                    this.FillCanParameterGrid();
+                    this.FillBusParameterGrid();
+                    this.DisableUnsupportedPids(supportedPids);
 
+                    // Scroll bars have no window until there are rows to need one, so they are not
+                    // there to be themed when the window is first painted.
+                    this.ApplyTheme();
                 }
                 catch (Exception ex)
                 {
@@ -197,28 +228,31 @@ namespace PcmHacking
             {
                 logDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
                 Configuration.Settings.LogDirectory = logDirectory;
-                Configuration.Settings.Save();
+                Configuration.Save(this);
             }
 
             // This just saves the trouble of having to keep a const string in 
             // sync with whatever window text is entered in the designer view.
-            this.Text = appName;
+            this.Text = AppName;
 
             this.EnableProfileButtons(false);
 
+            // The Dash and Monitors tabs are built in code; see MainForm.Dashboard.cs.
+            this.InitializeDashboardTabs();
+
+            // After the tabs exist: this decides which of them are shown.
+            this.InitializeViewOptions();
+
+            // After the controls exist, so there is something to colour.
+            this.ApplyTheme();
+
+            this.UpdateLogButtons();
+
             this.LoadProfileHistory();
 
-            // CAN UI Initialization
-            this.canPortName = DeviceConfiguration.Settings.CanPort;
-            this.canDeviceDescription.Text = this.canPortName;
-            if (this.canDeviceDescription.Text?.Length > 0)
-            {
-                this.enableCanControls(true, false);
-            }
-            else
-            {
-                this.enableCanControls(false, false);
-            }
+            // Auxiliary bus. Whether it is in use is the View toggle's business, and which interface
+            // serves it is read from settings when the logger starts.
+            this.EnableCanControls(this.AuxiliaryBusEnabled, false);
 
             // Begin logging
             ThreadPool.QueueUserWorkItem(BackgroundInitialization);
@@ -283,12 +317,22 @@ namespace PcmHacking
 
             this.logStopRequested = true;
 
+            // Before the waits below, which pump messages: a display tick during them would draw on
+            // panels that are on their way out.
+            this.ShutdownDashboardTabs();
+
             this.SaveProfileHistory();
 
             // It turns out that WaitAll is not supported on an STA thread.
             // WaitHandle.WaitAll(new WaitHandle[] { loggerThreadEnded, writerThreadEnded });
             loggerThreadEnded.WaitOne(1000);
             writerThreadEnded.WaitOne(1000);
+
+            // After those waits, so nothing is still using the device, and never left to the
+            // garbage collector: a J2534 device closed from its finalizer calls into the vendor's
+            // DLL during process teardown, which comes back as an AccessViolationException that no
+            // catch block can stop. PcmHammer has always done this on the way out; this one did not.
+            this.ReleaseVehicle();
         }
 
         #endregion
@@ -314,7 +358,7 @@ namespace PcmHacking
             if (dialog.ShowDialog() == DialogResult.OK)
             {
                 Configuration.Settings.LogDirectory = dialog.SelectedPath;
-                Configuration.Settings.Save();
+                Configuration.Save(this);
                 this.logFilePath.Text = dialog.SelectedPath;
             }
         }
@@ -328,26 +372,218 @@ namespace PcmHacking
         }
 
         /// <summary>
-        /// Start or stop logging.
+        /// Start reading the car, or stop everything.
         /// </summary>
-        private void startStopSaving_Click(object sender, EventArgs e)
+        /// <remarks>
+        /// Stop ends recording as well as viewing, deliberately: one button means the end of the
+        /// recording is where the user stopped looking, with nothing to reason about. The cost is
+        /// that the on-screen history always holds more than the file - it starts when Start was
+        /// pressed, not when Record was - which is the ambiguity at the other end of the session.
+        /// </remarks>
+        private async void startStopButton_Click(object sender, EventArgs e)
         {
-            if (saving)
+            if (this.viewing)
+            {
+                this.StopViewing();
+                return;
+            }
+
+            // A file opened for inspection is replaced by live data. A live capture, however,
+            // belongs to the whole recording session and must survive disconnect/reconnect so the
+            // next samples append at their real timestamps, leaving the offline gap visible.
+            if (this.historyLoadedFromFile)
+            {
+                this.SetMonitorHistory(null);
+                this.historyLoadedFromFile = false;
+            }
+
+            await this.ConnectToVehicle();
+        }
+
+        /// <summary>
+        /// Find out what is on the bus, then start reading it.
+        /// </summary>
+        /// <remarks>
+        /// Detection runs on every connect, not just when the interface is chosen: the car may have
+        /// changed, and reusing the previous bus had the logger asking a VPW PCM for CAN parameters.
+        /// Safe to use the bus here because the logging thread is parked until viewing is set below.
+        /// </remarks>
+        private async Task ConnectToVehicle()
+        {
+            Vehicle? vehicle = this.Vehicle;
+            if (vehicle == null)
+            {
+                this.recordingStatus.Text = "No interface is connected.";
+                return;
+            }
+
+            try
+            {
+                this.startStopButton.Enabled = false;
+                this.recordingStatus.Text = "Looking for a PCM...";
+
+                DetectedModule? pcm = await vehicle.DetectAndSelectPcm(new CancellationToken());
+                if (pcm == null)
+                {
+                    this.recordingStatus.Text = "No PCM found on VPW or CAN.";
+                    return;
+                }
+
+                this.AddUserMessage($"Found a PCM on {pcm.Bus}, operating system {pcm.Osid}.");
+                this.deviceDescription.Text = $"{pcm.Osid} on {pcm.Bus}";
+
+                // Only when it is a different PCM: rebuilding the grid throws away the ticks, and
+                // reconnecting to the same car should not cost the user their parameter selection.
+                if (pcm.Osid != this.osid)
+                {
+                    this.osid = pcm.Osid;
+                    this.FillParameterGrid();
+                    this.FillBusParameterGrid();
+                    this.DisableUnsupportedPids(
+                        await vehicle.ReadSupportedPids(new CancellationToken()));
+                    this.ApplyTheme();
+                }
+
+                this.viewing = true;
+                this.recordingStatus.Text = "Reading the vehicle.";
+            }
+            catch (Exception exception)
+            {
+                this.AddUserMessage("Unable to connect: " + exception.Message);
+                this.AddDebugMessage(exception.ToString());
+                this.recordingStatus.Text = "Unable to connect.";
+            }
+            finally
+            {
+                this.startStopButton.Enabled = true;
+                this.UpdateLogButtons();
+            }
+        }
+
+        /// <summary>
+        /// Start writing what is being read to a file, or stop everything.
+        /// </summary>
+        /// <remarks>
+        /// Stop ends only the file recording. The live session keeps reading, so the display and
+        /// in-memory history continue while Save or Clear is available; Record can start another
+        /// segment in the same file. Disconnect remains the action that stops live reading too.
+        ///
+        /// The button stays lit and changes word rather than greying out: greyed out says "not now"
+        /// where the truth is "already running".
+        /// </remarks>
+        private void recordButton_Click(object sender, EventArgs e)
+        {
+            if (!this.viewing)
+            {
+                return;
+            }
+
+            if (this.saving)
             {
                 this.saving = false;
-                this.startStopSaving.Text = "Start &Recording";
-                this.loggerProgress.MarqueeAnimationSpeed = 0;
-                this.loggerProgress.Visible = false;
                 this.logState = LogState.StopSaving;
+                this.UpdateLogButtons();
+                return;
+            }
+
+            // Wait for StopSaving to close the previous writer before reopening the same file.
+            if (this.recordingFileOpen)
+            {
+                return;
+            }
+
+            this.saving = true;
+            this.recordingStatus.Text =
+                "Recording frame " + System.Threading.Volatile.Read(ref this.recordedFrames).ToString("N0");
+            this.logState = LogState.StartSaving;
+            this.UpdateLogButtons();
+        }
+
+        private void StopViewing()
+        {
+            if (this.saving)
+            {
+                this.saving = false;
+                this.logState = LogState.StopSaving;
+            }
+
+            this.viewing = false;
+            this.UpdateLogButtons();
+        }
+
+        /// <summary>
+        /// Put the buttons in step with what the app is doing.
+        /// </summary>
+        private void UpdateLogButtons()
+        {
+            this.startStopButton.Text = this.viewing ? "&Disconnect" : "&Connect";
+
+            this.recordButton.Enabled = this.viewing && (this.saving || !this.recordingFileOpen);
+            this.recordButton.Text = this.saving ? "&Stop" : "&Record";
+
+            this.UpdateClearLogButton();
+
+            // Loading replaces what is on screen, so it waits until nothing is arriving.
+            this.loadLogButton.Enabled = !this.viewing;
+
+            // Saving moves the file, so not until the writer has closed it.
+            this.saveLogButton.Enabled = !this.saving && !this.recordingFileOpen
+                && this.recordedLogPath != null;
+
+            this.UpdateTitle();
+        }
+
+        private void UpdateClearLogButton()
+        {
+            this.clearLogButton.Enabled = !this.saving && !this.recordingFileOpen
+                && this.history != null && this.history.Count > 0;
+        }
+
+        private void saveLogButton_Click(object sender, EventArgs e)
+        {
+            string? path = this.recordedLogPath;
+            if (path == null)
+            {
+                return;
+            }
+
+            if (this.PromptToSaveLog(path, this.recordedFrames))
+            {
+                // Saved or discarded; there is nothing left here to offer.
+                this.recordedLogPath = null;
+                this.recordedColumnNames = null;
+                System.Threading.Interlocked.Exchange(ref this.recordedFrames, 0);
+                this.UpdateLogButtons();
+            }
+        }
+
+        private void loadLogButton_Click(object sender, EventArgs e)
+        {
+            this.LoadLogForInspection();
+        }
+
+        /// <summary>Discard the captured in-memory history without affecting saved log files.</summary>
+        private void clearLogButton_Click(object sender, EventArgs e)
+        {
+            LogHistory? captured = this.history;
+            if (this.saving || this.recordingFileOpen || captured == null || captured.Count == 0)
+            {
+                return;
+            }
+
+            if (this.historyLoadedFromFile)
+            {
+                this.SetMonitorHistory(null);
+                this.historyLoadedFromFile = false;
             }
             else
             {
-                this.saving = true;
-                this.startStopSaving.Text = "Stop &Recording";
-                this.loggerProgress.MarqueeAnimationSpeed = 100;
-                this.loggerProgress.Visible = true;
-                this.logState = LogState.StartSaving;
+                captured.Clear();
+                this.SetMonitorHistory(captured);
             }
+            this.UpdateMonitorTimeBox();
+            this.recordingStatus.Text = "Captured log cleared.";
+            this.UpdateLogButtons();
         }
 
 

@@ -21,7 +21,7 @@ namespace PcmHacking
             // Recovery and kernel are VPW-only states, so these two checks only run when the device
             // is on VPW. They are skipped once the PCM is known to be on CAN, because probing VPW
             // for states that cannot exist there costs a full timeout on every check.
-            if (this.LastDetectedBus != BusProtocol.Can500k && await this.device.SetProtocol(BusProtocol.Vpw))
+            if (this.LastDetectedBus != BusProtocol.Can500k && await this.device.SetProtocol(BusProtocol.VPW))
             {
                 this.SetTarget(Target.Pcm);
 
@@ -29,7 +29,7 @@ namespace PcmHacking
                 if (programmedState.HasValue)
                 {
                     this.logger.AddUserMessage(
-                        RecoveryMode.DescribeProgrammingRequest(new ProgrammingRequest(BusProtocol.Vpw, programmedState.Value)));
+                        RecoveryMode.DescribeProgrammingRequest(new ProgrammingRequest(BusProtocol.VPW, programmedState.Value)));
                     return VehicleStatus.Recovery();
                 }
 
@@ -50,7 +50,7 @@ namespace PcmHacking
             // on CAN, or when the PCM does not answer - fall back to the interface's own measurement,
             // which is bus-independent. Devices that cannot measure it still report nothing.
             string voltage = string.Empty;
-            if (pcm.Bus == BusProtocol.Vpw)
+            if (pcm.Bus == BusProtocol.VPW)
             {
                 Response<string> response = await this.QueryVoltage();
                 if (response.Status == ResponseStatus.Success)

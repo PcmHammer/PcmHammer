@@ -79,10 +79,12 @@
     <Compile Include="BootLoaderWriteTests.cs" />
     <Compile Include="BootLoaderWritePlanTests.cs" />
     <Compile Include="BusMonitorFilterTests.cs" />
+    <Compile Include="BusFilterTests.cs" />
+    <Compile Include="SupportedPidTests.cs" />
     <Compile Include="CanKernelBootPolicyTests.cs" />
     <Compile Include="WriteTypePolicyTests.cs" />
     <Compile Include="CanKernelUploadProtocolTests.cs" />
-    <Compile Include="CanLoggerTests.cs" />
+    <Compile Include="AuxiliaryBusLoggerTests.cs" />
     <Compile Include="CanParserTests.cs" />
     <Compile Include="E39Tests.cs" />
     <Compile Include="E92ModuleCodecTests.cs" />
@@ -104,11 +106,45 @@
     <Compile Include="PackageNamingTests.cs" />
     <Compile Include="FileValidatorTests.cs" />
     <Compile Include="UtilityTests.cs" />
+    <Compile Include="AdxDocumentTests.cs" />
+    <Compile Include="LogHistoryTests.cs" />
+    <Compile Include="LoggerPackageTests.cs" />
+    <Compile Include="LatestValueFeedTests.cs" />
+    <Compile Include="UsbCanAnalyzerProtocolTests.cs" />
+    <Compile Include="DeviceSelectionTests.cs" />
+    <Compile Include="LogSessionTests.cs" />
+    <Compile Include="ParameterSourceTests.cs" />
+    <Compile Include="LogFileTests.cs" />
+    <Compile Include="DiagnosticCodeTests.cs" />
+    <Compile Include="DefaultLoggerPackageTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="app.config" />
     <None Include="packages.config" />
+  </ItemGroup>
+  <!--
+    The shipped parameter definitions, linked rather than copied, so the default dashboard can be
+    checked against the real thing: a gauge naming a parameter that does not exist draws nothing,
+    and nothing else in the build would catch the typo.
+  -->
+  <ItemGroup>
+    <Content Include="..\UI\WindowsForms\PcmLogger\Parameters.Standard.xml">
+      <Link>Parameters.Standard.xml</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\UI\WindowsForms\PcmLogger\Parameters.RAM.xml">
+      <Link>Parameters.RAM.xml</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\UI\WindowsForms\PcmLogger\Parameters.Math.xml">
+      <Link>Parameters.Math.xml</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\UI\WindowsForms\PcmLogger\Parameters.AEM.xml">
+      <Link>Parameters.AEM.xml</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\PcmLibrary\PcmLibrary.csproj">

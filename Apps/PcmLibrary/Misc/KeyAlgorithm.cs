@@ -11,7 +11,7 @@ namespace PcmHacking
     {
         /// <summary>
         /// Gets the unlock key for the given bus protocol, algorithm index and seed. The protocol
-        /// selects the key table: Vpw uses the original VPW algorithm, Can500k uses the GMLAN
+        /// selects the key table: VPW uses the original VPW algorithm, Can500k uses the GMLAN
         /// algorithm. Lets a single unlock flow serve both buses from the PCM's definition.
         /// </summary>
         public static UInt16 GetKey(BusProtocol protocol, int algo, UInt16 seed)

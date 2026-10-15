@@ -5,6 +5,18 @@
     <OutputType>Exe</OutputType>
     <UnoSingleProject>true</UnoSingleProject>
 
+    <!--
+      NU1702: J2534DotNet and PcmLibraryWindowsApi target net48;net10.0-windows, so a reference from
+      net10.0-desktop or plain net10.0 falls back to the net48 build and NuGet warns that it may not
+      be fully compatible.
+
+      Expected and accepted. J2534 is a Windows driver model - the libraries P/Invoke into vendor
+      DLLs - and net10.0-desktop cannot match net10.0-windows, so there is no target that resolves
+      cleanly while keeping the J2534 support those heads need. The alternative, adding a plain
+      net10.0 target to both of those projects, buys nothing: they would still only work on Windows.
+    -->
+    <NoWarn>$(NoWarn);NU1702</NoWarn>
+
     <!-- Display name -->
     <ApplicationTitle>PCMHammer.Uno</ApplicationTitle>
     <!-- App Identifier -->
@@ -98,6 +110,48 @@
     <Platforms Condition="$([MSBuild]::IsOSPlatform('windows'))">x86</Platforms>
     <WindowsPackageType>None</WindowsPackageType>
   </PropertyGroup>
+
+  <!--
+    Release publish of the Windows head is one self-contained .exe, with the kernels beside it as the
+    only loose files. Scoped to Release so the Debug build keeps its ordinary folder layout.
+
+    Everything is embedded: the .NET runtime, the Windows App SDK (WindowsAppSDKSelfContained) and the
+    native libraries, which the host extracts to a temp folder on first run. Symbols are embedded
+    rather than emitted as .pdb files beside the exe, which keeps the single-file promise without
+    giving up line numbers in a stack trace - this app's field diagnosis depends on those.
+  -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release' and $([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>true</SelfContained>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <!-- The three below are what Microsoft.WindowsAppSDK.SingleFile.targets requires; without them it
+         either errors out or warns that the packed app will not find its runtime:
+         EnableMsixTooling for the embedded resources.pri, IncludeAllContentForSelfExtract for the DLL
+         side-by-side redirection, and UndockedRegFreeWinRTInitialize to set
+         MICROSOFT_WINDOWSAPPRUNTIME_BASE_DIRECTORY before the program starts. -->
+    <EnableMsixTooling>true</EnableMsixTooling>
+    <IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>
+    <WindowsAppSdkUndockedRegFreeWinRTInitialize>true</WindowsAppSdkUndockedRegFreeWinRTInitialize>
+    <DebugType>embedded</DebugType>
+    <!-- English only; the stock set emits ~90 satellite folders that survive as empty directories. -->
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <!-- Referenced projects otherwise drop their .pdb and .xml beside the exe, which is most of what
+         is left in the publish folder once everything else is packed in. -->
+    <AllowedReferenceRelatedFileExtensions>none</AllowedReferenceRelatedFileExtensions>
+    <!-- Not trimmed. Uno.Extensions resolves navigation, DI and configuration by reflection and the
+         app serializes settings with System.Text.Json, none of which the trimmer can see: a trimmed
+         publish of this head has failed at startup with a TypeLoadException before. -->
+    <PublishTrimmed>false</PublishTrimmed>
+  </PropertyGroup>
+
+  <!--
+    The kernels are the one thing kept outside the exe, so they can be replaced without a rebuild.
+    ExcludeFromSingleFile is needed because the Windows App SDK's single-file support requires
+    IncludeAllContentForSelfExtract, which would otherwise pack them in with everything else.
+  -->
+  <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">
+    <Content Include="..\..\..\..\Kernels\build\*.bin" Link="%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
+  </ItemGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|net10.0-desktop|AnyCPU'">
   </PropertyGroup>

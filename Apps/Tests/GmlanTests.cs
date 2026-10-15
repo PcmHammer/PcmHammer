@@ -44,6 +44,58 @@ namespace Tests
             Assert.AreEqual(ResponseStatus.UnexpectedResponse, new Gmlan().ParseReadByIdResponse(Msg(0x5A, 0x01, 0x00), 0xC9).Status);
         }
 
+        // ---- ReadDataByParameterIdentifier (0x22 / 0x62) ----
+
+        [TestMethod]
+        public void ReadByPid_Request_IsServiceThenBigEndianPid()
+        {
+            CollectionAssert.AreEqual(
+                new byte[] { 0x22, 0x11, 0x41 }, new Gmlan().CreateParameterRequest(0x1141).GetBytes());
+        }
+
+        [TestMethod]
+        public void ReadByPid_Response_ReturnsDataAfterSidAndPid()
+        {
+            var r = new Gmlan().ParseParameterResponse(Msg(0x62, 0x00, 0x0C, 0x1F, 0x40), 0x000C);
+            Assert.AreEqual(ResponseStatus.Success, r.Status);
+            CollectionAssert.AreEqual(new byte[] { 0x1F, 0x40 }, r.Value);
+        }
+
+        [TestMethod]
+        public void ReadByPid_ServiceNotSupported_IsError()
+        {
+            // About the service, so every other PID would fail the same way.
+            Assert.AreEqual(
+                ResponseStatus.Error,
+                new Gmlan().ParseParameterResponse(Msg(0x7F, 0x22, 0x11), 0x000C).Status);
+        }
+
+        [TestMethod]
+        public void ReadByPid_OtherNegativeResponse_IsRefused()
+        {
+            // About this PID only, so the caller drops it and keeps the rest of the profile.
+            Assert.AreEqual(
+                ResponseStatus.Refused,
+                new Gmlan().ParseParameterResponse(Msg(0x7F, 0x22, 0x31), 0x000C).Status);
+        }
+
+        [TestMethod]
+        public void ReadByPid_WrongPid_IsUnexpected()
+        {
+            Assert.AreEqual(
+                ResponseStatus.UnexpectedResponse,
+                new Gmlan().ParseParameterResponse(Msg(0x62, 0x00, 0x0D, 0x1F, 0x40), 0x000C).Status);
+        }
+
+        [TestMethod]
+        public void ReadByPid_TransmitEcho_IsUnexpected()
+        {
+            // The device echoes its own transmit frame, which leads with 0x00.
+            Assert.AreEqual(
+                ResponseStatus.UnexpectedResponse,
+                new Gmlan().ParseParameterResponse(Msg(0x00, 0x00, 0x07, 0xE0, 0x22), 0x000C).Status);
+        }
+
         // ---- Security access (0x27) ----
 
         [TestMethod]
@@ -231,7 +283,7 @@ namespace Tests
         }
 
         [TestMethod]
-        public void ParseKernelVersion_PacksEpochAndPcmType_LikeTheVpwPath()
+        public void ParseKernelVersion_PacksEpochAndPcmType_LikeTheVPWPath()
         {
             var gmlan = new Gmlan();
 
@@ -287,12 +339,12 @@ namespace Tests
             for (int algo = 0; algo <= 8; algo++)
             {
                 Assert.AreEqual(KeyAlgorithm.GetCanKey(algo, seed), KeyAlgorithm.GetKey(BusProtocol.Can500k, algo, seed), "Can500k -> CAN table.");
-                Assert.AreEqual(KeyAlgorithm.GetKey(algo, seed), KeyAlgorithm.GetKey(BusProtocol.Vpw, algo, seed), "Vpw -> VPW table.");
+                Assert.AreEqual(KeyAlgorithm.GetKey(algo, seed), KeyAlgorithm.GetKey(BusProtocol.VPW, algo, seed), "The VPW overload uses the VPW table.");
             }
         }
 
         [TestMethod]
-        public void GetCanKey_UsesCanTable_NotVpwAlgorithm()
+        public void GetCanKey_UsesCanTable_NotVPWAlgorithm()
         {
             // The CAN table has a different opcode set to the VPW table, so for a representative
             // algo/seed the two key functions must not coincide - proves we are running the CAN path.

@@ -50,11 +50,19 @@ public struct LogRowValues
 
 public struct LoggerWrapper
 {
-    public Logger Logger { get; private set;  }
+    public LogSession Session { get; private set; }
 
-    public LoggerWrapper(Logger logger)
+    /// <summary>The PCM source's logger, for the grid, which is laid out from the DPID groups.</summary>
+    public Logger? Logger { get; private set; }
+
+    /// <summary>The auxiliary bus, for the grid's broadcast rows.</summary>
+    public AuxiliaryBusLogger AuxiliaryBusLogger { get; private set; }
+
+    public LoggerWrapper(LogSession session, Logger? logger, AuxiliaryBusLogger auxiliaryBusLogger)
     {
+        this.Session = session;
         this.Logger = logger;
+        this.AuxiliaryBusLogger = auxiliaryBusLogger;
     }
 }
 
@@ -123,8 +131,7 @@ public partial record DataLoggingParametersModel
 
     public IState<bool> RecordingButtonEnabled => State<bool>.Value(this, () => false);
 
-    private string canPortName = string.Empty;
-    private CanLogger? canLogger;
+    private AuxiliaryBusLogger? auxiliaryBusLogger;
     private ConcurrentQueue<Tuple<Logger, LogFileWriter?, IEnumerable<string>>> logRowQueue = new ConcurrentQueue<Tuple<Logger, LogFileWriter?, IEnumerable<string>>>();
     private ManualResetEvent exitWaitHandle = new ManualResetEvent(false);
     private AutoResetEvent rowAvailableHandle = new AutoResetEvent(false);
@@ -162,7 +169,6 @@ public partial record DataLoggingParametersModel
         this.logBuffer = logBuffer;
         this.dispatcherQueue = dispatcherQueue;
         this.loggingContext = loggingContext;
-        this.canPortName = settingsService.GetCanSerialPortName().PortName ?? string.Empty;
 
         // Buffer for 2 seconds of pre-trigger data
         preTriggerBuffer = new PcmHacking.CircularBuffer<IEnumerable<string>>(PreTriggerBufferSeconds * EstimatedSamplingRate);
@@ -210,7 +216,7 @@ public partial record DataLoggingParametersModel
     {
         if (dataSource.LogColumn != null)
         {
-            // TODO: For CAN parameters, LogColumn will be null and CanParameter will be valid.
+            // TODO: For auxiliary bus parameters, LogColumn will be null and BusParameter will be valid.
             var logColumn = dataSource.LogColumn;
             var parameter = logColumn.Parameter;
             if (parameter != null)
@@ -271,7 +277,7 @@ public partial record DataLoggingParametersModel
         await this.RecordingButtonEnabled.SetAsync(false);
     }
 
-    private async Task StartRecording(Logger logger)
+    private async Task StartRecording(LogSession logger)
     {
         await this.RecordingButtonText.SetAsync(DataLoggingParametersModel.StopRecordingButtonText);
 
@@ -308,7 +314,7 @@ public partial record DataLoggingParametersModel
 
     private async Task OpenProfile()
     {
-        Logger? logger = null;
+        LogSession? logger = null;
         try
         {
             await this.RecordingButtonText.SetAsync(DataLoggingParametersModel.StartRecordingButtonText);
@@ -321,20 +327,15 @@ public partial record DataLoggingParametersModel
                     {
                         var vehicle = lease.Vehicle;
 
-                        // Create the CAN logger.
-                        if (this.canLogger == null)
+                        // The auxiliary bus reads broadcast parameters from a second interface. This
+                        // front end does not offer one yet, so the logger is created without a
+                        // device and simply contributes no columns.
+                        if (this.auxiliaryBusLogger == null)
                         {
-                            this.canLogger = new CanLogger(this.loggingContext.ParameterDatabase, this.progressLogger);
+                            this.auxiliaryBusLogger = new AuxiliaryBusLogger(
+                                this.loggingContext.ParameterDatabase, this.progressLogger);
 
-                            if (string.IsNullOrEmpty(this.canPortName))
-                            {
-                                await this.canLogger.SetPort(null);
-                            }
-                            else
-                            {
-                                IPort canPort = new StandardPort(canPortName);
-                                await this.canLogger.SetPort(canPort);
-                            }
+                            await this.auxiliaryBusLogger.Start(null, BusProtocol.VPW);
                         }
 
                         if (this.editContext != null)
@@ -357,7 +358,7 @@ public partial record DataLoggingParametersModel
                             this.logBuffer.Enabled = true;
 
                             logger = await TimeoutUtilities.TaskWithTimeoutAndException(
-                                InitializeLogger(vehicle, this.loggingContext.LogProfile, canLogger),
+                                InitializeLogger(vehicle, this.loggingContext.LogProfile, this.auxiliaryBusLogger),
                                 TimeSpan.FromSeconds(2));
 
                             await this.UpdateAutoSaveCheckboxes(this.loggingContext.LogProfile);
@@ -394,7 +395,7 @@ public partial record DataLoggingParametersModel
                         }
 
                         IEnumerable<LogRowElement> row = await TimeoutUtilities.TaskWithTimeoutAndException(
-                            logger.GetNextRowV2(),
+                            logger.Read(CancellationToken.None),
                             TimeSpan.FromSeconds(2));
 
                         await this.UpdateRecordingOptions(row);
@@ -426,8 +427,8 @@ public partial record DataLoggingParametersModel
                         await this.DisplayErrorMessage(exception.Message);
                         await Task.Delay(100);
                         await lease.Reconnect();
-                        this.canLogger?.Dispose();
-                        this.canLogger = null;
+                        this.auxiliaryBusLogger?.Dispose();
+                        this.auxiliaryBusLogger = null;
                         logger = null;
                     }
                 } // the loop
@@ -438,7 +439,7 @@ public partial record DataLoggingParametersModel
         finally
         {
             this.logBuffer.Enabled = true;
-            this.canLogger?.Dispose();
+            this.auxiliaryBusLogger?.Dispose();
             await this.StopRecording();
         }
     }
@@ -479,25 +480,44 @@ public partial record DataLoggingParametersModel
         return newProfile;
     }
 
-    private async Task<Logger?> InitializeLogger(Vehicle vehicle, LogProfile currentProfile, CanLogger canLogger)
+    private async Task<LogSession?> InitializeLogger(
+        Vehicle vehicle, LogProfile currentProfile, AuxiliaryBusLogger auxiliaryBusLogger)
     {
-        Logger logger = vehicle.CreateLogger(this.loggingContext.OperatingSystemId, canLogger, currentProfile.Columns, this.progressLogger);
+        // Source order is column order: the PCM, then the auxiliary bus.
+        PcmParameterSource pcmSource = new PcmParameterSource(
+            vehicle, this.loggingContext.OperatingSystemId, this.progressLogger);
+
+        LogSession session = new LogSession(
+            new IParameterSource[]
+            {
+                pcmSource,
+
+                // No auxiliary interface in this front end, so no columns that could never fill.
+                new AuxiliaryBusParameterSource(auxiliaryBusLogger, enabled: false),
+            });
 
         // Wait until the Page is ready.
         this.InitializationEvent.WaitOne();
         this.progressLogger.AddDebugMessage("DataLoggingParametersModel initialization unblocked.");
 
-        // This tells the view to prepare to render live data.
-        await this.LoggerWrapper.SetAsync(new LoggerWrapper(logger), CancellationToken.None);
+        // Opening configures the PCM, so the grid is now laid out from what it accepted rather than
+        // from what was asked for. Parameters it refused are no longer shown as empty rows.
+        if (!await session.Open(currentProfile.Columns.ToList(), CancellationToken.None))
+        {
+            session.Dispose();
+            return null;
+        }
 
-        // This forces the grid to re-render. It's important to do this before
-        // logging starts, so that any unsupported parameters will be visible,
-        // so that the user can delete them.
+        await session.Start(CancellationToken.None);
+
+        // This tells the view to prepare to render live data.
+        await this.LoggerWrapper.SetAsync(
+            new LoggerWrapper(session, pcmSource.Logger, auxiliaryBusLogger), CancellationToken.None);
+
+        // This forces the grid to re-render.
         var placeholderValues = new string[this.loggingContext.LogProfile.Columns.Count()];
         await this.Rows.SetAsync(new LogRowValues(placeholderValues));
 
-        // Request the first row of real data.
-        await logger.StartLogging();
         this.progressLogger.AddDebugMessage("DataLoggingParametersModel started logging.");
 
         // TODO: Wait for a signal from the view code instead using a fixed delay.
@@ -505,7 +525,7 @@ public partial record DataLoggingParametersModel
 
         await this.RecordingButtonEnabled.SetAsync(true);
         this.progressLogger.AddDebugMessage("DataLoggingParametersModel started logging.");
-        return logger;
+        return session;
     }
 
     private async Task UpdateAutoSaveCheckboxes(LogProfile profile)

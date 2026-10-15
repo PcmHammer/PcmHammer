@@ -14,13 +14,23 @@ namespace PcmHacking
     {
         private StreamWriter writer;
         private DateTime startTime;
+        private bool startTimeSet;
 
         /// <summary>
         /// Constructor.
         /// </summary>
-        public LogFileWriter(StreamWriter writer)
+        public LogFileWriter(StreamWriter writer) : this(writer, null)
+        {
+        }
+
+        public LogFileWriter(StreamWriter writer, DateTime? startTime)
         {
             this.writer = writer;
+            if (startTime.HasValue)
+            {
+                this.startTime = startTime.Value;
+                this.startTimeSet = true;
+            }
         }
 
         /// <summary>
@@ -28,7 +38,11 @@ namespace PcmHacking
         /// </summary>
         public async Task WriteHeader(IEnumerable<string> columnNames)
         {
-            this.startTime = DateTime.Now;
+            if (!this.startTimeSet)
+            {
+                this.startTime = DateTime.Now;
+                this.startTimeSet = true;
+            }
             string text = string.Join(", ", columnNames);  
             await this.writer.WriteAsync("Clock Time, Elapsed Time, ");
             await this.writer.WriteLineAsync(text);

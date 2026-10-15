@@ -26,6 +26,9 @@ namespace PcmHacking
         private Vehicle vehicle = null!;
         protected Vehicle Vehicle { get { return this.vehicle; } }
 
+        /// <summary>The process-wide reservation held while this form owns its PCM interface.</summary>
+        private IDisposable? vehicleDeviceClaim;
+
         public virtual void AddDebugMessage(string message) { }
         public virtual void AddUserMessage(string message) { }
         public virtual void StatusUpdateActivity(string activity) { }
@@ -81,6 +84,28 @@ namespace PcmHacking
                 DialogResult result = picker.ShowDialog();
                 if (result == DialogResult.OK)
                 {
+                    // "None" is a choice, not a failure. Save it and leave the app disconnected,
+                    // without the "select another device" prompt that an unusable setting earns.
+                    if (!DeviceConfiguration.IsDeviceSelected(picker.DeviceCategory))
+                    {
+                        DeviceConfiguration.Settings.DeviceCategory =
+                            DeviceConfiguration.Constants.DeviceCategoryNone;
+                        DeviceConfiguration.Settings.J2534DeviceType = string.Empty;
+                        DeviceConfiguration.Settings.SerialPort = string.Empty;
+                        DeviceConfiguration.Settings.SerialPortDeviceType = string.Empty;
+                        DeviceConfiguration.Save(this);
+
+                        this.Invoke((MethodInvoker)delegate ()
+                        {
+                            this.NoDeviceSelected();
+                            this.SetSelectedDeviceText("No interface selected");
+                            this.DisableUserInput();
+                            this.EnableInterfaceSelection();
+                        });
+
+                        return false;
+                    }
+
                     if (picker.DeviceCategory == DeviceConfiguration.Constants.DeviceCategorySerial)
                     {
                         if (string.IsNullOrEmpty(picker.SerialPort))
@@ -107,7 +132,7 @@ namespace PcmHacking
                     DeviceConfiguration.Settings.J2534DeviceType = picker.J2534DeviceType;
                     DeviceConfiguration.Settings.SerialPort = picker.SerialPort;
                     DeviceConfiguration.Settings.SerialPortDeviceType = picker.SerialPortDeviceType;
-                    DeviceConfiguration.Settings.Save();
+                    DeviceConfiguration.Save(this);
                     return await this.ResetDevice();
                 }
             }
@@ -131,11 +156,19 @@ namespace PcmHacking
         /// </summary>
         protected void ReleaseVehicle()
         {
-            if (this.vehicle != null)
+            try
             {
-                this.vehicle.ShutdownSignalSource.Cancel();
-                this.vehicle.Dispose();
-                this.vehicle = null!;
+                if (this.vehicle != null)
+                {
+                    this.vehicle.ShutdownSignalSource.Cancel();
+                    this.vehicle.Dispose();
+                    this.vehicle = null!;
+                }
+            }
+            finally
+            {
+                this.vehicleDeviceClaim?.Dispose();
+                this.vehicleDeviceClaim = null;
             }
         }
 
@@ -145,7 +178,8 @@ namespace PcmHacking
         protected async Task<bool> ResetDevice()
         {
             this.ReleaseVehicle();
-            Device? device = DeviceFactory.CreateDeviceFromConfigurationSettings(this);
+            DeviceSelection selection = DeviceFactory.SelectionFromSettings();
+            Device? device = DeviceFactory.CreateClaimedDevice(selection, this, out this.vehicleDeviceClaim);
             if (device == null)
             {
                 this.Invoke((MethodInvoker)delegate()
@@ -296,7 +330,7 @@ namespace PcmHacking
                 if (!this.vehicle.Supports4X)
                 {
                     DeviceConfiguration.Settings.Enable4xReadWrite = true;
-                    DeviceConfiguration.Settings.Save();
+                    DeviceConfiguration.Save(this);
                 }
                 this.vehicle.Enable4xReadWrite = DeviceConfiguration.Settings.Enable4xReadWrite;
             });

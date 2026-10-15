@@ -39,7 +39,7 @@ namespace PcmHacking
             }
 
             Configuration.Settings.RecentProfiles = paths;
-            Configuration.Settings.Save();
+            Configuration.Save(this);
         }
 
         private void profileList_SelectedIndexChanged(object sender, EventArgs e)

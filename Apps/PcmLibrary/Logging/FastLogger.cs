@@ -36,14 +36,12 @@ namespace PcmHacking
         /// </summary>
         public FastLogger(
             Vehicle vehicle,
-            CanLogger canLogger,
             uint osid,
             DpidConfiguration dpidConfiguration,
             MathValueProcessor mathValueProcessor,
             ILogger uiLogger)
             : base(
                   vehicle,
-                  canLogger,
                   osid,
                   dpidConfiguration,
                   mathValueProcessor,
@@ -66,6 +64,20 @@ namespace PcmHacking
             await this.Vehicle.SetDeviceTimeout(TimeoutScenario.DataLoggingStreaming);
             this.lastNotificationTime = DateTime.Now;
             return true;
+        }
+
+        /// <summary>
+        /// Stop the stream. This logger is the only one that starts one.
+        /// </summary>
+        public override async Task Suspend()
+        {
+            await this.Vehicle.SetDeviceTimeout(TimeoutScenario.Minimum);
+            await this.Vehicle.StopDpidStream(this.Dpids);
+        }
+
+        public override async Task Resume()
+        {
+            await this.StartLoggingInternal();
         }
 
         /// <summary>

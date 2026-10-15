@@ -27,13 +27,13 @@ namespace PcmHacking
 
         // This default is probably excessive but it should always be
         // overwritten by a call to SetTimeout before use anyhow.
-        private VpwSpeed vpwSpeed = VpwSpeed.Standard;
+        private VPWSpeed vpwSpeed = VPWSpeed.Standard;
 
         /// <summary>Bytes to strip from the front of each received network frame (4 = CAN ID prefix in CAN mode).</summary>
         protected int CanIdPrefixLength = 0;
 
         /// <summary>Current bus protocol; drives send/receive formatting for this device.</summary>
-        protected BusProtocol CurrentProtocol { get; private set; } = BusProtocol.Vpw;
+        protected BusProtocol CurrentProtocol { get; private set; } = BusProtocol.VPW;
 
         /// <summary>True if the connected tool reports HS CAN support.</summary>
         protected bool CanSupported = false;
@@ -1022,7 +1022,7 @@ namespace PcmHacking
         }
 
         /// <summary>VPW and CAN 500k can both be monitored on this device.</summary>
-        public override IReadOnlyList<BusProtocol> MonitorableProtocols { get; } = new[] { BusProtocol.Vpw, BusProtocol.Can500k };
+        public override IReadOnlyList<BusProtocol> MonitorableProtocols { get; } = new[] { BusProtocol.VPW, BusProtocol.Can500k };
 
         /// <summary>
         /// Begin monitoring. The VPW "to tool" filter (set in DVISetup) only passes frames addressed to
@@ -1035,7 +1035,7 @@ namespace PcmHacking
                 return false;
             }
 
-            if (protocol == BusProtocol.Vpw)
+            if (protocol == BusProtocol.VPW)
             {
                 await this.SetToFilter(DeviceId.Tool, false);
             }
@@ -1045,10 +1045,44 @@ namespace PcmHacking
 
         public override async Task EndMonitor()
         {
-            if (this.CurrentProtocol == BusProtocol.Vpw)
+            if (this.CurrentProtocol == BusProtocol.VPW)
             {
                 await this.SetToFilter(DeviceId.Tool, true);
             }
+        }
+
+        /// <summary>
+        /// Install receive filters. The device holds one "to tool" filter that can be switched off,
+        /// so anything wider than the tool's own replies is served by passing everything.
+        /// </summary>
+        /// <remarks>
+        /// More traffic than was asked for reaches the application, which skips past it. That is
+        /// the trade the filter API is built around, and it beats dropping a reply.
+        /// </remarks>
+        public override async Task<bool> SetBusFilters(IReadOnlyList<BusFilter> filters)
+        {
+            if (this.CurrentProtocol != BusProtocol.VPW)
+            {
+                return false;
+            }
+
+            bool toolOnly =
+                BusFilters.TryGetDestinations(filters, out IReadOnlyList<byte> destinations) &&
+                destinations.Count == 1 &&
+                destinations[0] == DeviceId.Tool;
+
+            this.Logger.AddDebugMessage(toolOnly
+                ? "OBDX filter: replies to the tool"
+                : "OBDX filter: off, so all traffic is delivered");
+
+            return await this.SetToFilter(DeviceId.Tool, toolOnly);
+        }
+
+        public override Task<bool> RestoreBusFilters()
+        {
+            return this.CurrentProtocol == BusProtocol.VPW
+                ? this.SetBusFilters(BusFilters.VPW)
+                : Task.FromResult(true);
         }
 
         /// <summary>
@@ -1115,7 +1149,7 @@ namespace PcmHacking
                 return true;
             }
 
-            if (protocol == BusProtocol.Vpw)
+            if (protocol == BusProtocol.VPW)
             {
                 if (!await SetProtocol(OBDProtocols.VPW))
                 {
@@ -1130,7 +1164,7 @@ namespace PcmHacking
                 this.softwareIsoTp = false;
                 this.CanIdPrefixLength = 0;
                 this.Supports4X = true;
-                this.CurrentProtocol = BusProtocol.Vpw;
+                this.CurrentProtocol = BusProtocol.VPW;
                 this.Logger.AddDebugMessage("OBDX VPW mode restored.");
                 return true;
             }
@@ -1294,23 +1328,23 @@ namespace PcmHacking
         /// <remarks>
         /// The caller must also tell the PCM to switch speeds
         /// </remarks>
-        protected override async Task<bool> SetVpwSpeedInternal(VpwSpeed newSpeed)
+        protected override async Task<bool> SetVPWSpeedInternal(VPWSpeed newSpeed)
         {
 
             byte[] Msg = OBDXProDevice.DVI_Set_Speed.GetBytes();
 
-            if (newSpeed == VpwSpeed.Standard)
+            if (newSpeed == VPWSpeed.Standard)
             {
                 this.Logger.AddDebugMessage("DVI setting VPW 1X");
                 Msg[3] = 0;
-                this.vpwSpeed = VpwSpeed.Standard;
+                this.vpwSpeed = VPWSpeed.Standard;
 
             }
             else
             {
                 this.Logger.AddDebugMessage("DVI setting VPW 4X");
                 Msg[3] = 1;
-                this.vpwSpeed = VpwSpeed.FourX;
+                this.vpwSpeed = VPWSpeed.FourX;
             }
 
             Msg[Msg.Length - 1] = CalcChecksum(Msg);
@@ -1413,7 +1447,7 @@ namespace PcmHacking
         private int GetReceiveTimeout()
         {
             int result;
-            if (this.vpwSpeed == VpwSpeed.Standard)
+            if (this.vpwSpeed == VPWSpeed.Standard)
             {
                 switch (this.currentTimeoutScenario)
                 {

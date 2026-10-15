@@ -62,6 +62,8 @@ namespace PcmHacking
         /// </summary>
         public bool SupportsExtendedAddressing => false;
 
+        private BusProtocol currentProtocol = BusProtocol.VPW;
+
         /// <summary>
         /// The ScanTool (STN) family has a small CAN message buffer, so a kernel must be uploaded in
         /// blocks of that size; other ELM-based devices use the default.
@@ -88,6 +90,10 @@ namespace PcmHacking
                 bool ok = await scanTool.SetBusProtocol(protocol);
                 if (ok)
                 {
+                    // The implementation's copy is protected, and the filter commands here are
+                    // VPW-only, so the facade keeps its own.
+                    this.currentProtocol = protocol;
+
                     // The per-bus send/receive limits differ; keep the facade in step with the implementation.
                     this.MaxSendSize = scanTool.MaxSendSize;
                     this.MaxReceiveSize = scanTool.MaxReceiveSize;
@@ -101,7 +107,7 @@ namespace PcmHacking
                 return ok;
             }
 
-            return protocol == BusProtocol.Vpw;
+            return protocol == BusProtocol.VPW;
         }
 
         /// <summary>
@@ -274,9 +280,9 @@ namespace PcmHacking
         /// <remarks>
         /// The caller must also tell the PCM to switch speeds
         /// </remarks>
-        protected override async Task<bool> SetVpwSpeedInternal(VpwSpeed newSpeed)
+        protected override async Task<bool> SetVPWSpeedInternal(VPWSpeed newSpeed)
         {
-            if (newSpeed == VpwSpeed.Standard)
+            if (newSpeed == VPWSpeed.Standard)
             {
                 this.Logger.AddDebugMessage("AllPro setting VPW 1X");
                 if (!await this.implementation!.SendAndVerify("AT VPW1", "OK"))
@@ -303,6 +309,43 @@ namespace PcmHacking
         public override Task<byte?> ReadBroadcastState(byte command)
         {
             return this.implementation?.ReadBroadcastState(command) ?? Task.FromResult<byte?>(null);
+        }
+
+        /// <summary>
+        /// Install receive filters, using the one byte an ELM-based device can filter on.
+        /// </summary>
+        /// <remarks>
+        /// These devices filter by receive address, so a set asking for one destination becomes
+        /// AT SR. A set asking for more than one cannot be expressed that way, so auto-receive goes
+        /// back on (AT AR) and the device delivers what the request implies - wider than asked for,
+        /// which costs the caller some traffic to skip past but never hides a reply.
+        /// </remarks>
+        public override async Task<bool> SetBusFilters(IReadOnlyList<BusFilter> filters)
+        {
+            if (this.implementation == null || this.currentProtocol != BusProtocol.VPW)
+            {
+                return false;
+            }
+
+            if (BusFilters.TryGetDestinations(filters, out IReadOnlyList<byte> destinations) &&
+                destinations.Count == 1)
+            {
+                this.Logger.AddDebugMessage($"ELM filter: receive address {destinations[0]:X2}");
+                return await this.implementation.SendAndVerify(
+                    "AT SR " + destinations[0].ToString("X2"), "OK");
+            }
+
+            // Not the same as passing everything: the device decides from the request what to
+            // deliver. It is the widest setting available without giving up transmitting.
+            this.Logger.AddDebugMessage("ELM filter: auto receive");
+            return await this.implementation.SendAndVerify("AT AR", "OK");
+        }
+
+        public override Task<bool> RestoreBusFilters()
+        {
+            return this.currentProtocol == BusProtocol.VPW
+                ? this.SetBusFilters(BusFilters.VPW)
+                : Task.FromResult(true);
         }
 
         public override async Task<bool> CheckDeviceConnection()

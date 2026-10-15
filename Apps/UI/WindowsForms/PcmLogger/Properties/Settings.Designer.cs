@@ -38,6 +38,186 @@ namespace PcmLogger.Properties {
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string LastDashboard {
+            get {
+                return ((string)(this["LastDashboard"]));
+            }
+            set {
+                this["LastDashboard"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool CanLoggingEnabled {
+            get {
+                return ((bool)(this["CanLoggingEnabled"]));
+            }
+            set {
+                this["CanLoggingEnabled"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        public bool ViewDebug {
+            get {
+                return ((bool)(this["ViewDebug"]));
+            }
+            set {
+                this["ViewDebug"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        public bool ViewDashboard {
+            get {
+                return ((bool)(this["ViewDashboard"]));
+            }
+            set {
+                this["ViewDashboard"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        public bool ViewMonitors {
+            get {
+                return ((bool)(this["ViewMonitors"]));
+            }
+            set {
+                this["ViewMonitors"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        public bool ViewPids {
+            get {
+                return ((bool)(this["ViewPids"]));
+            }
+            set {
+                this["ViewPids"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool ViewZoom {
+            get {
+                return ((bool)(this["ViewZoom"]));
+            }
+            set {
+                this["ViewZoom"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool ViewAuxiliaryBus {
+            get {
+                return ((bool)(this["ViewAuxiliaryBus"]));
+            }
+            set {
+                this["ViewAuxiliaryBus"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool ViewProfiles {
+            get {
+                return ((bool)(this["ViewProfiles"]));
+            }
+            set {
+                this["ViewProfiles"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        public bool AutoStartLogging {
+            get {
+                return ((bool)(this["AutoStartLogging"]));
+            }
+            set {
+                this["AutoStartLogging"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("System")]
+        public string Theme {
+            get {
+                return ((string)(this["Theme"]));
+            }
+            set {
+                this["Theme"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string AuxiliaryDeviceCategory {
+            get {
+                return ((string)(this["AuxiliaryDeviceCategory"]));
+            }
+            set {
+                this["AuxiliaryDeviceCategory"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string AuxiliaryJ2534DeviceType {
+            get {
+                return ((string)(this["AuxiliaryJ2534DeviceType"]));
+            }
+            set {
+                this["AuxiliaryJ2534DeviceType"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string AuxiliarySerialPort {
+            get {
+                return ((string)(this["AuxiliarySerialPort"]));
+            }
+            set {
+                this["AuxiliarySerialPort"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string AuxiliarySerialPortDeviceType {
+            get {
+                return ((string)(this["AuxiliarySerialPortDeviceType"]));
+            }
+            set {
+                this["AuxiliarySerialPortDeviceType"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
         public string LogDirectory {
             get {
                 return ((string)(this["LogDirectory"]));

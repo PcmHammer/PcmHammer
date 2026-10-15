@@ -56,7 +56,7 @@ namespace PcmHacking
         /// native ISO-TP: whole GMLAN/UDS payloads go in and out, and the device does the
         /// segmentation and flow-control handshake (the same model as the OBDX native path).
         /// </summary>
-        protected BusProtocol CurrentProtocol { get; private set; } = BusProtocol.Vpw;
+        protected BusProtocol CurrentProtocol { get; private set; } = BusProtocol.VPW;
 
         // CAN target addresses. Default to the standard OBD2 PCM ids (from the shared CanId
         // constants), but are settable so the command layer can address a different module.
@@ -145,11 +145,11 @@ namespace PcmHacking
         /// <summary>
         /// Get the time required for the given scenario.
         /// </summary>
-        public override int GetTimeoutMilliseconds(TimeoutScenario scenario, VpwSpeed speed)
+        public override int GetTimeoutMilliseconds(TimeoutScenario scenario, VPWSpeed speed)
         {
             int milliseconds;
 
-            if (speed == VpwSpeed.Standard)
+            if (speed == VPWSpeed.Standard)
             {
                 switch (scenario)
                 {
@@ -471,7 +471,7 @@ namespace PcmHacking
                 return true;
             }
 
-            if (protocol == BusProtocol.Vpw)
+            if (protocol == BusProtocol.VPW)
             {
                 // Restore the VPW configuration applied during initialization.
                 if (!await this.SendAndVerify("AT SP2", "OK") ||
@@ -486,7 +486,7 @@ namespace PcmHacking
 
                 this.MaxSendSize = 1024 + 12;
                 this.MaxReceiveSize = 1024 + 12;
-                this.CurrentProtocol = BusProtocol.Vpw;
+                this.CurrentProtocol = BusProtocol.VPW;
                 this.Logger.AddDebugMessage("ScanTool VPW mode restored.");
                 return true;
             }

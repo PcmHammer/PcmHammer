@@ -21,7 +21,7 @@ namespace PcmHacking
 
         private TabPage busMonitorTab;
         private LogListView monitorLog;
-        private RadioButton monitorVpwRadio;
+        private RadioButton monitorVPWRadio;
         private RadioButton monitorCanRadio;
         private TextBox monitorFilterTextBox;
         private Button monitorStartStopButton;
@@ -64,7 +64,7 @@ namespace PcmHacking
             };
 
             Label protocolLabel = new Label { Text = "Protocol:", Location = new Point(6, 9), AutoSize = true };
-            this.monitorVpwRadio = new RadioButton { Text = "VPW", Location = new Point(62, 6), AutoSize = true, Checked = true };
+            this.monitorVPWRadio = new RadioButton { Text = "VPW", Location = new Point(62, 6), AutoSize = true, Checked = true };
             this.monitorCanRadio = new RadioButton { Text = "CAN 500k", Location = new Point(118, 6), AutoSize = true };
             Label filterLabel = new Label { Text = "CAN IDs:", Location = new Point(210, 9), AutoSize = true };
             this.monitorFilterTextBox = new TextBox { Text = BusMonitor.DefaultCanFilter, Location = new Point(265, 5), Size = new Size(150, 20), Enabled = false };
@@ -81,14 +81,14 @@ namespace PcmHacking
                 MaxLines = MonitorMaxLines,
             };
 
-            this.monitorVpwRadio.CheckedChanged += this.monitorProtocol_CheckedChanged;
+            this.monitorVPWRadio.CheckedChanged += this.monitorProtocol_CheckedChanged;
             this.monitorCanRadio.CheckedChanged += this.monitorProtocol_CheckedChanged;
             this.monitorStartStopButton.Click += this.monitorStartStopButton_Click;
             this.monitorClearButton.Click += (s, e) => this.monitorLog.ClearLog();
 
             this.busMonitorTab.Controls.Add(this.monitorLog);
             this.busMonitorTab.Controls.Add(protocolLabel);
-            this.busMonitorTab.Controls.Add(this.monitorVpwRadio);
+            this.busMonitorTab.Controls.Add(this.monitorVPWRadio);
             this.busMonitorTab.Controls.Add(this.monitorCanRadio);
             this.busMonitorTab.Controls.Add(filterLabel);
             this.busMonitorTab.Controls.Add(this.monitorFilterTextBox);
@@ -111,20 +111,20 @@ namespace PcmHacking
             }
 
             IReadOnlyList<BusProtocol> supported = this.Vehicle?.MonitorableProtocols ?? Array.Empty<BusProtocol>();
-            bool vpw = supported.Contains(BusProtocol.Vpw);
+            bool vpw = supported.Contains(BusProtocol.VPW);
             bool can = supported.Contains(BusProtocol.Can500k);
 
-            this.monitorVpwRadio.Enabled = vpw;
+            this.monitorVPWRadio.Enabled = vpw;
             this.monitorCanRadio.Enabled = can;
 
             // Keep the selection on an enabled protocol.
-            if (this.monitorVpwRadio.Checked && !vpw)
+            if (this.monitorVPWRadio.Checked && !vpw)
             {
                 this.monitorCanRadio.Checked = can;
             }
             else if (this.monitorCanRadio.Checked && !can)
             {
-                this.monitorVpwRadio.Checked = vpw;
+                this.monitorVPWRadio.Checked = vpw;
             }
 
             this.monitorStartStopButton.Enabled = vpw || can;
@@ -173,9 +173,9 @@ namespace PcmHacking
                 return;
             }
 
-            BusProtocol protocol = this.monitorCanRadio.Checked ? BusProtocol.Can500k : BusProtocol.Vpw;
+            BusProtocol protocol = this.monitorCanRadio.Checked ? BusProtocol.Can500k : BusProtocol.VPW;
 
-            if (protocol == BusProtocol.Vpw && !this.CheckVpwFourXGate())
+            if (protocol == BusProtocol.VPW && !this.CheckVPWFourXGate())
             {
                 return;
             }
@@ -185,7 +185,7 @@ namespace PcmHacking
             this.monitorCts = new CancellationTokenSource();
             this.monitoring = true;
             this.monitorStartStopButton.Text = "Stop";
-            this.monitorVpwRadio.Enabled = false;
+            this.monitorVPWRadio.Enabled = false;
             this.monitorCanRadio.Enabled = false;
             this.monitorFilterTextBox.Enabled = false;
             this.DisableUserInput();
@@ -219,18 +219,18 @@ namespace PcmHacking
         }
 
         /// <summary>
-        /// VPW 4X gate. The rule and its wording live in the library (BusMonitor.CheckVpwReadiness) so
+        /// VPW 4X gate. The rule and its wording live in the library (BusMonitor.CheckVPWReadiness) so
         /// every front end applies the same one; this only decides how to show the result.
         /// </summary>
-        private bool CheckVpwFourXGate()
+        private bool CheckVPWFourXGate()
         {
-            switch (BusMonitor.CheckVpwReadiness(this.Vehicle, out string message))
+            switch (BusMonitor.CheckVPWReadiness(this.Vehicle, out string message))
             {
-                case VpwMonitorReadiness.NoFourXSupport:
+                case VPWMonitorReadiness.NoFourXSupport:
                     this.AddUserMessage("Bus monitor: " + message);
                     return true;
 
-                case VpwMonitorReadiness.FourXDisabled:
+                case VPWMonitorReadiness.FourXDisabled:
                     MessageBox.Show(this, message, "Bus Monitor", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     return false;
 
@@ -251,7 +251,7 @@ namespace PcmHacking
             this.monitorStartStopButton.Enabled = this.monitoring;
             if (!this.monitoring)
             {
-                this.monitorVpwRadio.Enabled = false;
+                this.monitorVPWRadio.Enabled = false;
                 this.monitorCanRadio.Enabled = false;
                 this.monitorFilterTextBox.Enabled = false;
             }

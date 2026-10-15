@@ -45,9 +45,31 @@ namespace PcmHacking
         public bool Enable4xReadWrite { get; set; }
 
         /// <summary>
+        /// The selection the dialog opens on. Defaults to whatever is in the saved settings, which is
+        /// the only interface most callers have.
+        /// </summary>
+        /// <remarks>
+        /// Settable so a caller with more than one slot to fill can seed the dialog with that slot's
+        /// current device instead of the primary one. The dialog still only ever describes a device;
+        /// which slot it belongs to, and whether two slots clash, stays with the caller that knows
+        /// there is more than one.
+        /// </remarks>
+        public DeviceSelection? InitialSelection { get; set; }
+
+        /// <summary>
+        /// Shown beside the device lists, for a caller that wants to note something about the
+        /// choice - that an interface is already serving another bus, for instance.
+        /// </summary>
+        public string? Note { get; set; }
+
+        /// <summary>
         /// Prompt to put into drop-down lists to let the user know that they need to make a selection.
         /// </summary>
         private const string prompt = "Select...";
+
+        /// <summary>What the dialog opened on, resolved once the form loads.</summary>
+        private DeviceSelection Seed =>
+            this.InitialSelection ?? DeviceFactory.SelectionFromSettings();
 
         /// <summary>
         /// This allows the dialog box to add messages to the Results pane and Debug pane.
@@ -67,6 +89,48 @@ namespace PcmHacking
             DeviceCatalog.J2534Available = true;
 
             InitializeComponent();
+        }
+
+        /// <summary>
+        /// Whether the dialog is still usable.
+        /// </summary>
+        /// <remarks>
+        /// Auto Detect and Test await for as long as 30 seconds, and the dialog's Cancel button and
+        /// its close box stay live for that whole time. If the user closes it while a scan is in
+        /// flight, the continuation resumes against a disposed form: touching any control then
+        /// throws, and because these handlers are async void the exception is rethrown on a thread
+        /// pool thread where nothing can catch it, which takes the app down.
+        /// </remarks>
+        private bool IsUsable => !this.IsDisposed && !this.Disposing;
+
+        /// <summary>
+        /// Show a message box owned by this dialog, or write it to the log if the dialog has gone.
+        /// </summary>
+        /// <remarks>
+        /// Passing a disposed owner is the specific crash: MessageBox asks the owner for its handle,
+        /// and a disposed Control throws rather than handing one over.
+        /// </remarks>
+        private void ShowMessage(string text, string caption, MessageBoxIcon icon)
+        {
+            if (!this.IsUsable)
+            {
+                this.logger.AddDebugMessage($"{caption}: {text}");
+                return;
+            }
+
+            MessageBox.Show(this, text, caption, MessageBoxButtons.OK, icon);
+        }
+
+        /// <summary>Set the status line, if there is still one to set.</summary>
+        private void SetStatus(string text)
+        {
+            if (!this.IsUsable)
+            {
+                this.logger.AddDebugMessage(text);
+                return;
+            }
+
+            this.status.Text = text;
         }
 
         /// <summary>
@@ -104,27 +168,35 @@ namespace PcmHacking
 
             await this.AddDiscoveredJ2534Devices();
 
-            if(this.serialDeviceList.Items.Count > 0)
+            // Port and J2534 enumeration are both slow enough to be closed through.
+            if (!this.IsUsable)
             {
-                this.serialRadioButton.Checked = true;
-            }
-            else if (this.j2534DeviceList.Items.Count > 0)
-            {
-                this.j2534RadioButton.Checked = true;
-            }
-            else
-            {
-                this.serialRadioButton.Checked = true;
-                this.status.Text = "You don't seem to have any serial ports or J2534 devices.";
+                return;
             }
 
-            switch(DeviceConfiguration.Settings.DeviceCategory)
+            // Start from None and let the saved category move off it. First run, and a saved device
+            // that is no longer plugged in, both land here - which is better than adopting whichever
+            // interface happens to be enumerated first and quietly trying to talk to it.
+            this.noneRadioButton.Checked = true;
+
+            if (this.serialDeviceList.Items.Count == 0 && this.j2534DeviceList.Items.Count == 0)
+            {
+                this.SetStatus("You don't seem to have any serial ports or J2534 devices.");
+            }
+
+            DeviceSelection seed = this.Seed;
+
+            switch (seed.Category)
             {
                 case DeviceConfiguration.Constants.DeviceCategorySerial:
                     {
                         if (this.serialDeviceList.Items.Count > 0)
                         {
                             this.serialRadioButton.Checked = true;
+                        }
+                        else
+                        {
+                            this.SetStatus("The saved serial device is not available, so no interface is selected.");
                         }
                     }
                     break;
@@ -135,26 +207,35 @@ namespace PcmHacking
                         {
                             this.j2534RadioButton.Checked = true;
                         }
+                        else
+                        {
+                            this.SetStatus("The saved J2534 device is not available, so no interface is selected.");
+                        }
                     }
                     break;
             }
 
             SetDefault(
-                this.serialPortList, 
+                this.serialPortList,
                 x => (x as SerialPortInfo)?.PortName,
-                DeviceConfiguration.Settings.SerialPort);
+                seed.SerialPort);
 
             SetDefault(
                 this.serialDeviceList,
                 x => (x as DeviceDescriptor)?.Key,
-                DeviceConfiguration.Settings.SerialPortDeviceType);
+                seed.SerialPortDeviceType);
 
             SetDefault(
                 this.j2534DeviceList,
                 x => (x as J2534DeviceDescriptor)?.Name,
-                DeviceConfiguration.Settings.J2534DeviceType);
+                seed.J2534DeviceType);
 
             this.Enable4xReadWrite = this.enable4xReadWriteCheckBox.Checked = DeviceConfiguration.Settings.Enable4xReadWrite;
+
+            if (!string.IsNullOrEmpty(this.Note))
+            {
+                this.SetStatus(this.Note!);
+            }
         }
 
         /// <summary>
@@ -192,18 +273,18 @@ namespace PcmHacking
                 }
                 else
                 {
-                    string savedPort = DeviceConfiguration.Settings.SerialPort;
-                    this.status.Text = string.IsNullOrEmpty(savedPort)
+                    string savedPort = this.Seed.SerialPort;
+                    this.SetStatus(string.IsNullOrEmpty(savedPort)
                         ? "Timed out listing serial ports - a disconnected device may be stuck. Try a different port."
                         : string.Format(
                             "Timed out listing serial ports - the saved port {0} looks disconnected or stuck. Avoid it and choose a different port.",
-                            savedPort);
+                            savedPort));
                 }
             }
             catch (Exception exception)
             {
                 this.logger.AddDebugMessage("Failed to list serial ports: " + exception.ToString());
-                this.status.Text = "Unable to list serial ports: " + exception.Message;
+                this.SetStatus("Unable to list serial ports: " + exception.Message);
             }
 
             foreach (SerialPortInfo portInfo in ports)
@@ -227,7 +308,7 @@ namespace PcmHacking
             // Device types come from the shared catalog. Each item renders as its DisplayName
             // (name + protocols, e.g. "OBDX Pro (VPW, CAN)") and carries its Key for the factory
             // and saved settings.
-            foreach (DeviceDescriptor descriptor in DeviceCatalog.SerialDevices)
+            foreach (DeviceDescriptor descriptor in DeviceCatalog.OfferedDevices)
             {
                 this.serialDeviceList.Items.Add(descriptor);
             }
@@ -256,18 +337,18 @@ namespace PcmHacking
                 }
                 else
                 {
-                    string savedDevice = DeviceConfiguration.Settings.J2534DeviceType;
-                    this.status.Text = string.IsNullOrEmpty(savedDevice)
+                    string savedDevice = this.Seed.J2534DeviceType;
+                    this.SetStatus(string.IsNullOrEmpty(savedDevice)
                         ? "Timed out listing J2534 devices - a driver may be stuck. Try a different device."
                         : string.Format(
                             "Timed out listing J2534 devices - the saved device {0} may have a stuck driver. Avoid it and choose a different device.",
-                            savedDevice);
+                            savedDevice));
                 }
             }
             catch (Exception exception)
             {
                 this.logger.AddDebugMessage("Failed to list J2534 devices: " + exception.ToString());
-                this.status.Text = "Unable to list J2534 devices: " + exception.Message;
+                this.SetStatus("Unable to list J2534 devices: " + exception.Message);
             }
 
             foreach (J2534DotNet.J2534Device device in devices)
@@ -292,17 +373,15 @@ namespace PcmHacking
 
             if (string.IsNullOrEmpty(portName))
             {
-                MessageBox.Show(
-                    this,
+                this.ShowMessage(
                     "Choose a serial port first, then click Auto Detect to scan it.",
                     "Auto Detect",
-                    MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
                 return;
             }
 
             this.SetActionsEnabled(false);
-            this.status.Text = "Scanning " + portName + " for a compatible device...";
+            this.SetStatus("Scanning " + portName + " for a compatible device...");
             Device? device = null;
             try
             {
@@ -312,13 +391,11 @@ namespace PcmHacking
                 Task<Device?> detectTask = DeviceFactory.AutoDetectSerialDevice(portName!, this.logger);
                 if (!await detectTask.AwaitWithTimeout(TimeSpan.FromSeconds(30)))
                 {
-                    this.status.Text = "Auto detect timed out on " + portName + ".";
-                    MessageBox.Show(
-                        this,
+                    this.SetStatus("Auto detect timed out on " + portName + ".");
+                    this.ShowMessage(
                         "Auto detect timed out on " + portName + "." + Environment.NewLine + Environment.NewLine +
                             "The port may be in use, or a connected device may not be responding.",
                         "Auto Detect",
-                        MessageBoxButtons.OK,
                         MessageBoxIcon.Warning);
                     return;
                 }
@@ -326,17 +403,21 @@ namespace PcmHacking
                 device = detectTask.Result;
                 if (device == null)
                 {
-                    this.status.Text = "No compatible device found on " + portName + ".";
-                    MessageBox.Show(
-                        this,
+                    this.SetStatus("No compatible device found on " + portName + ".");
+                    this.ShowMessage(
                         "No compatible devices found on " + portName + ".",
                         "Auto Detect",
-                        MessageBoxButtons.OK,
                         MessageBoxIcon.Information);
                     return;
                 }
 
                 string deviceType = device.GetDeviceType();
+
+                // Nothing left to reflect the result into if the dialog was closed during the scan.
+                if (!this.IsUsable)
+                {
+                    return;
+                }
 
                 // Reflect the detected device back into the dialog's selections so the user can
                 // just click OK to keep it.
@@ -344,30 +425,30 @@ namespace PcmHacking
                 SetDefault(this.serialPortList, x => (x as SerialPortInfo)?.PortName, portName!);
                 SetDefault(this.serialDeviceList, x => (x as DeviceDescriptor)?.Key, deviceType);
 
-                this.status.Text = "Found " + deviceType + " on " + portName + ".";
-                MessageBox.Show(
-                    this,
+                this.SetStatus("Found " + deviceType + " on " + portName + ".");
+                this.ShowMessage(
                     "Found a " + deviceType + " device on " + portName + ".",
                     "Auto Detect",
-                    MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
             }
             catch (Exception exception)
             {
                 this.logger.AddDebugMessage("Auto detect failed: " + exception.ToString());
-                this.status.Text = "Auto detect failed: " + exception.Message;
-                MessageBox.Show(
-                    this,
+                this.SetStatus("Auto detect failed: " + exception.Message);
+                this.ShowMessage(
                     "Auto detect failed on " + portName + ":" + Environment.NewLine + Environment.NewLine + exception.Message,
                     "Auto Detect",
-                    MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
             }
             finally
             {
                 // AutoDetectSerialDevice opens the port; dispose the device (and its port) so the
                 // OK / Test path can reopen it. Dispose is non-blocking for serial ports.
-                device?.Dispose();
+                // Swallowed because this runs in a finally inside an async void: an exception here
+                // would reach the thread pool, where nothing can catch it, and end the process.
+                try { device?.Dispose(); }
+                catch (Exception exception) { this.logger.AddDebugMessage("Dispose after auto detect: " + exception.Message); }
+
                 this.SetActionsEnabled(true);
             }
         }
@@ -378,6 +459,12 @@ namespace PcmHacking
         /// </summary>
         private void SetActionsEnabled(bool enabled)
         {
+            // Called from a finally after an await, so the dialog may already be gone.
+            if (!this.IsUsable)
+            {
+                return;
+            }
+
             this.autoDetectButton.Enabled = enabled;
             this.testButton.Enabled = enabled;
             this.okButton.Enabled = enabled;
@@ -397,6 +484,28 @@ namespace PcmHacking
         private void cancelButton_Click(object sender, EventArgs e)
         {
             this.DialogResult = DialogResult.Cancel;
+        }
+
+        /// <summary>
+        /// No interface. Both option groups go inert, and the selection is cleared so nothing stale
+        /// is persisted alongside a category that says there is no device.
+        /// </summary>
+        private void noneRadioButton_CheckedChanged(object sender, EventArgs e)
+        {
+            if (!this.noneRadioButton.Checked)
+            {
+                return;
+            }
+
+            this.serialOptionsGroupBox.Enabled = false;
+            this.j2534OptionsGroupBox.Enabled = false;
+
+            this.SerialPort = string.Empty;
+            this.SerialPortDeviceType = string.Empty;
+            this.J2534DeviceType = string.Empty;
+            this.DeviceCategory = DeviceConfiguration.Constants.DeviceCategoryNone;
+
+            this.SetStatus("No interface selected.");
         }
 
         /// <summary>
@@ -518,25 +627,21 @@ namespace PcmHacking
             }
             else
             {
-                this.status.Text = "No device specified.";
-                MessageBox.Show(
-                    this,
+                this.SetStatus("No device specified.");
+                this.ShowMessage(
                     "Choose a device to test first.",
                     "Test Device",
-                    MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
                 return;
             }
 
             if (device == null)
             {
-                this.status.Text = "Could not create " + target + ".";
-                MessageBox.Show(
-                    this,
+                this.SetStatus("Could not create " + target + ".");
+                this.ShowMessage(
                     "FAIL" + Environment.NewLine + Environment.NewLine +
                         "Could not create " + target + ".",
                     "Test Device",
-                    MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
                 return;
             }
@@ -545,7 +650,7 @@ namespace PcmHacking
             string description = device.GetDeviceType() + onPort;
 
             this.SetActionsEnabled(false);
-            this.status.Text = "Testing " + device.GetDeviceType() + "...";
+            this.SetStatus("Testing " + device.GetDeviceType() + "...");
             try
             {
                 // Guard the test with a timeout: a defunct port (e.g. a stale Bluetooth COM
@@ -554,55 +659,51 @@ namespace PcmHacking
                 bool completed = await initializeTask.AwaitWithTimeout(TimeSpan.FromSeconds(5));
                 if (!completed)
                 {
-                    this.status.Text = "Timed out testing " + description + ".";
-                    MessageBox.Show(
-                        this,
+                    this.SetStatus("Timed out testing " + description + ".");
+                    this.ShowMessage(
                         "FAIL" + Environment.NewLine + Environment.NewLine +
                             "Timed out trying to use " + description + "." + Environment.NewLine + Environment.NewLine +
                             "The port may be in use, or the device may not be responding.",
                         "Test Device",
-                        MessageBoxButtons.OK,
                         MessageBoxIcon.Warning);
                 }
                 else if (initializeTask.Result)
                 {
-                    this.status.Text = description + " test OK.";
-                    MessageBox.Show(
-                        this,
+                    this.SetStatus(description + " test OK.");
+                    this.ShowMessage(
                         "OK" + Environment.NewLine + Environment.NewLine +
                             description + " initialized successfully.",
                         "Test Device",
-                        MessageBoxButtons.OK,
                         MessageBoxIcon.Information);
                 }
                 else
                 {
-                    this.status.Text = description + " test FAILED.";
-                    MessageBox.Show(
-                        this,
+                    this.SetStatus(description + " test FAILED.");
+                    this.ShowMessage(
                         "FAIL" + Environment.NewLine + Environment.NewLine +
                             "Unable to initialize " + description + ".",
                         "Test Device",
-                        MessageBoxButtons.OK,
                         MessageBoxIcon.Error);
                 }
             }
             catch (Exception exception)
             {
-                this.status.Text = description + " test FAILED: " + exception.Message;
-                MessageBox.Show(
-                    this,
+                this.logger.AddDebugMessage("Device test failed: " + exception.ToString());
+                this.SetStatus(description + " test FAILED: " + exception.Message);
+                this.ShowMessage(
                     "FAIL" + Environment.NewLine + Environment.NewLine +
                         "Unable to use " + description + ":" + Environment.NewLine + Environment.NewLine + exception.Message,
                     "Test Device",
-                    MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
             }
             finally
             {
                 // Dispose is non-blocking for serial ports (see StandardPort), so this is safe
-                // on the UI thread even when the underlying device is dead.
-                device.Dispose();
+                // on the UI thread even when the underlying device is dead. Swallowed for the same
+                // reason as the auto-detect path: this is a finally inside an async void.
+                try { device.Dispose(); }
+                catch (Exception exception) { this.logger.AddDebugMessage("Dispose after device test: " + exception.Message); }
+
                 this.SetActionsEnabled(true);
             }
         }

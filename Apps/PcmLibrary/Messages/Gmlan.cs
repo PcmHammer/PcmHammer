@@ -21,6 +21,8 @@ namespace PcmHacking
         // Service / response identifiers used when parsing.
         public const byte ReadDataByIdentifier = 0x1A;
         public const byte ReadDataByIdentifierResponse = 0x5A;
+        public const byte ReadDataByParameterIdentifier = 0x22;
+        public const byte ReadDataByParameterIdentifierResponse = 0x62;
         public const byte RequestDownload = 0x34;
         public const byte TransferData = 0x36;
         public const byte ReturnToNormalMode = 0x20;
@@ -49,6 +51,9 @@ namespace PcmHacking
 
         /// <summary>NRC 0x78: response pending (7F xx 78) - the PCM is busy; keep waiting for the reply.</summary>
         public const byte NrcResponsePending = 0x78;
+
+        /// <summary>NRC 0x11: the module does not implement the requested service at all.</summary>
+        public const byte NrcServiceNotSupported = 0x11;
 
         /// <summary>DID 0xC9: operating system id (OSID), returned as a big-endian uint32.</summary>
         public const byte OperatingSystemDid = 0xC9;
@@ -510,6 +515,80 @@ namespace PcmHacking
 
             byte[] data = new byte[bytes.Length - 2];
             Array.Copy(bytes, 2, data, 0, data.Length);
+            return Response.Create(ResponseStatus.Success, data);
+        }
+
+        // ---- Trouble codes (services 0x03, 0x07, 0x0A) -------------------------------------------
+
+        /// <summary>
+        /// Ask for a list of codes. The same services as VPW, with the header left off.
+        /// </summary>
+        public Message CreateTroubleCodeRequest(DiagnosticCodeKind kind) =>
+            new Message(new byte[] { Protocol.TroubleCodeMode(kind) });
+
+        /// <summary>
+        /// Read the codes out of a reply.
+        /// </summary>
+        /// <remarks>
+        /// A count of codes follows the response service id, then that many two-byte codes:
+        /// "43 00" for none, "4A 03 30 5F 26 46 05 8D" for three. The count is skipped rather than
+        /// trusted - a module that pads to a fixed length reports more pairs than it has codes, and
+        /// the all-zero pairs are dropped either way.
+        /// </remarks>
+        public Response<List<ushort>> ParseTroubleCodes(Message message, DiagnosticCodeKind kind)
+        {
+            byte[] bytes = GetBytes(message);
+            List<ushort> codes = new List<ushort>();
+
+            if (bytes.Length >= 2 && bytes[0] == NegativeResponse)
+            {
+                return Response.Create(ResponseStatus.Error, codes);
+            }
+
+            if (bytes.Length < 2 || bytes[0] != (byte)(Protocol.TroubleCodeMode(kind) + 0x40))
+            {
+                return Response.Create(ResponseStatus.UnexpectedResponse, codes);
+            }
+
+            // Past the service id and the count.
+            Protocol.ReadCodePairs(bytes, 2, codes);
+            return Response.Create(ResponseStatus.Success, codes);
+        }
+
+        // ---- ReadDataByParameterIdentifier (service 0x22) ----------------------------------------
+
+        /// <summary>
+        /// Build a request for one two-byte parameter: [0x22, pid_hi, pid_lo]. Same PID numbers VPW
+        /// asks for with mode 0x22; only the framing differs.
+        /// </summary>
+        public Message CreateParameterRequest(ushort pid) =>
+            new Message(new byte[] { ReadDataByParameterIdentifier, (byte)(pid >> 8), (byte)pid });
+
+        /// <summary>
+        /// Parse a [0x62, pid_hi, pid_lo, data...] response. Refused means this PID, so the caller
+        /// can drop it and carry on; Error means the service, so every other PID would fail too.
+        /// </summary>
+        public Response<byte[]> ParseParameterResponse(Message message, ushort pid)
+        {
+            byte[] bytes = GetBytes(message);
+
+            if (bytes.Length >= 3 && bytes[0] == NegativeResponse && bytes[1] == ReadDataByParameterIdentifier)
+            {
+                return Response.Create(
+                    bytes[2] == NrcServiceNotSupported ? ResponseStatus.Error : ResponseStatus.Refused,
+                    Array.Empty<byte>());
+            }
+
+            if (bytes.Length < 4 ||
+                bytes[0] != ReadDataByParameterIdentifierResponse ||
+                bytes[1] != (byte)(pid >> 8) ||
+                bytes[2] != (byte)pid)
+            {
+                return Response.Create(ResponseStatus.UnexpectedResponse, Array.Empty<byte>());
+            }
+
+            byte[] data = new byte[bytes.Length - 3];
+            Array.Copy(bytes, 3, data, 0, data.Length);
             return Response.Create(ResponseStatus.Success, data);
         }
 

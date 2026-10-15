@@ -35,7 +35,9 @@ namespace PcmHacking
         private IntPtr fontHandle;
 
         [DllImport("user32.dll", CharSet = CharSet.Auto)]
-        private static extern int GetTabbedTextExtent(IntPtr hdc, string text, int count, int tabCount, int[] tabStops);
+        // tabStops is nullable: passing null with a tabCount of 0 tells Windows to use the default
+        // tab width, which is what this control wants.
+        private static extern int GetTabbedTextExtent(IntPtr hdc, string text, int count, int tabCount, int[]? tabStops);
 
         [DllImport("gdi32.dll")]
         private static extern IntPtr SelectObject(IntPtr hdc, IntPtr handle);

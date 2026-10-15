@@ -24,31 +24,86 @@ namespace PcmHacking
     public partial class Vehicle : IDisposable
     {
         /// <summary>
+        /// Builds the GMLAN messages used when the module being logged is on CAN.
+        /// </summary>
+        private readonly Gmlan gmlan = new Gmlan();
+
+        /// <summary>
         /// Create a logger.
         /// </summary>
         /// <remarks>
-        /// The Logger implementation will vary depending on the device capability.
+        /// Varies with the device's capability and with the bus the module was found on: DPIDs are a
+        /// VPW mechanism, so a CAN module is polled instead.
         /// </remarks>
         public Logger CreateLogger(
             uint osid,
-            CanLogger canLogger,
             IEnumerable<LogColumn> columns,
             ILogger uiLogger)
         {
             return Logger.Create(
-                this, 
-                osid, 
-                columns, 
+                this,
+                osid,
+                columns,
                 this.device.SupportsSingleDpidLogging,
                 this.device.SupportsStreamLogging,
-                canLogger,
+                this.LastDetectedBus ?? BusProtocol.VPW,
                 uiLogger);
+        }
+
+        /// <summary>
+        /// Read one parameter from the selected CAN module (GMLAN service 0x22), one PID per
+        /// exchange.
+        /// </summary>
+        public async Task<Response<byte[]>> ReadCanParameter(ushort pid)
+        {
+            Message request = this.gmlan.CreateParameterRequest(pid);
+            if (!await this.device.SendMessage(request))
+            {
+                return Response.Create(ResponseStatus.Error, Array.Empty<byte>());
+            }
+
+            // Several reads: the device echoes its own transmit frame, and an earlier timeout can
+            // leave a late reply in the queue.
+            for (int attempt = 0; attempt < 3; attempt++)
+            {
+                Message responseMessage = await this.ReceiveMessage();
+                if (responseMessage == null)
+                {
+                    break;
+                }
+
+                Response<byte[]> parsed = this.gmlan.ParseParameterResponse(responseMessage, pid);
+                if (parsed.Status == ResponseStatus.Success ||
+                    parsed.Status == ResponseStatus.Refused ||
+                    parsed.Status == ResponseStatus.Error)
+                {
+                    return parsed;
+                }
+            }
+
+            return Response.Create(ResponseStatus.Timeout, Array.Empty<byte>());
         }
 
         /// <summary>
         /// Prepare the PCM to begin sending collections of parameters.
         /// </summary>
-        public async Task<DpidCollection> ConfigureDpids(DpidConfiguration dpidConfiguration, uint osid)
+        /// <summary>
+        /// Prepare the PCM to begin sending collections of parameters. Parameters the PCM refuses are
+        /// added to <paramref name="unsupported"/> and dropped from the configuration rather than
+        /// ending the session.
+        /// </summary>
+        /// <remarks>
+        /// Refusing to log at all because one parameter is unavailable made a long parameter list
+        /// unusable: the list offers far more than any single operating system implements, so picking
+        /// an unlucky one meant nothing logged and a stack trace to interpret. Dropping it keeps the
+        /// rest of the profile working, which is what the user asked for.
+        ///
+        /// Safe to drop mid-configuration because position is only advanced for parameters the PCM
+        /// accepted, and the refused column is removed from the group afterwards - so what the row
+        /// parser expects and what the PCM sends stay in step.
+        /// </remarks>
+        public async Task<DpidCollection> ConfigureDpids(
+            DpidConfiguration dpidConfiguration, uint osid, List<Parameter> unsupported)
         {
             List<byte> dpids = new List<byte>();
 
@@ -64,7 +119,10 @@ namespace PcmHacking
             foreach (ParameterGroup group in dpidConfiguration.ParameterGroups)
             {
                 int position = 1;
-                foreach (LogColumn column in group.LogColumns)
+                List<LogColumn> refused = new List<LogColumn>();
+
+                // ToList: the group's columns are edited below once the PCM has had its say.
+                foreach (LogColumn column in group.LogColumns.ToList())
                 {
                     PidParameter? pidParameter = column.Parameter as PidParameter;
                     RamParameter? ramParameter = column.Parameter as RamParameter;
@@ -148,9 +206,19 @@ namespace PcmHacking
 
                         if (responseMessage[3] == 0x7F && responseMessage[4] == 0x2C)
                         {
-                            logger.AddUserMessage("Unable to configure " + column.ToString());
-                            throw new ParameterNotSupportedException(column.Parameter);
+                            // This PCM does not implement this parameter. Drop it and keep going.
+                            logger.AddUserMessage(
+                                column.Parameter.Name + " is not available on this PCM, so it will not be logged.");
+                            unsupported.Add(column.Parameter);
+                            refused.Add(column);
+                            break;
                         }
+                    }
+
+                    if (refused.Contains(column))
+                    {
+                        // Contributed no bytes, so the next parameter takes this one's position.
+                        continue;
                     }
 
                     if (!configured)
@@ -160,8 +228,21 @@ namespace PcmHacking
 
                     position += byteCount;
                 }
-                dpids.Add((byte)group.Dpid);
+
+                foreach (LogColumn column in refused)
+                {
+                    group.LogColumns.Remove(column);
+                }
+
+                // A group whose every parameter was refused was never configured, so the PCM must not
+                // be asked for it.
+                if (group.LogColumns.Count > 0)
+                {
+                    dpids.Add((byte)group.Dpid);
+                }
             }
+
+            dpidConfiguration.ParameterGroups.RemoveAll(g => g.LogColumns.Count == 0);
 
             return new DpidCollection(dpids.ToArray());
         }
@@ -210,6 +291,22 @@ namespace PcmHacking
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// Tell the PCM to stop streaming, and drop whatever it has already sent.
+        /// </summary>
+        /// <remarks>
+        /// A stream runs until it is stopped, so pausing our end is not enough: anything else that
+        /// wants the bus - reading trouble codes, say - otherwise reads log rows instead of answers.
+        /// </remarks>
+        public async Task<bool> StopDpidStream(DpidCollection dpids)
+        {
+            Message halt = this.protocol.RequestDpids(dpids, Protocol.DpidRequestType.Halt);
+            bool sent = await this.SendMessage(halt);
+
+            this.ClearDeviceMessageQueue();
+            return sent;
         }
 
         /// <summary>

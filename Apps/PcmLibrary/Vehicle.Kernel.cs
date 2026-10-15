@@ -281,7 +281,7 @@ namespace PcmHacking
                 await this.CreateCanCommands().Reboot(cancellationToken, announce: false);
             }
 
-            bool vpw = await this.device.SetProtocol(BusProtocol.Vpw);
+            bool vpw = await this.device.SetProtocol(BusProtocol.VPW);
             if (vpw)
             {
                 this.SetTarget(Target.Pcm);
@@ -296,7 +296,7 @@ namespace PcmHacking
                 await this.CreateCanCommands().ClearDiagnosticCodes(cancellationToken, announce: false);
             }
 
-            if (vpw && await this.device.SetProtocol(BusProtocol.Vpw))
+            if (vpw && await this.device.SetProtocol(BusProtocol.VPW))
             {
                 this.SetTarget(Target.Pcm);
                 await this.ClearTroubleCodes(announce: false);
@@ -316,9 +316,9 @@ namespace PcmHacking
             this.device.ClearMessageQueue();
             if (device.Supports4X)
             {
-                await device.SetVpwSpeed(VpwSpeed.FourX);
+                await device.SetVPWSpeed(VPWSpeed.FourX);
                 await this.device.SendMessage(exitKernel);
-                await device.SetVpwSpeed(VpwSpeed.Standard);
+                await device.SetVPWSpeed(VPWSpeed.Standard);
             }
 
             await this.device.SendMessage(exitKernel);
@@ -686,11 +686,11 @@ namespace PcmHacking
         /// <summary>
         /// Does everything required to switch to VPW 4x
         /// </summary>
-        public async Task<bool> VehicleSetVPW4x(OSIDInfo pcmInfo, VpwSpeed newSpeed)
+        public async Task<bool> VehicleSetVPW4x(OSIDInfo pcmInfo, VPWSpeed newSpeed)
         {
             if (!device.Supports4X) 
             {
-                if (newSpeed == VpwSpeed.FourX)
+                if (newSpeed == VPWSpeed.FourX)
                 {
                     // where there is no support only report no switch to 4x
                     logger.AddUserMessage("This interface does not support VPW 4x");
@@ -698,7 +698,7 @@ namespace PcmHacking
                 return true;
             }
 
-            if ((newSpeed == VpwSpeed.FourX) && !this.device.Enable4xReadWrite)
+            if ((newSpeed == VPWSpeed.FourX) && !this.device.Enable4xReadWrite)
             {
                 logger.AddUserMessage("4X communications disabled by configuration.");
                 return true;
@@ -718,7 +718,7 @@ namespace PcmHacking
             }
 
             // Configure the vehicle bus when switching to 4x
-            if (newSpeed == VpwSpeed.FourX)
+            if (newSpeed == VPWSpeed.FourX)
             {
                 logger.AddUserMessage("Attempting switch to VPW 4x");
                 await device.SetTimeout(TimeoutScenario.ReadProperty);
@@ -779,7 +779,7 @@ namespace PcmHacking
             }
 
             // Request the device to change
-            await device.SetVpwSpeed(newSpeed);
+            await device.SetVPWSpeed(newSpeed);
 
             // Since we had some issue with other modules not staying quiet...
             await this.ForceSendToolPresentNotification();

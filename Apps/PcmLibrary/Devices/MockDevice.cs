@@ -105,11 +105,11 @@ namespace PcmHacking
         /// <remarks>
         /// The caller must also tell the PCM to switch speeds
         /// </remarks>
-        protected override Task<bool> SetVpwSpeedInternal(VpwSpeed newSpeed)
+        protected override Task<bool> SetVPWSpeedInternal(VPWSpeed newSpeed)
         {
             Thread.Sleep(100);
 
-            if (newSpeed == VpwSpeed.Standard)
+            if (newSpeed == VPWSpeed.Standard)
             {
                 this.Logger.AddDebugMessage("Setting VPW 1X");
             }

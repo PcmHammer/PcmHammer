@@ -29,10 +29,10 @@ namespace PcmHacking
 
             return pcm.Bus == BusProtocol.Can500k
                 ? await this.ReadCanIdentity(pcm, cancellationToken)
-                : await this.ReadVpwIdentity(pcm, cancellationToken);
+                : await this.ReadVPWIdentity(pcm, cancellationToken);
         }
 
-        private async Task<PcmIdentity> ReadVpwIdentity(DetectedModule pcm, CancellationToken cancellationToken)
+        private async Task<PcmIdentity> ReadVPWIdentity(DetectedModule pcm, CancellationToken cancellationToken)
         {
             OSIDInfo info = pcm.Info;
             PcmType type = info.HardwareType;

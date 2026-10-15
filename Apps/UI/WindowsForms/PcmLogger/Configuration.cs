@@ -10,6 +10,21 @@ namespace PcmHacking
     public class Configuration
     {
         public static PcmLogger.Properties.Settings Settings = PcmLogger.Properties.Settings.Default;
+
+        /// <summary>
+        /// Save, reporting rather than throwing. Prefer this to Settings.Save(): an unsaved
+        /// preference is a nuisance, and the same call on the way out of FormClosing ends the
+        /// process.
+        /// </summary>
+        public static void Save(ILogger? logger = null)
+        {
+            SettingsStore.TrySave(Settings, out string? message);
+
+            if (message != null)
+            {
+                logger?.AddUserMessage(message);
+            }
+        }
     }
 
     // Shamelessly copied from Stackoverflow because it's such a great idea.

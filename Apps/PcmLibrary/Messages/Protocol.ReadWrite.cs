@@ -34,7 +34,7 @@ namespace PcmHacking
             byte Addr3 = unchecked((byte)(Address & 0xFF));
 
             Header[0] = Priority.Block;
-            Header[1] = TargetVpwId;
+            Header[1] = TargetVPWId;
             Header[2] = ToolId;
             Header[3] = Mode.PCMUpload;
             Header[4] = (byte)copyType;
@@ -47,7 +47,7 @@ namespace PcmHacking
             System.Buffer.BlockCopy(Header, 0, Buffer, 0, Header.Length);
             System.Buffer.BlockCopy(Payload, Offset, Buffer, Header.Length, Length);
 
-            return new Message(VpwUtilities.AddBlockChecksum(Buffer));
+            return new Message(VPWUtilities.AddBlockChecksum(Buffer));
         }
 
         /// <summary>
@@ -64,11 +64,11 @@ namespace PcmHacking
                 case PcmType.P11:
                 case PcmType.P12:
                 case PcmType.P12b:
-                    byte[] requestBytesP12 = { Priority.Physical0, TargetVpwId, ToolId, Mode.PCMUploadRequest };
+                    byte[] requestBytesP12 = { Priority.Physical0, TargetVPWId, ToolId, Mode.PCMUploadRequest };
                     return new Message(requestBytesP12);
 
                 default:
-                    byte[] requestBytes = { Priority.Physical0, TargetVpwId, ToolId, Mode.PCMUploadRequest, Submode.Null, 0x00, 0x00, 0x00, 0x00, 0x00 };
+                    byte[] requestBytes = { Priority.Physical0, TargetVPWId, ToolId, Mode.PCMUploadRequest, Submode.Null, 0x00, 0x00, 0x00, 0x00, 0x00 };
                     requestBytes[5] = unchecked((byte)(Size >> 8));
                     requestBytes[6] = unchecked((byte)(Size & 0xFF));
                     if (info.LoaderRequired)
@@ -146,8 +146,8 @@ namespace PcmHacking
         /// <returns></returns>
         public Message CreateReadRequest(int startAddress, int length)
         {
-            byte[] request = { Priority.Block, TargetVpwId, ToolId, 0x35, 0x01, (byte)(length >> 8), (byte)(length & 0xFF), (byte)(startAddress >> 16), (byte)((startAddress >> 8) & 0xFF), (byte)(startAddress & 0xFF) };
-            byte[] request2 = { Priority.Block, TargetVpwId, ToolId, 0x37, 0x01, (byte)(length >> 8), (byte)(length & 0xFF), (byte)(startAddress >> 24), (byte)(startAddress >> 16), (byte)((startAddress >> 8) & 0xFF), (byte)(startAddress & 0xFF) };
+            byte[] request = { Priority.Block, TargetVPWId, ToolId, 0x35, 0x01, (byte)(length >> 8), (byte)(length & 0xFF), (byte)(startAddress >> 16), (byte)((startAddress >> 8) & 0xFF), (byte)(startAddress & 0xFF) };
+            byte[] request2 = { Priority.Block, TargetVPWId, ToolId, 0x37, 0x01, (byte)(length >> 8), (byte)(length & 0xFF), (byte)(startAddress >> 24), (byte)(startAddress >> 16), (byte)((startAddress >> 8) & 0xFF), (byte)(startAddress & 0xFF) };
 
             if (startAddress > 0xFFFFFF)
             {
@@ -168,7 +168,7 @@ namespace PcmHacking
         public Response<byte[]> ParsePayload(Message message, int length, int expectedAddress)
         {
             byte[] actual = message.GetBytes();
-            byte[] expected = new byte[] { Priority.Block, ToolId, TargetVpwId, Mode.PCMUpload };
+            byte[] expected = new byte[] { Priority.Block, ToolId, TargetVPWId, Mode.PCMUpload };
             if (!TryVerifyInitialBytes(actual, expected, out ResponseStatus status))
             {
                 return Response.Create(status, new byte[0]);
@@ -202,7 +202,7 @@ namespace PcmHacking
                 }
 
                 // Verify block checksum
-                UInt16 ValidSum = VpwUtilities.CalcBlockChecksum(actual);
+                UInt16 ValidSum = VPWUtilities.CalcBlockChecksum(actual);
                 int PayloadSum = (actual[dataLength + 10] << 8) + actual[dataLength + 11];
                 Buffer.BlockCopy(actual, 10, result, 0, dataLength);
                 if (PayloadSum != ValidSum)

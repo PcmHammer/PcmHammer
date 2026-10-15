@@ -67,7 +67,7 @@ namespace PcmHacking
         /// </summary>
         public Message CreateDisableNormalMessageTransmissionOK()
         {
-            byte[] bytes = new byte[] { Priority.Physical0, ToolId, TargetVpwId, Mode.SilenceBus + Mode.Response, Submode.Null };
+            byte[] bytes = new byte[] { Priority.Physical0, ToolId, TargetVPWId, Mode.SilenceBus + Mode.Response, Submode.Null };
             return new Message(bytes);
         }
 
@@ -85,7 +85,7 @@ namespace PcmHacking
         /// </summary>
         public Message ClearDTCsOK()
         {
-            byte[] bytes = new byte[] { Priority.Functional0Low, 0x6B, TargetVpwId, Mode.ClearDiagnosticTroubleCodes + Mode.Response };
+            byte[] bytes = new byte[] { Priority.Functional0Low, 0x6B, TargetVPWId, Mode.ClearDiagnosticTroubleCodes + Mode.Response };
             return new Message(bytes);
         }
 

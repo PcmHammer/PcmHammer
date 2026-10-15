@@ -24,8 +24,8 @@ namespace PcmHacking
     public partial class Vehicle
     {
         // What a scan probes for, and the buses it tries. Add more targets/buses here as supported.
-        private static readonly Target[] DetectionTargets = { Target.Pcm };
-        private static readonly BusProtocol[] DetectionBuses = { BusProtocol.Vpw, BusProtocol.Can500k };
+        private static readonly Target[] detectionTargets = { Target.Pcm };
+        private static readonly BusProtocol[] detectionBuses = { BusProtocol.VPW, BusProtocol.Can500k };
 
         /// <summary>
         /// The bus the PCM was last found on, or null if it has not been found yet.
@@ -48,7 +48,7 @@ namespace PcmHacking
         {
             if (this.reportedUnusableBuses.Add(bus))
             {
-                this.logger.AddUserMessage($"This device cannot use the {bus} bus, so a {bus} module cannot be found with it.");
+                this.logger.AddUserMessage($"This device does not support the {bus} bus, skiping the {bus} bus scan.");
             }
         }
 
@@ -62,7 +62,7 @@ namespace PcmHacking
                 yield return this.LastDetectedBus.Value;
             }
 
-            foreach (BusProtocol bus in DetectionBuses)
+            foreach (BusProtocol bus in detectionBuses)
             {
                 if (bus != this.LastDetectedBus)
                 {
@@ -80,7 +80,7 @@ namespace PcmHacking
         {
             List<DetectedModule> found = new List<DetectedModule>();
 
-            foreach (BusProtocol bus in DetectionBuses)
+            foreach (BusProtocol bus in detectionBuses)
             {
                 if (cancellationToken.IsCancellationRequested) break;
                 if (!await this.device.SetProtocol(bus))
@@ -91,7 +91,7 @@ namespace PcmHacking
 
                 await this.device.SetTimeout(TimeoutScenario.Detect);
 
-                foreach (Target target in DetectionTargets)
+                foreach (Target target in detectionTargets)
                 {
                     if (cancellationToken.IsCancellationRequested) break;
                     this.SetTarget(target);
@@ -173,7 +173,7 @@ namespace PcmHacking
         /// </summary>
         public void SetTarget(Target target)
         {
-            this.protocol.TargetVpwId = target.VpwId;
+            this.protocol.TargetVPWId = target.VPWId;
 
             if (this.device is ICanTarget canTarget)
             {
@@ -259,8 +259,10 @@ namespace PcmHacking
                 this.device,
                 this.protocol.CreateOperatingSystemIdReadRequest,
                 this.protocol.ParseUInt32FromBlockReadResponse,
-                this.logger, cancellationToken, this.notifier);
-            query.MaxTimeouts = 1;   // detection: fail fast on a bus with nothing there
+                this.logger, cancellationToken, this.notifier)
+            {
+                MaxTimeouts = 1   // detection: fail fast on a bus with nothing there
+            };
             return await query.Execute();
         }
 

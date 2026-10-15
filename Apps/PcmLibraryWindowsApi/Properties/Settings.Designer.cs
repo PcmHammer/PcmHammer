@@ -107,16 +107,5 @@ namespace PcmLibraryWindowsForms.Properties {
             }
         }
         
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("")]
-        public string CanPort {
-            get {
-                return ((string)(this["CanPort"]));
-            }
-            set {
-                this["CanPort"] = value;
-            }
-        }
     }
 }

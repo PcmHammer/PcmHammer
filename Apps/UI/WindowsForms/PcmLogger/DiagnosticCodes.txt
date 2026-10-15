@@ -1,0 +1,2123 @@
+# Diagnostic trouble code descriptions, one per line: CODE,Description
+#
+# A code with no entry here is shown by number alone rather than guessed at, so adding to this
+# file is all it takes to describe one.
+#
+# Lines starting with # are ignored, as are blank lines.
+
+B1000,ECU Malfunction
+B1001,Option Configuration Error
+B1004,Keep Alive Memory (KAM)
+B1007,EEPROM Write Error
+B1009,EEPROM Checksum Error
+B1013,ROM Checksum Error
+B1014,Program ROM Checksum Error
+B1015,Passenger Deployment Loop Resistance High
+B1016,Passenger Deployment Loop Resistance Low
+B1017,Passenger Deployment Loop Open
+B1018,Passenger Deployment Loop Short to Ground
+B1019,Passenger Deployment Loop Short to Voltage
+B1021,Driver Deployment Loop Resistance High
+B1022,Driver Deployment Loop Resistance Low
+B1024,Driver Deployment Loop Short to Ground
+B1025,Driver Deployment Loop Short to Voltage
+B1026,Driver Deployment Loop Open
+B1035,Discriminating Sensor Closed or Short to Ground
+B1036,Discriminating Sensor Open or Short to Voltage
+B1051,Frontal Air Bag and Preten Deployment
+B1053,Deployment Commanded w/Loop Malfunction
+B1054,Inflatable Restraint Instrument Panel Module Switch Circuit Failure
+B1061,Lamp Circuit Failure
+B1071,Internal SDM Failure
+B1115,Passenger Deployment Loop Resistance High
+B1116,Passenger Deployment Loop Resistance Low
+B1117,Passenger Deployment Loop Open
+B1121,Driver Deployment Loop Resistance High
+B1122,Driver Deployment Loop Resistance Low
+B1124,Driver/Passenger Deployment Loop Short to Ground
+B1125,Driver/Passenger Deployment Loop Short to Voltage
+B1126,Driver Deployment Loop Open
+B1131,Passenger Pretensioner Loop Resistance High
+B1132,Passenger Pretensioner Loop Resistance Low
+B1134,Passenger Pretensioner Loop Open
+B1135,Discriminating Sensor Closed or Short to Ground
+B1136,Discriminating Sensor Open or Short to Voltage
+B1141,Driver Pretensioner Loop Resistance High
+B1142,Driver Pretensioner Deployment Loop Resistance Low
+B1144,Driver/Passenger Pretensioner Loop Short to Ground
+B1145,Driver/Passenger Pretensioner Loop Short to Voltage
+B1146,Driver Pretensioner Loop Open
+B1147,Driver Side Air Bag System Malfunction
+B1148,Passenger Side Air Bag System Malfunction
+B1151,Deployment Commanded - Frontal
+B1152,Data Area Full
+B1153,Deployment Commanded w/Loop Malfunction
+B1155,SDM Calibration Mismatch
+B1159,Loss of Serial Data-Key Not Received
+B1160,Loss of Serial Data - VIN Not Received
+B1161,Lamp Circuit Failure
+B1163,Loss of Serial Data-No Lamp Response
+B1171,Internal SDM Failure
+B1245,CD Changer Not Responding
+B1271,Theft Lock Enabled
+B1310,Ambient Air Temperature Sensor Failure
+B1311,Outside Air Temperature Sensor Short Circuit
+B1312,High Side Temperature Sensor Open Circuit
+B1313,High Side Temperature Sensor Short Circuit
+B1314,Evaporator Inlet Temperature Sensor Open Circuit
+B1315,Evaporator Inlet Temperature Sensor Short Circuit
+B1316,In Car Temperature Sensor Open Circuit
+B1317,In Car Air Temperature Sensor
+B1318,LH Sun Load Sensor Fault
+B1319,Sunload Sensor Short Circuit
+B1321,A/C Low Side Temperature Sensor Fault
+B1324,A/C Refrigerant Overpressure
+B1327,Device Power Circuit Low
+B1328,Device Power Circuit High
+B1330,Left A/C Discharge Sensor Fault
+B1331,Right A/C Discharge Sensor Fault
+B1332,Left Heater Discharge Sensor Fault
+B1333,Right Heater Discharge Sensor Fault
+B1340,Air Mix Door One Movement Fault
+B1341,Air Mix Door Two Movement Fault
+B1343,Air Inlet Door Movement Fault
+B1344,HTR/DEF/AC Door Movement Fault
+B1347,Very Low A/C Refrigerant Warning
+B1348,Very Low A/C Refrigerant Pressure
+B1350,Engine Coolant Over-Temperature
+B1390,Device Voltage Reference Input Circuit Malfunction
+B1396,Device Voltage Reference Output 1 Circuit Range Performance
+B1399,Loss of KDD Communications
+B1422,Device Power Moding Malfunction
+B1438,IPC High Voltage Output Overcurrent to IPM
+B1513,Charging System Volts Low
+B1514,Charging System Volts High
+B1552,Keep Alive Memory (KAM) Error
+B1556,IPC EEPROM Odo/Configuration Error
+B1557,EEPROM Calibration Error
+B1558,BCM EPROM Checksum Error
+B1586,Mirror Horizontal Position Sensor-Out of Range/Open
+B1591,Mirror Vertical Position Sensor-Out of Range/Open
+B1652,Loss of Keep Alive Memory (KAM)
+B1656,EEPROM Write Error
+B1658,EEPROM Checksum Error
+B1697,Mirror Switch Input Shorted to Ground
+B1698,Mirror Switch L Up Input Stuck High
+B1702,Mirror Switch Input Shorted to Ground
+B1703,Mirror Switch L Down Input Stuck High
+B1707,Mirror Switch Input Shorted to Ground
+B1708,Mirror Switch R Up Input Stuck High
+B1712,Mirror Switch Input Shorted to Ground
+B1713,Mirror Switch R Down Input Stuck High
+B1717,Mirror Power Fold Control Switch Shorted Low
+B1718,Power Folding Mirror Switch Input Circuit High
+B1735,Driver Seat Front Up Switch Circuit Malfunction
+B1740,Driver Seat Front Down Switch Circuit Malfunction
+B1745,Driver Seat Rear Up Switch Circuit Malfunction
+B1750,Driver Seat Rear Down Switch Circuit Malfunction
+B1755,Driver Seat Assembly Forward Switch Circuit Malfunction
+B1760,Driver Seat Assembly Rearward Switch Circuit Malfunction
+B1780,Theft Lock Enabled
+B1805,Ignition Switch Problem
+B1815,Driver Recline Forward Switch Circuit Malfunction
+B1820,Driver Recline Rearward Switch Circuit Malfunction
+B1825,Driver Recline Sensor Circuit Malfunction
+B1830,Driver Lumbar Forward Switch Circuit Malfunction
+B1835,Driver Lumbar Rearward Switch Circuit Malfunction
+B1840,Driver Lumbar Up Switch Circuit Malfunction
+B1845,Driver Lumbar Down Switch Circuit Malfunction
+B1850,Driver Lumbar Horizontal Sensor Circuit Malfunction
+B1860,Driver Lumbar Vertical Sensor Circuit Malfunction
+B1870,Driver Belt Tower Up Switch Circuit Malfunction
+B1875,Driver Belt Tower Down Switch Circuit Malfunction
+B1900,Driver Belt Tower Vertical Sensor Circuit Malfunction
+B1910,Generator L-Terminal Open Circuit
+B1911,Generator L-Terminal Problem
+B1913,Heated Seat Switch - Mode Input Shorted to Battery
+B1918,Heated Seat Switch - Temperature Input Shorted to Battery
+B1970,Exterior Lamp Power
+B1971,Inadvertent Power
+B1972,Low Power Driver Fault
+B1973,High Power Control Fault
+B1981,Battery Voltage Low
+B1982,Device Power Circuit High
+B1983,Device Power Circuit Low
+B2101,Recline Aft Switch Failed
+B2102,Recline Forward Switch Failed
+B2103,Rear Vertical Down Switch Failed
+B2104,Rear Vertical Up Switch Failed
+B2105,Horizontal Aft Switch Failed
+B2106,Horizontal Forward Switch Failed
+B2107,Front Vertical Down Switch Failed
+B2108,Front Vertical Up Switch Failed
+B2109,Lumbar Aft Switch Failed
+B2110,Lumbar Forward Switch Failed
+B2111,Lumbar Down Switch Failed
+B2112,Lumbar Up Switch Failed
+B2115,Recline Sensor Failed
+B2116,Rear Vertical Sensor Failed
+B2117,Horizontal Sensor Failed
+B2118,Front Vertical Sensor Failed
+B2119,Lumbar Forward/Aft Sensor Failed
+B2120,Lumbar Up/Down Sensor Failed
+B2130,Driver Memory 1 Select Switch Circuit Malfunction
+B2131,Driver Memory 2 Select Switch Circuit Malfunction
+B2132,Driver Memory Exit Exit/Off Switch Circuit Malfunction
+B2133,Driver Memory Set Switch Circuit Malfunction
+B2140,Mirror Up Control Switch Circuit Malfunction
+B2141,Mirror Down Control Switch Circuit Malfunction
+B2142,Mirror Left Control Switch Circuit Malfunction
+B2143,Mirror Right Control Switch Circuit Malfunction
+B2144,Left Front Mirror Vertical Position Sensor Circuit Low
+B2145,Left Front Mirror Vertical Position Sensor Circuit High
+B2146,Left Front Mirror Horizontal Position Sensor Circuit Low
+B2147,Left Front Mirror Horizontal Position Sensor Circuit High
+B2148,Right Front Mirror Vertical Position Sensor Circuit Low
+B2149,Right Front Mirror Vertical Position Sensor Circuit High
+B2150,Right Front Mirror Horizontal Position Sensor Circuit Low
+B2151,Right Front Mirror Horizontal Position Sensor Circuit High
+B2175,Tilt/Telescope Module Manual Switch Fail
+B2200,Left Front Window Switch Stuck in Up Position
+B2201,Left Front Window Switch Stuck in Down Position
+B2202,Right Front Window Switch Stuck in Up Position
+B2203,Right Front Window Switch Stuck in Down Position
+B2204,Left Rear Window Switch Stuck in Up Position
+B2205,Left Rear Window Switch Stuck in Down Position
+B2206,Right Rear Window Switch Stuck in Up Position
+B2207,Right Rear Window Switch Stuck in Down Position
+B2212,Right Front Switch on Left Front Door Stuck Up Position
+B2213,Right Front Switch on Left Front Door Stuck Down Position
+B2214,Left Rear Switch on Left Front Door Stuck Up Position
+B2215,Left Rear Switch on Left Front Door Stuck Down Position
+B2216,Right Rear Switch on Left Front Door Stuck Up Position
+B2217,Right Rear Switch on Left Front Door Stuck Down Position
+B2220,Left Front Door Lock/Unlock Switch Stuck in Lock
+B2221,Left Front Door Lock/Unlock Switch Stuck UnLock
+B2222,Right Front Door Lock/Unlock Switch Stuck in Lock
+B2223,Right Front Door Lock/Unlock Switch Stuck UnLock
+B2224,Left Rear Door Lock/Unlock Switch Stuck in Lock
+B2226,Right Rear Door Lock/Unlock Switch Stuck in Lock
+B2240,Memory 1 Switch Failed
+B2241,Memory 2 Switch Failed
+B2242,Memory Exit Switch Failed
+B2243,Memory Set Switch Failed
+B2310,Hand Set Failure
+B2311,TRU Failure
+B2312,Software Failure
+B2355,Driver Front Vertical Sensor Malfunction
+B2365,Driver Rear Vertical Sensor Malfunction
+B2375,Driver Seat Assembly Horizontal Sensor Circuit Malfunction
+B2419,Twilight Photocell Circuit Problem
+B2420,Twilight Delay Pot Failure
+B2422,Interior Lamp Rheostat Failure
+B2460,Navigation Antenna Selector Circuit High Current
+B2461,Navigation ECU Synchronous Signal Error
+B2462,GPS Signal Error
+B2463,Navigation CD Player - No Disk
+B2464,Navigation CD Player - Decoding Error
+B2465,Navigation CD Player - Data Error
+B2466,Navigation VICS Memory Error
+B2468,Navigation Display Head (NDH) Malfunction
+B2470,Daytime Running Lamps Fault
+B2471,Interior Lamp Fault
+B2472,Low Beam Fault
+B2473,High Beam Fault
+B2474,Navigation Display Head (NDH) Back Lighting Malfunction
+B2475,Navigation Display Head (NDH) Auxiliary Input Malfunction
+B2476,Cellular Phone Select Service Switch Malfunction
+B2477,Reverse Lamp Relay Shorted to Ground
+B2478,Reverse Lamp Shorted to Battery
+B2502,Automatic Transmission Shift Lock Control Shorted to Ground
+B2503,Park Gear (Automatic Transmission Shift Lock Control) Relay Shorted to Battery
+B2510,Steering Wheel Controls HVAC Key Stuck
+B2511,Steering Wheel Controls Conv Key Stuck
+B2512,Steering Wheel Controls Illegal A/D Values
+B2515,Steering Wheel Control Illegal Resistance Value
+B2550,Storage Mode Entered
+B2556,Interior Lamp Rheostat Circuit Range
+B2560,RKE Message Validation Error
+B2641,Delayed Exterior Lighting Control Circuit Range
+B2646,Ambient Light Sensor Circuit Range
+B2710,PASSKey Open/Shorted Pellet
+B2711,PASSKey Open/Shorted Pellet After Good Key
+B2719,CTD-Trunk Tamper Switch Fault
+B2725,ATC Mode Switch Circuit Malfunction
+B2734,Coded Key Controller Memory Failure
+B2750,PASSKey Data Communication Failure
+B2757,Driver Memory 1 Select Switch Circuit Low
+B2762,Driver Memory 2 Select Switch Circuit Low
+B2767,Memory Set Switch Failed Low
+B2772,Driver Memory Exit Switch Circuit Low
+B2780,Wrong Resistor Before Good
+B2781,Wrong Resistor After Good
+B2782,PASSKey Pellet Resistance Not Programmed
+B2783,Key Code/Password Corrupted in Memory
+B2805,Steering Wheel Controls HVAC Switch Circuit Malfunction
+B2810,Steering Wheel Control Entertainment Circuit Malfunction
+B2853,Telescope Forward Switch Circuit Malfunction
+B2858,Telescope Rearward Switch Circuit Malfunction
+B2860,Telescope Position Sensor Range
+B2862,Telescope Position Sensor Low
+B2873,Tilt Up Switch Circuit Malfunction
+B2878,Tilt Down Switch Circuit Malfunction
+B2880,Tilt Position Sensor Range
+B2882,Tilt Position Sensor Low
+B2891,Tilt/Telescope Motor Over Current
+B2904,Tilt/Telescope 4-way Position Switch Circuit Malfunction
+B2947,Security System Sensor Power Circuit Low
+B2948,Security System Sensor Power Circuit High
+B2955,Security System Sensor Data Circuit Malfunction
+B2957,Security System Sensor Data Circuit Low
+B2958,Security System Sensor Data Circuit High
+B2960,Security System Sensor Data Incorrect but Valid
+B3028,Starter Relay Interface Short to Ground
+B3029,Starter Relay Interface Open/Short to B+
+B3031,Key Decoder Device in Assem Learn Mode
+B3033,Security System Indicates Tamper
+B3055,Key Not Present
+B3069,Right Front/Left Front Door Key Unlock Circuit Low
+B3108,Transmitter Synchronization Failure
+B3142,Left Front Unlock Switch Circuit Low
+B3147,Passenger Unlock Switch Circuit Low
+B3152,Left Front Lock Switch Circuit Low
+B3157,Passenger Lock Switch Circuit Low
+B3172,Window Up Switch Circuit Low
+B3177,Window Down Switch Circuit Low
+B3203,Rear Window Lockout Switch Input Circuit High
+B3282,Window Switch-Express Input Shorted to Ground
+B3287,Left Rear Window Switch Express Down Circuit Low
+B3292,Right Rear Window Switch Express Down Circuit Low
+B3377,Left Front Window Up Switch Circuit Low
+B3382,Left Front Window Down Switch Circuit Low
+B3387,Right Front Window Up Switch Circuit Low
+B3392,Right Front Window Down Switch Circuit Low
+B3397,Left Rear Window Up Switch Circuit Low
+B3452,Left Rear Window Down Switch Circuit Low
+B3457,Right Rear Window Up Switch Circuit Low
+B3462,Right Rear Window Down Switch Circuit Low
+B3467,Left Front Window Express Down Circuit Low
+B3472,Right Front Window Express Down Circuit Low
+B3477,Left Rear Window Express Down Circuit Low
+B3482,Right Rear Window Express Down Circuit Low
+B3517,Left Rear Door Switch Express Up/Down Window Contact Shorted to Ground
+B3522,Right Rear Door Switch Express Up/Down Window Contact Shorted to Ground
+B3527,Window Lockout Switch Circuit Low
+B3793,Memory Seat Module Over Current
+B3844,Engine Coolant Circulation Pump Circuit
+C1207,Left Front Wheel Speed Sensor Circuit High
+C1208,Right Front Wheel Speed Sensor Circuit High
+C1209,Left Rear Wheel Speed Sensor Circuit High
+C1210,Fluid Level Switch Open
+C1211,ABS Indicator Lamp Circuit Malfunction
+C1214,System Relay Contact or Coil Circuit Open
+C1217,Pump Motor Shorted to Ground
+C1218,Pump Motor Circuit Shorted to Voltage or Motor Ground Open
+C1221,Left Front Wheel Speed Sensor Input Signal is 0
+C1222,Right Front Wheel Speed Sensor Input Signal is 0
+C1223,Left Rear Wheel Speed Sensor Input Signal is 0
+C1224,Right Rear Wheel Speed Sensor Input Signal is 0
+C1225,Left Front Excessive Wheel Speed Variation
+C1226,Right Front Excessive Wheel Speed Variation
+C1227,Left Rear Excessive Wheel Speed Variation
+C1228,Right Rear Excessive Wheel Speed Variation
+C1232,Left Front Wheel Speed Circuit Open or Shorted
+C1233,Right Front Wheel Speed Circuit Open or Shorted
+C1234,Left Rear Wheel Speed Circuit Open or Shorted
+C1235,Right Rear Wheel Speed Circuit Open or Shorted
+C1236,Low System Supply Voltage
+C1237,High System Supply Voltage
+C1238,Brake Thermal Model Exceeded
+C1241,Variable Effort Steering Circuit Malfunction
+C1242,Pump Motor Circuit Open
+C1243,BPMV Pump Motor Stalled
+C1246,Brake Lining Wear Circuit Open
+C1248,EBCM Turned the Red Brake Warning Indicator On
+C1251,RSS Indicated Malfunction
+C1252,Left Front Normal Force Malfunction
+C1253,Right Front Normal Force Malfunction
+C1254,Abnormal Shutdown Detected
+C1255,EBCM Internal Malfunction
+C1256,EBCM Internal Malfunction
+C1261,Left Front Inlet Valve Solenoid Malfunction
+C1262,Left Front Outlet Valve Solenoid Malfunction
+C1263,Right Front Inlet Valve Solenoid Malfunction
+C1264,Right Front Outlet Valve Solenoid Malfunction
+C1265,Left Rear Inlet Valve Solenoid Malfunction
+C1266,Left Rear Outlet Valve Solenoid Malfunction
+C1267,Right Rear Inlet Valve Solenoid Malfunction
+C1268,Right Rear Outlet Valve Solenoid Malfunction
+C1271,Left Front TCS Master Cylinder Isolation Valve Malfunction
+C1272,Left Front TCS Prime Valve Malfunction
+C1273,Right Front TCS Master Cylinder Isolation Valve Malfunction
+C1274,Right Front TCS Prime Valve Malfunction
+C1276,Delivered Torque Signal Circuit Malfunction
+C1277,Requested Torque Signal Circuit Malfunction
+C1278,TCS Temporarily Inhibited By PCM
+C1281,VSES Sensors Uncorrelated
+C1282,Yaw Rate Sensor Bias Circuit Malfunction
+C1283,Excessive Time to Center Steering
+C1284,Lateral Accelerometer Sensor Bias Malfunction
+C1285,Lateral Accelerometer Sensor Circuit Malfunction
+C1286,Steering Sensor Bias Malfunction
+C1287,Steering Sensor Rate Malfunction
+C1288,Steering Sensor Circuit Malfunction
+C1291,Open Brake Lamp Switch Contacts During Deceleration
+C1293,Code C1291 Set in Previous Ignition Cycle
+C1294,Brake Lamp Switch Circuit Always Active
+C1295,Brake Lamp Switch Circuit Open
+C1297,PCM Indicated Brake Extended Travel Switch Failure
+C1298,PCM Class 2 Serial Data Link Malfunction
+C1326,Battery Out of Range
+C1650,RSS Control Module Fault
+C1658,RSS Control Module Calibration Fault
+C1710,Left Front Damper Actuator Short Circuit to Battery
+C1711,Left Front Damper Actuator Short Circuit to Ground
+C1712,Left Front Damper Actuator Open Circuit
+C1715,Right Front Damper Actuator Short Circuit to Battery
+C1716,Right Front Damper Actuator Short Circuit to Ground
+C1717,Right Front Damper Actuator Open Circuit
+C1720,Left Rear Damper Actuator Short Circuit to Battery
+C1721,Left Rear Damper Actuator Short Circuit to Ground
+C1722,Left Rear Damper Actuator Open Circuit
+C1725,Right Rear Damper Actuator Short Circuit to Battery
+C1726,Right Rear Damper Actuator Short Circuit to Ground
+C1727,Right Rear Damper Actuator Open Circuit
+C1735,Compressor Relay Short to Battery
+C1736,Compressor Relay Short to Ground/Open Circuit
+C1737,Exhaust Solenoid Valve Short to Battery
+C1738,Exhaust Solenoid Valve Short to Ground
+C1743,Speed Signal Fault
+C1744,Lift/Dive Signal Discrete Fault
+C1760,Left Front Position Sensor Input Fault
+C1761,Right Front Position Sensor Input Fault
+C1762,Left Rear Position Sensor Input Fault
+C1763,Right Rear Position Sensor Input Fault
+C1768,Position Sensor Supply Fault
+C1780,Loss of Steering Position Signal
+C1782,ICCS2 DL Left Output Short Circuit to Bat
+C1783,ICCS2 DL Left Output Short Circuit to Ground
+C1784,ICCS2 DL Right Output Short Circuit to Bat
+C1785,ICCS2 DL Right Output Short Circuit to Ground
+C1786,Damper Control Relay Fault
+C1787,Damper Control Relay Short to Ground
+C1788,Damper Control Relay Short to Bat
+P058D,Battery Monitor Module Voltage Monitoring Performance
+P1011,Intake Camshaft Position (CMP) Actuator Park Position Bank 1
+P1012,Exhaust Camshaft Position (CMP) Actuator Park Position Bank 1
+P1013,Intake Camshaft Position (CMP) Actuator Park Position Bank 2
+P1014,Exhaust Camshaft Position (CMP) Actuator Park Position Bank 2
+P1020,Injector Output Circuit
+P1021,Auxiliary Injector 1 Control Circuit
+P1022,Auxiliary Injector 2 Control Circuit
+P1023,Auxiliary Injector 3 Control Circuit
+P1024,Auxiliary Injector 4 Control Circuit
+P1025,Auxiliary Injector 5 Control Circuit
+P1026,Auxiliary Injector 6 Control Circuit
+P1027,Auxiliary Injector 7 Control Circuit
+P1028,Auxiliary Injector 8 Control Circuit
+P1031,HO2S Heater Current Monitor Control Circuit Banks 1 and 2 Sensor 1
+P1032,HO2S Heater Warm Up Control Circuit Banks 1 and 2 Sensor 1
+P1086,Fuel Supply System Restriction
+P1087,Fuel Rail Pressure (FRP) Trim Too Low
+P1088,Fuel Rail Pressure (FRP) Trim Too High
+P1093,Fuel Rail Pressure Low During Power Enrichment
+P1094,Fuel Rail Pressure Low During Idle or Decel Fuel Cut-Off (DFCO)
+P1101,Mass Air Flow Sensor Out Of Self Test Range
+P1105,Secondary Vacuum Sensor Circuit
+P1106,Manifold Absolute Pressure (MAP) Sensor Circuit Intermittent High Voltage
+P1107,Manifold Absolute Pressure (MAP) Sensor Circuit Intermittent Low Voltage
+P1108,BARO to MAP Sensor Comparison Too High
+P1109,Secondary Port Throttle System
+P1110,Engine High Intake Air Temperature Condition
+P1111,Intake Air Temperature (IAT) Sensor Circuit Intermittent High Voltage
+P1112,Intake Air Temperature (IAT) Sensor Circuit Intermittent Low Voltage
+P1113,Intake Resonance Switchover Solenoid Control Circuit
+P1114,Engine Coolant Temperature (ECT) Sensor Circuit Intermittent Low Voltage
+P1115,Engine Coolant Temperature (ECT) Sensor Circuit Intermittent High Voltage
+P1116,ECT Signal Unstable or Intermittent
+P1117,Engine Coolant Temperature Signal Out-Of-Range Low
+P1118,Engine Coolant Temperature Signal Out-Of-Range High
+P1119,ECT Signal Out-Of-Range With TFT Sensor
+P1120,Throttle Position (TP) Sensor 1 Circuit
+P1121,Throttle Position (TP) Sensor Circuit Intermittent High Voltage
+P1122,Throttle Position (TP) Sensor Circuit Intermittent Low Voltage
+P1123,Pedal Position Sensor A Circuit High Input
+P1124,Throttle Position Sensor A Out Of Self Test Range
+P1125,APP System
+P1126,Engine Coolant Temperature (ECT) - Intake Air Temperature (IAT) 2 Correlation
+P1127,Open Loop CO Adjust Circuit
+P1128,Manifold Absolute Pressure (MAP) Sensor Low Pressure
+P1129,Manifold Absolute Pressure (MAP) Sensor High Pressure
+P1130,HO2S Circuit Low Variance Bank 1 Sensor 1
+P1131,HO2S Circuit Low Variance Bank 1 Sensor 2
+P1132,HO2S Circuit Low Variance Bank 2 Sensor 1
+P1133,HO2S Insufficient Switching Bank 1 Sensor 1
+P1134,HO2S Transition Time Ratio Bank 1 Sensor 1
+P1135,HO2S Lean Mean Bank 1 Sensor 1
+P1136,HO2S Rich Mean Bank 1 Sensor 1
+P1137,HO2S Bank 1 Sensor 2 Lean System or Low Voltage
+P1138,HO2S Bank 1 Sensor 2 Rich or High Voltage
+P1139,HO2S Insufficient Switching Bank 1 Sensor 2
+P1140,HO2S Transition Time Ratio Bank 1 Sensor 2
+P1141,HO2S Heater Control Circuit Bank 1 Sensor 2
+P1142,Oxygen Sensor Circuit - Mean Voltage Level Rich Bank 1 Sensor 2
+P1143,HO2S Bank 1 Sensor 3 Lean System or Low Voltage
+P1144,HO2S Bank 1 Sensor 3 Rich or High Voltage
+P1145,HO2S Cross Counts Bank 1 Sensor 3
+P1152,O2S Signal Circuit Shorted to Heater Circuit Bank 2 Sensor 1
+P1153,HO2S Insufficient Switching Bank 2 Sensor 1
+P1154,HO2S Transition Time Ratio Bank 2 Sensor 1
+P1155,HO2S Lean Mean Bank 2 Sensor 1
+P1156,HO2S Rich Mean Bank 2 Sensor 1
+P1157,HO2S Bank 2 Sensor 2 Lean System or Low Voltage
+P1158,HO2S Bank 2 Sensor 2 Rich or High Voltage
+P1159,HO2S Cross Counts Bank 2 Sensor 2
+P1161,HO2S Heater Control Circuit Bank 2 Sensor 2
+P1163,HO2S Bank 2 Sensor 3 Lean System or Low Voltage
+P1164,HO2S Bank 2 Sensor 3 Rich or High Voltage
+P1165,HO2S Cross Counts Bank 2 Sensor 3
+P1166,Oxygen Sensor System - Low Voltage During Power Enrichment Bank 1 Sensor 1
+P1167,Oxygen Sensor System - High Voltage During Decel Fuel Cut Off Bank 1 Sensor 1
+P1168,Oxygen Sensor System - Low Voltage During Power Enrichment Bank 2 Sensor 1
+P1169,Oxygen Sensor System - High Voltage During Decel Fuel Cut Off Bank 2 Sensor 1
+P1170,Bank to Bank Fuel Trim Offset
+P1171,Fuel System Lean During Acceleration
+P1172,Fuel System Rich During Acceleration
+P1173,Limitation of Injection Quantity
+P1174,System Too Lean - Banks 1 and 2 (Suspect HO2S)
+P1175,System Too Rich - Banks 1 and 2 (Suspect HO2S)
+P1180,Engine High Fuel Temperature Condition
+P1182,Supercharger Inlet Pressure Sensor Performance
+P1183,Supercharger Inlet Pressure Sensor Circuit Low Voltage
+P1184,Supercharger Inlet Pressure Sensor Circuit High Voltage
+P1185,Engine Oil Temperature Circuit
+P1186,EOT Circuit Performance
+P1187,EOT Sensor Circuit Low Voltage
+P1188,EOT Sensor Circuit High Voltage
+P1189,Engine Oil Pressure (EOP) Switch Circuit
+P1190,Engine Vacuum Leak
+P1191,Intake Air Duct Air Leak
+P1195,Engine Low Oil Pressure Condition
+P1200,Injector Control Circuit
+P1201,(Alternative Fuel) Gas Mass Sensor Circuit Range/Performance
+P1202,(Alternative Fuel) Gas Mass Sensor Circuit Low Frequency
+P1203,(Alternative Fuel) Gas Mass Sensor Circuit High Frequency
+P1204,Excessive Crank Time Using Alternative Fuel
+P1205,Fuel Heater Coolant Temperature Sensor Circuit Low Voltage
+P1206,Fuel Heater Coolant Temperature Sensor Circuit High Voltage
+P1207,Fuel Injector Control Module Sensor Signal Circuit1
+P1208,Fuel Injector Control Module Sensor Signal Circuit2
+P1209,Fuel Injector Control Feedback Circuit
+P1210,Fuel Heater System Performance
+P1211,Mass Air Flow Circuit Intermittent High
+P1212,Mass Air Flow Circuit Intermittent Low
+P1214,Injection Pump Timing Offset
+P1215,Ground Fault Detection Indicated
+P1216,Fuel Solenoid Response Time Too Short
+P1217,Fuel Solenoid Response Time Too Long
+P1218,Injection Pump Calibration Circuit
+P1219,Throttle Position Sensor Reference Voltage
+P1220,Throttle Position (TP) Sensor 2 Circuit
+P1221,Fuel Pump Secondary Circuit Low
+P1222,Injector Control Circuit Intermittent
+P1223,Injector Output Circuit
+P1224,Injector 1 Control Circuit Shorted
+P1225,Injector Circuit Cylinder 2 Intermittent
+P1226,Injector Output Circuit
+P1227,Injector 2 Control Circuit Shorted
+P1228,Injector Circuit Cylinder 3 Intermittent
+P1229,Injector Output Circuit
+P122A,Injector 3 Control Circuit Shorted
+P1230,Fuel Pump Relay Control Circuit High Voltage
+P1231,Injector Circuit Cylinder 4 Intermittent
+P1232,Injector Output Circuit
+P1233,Injector 4 Control Circuit Shorted
+P1234,Injector Circuit Cylinder 5 Intermittent
+P1235,Injector Output Circuit
+P1236,Injector 5 Control Circuit Shorted
+P1237,Injector Circuit Cylinder 6 Intermittent
+P1238,Injector Output Circuit
+P1239,Injector 6 Control Circuit Shorted
+P1240,Injector Circuit Cylinder 7 Intermittent
+P1241,Injector Output Circuit
+P1242,Injector 7 Control Circuit Shorted
+P1243,Injector Circuit Cylinder 8 Intermittent
+P1244,Injector Output Circuit
+P1245,Intake Plenum Switchover Valve
+P1246,Intake Manifold Tuning (IMT) Valve Solenoid Control Circuit
+P1247,Injector 8 Control Circuit Shorted
+P1250,Early Fuel Evaporation Heater Circuit
+P1251,Throttle Position
+P1252,Pedal Correlation PDS1 and LPDS High
+P1253,Pedal Correlation PDS1 and LPDS Low
+P1254,Pedal Correlation PDS2 and LPDS High
+P1257,Supercharger System Overboost
+P1258,Engine Coolant Overtemperature - Protection Mode Active
+P1260,Last Test Failed Failed SCC
+P1261,Injector Positive Voltage Control Circuit Group 1
+P1262,Injector Positive Voltage Control Circuit Group 2
+P1263,Injector Positive Voltage Control Circuit Group 1 Low Voltage
+P1264,Injector Positive Voltage Control Circuit Group 1 High Voltage
+P1265,Injector Positive Voltage Control Circuit Group 2 Low Voltage
+P1266,Injector Positive Voltage Control Circuit Group 2 High Voltage
+P1270,Accelerator Pedal Position Sensor A/D Converter Error
+P1271,Accelerator Pedal Position (APP) Sensor 1-2 Correlation
+P1272,Accelerator Pedal Position Sensor 2
+P1273,Accelerator Pedal Position Sensor 1
+P1274,Injectors Wired Incorrectly
+P1275,Accelerator Pedal Position (APP) Sensor 1 Circuit
+P1276,Accelerator Pedal Position Sensor 1 Circuit Performance
+P1277,Accelerator Pedal Position Sensor 1 Circuit Low Voltage
+P1278,Accelerator Pedal Position Sensor 1 Circuit High Voltage
+P1279,Accelerator Pedal Position Sensor 1 Circuit Intermittent
+P1280,Accelerator Pedal Position (APP) Sensor 2 Circuit
+P1281,Accelerator Pedal Position Sensor 2 Circuit Performance
+P1282,Accelerator Pedal Position Sensor 2 Circuit Low Voltage
+P1283,Accelerator Pedal Position Sensor 2 Circuit High Voltage
+P1284,Accelerator Pedal Position Sensor 2 Circuit Intermittent
+P1285,Accelerator Pedal Position Sensor 3 Circuit
+P1286,Accelerator Pedal Position Sensor 3 Circuit Performance
+P1287,Accelerator Pedal Position Sensor 3 Circuit Low Voltage
+P1288,Accelerator Pedal Position Sensor 3 Circuit High Voltage
+P1289,Accelerator Pedal Position Sensor 3 Circuit Intermittent
+P1291,Fuel Pressure Regulator Solenoid 2 Control Circuit Low Voltage
+P1292,Fuel Pressure Regulator Solenoid 2 Control Circuit High Voltage
+P1293,Injector Circuit Low to High Current Transition Time Bank 1
+P1294,Injector Circuit Low to High Current Transition Time Bank 2
+P1295,Injector Circuit High to Low Current Transition Time Bank 1
+P1296,Injector Circuit High to Low Current Transition Time Bank 2
+P1298,Fuel Pressure Regulator Solenoid Positive Voltage Control Circuit
+P1300,Ignitor Circuit
+P1305,Ignition Coil 2 Primary Feedback Circuit
+P1310,Ignition Coil 3 Primary Feedback Circuit
+P1311,Ignition Coil A Primary/Secondary Circuit
+P1312,Ignition Coil B Primary/Secondary Circuit
+P1313,Ignition Coil C Primary/Secondary Circuit
+P1314,Ignition Coil D Primary/Secondary Circuit
+P1315,Ignition Coil 4 Primary Feedback Circuit
+P1316,Ignition Coil F Primary/Secondary Circuit
+P1317,Ignition Coil G Primary/Secondary Circuit
+P1318,Ignition Coil H Primary/Secondary Circuit
+P1320,IC 4X Reference Circuit Intermittent
+P1321,Electronic Ignition System Fault Line
+P1322,EI System or Ignition Control Extra or Missing
+P1323,IC 24X Reference Circuit Low Frequency
+P1324,Crank RPM Too Low
+P1326,Combustion Quality Circuit A
+P1327,Combustion Quality Circuit B
+P1335,CKP Circuit
+P1336,Crankshaft Position (CKP) System Variation Not Learned
+P1337,Elite Boost Failure
+P1340,Ignition System Cylinder Identifier
+P1344,Engine Position System Performance
+P1345,Crankshaft Position (CKP)-Camshaft Position (CMP) Correlation
+P1346,Intake Camshaft Position [CMP] Sensor System Performance
+P1347,Crankshaft/Camshaft Correlation Error - Bank 2 Sensor A
+P1348,Crankshaft/Camshaft Correlation Error - Bank 2 Sensor B
+P1349,Intake Camshaft Position (CMP) System
+P1350,Ignition Control System
+P1351,Ignition Coil Control Circuit High Voltage
+P1352,IC Output High/Pulse Detected when Grounded - Cylinder 2
+P1353,IC Output High/Pulse Detected when Grounded - Cylinder 3
+P1354,IC Output High/Pulse Detected when Grounded - Cylinder 4
+P1355,IC Output High/Pulse Detected when Grounded - Cylinder 5
+P1356,IC Output High/Pulse Detected when Grounded - Cylinder 6
+P1357,IC Output High/Pulse Detected when Grounded - Cylinder 7
+P1358,IC Output High/Pulse Detected when Grounded - Cylinder 8
+P1359,Ignition Coil Group 1 Control Circuit
+P1360,Ignition Coil Group 2 Control Circuit
+P1361,Ignition Coil Control Circuit Low Voltage
+P1362,IC Cylinder 2 Not Toggling After Enable
+P1363,IC Cylinder 3 Not Toggling After Enable
+P1364,IC Cylinder 4 Not Toggling After Enable
+P1365,IC Cylinder 5 Not Toggling After Enable
+P1366,IC Cylinder 6 Not Toggling After Enable
+P1367,IC Cylinder 7 Not Toggling After Enable
+P1368,IC Cylinder 8 Not Toggling After Enable
+P1370,IC 4X Reference Circuit Too Many Pulses
+P1371,IC 4X Reference Circuit Too Few Pulses
+P1372,Crankshaft Position (CKP) Sensor A-B Correlation
+P1374,3X Reference Circuit
+P1375,IC 24X Reference Circuit High Voltage
+P1376,Ignition Ground Circuit
+P1377,IC Cam Pulse To 4X Reference Pulse
+P1380,Misfire Detected - Rough Road Data Not Available
+P1381,Misfire Detected - No Communication with Brake Control Module
+P1382,ABS Control Module Performance
+P1390,Wheel Speed Sensor 1 - G - Sensor Circuit
+P1391,Wheel Speed Sensor 1 - G - Sensor Circuit Performance
+P1392,Wheel Speed Sensor 1 - G - Sensor Circuit Low Voltage
+P1393,Wheel Speed Sensor 1 - G - Sensor Circuit High Voltage
+P1394,Wheel Speed Sensor 1 - G - Sensor Circuit Intermittent
+P1395,Wheel Speed Sensor 2 - G - Sensor Circuit
+P1396,Wheel Speed Sensor 2 - G - Sensor Circuit Performance
+P1397,Wheel Speed Sensor 2 - G - Sensor Circuit Low Voltage
+P1398,Wheel Speed Sensor 2 - G - Sensor Circuit High Voltage
+P1399,Wheel Speed Sensor 2 - G - Sensor Circuit Intermittent
+P1400,Differential Pressure Feedback EGR Circuit Low Input
+P1403,Exhaust Gas Recirculation System Valve 1
+P1404,Exhaust Gas Recirculation (EGR) Closed Position Performance
+P1405,Exhaust Gas Recirculation System Valve 3
+P1406,EGR Valve Pintle Position Circuit
+P1407,EGR Air Intrusion in Exhaust Supply to EGR Valve
+P1408,Intake Manifold Pressure Sensor Circuit
+P1409,EGR Vacuum System Leak
+P1410,Fuel Tank Pressure System
+P1415,Secondary Air Injection (AIR) System Bank 1
+P1416,Secondary Air Injection (AIR) System Bank 2
+P1418,Secondary Air Injection System Relay A Control Circuit High
+P1420,Intake Air Low Pressure Switch Circuit Low Voltage
+P1421,Intake Air Low Pressure Switch Circuit High Voltage
+P1422,Intake Air High Pressure Switch Circuit Low Voltage
+P1423,Intake Air High Pressure Switch Circuit High Voltage
+P1430,Fuel Level Signal Circuit
+P1431,Fuel Level Sensor 2 Circuit Performance
+P1432,Fuel Level Sensor 2 Circuit Low Voltage
+P1433,Fuel Level Sensor 2 Circuit High Voltage
+P1441,Evaporative Emission (EVAP) System Flow During Non-Purge
+P1442,EVAP Vacuum Switch High Voltage During Ignition On
+P1443,Evaporative Emission (EVAP) Purge Solenoid 2 Control Circuit
+P1445,Fuel Heated Catalyst System Bank 1
+P1448,Diesel Particulate Filter Regeneration Frequency Too Low
+P1450,Barometric Pressure Sensor Circuit
+P1451,Barometric Pressure Sensor Performance
+P1460,Cooling Fan Control System
+P1480,Cooling Fan 1 Control Circuit High
+P1481,Cooling Fan Speed Sensor Circuit
+P1482,Catalyst Temperature Sensor Low
+P1483,Engine Cooling System Performance
+P1484,Cooling Fan System Performance
+P1500,Starter Signal Circuit
+P1501,Theft Deterrent System
+P1502,Theft Deterrent Fuel Enable Signal Not Received
+P1503,Theft Deterrent Fuel Enable Signal Not Correct
+P1504,Vehicle Speed Output Circuit
+P1505,Starter Relay Circuit
+P1506,Starter Relay Circuit Low
+P1507,Starter Relay Circuit High
+P1508,Idle Speed Low - Idle Air Control (IAC) System Not Responding
+P1509,Idle Speed High - Idle Air Control (IAC) System Not Responding
+P150A,Transmission Output Speed Signal
+P150B,Transmission Output Speed Signal Intermittent
+P150C,Transmission Control Module(TCM) Engine Speed Request Circuit
+P1510,Throttle Control System Performance - Throttle Limitation Active
+P1511,Throttle Control System - Backup System Performance
+P1512,Minimum Throttle Position Not Learned
+P1513,Intake Manifold Runner Control Stuck Closed (Bank 2)
+P1514,Airflow to TP Sensor Correlation High
+P1515,Electronic Throttle System Throttle Position
+P1516,Throttle Actuator Control (TAC) Module Throttle Actuator Position Performance
+P1517,Electronic Throttle Module
+P1518,Electronic Throttle Module to PCM Communication
+P1519,Throttle Actuator Control (TAC) Module Internal Circuit
+P1520,Transmission Range Switch Circuit
+P1521,Transmission Engaged at High Throttle Angle
+P1522,Park/Neutral to Drive/Reverse at High RPM
+P1523,Throttle Closed Position Performance
+P1524,Throttle Closed Position Performance
+P1525,Throttle Body Service Required
+P1526,Minimum Throttle Position Not Learned
+P1527,Transmission Range to Pressure Switch Correlation
+P1528,Governor
+P1529,Heated Windshield Request Problem
+P1530,Throttle Actuator Control (TAC) Module Internal Circuit
+P1531,A/C Low Side Temperature Sensor Fault
+P1532,A/C Evaporator Temperature Sensor Circuit Low Voltage
+P1533,A/C Evaporator Temperature Sensor Circuit High Voltage
+P1534,A/C High Side Temperature Sensor Low Voltage
+P1535,A/C High Side Temperature Sensor Circuit
+P1536,Engine Coolant Overtemperature - Air Conditioning (A/C) Disabled
+P1537,A/C Request Circuit Low Voltage
+P1538,A/C Request Circuit High Voltage
+P1539,A/C Clutch Status Circuit High Voltage
+P1540,Air Conditioning (A/C) Refrigerant Overpressure - Air Conditioning (A/C) Disabled
+P1541,A/C High Side Over Temperature
+P1542,A/C System High Pressure High Temperature
+P1543,A/C System Performance
+P1544,A/C Refrigerant Condition Very Low
+P1545,Air Conditioning (A/C) Clutch Relay Control Circuit
+P1546,A/C Clutch Status Circuit Low Voltage
+P1547,A/C System Performance Degraded
+P1548,A/C Recirculation Circuit
+P1549,A/C Mode Circuit High
+P1550,Fuel Injector Control Module System Voltage
+P1551,Throttle Valve Rest Position Not Reached During Learn
+P1553,Adaptive Cruise Control Signal Circuit
+P1554,Cruise Control Feedback Circuit
+P1555,Electronic Variable Orifice Output
+P1558,Cruise Control Servo Indicates Low
+P1559,Cruise Control Power Management Mode
+P1560,Transaxle Not in Drive - Cruise Control Disabled
+P1561,Cruise Vent Solenoid
+P1562,Cruise Vacuum Solenoid
+P1563,Cruise Vehicle Speed/Set Speed Difference Too High
+P1564,Vehicle Acceleration Too High - Cruise Control Disabled
+P1565,Cruise Servo Position Sensor
+P1566,Engine RPM Too High - Cruise Control Disabled
+P1567,Active Banking Control Active - Cruise Control Disabled
+P1568,Cruise Servo Stroke Greater than Commanded in Cruise
+P1569,Cruise Servo Stroke High While not in Cruise
+P1570,Traction Control Active - Cruise Control Disabled
+P1571,Traction Control Torque Request Circuit
+P1572,ASR Active Circuit Low Too Long
+P1573,PCM/EBTCM Serial Data Circuit
+P1574,Stoplamp Switch Circuit
+P1575,Extended Travel Brake Switch Circuit
+P1576,BBV Sensor Circuit High Voltage
+P1577,BBV Sensor Circuit Low Voltage
+P1578,BBV Sensor Circuit Low Vacuum
+P1579,P/N to D/R at High Throttle Angle - Power Reduction Mode Active
+P1580,Cruise Move Circuit Low Voltage
+P1581,Cruise Move Circuit High Voltage
+P1582,Cruise Direction Circuit Low Voltage
+P1583,Cruise Direction Circuit High Voltage
+P1584,Cruise Control Disabled
+P1585,Cruise Control Inhibit Output Circuit
+P1586,Cruise Control Brake Switch 2 Circuit
+P1587,Cruise Control Clutch Control Circuit Low
+P1588,Cruise Control Clutch Control Circuit High
+P1598,A/C Pressure Sensor High
+P1599,Engine Stall or Near Stall Detected
+P159F,Fuel Economy Mode Switch Circuit Low
+P15A0,Fuel Economy Mode Switch Circuit High
+P15A1,Fuel Economy Mode Switch Performance
+P1600,TCM Internal Watchdog Operation
+P1601,Serial Communication Problem With Device 1
+P1602,Knock Sensor (KS) Module Performance
+P1603,Loss of SDM Serial Data
+P1604,Loss of IPC Serial Data
+P1605,Loss of HVAC Serial Data
+P1606,Serial Communication Problem With Device 6
+P1607,Serial Communication Problem With Device 7
+P1608,Serial Communication Problem With Device 8
+P1609,Loss Of TCS Serial Data
+P160C,Engine calibration information not programmed-glow plug control module(GPCM)
+P1610,Loss of PZM Serial Data
+P1611,Loss of CVRTD Serial Data
+P1612,Loss of IPM Serial Data
+P1613,Loss of DIM Serial Data
+P1614,Loss of RIM Serial Data
+P1615,Loss of VTD Serial Data
+P1616,Reserved
+P1617,Engine Oil Level Switch Circuit
+P1618,Serial Peripheral Interface (SPI) PCM Interprocessor Communication Error
+P1619,Engine Oil Life Monitor Reset Circuit
+P1620,Low Coolant Circuit
+P1621,Control Module Long Term Memory Performance
+P1622,Cylinder Select
+P1623,Transmission Temperature Pull-Up Resistor
+P1624,Customer Snapshot Requested - Data Available
+P1625,TCM System Reset
+P1626,Theft Deterrent Fuel Enable Signal Not Received
+P1627,A/D Performance
+P1628,ECT Pull-Up Resistor
+P1629,Theft Deterrent System - Cranking Signal
+P1630,Theft Deterrent Learn Mode Active
+P1631,Theft Deterrent Start Enable Signal Not Correct
+P1632,Theft Deterrent Fuel Disable Signal Received
+P1633,Ignition 0 Switch Circuit
+P1634,Ignition 1 Switch Circuit
+P1635,5 Volt Reference Circuit
+P1636,PCM Stack Overrun
+P1637,Generator L-Terminal Circuit
+P1638,Generator F-Terminal Circuit
+P1639,5 Volt Reference 2 Circuit
+P1640,Driver-1-Input High Voltage
+P1641,Malfunction Indicator Lamp (MIL) Control Circuit
+P1642,Vehicle Speed Output Circuit
+P1643,Engine Speed Output Circuit
+P1644,Traction Control Delivered Torque Output Circuit
+P1645,Evaporative Emission (EVAP) Vent Solenoid Contorl Circuit
+P1646,Evaporative Emission (EVAP) Vent Solenoid Control Circuit
+P1647,Driver 1 Line 7
+P1648,Knock Sensor Input Chip
+P1649,Fuel Injection Pump Module
+P1650,Control Module Output B Circuit
+P1651,Fan 1 Relay Control Circuit
+P1652,Powertrain Induced Chassis Pitch Output Circuit
+P1653,Oil Level Lamp Control Circuit
+P1654,Cruise Control Inhibit Output Circuit
+P1655,EVAP Purge Solenoid Control Circuit
+P1656,Driver 2 Line 6
+P1657,1-4 Upshift Solenoid Control Circuit
+P1658,Starter Enable Relay Control Circuit
+P1659,Engine Overspeed Lamp Control Circuit
+P1660,Cooling Fan Control Circuits
+P1661,MIL Control Circuit
+P1662,Cruise Lamp Control Circuit
+P1663,Oil Life Lamp Control Circuit
+P1664,1-4 Upshift Lamp Control Circuit
+P1665,EVAP Vent Solenoid Control Circuit
+P1666,Driver 3 Line 6
+P1667,Reverse Inhibit Solenoid Control Circuit
+P1668,PCM/IDM Communications Error
+P1669,ABS Unit Expected
+P166A,Exhaust Control Valve Control Circuit
+P166C,Intake air(IA) heater resistance
+P1670,Driver 4
+P1671,Driver 4 Line 1
+P1672,Low Engine Oil Level Lamp Control Circuit
+P1673,Engine Hot Lamp Control Circuit
+P1674,Tachometer Control Circuit
+P1675,EVAP Vent Solenoid Control Circuit
+P1676,Driver 4 Line 6
+P1677,Driver 4 Line 7
+P1678,Immobilizer Powertrain Identification Failed
+P1679,Immobilizer Environment Identification Failed
+P167A,Control Module HO2S Bank 1 Sensor 1 System Performance
+P167B,Control Module HO2S Bank 2 Sensor 1 System Performance
+P1680,Driver 5
+P1681,Driver 5 Line 1
+P1682,Driver 5 Line 2
+P1683,Driver 5 Line 3
+P1684,Driver 5 Line 4
+P1685,Driver 5 Line 5
+P1686,Driver 5 Line 6
+P1687,Driver 5 Line 7
+P1688,Unmanaged Engine Torque Delivered to TCM Signal
+P1689,Delivered Torque Circuit Fault
+P1690,ECM Loop Overrun
+P1691,Coolant Gage Circuit Low Voltage
+P1692,Coolant Gage Circuit High Voltage
+P1693,Tachometer Circuit Low Voltage
+P1694,Tachometer Circuit High Voltage
+P1695,Remote Keyless Entry Circuit Low
+P1696,Remote Keyless Entry Voltage High
+P1697,PZM Disabled Fuel
+P1698,Class 2 Down Disabled Fuel
+P1699,In Fail Enable Mode
+P1700,Transmission Control Module (TCM) Requested MIL Illumination
+P1701,Transmission MIL Request Circuit
+P1702,Pressure Switch C Stuck Open / Performance
+P1703,Pressure Switch C Circuit Low / Stuck Closed
+P1704,Pressure Switch C Circuit High
+P1705,P/N Signal Output Circuit
+P1706,Pressure Switch D Stuck Open / Performance
+P1707,Pressure Switch D Circuit Low / Stuck Closed
+P1708,Pressure Switch D Circuit High
+P1709,Pressure Switch E Circuit
+P1710,Pressure Switch E Stuck Open / Performance
+P1711,Pressure Switch E Circuit Low / Stuck Closed
+P1712,Pressure Switch E Circuit High
+P1713,Pressure Switch Reverse Circuit
+P1714,Pressure Switch Reverse Stuck Open / Performance
+P1715,Pressure Switch Reverse Circuit Low / Stuck Closed
+P1716,Pressure Switch Reverse Circuit High
+P1717,Incorrect 6th Gear Ratio
+P1718,Incorrect Neutral Ratio
+P1719,Incorrect Shifting Detected
+P1720,Pressure Control (PC) Solenoid A Stuck Off
+P1721,Pressure Control (PC) Solenoid B Stuck Off
+P1722,Manual Selector Valve Controlled Clutch Not Engaged
+P1723,Pressure Control (PC) Solenoid A Stuck On
+P1724,Pressure Control (PC) Solenoid B Stuck On
+P1725,Manual Selector Valve Controlled Clutch Not Engaged
+P1726,Shift Solenoid C Controlled Clutch Engaged/Performance
+P1727,Shift Solenoid D Controlled Clutch Engaged/Performance
+P1728,All Wheel Drive (AWD) Solenoid Control Circuit
+P1729,4x4L Switch
+P1730,Retarder Circuit
+P1731,Retarder Circuit Low
+P1732,Retarder Circuit High
+P1733,Retarder Temperature Sensor Low
+P1734,Retarder Temperature Sensor High
+P1735,Retarder Over Temperature
+P1736,Service Brake Input ON With VSS Indicated
+P1737,Kick Down Circuit
+P1738,ISS / OSS Low Frequency
+P1740,Torque Reduction Signal Circuit
+P1741,NSBU Mode A Circuit Low
+P1742,NSBU Mode A Circuit High
+P1743,TP Signal from ECM
+P1744,NSBU Mode B Circuit Low
+P1745,NSBU Mode B Circuit High
+P1746,NSBU Mode P Circuit
+P1747,NSBU Mode P Circuit Low
+P1748,NSBU Mode P Circuit High
+P1749,NSBU Park/Neutral Switch Compare
+P1750,1-2 Shift Valve Performance
+P1756,Transmission Range (TR) Switch Indicates Park/Neutral (P/N) With Drive Ratio
+P1758,Transmission Range (TR) Switch Indicates Drive Without Drive Ratio
+P1760,TCM Supply Voltage Interrupted
+P1762,Transmission Mode Switch Signal Circuit
+P1776,Input Clutch Stuck Off
+P1777,Input Clutch Stuck On
+P1779,Engine Torque Delivered to TCM Signal
+P1780,Park/Neutral Position [PNP] Switch Circuit
+P1781,Engine Torque Signal Circuit
+P1782,MIL Requested By TCM - Data Invalid
+P1785,Shift Lock Solenoid Circuit - Low Voltage
+P1786,Shift Lock Solenoid Circuit - High Voltage
+P1790,Transmission Control Module Checksum
+P1791,Transmission Control Module Loop
+P1792,Transmission Control Module Reprogrammable Memory
+P1793,Transmission Control Module Stack Overrun
+P1794,Transmission Control Module (TCM) 2 Requested MIL Illumination
+P1795,CAN Bus - Throttle Body Position
+P1796,Kickdown Circuit
+P1798,Auxiliary Transmission Fluid Pump Pressure Switch Circuit Low Voltage
+P1799,Auxiliary Transmission Fluid Pump Pressure Switch Circuit High Voltage
+P1800,TCM Power Relay Control Circuit
+P1801,Performance Selector Switch Failure
+P1804,Ground Control Relay
+P1810,TFP Valve Position Switch Circuit
+P1811,Maximum Adapt and Long Shift
+P1812,Transmission Over Temperature Condition
+P1813,Torque Control
+P1814,Torque Converter Overstressed
+P1815,Transmission Range Switch - Start In Wrong Range
+P1816,TFP Valve Position Switch - Park/Neutral With Drive Ratio
+P1817,TFP Valve Position Switch -Reverse With Drive Ratio
+P1818,TFP Valve Position Switch -Drive Without Drive Ratio
+P1819,Internal Mode Switch - No Start or Wrong Range
+P1820,Internal Mode Switch Circuit A Low
+P1821,Internal Mode Switch B Circuit Low Voltage
+P1822,Internal Mode Switch Circuit B High
+P1823,Internal Mode Switch Circuit P Low
+P1824,Internal Mode Switch P Circuit High Voltage
+P1825,Internal Mode Switch - Invalid Range
+P1826,Internal Mode Switch Circuit C - High
+P1827,Serial Communication - DKP Short to Ground
+P1828,Serial Communication - DKP Shorted High
+P1829,Serial Communication - TI Signal Line Open
+P1830,Pressure Regulator Valve Performance
+P1831,PC Solenoid Power Circuit - Low Voltage
+P1832,Pressure Control (PC)/Shift Lock Solenoid Control Circuit High Voltage
+P1833,A/T Solenoids Power Circuit - Low Voltage
+P1834,Torque Converter Clutch (TCC)/Shift Solenoid Control Circuit High Voltage
+P1835,Kick-Down Switch Circuit
+P1836,Kick-Down Switch Failed Open
+P1837,Kick-Down Switch Failed Short
+P1842,1-2 Shift Solenoid Circuit Low Voltage
+P1843,1-2 Shift Solenoid Circuit High Voltage
+P1844,Torque Reduction Signal Circuit Desired By TCM
+P1845,2-3 Shift Solenoid Circuit Low Voltage
+P1846,Shift Solenoid B Control Circuit Low
+P1847,2-3 Shift Solenoid Circuit High Voltage
+P1848,Active Transfer Case (ATC) Control Module MIL Request Circuit Low Voltage
+P1849,Active Transfer Case (ATC) Control Module MIL Request Circuit High Voltage
+P1850,Brake Band Apply Solenoid Circuit
+P1851,Brake Band Apply Solenoid Performance
+P1852,Brake Band Apply Solenoid Low Voltage
+P1853,Brake Band Apply Solenoid High Voltage
+P1854,Neutral Idle Stuck On
+P1855,Neutral Idle Stuck Off
+P1856,Neutral Idle Stuck Intermittent
+P1857,3-2 Solenoid Circuit Low Voltage
+P1858,3-2 Solenoid Circuit High Voltage
+P1860,TCC PWM Solenoid Circuit Electrical
+P1861,Torque Converter Clutch Solenoid Circuit High Voltage
+P1862,TCC Enable Solenoid Circuit Low Voltage
+P1863,TCC Enable Solenoid Circuit High Voltage
+P1864,Torque Converter Clutch Circuit
+P1865,Shift Solenoid C Control Circuit High
+P1866,Torque Converter Clutch (TCC) Pulse Width Modulation (PWM) Solenoid Control Circuit Low Voltage
+P1867,Torque Converter Clutch (TCC) Pulse Width Modulation (PWM) Solenoid Control Circuit High Voltage
+P1868,Transmission Fluid Life
+P1870,Transmission Component Slipping
+P1871,Undefined Gear Ratio
+P1873,TCC Stator Temperature Switch Circuit Low
+P1874,TCC Stator Temperature Switch Circuit High
+P1875,4WD Low Switch Circuit Electrical
+P1876,Up and Down Shift Switch Performance-Range Switch Not in D3
+P1877,Up and Down Shift Switch Performance-Range Switch in D3
+P1878,Pressure Control (PC) Solenoid A Control Circuit High Voltage
+P1879,Pressure Control (PC) Solenoid B Control Circuit High Voltage
+P1880,Ratio Control Motor Circuit Short Condition
+P1881,Ratio Control Motor Circuit Open Condition
+P1882,Ratio Control Performance
+P1883,Ratio Control Stepper Motor Coil A1 Control Circuit
+P1884,TCC Enable/Shift Light Circuit
+P1885,Ratio Control Stepper Motor Coil B1 Control Circuit
+P1886,Shift Timing Solenoid
+P1887,TCC Release Switch Circuit
+P1888,Torque Converter Clutch (TCC) Enable Solenoid Control Circuit Low Voltage
+P1889,Torque Converter Clutch (TCC) Enable Solenoid Control Circuit High Voltage
+P1890,ECM Data Input Circuit
+P1891,Throttle Position Sensor PWM Signal Low
+P1892,Throttle Position Sensor PWM Signal High
+P1893,Engine Torque Signal Low Voltage
+P1894,Engine Torque Signal High Voltage
+P1895,TCM to ECM Torque Reduction Circuit
+P1896,Transmission Downshift Switch Circuit
+P1897,Transmission Upshift Switch Circuit
+P1898,Manual Mode Circuit Signal
+P1915,Internal Mode Switch Does Not Indicate Park/Neutral (P/N) During Start
+P1918,Internal Mode Switch Indicates Drive Without Drive Ratio
+P1A00,Battery Energy Control Module Reset
+P1A01,Battery Energy Control Module Long Term Memory Performance
+P1A02,Battery Energy Control Module Loop Overrun
+P1A03,Battery Energy Control Module Options Incorrect
+P1A04,Battery Energy Control Module Programming Read Only Memory (ROM)
+P1A05,Battery Energy Control Module Random Access Memory (RAM)
+P1A06,Battery Energy Control Module Read Only Memory (ROM)
+P1A07,Battery Energy Control Module 5 Volt Reference Circuit
+P1A08,Battery Energy Control Module Stack Overrun
+P1A0B,Battery Energy Control Module Not Programmed
+P1A10,Hybrid Battery 1 Temperature Sensor Performance
+P1A11,Hybrid Battery 1 Temperature Sensor Circuit Low Voltage
+P1A12,Hybrid Battery 1 Temperature Sensor Circuit High Voltage
+P1A13,Hybrid Battery 2 Temperature Sensor Performance
+P1A14,Hybrid Battery 2 Temperature Sensor Circuit Low Voltage
+P1A15,Hybrid Battery 2 Temperature Sensor Circuit High Voltage
+P1A16,Hybrid Battery 3 Temperature Sensor Performance
+P1A17,Hybrid Battery 3 Temperature Sensor Circuit Low Voltage
+P1A18,Hybrid Battery 3 Temperature Sensor Circuit High Voltage
+P1A22,Hybrid Battery 1 Circuit Low Voltage
+P1A23,Hybrid Battery 1 Circuit High Voltage
+P1A24,Hybrid Battery 1 Voltage
+P1A25,Hybrid Battery 1 Voltage Performance
+P1A26,Hybrid Battery 1 Voltage Low
+P1A27,Hybrid Battery 1 Voltage Very Low
+P1A28,Hybrid Battery 1 Voltage High
+P1A29,Hybrid Battery 2 Circuit Low Voltage
+P1A2A,Hybrid Battery 2 Circuit High Voltage
+P1A2B,Hybrid Battery 2 Voltage
+P1A2C,Hybrid Battery 2 Voltage Performance
+P1A2D,Hybrid Battery 2 Voltage Low
+P1A2E,Hybrid Battery 2 Voltage Very Low
+P1A2F,Hybrid Battery 2 Voltage High
+P1A30,Hybrid Battery 3 Circuit Low Voltage
+P1A31,Hybrid Battery 3 Circuit High Voltage
+P1A32,Hybrid Battery 3 Voltage
+P1A33,Hybrid Battery 3 Voltage Performance
+P1A34,Hybrid Battery 3 Voltage Low
+P1A35,Hybrid Battery 3 Voltage Very Low
+P1A36,Hybrid Battery 3 Voltage High
+P1A48,Hybrid Battery Pack Current Sensor of Hi Range Circuit Low Voltage
+P1A49,Hybrid Battery Pack Current Sensor of Hi Range Circuit High Voltage
+P1A4A,Hybrid Battery Current Sensor Circuit
+P1A4B,Hybrid Battery Current Sensor Performance
+P1A4C,Battery Energy Control Module Hybrid Battery Current Sensor Circuit Low Current
+P1A4D,Battery Energy Control Module Hybrid Battery Current Sensor Circuit High Current
+P1A56,Discharge Switch Circuit Open
+P1A57,Hybrid Battery State of Charge Very Low
+P1A58,Hybrid Battery Pack Relay Open
+P1A62,Motor Torque Delivered Performance
+P1A63,Starter/Generator Control Module Internal Driver Error
+P1A64,Starter/Generator Control Module Reset
+P1A65,Starter/Generator Control Module Long Term Memory Performance
+P1A66,Starter/Generator Control Module Loop Overrun
+P1A67,Starter/Generator Control Module Options Incorrect
+P1A68,Starter/Generator Control Module Programming Read Only Memory (ROM)
+P1A69,Starter/Generator Control Module Random Access Memory (RAM)
+P1A6A,Starter/Generator Control Module Read Only Memory (ROM)
+P1A6B,Starter/Generator Control Module 5 Volt Reference Circuit
+P1A6C,Starter/Generator Control Module Not Programmed
+P1A6D,Starter/Generator Control Module System Voltage Low
+P1A6E,Starter/Generator Control Module System Voltage High
+P1A6F,Starter/Generator Control Module System Voltage
+P1A70,Starter/Generator Control Module System Voltage Performance
+P1A75,Starter/Generator Control Module Coolant Temperature Sensor 2 Performance
+P1A76,Starter/Generator Control Module Coolant Temperature Sensor 2 Circuit Low Voltage
+P1A77,Starter/Generator Control Module Coolant Temperature Sensor 2 Circuit High Voltage
+P1A78,Starter/Generator Control Module Coolant Temperature Sensor 3 Performance
+P1A79,Starter/Generator Control Module Coolant Temperature Sensor 3 Circuit Low Voltage
+P1A7A,Starter/Generator Control Module Coolant Temperature Sensor 3 Circuit High Voltage
+P1A7B,Starter/Generator Control Module Temperature Sensor Performance
+P1A7C,Starter/Generator Control Module Temperature Sensor Circuit Low Voltage
+P1A7D,Starter/Generator Control Module Temperature Sensor Circuit High Voltage
+P1A7E,Starter/Generator Control Module Overtemperature - High Voltage System Disabled
+P1A7F,Starter/Generator Control Module Coolant Level Sensor 1 Low Voltage
+P1A80,Starter/Generator Control Module Coolant Level Sensor 1 High Voltage
+P1A81,Starter/Generator Control Module Coolant Level Sensor 2 Low Voltage
+P1A82,Starter/Generator Control Module Coolant Level Sensor 2 High Voltage
+P1A83,Starter/Generator Control Module Coolant Level Sensor 3 Low Voltage
+P1A84,Starter/Generator Control Module Coolant Level Sensor 3 High Voltage
+P1A85,Starter/Generator Control Module Coolant Level Sensor 4 Low Voltage
+P1A86,Starter/Generator Control Module Coolant Level Sensor 4 High Voltage
+P1A87,Low Starter/Generator Control Module Coolant Level
+P1A8D,14 Volt Power Module Voltage Sensor Circuit Low Voltage
+P1A8E,14 Volt Power Module Voltage Sensor Circuit High Voltage
+P1A8F,14 Volt Power Module Current Sensor Overcurrent
+P1A90,14 Volt Power Module Temperature Sensor Performance
+P1A91,14 Volt Power Module Temperature Sensor Circuit Low Voltage
+P1A92,14 Volt Power Module Temperature Sensor Circuit High Voltage
+P1A93,14 Volt Power Module Stuck Off
+P1A94,14 Volt Power Module Stuck On
+P1A95,DC/DC Converter Stuck in 14-42 Volt Direction
+P1A96,DC/DC Converter Stuck in 42-14 Volt Direction
+P1A97,Starter/Generator Control Module Hybrid Battery Voltage Sense Circuit Low Voltage
+P1A98,Starter/Generator Control Module Hybrid Battery Voltage Sense Circuit High Voltage
+P1A99,Starter/Generator Control Module Hybrid Battery Current Sensor Circuit Low Current
+P1A9A,Starter/Generator Control Module Hybrid Battery Current Sensor Circuit High Current
+P1A9B,Starter/Generator Inverter Phase U Temperature Sensor Performance
+P1A9C,Starter/Generator Inverter Phase U Temperature Sensor Circuit Low Voltage
+P1A9D,Starter/Generator Inverter Phase U Temperature Sensor Circuit High Voltage
+P1A9E,Starter/Generator Inverter Phase U Overtemperature
+P1A9F,Starter/Generator Inverter Phase V Temperature Sensor Performance
+P1AA0,Starter/Generator Inverter Phase V Temperature Sensor Circuit Low Voltage
+P1AA1,Starter/Generator Inverter Phase V Temperature Sensor Circuit High Voltage
+P1AA2,Starter/Generator Inverter Phase V Overtemperature
+P1AA3,Starter/Generator Inverter Phase W Temperature Sensor Performance
+P1AA4,Starter/Generator Inverter Phase W Temperature Sensor Circuit Low Voltage
+P1AA5,Starter/Generator Inverter Phase W Temperature Sensor Circuit High Voltage
+P1AA6,Starter/Generator Inverter Phase W Overtemperature
+P1AA7,Starter/Generator Field Coil Circuit
+P1AA9,Starter/Generator Phase U Current Sensor Performance
+P1AAA,Starter/Generator Phase W Current Sensor Performance
+P1AAB,Starter/Generator Phase U Circuit
+P1AAC,Starter/Generator Phase V Circuit
+P1AAD,Starter/Generator Phase W Circuit
+P1AAE,Starter/Generator Phase U-V-W Correlation
+P1AAF,Starter/Generator Phase U-V-W Circuit
+P1AB0,Hybrid Battery High Current Sensor Overcurrent
+P1AB1,Starter/Generator Phase U-V-W Current Sensor Overcurrent
+P1AB2,Hybrid System Voltage
+P1AB3,Starter/Generator Phase U Current Sensor Circuit Low Voltage
+P1AB4,Starter/Generator Phase U Current Sensor Circuit High Voltage
+P1AB5,Starter/Generator Phase V Current Sensor Circuit Low Voltage
+P1AB6,Starter/Generator Phase V Current Sensor Circuit High Voltage
+P1AB7,Starter/Generator Phase W Current Sensor Circuit Low Voltage
+P1AB8,Starter/Generator Phase W Current Sensor Circuit High Voltage
+P1AC0,Starter/Generator Control Module Output Circuit
+P1AC1,Starter/Generator Control Module Cooling Fan Relay Control Circuit Low Voltage
+P1AC2,Starter/Generator Control Module Cooling Fan Relay Control Circuit High Voltage
+P1AC8,Hybrid Powertrain Control Module 5 Volt Reference Circuit
+P1AC9,Hybrid Powertrain Control Module Not Programmed
+P1ECF,ETC Flight Recorder
+P2000,NOx Trap Efficiency Below Threshold Bank 1
+P2001,NOx Trap Efficiency Below Threshold Bank 2
+P2002,Particulate Trap Efficiency Below Threshold Bank 1
+P2003,Particulate Trap Efficiency Below Threshold Bank 2
+P2004,Intake Manifold Runner Control Stuck Open Bank 1
+P2005,Intake Manifold Runner Control Stuck Open Bank 2
+P2006,Intake Manifold Runner Control Stuck Closed Bank 1
+P2007,Intake Manifold Runner Control Stuck Closed Bank 2
+P2008,Intake Manifold Runner Control (IMRC) Solenoid Control Circuit
+P2009,Intake Manifold Runner Control (IMRC) Solenoid Control Circuit Low Voltage
+P2010,Intake Manifold Runner Control (IMRC) Solenoid Control Circuit High Voltage
+P2011,Intake Manifold Runner Control Circuit / Open Bank 2
+P2012,Intake Manifold Runner Control Circuit Low Bank 2
+P2013,Intake Manifold Runner Control Circuit High Bank 2
+P2014,Intake Manifold Runner Position Sensor/Switch Circuit Bank 1
+P2015,Intake Manifold Runner Position Sensor/Switch Circuit Range/Performance Bank 1
+P2016,Intake Manifold Runner Position Sensor/Switch Circuit Low Bank 1
+P2017,Intake Manifold Runner Position Sensor/Switch Circuit High Bank 1
+P2018,Intake Manifold Runner Position Sensor/Switch Circuit Intermittent Bank 1
+P2019,Intake Manifold Runner Position Sensor/Switch Circuit Bank 2
+P2020,Intake Manifold Runner Position Sensor/Switch Circuit Range/Performance Bank 2
+P2021,Intake Manifold Runner Position Sensor/Switch Circuit Low Bank 2
+P2022,Intake Manifold Runner Position Sensor/Switch Circuit High Bank 2
+P2023,Intake Manifold Runner Position Sensor/Switch Circuit Intermittent Bank 2
+P2024,Evaporative Emissions (EVAP) Fuel Vapor Temperature Sensor Circuit
+P2025,EVAP Fuel Vapor Temperature Sensor Performance
+P2026,EVAP Fuel Vapor Temperature Sensor Circuit Low Voltage
+P2027,EVAP Fuel Vapor Temperature Sensor Circuit High Voltage
+P2028,Evaporative Emissions (EVAP) Fuel Vapor Temperature Sensor Circuit Intermittent
+P2029,Auxiliary Coolant Heater System
+P2030,Fuel Fired Heater Performance
+P2031,Exhaust Gas Temperature Sensor Circuit Bank 1 Sensor 2
+P2032,Exhaust Gas Temperature Sensor Circuit Low Bank 1 Sensor 2
+P2033,Exhaust Gas Temperature Sensor Circuit High Bank 1 Sensor 2
+P2034,Exhaust Gas Temperature Sensor Circuit Bank 2 Sensor 2
+P2035,Exhaust Gas Temperature Sensor Circuit Low Bank 2 Sensor 2
+P2036,Exhaust Gas Temperature Sensor Circuit High Bank 2 Sensor 2
+P2037,Reductant Injection Air Pressure Sensor Circuit
+P2038,Reductant Injection Air Pressure Sensor Circuit Range/Performance
+P2039,Reductant Injection Air Pressure Sensor Circuit Low Input
+P2040,Reductant Injection Air Pressure Sensor Circuit High Input
+P2041,Reductant Injection Air Pressure Sensor Circuit Intermittent
+P2042,Reductant Temperature Sensor Circuit
+P2043,Reductant Temperature Sensor Circuit Range/Performance
+P2044,Reductant Temperature Sensor Circuit Low Input
+P2045,Reductant Temperature Sensor Circuit High Input
+P2046,Reductant Temperature Sensor Circuit Intermittent
+P2047,Reductant Injector Circuit / Open Bank 1 Unit 1
+P2048,Reductant Injector Circuit Low Bank 1 Unit 1
+P2049,Reductant Injector Circuit High Bank 1 Unit 1
+P2050,Reductant Injector Circuit / Open Bank 2 Unit 1
+P2051,Reductant Injector Circuit Low Bank 2 Unit 1
+P2052,Reductant Injector Circuit High Bank 2 Unit 1
+P2053,Reductant Injector Circuit / Open Bank 1 Unit 2
+P2054,Reductant Injector Circuit Low Bank 1 Unit 2
+P2055,Reductant Injector Circuit High Bank 1 Unit 2
+P2056,Reductant Injector Circuit / Open Bank 2 Unit 2
+P2057,Reductant Injector Circuit Low Bank 2 Unit 2
+P2058,Reductant Injector Circuit High Bank 2 Unit 2
+P2059,Reductant Injection Air Pump Control Circuit / Open
+P2060,Reductant Injection Air Pump Control Circuit Low
+P2061,Reductant Injection Air Pump Control Circuit High
+P2062,Reductant Supply Control Circuit / Open
+P2063,Reductant Supply Control Circuit Low
+P2064,Reductant Supply Control Circuit High
+P2065,Fuel Level Sensor 2 Circuit
+P2066,Fuel Level Sensor B Performance
+P2067,Fuel Level Sensor B Circuit Low
+P2068,Fuel Level Sensor B Circuit High
+P2069,Fuel Level Sensor B Circuit Intermittent
+P2070,Intake Manifold Tuning (IMT) Valve Stuck Open
+P2071,Intake Manifold Tuning (IMT) Valve Stuck Closed
+P2072,Throttle Actuator Control System - Ice Blockage
+P2073,Manifold Absolute Pressure/Mass Air Flow - Throttle Position Correlation at Idle
+P2074,Manifold Absolute Pressure/Mass Air Flow - Throttle Position Correlation at Higher Load
+P2075,Intake Manifold Tuning (IMT) Valve Position Sensor/Switch Circuit
+P2076,Intake Manifold Tuning (IMT) Valve Position Sensor/Switch Circuit Range/Performance
+P2077,Intake Manifold Tuning (IMT) Valve Position Sensor/Switch Circuit Low
+P2078,Intake Manifold Tuning (IMT) Valve Position Sensor/Switch Circuit High
+P2079,Intake Manifold Tuning (IMT) Valve Position Sensor/Switch Circuit Intermittent
+P2080,Exhaust Gas Temperature Sensor Circuit Range/Performance Bank 1 Sensor 1
+P2081,Exhaust Gas Temperature Sensor Circuit Intermittent Bank 1 Sensor 1
+P2082,Exhaust Gas Temperature Sensor Circuit Range/Performance Bank 2 Sensor 1
+P2083,Exhaust Gas Temperature Sensor Circuit Intermittent Bank 2 Sensor 1
+P2084,Exhaust Gas Temperature Sensor Circuit Range/Performance Bank 1 Sensor 2
+P2085,Exhaust Gas Temperature Sensor Circuit Intermittent Bank 1 Sensor 2
+P2086,Exhaust Gas Temperature Sensor Circuit Range/Performance Bank 2 Sensor 2
+P2087,Exhaust Gas Temperature Sensor Circuit Intermittent Bank 2 Sensor 2
+P2088,Intake Camshaft Position (CMP) Actuator Solenoid Control Circuit Low Voltage Bank 1
+P2089,Intake Camshaft Position (CMP) Actuator Solenoid Control Circuit High Voltage Bank 1
+P2090,Exhaust Camshaft Position (CMP) Actuator Solenoid Control Circuit Low Voltage Bank 1
+P2091,Exhaust Camshaft Position (CMP) Actuator Solenoid Control Circuit High Voltage Bank 1
+P2092,Intake Camshaft Position (CMP) Actuator Solenoid Control Circuit Low Voltage Bank 2
+P2093,Intake Camshaft Position (CMP) Actuator Solenoid Control Circuit High Voltage Bank 2
+P2094,Exhaust Camshaft Position (CMP) Actuator Solenoid Control Circuit Low Voltage Bank 2
+P2095,Exhaust Camshaft Position (CMP) Actuator Solenoid Control Circuit High Voltage Bank 2
+P2096,Post Catalyst Fuel Trim System Low Limit Bank 1
+P2097,Post Catalyst Fuel Trim System High Limit Bank 1
+P2098,Post Catalyst Fuel Trim System Low Limit Bank 2
+P2099,Post Catalyst Fuel Trim System High Limit Bank 2
+P2100,Throttle Actuator Control (TAC) Motor Control Circuit
+P2101,Throttle Actuator Control Motor Circuit Range/Performance
+P2102,Throttle Actuator Control (TAC) Motor Control Circuit Low Voltage
+P2103,Throttle Actuator Control (TAC) Motor Control Circuit High Voltage
+P2104,Throttle Actuator Control System - Forced Idle
+P2105,Throttle Actuator Control (TAC) System - Forced Engine Shutdown
+P2106,Throttle Control System Performance - Throttle Limitation Active
+P2107,Throttle Actuator Control (TAC) Module Internal Circuit
+P2108,Throttle Actuator Control Module Performance
+P2109,Accelerator Pedal Position (APP) Sensor Minimum Stop Performance
+P2110,Throttle Actuator Control System - Forced Limited RPM
+P2111,Throttle Actuator Control System - Stuck Open
+P2112,Throttle Actuator Control System - Stuck Closed
+P2113,Throttle/Pedal Position Sensor B Minimum Stop Performance
+P2114,Throttle/Pedal Position Sensor C Minimum Stop Performance
+P2115,Throttle/Pedal Position Sensor D Minimum Stop Performance
+P2116,Throttle/Pedal Position Sensor E Minimum Stop Performance
+P2117,Throttle/Pedal Position Sensor F Minimum Stop Performance
+P2118,Throttle Actuator Control Motor Current Range/Performance
+P2119,Throttle Actuator Control Throttle Body Range/Performance
+P2120,Throttle/Pedal Position Sensor/Switch D Circuit
+P2121,Throttle/Pedal Position Sensor/Switch D Circuit Range/Performance
+P2122,Throttle/Pedal Position Sensor/Switch D Circuit Low Input
+P2123,Throttle/Pedal Position Sensor/Switch D Circuit High Input
+P2124,Throttle/Pedal Position Sensor/Switch D Circuit Intermittent
+P2125,Throttle/Pedal Position Sensor/Switch E Circuit
+P2126,Throttle/Pedal Position Sensor/Switch E Circuit Range/Performance
+P2127,Throttle/Pedal Position Sensor/Switch E Circuit Low Input
+P2128,Throttle/Pedal Position Sensor/Switch E Circuit High Input
+P2129,Throttle/Pedal Position Sensor/Switch E Circuit Intermittent Bank 1
+P2130,Throttle/Pedal Position Sensor/Switch F Circuit
+P2131,Throttle/Pedal Position Sensor/Switch F Circuit Range/Performance
+P2132,Accelerator Pedal Position (APP) Sensor 3 Circuit Low Voltage
+P2133,Accelerator Pedal Position (APP) Sensor 3 Circuit High Voltage
+P2134,Throttle/Pedal Position Sensor/Switch F Circuit Intermittent
+P2135,Throttle/Pedal Position Sensor/Switch A/B Voltage Correlation
+P2136,Throttle/Pedal Position Sensor/Switch A / C Voltage
+P2137,Throttle/Pedal Position Sensor/Switch B / C Voltage
+P2138,Throttle/Pedal Position Sensor/Switch D/E Voltage Correlation
+P2139,Accelerator Pedal Position (APP) Sensor 1-3 Correlation
+P2140,Accelerator Pedal Position (APP) Sensor 2-3 Correlation
+P2141,Exhaust Gas Recirculation (EGR) Throttle Valve Solenoid Control Circuit Low Voltage
+P2142,Exhaust Gas Recirculation (EGR) Throttle Valve Solenoid Control Circuit High Voltage
+P2143,Exhaust Gas Recirculation (EGR) Vent Solenoid Control Circuit
+P2144,Exhaust Gas Recirculation (EGR) Vent Solenoid Control Circuit Low Voltage
+P2145,Exhaust Gas Recirculation (EGR) Vent Solenoid Control Circuit High Voltage
+P2146,Injector Positive Voltage Control Circuit Group 1
+P2147,Injector Positive Voltage Control Circuit Group 1 Low Voltage
+P2148,Injector Positive Voltage Control Circuit Group 1 High Voltage
+P2149,Injector Positive Voltage Control Circuit Group 2
+P2150,Injector Positive Voltage Control Circuit Group 2 Low Voltage
+P2151,Injector Positive Voltage Control Circuit Group 2 High Voltage
+P2152,Fuel Injector Group C Supply Voltage Circuit/Open
+P2153,Fuel Injector Group C Supply Voltage Circuit Low
+P2154,Fuel Injector Group C Supply Voltage Circuit High
+P2155,Fuel Injector Group D Supply Voltage Circuit/Open
+P2156,Fuel Injector Group D Supply Voltage Circuit Low
+P2157,Fuel Injector Group D Supply Voltage Circuit High
+P2158,Vehicle Speed Sensor B
+P2159,Vehicle Speed Sensor B Range/Performance
+P2160,Vehicle Speed Sensor B Circuit Low
+P2161,Vehicle Speed Sensor B Intermittent/Erratic
+P2162,Vehicle Speed Sensor A / B Correlation
+P2163,Throttle/Pedal Position Sensor A Maximum Stop Performance
+P2164,Throttle/Pedal Position Sensor B Maximum Stop Performance
+P2165,Throttle/Pedal Position Sensor C Maximum Stop Performance
+P2166,Throttle/Pedal Position Sensor D Maximum Stop Performance
+P2167,Throttle/Pedal Position Sensor E Maximum Stop Performance
+P2168,Throttle/Pedal Position Sensor F Maximum Stop Performance
+P2169,Exhaust Pressure Regulator Vent Solenoid Control Circuit/Open
+P2170,Exhaust Pressure Regulator Vent Solenoid Control Circuit Low
+P2171,Exhaust Pressure Regulator Vent Solenoid Control Circuit High
+P2172,Throttle Actuator Control System - Sudden High Airflow Detected
+P2173,Throttle Actuator Control System - High Airflow Detected
+P2174,Throttle Actuator Control System - Sudden Low Airflow Detected
+P2175,Throttle Actuator Control System - Low Airflow Detected
+P2176,Throttle Actuator Control System - Idle Position Not Learned
+P2177,System Too Lean Off Idle Bank 1
+P2178,System Too Rich Off Idle Bank 1
+P2179,System Too Lean Off Idle Bank 2
+P2180,System Too Rich Off Idle Bank 2
+P2181,Cooling System Performance
+P2182,Engine Coolant Temperature Sensor 2 Circuit
+P2183,Engine Coolant Temperature Sensor 2 Circuit Range/Performance
+P2184,Engine Coolant Temperature Sensor 2 Circuit Low
+P2185,Engine Coolant Temperature Sensor 2 Circuit High
+P2186,Engine Coolant Temperature Sensor 2 Circuit Intermittent/Erratic
+P2187,System Too Lean at Idle Bank 1
+P2188,System Too Rich at Idle Bank 1
+P2189,System Too Lean at Idle Bank 2
+P2190,System Too Rich at Idle Bank 2
+P2191,System Too Lean at Higher Load Bank 1
+P2192,System Too Rich at Higher Load Bank 1
+P2193,System Too Lean at Higher Load Bank 2
+P2194,System Too Rich at Higher Load Bank 2
+P2195,O2 Sensor Signal Biased/Stuck Lean Bank 1 Sensor 1
+P2196,O2 Sensor Signal Biased/Stuck Rich Bank 1 Sensor 1
+P2197,O2 Sensor Signal Biased/Stuck Lean Bank 2 Sensor 1
+P2198,O2 Sensor Signal Biased/Stuck Rich Bank 2 Sensor 1
+P2199,Intake Air Temperature Sensor 1 / 2 Correlation
+P219A,Fuel Trim Cylinder Balance Bank 1
+P219B,Fuel Trim Cylinder Balance Bank 2
+P2200,NOx Sensor Circuit Bank 1
+P2201,NOx Sensor Circuit Range/Performance Bank 1
+P2202,NOx Sensor Circuit Low Input Bank 1
+P2203,NOx Sensor Circuit High Input Bank 1
+P2204,NOx Sensor Circuit Intermittent Input Bank 1
+P2205,NOx Sensor Heater Control Circuit/Open Bank 1
+P2206,NOx Sensor Heater Control Circuit Low Bank 1
+P2207,NOx Sensor Heater Control Circuit High Bank 1
+P2208,NOx Sensor Heater Sense Circuit Bank 1
+P2209,NOx Sensor Heater Sense Circuit Range/Performance Bank 1
+P2210,NOx Sensor Heater Sense Circuit Low Input Bank 1
+P2211,NOx Sensor Heater Sense Circuit High Input Bank 1
+P2212,NOx Sensor Heater Sense Circuit Intermittent Bank 1
+P2213,NOx Sensor Circuit Bank 2
+P2214,NOx Sensor Circuit Range/Performance Bank 2
+P2215,NOx Sensor Circuit Low Input Bank 2
+P2216,NOx Sensor Circuit High Input Bank 2
+P2217,NOx Sensor Circuit Intermittent Input Bank 2
+P2218,NOx Sensor Heater Control Circuit/Open Bank 2
+P2219,NOx Sensor Heater Control Circuit Low Bank 2
+P2220,NOx Sensor Heater Control Circuit High Bank 2
+P2221,NOx Sensor Heater Sense Circuit Bank 2
+P2222,NOx Sensor Heater Sense Circuit Range/Performance Bank 2
+P2223,NOx Sensor Heater Sense Circuit Low Input Bank 2
+P2224,NOx Sensor Heater Sense Circuit High Input Bank 2
+P2225,NOx Sensor Heater Sense Circuit Intermittent Bank 2
+P2226,Barometric Pressure (BARO) Sensor Circuit
+P2227,Barometric Pressure (BARO) Sensor Performance
+P2228,Barometric Pressure (BARO) Sensor Circuit Low Voltage
+P2229,Barometric Pressure (BARO) Sensor Circuit High Voltage
+P2230,Barometric Pressure (BARO) Sensor Circuit Intermittent
+P2231,O2S Signal Circuit Shorted to Heater Circuit Bank 1 Sensor 1
+P2232,O2 Sensor Signal Circuit Shorted to Heater Circuit Bank 1 Sensor 2
+P2233,O2 Sensor Signal Circuit Shorted to Heater Circuit Bank 1 Sensor 3
+P2234,O2S Signal Circuit Shorted to Heater Circuit Bank 2 Sensor 1
+P2235,O2 Sensor Signal Circuit Shorted to Heater Circuit Bank 2 Sensor 2
+P2236,O2 Sensor Signal Circuit Shorted to Heater Circuit Bank 2 Sensor 3
+P2237,O2 Sensor Pumping Current Circuit/Open Bank 1 Sensor 1
+P2238,O2 Sensor Pumping Current Circuit Low Bank 1 Sensor 1
+P2239,O2 Sensor Pumping Current Circuit High Bank 1 Sensor 1
+P2240,O2 Sensor Pumping Current Circuit/Open Bank 2 Sensor 1
+P2241,O2 Sensor Pumping Current Circuit Low Bank 2 Sensor 1
+P2242,O2 Sensor Pumping Current Circuit High Bank 2 Sensor 1
+P2243,O2 Sensor Reference Voltage Circuit/Open Bank 1 Sensor 1
+P2244,O2 Sensor Reference Voltage Performance Bank 1 Sensor 1
+P2245,O2 Sensor Reference Voltage Circuit Low Bank 1 Sensor 1
+P2246,O2 Sensor Reference Voltage Circuit High Bank 1 Sensor 1
+P2247,O2 Sensor Reference Voltage Circuit/Open Bank 2 Sensor 1
+P2248,O2 Sensor Reference Voltage Performance Bank 2 Sensor 1
+P2249,O2 Sensor Reference Voltage Circuit Low Bank 2 Sensor 1
+P2250,O2 Sensor Reference Voltage Circuit High Bank 2 Sensor 1
+P2251,O2 Sensor Reference Ground Circuit/Open Bank 1 Sensor 1
+P2252,O2 Sensor Reference Ground Circuit Low Bank 1 Sensor 1
+P2253,O2 Sensor Reference Ground Circuit High Bank 1 Sensor 1
+P2254,O2 Sensor Reference Ground Circuit/Open Bank 2 Sensor 1
+P2255,O2 Sensor Reference Ground Circuit Low Bank 2 Sensor 1
+P2256,O2 Sensor Reference Ground Circuit High Bank 2 Sensor 1
+P2257,Secondary Air Injection (AIR) Pump Control Circuit Low Bank 1
+P2258,Secondary Air Injection (AIR) Pump Control Circuit High Bank 1
+P2259,Secondary Air Injection (AIR) Pump Control Circuit Low Bank 2
+P2260,Secondary Air Injection (AIR) Pump Control Circuit High Bank 2
+P2261,Turbo/Super Charger Bypass Valve - Mechanical
+P2262,Turbo Boost Pressure Not Detected - Mechanical
+P2263,Turbo/Super Charger Boost System Performance
+P2264,Water in Fuel Sensor Circuit
+P2265,Water in Fuel Sensor Circuit Range/Performance
+P2266,Water in Fuel Sensor Circuit Low
+P2267,Water in Fuel Sensor Circuit High
+P2268,Water in Fuel Sensor Circuit Intermittent
+P2269,Water in Fuel Condition
+P2270,O2 Sensor Signal Stuck Lean Bank 1 Sensor 2
+P2271,O2 Sensor Signal Stuck Rich Bank 1 Sensor 2
+P2272,O2 Sensor Signal Stuck Lean Bank 2 Sensor 2
+P2273,O2 Sensor Signal Stuck Rich Bank 2 Sensor 2
+P2274,O2 Sensor Signal Stuck Lean Bank 1 Sensor 3
+P2275,O2 Sensor Signal Stuck Rich Bank 1 Sensor 3
+P2276,O2 Sensor Signal Stuck Lean Bank 2 Sensor 3
+P2277,O2 Sensor Signal Stuck Rich Bank 2 Sensor 3
+P2278,Oxygen Sensor Signals Swapped Bank 1 Sensor 3 / Bank 2 Sensor 3
+P2279,Intake Air (IA) Duct Air Leak
+P2280,Air Flow Restriction / Air Leak Between Air Filter and MAF
+P2281,Air Leak Between MAF and Throttle Body
+P2282,Air Leak Between Throttle Body and Intake Valves
+P2283,Injector Control Pressure Sensor Circuit
+P2284,Injector Control Pressure Sensor Circuit Range/Performance
+P2285,Injector Control Pressure Sensor Circuit Low
+P2286,Injector Control Pressure Sensor Circuit High
+P2287,Injector Control Pressure Sensor Circuit Intermittent
+P2288,Injector Control Pressure Too High
+P2289,Injector Control Pressure Too High - Engine Off
+P2290,Injector Control Pressure Too Low
+P2291,Injector Control Pressure Too Low - Engine Cranking
+P2292,Injector Control Pressure Erratic
+P2293,Fuel Pressure Regulator 2 Performance
+P2294,Fuel Pressure Regulator 2 Control Circuit
+P2295,Fuel Pressure Regulator 2 Control Circuit Low
+P2296,Fuel Pressure Regulator 2 Control Circuit High
+P2297,O2 Sensor Out of Range During Deceleration Bank 1 Sensor 1
+P2298,O2 Sensor Out of Range During Deceleration Bank 2 Sensor 1
+P2299,Brake Pedal Position / Accelerator Pedal Position Incompatible
+P2300,Ignition Coil 1 Control Circuit Low Voltage
+P2301,Ignition Coil 1 Control Circuit High Voltage
+P2302,Ignition Coil A Secondary Circuit
+P2303,Ignition Coil 2 Control Circuit Low Voltage
+P2304,Ignition Coil 2 Control Circuit High Voltage
+P2305,Ignition Coil B Secondary Circuit
+P2306,Ignition Coil 3 Control Circuit Low Voltage
+P2307,Ignition Coil 3 Control Circuit High Voltage
+P2308,Ignition Coil C Secondary Circuit
+P2309,Ignition Coil 4 Control Circuit Low Voltage
+P2310,Ignition Coil 4 Control Circuit High Voltage
+P2311,Ignition Coil D Secondary Circuit
+P2312,Ignition Coil 5 Control Circuit Low Voltage
+P2313,Ignition Coil 5 Control Circuit High Voltage
+P2314,Ignition Coil E Secondary Circuit
+P2315,Ignition Coil 6 Control Circuit Low Voltage
+P2316,Ignition Coil 6 Control Circuit High Voltage
+P2317,Ignition Coil F Secondary Circuit
+P2318,Ignition Coil 7 Control Circuit Low Voltage
+P2319,Ignition Coil 7 Control Circuit High Voltage
+P2320,Ignition Coil G Secondary Circuit
+P2321,Ignition Coil 8 Control Circuit Low Voltage
+P2322,Ignition Coil 8 Control Circuit High Voltage
+P2323,Ignition Coil H Secondary Circuit
+P2324,Ignition Coil I Primary Control Circuit Low
+P2325,Ignition Coil I Primary Control Circuit High
+P2326,Ignition Coil I Secondary Circuit
+P2327,Ignition Coil J Primary Control Circuit Low
+P2328,Ignition Coil J Primary Control Circuit High
+P2329,Ignition Coil J Secondary Circuit
+P2330,Ignition Coil K Primary Control Circuit Low
+P2331,Ignition Coil K Primary Control Circuit High
+P2332,Ignition Coil K Secondary Circuit
+P2333,Ignition Coil L Primary Control Circuit Low
+P2334,Ignition Coil L Primary Control Circuit High
+P2335,Ignition Coil L Secondary Circuit
+P2336,Cylinder #1 Above Knock Threshold
+P2337,Cylinder #2 Above Knock Threshold
+P2338,Cylinder #3 Above Knock Threshold
+P2339,Cylinder #4 Above Knock Threshold
+P2340,Cylinder #5 Above Knock Threshold
+P2341,Cylinder #6 Above Knock Threshold
+P2342,Cylinder #7 Above Knock Threshold
+P2343,Cylinder #8 Above Knock Threshold
+P2344,Cylinder #9 Above Knock Threshold
+P2345,Cylinder #10 Above Knock Threshold
+P2346,Cylinder #11 Above Knock Threshold
+P2347,Cylinder #12 Above Knock Threshold
+P2400,Evaporative Emission System Leak Detection Pump Control Circuit /Open
+P2401,Evaporative Emission System Leak Detection Pump Control Circuit Low
+P2402,Evaporative Emission System Leak Detection Pump Control Circuit High
+P2403,Evaporative Emission System Leak Detection Pump Sense Circuit /Open
+P2404,Evaporative Emission System Leak Detection Pump Sense Circuit Range/Performance
+P2405,Evaporative Emission System Leak Detection Pump Sense Circuit Low
+P2406,Evaporative Emission System Leak Detection Pump Sense Circuit High
+P2407,Evaporative Emission System Leak Detection Pump Sense Circuit Intermittent/Erratic
+P2408,Fuel Cap Sensor/Switch Circuit
+P2409,Fuel Cap Sensor/Switch Circuit Range/Performance
+P2410,Fuel Cap Sensor/Switch Circuit Low
+P2411,Fuel Cap Sensor/Switch Circuit High
+P2412,Fuel Cap Sensor/Switch Circuit Intermittent/Erratic
+P2413,Exhaust Gas Recirculation System Performance
+P2414,O2 Sensor Exhaust Sample Error Bank 1 Sensor 1
+P2415,O2 Sensor Exhaust Sample Error Bank 2 Sensor 1
+P2416,O2 Sensor Signals Swapped Bank 1 Sensor 2 / Bank 1 Sensor 3
+P2417,O2 Sensor Signals Swapped Bank 2 Sensor 2 / Bank 2 Sensor 3
+P2418,Evaporative Emission System Switching Valve Control Circuit /Open
+P2419,Evaporative Emission System Switching Valve Control Circuit Low
+P2420,Evaporative Emission System Switching Valve Control Circuit High
+P2421,Evaporative Emission System Vent Valve Stuck Open
+P2422,Evaporative Emission System Vent Valve Stuck Closed
+P2423,HC Adsorption Catalyst Efficiency Below Threshold Bank 1
+P2424,HC Adsorption Catalyst Efficiency Below Threshold Bank 2
+P2425,Exhaust Gas Recirculation Cooling Valve Control Circuit/Open
+P2426,Exhaust Gas Recirculation Cooling Valve Control Circuit Low
+P2427,Exhaust Gas Recirculation Cooling Valve Control Circuit High
+P2428,Exhaust Gas Temperature Too High
+P2429,Exhaust Gas Temperature Too High
+P2430,Secondary Air Injection System Air Flow/Pressure Sensor Circuit
+P2431,Secondary Air Injection System Air Flow/Pressure Sensor Circuit Range/Performance
+P2432,Secondary Air Injection System Air Flow/Pressure Sensor Circuit Low
+P2433,Secondary Air Injection System Air Flow/Pressure Sensor Circuit High
+P2434,Secondary Air Injection System Pressure Sensor A Circuit Intermittent/Erratic
+P2435,Secondary Air Injection System Air FLow/Pressure Sensor Circuit
+P2436,Secondary Air Injection System Air Flow/Pressure Sensor Circuit Range/Performance
+P2437,Secondary Air Injection System Air FLow/Pressure Sensor Circuit Low
+P2438,Secondary Air Injection System Air Flow/Pressure Sensor Circuit High
+P2439,Secondary Air Injection System Pressure Sensor B Circuit Intermittent/Erratic
+P2440,Secondary Air Injection System Switching Valve Stuck Open
+P2441,Secondary Air Injection System Switching Valve A Stuck Closed
+P2442,Secondary Air Injection System Switching Valve B Stuck Open
+P2443,Secondary Air Injection System Switching Valve B Stuck Closed
+P2444,Secondary Air Injection System Pump Stuck On
+P2445,Secondary Air Injection System Pump A Stuck Off
+P2446,Secondary Air Injection System Pump B Stuck On
+P2447,Secondary Air Injection System Pump B Stuck Off
+P2448,Secondary Air Injection System High Airflow Bank 1
+P2449,Secondary Air Injection System High Airflow Bank 2
+P244B,Diesel particulate filter diff pressure too high
+P244C,Catalyst temp too low during regen
+P2450,Evaporative Emission System Switching Valve Performance or Stuck Open
+P2451,Evaporative Emission System Switching Valve Stuck Closed
+P2452,Particulate Matter Trap Differential Pressure Sensor Circuit
+P2453,Particulate Matter Trap Differential Pressure Sensor Circuit Range/Performance
+P2454,Particulate Matter Trap Differential Pressure Sensor Circuit Low
+P2455,Particulate Matter Trap Differential Pressure Sensor Circuit High
+P2456,Particulate Matter Trap Differential Pressure Sensor Circuit Intermittent/Erratic
+P2457,Exhaust Gas Recirculation Cooling System Performance
+P2459,Diesel particulate filter regen freq
+P2463,Diesel particulate filter soot accumulation
+P2500,Generator L-Terminal Circuit Low Voltage
+P2501,Generator L-Terminal Circuit High Voltage
+P2502,Charging System Voltage
+P2503,Charging System Voltage Low
+P2504,Charging System Voltage High
+P2505,ECM/PCM Power Input Signal
+P2506,ECM/PCM Power Input Signal Range/Performance
+P2507,ECM/PCM Power Input Signal Low
+P2508,ECM/PCM Power Input Signal High
+P2509,ECM/PCM Power Input Signal Intermittent
+P250A,Engine Oil Level Sensor Circuit
+P250B,Engine Oil Level Sensor Circuit Range/Performance
+P250C,Engine Oil Level Sensor Circuit Low
+P250D,Engine Oil Level Sensor Circuit High
+P250E,Engine Oil Level Sensor Circuit Intermittent/Erratic
+P250F,Engine Oil Level Too Low
+P2510,ECM/PCM Power Relay Sense Circuit Range/Performance
+P2511,ECM/PCM Power Relay Sense Circuit Intermittent
+P2512,Event Data Recorder Request Circuit/ Open
+P2513,Event Data Recorder Request Circuit Low
+P2514,Event Data Recorder Request Circuit High
+P2515,A/C Refrigerant Pressure Sensor B Circuit
+P2516,A/C Refrigerant Pressure Sensor B Circuit Range/Performance
+P2517,A/C Refrigerant Pressure Sensor B Circuit Low Input
+P2518,A/C Refrigerant Pressure Sensor B Circuit High Input
+P2519,A/C Request A Circuit
+P251A,PTO Enable Switch Circuit/Open
+P251B,PTO Enable Switch Circuit Low
+P251C,PTO Enable Switch Circuit High
+P251D,PTO Engine Shutdown Circuit/Open
+P251E,PTO Engine Shutdown Circuit Low
+P251F,PTO Engine Shutdown Circuit High
+P2520,A/C Request A Circuit Low
+P2521,A/C Request A Circuit High
+P2522,A/C Request B Circuit
+P2523,A/C Request B Circuit Low
+P2524,A/C Request B Circuit High
+P2525,Vacuum Reservoir Pressure Sensor Circuit
+P2526,Vacuum Reservoir Pressure Sensor Circuit Range/Performance
+P2527,Vacuum Reservoir Pressure Sensor Circuit Low
+P2528,Vacuum Reservoir Pressure Sensor Circuit High
+P2529,Vacuum Reservoir Pressure Sensor Circuit Intermittent
+P252A,Engine Oil Quality Sensor Circuit
+P252B,Engine Oil Quality Sensor Circuit Range/Performance
+P252C,Engine Oil Quality Sensor Circuit Low
+P252D,Engine Oil Quality Sensor Circuit High
+P252E,Engine Oil Quality Circuit Intermittent/Erratic
+P252F,Engine Oil Level Too High
+P2530,Ignition Switch Run Position Circuit
+P2531,Ignition Switch Run Position Circuit Low
+P2532,Ignition Switch Run Position Circuit High
+P2533,Ignition Switch Run/Start Position Circuit
+P2534,Ignition Switch Run/Start Position Circuit Low
+P2535,Ignition Switch Run/Start Position Circuit High
+P2536,Ignition Switch Accessory Position Circuit
+P2537,Ignition Switch Accessory Position Circuit Low
+P2538,Ignition Switch Accessory Position Circuit High
+P2539,Low Pressure Fuel System Sensor Circuit
+P253A,PTO Sense Circuit/Open
+P253B,PTO Sense Circuit Range/Performance
+P253C,PTO Sense Circuit Low
+P253D,PTO Sense Circuit High
+P253E,PTO Sense Circuit Intermittent/Erratic
+P2540,Low Pressure Fuel System Sensor Circuit Range/Performance
+P2541,Low Pressure Fuel System Sensor Circuit Low
+P2542,Low Pressure Fuel System Sensor Circuit High
+P2543,Low Pressure Fuel System Sensor Circuit Intermittent
+P2544,Torque Management Request Input Signal A
+P2545,Torque Management Request Input Signal A Range/Performance
+P2546,Torque Management Request Input Signal A Low
+P2547,Torque Management Request Input Signal A High
+P2548,Torque Management Request Input Signal B
+P2549,Torque Management Request Input Signal B Range/Performance
+P254A,PTO Speed Selector Sensor/Switch 1 Circuit/Open
+P254B,PTO Speed Selector Sensor/Switch 1 Range/Performance
+P254C,PTO Speed Selector Sensor/Switch 1 Circuit Low
+P254D,PTO Speed Selector Sensor/Switch 1 Circuit High
+P254E,PTO Speed Selector Sensor/Switch 1 Circuit Intermittent/Erratic
+P254F,Engine Hood Switch Circuit
+P2550,Torque Management Request Input B Signal Low
+P2551,Torque Management Request Input B Signal High
+P2552,Throttle/Fuel Inhibit Circuit
+P2553,Throttle/Fuel Inhibit Circuit Range/Performance
+P2554,Throttle/Fuel Inhibit Circuit Low
+P2555,Throttle/Fuel Inhibit Circuit High
+P2556,Engine Coolant Level Sensor/Switch Circuit
+P2557,Engine Coolant Level Sensor/Switch Circuit Range/Performance
+P2558,Engine Coolant Level Sensor/Switch Circuit Low
+P2559,Engine Coolant Level Sensor/Switch Circuit High
+P255A,PTO Speed Selector Sensor/Switch 2 Circuit/Open
+P255B,PTO Speed Selector Sensor/Switch 2 Range/Performance
+P255C,PTO Speed Selector Sensor/Switch 2 Circuit Low
+P255D,PTO Speed Selector Sensor/Switch 2 Circuit High
+P255E,PTO Speed Selector Sensor/Switch 2 Circuit Intermittent/Erratic
+P2560,Engine Coolant Level Low
+P2561,Air Conditioning (A/C) Control Module Requested MIL Illumination
+P2562,Turbocharger Boost Control Position Sensor Circuit
+P2563,Turbocharger Boost Control Position Sensor Circuit Range/Performance
+P2564,Turbocharger Boost Control Position Sensor Circuit Low
+P2565,Turbocharger Boost Control Position Sensor Circuit High
+P2566,Turbocharger Boost Control Position Sensor Circuit Intermittent
+P2567,Direct Ozone Reduction Catalyst Temperature Sensor Circuit
+P2568,Direct Ozone Reduction Catalyst Temperature Sensor Performance
+P2569,Direct Ozone Reduction Catalyst Temperature Sensor Circuit Low Voltage
+P256A,Engine Idle Speed Selector Sensor/Switch Circuit/Open
+P256B,Engine Idle Speed Selector Sensor/Switch Range/Performance
+P256C,Engine Idle Speed Selector Sensor/Switch Circuit Low
+P256D,Engine Idle Speed Selector Sensor/Switch Circuit High
+P256E,Engine Idle Speed Selector Sensor/Switch Circuit Intermittent/Erratic
+P2570,Direct Ozone Reduction Catalyst Temperature Sensor Circuit High Voltage
+P2571,Direct Ozone Reduction Catalyst Temperature Sensor Circuit Intermittent
+P2572,Direct Ozone Reduction Catalyst Deterioration Sensor Circuit
+P2573,Direct Ozone Reduction Catalyst Deterioration Sensor Performance
+P2574,Direct Ozone Reduction Catalyst Deterioration Sensor Circuit Low Voltage
+P2575,Direct Ozone Reduction Catalyst Deterioration Sensor Circuit High Voltage
+P2576,Direct Ozone Reduction Catalyst Deterioration Sensor Circuit Intermittent
+P2577,Direct Ozone Reduction Catalyst Low Efficiency
+P2578,Turbocharger Speed Sensor Circuit
+P2579,Turbocharger Speed Sensor Circuit Range/Performance
+P2580,Turbocharger speed sensor circuit low
+P2581,Turbocharger speed sensor circuit high
+P2582,Turbocharger speed sensor circuit intermittent
+P2583,Cruise Control Front Distance Range Sensor
+P2584,Fuel Additive Control Module MIL Request
+P2585,Fuel Additive Control Module Warning Lamp Request
+P2586,Turbocharger Boost Control Position Sensor B Circuit
+P2587,Turbocharger Boost Control Position Sensor B Circuit Range/Performance
+P2588,Turbocharger Boost Control Position Sensor B Circuit Low
+P2589,Turbocharger Boost Control Position Sensor B Circuit High
+P2590,Turbocharger Boost Control Position Sensor B Circuit Intermittent/Erratic
+P2600,Auxiliary Coolant Pump Relay Control Circuit
+P2601,Coolant Pump Control Circuit Range/Performance
+P2602,Auxiliary Coolant Pump Relay Control Circuit Low Voltage
+P2603,Auxiliary Coolant Pump Relay Control Circuit High Voltage
+P2604,Intake Air Heater A Circuit Range/Performance
+P2605,Intake Air Heater A Circuit/Open
+P2606,Intake Air Heater B Circuit Range/Performance
+P2607,Intake Air Heater B Circuit Low
+P2608,Intake Air Heater B Circuit High
+P2609,Intake Air Heater System Performance
+P260A,PTO Control Circuit/Open
+P260B,PTO Control Circuit Low
+P260C,PTO Control Circuit High
+P260D,PTO Engaged Lamp Control Circuit
+P2610,ECM/PCM Internal Engine Off Timer Performance
+P2611,A/C Refrigerant Distribution Valve Control Circuit / Open
+P2612,A/C Refrigerant Distribution Valve Control Circuit Low
+P2613,A/C Refrigerant Distribution Valve Control Circuit High
+P2614,Camshaft Position Signal Output Circuit / Open
+P2615,Camshaft Position Signal Output Circuit Low
+P2616,Camshaft Position Signal Output Circuit High
+P2617,Crankshaft Position Signal Output Circuit / Open
+P2618,Crankshaft Position Signal Output Circuit Low
+P2619,Crankshaft Position Signal Output Circuit High
+P2620,Throttle Position Output Circuit/Open
+P2621,Throttle Position Output Circuit Low
+P2622,Throttle Position Output Circuit High
+P2623,Injector Control Pressure Regulator Circuit / Open
+P2624,Injector Control Pressure Regulator Circuit Low
+P2625,Injector Control Pressure Regulator Circuit High
+P2626,O2 Sensor Pumping Current Trim Circuit/Open Bank 1 Sensor 1
+P2627,O2 Sensor Pumping Current Trim Circuit Low Bank 1 Sensor 1
+P2628,O2 Sensor Pumping Current Trim Circuit High Bank 1 Sensor 1
+P2629,O2 Sensor Pumping Current Trim Circuit/Open Bank 2 Sensor 1
+P2630,O2 Sensor Pumping Current Trim Circuit Low Bank 2 Sensor 1
+P2631,O2 Sensor Pumping Current Trim Circuit High Bank 2 Sensor 1
+P2632,Fuel Pump B Control Circuit Open
+P2633,Fuel Pump 2 Relay Control Circuit Low Voltage
+P2634,Fuel Pump 2 Relay Control Circuit High Voltage
+P2635,Fuel Pump 1 Flow Insufficient
+P2636,Fuel Pump B Low Flow
+P2637,Torque Management Feedback Signal A
+P2638,Torque Management Feedback Signal A Range/Performance
+P2639,Torque Management Feedback Signal A Low
+P2640,Torque Management Feedback Signal A High
+P2641,Torque Management Feedback Signal B
+P2642,Torque Management Feedback Signal B Range/Performance
+P2643,Torque Management Feedback Signal B Low
+P2644,Torque Management Feedback Signal B High
+P2645,A Rocker Arm Actuator Control Circuit/Open Bank 1
+P2646,A Rocker Arm Actuator System Performance or Stuck Off Bank 1
+P2647,A Rocker Arm Actuator System Stuck On Bank 1
+P2648,A Rocker Arm Actuator Control Circuit Low Bank 1
+P2649,A Rocker Arm Actuator Control Circuit High Bank 1
+P2650,B Rocker Arm Actuator Control Circuit/Open Bank 1
+P2651,B Rocker Arm Actuator System Performance or Stuck Off Bank 1
+P2652,B Rocker Arm Actuator System Stuck On Bank 1
+P2653,B Rocker Arm Actuator Control Circuit Low Bank 1
+P2654,B Rocker Arm Actuator Control Circuit High Bank 1
+P2655,A Rocker Arm Actuator Control Circuit/Open Bank 2
+P2656,A Rocker Arm Actuator System Performance or Stuck Off Bank 2
+P2657,A Rocker Arm Actuator System Stuck On Bank 2
+P2658,A Rocker Arm Actuator Control Circuit Low Bank 2
+P2659,A Rocker Arm Actuator Control Circuit High Bank 2
+P2660,B Rocker Arm Actuator Control Circuit/Open Bank 2
+P2661,B Rocker Arm Actuator System Performance or Stuck Off Bank 2
+P2662,B Rocker Arm Actuator System Stuck On Bank 2
+P2663,B Rocker Arm Actuator Control Circuit Low Bank 2
+P2664,B Rocker Arm Actuator Control Circuit High Bank 2
+P2665,Low Pressure Fuel Shutoff Relay Control Circuit
+P2666,Fuel Shutoff Valve B Control Circuit Low
+P2667,Fuel Shutoff Valve B Control Circuit High
+P2668,Fuel Mode Indicator Lamp Control Circuit
+P2669,Actuator Supply Voltage B Circuit /Open
+P2670,Actuator Supply Voltage B Circuit Low
+P2671,Actuator Supply Voltage B Circuit High
+P2672,Injection Pump Timing Offset
+P2673,Injection Pump Timing Calibration Not Learned
+P2674,Injection Pump Fuel Calibration Not Learned
+P2675,Air Cleaner Inlet Control Circuit / Open
+P2676,Air Cleaner Inlet Control Circuit Low
+P2677,Air Cleaner Inlet Control Circuit High
+P2678,Coolant Degassing Valve Control Circuit / Open
+P2679,Coolant Degassing Valve Control Circuit Low
+P2680,Coolant Degassing Valve Control Circuit High
+P2681,Engine Coolant Bypass Valve Control Circuit / Open
+P2682,Engine Coolant Bypass Valve Control Circuit Low
+P2683,Engine Coolant Bypass Valve Control Circuit High
+P2684,Actuator Supply Voltage C Circuit /Open
+P2685,Actuator Supply Voltage C Circuit Low
+P2686,Actuator Supply Voltage C Circuit High
+P268A,Fuel Injector Calibration Not Programmed
+P268C,Injector 1 calibration incorrect
+P268D,Injector 2 calibration incorrect
+P268E,Injector 3 calibration incorrect
+P268F,Injector 4 calibration incorrect
+P2690,Injector 5 calibration incorrect
+P2691,Injector 6 calibration incorrect
+P2692,Injector 7 calibration incorrect
+P2693,Injector 8 calibration incorrect
+P2700,Transmission Friction Element A Apply Time Range/Performance
+P2701,Transmission Friction Element B Apply Time Range/Performance
+P2702,Transmission Friction Element C Apply Time Range/Performance
+P2703,Transmission Friction Element D Apply Time Range/Performance
+P2704,Transmission Friction Element E Apply Time Range/Performance
+P2705,Transmission Friction Element F Apply Time Range/Performance
+P2706,Shift Solenoid F
+P2707,Shift Solenoid F Performance or Stuck Off
+P2708,Shift Solenoid F Stuck On
+P2709,Shift Solenoid F Electrical
+P2710,Shift Solenoid F Intermittent
+P2711,Unexpected Mechanical Gear Disengagement
+P2712,Hydraulic Power Unit Leakage
+P2713,Pressure Control (PC) Solenoid D
+P2714,Pressure Control (PC) Solenoid D Stuck Off
+P2715,Pressure Control (PC) Solenoid D Stuck On
+P2716,Pressure Control (PC) Solenoid D Electrical
+P2717,Pressure Control (PC) Solenoid D Intermittent
+P2718,Pressure Control (PC) Solenoid D Control Circuit Open
+P2719,Pressure Control (PC) Solenoid D System Performance
+P2720,Pressure Control (PC) Solenoid D Control Circuit Low
+P2721,Pressure Control (PC) Solenoid D Control Circuit High
+P2722,Pressure Control (PC) Solenoid E
+P2723,Pressure Control (PC) Solenoid E Stuck Off
+P2724,Pressure Control (PC) Solenoid E Stuck On
+P2725,Pressure Control (PC) Solenoid E Electrical
+P2726,Pressure Control (PC) Solenoid E Intermittent
+P2727,Pressure Control (PC) Solenoid E Control Circuit Open
+P2728,Pressure Control (PC) Solenoid E System Performance
+P2729,Pressure Control (PC) Solenoid E Control Circuit Low
+P2730,Pressure Control (PC) Solenoid E Control Circuit High
+P2731,Pressure Control (PC) Solenoid F
+P2732,Pressure Control (PC) Solenoid F Stuck Off
+P2733,Pressure Control (PC) Solenoid F Stuck On
+P2734,Pressure Control (PC) Solenoid F Electrical
+P2735,Pressure Control (PC) Solenoid F Intermittent
+P2736,Pressure Control (PC) Solenoid F Control Circuit Open
+P2737,Pressure Control (PC) Solenoid F System Performance
+P2738,Pressure Control (PC) Solenoid F Control Circuit Low
+P2739,Pressure Control (PC) Solenoid F Control Circuit High
+P2740,Transmission Fluid Temperature Sensor B Circuit
+P2741,Transmission Fluid Temperature Sensor B Circuit Range Performance
+P2742,Transmission Fluid Temperature Sensor B Circuit Low
+P2743,Transmission Fluid Temperature Sensor B Circuit High
+P2744,Transmission Fluid Temperature Sensor B Circuit Intermittent
+P2745,Intermediate Shaft Speed Sensor B Circuit
+P2746,Intermediate Shaft Speed Sensor B Circuit Range/Performance
+P2747,Intermediate Shaft Speed Sensor B Circuit No Signal
+P2748,Intermediate Shaft Speed Sensor B Circuit Intermittent
+P2749,Intermediate Shaft Speed Sensor C Circuit
+P2750,Intermediate Shaft Speed Sensor C Circuit Range/Performance
+P2751,Intermediate Shaft Speed Sensor C Circuit No Signal
+P2752,Intermediate Shaft Speed Sensor C Circuit Intermittent
+P2753,Transmission Fluid Cooler Control Circuit / Open
+P2754,Transmission Fluid Cooler Control Circuit Low
+P2755,Transmission Fluid Cooler Control Circuit High
+P2756,Torque Converter Clutch Pressure Control Solenoid
+P2757,Torque Converter Clutch Pressure Control Solenoid Stuck Off
+P2758,Torque Converter Clutch Pressure Control Solenoid Stuck On
+P2759,Torque Converter Clutch Pressure Control Solenoid Electrical
+P2760,Torque Converter Clutch Pressure Control Solenoid Intermittent
+P2761,Torque Converter Clutch Pressure Control Solenoid Control Circuit/Open
+P2762,Torque Converter Clutch Pressure Control Solenoid System Performance
+P2763,Torque Converter Clutch Pressure Control Solenoid Control Circuit High
+P2764,Torque Converter Clutch Pressure Control Solenoid Control Circuit Low
+P2765,Input/Turbine Speed Sensor B Circuit
+P2766,Input/Turbine Speed Sensor B Circuit Range/Performance
+P2767,Input/Turbine Speed Sensor B Circuit No Signal
+P2768,Input/Turbine Speed Sensor B Circuit Intermittent
+P2769,Torque Converter Clutch Circuit Low
+P2770,Torque Converter Clutch Circuit High
+P2771,Four Wheel Drive Low Sensor Circuit
+P2772,Four Wheel Drive (4WD) Low Switch Circuit Range/Performance
+P2773,Four Wheel Drive (4WD) Low Switch Circuit Low
+P2774,Four Wheel Drive (4WD) Low Switch Circuit High
+P2775,Upshift Switch Circuit Range/Performance
+P2776,Upshift Switch Circuit Low
+P2777,Upshift Switch Circuit High
+P2778,Upshift Switch Circuit Intermittent/Erratic
+P2779,Downshift Switch Circuit Range/Performance
+P2780,Downshift Switch Circuit Low
+P2781,Downshift Switch Circuit High
+P2782,Downshift Switch Circuit Intermittent/Erratic
+P2783,Torque Converter Temperature Too High
+P2784,Input/Turbine Speed Sensor A/B Correlation
+P2785,Clutch Actuator Temperature Too High
+P2786,Gear Shift Actuator Temperature Too High
+P2787,Clutch Temperature Too High
+P2788,Auto Shift Manual Adaptive Learning at Limit
+P2789,Clutch Adaptive Learning at Limit
+P278A,Kick-Down Switch Circuit
+P2790,Gate Select Direction Circuit
+P2791,Gate Select Direction Circuit Low
+P2792,Gate Select Direction Circuit High
+P2793,Gear Shift Direction Circuit
+P2794,Gear Shift Direction Circuit Low
+P2795,Gear Shift Direction Circuit High
+P2796,Auxiliary Transmission Fluid Pump Relay Control Circuit
+P2797,Auxiliary Transmission Fluid Pump Performance
+P2798,Auxiliary Transmission Fluid Pump Control Circuit Low
+P2799,Auxiliary Transmission Fluid Pump Control Circuit High
+P2800,Transmission Range Sensor B Circuit Malfunction (PRNDL Input)
+P2801,Transmission Range Sensor B Circuit Range/Performance
+P2802,Transmission Range Sensor B Circuit Low
+P2803,Transmission Range Sensor B Circuit High
+P2804,Transmission Range Sensor B Intermittent
+P2805,Transmission Range Sensor A/B Correlation
+P2806,Transmission Range Sensor Alignment
+P2807,Pressure Control (PC) Solenoid G
+P2808,Pressure Control (PC) Solenoid G Stuck Off
+P2809,Pressure Control (PC) Solenoid G Stuck On
+P2810,Pressure Control (PC) Solenoid G Electrical
+P2811,Pressure Control (PC) Solenoid G Intermittent
+P2812,Pressure Control (PC) Solenoid G Control Circuit Open
+P2813,Pressure Control (PC) Solenoid G System Performance
+P2814,Pressure Control (PC) Solenoid G Control Circuit Low
+P2815,Pressure Control (PC) Solenoid G Control Circuit High
+P2A00,O2 Sensor Circuit Range/Performance Bank 1 Sensor 1
+P2A01,O2 Sensor Circuit Range/Performance Bank 1 Sensor 2
+P2A02,O2 Sensor Circuit Range/Performance Bank 1 Sensor 3
+P2A03,O2 Sensor Circuit Range/Performance Bank 2 Sensor 1
+P2A04,O2 Sensor Circuit Range/Performance Bank 2 Sensor 2
+P2A05,O2 Sensor Circuit Range/Performance Bank 2 Sensor 3
+P2A06,O2 Sensor Negative Voltage Bank 1 Sensor 1
+P2A07,O2 Sensor Negative Voltage Bank 1 Sensor 2
+P2A08,O2 Sensor Negative Voltage Bank 1 Sensor 3
+P2A09,O2 Sensor Negative Voltage Bank 2 Sensor 1
+P2A10,O2 Sensor Negative Voltage Bank 2 Sensor 2
+P2A11,O2 Sensor Negative Voltage Bank 2 Sensor 3
+P305F,Dual Battery Control Module Performance
+P3400,Cylinder Deactivation System Bank 1
+P3401,Cylinder 1 Deactivation/Intake Valve Control Circuit/Open
+P3402,Cylinder 1 Deactivation Solenoid Performance
+P3403,Cylinder 1 Deactivation Solenoid Control Circuit Low
+P3404,Cylinder 1 Deactivation Solenoid Control Circuit High
+P3405,Cylinder 1 Exhaust Valve Control Circuit/Open
+P3406,Cylinder 1 Exhaust Valve Control Performance
+P3407,Cylinder 1 Exhaust Valve Control Circuit Low
+P3408,Cylinder 1 Exhaust Valve Control Circuit High
+P3409,Cylinder 2 Deactivation Solenoid Control Circuit/Open
+P3410,Cylinder 2 Deactivation Solenoid Performance
+P3411,Cylinder 2 Deactivation Solenoid Control Circuit Low
+P3412,Cylinder 2 Deactivation Solenoid Control Circuit High
+P3413,Cylinder 2 Exhaust Valve Control Circuit/Open
+P3414,Cylinder 2 Exhaust Valve Control Performance
+P3415,Cylinder 2 Exhaust Valve Control Circuit Low
+P3416,Cylinder 2 Exhaust Valve Control Circuit High
+P3417,Cylinder 3 Deactivation Solenoid Control Circuit/Open
+P3418,Cylinder 3 Deactivation Solenoid Performance
+P3419,Cylinder 3 Deactivation Solenoid Control Circuit Low
+P3420,Cylinder 3 Deactivation Solenoid Control Circuit High
+P3421,Cylinder 3 Exhaust Valve Control Circuit/Open
+P3422,Cylinder 3 Exhaust Valve Control Performance
+P3423,Cylinder 3 Exhaust Valve Control Circuit Low
+P3424,Cylinder 3 Exhaust Valve Control Circuit High
+P3425,Cylinder 4 Deactivation/Intake Valve Control Circuit/Open
+P3426,Cylinder 4 Deactivation Solenoid Performance
+P3427,Cylinder 4 Deactivation Solenoid Control Circuit Low
+P3428,Cylinder 4 Deactivation Solenoid Control Circuit High
+P3429,Cylinder 4 Exhaust Valve Control Circuit/Open
+P3430,Cylinder 4 Exhaust Valve Control Performance
+P3431,Cylinder 4 Exhaust Valve Control Circuit Low
+P3432,Cylinder 4 Exhaust Valve Control Circuit High
+P3433,Cylinder 5 Deactivation Solenoid Control Circuit/Open
+P3434,Cylinder 5 Deactivation Solenoid Performance
+P3435,Cylinder 5 Deactivation Solenoid Control Circuit Low
+P3436,Cylinder 5 Deactivation Solenoid Control Circuit High
+P3437,Cylinder 5 Exhaust Valve Control Circuit/Open
+P3438,Cylinder 5 Exhaust Valve Control Performance
+P3439,Cylinder 5 Exhaust Valve Control Circuit Low
+P3440,Cylinder 5 Exhaust Valve Control Circuit High
+P3441,Cylinder 6 Deactivation/Intake Valve Control Circuit/Open
+P3442,Cylinder 6 Deactivation Solenoid Performance
+P3443,Cylinder 6 Deactivation Solenoid Control Circuit Low
+P3444,Cylinder 6 Deactivation Solenoid Control Circuit High
+P3445,Cylinder 6 Exhaust Valve Control Circuit/Open
+P3446,Cylinder 6 Exhaust Valve Control Performance
+P3447,Cylinder 6 Exhaust Valve Control Circuit Low
+P3448,Cylinder 6 Exhaust Valve Control Circuit High
+P3449,Cylinder 7 Deactivation/Intake Valve Control Circuit/Open
+P3450,Cylinder 7 Deactivation Solenoid Performance
+P3451,Cylinder 7 Deactivation Solenoid Control Circuit Low
+P3452,Cylinder 7 Deactivation Solenoid Control Circuit High
+P3453,Cylinder 7 Exhaust Valve Control Circuit/Open
+P3454,Cylinder 7 Exhaust Valve Control Performance
+P3455,Cylinder 7 Exhaust Valve Control Circuit Low
+P3456,Cylinder 7 Exhaust Valve Control Circuit High
+P3457,Cylinder 8 Deactivation Solenoid Control Circuit/Open
+P3458,Cylinder 8 Deactivation Solenoid Performance
+P3459,Cylinder 8 Deactivation Solenoid Control Circuit Low
+P3460,Cylinder 8 Deactivation Solenoid Control Circuit High
+P3461,Cylinder 8 Exhaust Valve Control Circuit/Open
+P3462,Cylinder 8 Exhaust Valve Control Performance
+P3463,Cylinder 8 Exhaust Valve Control Circuit Low
+P3464,Cylinder 8 Exhaust Valve Control Circuit High
+P3465,Cylinder 9 Deactivation/Intake Valve Control Circuit/Open
+P3466,Cylinder 9 Deactivation/Intake Valve Control Performance
+P3467,Cylinder 9 Deactivation/Intake Valve Control Circuit Low
+P3468,Cylinder 9 Deactivation/Intake Valve Control Circuit High
+P3469,Cylinder 9 Exhaust Valve Control Circuit/Open
+P3470,Cylinder 9 Exhaust Valve Control Performance
+P3471,Cylinder 9 Exhaust Valve Control Circuit Low
+P3472,Cylinder 9 Exhaust Valve Control Circuit High
+P3473,Cylinder 10 Deactivation/Intake Valve Control Circuit/Open
+P3474,Cylinder 10 Deactivation/Intake Valve Control Performance
+P3475,Cylinder 10 Deactivation/Intake Valve Control Circuit Low
+P3476,Cylinder 10 Deactivation/Intake Valve Control Circuit High
+P3477,Cylinder 10 Exhaust Valve Control Circuit/Open
+P3478,Cylinder 10 Exhaust Valve Control Performance
+P3479,Cylinder 10 Exhaust Valve Control Circuit Low
+P3480,Cylinder 10 Exhaust Valve Control Circuit High
+P3481,Cylinder 11 Deactivation/Intake Valve Control Circuit/Open
+P3482,Cylinder 11 Deactivation/Intake Valve Control Performance
+P3483,Cylinder 11 Deactivation/Intake Valve Control Circuit Low
+P3484,Cylinder 11 Deactivation/Intake Valve Control Circuit High
+P3485,Cylinder 11 Exhaust Valve Control Circuit/Open
+P3486,Cylinder 11 Exhaust Valve Control Performance
+P3487,Cylinder 11 Exhaust Valve Control Circuit Low
+P3488,Cylinder 11 Exhaust Valve Control Circuit High
+P3489,Cylinder 12 Deactivation/Intake Valve Control Circuit/Open
+P3490,Cylinder 12 Deactivation/Intake Valve Control Performance
+P3491,Cylinder 12 Deactivation/Intake Valve Control Circuit Low
+P3492,Cylinder 12 Deactivation/Intake Valve Control Circuit High
+P3493,Cylinder 12 Exhaust Valve Control Circuit/Open
+P3494,Cylinder 12 Exhaust Valve Control Performance
+P3495,Cylinder 12 Exhaust Valve Control Circuit Low
+P3496,Cylinder 12 Exhaust Valve Control Circuit High
+P3497,Cylinder Deactivation System Bank 2
+U1000,Class 2 Communication Malfunction
+U1001,Loss of XXX Communications
+U1016,Loss of Class 2 Communication with VCM
+U1026,Loss of ATC Class 2 Communication
+U1040,Loss of Class 2 Communications with ABS
+U1041,Loss of EBCM Communication
+U1042,Lost Communications with Brake/Traction Control System
+U1056,Loss of Communications with RSS
+U1064,Loss of Communications with DIM
+U1065,Loss of Communications with IPM
+U1066,Loss of Communications with RIM
+U1088,Loss of Communications with SDM
+U1096,Loss of Communications with IPC
+U1128,Loss of Communications with IRC
+U1129,Loss of Communications with AMP
+U1144,Loss of Communications with PHN
+U1145,Loss Of NAV Communications
+U1146,Loss Of Onstar Communiction
+U1152,Loss Of ACM Serial Data Communication
+U1153,Loss of Communications with CCP
+U1160,Loss of Communications with DDM
+U1161,Loss of PDM Serial Data
+U1162,Loss of Rear Driver Door Module SBI
+U1163,Loss of RRDM Serial Data
+U1164,Loss Of DIM Serial Data Communication
+U1166,Loss of Communications with SCM
+U1168,Loss Of TTM Communications
+U1169,Loss of Communications with MMM
+U1170,Loss of Driver Door Switch Assembly Serial Data
+U1176,Loss Of RFA Communications
+U1192,Loss of VTD Class 2 Serial Data Com
+U1193,Loss of VIM Class 2 Communication
+U1255,Class 2 Communication Malfunction
+U1300,Class 2 Short to Ground
+U1301,Class 2 Short to Battery
+U1304,Loss Of UART Communications
+U1305,Class 2 Data Link Low or High
+U1500,Inter-Device Dedicated Bus Malfunction
+U1800,Lost Communications With Fuel Injector Control Module (FICM)
+U1899,Starter/Generator Control Module Lost Communication With Engine Control Module (ECM)
+U2000,Invalid BFC Transmitted SPI Data
+U2001,Invalid IPC Transmitted SPI Data
+U2002,SPI Data-In Low
+U2003,SPI Data-In High
+U2004,SPI Data-Out Low
+U2005,SPI Data-Out High
+U2006,SPI Clock-Out Low
+U2007,SPI Clock-Out High
+U2050,SIR PPS/CPS Communications Link malfunction
+U2100,CAN Bus OFF
+U2101,Maximum List of CAN Control Modules Not Programmed
+U2102,More Controllers on Bus than Programmed
+U2103,Fewer Controllers On Bus Than Programmed
+U2104,CAN Bus Reset Counter Overrun
+U2105,CAN Bus Error ECM
+U2106,Lost Communication with Transmission Control System
+U2107,Lost Communications with Body Control System
+U2108,CAN Bus Error ABS
+U2109,Lost CAN Communications With Powertrain Control System
+U2127,Lost Communication With Front Heating Ventilation and Air Conditioning (HVAC) Control Module
+U2139,Lost Communications With Body Control (CIM) System
+U2140,Lost Communications With Body Control (UEC) System
+U2141,Lost Communications With Body Control (REC) System
+U2142,Lost Communications With Chassis Control (YRS) System
+U2143,Lost Communications With Steering Control (SAS) System
+U2144,Lost Communications With Powertrain Control (ACC) System
+U2145,Lost Communications With Convenience Control (PAS) System
+U2146,Lost Communications With Transmission Control (SLM) System
+U2147,Lost Communications With HVAC Control (AHS) System
+U2148,Lost Communications With Convenience Control (SRM) System
+U2149,Lost Communications With Chassis Control (TPM) System
+U2150,Navigation ECU Gateway Communication Error
+U2151,Navigation ECU Communication Malfunction
+U2153,VICS ECU Communication Error
+U2176,Lost Communication With Power Take Off Control Module

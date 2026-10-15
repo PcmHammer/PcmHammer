@@ -9,7 +9,7 @@ namespace PcmHacking
     /// The VPW side of <see cref="IKernelSession"/>: switch to 4X, upload the loader where the PCM
     /// needs one, run the kernel, and read blocks through it.
     /// </summary>
-    public class VpwKernelSession : IKernelSession
+    public class VPWKernelSession : IKernelSession
     {
         private readonly Vehicle vehicle;
         private readonly Protocol protocol = new Protocol();
@@ -30,7 +30,7 @@ namespace PcmHacking
         /// </summary>
         public bool IsRecovery { get; set; }
 
-        public VpwKernelSession(Vehicle vehicle, ILogger logger)
+        public VPWKernelSession(Vehicle vehicle, ILogger logger)
         {
             this.vehicle = vehicle;
             this.logger = logger;
@@ -69,7 +69,7 @@ namespace PcmHacking
                 {
                     // If the vehicle bus switches but the device does not, the bus has to time out back
                     // to 1X and everything after this fails.
-                    if (!await this.vehicle.VehicleSetVPW4x(pcmInfo, VpwSpeed.FourX))
+                    if (!await this.vehicle.VehicleSetVPW4x(pcmInfo, VPWSpeed.FourX))
                     {
                         if (!this.IsRecovery)
                         {

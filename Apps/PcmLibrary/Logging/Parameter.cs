@@ -26,7 +26,27 @@ namespace PcmHacking
 
         public string? FalseValue { get; private set; }
 
+        /// <summary>
+        /// Low end of the expected reading in these units, for a gauge or chart that needs a scale
+        /// before any data has arrived.
+        /// </summary>
+        public double RangeLow { get; private set; }
+
+        /// <summary>High end of the expected reading in these units.</summary>
+        public double RangeHigh { get; private set; }
+
+        /// <summary>
+        /// Whether a usable scale is known. False means a display should work one out from the data,
+        /// rather than drawing everything flat against a range of zero.
+        /// </summary>
+        public bool HasRange => this.RangeHigh > this.RangeLow;
+
         public Conversion(string units, string expression, string format)
+            : this(units, expression, format, 0, 0)
+        {
+        }
+
+        public Conversion(string units, string expression, string format, double rangeLow, double rangeHigh)
         {
             this.Units = units;
             this.Expression = Sanitize(expression);
@@ -35,6 +55,8 @@ namespace PcmHacking
             this.BitIndex = -1;
             this.TrueValue = null;
             this.FalseValue = null;
+            this.RangeLow = rangeLow;
+            this.RangeHigh = rangeHigh;
         }
 
         public Conversion(string units, int bitIndex, string trueValue, string falseValue)
@@ -110,6 +132,42 @@ namespace PcmHacking
         public string Name { get; protected set; }
         public string Description { get; protected set; }
         public IEnumerable<Conversion> Conversions { get; protected set; }
+
+        /// <summary>
+        /// What family this parameter belongs to - "SAE", "GM Enhanced", "RAM", "Math", or the name
+        /// of a device broadcasting on an auxiliary bus.
+        /// </summary>
+        /// <remarks>
+        /// For grouping the parameter list, which is the only way a list of this size stays
+        /// navigable. It says nothing about which bus carries the parameter: a GM enhanced PID is
+        /// requested the same way over VPW and over CAN, so the transport is a property of the
+        /// vehicle, not of the parameter.
+        /// </remarks>
+        public string Category { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Which family obtains this parameter, matching an <see cref="IParameterSource.Name"/>.
+        /// </summary>
+        /// <remarks>
+        /// Distinct from <see cref="Category"/>, which is how the list is grouped for a human and is
+        /// not always the same thing: SAE and GM Enhanced are two categories a user navigates by, but
+        /// one source, because both are requested the same way.
+        ///
+        /// Data rather than a C# type, so that a new kind of parameter is a definition file plus one
+        /// class, with nothing above it needing to learn the new type.
+        /// </remarks>
+        public string Source { get; set; } = ParameterSources.GmEnhancedObd;
+
+        /// <summary>
+        /// The bus this parameter only ever appears on, or null when either will do.
+        /// </summary>
+        /// <remarks>
+        /// A property of the parameter, not of its source. Broadcast covers both a vendor gauge and a
+        /// cluster message, and only the first is tied to a bus: AEM and Plex build CAN products and
+        /// frame their data themselves, so those parameters exist nowhere else, while a VPW broadcast
+        /// read the same way is not constrained at all.
+        /// </remarks>
+        public BusProtocol? RequiredBus { get; set; }
 
         public Parameter()
         {
@@ -314,7 +372,15 @@ namespace PcmHacking
         Max
     }
 
-    public class CanParameter : Parameter
+    /// <summary>
+    /// A parameter carried in a broadcast message rather than answered on request: a message
+    /// identifier, the bytes within it, and how to convert them.
+    /// </summary>
+    /// <remarks>
+    /// Not CAN-specific, despite where it came from. The same shape describes a VPW broadcast, whose
+    /// three header bytes serve as the identifier - which is why the secondary bus can be either.
+    /// </remarks>
+    public class BusParameter : Parameter
     {
         public uint MessageId { get; private set; }
         public uint ByteIndex { get; private set; }
@@ -324,13 +390,12 @@ namespace PcmHacking
         public Aggregation Aggregation { get; private set; }
 
         /// <summary>
-        /// This doesn't really make sense in the context of CAN logging, but
-        /// it's very useful for other parameters so I'm not sure it's worth
-        /// the trouble to factor it out.
+        /// Always true: a broadcast parameter belongs to whichever module transmits it, so the PCM's
+        /// operating system has no say in whether it is available.
         /// </summary>
         public override bool IsSupported(uint osid) { return true; }
 
-        public CanParameter(
+        public BusParameter(
             uint messageId,
             uint byteIndex,
             uint byteCount,

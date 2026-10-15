@@ -10,11 +10,11 @@ namespace PcmHacking
 {
     public partial class MainForm
     {
-        private static Brush textBrush = Brushes.White;
-        private static Font bigFont = new Font("Arial", 80);
-        private static Font littleFont = new Font("Arial", 20);
-        private const int topMargin = 10;
-        private const int bottomMargin = -10;
+        private static Brush TextBrush = Brushes.White;
+        private static Font BigFont = new Font("Arial", 80);
+        private static Font LittleFont = new Font("Arial", 20);
+        private const int TopMargin = 10;
+        private const int BottomMargin = -10;
 
         public void ClearZoomPanel()
         {
@@ -48,22 +48,22 @@ namespace PcmHacking
                     StringFormat format = new StringFormat();
 
                     string valueString = list[row].Value;
-                    SizeF valueSize = buffer.Graphics.MeasureString(valueString, bigFont);
+                    SizeF valueSize = buffer.Graphics.MeasureString(valueString, BigFont);
                     float valueX = centerX - valueSize.Width / 2;
                     float valueY = centerY - valueSize.Height / 2;
-                    buffer.Graphics.DrawString(valueString, bigFont, textBrush, valueX, valueY, format);
+                    buffer.Graphics.DrawString(valueString, BigFont, TextBrush, valueX, valueY, format);
 
                     string nameString = list[row].Name;
-                    SizeF nameSize = buffer.Graphics.MeasureString(nameString, littleFont);
+                    SizeF nameSize = buffer.Graphics.MeasureString(nameString, LittleFont);
                     float nameX = centerX - nameSize.Width / 2;
-                    float nameY = centerY - ((valueSize.Height / 2) + nameSize.Height / 2 + topMargin);
-                    buffer.Graphics.DrawString(nameString, littleFont, textBrush, nameX, nameY, format);
+                    float nameY = centerY - ((valueSize.Height / 2) + nameSize.Height / 2 + TopMargin);
+                    buffer.Graphics.DrawString(nameString, LittleFont, TextBrush, nameX, nameY, format);
 
                     string unitsString = list[row].Units;
-                    SizeF unitsSize = buffer.Graphics.MeasureString(unitsString, littleFont);
+                    SizeF unitsSize = buffer.Graphics.MeasureString(unitsString, LittleFont);
                     float unitsX = centerX - unitsSize.Width / 2;
-                    float unitsY = centerY + (valueSize.Height / 2) + bottomMargin;
-                    buffer.Graphics.DrawString(unitsString, littleFont, textBrush, unitsX, unitsY, format);
+                    float unitsY = centerY + (valueSize.Height / 2) + BottomMargin;
+                    buffer.Graphics.DrawString(unitsString, LittleFont, TextBrush, unitsX, unitsY, format);
                 }
 
                 buffer.Render();

@@ -158,9 +158,6 @@
       <DependentUpon>VinForm.cs</DependentUpon>
     </Compile>
     <Compile Include="Configuration.cs" />
-    <Compile Include="LogListView.cs">
-      <SubType>Component</SubType>
-    </Compile>
     <Compile Include="LogSearchBar.cs">
       <SubType>Component</SubType>
     </Compile>

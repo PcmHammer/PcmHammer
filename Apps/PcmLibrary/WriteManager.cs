@@ -765,7 +765,7 @@ namespace PcmHacking
                 {
                     // The quick probe found nothing; the device may have been left on CAN, so return it
                     // to VPW for the full VPW detection below (which has its own retries).
-                    await this.vehicle.SelectBus(BusProtocol.Vpw);
+                    await this.vehicle.SelectBus(BusProtocol.VPW);
                 }
             }
             else if (new OSIDInfo(forcedPcmType).BusProtocol == BusProtocol.Can500k)
@@ -1062,7 +1062,7 @@ namespace PcmHacking
 
             DateTime start = DateTime.Now;
 
-            VpwKernelSession session = new VpwKernelSession(this.vehicle, this.logger)
+            VPWKernelSession session = new VPWKernelSession(this.vehicle, this.logger)
             {
                 IsRecovery = this.isRecovery,
             };

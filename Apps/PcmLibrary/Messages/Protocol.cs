@@ -24,7 +24,7 @@ namespace PcmHacking
         /// the expected source in responses). Defaults to the PCM; set from the selected Target so
         /// the same builders/parsers can address a different module (e.g. a transmission controller).
         /// </summary>
-        public byte TargetVpwId { get; set; } = DeviceId.Pcm;
+        public byte TargetVPWId { get; set; } = DeviceId.Pcm;
 
         /// <summary>
         /// VPW device id of this tool (the message source in requests, and the expected destination

@@ -40,6 +40,7 @@
 #define AppPublisher "PCMHacking.net"
 #define AppURL       "https://pcmhacking.net"
 #define AppIcon      "..\UI\Shared\0411_256px.ico"
+#define LoggerIcon   "..\UI\Shared\pcmlogger_256px.ico"
 
 [Setup]
 ; AppId uniquely identifies the product for upgrades/uninstall - do not change it
@@ -112,8 +113,11 @@ Source: "{#WinFormsRoot}\PcmHammer\Loader-*.bin"; DestDir: "{app}\Cli"; Componen
 ; Boot loader flash libraries (E38). Not kernels, but loaded the same way and needed on disk.
 Source: "{#WinFormsRoot}\PcmHammer\BootLib-*.bin"; DestDir: "{app}\Cli"; Components: cli; Flags: ignoreversion skipifsourcedoesntexist
 
-; --- Shared shortcut icon ---
-Source: "{#AppIcon}"; DestDir: "{app}"; DestName: "pcmhammer.ico"; Flags: ignoreversion
+; --- Shortcut icons ---
+; The logger has its own, so its shortcut and taskbar button are not the same picture as
+; PcmHammer's - the two are often open at the same time.
+Source: "{#AppIcon}";    DestDir: "{app}"; DestName: "pcmhammer.ico"; Flags: ignoreversion
+Source: "{#LoggerIcon}"; DestDir: "{app}"; DestName: "pcmlogger.ico"; Flags: ignoreversion
 
 [InstallDelete]
 ; The apps are single-file: every managed dependency is embedded in the exe.
@@ -153,7 +157,7 @@ Type: filesandordirs; Name: "{app}\Cli\SlaveLibrary"
 
 [Icons]
 Name: "{group}\PCM Hammer";   Filename: "{app}\PcmHammer\PcmHammer.exe";     IconFilename: "{app}\pcmhammer.ico"; Components: pcmhammer
-Name: "{group}\PCM Logger";   Filename: "{app}\PcmLogger\PcmLogger.exe";     IconFilename: "{app}\pcmhammer.ico"; Components: pcmlogger
+Name: "{group}\PCM Logger";   Filename: "{app}\PcmLogger\PcmLogger.exe";     IconFilename: "{app}\pcmlogger.ico"; Components: pcmlogger
 Name: "{group}\VPW Explorer"; Filename: "{app}\VpwExplorer\VpwExplorer.exe"; IconFilename: "{app}\pcmhammer.ico"; Components: vpwexplorer
 Name: "{group}\Uninstall PCM Hammer"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\PCM Hammer"; Filename: "{app}\PcmHammer\PcmHammer.exe"; IconFilename: "{app}\pcmhammer.ico"; Tasks: desktopicon; Components: pcmhammer

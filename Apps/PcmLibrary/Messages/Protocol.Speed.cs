@@ -36,7 +36,7 @@ namespace PcmHacking
         public HighSpeedPermissionResult ParseHighSpeedPermissionResponse(Message message)
         {
             byte[] actual = message.GetBytes();
-            byte[] granted = new byte[] { Priority.Physical0, ToolId, TargetVpwId, Mode.HighSpeedPrepare + Mode.Response };
+            byte[] granted = new byte[] { Priority.Physical0, ToolId, TargetVPWId, Mode.HighSpeedPrepare + Mode.Response };
 
             // Priority
             if (actual[0] != granted[0])

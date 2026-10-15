@@ -76,5 +76,122 @@ namespace Tests
             Assert.AreEqual(int16 * 0.9, values[signed16Column].ValueAsDouble, "signed 16");
             Assert.AreEqual(uint16 * 0.9, values[unsigned16Column].ValueAsDouble, "unsigned 16");
         }
+
+        /// <summary>
+        /// The SAE O2 PIDs (14, 15, 18, 19) return two bytes that are two different quantities:
+        /// byte 1 is the sensor voltage at 0.005 V per count, byte 2 is short term fuel trim. The
+        /// conversion has to take the high byte of the 16-bit read and ignore the low one.
+        /// </summary>
+        /// <remarks>
+        /// Written because the obvious fix - declaring the parameter as one byte so only the voltage
+        /// is requested - is rejected by the PCM, which answers 7F 2C 12 for a partial PID and aborts
+        /// the whole logging session. The full width must be requested and the byte picked apart
+        /// afterwards, which puts the arithmetic in an expression string that nothing else checks.
+        /// </remarks>
+        [TestMethod]
+        public void O2ConversionTakesTheVoltageByte()
+        {
+            Conversion conversion = new Conversion("Volts", "((x - (x % 256)) / 256) * 0.005", "0.000");
+            Conversion[] conversions = new Conversion[] { conversion };
+
+            Parameter o2 = new RamParameter(
+                "O2", "O2 sensor", "", "uint16", false, conversions, GetAddress(0));
+            LogColumn column = new LogColumn(o2, conversion, false);
+
+            ParameterGroup group = new ParameterGroup(0);
+            group.TryAddLogColumn(column);
+
+            DpidConfiguration dpid = new DpidConfiguration();
+            dpid.TryAddGroup(group);
+            LogRowParser parser = new LogRowParser(dpid);
+
+            // 0x58 = 88 counts = 0.440 V; 0x80 = neutral fuel trim, and must not reach the result.
+            parser.ParseData(new RawLogData(0, new byte[] { 0x58, 0x80 }));
+
+            Assert.AreEqual(0.440, parser.Evaluate()[column].ValueAsDouble, 0.0001, "voltage");
+        }
+
+        /// <summary>
+        /// A conversion's scale is derived from its expression and storage width, so a gauge has an
+        /// axis without anyone writing ranges into the definitions by hand.
+        /// </summary>
+        [TestMethod]
+        public void RangeIsDerivedFromExpressionAndStorage()
+        {
+            (double Low, double High)? percent =
+                ConversionRange.Derive("Anything", "x * 100 / 255", "uint8", false);
+            Assert.IsNotNull(percent, "percent derived");
+            Assert.AreEqual(0, percent!.Value.Low, 0.01, "percent low");
+            Assert.AreEqual(100, percent.Value.High, 0.01, "percent high");
+
+            (double Low, double High)? volts =
+                ConversionRange.Derive("Anything", "x * 0.005", "uint8", false);
+            Assert.IsNotNull(volts, "volts derived");
+            Assert.AreEqual(0, volts!.Value.Low, 0.0001, "volts low");
+            Assert.AreEqual(1.275, volts.Value.High, 0.0001, "volts high");
+
+            // Signed storage has to carry its negative end through the conversion.
+            (double Low, double High)? signed =
+                ConversionRange.Derive("Anything", "x", "int8", false);
+            Assert.IsNotNull(signed, "signed derived");
+            Assert.AreEqual(-128, signed!.Value.Low, 0.01, "signed low");
+            Assert.AreEqual(127, signed.Value.High, 0.01, "signed high");
+        }
+
+        /// <summary>Things with no sensible axis say so, rather than returning a misleading one.</summary>
+        [TestMethod]
+        public void RangeIsAbsentWhereItWouldBeMeaningless()
+        {
+            Assert.IsNull(
+                ConversionRange.Derive("Anything", "x", "uint8", bitMapped: true), "bit mapped");
+            Assert.IsNull(
+                ConversionRange.Derive("Anything", "x", "", false), "unknown storage");
+            Assert.IsNull(
+                ConversionRange.Derive("Anything", "17", "uint8", false), "constant");
+            Assert.IsNull(
+                ConversionRange.Derive("Anything", "not an expression", "uint8", false), "unparsable");
+        }
+
+        /// <summary>
+        /// Full scale is correct but useless for a few parameters, so those are overridden by id.
+        /// </summary>
+        [TestMethod]
+        public void RangeOverrideWinsForParametersWhereFullScaleIsUseless()
+        {
+            // 0 - 16383 is what the maths gives; nobody wants that on a tachometer.
+            (double Low, double High)? rpm =
+                ConversionRange.Derive("EngineSpeed", "x * 0.25", "uint16", false);
+
+            Assert.IsNotNull(rpm);
+            Assert.AreEqual(0, rpm!.Value.Low, 0.01, "low");
+            Assert.AreEqual(8000, rpm.Value.High, 0.01, "high");
+        }
+
+        /// <summary>The low byte must not shift the reading, whatever fuel trim happens to be.</summary>
+        [TestMethod]
+        public void O2ConversionIgnoresTheFuelTrimByte()
+        {
+            Conversion conversion = new Conversion("Volts", "((x - (x % 256)) / 256) * 0.005", "0.000");
+            Conversion[] conversions = new Conversion[] { conversion };
+
+            Parameter o2 = new RamParameter(
+                "O2", "O2 sensor", "", "uint16", false, conversions, GetAddress(0));
+
+            foreach (byte trim in new byte[] { 0x00, 0x7F, 0x80, 0xFF })
+            {
+                LogColumn column = new LogColumn(o2, conversion, false);
+                ParameterGroup group = new ParameterGroup(0);
+                group.TryAddLogColumn(column);
+
+                DpidConfiguration dpid = new DpidConfiguration();
+                dpid.TryAddGroup(group);
+                LogRowParser parser = new LogRowParser(dpid);
+
+                parser.ParseData(new RawLogData(0, new byte[] { 0xFF, trim }));
+
+                Assert.AreEqual(
+                    1.275, parser.Evaluate()[column].ValueAsDouble, 0.0001, "trim 0x" + trim.ToString("X2"));
+            }
+        }
     }
 }

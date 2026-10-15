@@ -16,7 +16,7 @@ using Windows.UI.ViewManagement;
 namespace PcmHacking.UnoUI.Presentation;
 
 public record Indices(int MainRowIndex, int ZoomRowIndex);
-public record DataSource(LogColumn? LogColumn, CanLogger.ParameterAndValue? CanParameter);
+public record DataSource(LogColumn? LogColumn, AuxiliaryBusLogger.ParameterAndValue? BusParameter);
 public record RowMetadata(DataSource DataSource, Indices Indices, TextBlock Value, TextBlock? ZoomedValue, string Units);
 
 public sealed partial class DataLoggingParametersPage : Page
@@ -60,7 +60,9 @@ public sealed partial class DataLoggingParametersPage : Page
 
         this.model.ProgressLogger.AddDebugMessage("DataLoggingParametersPage DataContext set.");
 
-        this.model.LoggerWrapper.ForEach((loggerWrapper, ct) => this.InitializeParameters(loggerWrapper.Logger));
+        this.model.LoggerWrapper.ForEach(
+            (loggerWrapper, ct) => this.InitializeParameters(
+                loggerWrapper.Logger, loggerWrapper.AuxiliaryBusLogger));
 
         this.model.Rows.ForEach((row, ct) => this.UpdateParameterValues(row.Values));
 
@@ -87,9 +89,9 @@ public sealed partial class DataLoggingParametersPage : Page
 
     // This runs synchronously, but must return a ValueTask to because it's
     // invoked as a .ForEach() callback.
-    private ValueTask InitializeParameters(Logger logger)
+    private ValueTask InitializeParameters(Logger? logger, AuxiliaryBusLogger auxiliaryBusLogger)
     {
-        if (this.model == null)
+        if (this.model == null || logger == null)
         {
             return ValueTask.CompletedTask;
         }
@@ -155,18 +157,18 @@ public sealed partial class DataLoggingParametersPage : Page
                 mainRowIndex++;
             }
 
-            foreach (CanLogger.ParameterAndValue canParameter in logger.CanLogger.GetParameterValues())
+            foreach (AuxiliaryBusLogger.ParameterAndValue busParameter in auxiliaryBusLogger.GetParameterValues())
             {
-                this.AddParameter(mainRowIndex, canParameter.Parameter.Name, canParameter.Units, out TextBlock valueTextBlock);
+                this.AddParameter(mainRowIndex, busParameter.Parameter.Name, busParameter.Units, out TextBlock valueTextBlock);
                 mainRowIndex++;
 
                 this.parameterMetadata.Add(
                     new RowMetadata(
-                        new DataSource(null, canParameter),
+                        new DataSource(null, busParameter),
                         new Indices(mainRowIndex, -1),
                         valueTextBlock,
                         null,
-                        canParameter.Units));
+                        busParameter.Units));
             }
         });
 

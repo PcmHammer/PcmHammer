@@ -420,7 +420,7 @@ namespace PcmHacking
             this.SramEraseStart = 0x0;
             this.SramEraseLength = 0x0;
             this.GMLANProtocol = GMLANProtocol.None;
-            this.BusProtocol = BusProtocol.Vpw;
+            this.BusProtocol = BusProtocol.VPW;
             this.LoaderFileName = string.Empty;
             this.LoaderBaseAddress = 0x0;
             this.ImageBaseAddress = 0x0;
@@ -469,7 +469,7 @@ namespace PcmHacking
                     this.KernelVersionSupport = true;
                     // Disabled: the IAC presence probe (3D 06) crashes the P01/P59 kernel, which breaks
                     // the read. Re-enable once the kernel's IAC handler is fixed. See also the read-only
-                    // gating in VpwKernelSession.Start.
+                    // gating in VPWKernelSession.Start.
                     this.DetectIAC = false;
                     this.KernelMaxBlockSize = 4096;
                     break;
@@ -497,7 +497,7 @@ namespace PcmHacking
                     this.KernelVersionSupport = true;
                     // Disabled: the IAC presence probe (3D 06) crashes the P01/P59 kernel, which breaks
                     // the read. Re-enable once the kernel's IAC handler is fixed. See also the read-only
-                    // gating in VpwKernelSession.Start.
+                    // gating in VPWKernelSession.Start.
                     this.DetectIAC = false;
                     this.KernelMaxBlockSize = 4096;
                     break;
