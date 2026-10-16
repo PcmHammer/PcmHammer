@@ -86,7 +86,13 @@ namespace PcmHacking
             Message message = this.protocol.CreateTestDevicePresentNotification();
             TimeoutScenario originalScenario = await this.device.SetTimeout(TimeoutScenario.Minimum);
             await this.device.SendMessage(message);
-            await this.device.SetTimeout(originalScenario);
+
+            // Undefined means no scenario was in effect (e.g. right after a protocol switch), so
+            // there is nothing to restore; the next operation sets its own.
+            if (originalScenario != TimeoutScenario.Undefined)
+            {
+                await this.device.SetTimeout(originalScenario);
+            }
         }
     }
 }

@@ -250,8 +250,12 @@ namespace PcmHacking
 
             for (int i = 0; i < maxPayload; i++)
             {
-                // Receive a single byte.
-                await this.Port.Receive(b, 0, 1);
+                // Receive a single byte. Ports report their read timeout as a zero-byte read; retrying
+                // would turn one quiet adapter into thousands of back-to-back timeouts.
+                if (await this.Port.Receive(b, 0, 1) == 0)
+                {
+                    throw new TimeoutException("Timed out waiting for the ELM/STN prompt.");
+                }
 
                 // Is it the prompt '>'.
                 if (b[0] == '>')
@@ -320,6 +324,7 @@ namespace PcmHacking
             // We sent successfully, but the PCM didn't reply immediately.
             if (rawResponse == "NO DATA")
             {
+                this.Logger.AddDebugMessage("NO DATA in response to " + context + ".");
                 return true;
             }
 
