@@ -179,7 +179,10 @@ namespace PcmHacking
                         break;
 
                     case TimeoutScenario.WriteMemoryBlock:
-                        milliseconds = 250; // Bluetooth needs a touch longer. (MX+ tested)
+                        // A real flash write replies only after the kernel's Vpp settle and programming
+                        // (~0.3s on a BlackBox); a late reply is lost once STPTO expires. STPX returns as
+                        // soon as the reply arrives, so this only bounds a failure.
+                        milliseconds = 1200;
                         break;
 
                     case TimeoutScenario.SendKernel:
@@ -613,7 +616,16 @@ namespace PcmHacking
             await this.SendNoReply("STM");
             await Task.Delay(400);
             await this.SendNoReply("\r");
-            string monitorResponse = await this.ReadELMLine();
+            string monitorResponse;
+            try
+            {
+                monitorResponse = await this.ReadELMLine();
+            }
+            catch (TimeoutException)
+            {
+                this.Logger.AddDebugMessage("Timeout waiting for STM response.");
+                return null;
+            }
             this.Logger.AddDebugMessage("Response to STM: " + monitorResponse);
             return FindBroadcastState(monitorResponse, command);
         }

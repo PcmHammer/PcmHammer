@@ -120,7 +120,8 @@ namespace PcmHacking
                         break;
 
                     case TimeoutScenario.WriteMemoryBlock:
-                        milliseconds = 250;
+                        // Covers the kernel's flash program time before it replies. AT ST caps at 1020.
+                        milliseconds = 1200;
                         break;
 
                     case TimeoutScenario.SendKernel:
@@ -180,7 +181,7 @@ namespace PcmHacking
                         break;
 
                     case TimeoutScenario.WriteMemoryBlock:
-                        milliseconds = 170;
+                        milliseconds = 600;
                         break;
 
                     case TimeoutScenario.SendKernel:
@@ -224,7 +225,16 @@ namespace PcmHacking
             await this.SendNoReply("AT MA");
             await Task.Delay(600);
             await this.SendNoReply("\r");
-            string monitorResponse = await this.ReadELMLine();
+            string monitorResponse;
+            try
+            {
+                monitorResponse = await this.ReadELMLine();
+            }
+            catch (TimeoutException)
+            {
+                this.Logger.AddDebugMessage("Timeout waiting for AT MA response.");
+                return null;
+            }
             this.Logger.AddDebugMessage("Response to AT MA: " + monitorResponse);
             return FindBroadcastState(monitorResponse, command);
         }
