@@ -61,18 +61,20 @@ namespace PCMHammer.Services
             return openFileDialog.ShowDialog() == true ? openFileDialog.FileName : null;
         }
 
-        public string? SavePackageFileDialog(bool complete, string suggestedName)
+        public string? SavePackageFileDialog(bool complete, bool preferBin, string suggestedName)
         {
-            // A complete package can be saved as a self-contained .phz (default) or a raw master .bin; an
-            // incomplete document (e.g. a master-only bin for a slave-bearing PCM) offers only .bin so an
-            // invalid package can never be produced.
+            // A complete package can be saved as a self-contained .phz or a raw master .bin, defaulting to
+            // .bin for a lone master image from a controller with no slave CPU; an incomplete document (e.g. a master-only bin for a
+            // slave-bearing PCM) offers only .bin so an invalid package can never be produced.
             SaveFileDialog saveFileDialog = new()
             {
                 Title = "Save PCMHamer File",
-                Filter = complete
-                    ? "PcmHammer (*.phz)|*.phz|Binary Files (*.bin)|*.bin"
-                    : "Binary Files (*.bin)|*.bin",
-                DefaultExt = complete ? ".phz" : ".bin",
+                Filter = !complete
+                    ? "Binary Files (*.bin)|*.bin"
+                    : preferBin
+                        ? "Binary Files (*.bin)|*.bin|PcmHammer (*.phz)|*.phz"
+                        : "PcmHammer (*.phz)|*.phz|Binary Files (*.bin)|*.bin",
+                DefaultExt = complete && !preferBin ? ".phz" : ".bin",
                 FileName = string.IsNullOrWhiteSpace(suggestedName) ? "PCM_Read" : suggestedName,
                 OverwritePrompt = true
             };

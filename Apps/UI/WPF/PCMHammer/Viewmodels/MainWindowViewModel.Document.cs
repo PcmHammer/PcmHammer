@@ -280,7 +280,7 @@ namespace PCMHammer.Viewmodels
 
             if (path == null)
             {
-                path = _fileDialogService.SavePackageFileDialog(complete, DefaultSaveName());
+                path = _fileDialogService.SavePackageFileDialog(complete, PackageCompleteness.PrefersBin(LoadedPackage), DefaultSaveName());
                 if (path == null)
                 {
                     return false;

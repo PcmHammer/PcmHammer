@@ -30,12 +30,13 @@
 
         /// <summary>
         /// Prompts for a save destination for the working document. A complete package may be saved as
-        /// .phz (default) or .bin; an incomplete one may only be saved as .bin.
+        /// .phz or .bin; an incomplete one may only be saved as .bin.
         /// </summary>
         /// <param name="complete">Whether the document is a complete package (offers .phz).</param>
+        /// <param name="preferBin">Default to .bin (a lone master image from a controller with no slave CPU) rather than .phz.</param>
         /// <param name="suggestedName">A default file name (without extension) to pre-fill.</param>
         /// <returns>The chosen path, or null if canceled.</returns>
-        string? SavePackageFileDialog(bool complete, string suggestedName);
+        string? SavePackageFileDialog(bool complete, bool preferBin, string suggestedName);
 
         /// <summary>
         /// Prompts for the base path used when exporting one or more images as raw .bin files. The caller
