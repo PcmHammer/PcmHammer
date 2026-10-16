@@ -47,7 +47,30 @@ namespace PcmHacking
             return true;
         }
 
-        /// <summary>The slave-module targets the controller's platform requires (empty for slave-less PCMs).</summary>
+        /// <summary>
+        /// True when a raw .bin is the natural save format: the package holds a single image, the main
+        /// (master CPU) image of a controller with no slave CPU. Any further image - another controller,
+        /// or a slave CPU or EEPROM image within one - needs a .phz, and an unidentified controller keeps
+        /// the .phz default.
+        /// </summary>
+        public static bool PrefersBin(PcmPackage package)
+        {
+            if (package == null || package.Controllers.Sum(c => c.Images.Count) != 1)
+            {
+                return false;
+            }
+
+            PackageController controller = package.Controllers.First(c => c.Images.Count == 1);
+            if (controller.Image("main") == null)
+            {
+                return false;
+            }
+
+            OSIDInfo? info = ResolvePlatform(controller);
+            return info != null && !info.HardwareSlaveCPU;
+        }
+
+        /// <summary>The slave CPU image targets the controller requires (empty when it has no slave CPU).</summary>
         public static IEnumerable<string> RequiredSlaveTargets(PackageController controller)
         {
             OSIDInfo? info = ResolvePlatform(controller);

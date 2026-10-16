@@ -639,7 +639,7 @@ namespace PcmHacking
 
             if (path == null)
             {
-                path = this.ShowPackageSaveAsDialog(complete);
+                path = this.ShowPackageSaveAsDialog(complete, PackageCompleteness.PrefersBin(this.loadedPackage));
                 if (path == null)
                 {
                     return false;
@@ -789,17 +789,20 @@ namespace PcmHacking
         }
 
         /// <summary>
-        /// Save-as dialog for the working document. A complete package offers .phz (default) and .bin; an
-        /// incomplete document offers only .bin, so an invalid package can't be produced.
+        /// Save-as dialog for the working document. A complete package offers .phz and .bin, defaulting to
+        /// .bin for a lone master image from a controller with no slave CPU and .phz otherwise; an incomplete document offers only .bin,
+        /// so an invalid package can't be produced.
         /// </summary>
-        private string? ShowPackageSaveAsDialog(bool complete)
+        private string? ShowPackageSaveAsDialog(bool complete, bool preferBin)
         {
             using (SaveFileDialog dialog = new SaveFileDialog())
             {
-                dialog.Filter = complete
-                    ? "PcmHammer package (*.phz)|*.phz|Binary Files (*.bin)|*.bin"
-                    : "Binary Files (*.bin)|*.bin";
-                dialog.DefaultExt = complete ? ".phz" : ".bin";
+                dialog.Filter = !complete
+                    ? "Binary Files (*.bin)|*.bin"
+                    : preferBin
+                        ? "Binary Files (*.bin)|*.bin|PcmHammer package (*.phz)|*.phz"
+                        : "PcmHammer package (*.phz)|*.phz|Binary Files (*.bin)|*.bin";
+                dialog.DefaultExt = complete && !preferBin ? ".phz" : ".bin";
                 dialog.FilterIndex = 1;
                 dialog.OverwritePrompt = true;
                 dialog.RestoreDirectory = true;
