@@ -3212,7 +3212,8 @@ namespace PcmHacking
                     this.ServiceNumber = 12591279;
                     break;
 
-                // P05c (CAN only).
+                    // P05c (CAN only).
+                case 12608264: // service no 12600930 https://github.com/PcmHammer/PcmHammer/issues/92
                 case 12612055: // service no 12600930
                 case 12616867: // service no 12600930
                     PCMInfo(PcmType.P05c);
