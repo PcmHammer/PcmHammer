@@ -2,7 +2,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Security.Cryptography;
 using System.Text;
 
 namespace PcmHacking
@@ -12,21 +11,6 @@ namespace PcmHacking
     /// </summary>
     public class FileValidator
     {
-        /// <summary>
-        /// Known SHA-256 of P11 boot sector bytes [0x000000..0x001FFF] for service number 12210553.
-        /// </summary>
-        private const string P11BootSectorSha256_12210553 = "7c0d299b51356a50b4f9291cbd3869bd1b7b606df21a5d8d4f4f3b3781e4e8d2";
-
-        /// <summary>
-        /// Known SHA-256 of P11 boot sector bytes [0x000000..0x001FFF] for service number 12576162.
-        /// </summary>
-        private const string P11BootSectorSha256_12576162 = "50db097c55a56378cf71a53e746796d366f3b84b967fdc43f10f80d1daebbbc1";
-
-        /// <summary>
-        /// Second known SHA-256 of P11 boot sector bytes [0x000000..0x001FFF] for service number 12576162.
-        /// </summary>
-        private const string P11BootSectorSha256_12576162_2 = "bbf6af9e1a8f0815a4b087cd5d165ff3271f2643a073893fc9b912fea6a27871";
-
         /// <summary>
         /// Names of segments in P10 operating systems.
         /// </summary>
@@ -682,9 +666,8 @@ namespace PcmHacking
                     }
                 }
 
-                // P11 512KiB (boot-sector SHA-256 + 0x7FFFC marker).
-                logger.AddDebugMessage("Trying P11 512KiB boot hash + marker");
-                if (this.HasP11TailMarkerAt7FFFC() && this.IsKnownP11BootSector())
+                logger.AddDebugMessage("Trying P11 512KiB");
+                if (this.LooksLikeP11())
                 {
                     return PcmType.P11;
                 }
@@ -727,9 +710,8 @@ namespace PcmHacking
                     return PcmType.P05;
                 }
 
-                // P11 1024KiB (boot-sector SHA-256 + 0x7FFFC marker).
-                logger.AddDebugMessage("Trying P11 1024KiB boot hash + marker");
-                if (this.HasP11TailMarkerAt7FFFC() && this.IsKnownP11BootSector())
+                logger.AddDebugMessage("Trying P11 1024KiB");
+                if (this.LooksLikeP11())
                 {
                     return PcmType.P11;
                 }
@@ -1248,9 +1230,7 @@ namespace PcmHacking
                         this.HasRange(0x546, 5 * 8, "P10 segment table");
 
                 case PcmType.P11:
-                    return this.HasSize(512 * 1024, 1024 * 1024) &&
-                        this.HasP11TailMarkerAt7FFFC() &&
-                        this.IsKnownP11BootSector();
+                    return this.HasSize(512 * 1024, 1024 * 1024) && this.LooksLikeP11();
 
                 case PcmType.P12:
                     return this.HasSize(1024 * 1024) &&
@@ -1371,37 +1351,10 @@ namespace PcmHacking
         }
 
         /// <summary>
-        /// Verify the boot sector hash used to positively identify P11 images.
+        /// P08, P10 and P11 all end in A5 5A A5 A5 at 0x7FFFC. A P11 also has 55 55 at 0x17FFE (P08: FF FF)
+        /// and AA AA at 0x534 (P10: 00 00).
         /// </summary>
-        private bool IsKnownP11BootSector()
-        {
-            if (!this.HasRange(0x0000, 0x2000, "P11 boot hash range"))
-            {
-                return false;
-            }
-
-            string hash = this.ComputeSha256Hex(0x0000, 0x2000);
-            bool match =
-                string.Equals(hash, P11BootSectorSha256_12210553, StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(hash, P11BootSectorSha256_12576162, StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(hash, P11BootSectorSha256_12576162_2, StringComparison.OrdinalIgnoreCase);
-            if (!match)
-            {
-                logger.AddDebugMessage(
-                    "P11 boot sector hash mismatch. Found: " + hash +
-                    ", Expected one of: " +
-                    P11BootSectorSha256_12210553 + " (12210553)," +
-                    P11BootSectorSha256_12576162 + " (12576162)," +
-                    P11BootSectorSha256_12576162_2 + " (12576162).");
-            }
-
-            return match;
-        }
-
-        /// <summary>
-        /// Verify the P11 marker A5 5A A5 A5 at address 0x7FFFC.
-        /// </summary>
-        private bool HasP11TailMarkerAt7FFFC()
+        private bool LooksLikeP11()
         {
             if (!this.HasRange(0x7FFFC, 4, "P11 marker range"))
             {
@@ -1409,35 +1362,17 @@ namespace PcmHacking
             }
 
             bool match =
-                (this.image[0x7FFFC] == 0xA5) &&
-                (this.image[0x7FFFD] == 0x5A) &&
-                (this.image[0x7FFFE] == 0xA5) &&
-                (this.image[0x7FFFF] == 0xA5);
+                (this.image[0x7FFFC] == 0xA5) && (this.image[0x7FFFD] == 0x5A) &&
+                (this.image[0x7FFFE] == 0xA5) && (this.image[0x7FFFF] == 0xA5) &&
+                (this.image[0x17FFE] == 0x55) && (this.image[0x17FFF] == 0x55) &&
+                (this.image[0x534] == 0xAA) && (this.image[0x535] == 0xAA);
 
             if (!match)
             {
-                logger.AddDebugMessage("P11 marker A5 5A A5 A5 was not found at 0x7FFFC.");
+                logger.AddDebugMessage("P11 signature (A5 5A A5 A5 @0x7FFFC, 55 55 @0x17FFE, AA AA @0x534) not found.");
             }
 
             return match;
-        }
-
-        private string ComputeSha256Hex(UInt32 offset, UInt32 length)
-        {
-            byte[] segment = new byte[(int)length];
-            Buffer.BlockCopy(this.image, (int)offset, segment, 0, (int)length);
-
-            using (SHA256 sha256 = SHA256.Create())
-            {
-                byte[] hash = sha256.ComputeHash(segment);
-                StringBuilder builder = new StringBuilder(hash.Length * 2);
-                for (int i = 0; i < hash.Length; i++)
-                {
-                    builder.Append(hash[i].ToString("x2"));
-                }
-
-                return builder.ToString();
-            }
         }
 
         // GM E38 PCM 2 MiB images carry a checksum table at 0x10000 describing six segments, each with

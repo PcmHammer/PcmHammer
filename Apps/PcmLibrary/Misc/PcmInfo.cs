@@ -1650,10 +1650,6 @@ namespace PcmHacking
                 case 9352146:
                 case 9352149:
                 case 9352150:
-                case 9352340:
-                case 9352342:
-                case 9352346:
-                case 9352347:
                 case 9352553:
                 case 9354241:
                 case 9354242:
@@ -1668,7 +1664,6 @@ namespace PcmHacking
                 case 9365651:
                 case 9365652:
                 case 9365655:
-                case 9367092:
                 case 16210002:
                 case 16210010:
                 case 16219361:
@@ -1726,8 +1721,6 @@ namespace PcmHacking
                 case 16245321:
                 case 16246063:
                 case 16246066:
-                case 16249992:
-                case 16249995:
                 case 16251203:
                 case 16251205:
                 case 16251975:
@@ -1762,37 +1755,6 @@ namespace PcmHacking
                 case 16259017:
                 case 16259018:
                 case 16259195:
-                case 16259652:
-                case 16259654:
-                case 16259659:
-                case 16259660:
-                case 16259664:
-                case 16259666:
-                case 16259667:
-                case 16259669:
-                case 16259670:
-                case 16259672:
-                case 16259676:
-                case 16259677:
-                case 16259682:
-                case 16259687:
-                case 16259688:
-                case 16259694:
-                case 16259696:
-                case 16259697:
-                case 16259698:
-                case 16259702:
-                case 16259704:
-                case 16259705:
-                case 16259708:
-                case 16259710:
-                case 16259712:
-                case 16259714:
-                case 16259715:
-                case 16259716:
-                case 16259717:
-                case 16259720:
-                case 16259906:
                 case 16265837:
                 case 16265838:
                 case 16265841:
@@ -1811,7 +1773,6 @@ namespace PcmHacking
                 case 24234038:
                 case 28004945:
                 case 28029988:
-                case 93802333:
                     PCMInfo(PcmType.P04_Early);
                     this.KeyAlgorithm = 0x06;
                     this.ImageSize = 512 * 1024;
@@ -1843,35 +1804,13 @@ namespace PcmHacking
                 case 9359555:
                 case 9359556:
                 case 9359557:
-                case 9359635:
-                case 9359636:
                 case 9359757:
                 case 9359758:
                 case 9359760:
                 case 9359762:
-                case 9362998:
-                case 9363007:
-                case 9363080:
-                case 9363082:
-                case 9363090:
-                case 9363091:
-                case 9363101:
-                case 9363102:
-                case 9363104:
-                case 9363106:
-                case 9363107:
-                case 9363108:
-                case 9363110:
-                case 9363381:
                 case 9364942:
                 case 9364943:
                 case 9364945:
-                case 9364967:
-                case 9364968:
-                case 9364972:
-                case 9364975:
-                case 9364977:
-                case 9364978:
                 case 9365041:
                 case 9365077:
                 case 9365078:
@@ -1882,17 +1821,6 @@ namespace PcmHacking
                 case 9365093:
                 case 9365096:
                 case 9365097:
-                case 9365281:
-                case 9365282:
-                case 9365287:
-                case 9365302:
-                case 9365304:
-                case 9365311:
-                case 9365314:
-                case 9365316:
-                case 9365340:
-                case 9365341:
-                case 9365342:
                 case 9365346:
                 case 9365347:
                 case 9365348:
@@ -2023,7 +1951,6 @@ namespace PcmHacking
                 case 9366318:
                 case 9367318:
                 case 9367321:
-                case 9367398:
                 case 9367515:
                 case 9367516:
                 case 9367752:
@@ -2040,7 +1967,6 @@ namespace PcmHacking
                 case 9369230:
                 case 9369231:
                 case 9369232:
-                case 9369252:
                 case 9369308:
                 case 9369309:
                 case 9369311:
@@ -2067,21 +1993,7 @@ namespace PcmHacking
                 case 9372361:
                 case 9372362:
                 case 9372363:
-                case 9372465:
-                case 9372466:
-                case 9372474:
-                case 9372477:
-                case 9373168:
-                case 9373171:
-                case 9373175:
-                case 9373176:
-                case 9373181:
-                case 9373182:
-                case 9373184:
                 case 9373962:
-                case 9374336:
-                case 9374337:
-                case 9374338:
                 case 9374625:
                 case 9374628:
                 case 9375070:
@@ -2099,7 +2011,6 @@ namespace PcmHacking
                 case 9377391:
                 case 9377392:
                 case 9377399:
-                case 9377525:
                 case 9377542:
                 case 9377739:
                 case 9378063:
@@ -2118,29 +2029,11 @@ namespace PcmHacking
                 case 9379126:
                 case 9379128:
                 case 9379427:
-                case 9379492:
                 case 9379603:
                 case 9379805:
                 case 9379806:
                 case 9382210:
                 case 9382460:
-                case 9382915:
-                case 9382916:
-                case 9382918:
-                case 9382920:
-                case 9382926:
-                case 9382950:
-                case 9382951:
-                case 9382956:
-                case 9383066:
-                case 9383068:
-                case 9383074:
-                case 9383081:
-                case 9383084:
-                case 9383086:
-                case 9383087:
-                case 9383088:
-                case 9383091:
                 case 9386582:
                 case 9386586:
                 case 12214377:
@@ -2193,13 +2086,6 @@ namespace PcmHacking
                 case 9380140:
                 case 9380718:
                 case 9380973:
-                case 9381748:
-                case 9381752:
-                case 9381754:
-                case 9381776:
-                case 9381796:
-                case 9381797:
-                case 9381798:
                 case 9381815:
                 case 9382558:
                 case 9382562:
@@ -2234,21 +2120,7 @@ namespace PcmHacking
                 case 9384053:
                 case 9384073:
                 case 9384075:
-                case 9384434:
-                case 9384436:
-                case 9384437:
-                case 9384438:
-                case 9384441:
-                case 9384442:
-                case 9384457:
-                case 9384458:
-                case 9384462:
-                case 9384464:
-                case 9384465:
-                case 9384467:
-                case 9384471:
                 case 9384473:
-                case 9384477:
                 case 9386283:
                 case 9386285:
                 case 9386286:
@@ -2296,25 +2168,11 @@ namespace PcmHacking
                 case 9389767:
                 case 9389769:
                 case 9389770:
-                case 9389909:
                 case 9390172:
                 case 9390758:
                 case 9390763:
                 case 9390765:
                 case 9391248:
-                case 9392594:
-                case 9392748:
-                case 9392787:
-                case 9392790:
-                case 9392791:
-                case 9392794:
-                case 9392797:
-                case 9392798:
-                case 9392800:
-                case 9392801:
-                case 9392802:
-                case 9392804:
-                case 9392807:
                 case 9393295:
                 case 9393297:
                 case 9393300:
@@ -2328,10 +2186,8 @@ namespace PcmHacking
                 case 9393598:
                 case 9393608:
                 case 9393613:
-                case 9393832:
                 case 9393898:
                 case 9393901:
-                case 10384529:
                 case 12201457:
                 case 12201458:
                 case 12201460:
@@ -2379,8 +2235,6 @@ namespace PcmHacking
                 case 12201886:
                 case 12201887:
                 case 12201888:
-                case 12201889:
-                case 12201891:
                 case 12202127:
                 case 12202129:
                 case 12202133:
@@ -2412,11 +2266,6 @@ namespace PcmHacking
                 case 12204287:
                 case 12204288:
                 case 12204290:
-                case 12204437:
-                case 12204438:
-                case 12204439:
-                case 12205378:
-                case 12205379:
                 case 12211882:
                 case 12211883:
                 case 12214055:
@@ -2430,18 +2279,11 @@ namespace PcmHacking
                 case 12214711:
                 case 12214712:
                 case 12214713:
-                case 12215038:
-                case 12215040:
-                case 12215321:
                 case 12215452:
                 case 12220113:
                 case 12220115:
                 case 12220117:
                 case 12220118:
-                case 12221090:
-                case 12221092:
-                case 12221101:
-                case 12221112:
                 case 12582150:
                 case 12582151:
                 case 12582152:
@@ -2453,6 +2295,73 @@ namespace PcmHacking
                     PCMInfo(PcmType.P04);
                     this.Description = "P04 Service No 9380717";
                     this.ServiceNumber = 9380717;
+                    break;
+
+                // P04 service number unknown. Confirmed by the algo 14 seed/key in a read's param block,
+                // or by the P04 reset-vector code (9DCE 203C FFFF A800).
+                case 9354419:
+                case 9357047:
+                case 9363935:
+                case 9363936:
+                case 9363937:
+                case 9363938:
+                case 9368333:
+                case 9378685:
+                case 9381810:
+                case 9381817:
+                case 9384041:
+                case 9387115:
+                case 9388552:
+                case 9388553:
+                case 9388555:
+                case 9388556:
+                case 9389680:
+                case 12200752:
+                case 12200753:
+                case 12201872:
+                case 12205337:
+                case 12206751:
+                case 12206752:
+                case 12210725:
+                case 12210726:
+                case 12211886:
+                case 12211888:
+                case 12214392:
+                case 12215590:
+                case 12226625:
+                case 12226626:
+                case 12227645:
+                case 12227646:
+                case 12576200:
+                case 12580119:
+                case 12580316:
+                case 12583377:
+                case 12583378:
+                case 12594191:
+                case 12594192:
+                case 12594193:
+                case 12598108:
+                case 12600399:
+                case 12601066:
+                case 12601067:
+                case 12610915:
+                case 12610917:
+                case 12611876:
+                case 12611879:
+                case 12611920:
+                case 12612637:
+                case 12612639:
+                case 12613415:
+                case 12613416:
+                case 16242768:
+                case 16243028:
+                case 16268469:
+                case 16268470:
+                case 16268472:
+                case 16268473:
+                    PCMInfo(PcmType.P04);
+                    this.Description = "P04";
+                    this.ServiceNumber = 0;
                     break;
 
                 // P04 V6 Service number 12209624 This list contains a lot of P08, incorrectly. Need better data.
@@ -2485,8 +2394,6 @@ namespace PcmHacking
                 case 9387341:
                 case 9387343:
                 case 9387346:
-                case 9387555:
-                case 9387884:
                 case 9388994:
                 case 9388997:
                 case 9388999:
@@ -2502,7 +2409,6 @@ namespace PcmHacking
                 case 12200757:
                 case 12200760:
                 case 12200775:
-                case 12201137:
                 case 12201205:
                 case 12201206:
                 case 12202879:
@@ -2529,32 +2435,6 @@ namespace PcmHacking
                 case 12205348:
                 case 12205381:
                 case 12205382:
-                case 12205551:
-                case 12205555:
-                case 12205556:
-                case 12205560:
-                case 12205924:
-                case 12206000:
-                case 12206007:
-                case 12206011:
-                case 12206017:
-                case 12206018:
-                case 12206021:
-                case 12206022:
-                case 12206024:
-                case 12206031:
-                case 12206035:
-                case 12206036:
-                case 12206038:
-                case 12206039:
-                case 12206040:
-                case 12206041:
-                case 12206046:
-                case 12206048:
-                case 12206050:
-                case 12206052:
-                case 12206055:
-                case 12206057:
                 case 12206438:
                 case 12207406:
                 case 12207408:
@@ -2583,29 +2463,6 @@ namespace PcmHacking
                 case 12207872:
                 case 12207873:
                 case 12207879:
-                case 12208155:
-                case 12208157:
-                case 12208326:
-                case 12208327:
-                case 12208328:
-                case 12208330:
-                case 12208331:
-                case 12208332:
-                case 12208528:
-                case 12208532:
-                case 12208534:
-                case 12208537:
-                case 12208762:
-                case 12208775:
-                case 12209445:
-                case 12209446:
-                case 12209447:
-                case 12209448:
-                case 12209450:
-                case 12210253:
-                case 12210255:
-                case 12210258:
-                case 12210261:
                 case 12211252:
                 case 12211256:
                 case 12211448:
@@ -2673,15 +2530,9 @@ namespace PcmHacking
                 case 12215602:
                 case 12215605:
                 case 12215608:
-                case 12215884:
-                case 12215887:
                 case 12216128:
                 case 12216129:
                 case 12216136:
-                case 12216186:
-                case 12216522:
-                case 12216524:
-                case 12216566:
                 case 12216625:
                 case 12216640:
                 case 12217063:
@@ -2697,9 +2548,6 @@ namespace PcmHacking
                 case 12217158:
                 case 12217159:
                 case 12217725:
-                case 12217997:
-                case 12217998:
-                case 12217999:
                 case 12218171:
                 case 12218172:
                 case 12218396:
@@ -2734,8 +2582,6 @@ namespace PcmHacking
                 case 12218865:
                 case 12218866:
                 case 12219150:
-                case 12219182:
-                case 12219184:
                 case 12219273:
                 case 12219275:
                 case 12219350:
@@ -2778,21 +2624,6 @@ namespace PcmHacking
                 case 12221731:
                 case 12221732:
                 case 12221733:
-                case 12222102:
-                case 12222104:
-                case 12222106:
-                case 12222107:
-                case 12222108:
-                case 12222121:
-                case 12222122:
-                case 12222124:
-                case 12222125:
-                case 12222126:
-                case 12222127:
-                case 12222130:
-                case 12222132:
-                case 12222447:
-                case 12223042:
                 case 12223435:
                 case 12223436:
                 case 12223437:
@@ -2845,11 +2676,6 @@ namespace PcmHacking
                 case 12225135:
                 case 12225136:
                 case 12225137:
-                case 12225337:
-                case 12225339:
-                case 12225341:
-                case 12225342:
-                case 12225344:
                 case 12226103:
                 case 12226105:
                 case 12226106:
@@ -2857,20 +2683,11 @@ namespace PcmHacking
                 case 12226747:
                 case 12226748:
                 case 12227240:
-                case 12227495:
-                case 12227496:
                 case 12227671:
                 case 12228140:
                 case 12228141:
                 case 12228142:
                 case 12248764:
-                case 12571887:
-                case 12571888:
-                case 12571889:
-                case 12571891:
-                case 12571892:
-                case 12571893:
-                case 12571894:
                 case 12576146:
                 case 12576196:
                 case 12578497:
@@ -2881,22 +2698,10 @@ namespace PcmHacking
                 case 12578849:
                 case 12578851:
                 case 12578852:
-                case 12578875:
-                case 12578876:
-                case 12578877:
-                case 12578878:
                 case 12578904:
                 case 12578905:
                 case 12579862:
-                case 12580026:
-                case 12580028:
-                case 12580030:
-                case 12580031:
-                case 12580032:
-                case 12580033:
                 case 12580048:
-                case 12580050:
-                case 12580052:
                 case 12580524:
                 case 12580525:
                 case 12580526:
@@ -2914,20 +2719,7 @@ namespace PcmHacking
                 case 12581506:
                 case 12583478:
                 case 12583479:
-                case 12583589:
-                case 12583590:
-                case 12583710:
-                case 12583711:
-                case 12583754:
-                case 12583759:
-                case 12583761:
                 case 12583770:
-                case 12583781:
-                case 12583783:
-                case 12583787:
-                case 12584714:
-                case 12584716:
-                case 12584720:
                 case 12586810:
                 case 12586811:
                 case 12586812:
@@ -3045,15 +2837,8 @@ namespace PcmHacking
                 case 12596213:
                 case 12596260:
                 case 12596261:
-                case 12596441:
                 case 12596957:
                 case 12596959:
-                case 12598451:
-                case 12598452:
-                case 12598453:
-                case 12598587:
-                case 12598588:
-                case 12598589:
                     PCMInfo(PcmType.P04);
                     this.Description = "P04 Service No 12583826";
                     this.ServiceNumber = 12583826;
@@ -3120,7 +2905,6 @@ namespace PcmHacking
                 case 12585134:
                 case 12586386:
                 case 12586387:
-                case 12586587:
                 case 12586930:
                 case 12586931:
                 case 12586953:
@@ -3157,10 +2941,6 @@ namespace PcmHacking
                 case 12593469:
                 case 12593470:
                 // case 12593523: could be a P11? https://pcmhacking.net/forums/viewtopic.php?p=120275#p120275
-                case 12593819:
-                case 12593820:
-                case 12593821:
-                case 12593822:
                 case 12594004:
                 case 12594005:
                 case 12594008:
@@ -3180,7 +2960,6 @@ namespace PcmHacking
                 case 12594532:
                 case 12594535:
                 case 12594541:
-                case 12594542:
                 case 12598601:
                 case 12598602:
                 case 12598603:
@@ -3192,8 +2971,6 @@ namespace PcmHacking
                 case 12600192:
                 case 12600193:
                 case 12600777:
-                case 12602858:
-                case 12602859:
                 case 12603032:
                 case 12618852:
                 case 12618855:
@@ -3282,15 +3059,6 @@ namespace PcmHacking
                 case 9353151:
                 case 9353162:
                 case 9353166:
-                case 9353692:
-                case 9353694:
-                case 9353708:
-                case 9353711:
-                case 9353712:
-                case 9353714:
-                case 9353726:
-                case 9353728:
-                case 9353731:
                 case 9354147:
                 case 9356708:
                 case 9357027:
@@ -3306,13 +3074,6 @@ namespace PcmHacking
                 case 9361291:
                 case 9361300:
                 case 9364326:
-                case 9364357:
-                case 9364358:
-                case 9364360:
-                case 9364361:
-                case 9364368:
-                case 9364369:
-                case 9364371:
                 case 9365036:
                 case 9365037:
                 case 9367747:
@@ -3323,7 +3084,6 @@ namespace PcmHacking
                 case 9369392:
                 case 9369403:
                 case 9369407:
-                case 9369995:
                 case 9370646:
                 case 9370647:
                 case 9370648:
@@ -3332,9 +3092,6 @@ namespace PcmHacking
                 case 9374770:
                 case 9374773:
                 case 9374775:
-                case 9374785:
-                case 9374788:
-                case 9374790:
                 case 9374958:
                 case 9374960:
                 case 9374962:
@@ -3373,9 +3130,6 @@ namespace PcmHacking
                 case 9384516:
                 case 9384517:
                 case 9384519:
-                case 9384786:
-                case 9384787:
-                case 9386157:
                 case 9386447:
                 case 9386448:
                 case 9386577:
@@ -3421,25 +3175,6 @@ namespace PcmHacking
                 case 16266375:
                 case 16266376:
                 case 16266449:
-                case 16267124:
-                case 16267127:
-                case 16267128:
-                case 16267132:
-                case 16267134:
-                case 16267137:
-                case 16267138:
-                case 16267142:
-                case 16267144:
-                case 16267146:
-                case 16267147:
-                case 16267148:
-                case 16267150:
-                case 16267154:
-                case 16267156:
-                case 16267157:
-                case 16267158:
-                case 16267160:
-                case 16267162:
                 case 16268296:
                 case 16268297:
                 case 16268300:
@@ -3637,11 +3372,27 @@ namespace PcmHacking
                     break;
 
                 // P08s of unknown service number (includes some P11) :(
+                case 9350515:
+                case 9350520:
+                case 9350526:
                 case 9351290:
                 case 9351297:
                 case 9351321:
+                case 9352340:
+                case 9352342:
+                case 9352346:
+                case 9352347:
                 case 9353418:
                 case 9353422:
+                case 9353692:
+                case 9353694:
+                case 9353708:
+                case 9353711:
+                case 9353712:
+                case 9353714:
+                case 9353726:
+                case 9353728:
+                case 9353731:
                 case 9353732:
                 case 9353738:
                 case 9354904:
@@ -3651,57 +3402,349 @@ namespace PcmHacking
                 case 9355300:
                 case 9355302:
                 case 9356822:
+                case 9359635:
+                case 9359636:
+                case 9362998:
+                case 9363007:
+                case 9363080:
+                case 9363082:
+                case 9363090:
+                case 9363091:
+                case 9363101:
+                case 9363102:
+                case 9363104:
+                case 9363106:
+                case 9363107:
+                case 9363108:
+                case 9363110:
+                case 9363381:
                 case 9364356:
+                case 9364357:
+                case 9364358:
+                case 9364360:
+                case 9364361:
+                case 9364368:
+                case 9364369:
+                case 9364371:
+                case 9364967:
+                case 9364968:
+                case 9364972:
+                case 9364975:
+                case 9364977:
+                case 9364978:
                 case 9365276:
+                case 9365281:
+                case 9365282:
+                case 9365287:
                 case 9365292:
+                case 9365302:
+                case 9365304:
                 case 9365308:
                 case 9365310:
+                case 9365311:
+                case 9365314:
+                case 9365316:
                 case 9365324:
+                case 9365340:
+                case 9365341:
+                case 9365342:
+                case 9367092:
+                case 9367398:
                 case 9367522:
                 case 9368451:
                 case 9368547:
+                case 9369252:
+                case 9369995:
+                case 9372465:
+                case 9372466:
+                case 9372474:
+                case 9372477:
                 case 9372478:
+                case 9373168:
+                case 9373171:
+                case 9373175:
+                case 9373176:
                 case 9373177:
+                case 9373181:
+                case 9373182:
+                case 9373184:
+                case 9374336:
+                case 9374337:
+                case 9374338:
+                case 9374785:
                 case 9374787:
+                case 9374788:
+                case 9374790:
+                case 9377525:
+                case 9379492:
+                case 9381748:
+                case 9381752:
+                case 9381754:
+                case 9381776:
+                case 9381796:
+                case 9381797:
+                case 9381798:
+                case 9381854:
+                case 9381855:
+                case 9381857:
+                case 9381858:
+                case 9381860:
+                case 9381865:
+                case 9381867:
+                case 9381868:
+                case 9381872:
+                case 9382915:
+                case 9382916:
+                case 9382918:
+                case 9382920:
+                case 9382926:
                 case 9382927:
                 case 9382928:
                 case 9382941:
                 case 9382948:
+                case 9382950:
+                case 9382951:
+                case 9382956:
                 case 9382957:
+                case 9383066:
+                case 9383068:
+                case 9383074:
                 case 9383079:
+                case 9383081:
+                case 9383084:
+                case 9383086:
+                case 9383087:
+                case 9383088:
                 case 9383089:
+                case 9383091:
+                case 9384434:
+                case 9384436:
+                case 9384437:
+                case 9384438:
+                case 9384441:
+                case 9384442:
+                case 9384457:
+                case 9384458:
+                case 9384462:
+                case 9384464:
+                case 9384465:
+                case 9384467:
+                case 9384471:
+                case 9384476:
+                case 9384477:
+                case 9384786:
+                case 9384787:
+                case 9386157:
                 case 9387205:
+                case 9387209:
+                case 9387211:
                 case 9387214:
                 case 9387229:
                 case 9387552:
+                case 9387555:
+                case 9387884:
+                case 9389909:
+                case 9392594:
+                case 9392748:
+                case 9392787:
+                case 9392790:
+                case 9392791:
+                case 9392794:
+                case 9392797:
+                case 9392798:
+                case 9392800:
+                case 9392801:
+                case 9392802:
+                case 9392804:
+                case 9392807:
+                case 9393832:
+                case 12201137:
                 case 12201228:
                 case 12201231:
                 case 12201238:
+                case 12201889:
+                case 12201891:
+                case 12204437:
+                case 12204438:
+                case 12204439:
+                case 12205378:
+                case 12205379:
                 case 12205538:
                 case 12205545:
+                case 12205551:
+                case 12205555:
+                case 12205556:
+                case 12205560:
+                case 12205924:
+                case 12206000:
+                case 12206007:
+                case 12206011:
+                case 12206017:
+                case 12206018:
                 case 12206019:
+                case 12206021:
+                case 12206022:
+                case 12206024:
                 case 12206025:
+                case 12206031:
+                case 12206035:
+                case 12206036:
+                case 12206038:
+                case 12206039:
+                case 12206040:
+                case 12206041:
                 case 12206042:
                 case 12206045:
+                case 12206046:
+                case 12206048:
                 case 12206049:
+                case 12206050:
+                case 12206052:
+                case 12206055:
+                case 12206057:
+                case 12208155:
+                case 12208157:
+                case 12208326:
+                case 12208327:
+                case 12208328:
+                case 12208330:
+                case 12208331:
+                case 12208332:
                 case 12208527:
+                case 12208528:
+                case 12208532:
+                case 12208534:
                 case 12208535:
+                case 12208537:
+                case 12208762:
+                case 12208775:
+                case 12209445:
+                case 12209446:
+                case 12209447:
+                case 12209448:
+                case 12209450:
+                case 12215038:
+                case 12215040:
+                case 12215321:
+                case 12216186:
                 case 12216490:
+                case 12216566:
                 case 12216567:
                 case 12216568:
                 case 12217195:
+                case 12221090:
+                case 12221092:
                 case 12221098:
+                case 12221101:
+                case 12221112:
+                case 12222102:
+                case 12222104:
+                case 12222106:
+                case 12222107:
+                case 12222108:
                 case 12222110:
+                case 12222111:
+                case 12222121:
+                case 12222122:
+                case 12222124:
+                case 12222125:
+                case 12222126:
+                case 12222127:
+                case 12222130:
                 case 12222131:
+                case 12222132:
+                case 12222447:
+                case 12223042:
+                case 12223045:
+                case 12223047:
+                case 12223048:
+                case 12223049:
                 case 12223050:
+                case 12223051:
                 case 12225336:
+                case 12225337:
+                case 12225339:
+                case 12225341:
+                case 12225342:
+                case 12225344:
+                case 12571887:
+                case 12571888:
+                case 12571889:
                 case 12571890:
+                case 12571891:
+                case 12571892:
+                case 12571893:
+                case 12571894:
                 case 12578485:
+                case 12578875:
+                case 12578876:
+                case 12578877:
+                case 12578878:
                 case 12580025:
+                case 12580026:
+                case 12580028:
+                case 12580030:
+                case 12580031:
+                case 12580032:
+                case 12580033:
                 case 12583655:
+                case 12583710:
+                case 12583711:
+                case 16249992:
+                case 16249995:
                 case 16253027:
+                case 16259652:
+                case 16259654:
+                case 16259659:
+                case 16259660:
+                case 16259664:
+                case 16259666:
+                case 16259667:
+                case 16259669:
+                case 16259670:
+                case 16259672:
+                case 16259676:
+                case 16259677:
+                case 16259682:
+                case 16259687:
+                case 16259688:
+                case 16259694:
+                case 16259696:
+                case 16259697:
+                case 16259698:
+                case 16259702:
+                case 16259704:
+                case 16259705:
+                case 16259708:
+                case 16259710:
+                case 16259712:
+                case 16259714:
+                case 16259715:
+                case 16259716:
+                case 16259717:
+                case 16259720:
+                case 16259906:
                 case 16267097:
                 case 16267114:
+                case 16267124:
+                case 16267127:
+                case 16267128:
+                case 16267132:
+                case 16267134:
+                case 16267137:
+                case 16267138:
+                case 16267142:
+                case 16267144:
+                case 16267146:
+                case 16267147:
+                case 16267148:
+                case 16267150:
+                case 16267154:
+                case 16267156:
+                case 16267157:
+                case 16267158:
+                case 16267160:
+                case 16267162:
                     PCMInfo(PcmType.P08);
                     this.Description = "P08";
                     this.ServiceNumber = 16228016; // unknown, use any for now.
@@ -3737,19 +3780,35 @@ namespace PcmHacking
 
                 // P11 service number unknown
                 case 10384528:
+                case 10384529:
+                case 12210253:
+                case 12210255:
+                case 12210258:
+                case 12210261:
                 case 12215090:
                 case 12215092:
+                case 12215884:
+                case 12215887:
+                case 12216522:
+                case 12216524:
                 case 12217996:
+                case 12217997:
+                case 12217998:
+                case 12217999:
                 case 12218876:
                 case 12218880:
                 case 12218881:
                 case 12218882:
                 case 12218890:
                 case 12218892:
+                case 12219182:
+                case 12219184:
                 case 12219185:
                 case 12219186:
                 case 12224985:
                 case 12226745:
+                case 12227495:
+                case 12227496:
                 case 12229535:
                 case 12235939:
                 case 12243363:
@@ -3762,26 +3821,40 @@ namespace PcmHacking
                 case 12579668:
                 case 12579673:
                 case 12580049:
+                case 12580050:
                 case 12580051:
+                case 12580052:
                 case 12582997:
+                case 12583589:
+                case 12583590:
                 case 12583591:
                 case 12583592:
                 case 12583753:
+                case 12583754:
                 case 12583755:
                 case 12583756:
                 case 12583758:
+                case 12583759:
+                case 12583761:
                 case 12583762:
                 case 12583763:
                 case 12583780:
+                case 12583781:
                 case 12583782:
+                case 12583783:
                 case 12583784:
                 case 12583785:
                 case 12583786:
+                case 12583787:
                 case 12584713:
+                case 12584714:
                 case 12584715:
+                case 12584716:
                 case 12584717:
                 case 12584719:
+                case 12584720:
                 case 12585894:
+                case 12586587:
                 case 12587615:
                 case 12587617:
                 case 12593509:
@@ -3789,17 +3862,36 @@ namespace PcmHacking
                 case 12593525:
                 case 12593527:
                 case 12593529:
+                case 12593819:
+                case 12593820:
+                case 12593821:
+                case 12593822:
+                case 12594542:
                 case 12594548:
                 case 12594550:
+                case 12596441:
                 case 12596603:
-                case 12596936:
+                case 12596936: // oddball with different internal structure (OS is larger than the rest, file is larger than the rest). Wont file detect. Ignore.
                 case 12597689:
                 case 12597690:
+                case 12598451:
+                case 12598452:
+                case 12598453:
                 case 12598564:
                 case 12598565:
                 case 12598583:
                 case 12598584:
                 case 12598585:
+                case 12598587:
+                case 12598588:
+                case 12598589:
+                case 12602858:
+                case 12602859:
+                case 12604013:
+                case 12604014:
+                case 12614703:
+                case 12614704:
+                case 93802333:
                 case 93802334:
                     PCMInfo(PcmType.P11);
                     this.Description = "P11";
