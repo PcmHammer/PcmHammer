@@ -3,7 +3,7 @@ param(
     [string]$Version = '2.0.0-local.12'
 )
 $ErrorActionPreference = 'Stop'
-$repo = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..\..'))
+$repo = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..'))
 $stage = Join-Path ([IO.Path]::GetFullPath($OutputDirectory)) 'PCM-Hammer-Modified-Preview'
 if (Test-Path -LiteralPath $stage) { throw 'Choose a new output directory to avoid mixing builds.' }
 $payload = Join-Path $stage 'App'

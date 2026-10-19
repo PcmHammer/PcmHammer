@@ -7,7 +7,7 @@ October 18, 2026. Windows x64 host, .NET SDK 10.0.402. WPF UI target: Windows x8
 - **470 shared-library tests passed**, zero failed/skipped, through `Apps/ReviewTests/ReviewTests.csproj`.
 - **93 interface checks passed**, followed by the successful suite summary, through `Apps/LoggingUiChecks`. This run used only generated examples and the repository's existing E38 test fixture; no downloaded BIN/XDF pairs were supplied.
 - The speed-conversion regression was also shown to fail with the original expression: 100 km/h decoded to 60.934 mph rather than 62.137119 mph. It passes after the correction.
-- Installer payload copying and post-copy SHA-256 verification passed in an isolated destination using `-NoShortcuts`. The new packaging script passed PowerShell syntax validation. Shortcuts and setup layout were additionally exercised during the preceding personal-preview development; they are not a hardware test.
+- End-to-end packaging passed using `Package.ps1` with the .NET 10 SDK, followed by installation and post-copy SHA-256 verification in an isolated destination using `-NoShortcuts`. The packaging helper's repository-root path was corrected during this check. Shortcuts and setup layout were additionally exercised during the preceding personal-preview development; they are not a hardware test.
 
 The legacy .NET Framework test-project execution was not performed. The SDK test project includes its test sources and shipped parameter definitions. WPF tests create the real window off screen and exercise its controls, commands, generated data, simulated adapters and operation guards.
 
