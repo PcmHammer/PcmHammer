@@ -811,6 +811,7 @@ namespace PcmHacking
 
         /// <summary>VPW and CAN 500k can both be monitored on this device.</summary>
         public override IReadOnlyList<BusProtocol> MonitorableProtocols { get; } = new[] { BusProtocol.VPW, BusProtocol.Can500k };
+        public override IReadOnlyList<BusProtocol> SupportedProtocols => J2534DeviceDescriptor.SupportedBuses(this.J2534Port.LoadedDevice);
 
         /// <summary>
         /// Begin monitoring. For VPW the init filter only passes the tool/PCM conversation, so install

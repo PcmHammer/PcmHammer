@@ -588,14 +588,21 @@ namespace PCMHammer.Viewmodels
             }
 
             string description = device.GetDeviceType() + onPort;
+            await InitializeCandidateAsync(device,description);
+        }
+
+        // Separate from discovery so the acceptance/failure lifecycle is tested without physical I/O.
+        public async Task InitializeCandidateAsync(Device device,string description,TimeSpan? timeout=null)
+        {
+            SelectedDevice=null;
+            Task<bool>? initializeTask=null;
             IsBusy = true;
             StatusText = $"Testing {device.GetDeviceType()}...";
 
             try
             {
-                Task<bool> initializeTask = device.Initialize();
-                bool completed = await initializeTask.AwaitWithTimeout(TimeSpan.FromSeconds(5));
-                SelectedDevice = device;
+                initializeTask = device.Initialize();
+                bool completed = await initializeTask.AwaitWithTimeout(timeout??TimeSpan.FromSeconds(5));
                 if (!completed)
                 {
                     StatusText = $"Timed out testing {description}.";
@@ -606,6 +613,7 @@ namespace PCMHammer.Viewmodels
                 }
                 else if (initializeTask.Result)
                 {
+                    SelectedDevice=device;
                     StatusText = $"{description} test OK.";
 
                     if (ShowInfoAlertAsync != null)
@@ -633,6 +641,13 @@ namespace PCMHammer.Viewmodels
             finally
             {
                 IsBusy = false;
+                if(!ReferenceEquals(SelectedDevice,device))
+                {
+                    // A timed-out native request still owns its handle until it actually completes.
+                    if(initializeTask!=null&&!initializeTask.IsCompleted)
+                        _=initializeTask.ContinueWith(completed=>{_ = completed.Exception;try{device.Dispose();}catch{}},TaskScheduler.Default);
+                    else try{device.Dispose();}catch{}
+                }
             }
         }
 

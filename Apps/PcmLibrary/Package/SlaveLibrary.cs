@@ -65,7 +65,18 @@ namespace PcmHacking
         private static byte[]? TryLoadEmbedded(string fileName)
         {
             LoadArchive();
-            return archive != null && archive.TryGetValue(fileName, out byte[] data) ? data : null;
+            // Callers may edit package bytes; never expose the integrity baseline itself.
+            return archive != null && archive.TryGetValue(fileName, out byte[] data) ? (byte[])data.Clone() : null;
+        }
+
+        /// <summary>
+        /// E38 slave flash cannot be read back. Accept only the factory bytes shipped with this
+        /// build, not an unchecked loose-file override carrying the same part number.
+        /// </summary>
+        public static bool IsKnownFactoryImage(uint partNumber, byte[] data)
+        {
+            byte[]? known = TryLoadEmbedded(partNumber.ToString(System.Globalization.CultureInfo.InvariantCulture) + ".bin");
+            return known != null && known.SequenceEqual(data);
         }
 
         /// <summary>

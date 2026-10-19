@@ -75,6 +75,7 @@ namespace PcmHacking
             }
 
             this.logger = this.vehicle.CreateLogger(this.osid, columns, this.uiLogger);
+            this.logger.CancellationToken = cancellationToken;
             return await this.logger.StartLogging();
         }
 

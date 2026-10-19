@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <IsTestProject>true</IsTestProject>
+    <IsPackable>false</IsPackable>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="MSTest.TestAdapter" Version="3.6.4" />
+    <PackageReference Include="MSTest.TestFramework" Version="3.6.4" />
+    <ProjectReference Include="../PcmLibrary/PcmLibrary.csproj" />
+    <Compile Include="../Tests/*.cs" Link="Existing/%(Filename)%(Extension)" />
+    <Content Include="../Tests/TestData/*.bin" Link="TestData/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="../UI/WindowsForms/PcmLogger/Parameters.*.xml" Link="%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="../UI/WindowsForms/PcmLogger/DiagnosticCodes.txt" Link="DiagnosticCodes.txt" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

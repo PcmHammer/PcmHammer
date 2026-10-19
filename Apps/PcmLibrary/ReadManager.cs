@@ -37,9 +37,9 @@ namespace PcmHacking
         public int CrcPollingDelayMs { get; set; } = 50;
 
         public ReadManager(
-            ILogger logger, 
+            ILogger logger,
             Vehicle vehicle,
-            Func<Action, Task> invoke, 
+            Func<Action, Task> invoke,
             Func<Task<string?>> promptForFilePath,
             Func<Task<PcmType>> promptForPcmType,
             Func<string, string, Task> alert,
@@ -233,7 +233,7 @@ namespace PcmHacking
 
             return new PcmPackage
             {
-                Generator = "PcmHammer",
+                Generator = "PCM Hammer",
                 Created = DateTime.UtcNow.ToString("o"),
                 Controllers = { controller }
             };

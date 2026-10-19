@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType><TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF><PlatformTarget>x86</PlatformTarget><LangVersion>14.0</LangVersion>
+    <SelfContained>true</SelfContained><ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../UI/WPF/PCMHammer/PCMHammer.csproj"/>
+    <Content Include="../UI/WindowsForms/PcmLogger/Parameters.*.xml" Link="%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest"/>
+    <Content Include="../UI/WPF/PCMHammer/App.xaml" Link="UI-check-App.xaml" CopyToOutputDirectory="PreserveNewest"/>
+    <Resource Include="../UI/Shared/help.html" Link="help.html"/>
+    <Resource Include="../UI/Shared/credits.html" Link="credits.html"/>
+    <Content Include="../Tests/TestData/E38_2048KiB_12607218.bin" Link="TestData/E38_2048KiB_12607218.bin" CopyToOutputDirectory="PreserveNewest"/>
+  </ItemGroup>
+</Project>

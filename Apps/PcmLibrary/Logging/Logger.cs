@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 // I'm a little surprised that this workaround is still needed.
@@ -56,6 +57,8 @@ namespace PcmHacking
     /// </remarks>
     public abstract class Logger
     {
+        /// <summary>Lets an interactive CAN session stop between parameter requests.</summary>
+        public CancellationToken CancellationToken { get; set; }
         private readonly Vehicle vehicle;
         private readonly uint osid;
         private readonly DpidConfiguration dpidConfiguration;

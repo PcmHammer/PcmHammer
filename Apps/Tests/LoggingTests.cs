@@ -10,6 +10,38 @@ namespace Tests
     [TestClass]
     public class LoggingTests
     {
+        [TestMethod]
+        public void ShippedVehicleSpeedConversionsDecodeKilometresAndMilesPerHour()
+        {
+            ParameterDatabase database = new ParameterDatabase(AppDomain.CurrentDomain.BaseDirectory);
+            database.LoadDatabase();
+            Assert.IsTrue(database.TryGetParameter("VehicleSpeedSensor", out PidParameter speed));
+
+            LogColumn kph = new LogColumn(speed, speed.Conversions.Single(c => c.Units == "kph"), false);
+            LogColumn mph = new LogColumn(speed, speed.Conversions.Single(c => c.Units == "mph"), false);
+            ParameterGroup group = new ParameterGroup(0);
+            Assert.IsTrue(group.TryAddLogColumn(kph));
+            Assert.IsTrue(group.TryAddLogColumn(mph));
+            DpidConfiguration configuration = new DpidConfiguration();
+            configuration.TryAddGroup(group);
+            LogRowParser parser = new LogRowParser(configuration);
+
+            // SAE vehicle speed is an unsigned byte in km/h. Check zero, a typical speed,
+            // and the largest encoded value against fixed international-mile conversions.
+            foreach (var sample in new[]
+            {
+                (Raw: (byte)0, Mph: 0.0),
+                (Raw: (byte)100, Mph: 62.1371192237334),
+                (Raw: (byte)255, Mph: 158.44965402052014)
+            })
+            {
+                parser.ParseData(new RawLogData(0, new[] { sample.Raw, sample.Raw }));
+                PcmParameterValues values = parser.Evaluate();
+                Assert.AreEqual((double)sample.Raw, values[kph].ValueAsDouble, 1e-9, "km/h");
+                Assert.AreEqual(sample.Mph, values[mph].ValueAsDouble, 1e-9, "mph at " + sample.Raw + " km/h");
+            }
+        }
+
         private Dictionary<uint, uint> GetAddress(uint address)
         {
             Dictionary<uint, uint> addresses = new Dictionary<uint, uint>();

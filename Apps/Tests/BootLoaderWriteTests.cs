@@ -158,7 +158,7 @@ namespace Tests
             byte[] library = Filler(17952);
             List<FlashModule> master = FlashModuleBuilder.Build(LoadE92Image(), pcmInfo, AllMaster);
             List<FlashModule> slave = FlashModuleBuilder.BuildSlaveModules(
-                new[] { Filler(11392), E92ModuleCodec.Wrap(E92ModuleCodec.Compress(Filler(512))) }, pcmInfo);
+                new[] { SlaveLibrary.Resolve("12667480.bin")!, SlaveLibrary.Resolve("12675190.bin")! }, pcmInfo);
 
             List<CanBootLoaderWriter.DownloadPhase> phases =
                 CanBootLoaderWriter.BuildPhases(pcmInfo, library, master, null, slave);
@@ -228,7 +228,7 @@ namespace Tests
                 new FlashModule("Operating System", Filler(0x800 + 0x4000), pcmInfo.BootLoaderMasterHeaderLength),
                 new FlashModule("Engine Operations", Filler(0x2000)),
             };
-            var slave = FlashModuleBuilder.BuildSlaveModules(new[] { Filler(26752), Filler(1536) }, pcmInfo);
+            var slave = FlashModuleBuilder.BuildSlaveModules(new[] { SlaveLibrary.Resolve("12625892.bin")!, SlaveLibrary.Resolve("12629150.bin")! }, pcmInfo);
 
             List<CanBootLoaderWriter.DownloadPhase> phases =
                 CanBootLoaderWriter.BuildPhases(pcmInfo, Filler(5440), master, Filler(416), slave);
@@ -271,8 +271,8 @@ namespace Tests
         public void BuildSlaveModules_ReadsTheFormFromTheImage()
         {
             var pcmInfo = new OSIDInfo(PcmType.E92);
-            byte[] wrapped = E92ModuleCodec.Wrap(E92ModuleCodec.Compress(Filler(512)));
-            List<FlashModule> modules = FlashModuleBuilder.BuildSlaveModules(new[] { Filler(11392), wrapped }, pcmInfo);
+            byte[] wrapped = SlaveLibrary.Resolve("12675190.bin")!;
+            List<FlashModule> modules = FlashModuleBuilder.BuildSlaveModules(new[] { SlaveLibrary.Resolve("12667480.bin")!, wrapped }, pcmInfo);
 
             Assert.AreEqual("slave-os", modules[0].Name);
             Assert.AreEqual(Gmlan.DataFormatUncompressed, modules[0].DataFormat);

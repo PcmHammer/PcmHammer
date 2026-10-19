@@ -68,7 +68,7 @@ namespace PcmHacking
                         new MemoryRange(0x60000, 0x20000, BlockType.OperatingSystem), // 128kb main block
                         new MemoryRange(0x40000, 0x20000, BlockType.OperatingSystem), // 128kb main block
                         new MemoryRange(0x20000, 0x20000, BlockType.OperatingSystem), // 128kb main block
-                        new MemoryRange(0x08000, 0x18000, BlockType.Calibration), //  96kb main block 
+                        new MemoryRange(0x08000, 0x18000, BlockType.Calibration), //  96kb main block
                         new MemoryRange(0x06000, 0x02000, BlockType.Parameter), //   8kb parameter block
                         new MemoryRange(0x04000, 0x02000, BlockType.Parameter), //   8kb parameter block
                         new MemoryRange(0x00000, 0x04000, BlockType.Boot), //  16kb boot block
@@ -86,7 +86,7 @@ namespace PcmHacking
                         new MemoryRange(0x60000, 0x20000, BlockType.OperatingSystem), // 128kb main block
                         new MemoryRange(0x40000, 0x20000, BlockType.OperatingSystem), // 128kb main block
                         new MemoryRange(0x20000, 0x20000, BlockType.OperatingSystem), // 128kb main block
-                        new MemoryRange(0x08000, 0x18000, BlockType.Calibration), //  96kb main block 
+                        new MemoryRange(0x08000, 0x18000, BlockType.Calibration), //  96kb main block
                         new MemoryRange(0x06000, 0x02000, BlockType.Parameter), //   8kb parameter block
                         new MemoryRange(0x04000, 0x02000, BlockType.Parameter), //   8kb parameter block
                         new MemoryRange(0x00000, 0x04000, BlockType.Boot), //  16kb boot block
@@ -102,7 +102,7 @@ namespace PcmHacking
                     {
                         // These addresses are for a bottom fill chip (B) in byte mode (not word)
                         new MemoryRange(0x20000, 0x20000, BlockType.OperatingSystem), // 128kb main block
-                        new MemoryRange(0x08000, 0x18000, BlockType.Calibration), //  96kb main block 
+                        new MemoryRange(0x08000, 0x18000, BlockType.Calibration), //  96kb main block
                         new MemoryRange(0x06000, 0x02000, BlockType.Parameter), //   8kb parameter block
                         new MemoryRange(0x04000, 0x02000, BlockType.Parameter), //   8kb parameter block
                         new MemoryRange(0x00000, 0x04000, BlockType.Boot), //  16kb boot block
@@ -119,7 +119,7 @@ namespace PcmHacking
                         new MemoryRange(0x60000, 0x20000, BlockType.OperatingSystem), // 128kb main block
                         new MemoryRange(0x40000, 0x20000, BlockType.OperatingSystem), // 128kb main block
                         new MemoryRange(0x20000, 0x20000, BlockType.OperatingSystem), // 128kb main block
-                        new MemoryRange(0x08000, 0x18000, BlockType.Calibration), //  96kb main block 
+                        new MemoryRange(0x08000, 0x18000, BlockType.Calibration), //  96kb main block
                         new MemoryRange(0x06000, 0x02000, BlockType.Parameter), //   8kb parameter block
                         new MemoryRange(0x04000, 0x02000, BlockType.Parameter), //   8kb parameter block
                         new MemoryRange(0x00000, 0x04000, BlockType.Boot), //  16kb boot block
@@ -200,7 +200,7 @@ namespace PcmHacking
                     };
                     break;
 
-                // AM29F800BB   
+                // AM29F800BB
                 case 0x00012258:
                     size = 1024 * 1024;
                     description = "AMD AM29F800BB, 1024KiB";
@@ -491,7 +491,7 @@ namespace PcmHacking
 
                 lastStart = memoryRanges[index].Address;
             }
-            
+
             return new FlashChip(chipId, description, size, memoryRanges);
         }
     }

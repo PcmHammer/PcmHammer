@@ -141,42 +141,29 @@ namespace PcmHacking
 
                 if (pcmInfo != null && pcmInfo.IsSupportedBootLoaderWrite)
                 {
-                    // A reference carries no bytes, so resolve it from the local library.
-                    var slaveModules = new List<byte[]>();
-                    var missing = new List<string>();
-                    foreach (PackageImage slave in slaveImages)
+                    IList<byte[]> slaveModules;
+                    try
                     {
-                        byte[]? data = slave.Data ?? SlaveLibrary.Resolve(slave.FileName);
-                        if (data == null)
-                        {
-                            missing.Add(slave.FileName ?? slave.Target ?? "?");
-                        }
-                        else
-                        {
-                            logger.AddUserMessage(string.Format(
-                                "Slave {0} ({1}): resolved from the local library.", slave.Target, slave.FileName));
-                            slaveModules.Add(data);
-                        }
+                        slaveModules = SlaveWriteValidation.Resolve(controller, pcmInfo);
+                    }
+                    catch (Exception exception) when (exception is PackageException || exception is InvalidOperationException || exception is IOException)
+                    {
+                        logger.AddUserMessage("Slave validation failed: " + exception.Message);
+                        logger.AddUserMessage("The PCM was NOT written.");
+                        return false;
                     }
 
-                    if (missing.Count == 0)
+                    FileValidator packageValidator = new FileValidator(main.Data, this.logger);
+                    if (!packageValidator.IdentifyAndValidate()
+                        || (packageValidator.DetectFileType() != pcmInfo.HardwareType && !RuntimeSettings.AllowCrossFlashing))
                     {
-                        return await this.RunBootLoaderWrite(main.Data, slaveModules, pcmInfo);
+                        logger.AddUserMessage("The package platform does not match its main image, or the image is invalid.");
+                        return false;
                     }
-
-                    // This file includes the slave, so do not quietly downgrade to a master-only write.
-                    logger.AddUserMessage("=================================================================");
-                    logger.AddUserMessage("SLAVE NOT WRITTEN - this file includes the slave CPU, but these");
-                    logger.AddUserMessage("slave module(s) are missing from the local library:");
-                    logger.AddUserMessage("  " + SlaveLibrary.DefaultDirectory);
-                    foreach (string moduleName in missing)
-                    {
-                        logger.AddUserMessage("    " + moduleName);
-                    }
-                    logger.AddUserMessage("Add the matching module file(s) there and try again.");
-                    logger.AddUserMessage("The PCM was NOT written.");
-                    logger.AddUserMessage("=================================================================");
-                    return false;
+                    if (!await this.ValidateCanTarget(packageValidator, forcedPcmType)) return false;
+                    if (pcmInfo.IsUnderDevelopment
+                        && !await this.promptForYesNo("This PCM's write support is still in development. Continue?", "Brick Risk")) return false;
+                    return await this.RunBootLoaderWrite(main.Data, slaveModules, pcmInfo);
                 }
 
                 logger.AddUserMessage(
@@ -313,7 +300,7 @@ namespace PcmHacking
             FileValidator validator = new FileValidator(masterImage, this.logger, pcmInfo.HardwareType);
             if (!validator.IdentifyAndValidate())
             {
-                logger.AddUserMessage("This file is corrupt or its format is unknown to PCMHammer. It would render your PCM unusable.");
+                logger.AddUserMessage("This file is corrupt or its format is unknown to PCM Hammer. It would render your PCM unusable.");
                 return false;
             }
 
@@ -693,6 +680,31 @@ namespace PcmHacking
             return success;
         }
 
+        /// <summary>One target gate for raw images and full master/slave packages.</summary>
+        private async Task<bool> ValidateCanTarget(FileValidator validator, PcmType forcedPcmType, DetectedModule? detected = null)
+        {
+            if (this.cancellationToken.IsCancellationRequested) return false;
+            if (forcedPcmType != PcmType.Undefined)
+            {
+                // Explicit selection is also used when the OSID database cannot identify a PCM.
+                // Preserve that override, but never let it silently select a different file type.
+                return CanWriteTargetPolicy.ForcedTypeMatches(validator.DetectFileType(), forcedPcmType,
+                    RuntimeSettings.AllowCrossFlashing);
+            }
+
+            detected = detected ?? await this.vehicle.DetectAndSelectPcm(this.cancellationToken);
+            if (detected == null || detected.Bus != BusProtocol.Can500k)
+            {
+                logger.AddUserMessage("Abort: a CAN PCM could not be identified. No programming was started.");
+                return false;
+            }
+            if (detected.HardwareType != PcmType.Undefined)
+                return validator.IsSameHardware(detected.Osid);
+
+            return await this.promptForYesNo(
+                "PCM hardware is not known/verified. An incompatible file may brick it. Continue?", "Brick Risk");
+        }
+
         /// <summary>
         /// Contains cross-platform code to handle user interactions to write the PCM's flash memory.
         /// Accepts a byte array directly for OSes that don't support direct file handling.
@@ -721,7 +733,7 @@ namespace PcmHacking
             FileValidator validator = new FileValidator(image, this.logger, forcedFileType);
             if (!validator.IdentifyAndValidate())
             {
-                logger.AddUserMessage("This file is corrupt or its format is unknown to PCMHammer. It would render your PCM unusable.");
+                logger.AddUserMessage("This file is corrupt or its format is unknown to PCM Hammer. It would render your PCM unusable.");
                 return false;
             }
             logger.AddUserMessage("File OSID: " + validator.GetOsidFromImage());
@@ -735,30 +747,7 @@ namespace PcmHacking
                 DetectedModule? detected = await this.vehicle.DetectAndSelectPcm(this.cancellationToken);
                 if (detected != null && detected.Bus == BusProtocol.Can500k)
                 {
-                    // The CAN path builds its profile from the file, not the connected PCM. We can only
-                    // verify file-vs-hardware compatibility when the connected PCM's OSID resolves to a
-                    // known type. When it does and it disagrees with the file, reject the mismatch - the
-                    // same gate the VPW path applies below. When it does not resolve we cannot verify the
-                    // hardware, so warn about the brick risk and let the user decide.
-                    PcmType connectedType = detected.HardwareType;
-                    if (connectedType == PcmType.Undefined)
-                    {
-                        string msg = "PCM Hardware is not known/verified. The PCM may brick if the file is not compatible. Continue?";
-                        logger.AddUserMessage(msg);
-                        if (await this.promptForYesNo(msg, "Brick Risk"))
-                        {
-                            logger.AddUserMessage("User chose to proceed.");
-                        }
-                        else
-                        {
-                            logger.AddUserMessage("User chose to abort.");
-                            return false;
-                        }
-                    }
-                    else if (!validator.IsSameHardware(detected.Osid))
-                    {
-                        return false;
-                    }
+                    if (!await this.ValidateCanTarget(validator, forcedPcmType, detected)) return false;
                     return await this.RunCanWrite(image, validator);
                 }
                 if (detected == null)
@@ -781,7 +770,7 @@ namespace PcmHacking
                 // the point. RunCanWrite then builds its profile from validator.GetFileType(), which
                 // returns the forced type, so selecting E92 writes as an E92.
                 PcmType fileContentType = validator.DetectFileType();
-                if (fileContentType != forcedPcmType && !RuntimeSettings.AllowCrossFlashing)
+                if (!CanWriteTargetPolicy.ForcedTypeMatches(fileContentType, forcedPcmType, RuntimeSettings.AllowCrossFlashing))
                 {
                     string msg = $"Abort: this file is for a {fileContentType} PCM, but {forcedPcmType} was selected.";
                     logger.AddUserMessage(msg);
@@ -1011,7 +1000,7 @@ namespace PcmHacking
                     logger.AddUserMessage("User chose to proceed.");
                 }
                 else
-                { 
+                {
                     logger.AddUserMessage("User chose not to proceed.");
                     return false;
                 }

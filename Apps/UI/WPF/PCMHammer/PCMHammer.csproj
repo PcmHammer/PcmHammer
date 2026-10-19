@@ -2,6 +2,13 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
+    <AssemblyName>PCMHammer</AssemblyName>
+    <RootNamespace>PCMHammer</RootNamespace>
+    <AssemblyTitle>PCM Hammer</AssemblyTitle>
+    <Product>PCM Hammer</Product>
+    <Description>PCM Hammer personal tuning and logging workspace</Description>
+    <Company>Nicholas Speer — modified preview</Company>
+    <Copyright>Copyright (C) 2018-2026 PcmHacking.net - GPL v3; PCM Hammer modifications 2026</Copyright>
     <TargetFramework>net10.0-windows</TargetFramework>
     <!-- Run 32-bit so the process can load 32-bit J2534 driver DLLs (a 64-bit process cannot).
          Most J2534 drivers ship 32-bit only; the WinForms app runs 32-bit for the same reason. -->
@@ -86,8 +93,17 @@
   </Target>
 
   <ItemGroup>
+    <Resource Include="..\..\Shared\0411_256px.ico"><Link>Assets/PCMHammer.ico</Link></Resource>
     <Content Include="..\..\Shared\0411_256px.ico">
       <Link>0411_256px.ico</Link>
+    </Content>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="..\..\WindowsForms\PcmLogger\Parameters.*.xml">
+      <Link>%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </Content>
   </ItemGroup>
 
@@ -97,7 +113,7 @@
     <Resource Include="..\..\Shared\credits.html">
       <Link>credits.html</Link>
     </Resource>
-    <Resource Include="..\..\Shared\help.html">
+    <Resource Include="Assets\PreviewHelp.html">
       <Link>help.html</Link>
     </Resource>
   </ItemGroup>

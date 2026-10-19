@@ -110,6 +110,8 @@ namespace Tests
             // Plain module: eight ASCII digits at offset 0x10.
             byte[] plain = new byte[0x20];
             System.Text.Encoding.ASCII.GetBytes("12667480").CopyTo(plain, 0x10);
+            uint binaryPartNumber = 12667480;
+            for (int i = 0; i < 4; i++) plain[5 + i] = (byte)(binaryPartNumber >> (24 - i * 8));
             Assert.IsTrue(FlashModuleBuilder.TryGetSlaveModulePartNumber(plain, out uint plainId));
             Assert.AreEqual(12667480u, plainId);
 

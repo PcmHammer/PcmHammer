@@ -48,6 +48,7 @@ namespace PcmHacking
                 // ToList: the group's columns are edited below.
                 foreach (LogColumn column in group.LogColumns.ToList())
                 {
+                    this.CancellationToken.ThrowIfCancellationRequested();
                     if (!(column.Parameter is PidParameter pidParameter))
                     {
                         // RAM parameters are read by address, which on CAN is a different service
@@ -59,7 +60,7 @@ namespace PcmHacking
                         continue;
                     }
 
-                    Response<byte[]> response = await this.Vehicle.ReadCanParameter((ushort)pidParameter.PID);
+                    Response<byte[]> response = await this.Vehicle.ReadCanParameter((ushort)pidParameter.PID, this.CancellationToken);
 
                     switch (response.Status)
                     {
@@ -116,12 +117,13 @@ namespace PcmHacking
 
                 foreach (LogColumn column in group.LogColumns)
                 {
+                    this.CancellationToken.ThrowIfCancellationRequested();
                     if (!(column.Parameter is PidParameter pidParameter))
                     {
                         continue;
                     }
 
-                    Response<byte[]> response = await this.Vehicle.ReadCanParameter((ushort)pidParameter.PID);
+                    Response<byte[]> response = await this.Vehicle.ReadCanParameter((ushort)pidParameter.PID, this.CancellationToken);
                     if (response.Status != ResponseStatus.Success)
                     {
                         // Abandon the row rather than publish a partly-stale one.
@@ -129,6 +131,8 @@ namespace PcmHacking
                     }
 
                     byte[] value = response.Value;
+                    // Never pad a short reply with zeroes and publish an invented sensor reading.
+                    if (value.Length < pidParameter.ByteCount) return;
                     int count = Math.Min(pidParameter.ByteCount, value.Length);
                     if (position + count <= payload.Length)
                     {

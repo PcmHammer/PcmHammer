@@ -18,7 +18,7 @@ namespace PCMHammer.Viewmodels
         private readonly FileDialogService _fileDialogService;
         private readonly Window _parentWindow;
         private CancellationTokenSource? _cancellationTokenSource;
-        private bool CanReInitialize() => SelectedDevice is not null && !IsOperationRunning && !IsBusMonitorRunning;
+        private bool CanReInitialize() => SelectedDevice is not null && IsDeviceControlEnabled;
         #endregion
 
         #region Properties
@@ -94,13 +94,26 @@ namespace PCMHammer.Viewmodels
         /// items bind their IsEnabled to this, so they grey out for the duration of a read/write/verify
         /// instead of inviting a second command.
         /// </summary>
-        public bool CanStartOperation => SelectedDevice is not null && !IsOperationRunning && !IsBusMonitorRunning;
+        public bool CanStartOperation => SelectedDevice is not null && IsDeviceControlEnabled;
 
         /// <summary>
         /// True when device-level controls (Select / Re-Initialize, file loading) are allowed: simply
         /// when nothing is using the device. These do not require a device to already be present.
         /// </summary>
-        public bool IsDeviceControlEnabled => !IsOperationRunning && !IsBusMonitorRunning;
+        public bool IsDeviceControlEnabled => !IsOperationRunning && !IsBusMonitorRunning && !IsDataLoggingRunning;
+
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(CanStartOperation))]
+        [NotifyPropertyChangedFor(nameof(IsDeviceControlEnabled))]
+        [NotifyPropertyChangedFor(nameof(CanWriteDocument))]
+        [NotifyPropertyChangedFor(nameof(CanUseDocument))]
+        public partial bool IsDataLoggingRunning { get; set; }
+
+        public DataLoggingViewModel DataLogging { get; private set; } = null!;
+        public TuneEditorViewModel TuneEditor {get;private set;}=null!;
+
+        [RelayCommand]
+        public void NavigateWorkspace(string index){if(int.TryParse(index,out int selected))SelectedTabIndex=selected;}
 
         #endregion
 
@@ -114,6 +127,7 @@ namespace PCMHammer.Viewmodels
         /// </summary>
         private void RefreshCommandStates()
         {
+            CheckAdapterConnectionCommand.NotifyCanExecuteChanged();
             SelectDeviceCommand.NotifyCanExecuteChanged();
             ReInitializeDeviceCommand.NotifyCanExecuteChanged();
             LoadFileCommand.NotifyCanExecuteChanged();
@@ -140,17 +154,39 @@ namespace PCMHammer.Viewmodels
 
         // CommunityToolkit generates these hooks; each fires when its property changes. Refreshing the
         // command states here keeps every command's enabled state current (see RefreshCommandStates).
-        partial void OnSelectedDeviceChanged(Device? value) => RefreshCommandStates();
+        partial void OnSelectedDeviceChanged(Device? value) { ResetAdapterStatus();RefreshCommandStates(); }
         partial void OnIsOperationRunningChanged(bool value)
         {
             RefreshCommandStates();
-            BusMonitor.IsHostBusy = value;
+            BusMonitor.IsHostBusy = value || IsDataLoggingRunning;
+            DataLogging.IsHostBusy = value || IsBusMonitorRunning;
+            TuneEditor.IsHostBusy=value||IsBusMonitorRunning||IsDataLoggingRunning;
         }
-        partial void OnIsBusMonitorRunningChanged(bool value) => RefreshCommandStates();
-        partial void OnLoadedPackageChanged(PcmPackage? value) => RefreshCommandStates();
+        partial void OnIsBusMonitorRunningChanged(bool value)
+        {
+            RefreshCommandStates();
+            DataLogging.IsHostBusy = value || IsOperationRunning;
+            TuneEditor.IsHostBusy=value||IsOperationRunning||IsDataLoggingRunning;
+        }
+        partial void OnIsDataLoggingRunningChanged(bool value)
+        {
+            RefreshCommandStates();
+            BusMonitor.IsHostBusy = value || IsOperationRunning;
+            TuneEditor.IsHostBusy=value||IsOperationRunning||IsBusMonitorRunning;
+        }
+        partial void OnLoadedPackageChanged(PcmPackage? value)
+        {
+            TuneEditor?.BindTune(value?.Controllers.FirstOrDefault()?.Image("main")?.Data);
+            if(value!=null)SelectedTabIndex=6;
+            RefreshCommandStates();
+        }
 
         // Protocol options depend on the device: a J2534 box does VPW and CAN, SLCAN only CAN.
-        partial void OnVehicleChanged(Vehicle? value) => BusMonitor.Vehicle = value;
+        partial void OnVehicleChanged(Vehicle? value)
+        {
+            BusMonitor.Vehicle = value;
+            DataLogging.Vehicle = value;
+        }
 
         #endregion
 
@@ -336,21 +372,13 @@ namespace PCMHammer.Viewmodels
             }
         }
         [RelayCommand(CanExecute=nameof(CanReInitialize))]
-        public void ReInitializeDevice() 
+        public async Task ReInitializeDevice()
         {
-            if (SelectedDevice == null)
-            {
-                _logger.AddUserMessage("Cannot re-initialize: No device has been selected yet.");
-                return;
-            }
-
-            StatusText = "Re-initializing device communication...";
-            _logger.AddDebugMessage(message: $"Re-initializing link to: {SelectedDevice.GetDeviceType()}");
-
-            // Reuse the exact same connection architecture silently
-            InitializeDeviceAndVehicle(SelectedDevice, Vehicle!.Enable4xReadWrite);
-
-            StatusText = "Ready";
+            Device? device=SelectedDevice;
+            if(device==null||!IsDeviceControlEnabled)return;
+            bool fourX=Vehicle?.Enable4xReadWrite??false;
+            await CheckAdapterConnection();
+            if(adapterConnectionVerified&&ReferenceEquals(device,SelectedDevice))InitializeDeviceAndVehicle(device,fourX);
         }
         [RelayCommand(CanExecute = nameof(CanStartOperation))]
         public async Task ReadProperties()
@@ -367,10 +395,12 @@ namespace PCMHammer.Viewmodels
                     PcmIdentity? identity = await Vehicle.ReadIdentity(CancellationToken.None);
                     if (identity == null)
                     {
+                        _parentWindow.Dispatcher.Invoke(()=>EcuConnectionStatus="No ECU response");
                         _logger.AddUserMessage("No PCM detected.");
                         return;
                     }
 
+                    _parentWindow.Dispatcher.Invoke(()=>EcuConnectionStatus="ECU responding · "+DateTime.Now.ToString("HH:mm:ss"));
                     foreach (string line in identity.Lines)
                     {
                         _logger.AddUserMessage(line);
@@ -390,7 +420,7 @@ namespace PCMHammer.Viewmodels
         }
         [RelayCommand(CanExecute = nameof(CanWriteDocument))]
         public async Task WritePCM() => await ExecuteWritePCMAsyncWithDialog();
-        [RelayCommand(CanExecute = nameof(IsOperationRunning))]
+        [RelayCommand(CanExecute = nameof(CanCancelOperation))]
         public async Task CancelCurrent()
         {
             if (IsOperationRunning)
@@ -420,6 +450,13 @@ namespace PCMHammer.Viewmodels
 
             // Before anything that can set Vehicle or IsOperationRunning; their hooks touch it.
             BusMonitor = new BusMonitorViewModel(_logger, busy => IsBusMonitorRunning = busy);
+            DataLogging = new DataLoggingViewModel(_logger, busy => IsDataLoggingRunning = busy);
+            TuneEditor=new TuneEditorViewModel(_logger, bytes=>{
+                var main=LoadedPackage?.Controllers.FirstOrDefault()?.Image("main");
+                if(main==null)throw new InvalidOperationException("Load a real tune before applying edits.");
+                main.Data=bytes;main.RefreshHash();DocumentDirty=true;
+            },()=>{OnPropertyChanged(nameof(CanWriteDocument));OnPropertyChanged(nameof(CanUseDocument));RefreshCommandStates();});
+            SelectedTabIndex=6;
 
             _fileDialogService = new FileDialogService();
             _logger.ProgressBarUpdated += (percent, visible) =>
@@ -444,6 +481,7 @@ namespace PCMHammer.Viewmodels
 
         public async Task HandleApplicationShutdownAsync()
         {
+            await DataLogging.StopAsync();
             // First: it holds the device, so disposing the Vehicle would race an in-flight receive.
             await BusMonitor.StopAsync();
 
@@ -525,6 +563,7 @@ namespace PCMHammer.Viewmodels
                 if (package != null)
                 {
                     SetLoadedPackage(package, path: null, dirty: true);
+                    EcuConnectionStatus="ECU read completed · "+DateTime.Now.ToString("HH:mm:ss");
                     StatusText = "Read Completed Successfully!";
                     SaveAfterRead();
                 }
@@ -726,7 +765,7 @@ namespace PCMHammer.Viewmodels
 
                 if (backgroundViewModel.DeviceCategory.Equals("Serial", StringComparison.Ordinal))
                 {
-                    backgroundViewModel.SerialPort = backgroundViewModel.SerialPorts.FirstOrDefault(p => p.PortName == Properties.Settings.Default.SavedSerialPort); 
+                    backgroundViewModel.SerialPort = backgroundViewModel.SerialPorts.FirstOrDefault(p => p.PortName == Properties.Settings.Default.SavedSerialPort);
                     backgroundViewModel.SerialPortDeviceType = Properties.Settings.Default.SavedSerialDevice;
                 }
                 else
@@ -1058,6 +1097,7 @@ namespace PCMHammer.Viewmodels
             // Refresh your service layer with the updated Vehicle instance
             PcmFlasher = new PcmFlasher(Vehicle, _logger);
             PcmReader = new PcmReader(Vehicle, _logger);
+            SetAdapterConnectionStatus(true);
         }
 
         /// <summary>
@@ -1115,7 +1155,7 @@ namespace PCMHammer.Viewmodels
                 string destinationPath = canSaveWithoutAsking
                     ? Path.Combine(logDirectory, defaultName)
                     : _fileDialogService.GetLogSavePath(defaultName);
-                
+
                 if (string.IsNullOrEmpty(destinationPath))
                 {
                     _logger.AddUserMessage($"{logName} save operation canceled.");
