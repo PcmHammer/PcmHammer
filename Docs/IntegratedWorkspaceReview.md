@@ -1,6 +1,6 @@
 # Integrated WPF tuning and logging overhaul
 
-Proposed by Nicholas Speer, October 18, 2026. Base: `develop` at `ac45d15958cfd8591bf0c47ceae9040394e25e2b`.
+Proposed by FoggEyez, October 18, 2026. Base: `develop` at `ac45d15958cfd8591bf0c47ceae9040394e25e2b`.
 
 This is one proposal covering the complete host-application overhaul. Maintainers can review the sections independently and decide which portions fit PCM Hammer. It retains the PCM Hammer name, upstream PCM icon, GPLv3, original credits and third-party notices. It is labeled an unofficial modified preview, not an official release.
 
@@ -66,7 +66,7 @@ PCM identification, read/write protocols, PHZ documents, parameter definitions a
 - Collapses notes/history to a compact expander and verifies the minimum supported window size.
 - Adds footer adapter status and a connection check. Merely selecting an adapter reports an unverified selection rather than a working ECU connection.
 - Uses adapter protocol capabilities when available.
-- Uses the original PCM icon, retains project notices and adds a compact Nicholas Speer contribution credit.
+- Uses the original PCM icon, retains project notices and adds a compact FoggEyez contribution credit.
 - Includes the optional `Apps/installer/ModifiedPreview` setup scripts: payload verification, per-user installation, desktop/Start menu shortcuts and optional launch. These are offered for review rather than replacing upstream release scripts.
 
 ## Validation and limits
