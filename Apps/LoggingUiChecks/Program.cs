@@ -144,6 +144,7 @@ internal static class Program
                 Check(tune.CanEdit&&!tune.CanExport&&tune.IsDemo,"Demo grid editable with export and apply disabled");
                 string demoOriginal=tune.Cells[0].Text;
                 Check(tune.Surface?.Rows==9&&tune.Surface.Columns==16&&tune.Surface.ColumnLabels[1]=="400"&&tune.Surface.RowLabels[0]=="20","Spark table has RPM and MAP axes and a complete 3D surface");
+                Check(SmoothSpark(tune.Surface!),"Generated spark preview rises smoothly with RPM and decreases with load without repeating peaks");
                 tune.Cells[0].Text="9";tune.CommitCells();
                 Check(tune.Cells[0].Text=="9"&&tune.Journal.Count>0,"Demo edits populate the change journal");
                 tune.Undo();Check(tune.Cells[0].Text==demoOriginal,"Editor Undo restores prior value");
@@ -205,6 +206,7 @@ internal static class Program
                 Check(tune.Fields.Count==5&&tune.Cells.Count==1089&&tune.TableRows.Count==33&&tune.ColumnCount==33,"Synthetic fixture opens five distinct practice entries and starts on the main spark map");
                 Check(tune.TuneIdentity.Contains("12607218")&&tune.CanEdit&&tune.IsReference&&tune.IsDemo&&!tune.CanExport&&!grid.IsReadOnly,"XDF example enables practice cell editing without enabling vehicle Apply or BIN export");
                 Check(tune.Surface?.Values.Length==1089&&tune.Curve.Count==33,"Imported spark data reaches the 3D surface and first-row curve");
+                Check(SmoothSpark(tune.Surface!)&&tune.Surface!.RowLabels[0]=="20"&&tune.Surface.RowLabels[32]=="100"&&tune.Surface.ColumnLabels[32]=="6400","Generated XDF spark preview has a smooth vehicle-like shape and coherent RPM/MAP axes");
                 var high=tune.SelectedField;var highOriginal=tune.Cells[0].Text;
                 tune.SetSelection(new[]{0,1,33,34});tune.SelectedTool="Add / subtract";tune.ToolAmount="1";tune.ApplySelectionTool();
                 Check(tune.Cells[0].Text!=highOriginal&&tune.Journal.Any(n=>n.Contains("Names, axes")),"Bulk practice edits update imported cells while preserving import notes");
@@ -287,19 +289,33 @@ internal static class Program
         var definition=new CalibrationDefinition {Name="Synthetic UI fixture only",Osid=12607218,ImageSize=original.Length,OsSha256=CalibrationEditor.Hash(original,os.Start,os.Length),
             Fields={new CalibrationField {Id="fixture",Name="Synthetic bytes",Address=address,Rows=64,Columns=64,Storage="u8",Minimum=0,Maximum=255}}};
         var editor=new CalibrationEditor(original,definition,new QuietLogger());
-        editor.Edit(editor.Definition.Fields[0],Enumerable.Range(0,4096).Select(i=>(double)(10+i%20)).ToArray(),"Generated test samples");
-        byte[] image=editor.Export();
+        var generated=Enumerable.Range(0,4096).Select(i=>(double)(10+i%20)).ToArray();
         var header=new XElement("XDFHEADER",new XElement("deftitle","12607218 synthetic fixture"),new XElement("BASEOFFSET",new XAttribute("offset","0"),new XAttribute("subtract","0")));
         foreach(var pair in new[]{(0,"Spark"),(1,"Fuel"),(2,"Idle"),(3,"Airflow")})header.Add(new XElement("CATEGORY",new XAttribute("index",pair.Item1),new XAttribute("name",pair.Item2)));
         var root=new XElement("XDFFORMAT",header);int next=address;
-        foreach(var map in new[]{("High-octane spark � TEST MAPPING",33,33,1),("Low-octane spark � TEST MAPPING",33,33,1),("Fuel � TEST MAPPING",33,17,2),("Idle � TEST MAPPING",17,1,3),("Airflow � TEST MAPPING",33,1,4)})
+        foreach(var map in new[]{("High-octane spark — TEST MAPPING",33,33,1),("Low-octane spark — TEST MAPPING",33,33,1),("Fuel — TEST MAPPING",33,17,2),("Idle — TEST MAPPING",17,1,3),("Airflow — TEST MAPPING",33,1,4)})
         {
-            XElement Axis(string id,int count)=>new XElement("XDFAXIS",new XAttribute("id",id),Enumerable.Range(0,count).Select(i=>new XElement("LABEL",new XAttribute("index",i),new XAttribute("value",i*200))));
+            bool spark=map.Item4==1;
+            if(spark)
+                for(int r=0;r<map.Item2;r++)for(int c=0;c<map.Item3;c++)
+                    generated[next-address+r*map.Item3+c]=Math.Round(TuneEditorViewModel.DemoSparkAdvance(c*200,20+80.0*r/(map.Item2-1))-(map.Item1.StartsWith("Low-octane")?4:0));
+            XElement Axis(string id,int count)=>new XElement("XDFAXIS",new XAttribute("id",id),new XElement("units",spark?(id=="x"?"Engine speed (RPM)":"MAP (kPa)"):"Sample index"),Enumerable.Range(0,count).Select(i=>new XElement("LABEL",new XAttribute("index",i),new XAttribute("value",spark&&id=="y"?20+80.0*i/(count-1):i*200))));
             root.Add(new XElement("XDFTABLE",new XElement("title",map.Item1),new XElement("CATEGORYMEM",new XAttribute("index","0"),new XAttribute("category",map.Item4)),Axis("x",map.Item3),Axis("y",map.Item2),
-                new XElement("XDFAXIS",new XAttribute("id","z"),new XElement("EMBEDDEDDATA",new XAttribute("mmedaddress","0x"+next.ToString("X")),new XAttribute("mmedelementsizebits","8"),new XAttribute("mmedtypeflags","0x05"),new XAttribute("mmedrowcount",map.Item2),new XAttribute("mmedcolcount",map.Item3)),new XElement("MATH",new XAttribute("equation","X"),new XElement("VAR",new XAttribute("id","X"))))));
+                new XElement("XDFAXIS",new XAttribute("id","z"),new XElement("EMBEDDEDDATA",new XAttribute("mmedaddress","0x"+next.ToString("X")),new XAttribute("mmedelementsizebits","8"),new XAttribute("mmedtypeflags","0x05"),new XAttribute("mmedrowcount",map.Item2),new XAttribute("mmedcolcount",map.Item3)),new XElement("units",spark?"degrees BTDC":"test values"),new XElement("MATH",new XAttribute("equation","X"),new XElement("VAR",new XAttribute("id","X"))))));
             next+=map.Item2*map.Item3;
         }
-        return(image,root.ToString(),address);
+        editor.Edit(editor.Definition.Fields[0],generated,"Generated test samples");
+        return(editor.Export(),root.ToString(),address);
+    }
+    private static bool SmoothSpark(PCMHammer.Views.SurfaceData data)
+    {
+        for(int r=0;r<data.Rows;r++)for(int c=0;c<data.Columns;c++)
+        {
+            double value=data.Values[r*data.Columns+c];
+            if(c>0&&value<data.Values[r*data.Columns+c-1])return false;
+            if(r>0&&value>data.Values[(r-1)*data.Columns+c])return false;
+        }
+        return true;
     }
     private static void Check(bool condition,string name){if(!condition)throw new Exception("FAIL: "+name);Console.WriteLine("PASS: "+name);}
     private static IEnumerable<T> Find<T>(DependencyObject parent) where T:DependencyObject

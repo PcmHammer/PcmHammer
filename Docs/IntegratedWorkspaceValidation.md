@@ -1,11 +1,11 @@
 # Integrated workspace validation
 
-October 18, 2026. Windows x64 host, .NET SDK 10.0.402. WPF UI target: Windows x86. Tests below were run against the complete proposed host-overhaul branch based on `ac45d15958cfd8591bf0c47ceae9040394e25e2b`.
+October 18, 2026 baseline; interface checks refreshed October 20, 2026. Windows x64 host, .NET SDK 10.0.402. WPF UI target: Windows x86. Tests below were run against the complete proposed host-overhaul branch based on `ac45d15958cfd8591bf0c47ceae9040394e25e2b`.
 
 ## Results
 
 - **470 shared-library tests passed**, zero failed/skipped, through `Apps/ReviewTests/ReviewTests.csproj`.
-- **93 interface checks passed**, followed by the successful suite summary, through `Apps/LoggingUiChecks`. This run used only generated examples and the repository's existing E38 test fixture; no downloaded BIN/XDF pairs were supplied.
+- **95 interface checks passed**, followed by the successful suite summary, through `Apps/LoggingUiChecks`. This run used only generated examples and the repository's existing E38 test fixture; no downloaded BIN/XDF pairs were supplied.
 - The speed-conversion regression was also shown to fail with the original expression: 100 km/h decoded to 60.934 mph rather than 62.137119 mph. It passes after the correction.
 - End-to-end packaging passed using `Package.ps1` with the .NET 10 SDK, followed by installation and post-copy SHA-256 verification in an isolated destination using `-NoShortcuts`. The packaging helper's repository-root path was corrected during this check. Shortcuts and setup layout were additionally exercised during the preceding personal-preview development; they are not a hardware test.
 
@@ -51,3 +51,7 @@ Generated demo recording:
 Generated test mapping, not a vehicle calibration definition:
 
 ![PCM Hammer tuning workspace](IntegratedWorkspace/tuning-workspace.png)
+
+## Spark-preview follow-up — October 20, 2026
+
+Replaced the repeating byte-ramp spark values in the generated XDF fixture with a smooth synthetic RPM/MAP profile; the built-in demo uses the same profile. Its size and the five-entry fixture coverage are unchanged. RPM spans 0–6400 and MAP spans 20–100 kPa in the fixture. Added two interface checks for monotonic timing versus RPM/load and coherent labels. All 95 interface checks passed, including edit/undo guards and missing-area coverage behavior. The tuning screenshot was refreshed from that run. Values remain generated illustrations, not a vehicle calibration.

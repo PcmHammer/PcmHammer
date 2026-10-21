@@ -149,8 +149,7 @@ public partial class TuneEditorViewModel : ObservableObject
         var data=new byte[1024];
         for(int r=0;r<rows;r++)for(int c=0;c<columns;c++)
         {
-            // A synthetic shape for exploring the UI, not a recommended calibration.
-            double example=8+25*(1-Math.Exp(-c/3.0))-r*2.1+2*Math.Sin(c/4.0);
+            double example=DemoSparkAdvance(c*400,20+r*10);
             short raw=(short)Math.Round(example*10);int address=128+(r*columns+c)*2;
             data[address]=(byte)(raw>>8);data[address+1]=(byte)raw;
         }
@@ -160,6 +159,14 @@ public partial class TuneEditorViewModel : ObservableObject
                 Description="Ignition timing in degrees before top dead center. Find RPM across the top and MAP down the left. DEMO values are made up, not a tune for your engine."}}};
         Attach(new CalibrationEditor(data,definition,logger,true));
         Message="DEMO SPARK TABLE — made-up values for learning. Nothing here can be written to your truck.";TuneIdentity="Demonstration workspace · no vehicle calibration";
+    }
+    /// <summary>Generated illustration only: timing rises toward a plateau with RPM and falls with load.</summary>
+    public static double DemoSparkAdvance(double rpm,double mapKpa)
+    {
+        double speed=Math.Clamp(rpm,0,6400),load=(Math.Clamp(mapKpa,20,100)-20)/80;
+        double lightLoad=8+32*(1-Math.Exp(-speed/1800));
+        double loadCorrection=2+12*(1-Math.Exp(-speed/1400));
+        return Math.Round(lightLoad-load*loadCorrection,1);
     }
     [RelayCommand]
     public void LoadE38Reference()
@@ -174,9 +181,9 @@ public partial class TuneEditorViewModel : ObservableObject
             Array.Copy(bytes,0,data,i*4,4);
         }
         var definition=new CalibrationDefinition {Name="Synthetic read-only illustration",DemoOnly=true,ImageSize=data.Length,
-            Fields={new CalibrationField {Id="illustration",Name="Synthetic curve � DEMO",Description="Generated values; no ECU mapping.",Category="Airflow",Rows=33,Columns=1,Storage="f32be",Minimum=0,Maximum=100000,Units="illustration",RowAxisLabel="Sample index",ColumnAxisLabel="Generated value",RowLabels=Enumerable.Range(0,33).Select(i=>i.ToString()).ToArray(),ColumnLabels=new[]{"Value"}}}};
+            Fields={new CalibrationField {Id="illustration",Name="Synthetic curve — DEMO",Description="Generated values; no ECU mapping.",Category="Airflow",Rows=33,Columns=1,Storage="f32be",Minimum=0,Maximum=100000,Units="illustration",RowAxisLabel="Sample index",ColumnAxisLabel="Generated value",RowLabels=Enumerable.Range(0,33).Select(i=>i.ToString()).ToArray(),ColumnLabels=new[]{"Value"}}}};
         Attach(new CalibrationEditor(data,definition,logger,true),true);
-        TuneIdentity="READ-ONLY SYNTHETIC ILLUSTRATION � no vehicle calibration";
+        TuneIdentity="READ-ONLY SYNTHETIC ILLUSTRATION · no vehicle calibration";
         Message="Generated illustration only. Editing, Apply and Export are disabled. Your loaded tune is unchanged.";
     }
     private void LoadCells()
