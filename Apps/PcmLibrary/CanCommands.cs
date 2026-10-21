@@ -880,14 +880,9 @@ namespace PcmHacking
                 {
                     byte[] bytes = m?.GetBytes() ?? Array.Empty<byte>();
 
-                    // A flash burn can send more response-pending keepalives than Device.ReceiveMessage
-                    // waits through, so keep reading when one reaches this far.
-                    if (bytes.Length >= 3 && bytes[0] == Gmlan.NegativeResponse && bytes[2] == Gmlan.NrcResponsePending)
-                    {
-                        return Response.Create(ResponseStatus.UnexpectedResponse, (byte[])null!);
-                    }
-
-                    return bytes.Length > 0
+                    // A reply from the same ECU can still belong to an earlier service. Do not
+                    // advance a flash download until the current request has been acknowledged.
+                    return BootLoaderReplyPolicy.Matches(message.GetBytes(), bytes)
                         ? Response.Create(ResponseStatus.Success, bytes)
                         : Response.Create(ResponseStatus.UnexpectedResponse, (byte[])null!);
                 },

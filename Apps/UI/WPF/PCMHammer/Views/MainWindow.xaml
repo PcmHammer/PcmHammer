@@ -7,18 +7,64 @@
         xmlns:helpers="clr-namespace:PCMHammer.Helpers"
         xmlns:views="clr-namespace:PCMHammer.Views"
         mc:Ignorable="d"
-        ThemeMode="System"
-        Title="{Binding WindowTitle}" Height="638" Width="800"
+        ThemeMode="Light" Background="#EEF3F8" Foreground="#172E46" FontFamily="Segoe UI"
+        Icon="/PCMHammer;component/Assets/PCMHammer.ico"
+        Title="{Binding WindowTitle}" Height="900" Width="1360" MinHeight="780" MinWidth="1180"
         Loaded="Window_Loaded"
         Closing="Window_Closing">
-    <Grid>
+    <Window.Resources>
+        <Style TargetType="Button">
+            <Setter Property="Padding" Value="10,7"/><Setter Property="MinHeight" Value="32"/><Setter Property="Foreground" Value="#172E46"/>
+            <Setter Property="Background" Value="#E3EBF3"/><Setter Property="BorderBrush" Value="#C9D7E4"/><Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="Surface" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="5" Padding="{TemplateBinding Padding}"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="True"/></Border>
+                <ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Surface" Property="Background" Value="#C8E9EE"/></Trigger><Trigger Property="IsPressed" Value="True"><Setter TargetName="Surface" Property="Background" Value="#A7D8E1"/></Trigger><Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45"/></Trigger><Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Surface" Property="BorderBrush" Value="#137E92"/></Trigger></ControlTemplate.Triggers>
+            </ControlTemplate></Setter.Value></Setter>
+        </Style>
+        <Style TargetType="GroupBox"><Setter Property="Margin" Value="0,0,0,10"/><Setter Property="Padding" Value="10"/><Setter Property="Background" Value="White"/><Setter Property="BorderBrush" Value="#D8E2ED"/>
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="GroupBox"><Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="{TemplateBinding Padding}"><DockPanel><ContentPresenter ContentSource="Header" DockPanel.Dock="Top" Margin="0,0,0,10" TextElement.FontWeight="SemiBold"/><ContentPresenter/></DockPanel></Border></ControlTemplate></Setter.Value></Setter>
+        </Style>
+        <Style TargetType="TabItem"><Setter Property="Padding" Value="13,9"/><Setter Property="Foreground" Value="#506A80"/>
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="TabItem"><Border x:Name="TabSurface" Background="Transparent" BorderBrush="Transparent" BorderThickness="0,0,0,3" CornerRadius="5,5,0,0" Padding="{TemplateBinding Padding}" Margin="0,0,3,0"><ContentPresenter x:Name="TabHeader" ContentSource="Header" RecognizesAccessKey="True" HorizontalAlignment="Center"/></Border>
+                <ControlTemplate.Triggers><Trigger Property="IsSelected" Value="True"><Setter TargetName="TabSurface" Property="Background" Value="White"/><Setter TargetName="TabSurface" Property="BorderBrush" Value="#189B9B"/><Setter Property="Foreground" Value="#172E46"/><Setter TargetName="TabHeader" Property="TextElement.FontWeight" Value="SemiBold"/></Trigger><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="TabSurface" Property="Background" Value="#D9EEF1"/></Trigger></ControlTemplate.Triggers>
+            </ControlTemplate></Setter.Value></Setter>
+        </Style>
+        <Style x:Key="WorkspaceNavigation" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Background" Value="White"/>
+            <Style.Triggers>
+                <MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding SelectedTabIndex}" Value="6"/><Condition Binding="{Binding Tag,RelativeSource={RelativeSource Self}}" Value="6"/></MultiDataTrigger.Conditions><Setter Property="Background" Value="#C6ECEB"/><Setter Property="BorderBrush" Value="#36A6A6"/></MultiDataTrigger>
+                <MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding SelectedTabIndex}" Value="5"/><Condition Binding="{Binding Tag,RelativeSource={RelativeSource Self}}" Value="5"/></MultiDataTrigger.Conditions><Setter Property="Background" Value="#C6ECEB"/><Setter Property="BorderBrush" Value="#36A6A6"/></MultiDataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="PrimaryMenuItem" TargetType="MenuItem">
+            <Setter Property="Height" Value="32"/><Setter Property="MinHeight" Value="0"/><Setter Property="Padding" Value="10,4"/>
+            <Setter Property="Foreground" Value="#172E46"/><Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="MenuItem"><Grid>
+                <Border x:Name="TopMenuSurface" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}" CornerRadius="4"><ContentPresenter x:Name="TopMenuLabel" ContentSource="Header" RecognizesAccessKey="True" VerticalAlignment="Center" HorizontalAlignment="Center"/></Border>
+                <Popup x:Name="PART_Popup" IsOpen="{Binding IsSubmenuOpen,RelativeSource={RelativeSource TemplatedParent},Mode=TwoWay}" Placement="Bottom" PlacementTarget="{Binding RelativeSource={RelativeSource TemplatedParent}}" AllowsTransparency="True" Focusable="False" PopupAnimation="Fade"><Border Background="White" BorderBrush="#B8CCD9" BorderThickness="1" CornerRadius="5" Padding="4"><ScrollViewer CanContentScroll="True" MaxHeight="550" VerticalScrollBarVisibility="Auto"><ItemsPresenter KeyboardNavigation.DirectionalNavigation="Cycle"/></ScrollViewer></Border></Popup>
+            </Grid><ControlTemplate.Triggers><Trigger Property="IsHighlighted" Value="True"><Setter TargetName="TopMenuSurface" Property="Background" Value="#D2E9ED"/></Trigger><Trigger Property="IsSubmenuOpen" Value="True"><Setter TargetName="TopMenuSurface" Property="Background" Value="#C6ECEB"/></Trigger><Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
+        </Style>
+        <Style x:Key="WorkspaceMenuLink" TargetType="MenuItem" BasedOn="{StaticResource PrimaryMenuItem}"><Setter Property="Padding" Value="10,4"/><Style.Triggers><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding SelectedTabIndex}" Value="0"/><Condition Binding="{Binding Tag,RelativeSource={RelativeSource Self}}" Value="0"/></MultiDataTrigger.Conditions><Setter Property="Background" Value="#C6ECEB"/><Setter Property="Foreground" Value="#0E555C"/><Setter Property="FontWeight" Value="SemiBold"/></MultiDataTrigger><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding SelectedTabIndex}" Value="1"/><Condition Binding="{Binding Tag,RelativeSource={RelativeSource Self}}" Value="1"/></MultiDataTrigger.Conditions><Setter Property="Background" Value="#C6ECEB"/><Setter Property="Foreground" Value="#0E555C"/><Setter Property="FontWeight" Value="SemiBold"/></MultiDataTrigger><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding SelectedTabIndex}" Value="2"/><Condition Binding="{Binding Tag,RelativeSource={RelativeSource Self}}" Value="2"/></MultiDataTrigger.Conditions><Setter Property="Background" Value="#C6ECEB"/><Setter Property="Foreground" Value="#0E555C"/><Setter Property="FontWeight" Value="SemiBold"/></MultiDataTrigger><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding SelectedTabIndex}" Value="3"/><Condition Binding="{Binding Tag,RelativeSource={RelativeSource Self}}" Value="3"/></MultiDataTrigger.Conditions><Setter Property="Background" Value="#C6ECEB"/><Setter Property="Foreground" Value="#0E555C"/><Setter Property="FontWeight" Value="SemiBold"/></MultiDataTrigger><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding SelectedTabIndex}" Value="4"/><Condition Binding="{Binding Tag,RelativeSource={RelativeSource Self}}" Value="4"/></MultiDataTrigger.Conditions><Setter Property="Background" Value="#C6ECEB"/><Setter Property="Foreground" Value="#0E555C"/><Setter Property="FontWeight" Value="SemiBold"/></MultiDataTrigger><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding SelectedTabIndex}" Value="5"/><Condition Binding="{Binding Tag,RelativeSource={RelativeSource Self}}" Value="5"/></MultiDataTrigger.Conditions><Setter Property="Background" Value="#C6ECEB"/><Setter Property="Foreground" Value="#0E555C"/><Setter Property="FontWeight" Value="SemiBold"/></MultiDataTrigger><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding SelectedTabIndex}" Value="6"/><Condition Binding="{Binding Tag,RelativeSource={RelativeSource Self}}" Value="6"/></MultiDataTrigger.Conditions><Setter Property="Background" Value="#C6ECEB"/><Setter Property="Foreground" Value="#0E555C"/><Setter Property="FontWeight" Value="SemiBold"/></MultiDataTrigger></Style.Triggers></Style>
+        <Style TargetType="TextBlock"><Setter Property="Foreground" Value="#172E46"/></Style>
+    </Window.Resources>
+    <Grid Background="#EEF3F8">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
-        <Menu>
-            <MenuItem Header="_File">
+        <DockPanel Background="#12283F">
+            <Border DockPanel.Dock="Top" Padding="18,8">
+                <Grid><StackPanel Orientation="Horizontal">
+                    <Image x:Name="BrandMark" Source="/PCMHammer;component/Assets/PCMHammer.ico" Width="44" Height="44" Margin="0,0,12,0" RenderOptions.BitmapScalingMode="HighQuality"/>
+                    <StackPanel VerticalAlignment="Center"><StackPanel Orientation="Horizontal"><TextBlock Text="PCM HAMMER" Foreground="#F1F7FC" FontSize="25" FontWeight="Bold"/>
+                        <Border Background="#29D6CB" CornerRadius="4" Padding="6,2" Margin="9,5,0,3"><TextBlock Text="PREVIEW" Foreground="#10283F" FontSize="11" FontWeight="Bold" VerticalAlignment="Center"/></Border></StackPanel>
+                    <TextBlock Text="ENGINE CALIBRATION WORKSPACE" Foreground="#90B3C7" FontSize="10" Margin="1,5,0,0"/></StackPanel></StackPanel>
+                    <StackPanel HorizontalAlignment="Right" VerticalAlignment="Center"><TextBlock Text="UNOFFICIAL MODIFIED PREVIEW" Foreground="#8ED6E5" HorizontalAlignment="Right" FontWeight="SemiBold"/>
+                        <TextBlock Text="Calibration • Diagnostics • Live data" Foreground="#C5D4E3" FontSize="11" Margin="0,5,0,0"/></StackPanel>
+                </Grid>
+            </Border>
+        <Menu x:Name="PrimaryNavigation" Background="#E3EBF3" Padding="10,0" Height="34">
+            <MenuItem Header="_File" Style="{StaticResource PrimaryMenuItem}">
                 <MenuItem Header="_Load File..."        Command="{Binding LoadFileCommand}"/>
                 <MenuItem Header="_Save File..."        Command="{Binding SaveFileCommand}"/>
                 <MenuItem Header="Save File _As..."     Command="{Binding SaveFileAsCommand}"/>
@@ -35,7 +81,7 @@
                 <Separator/>
                 <MenuItem Header="E_xit"                Command="{Binding ExitCommand}"/>
             </MenuItem>
-            <MenuItem Header="_Tools">
+            <MenuItem Header="_Tools" Style="{StaticResource PrimaryMenuItem}">
                 <MenuItem Header="_Read Entire PCM" Command="{Binding ReadPCMCommand}"/>
                 <MenuItem Header="_Verify Entire PCM" Command="{Binding VerifyPCMCommand}"/>
                 <MenuItem Header="_Change VIN" Command="{Binding ChangeVINCommand}"/>
@@ -58,19 +104,37 @@
                 <Separator Height="2"/>
                 <MenuItem Header="_Halt Running Kernel" Command="{Binding HaltRunningKernelCommand}"/>
             </MenuItem>
-            <MenuItem Header="_Options">
+            <MenuItem Header="_Connection" Style="{StaticResource PrimaryMenuItem}">
+                <MenuItem Header="Select _device…" Command="{Binding SelectDeviceCommand}" CommandParameter="{Binding RelativeSource={RelativeSource AncestorType=Window}}"/>
+                <MenuItem Header="_Check adapter" Command="{Binding CheckAdapterConnectionCommand}"/>
+                <MenuItem Header="_Re-initialize device" Command="{Binding ReInitializeDeviceCommand}"/>
+            </MenuItem>
+            <MenuItem Header="_Options" Style="{StaticResource PrimaryMenuItem}">
                 <MenuItem Header="_User Defined Key" Command="{Binding UserDefinedKeyCommand}"/>
                 <MenuItem Header="_Settings" Command="{Binding SettingsCommand}"/>
             </MenuItem>
+            <Separator Width="1" Height="18" Margin="8,0" Background="#BBCEDB"/>
+            <MenuItem Header="Results" Tag="0" Style="{StaticResource WorkspaceMenuLink}" Command="{Binding NavigateWorkspaceCommand}" CommandParameter="0"/>
+            <MenuItem Header="Help" Tag="1" Style="{StaticResource WorkspaceMenuLink}" Command="{Binding NavigateWorkspaceCommand}" CommandParameter="1"/>
+            <MenuItem Header="Credits" Tag="2" Style="{StaticResource WorkspaceMenuLink}" Command="{Binding NavigateWorkspaceCommand}" CommandParameter="2"/>
+            <MenuItem Header="Debug" Tag="3" Style="{StaticResource WorkspaceMenuLink}" Command="{Binding NavigateWorkspaceCommand}" CommandParameter="3"/>
+            <MenuItem Header="Bus monitor" Tag="4" Style="{StaticResource WorkspaceMenuLink}" Command="{Binding NavigateWorkspaceCommand}" CommandParameter="4" Visibility="{Binding IsBusMonitorVisible,Converter={StaticResource BooleanToVisibility}}"/>
+            <MenuItem Header="Data &amp; charts" Tag="5" Style="{StaticResource WorkspaceMenuLink}" Command="{Binding NavigateWorkspaceCommand}" CommandParameter="5" FontWeight="SemiBold"/>
+            <MenuItem Header="Tune editor" Tag="6" Style="{StaticResource WorkspaceMenuLink}" Command="{Binding NavigateWorkspaceCommand}" CommandParameter="6" FontWeight="SemiBold"/>
         </Menu>
+        </DockPanel>
 
-        <Grid Grid.Row="1" Margin="8,4">
+        <Grid Grid.Row="1" Margin="8,7">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="192"/>
+                <ColumnDefinition><ColumnDefinition.Style><Style TargetType="ColumnDefinition"><Setter Property="Width" Value="210"/><Style.Triggers><DataTrigger Binding="{Binding SelectedTabIndex}" Value="6"><Setter Property="Width" Value="0"/></DataTrigger><DataTrigger Binding="{Binding SelectedTabIndex}" Value="5"><Setter Property="Width" Value="0"/></DataTrigger></Style.Triggers></Style></ColumnDefinition.Style></ColumnDefinition>
                 <ColumnDefinition Width="3*"/>
             </Grid.ColumnDefinitions>
 
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <ScrollViewer.Style><Style TargetType="ScrollViewer"><Style.Triggers><DataTrigger Binding="{Binding SelectedTabIndex}" Value="6"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger><DataTrigger Binding="{Binding SelectedTabIndex}" Value="5"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></ScrollViewer.Style>
             <StackPanel>
+                <Button Content="Tune editor" Command="{Binding NavigateWorkspaceCommand}" CommandParameter="6" Tag="6" Style="{StaticResource WorkspaceNavigation}" Margin="0,0,0,6"/>
+                <Button Content="Data &amp; charts" Command="{Binding NavigateWorkspaceCommand}" CommandParameter="5" Tag="5" Style="{StaticResource WorkspaceNavigation}" Margin="0,0,0,12"/>
                 <GroupBox Header="Device">
                     <StackPanel>
                         <!-- Which interface is connected, matching the WinForms Device box. -->
@@ -116,9 +180,11 @@
                     </StackPanel>
                 </GroupBox>
             </StackPanel>
-            
-            <TabControl x:Name="MainTabControl" Grid.Column="1" Margin="8,0,0,0"
+            </ScrollViewer>
+
+            <TabControl x:Name="MainTabControl" Grid.Column="1" Margin="8,0,0,0" Background="#EEF3F8" BorderBrush="#D8E2ED"
                         SelectedIndex="{Binding SelectedTabIndex, Mode=TwoWay}">
+                <TabControl.Template><ControlTemplate TargetType="TabControl"><ContentPresenter ContentSource="SelectedContent"/></ControlTemplate></TabControl.Template>
                 <TabItem Header="Results">
                     <ListBox x:Name="ResultsLogList" Style="{StaticResource LogListStyle}"
                              ItemsSource="{Binding ResultsLog}"/>
@@ -140,6 +206,12 @@
                          Visibility="{Binding IsBusMonitorVisible, Converter={StaticResource BooleanToVisibility}}">
                     <views:BusMonitorView DataContext="{Binding BusMonitor}"/>
                 </TabItem>
+                <TabItem Header="Data &amp; charts">
+                    <views:DataLoggingView DataContext="{Binding DataLogging}"/>
+                </TabItem>
+                <TabItem Header="Tune editor">
+                    <views:TuneEditorView DataContext="{Binding TuneEditor}"/>
+                </TabItem>
             </TabControl>
 
             <Button Grid.Column="1" Style="{StaticResource CopyButtonStyle}" Command="{Binding CopyLogCommand}"
@@ -149,7 +221,7 @@
                     CommandParameter="{Binding DebugLog}"
                     Visibility="{Binding SelectedIndex, ElementName=MainTabControl, Converter={StaticResource TabIndexToVisibility}, ConverterParameter=3}"/>
         </Grid>
-        
+
         <StatusBar Grid.Row="2" HorizontalContentAlignment="Stretch">
             <StatusBar.ItemsPanel>
                 <ItemsPanelTemplate>
@@ -163,7 +235,15 @@
             </StatusBar.ItemsPanel>
 
             <StatusBarItem Grid.Column="0" HorizontalAlignment="Stretch">
-                <TextBlock x:Name="ActivityTextBlock" Text="{Binding StatusText}" HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
+                <DockPanel LastChildFill="True">
+                    <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center" Margin="16,0,0,0">
+                        <Ellipse Width="9" Height="9" Fill="{Binding AdapterIndicator}" Margin="0,0,7,0"/>
+                        <TextBlock Text="{Binding AdapterStatus}" ToolTip="{Binding AdapterDetails}" VerticalAlignment="Center"/>
+                        <Button Content="Check" Command="{Binding CheckAdapterConnectionCommand}" Padding="7,2" MinHeight="23" Margin="8,0,10,0"/>
+                        <TextBlock Text="{Binding EcuConnectionStatus}" Foreground="#506A80" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <TextBlock x:Name="ActivityTextBlock" Text="{Binding StatusText}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                </DockPanel>
             </StatusBarItem>
 
             <StatusBarItem Grid.Column="1" HorizontalAlignment="Right">

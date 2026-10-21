@@ -187,7 +187,7 @@ namespace PcmHacking
                 return true;
             }
 
-            logger.AddUserMessage("This file is corrupt or its format is unknown to PCMHammer. It would render your PCM unusable.");
+            logger.AddUserMessage("This file is corrupt or its format is unknown to PCM Hammer. It would render your PCM unusable.");
             return false;
         }
 
@@ -264,7 +264,7 @@ namespace PcmHacking
                         case 512 * 1024:
                             if (image[0x7FFFE] == 0xFF && image[0x7FFFF] == 0xFF)
                             {
-                                osid = ReadUnsigned(image, 0x7FFF8); // some 1998 P04 
+                                osid = ReadUnsigned(image, 0x7FFF8); // some 1998 P04
                             }
                             else
                             {
@@ -521,7 +521,7 @@ namespace PcmHacking
         }
 
         /// <summary>
-        /// 
+        ///
         /// </summary>
         private UInt32 ReadUnsigned(byte[] image, UInt32 offset)
         {
@@ -854,7 +854,7 @@ namespace PcmHacking
 
                 // Sums cannot be part of their own calculation, so they are always skipped
                 // Used by P01_P59, P05c, P10
-                if (address == storage) 
+                if (address == storage)
                 {
                     address += 2;
                 }
@@ -1133,7 +1133,7 @@ namespace PcmHacking
         /// The purpose is to block flash of images extracted from TIS that are being circulated.
         /// They have valid checksums but no param block and cause a soft brick.
         /// Consider P04 256KiB, 512KiB (no param block), 512KiB (has param block), and P05 1MiB bin
-        /// 256KiB and early 512KB bins dont have a param block. 
+        /// 256KiB and early 512KB bins dont have a param block.
         /// Param block may be at 4000-5FFF or 6000-7FFF
         /// 256KiB = skip the check, pass
         /// 512KiB = check if one param block is empty. Pass if both have data (assume no param block)

@@ -99,7 +99,8 @@
       storageType="uint8"
       bitMapped="False">
     <Conversion units="kph" expression="x" format="0.00" />
-    <Conversion units="mph" expression="(x*0.60934)" format="0.00" />
+    <!-- 2026-10-18: International mile = 1.609344 km; correct the speed conversion. -->
+    <Conversion units="mph" expression="x/1.609344" format="0.00" />
     <OS id="all" />
   </Parameter>
   <Parameter

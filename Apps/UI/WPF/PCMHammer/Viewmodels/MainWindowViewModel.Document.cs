@@ -43,21 +43,21 @@ namespace PCMHammer.Viewmodels
         /// True when the loaded document may be flashed/verified: a document is loaded, a device is
         /// connected, and nothing is running. Write / Test Write / Verify bind to this.
         /// </summary>
-        public bool CanWriteDocument => HasDocument && CanStartOperation;
+        public bool CanWriteDocument => HasDocument && CanStartOperation && TuneEditor?.IsReference!=true && !(TuneEditor?.HasPendingChanges==true&&!TuneEditor.IsDemo);
 
         /// <summary>
         /// True when a document operation that needs no device (Save, Export, Import) is allowed: a
         /// document is loaded and nothing is running. WinForms locks the whole File box while the bus
         /// monitor runs, so the monitor counts as "running" here too.
         /// </summary>
-        public bool CanUseDocument => HasDocument && !IsOperationRunning && !IsBusMonitorRunning;
+        public bool CanUseDocument => HasDocument && IsDeviceControlEnabled && !(TuneEditor?.HasPendingChanges==true&&!TuneEditor.IsDemo);
 
         /// <summary>True when the (hidden by default) Import Bin feature is enabled.</summary>
         public bool IsModuleImportAllowed => RuntimeSettings.AllowModuleImport;
 
         /// <summary>The window title, showing the loaded file and a "*" when it has unsaved changes.</summary>
         public string WindowTitle =>
-            HasDocument ? "PCM Hammer - " + DocumentDisplayName() + (DocumentDirty ? " *" : string.Empty) : "PCM Hammer";
+            HasDocument ? "PCM Hammer — " + DocumentDisplayName() + (DocumentDirty ? " *" : string.Empty) : "PCM Hammer — unofficial modified preview";
 
         /// <summary>The two-line "loaded file" panel text: the file name (with dirty mark) and a summary.</summary>
         public string LoadedFileText =>
@@ -130,6 +130,7 @@ namespace PCMHammer.Viewmodels
             dialog.ShowDialog();
             if (dialog.Changed)
             {
+                TuneEditor.BindTune(LoadedPackage.Controllers.FirstOrDefault()?.Image("main")?.Data);
                 MarkDocumentDirty();
             }
         }
@@ -227,6 +228,8 @@ namespace PCMHammer.Viewmodels
         /// </summary>
         private bool ConfirmDiscardIfDirty()
         {
+            if(TuneEditor?.HasPendingChanges==true&&!TuneEditor.IsDemo && MessageBox.Show(
+                "The editor has unapplied changes. Discard those editor changes and continue?", "Unapplied editor changes", MessageBoxButton.YesNo,MessageBoxImage.Warning)!=MessageBoxResult.Yes)return false;
             if (LoadedPackage == null || !DocumentDirty)
             {
                 return true;

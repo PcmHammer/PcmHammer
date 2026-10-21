@@ -22,7 +22,7 @@ namespace PcmHacking
         public LogProfileReader(ParameterDatabase database, uint osid, ILogger logger)
         {
             this.database = database;
-            this.osid = osid;            
+            this.osid = osid;
             this.logger = logger;
 
             this.profile = new LogProfile();

@@ -77,6 +77,12 @@
   <ItemGroup>
     <Compile Include="AvtTests.cs" />
     <Compile Include="BootLoaderWriteTests.cs" />
+    <Compile Include="FlashSafetyTests.cs" />
+    <Compile Include="LiveDataRecordingTests.cs" />
+    <Compile Include="CalibrationEditorTests.cs" />
+    <Compile Include="TableSelectionToolsTests.cs" />
+    <Compile Include="RecordingCsvReaderTests.cs" />
+    <Compile Include="XdfPracticeReaderTests.cs" />
     <Compile Include="BootLoaderWritePlanTests.cs" />
     <Compile Include="BusMonitorFilterTests.cs" />
     <Compile Include="BusFilterTests.cs" />

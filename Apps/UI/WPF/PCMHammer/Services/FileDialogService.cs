@@ -50,8 +50,8 @@ namespace PCMHammer.Services
         {
             OpenFileDialog openFileDialog = new()
             {
-                Title = "Load PCMHammer File",
-                Filter = "PcmHammer files (*.phz;*.bin)|*.phz;*.bin|PcmHammer (*.phz)|*.phz|Binary Files (*.bin)|*.bin|All Files (*.*)|*.*",
+                Title = "Load PCM Hammer File",
+                Filter = "PCM Hammer files (*.phz;*.bin)|*.phz;*.bin|PCM Hammer package (*.phz)|*.phz|Binary Files (*.bin)|*.bin|All Files (*.*)|*.*",
                 DefaultExt = ".phz"
             };
 
@@ -68,12 +68,12 @@ namespace PCMHammer.Services
             // slave-bearing PCM) offers only .bin so an invalid package can never be produced.
             SaveFileDialog saveFileDialog = new()
             {
-                Title = "Save PCMHamer File",
+                Title = "Save PCM Hammer File",
                 Filter = !complete
                     ? "Binary Files (*.bin)|*.bin"
                     : preferBin
-                        ? "Binary Files (*.bin)|*.bin|PcmHammer (*.phz)|*.phz"
-                        : "PcmHammer (*.phz)|*.phz|Binary Files (*.bin)|*.bin",
+                        ? "Binary Files (*.bin)|*.bin|PCM Hammer package (*.phz)|*.phz"
+                        : "PCM Hammer package (*.phz)|*.phz|Binary Files (*.bin)|*.bin",
                 DefaultExt = complete && !preferBin ? ".phz" : ".bin",
                 FileName = string.IsNullOrWhiteSpace(suggestedName) ? "PCM_Read" : suggestedName,
                 OverwritePrompt = true

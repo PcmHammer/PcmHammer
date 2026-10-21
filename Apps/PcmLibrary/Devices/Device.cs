@@ -189,6 +189,8 @@ namespace PcmHacking
         /// CAN-capable devices override to add Can500k. An empty list means no monitoring at all.
         /// </summary>
         public virtual IReadOnlyList<BusProtocol> MonitorableProtocols { get; } = new[] { BusProtocol.VPW };
+        /// <summary>Reported bus capability; this is not a hardware validation guarantee.</summary>
+        public virtual IReadOnlyList<BusProtocol> SupportedProtocols => MonitorableProtocols;
 
         /// <summary>
         /// Battery voltage measured by the interface itself, if it can. Independent of the bus, so it

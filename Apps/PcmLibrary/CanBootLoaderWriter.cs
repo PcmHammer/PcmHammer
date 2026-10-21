@@ -184,6 +184,12 @@ namespace PcmHacking
         /// </summary>
         private bool IsAccepted(byte[] request, byte[] response)
         {
+            if (!BootLoaderReplyPolicy.Matches(request, response))
+            {
+                this.logger.AddUserMessage("The boot loader did not acknowledge " + Describe(request) + ".");
+                return false;
+            }
+
             bool rejected = response.Length >= 1 && response[0] == Gmlan.NegativeResponse;
 
             if (this.pcmInfo.BootLoaderMasterHandshakeDid != 0
@@ -477,6 +483,36 @@ namespace PcmHacking
                 this.Description = description;
                 this.Activity = activity;
                 this.Messages = messages;
+            }
+        }
+    }
+
+    /// <summary>Correlates boot-loader replies before the writer advances to the next request.</summary>
+    public static class BootLoaderReplyPolicy
+    {
+        public static bool Matches(byte[] request, byte[] response)
+        {
+            if (request == null || response == null || request.Length == 0 || response.Length == 0)
+                return false;
+
+            if (response[0] == Gmlan.NegativeResponse)
+                return response.Length >= 3 && response[1] == request[0]
+                    && response[2] != Gmlan.NrcResponsePending;
+
+            switch (request[0])
+            {
+                case Gmlan.RequestDownload:
+                    return response[0] == Gmlan.RequestDownloadResponse;
+                case Gmlan.TransferData:
+                    return response[0] == Gmlan.NonExecChunkAck;
+                case Gmlan.ReadDataByIdentifier:
+                    return request.Length >= 2 && response.Length >= 2
+                        && response[0] == Gmlan.ReadDataByIdentifierResponse && response[1] == request[1];
+                case Gmlan.DeviceControl:
+                    // The resident loader documents a one-byte 0xEE finalize acknowledgement.
+                    return response[0] == 0xEE;
+                default:
+                    return false;
             }
         }
     }

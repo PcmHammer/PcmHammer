@@ -16,7 +16,7 @@ namespace PcmHacking
     {
         private const string ManifestEntryName = "manifest.json";
 
-        public string Name => "PcmHammer package";
+        public string Name => "PCM Hammer package";
         public string Extension => ".phz";
 
         public bool CanLoad(string path) =>
@@ -27,7 +27,7 @@ namespace PcmHacking
             using (var archive = new ZipArchive(stream, ZipArchiveMode.Read, leaveOpen: true))
             {
                 ZipArchiveEntry manifestEntry = archive.GetEntry(ManifestEntryName)
-                    ?? throw new PackageException("This is not a PcmHammer package - it has no manifest.json.");
+                    ?? throw new PackageException("This is not a PCM Hammer package - it has no manifest.json.");
 
                 PcmPackage package;
                 using (var reader = new StreamReader(manifestEntry.Open(), Encoding.UTF8))
@@ -138,12 +138,12 @@ namespace PcmHacking
         private static string BuildReadme(PcmPackage package)
         {
             var sb = new StringBuilder();
-            sb.AppendLine("PcmHammer package (.phz)");
+            sb.AppendLine("PCM Hammer package (.phz)");
             sb.AppendLine("========================");
             sb.AppendLine();
             sb.AppendLine("This is a ZIP. manifest.json describes the controllers and images below.");
             sb.AppendLine("Keep the whole file together - the images are checksummed and only valid as a set.");
-            sb.AppendLine("Open it with PcmHammer, not by extracting individual files.");
+            sb.AppendLine("Open it with PCM Hammer, not by extracting individual files.");
             sb.AppendLine();
             if (package.Vehicle != null && !string.IsNullOrEmpty(package.Vehicle.Description))
             {

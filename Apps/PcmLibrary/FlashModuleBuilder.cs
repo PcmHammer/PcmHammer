@@ -136,9 +136,25 @@ namespace PcmHacking
                 throw new ArgumentNullException(nameof(slaveImages));
             }
 
+            if (slaveImages.Count != pcmInfo.SlaveModules.Count)
+                throw new InvalidOperationException("A slave update requires every slave module, exactly once.");
+
             var modules = new List<FlashModule>(slaveImages.Count);
             for (int i = 0; i < slaveImages.Count; i++)
             {
+                byte[] image = slaveImages[i];
+                byte[] decoded = E92ModuleCodec.IsWrapped(image)
+                    ? E92ModuleCodec.Decompress(E92ModuleCodec.Unwrap(image)) : image;
+                int minimumLength = Math.Max(0x20, i == 0 ? pcmInfo.BootLoaderSlaveHeaderLength + 1 : 0x20);
+                if (decoded == null || decoded.Length < minimumLength
+                    || !TryGetSlaveModulePartNumber(image, out uint partNumber)
+                    || decoded[3] != (i == 0 ? 0x07 : 0x08))
+                    throw new InvalidOperationException("The " + pcmInfo.SlaveModules[i].Target + " image is truncated or has an invalid module header.");
+
+                if (pcmInfo.HardwareType == PcmType.E38 && !SlaveLibrary.IsKnownFactoryImage(partNumber, image))
+                    throw new InvalidOperationException("E38 slave module " + partNumber
+                        + " is not an intact factory image shipped with this build. The PCM was not written.");
+
                 string name = i < pcmInfo.SlaveModules.Count ? pcmInfo.SlaveModules[i].Target : "slave module " + (i + 1);
                 modules.Add(E92ModuleCodec.IsWrapped(slaveImages[i])
                     ? new FlashModule(name, slaveImages[i], 0, Gmlan.DataFormatCompressed)
@@ -148,8 +164,8 @@ namespace PcmHacking
             return modules;
         }
 
-        // GM part number: eight ASCII digits at this offset in a slave module's segment header.
-        private const int SlavePartNumberOffset = 0x10;
+        // E38's ASCII part number starts at 0x0D; later MPC modules start at 0x10.
+        // Both also store the same number as a big-endian integer at 0x05.
         private const int SlavePartNumberDigits = 8;
 
         /// <summary>
@@ -169,25 +185,22 @@ namespace PcmHacking
                 ? E92ModuleCodec.Decompress(E92ModuleCodec.Unwrap(module))
                 : module;
 
-            if (segment.Length < SlavePartNumberOffset + SlavePartNumberDigits)
+            foreach (int offset in new[] { 0x0D, 0x10 })
             {
-                return false;
-            }
-
-            uint value = 0;
-            for (int i = 0; i < SlavePartNumberDigits; i++)
-            {
-                byte c = segment[SlavePartNumberOffset + i];
-                if (c < (byte)'0' || c > (byte)'9')
+                if (segment.Length < offset + SlavePartNumberDigits) continue;
+                uint value = 0;
+                bool digits = true;
+                for (int i = 0; i < SlavePartNumberDigits; i++)
                 {
-                    return false;
+                    byte c = segment[offset + i];
+                    if (c < (byte)'0' || c > (byte)'9') { digits = false; break; }
+                    value = (value * 10) + (uint)(c - '0');
                 }
-
-                value = (value * 10) + (uint)(c - '0');
+                uint binary = ((uint)segment[5] << 24) | ((uint)segment[6] << 16)
+                    | ((uint)segment[7] << 8) | segment[8];
+                if (digits && value != 0 && value == binary) { partNumber = value; return true; }
             }
-
-            partNumber = value;
-            return true;
+            return false;
         }
 
         /// <summary>

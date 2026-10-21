@@ -80,3 +80,13 @@ Most people use tunerpro. To do so you need to know the operating system id of y
 ## What is a phz file?
 
 /phz stands for PCM Hammer Zip. It is a zip file that can contain multiple bin files and is suited for more modern PCMs. It is required for PCMs that have slave CPUs, and will be required for vehicles that have PCM and TCM in the future when PCM Hammer gets TCM support. PCM Hammer can still read and write bins, and has import and export bin options. If you have a phz and need a bin for editing in a 3rd party program you can use the import and export bin features.
+
+## Experimental integrated WPF workspace
+
+This branch proposes an integrated tuning editor, live logging/charts and gauges,
+compact navigation, connection status and optional modified-preview setup.
+The app retains the PCM Hammer name and original icon. See the
+[complete maintainer review](Docs/IntegratedWorkspaceReview.md) and
+[validation results](Docs/IntegratedWorkspaceValidation.md). This is an unofficial
+modified preview; physical-controller validation and complete tuning definitions
+remain outstanding. Included examples are generated illustrations, not vehicle tunes.

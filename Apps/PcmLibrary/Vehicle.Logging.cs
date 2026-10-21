@@ -54,8 +54,9 @@ namespace PcmHacking
         /// Read one parameter from the selected CAN module (GMLAN service 0x22), one PID per
         /// exchange.
         /// </summary>
-        public async Task<Response<byte[]>> ReadCanParameter(ushort pid)
+        public async Task<Response<byte[]>> ReadCanParameter(ushort pid, CancellationToken cancellationToken = default)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             Message request = this.gmlan.CreateParameterRequest(pid);
             if (!await this.device.SendMessage(request))
             {
@@ -66,7 +67,9 @@ namespace PcmHacking
             // leave a late reply in the queue.
             for (int attempt = 0; attempt < 3; attempt++)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 Message responseMessage = await this.ReceiveMessage();
+                cancellationToken.ThrowIfCancellationRequested();
                 if (responseMessage == null)
                 {
                     break;
