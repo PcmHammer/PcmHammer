@@ -183,6 +183,46 @@ namespace PcmHacking.Tests
             Assert.AreEqual("EngineSpeed", reloaded.Monitors[0].Series[0].PidId);
         }
 
+        /// <summary>
+        /// A gauge gets a scale unless it is switched off, so a dashboard imported from ADX - or
+        /// saved before the scale existed - shows one without anyone having to ask.
+        /// </summary>
+        [TestMethod]
+        public void GaugesHaveAScaleByDefault()
+        {
+            GaugeLayout fresh = new GaugeLayout();
+            Assert.IsTrue(fresh.ShowScale);
+            Assert.AreEqual(0, fresh.MajorTicks, "0 means choose a round step automatically");
+            Assert.AreEqual(1, fresh.MinorTicks);
+
+            LoggerPackage package = Import();
+            Assert.IsTrue(package.Dashboards[0].Gauges.All(g => g.ShowScale));
+        }
+
+        /// <summary>The scale settings are saved with the dashboard.</summary>
+        [TestMethod]
+        public void ScaleSettingsRoundTrip()
+        {
+            LoggerPackage package = Import();
+            GaugeLayout gauge = package.Dashboards[0].Gauges.First();
+            gauge.ShowScale = false;
+            gauge.MajorTicks = 8;
+            gauge.MinorTicks = 3;
+
+            LoggerPackage reloaded;
+            using (MemoryStream stream = new MemoryStream())
+            {
+                PlzFormat.Save(stream, package);
+                stream.Position = 0;
+                reloaded = PlzFormat.Load(stream);
+            }
+
+            GaugeLayout restored = reloaded.Dashboards[0].Gauges.First();
+            Assert.IsFalse(restored.ShowScale);
+            Assert.AreEqual(8, restored.MajorTicks);
+            Assert.AreEqual(3, restored.MinorTicks);
+        }
+
         /// <summary>Visibility and ordering survive, so a hidden dashboard stays hidden.</summary>
         [TestMethod]
         public void VisibilityAndOrderRoundTrip()
