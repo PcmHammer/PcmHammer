@@ -114,6 +114,18 @@ namespace PcmHacking
         /// <summary>Sweep of a round gauge, in degrees.</summary>
         public int ArcDegrees { get; set; } = 300;
 
+        /// <summary>Whether a round gauge draws tick marks and scale numbers around its rim.</summary>
+        /// <remarks>
+        /// On by default, so a package written before the scale existed gets one when it is loaded.
+        /// </remarks>
+        public bool ShowScale { get; set; } = true;
+
+        /// <summary>Number of labelled divisions along the scale, or 0 to pick a round step automatically.</summary>
+        public int MajorTicks { get; set; }
+
+        /// <summary>Unlabelled ticks drawn between each pair of labelled ones.</summary>
+        public int MinorTicks { get; set; } = 1;
+
         public bool IsBound => !string.IsNullOrEmpty(this.PidId);
 
         public override string ToString() => this.Title;

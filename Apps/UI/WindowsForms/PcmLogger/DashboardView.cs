@@ -343,6 +343,101 @@ namespace PcmHacking
             }
         }
 
+        /// <summary>Smallest dial, in pixels, that gets a scale.</summary>
+        private const int MinimumScaleDiameter = 110;
+
+        /// <summary>Aim for about this many labelled divisions when the step is chosen automatically.</summary>
+        private const int AutomaticMajorTicks = 6;
+
+        /// <summary>
+        /// A 1, 2 or 5 times a power of ten near <paramref name="rough"/>, so tick values read as
+        /// 0, 20, 40 rather than 0, 17.3, 34.6.
+        /// </summary>
+        internal static double NiceStep(double rough)
+        {
+            double magnitude = Math.Pow(10, Math.Floor(Math.Log10(rough)));
+            double fraction = rough / magnitude;
+            double nice = fraction < 1.5 ? 1 : fraction < 3.5 ? 2 : fraction < 7.5 ? 5 : 10;
+            return nice * magnitude;
+        }
+
+        /// <summary>Tick marks inside the rim of a round gauge, with a number at each major one.</summary>
+        private static void DrawScale(
+            Graphics graphics, GaugeLayout gauge, PointF centre, float radius, float startAngle, float sweep,
+            FontFamily family)
+        {
+            double span = gauge.RangeHigh - gauge.RangeLow;
+            double step;
+            double first;
+            if (gauge.MajorTicks > 0)
+            {
+                // The author's choice: an exact number of equal divisions from low to high.
+                step = span / gauge.MajorTicks;
+                first = gauge.RangeLow;
+            }
+            else
+            {
+                step = NiceStep(span / AutomaticMajorTicks);
+                first = Math.Ceiling(gauge.RangeLow / step) * step;
+            }
+
+            int decimals = step >= 1 ? 0 : Math.Min(4, (int)Math.Ceiling(-Math.Log10(step)));
+            string format = "F" + decimals;
+            int divisions = Math.Max(0, Math.Min(9, gauge.MinorTicks)) + 1;
+            double subStep = step / divisions;
+
+            // Index 0 is the first major tick; negative indexes cover the gap below it.
+            int lowest = -(int)Math.Floor(((first - gauge.RangeLow) / subStep) + 1e-6);
+            int highest = (int)Math.Floor(((gauge.RangeHigh - first) / subStep) + 1e-6);
+
+            using (Pen major = new Pen(AppTheme.Text, 2f))
+            using (Pen minor = new Pen(AppTheme.MutedText, 1f))
+            using (Font font = new Font(family, Math.Max(MinimumFontSize, radius / 10f)))
+            using (Brush labelBrush = new SolidBrush(AppTheme.MutedText))
+            using (StringFormat centred = new StringFormat
+            {
+                Alignment = StringAlignment.Center,
+                LineAlignment = StringAlignment.Center,
+                FormatFlags = StringFormatFlags.NoWrap,
+            })
+            {
+                System.Drawing.Text.TextRenderingHint hint = graphics.TextRenderingHint;
+                for (int i = lowest; i <= highest; i++)
+                {
+                    double value = first + (i * subStep);
+                    bool isMajor = (((i % divisions) + divisions) % divisions) == 0;
+                    double angle = (startAngle + (sweep * ((value - gauge.RangeLow) / span))) * Math.PI / 180.0;
+                    float cos = (float)Math.Cos(angle);
+                    float sin = (float)Math.Sin(angle);
+
+                    // The arc is stroked 2px wide, so start just inside it.
+                    float outer = radius - 3f;
+                    float inner = outer - (radius * (isMajor ? 0.10f : 0.055f));
+                    graphics.DrawLine(
+                        isMajor ? major : minor,
+                        centre.X + (cos * inner), centre.Y + (sin * inner),
+                        centre.X + (cos * outer), centre.Y + (sin * outer));
+
+                    if (isMajor)
+                    {
+                        // Greyscale anti-aliasing, not ClearType: at this size the colour fringes of
+                        // sub-pixel text read as coloured digits.
+                        graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
+                        float labelRadius = radius * 0.79f;
+                        graphics.DrawString(
+                            value.ToString(format),
+                            font,
+                            labelBrush,
+                            centre.X + (cos * labelRadius),
+                            centre.Y + (sin * labelRadius),
+                            centred);
+                    }
+                }
+
+                graphics.TextRenderingHint = hint;
+            }
+        }
+
         private void DrawRoundGauge(Graphics graphics, Rectangle bounds, GaugeLayout gauge)
         {
             double? value = this.ValueOf(gauge);
@@ -377,6 +472,13 @@ namespace PcmHacking
             PointF centre = new PointF(dial.X + (dial.Width / 2f), dial.Y + (dial.Height / 2f));
             float radius = dial.Width / 2f;
 
+            // Below this the numbers would be unreadable and the ticks would just be noise.
+            bool scale = gauge.ShowScale && dial.Width >= MinimumScaleDiameter && gauge.RangeHigh > gauge.RangeLow;
+            if (scale)
+            {
+                DrawScale(graphics, gauge, centre, radius, startAngle, sweep, this.Font.FontFamily);
+            }
+
             if (value != null && gauge.RangeHigh > gauge.RangeLow)
             {
                 double fraction = (value.Value - gauge.RangeLow) / (gauge.RangeHigh - gauge.RangeLow);
@@ -401,7 +503,8 @@ namespace PcmHacking
 
             // Inset from the dial edge: the face is a circle, so text spanning its full width would
             // run outside the arc at top and bottom.
-            int textWidth = (int)(dial.Width * 0.7f);
+            // Narrower when the scale is drawn, so the title and value stay inside its numbers.
+            int textWidth = (int)(dial.Width * (scale ? 0.52f : 0.7f));
             int textLeft = dial.X + ((dial.Width - textWidth) / 2);
 
             Rectangle titleArea = new Rectangle(textLeft, (int)centre.Y - 24, textWidth, 16);
