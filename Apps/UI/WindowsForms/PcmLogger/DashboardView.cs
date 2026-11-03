@@ -49,6 +49,12 @@ namespace PcmHacking
         /// <summary>Raised when a gauge is bound to a parameter, or unbound.</summary>
         public event EventHandler<GaugeLayout>? GaugeBindingChanged;
 
+        /// <summary>
+        /// Raised after the view has added or removed a gauge, so the owner can save the change and
+        /// work out which parameters are still needed.
+        /// </summary>
+        public event EventHandler? LayoutEdited;
+
         /// <summary>The dashboard being drawn. Named to avoid hiding Control.Layout, which is an event.</summary>
         public DashboardLayout? Dashboard
         {
@@ -91,6 +97,7 @@ namespace PcmHacking
             GaugeLayout? gauge = this.HitTest(e.Location);
             if (gauge == null)
             {
+                this.ShowEmptySpaceMenu(e.Location);
                 return;
             }
 
@@ -137,7 +144,103 @@ namespace PcmHacking
                 });
             }
 
+            menu.Items.Add(new ToolStripSeparator());
+
+            // There is rarely spare room on a dashboard, so a new gauge takes half of this one.
+            ToolStripMenuItem add = new ToolStripMenuItem("Add gauge (shares this space)");
+            add.Enabled = this.CanSplit(gauge);
+            add.Click += (s, a) => this.SplitGauge(gauge);
+            menu.Items.Add(add);
+
+            menu.Items.Add("Delete gauge", null, (s, a) => this.DeleteGauge(gauge));
+
             menu.Show(this, e.Location);
+        }
+
+        /// <summary>
+        /// The menu for a click that is not on a gauge: one item, to put a gauge in the gap.
+        /// </summary>
+        private void ShowEmptySpaceMenu(Point location)
+        {
+            if (this.layout == null || this.ClientSize.Width <= 0 || this.ClientSize.Height <= 0)
+            {
+                return;
+            }
+
+            double x = (double)location.X / this.ClientSize.Width;
+            double y = (double)location.Y / this.ClientSize.Height;
+
+            GaugeLayout? fill = GaugePlacement.FillFreeSpace(this.layout, x, y);
+
+            ContextMenuStrip menu = new ContextMenuStrip();
+            ToolStripMenuItem item = new ToolStripMenuItem(fill != null ? "Add gauge here" : "No room for a gauge here")
+            {
+                Enabled = fill != null,
+            };
+
+            item.Click += (s, a) =>
+            {
+                if (fill != null && this.layout != null)
+                {
+                    this.layout.Gauges.Add(fill);
+                    this.Invalidate();
+                    this.LayoutEdited?.Invoke(this, EventArgs.Empty);
+                }
+            };
+
+            menu.Items.Add(item);
+            menu.Show(this, location);
+        }
+
+        private double Aspect => this.ClientSize.Height > 0 ? (double)this.ClientSize.Width / this.ClientSize.Height : 1.0;
+
+        /// <summary>Whether halving this gauge would leave both halves a usable size.</summary>
+        private bool CanSplit(GaugeLayout gauge)
+        {
+            // Splitting a copy is the way to ask without changing anything.
+            GaugeLayout probe = new GaugeLayout { Left = gauge.Left, Top = gauge.Top, Width = gauge.Width, Height = gauge.Height };
+            return GaugePlacement.Split(probe, this.Aspect) != null;
+        }
+
+        /// <summary>Halve a gauge and put a new, blank one in the freed half.</summary>
+        private void SplitGauge(GaugeLayout gauge)
+        {
+            if (this.layout == null)
+            {
+                return;
+            }
+
+            GaugeLayout? added = GaugePlacement.Split(gauge, this.Aspect);
+            if (added == null)
+            {
+                return;
+            }
+
+            // Straight after its neighbour, so the order the dashboard is read in stays natural.
+            int index = this.layout.Gauges.IndexOf(gauge);
+            this.layout.Gauges.Insert(index + 1, added);
+
+            this.Invalidate();
+            this.LayoutEdited?.Invoke(this, EventArgs.Empty);
+        }
+
+        private void DeleteGauge(GaugeLayout gauge)
+        {
+            if (this.layout == null)
+            {
+                return;
+            }
+
+            // A neighbour takes the space if one can, so there is no hole to fill by hand.
+            GaugePlacement.Absorb(this.layout, gauge);
+
+            if (!this.layout.Gauges.Remove(gauge))
+            {
+                return;
+            }
+
+            this.Invalidate();
+            this.LayoutEdited?.Invoke(this, EventArgs.Empty);
         }
 
         private GaugeLayout? HitTest(Point point)
