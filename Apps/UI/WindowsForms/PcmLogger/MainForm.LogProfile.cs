@@ -117,6 +117,14 @@ namespace PcmHacking
             }
 
             this.SetMonitorHistory(loaded);
+
+            // The panes already on screen were handed the parameters of the last live session, so
+            // without this their trace picker would offer those instead of the loaded log's columns.
+            foreach (MonitorView view in this.monitorViews)
+            {
+                view.AvailableParameters = this.loggedParameters;
+            }
+
             this.historyLoadedFromFile = true;
             this.UpdateClearLogButton();
             this.UpdateMonitorTimeBox();
