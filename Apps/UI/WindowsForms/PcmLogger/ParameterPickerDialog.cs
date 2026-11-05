@@ -40,13 +40,25 @@ namespace PcmHacking
     internal class ParameterPickerDialog : Form
     {
         private readonly IReadOnlyList<BindingCandidate> candidates;
+        private readonly HashSet<string> unavailable;
         private readonly TextBox searchBox = new TextBox();
         private readonly ListBox list = new ListBox();
         private readonly Button ok = new Button();
 
-        public ParameterPickerDialog(IReadOnlyList<BindingCandidate> candidates, string? currentId)
+        /// <param name="candidates">Every parameter that can be offered.</param>
+        /// <param name="currentId">The gauge's present parameter, shown selected to start with.</param>
+        /// <param name="unavailable">
+        /// Parameters another gauge already shows. They are listed but cannot be chosen: the logger
+        /// polls one conversion per parameter, so a second gauge in different units would change the
+        /// first one's reading.
+        /// </param>
+        public ParameterPickerDialog(
+            IReadOnlyList<BindingCandidate> candidates,
+            string? currentId,
+            IEnumerable<string>? unavailable = null)
         {
             this.candidates = candidates ?? throw new ArgumentNullException(nameof(candidates));
+            this.unavailable = new HashSet<string>(unavailable ?? Array.Empty<string>(), StringComparer.OrdinalIgnoreCase);
 
             this.Text = "Choose a parameter";
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -63,10 +75,12 @@ namespace PcmHacking
 
             this.list.SetBounds(12, 42, 336, 290);
             this.list.IntegralHeight = false;
-            this.list.SelectedIndexChanged += (s, e) => this.ok.Enabled = this.list.SelectedItem != null;
+            this.list.DrawMode = DrawMode.OwnerDrawFixed;
+            this.list.DrawItem += this.List_DrawItem;
+            this.list.SelectedIndexChanged += (s, e) => this.ok.Enabled = this.CanChooseSelected;
             this.list.DoubleClick += (s, e) =>
             {
-                if (this.list.SelectedItem != null)
+                if (this.CanChooseSelected)
                 {
                     this.DialogResult = DialogResult.OK;
                 }
@@ -100,11 +114,28 @@ namespace PcmHacking
                 }
             }
 
-            this.ok.Enabled = this.list.SelectedItem != null;
+            this.ok.Enabled = this.CanChooseSelected;
         }
 
         /// <summary>The parameter chosen, once the dialog has returned OK.</summary>
-        public BindingCandidate? Selected => (this.list.SelectedItem as Entry)?.Candidate;
+        public BindingCandidate? Selected => this.CanChooseSelected ? (this.list.SelectedItem as Entry)?.Candidate : null;
+
+        private bool CanChooseSelected => this.list.SelectedItem is Entry entry && entry.Available;
+
+        /// <summary>Taken parameters are drawn in the muted colour, whether or not they are highlighted.</summary>
+        private void List_DrawItem(object? sender, DrawItemEventArgs e)
+        {
+            if (e.Index < 0)
+            {
+                return;
+            }
+
+            Entry entry = (Entry)this.list.Items[e.Index];
+            e.DrawBackground();
+            Color color = entry.Available ? e.ForeColor : SystemColors.GrayText;
+            TextRenderer.DrawText(e.Graphics, entry.ToString(), e.Font, e.Bounds, color, TextFormatFlags.Left | TextFormatFlags.VerticalCenter);
+            e.DrawFocusRectangle();
+        }
 
         protected override void OnShown(EventArgs e)
         {
@@ -122,13 +153,18 @@ namespace PcmHacking
             {
                 if (words.All(w => candidate.Name.IndexOf(w, StringComparison.OrdinalIgnoreCase) >= 0))
                 {
-                    this.list.Items.Add(new Entry(candidate));
+                    this.list.Items.Add(new Entry(candidate, !this.unavailable.Contains(candidate.Id)));
                 }
             }
 
-            if (this.list.Items.Count > 0)
+            // Start on something that can be chosen, so Enter does what it appears to.
+            for (int i = 0; i < this.list.Items.Count; i++)
             {
-                this.list.SelectedIndex = 0;
+                if (((Entry)this.list.Items[i]).Available)
+                {
+                    this.list.SelectedIndex = i;
+                    break;
+                }
             }
 
             this.list.EndUpdate();
@@ -136,17 +172,23 @@ namespace PcmHacking
 
         private class Entry
         {
-            public Entry(BindingCandidate candidate)
+            public Entry(BindingCandidate candidate, bool available)
             {
                 this.Candidate = candidate;
+                this.Available = available;
             }
 
             public BindingCandidate Candidate { get; }
 
-            public override string ToString() =>
-                string.IsNullOrEmpty(this.Candidate.Units)
+            public bool Available { get; }
+
+            public override string ToString()
+            {
+                string text = string.IsNullOrEmpty(this.Candidate.Units)
                     ? this.Candidate.Name
                     : this.Candidate.Name + " (" + this.Candidate.Units + ")";
+                return this.Available ? text : text + " - already on a gauge";
+            }
         }
     }
 }

@@ -1590,7 +1590,7 @@ namespace PcmHacking
                 return null;
             }
 
-            using (ParameterPickerDialog picker = new ParameterPickerDialog(candidates, currentId))
+            using (ParameterPickerDialog picker = new ParameterPickerDialog(candidates, currentId, this.ParametersOnGauges(currentId)))
             {
                 if (picker.ShowDialog(this) != DialogResult.OK || picker.Selected == null)
                 {
@@ -1607,6 +1607,30 @@ namespace PcmHacking
                     conversion?.RangeLow ?? 0,
                     conversion?.RangeHigh ?? 0);
             }
+        }
+
+        /// <summary>
+        /// The parameters the package's gauges already show, other than the one being changed.
+        /// </summary>
+        /// <remarks>
+        /// The package keeps one entry per parameter, and its units decide which conversion the
+        /// logger polls. A second gauge on the same parameter in other units would change the first
+        /// one's reading while leaving its label and scale alone, so a parameter is shown on one
+        /// gauge at a time. Every dashboard counts, because the entry is shared across them.
+        /// </remarks>
+        private IReadOnlyCollection<string> ParametersOnGauges(string? exceptId)
+        {
+            if (this.dashboardPackage == null)
+            {
+                return Array.Empty<string>();
+            }
+
+            return this.dashboardPackage.Dashboards
+                .SelectMany(d => d.Gauges)
+                .Where(g => g.IsBound && !string.Equals(g.PidId, exceptId, StringComparison.OrdinalIgnoreCase))
+                .Select(g => g.PidId!)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
         }
 
         /// <summary>
