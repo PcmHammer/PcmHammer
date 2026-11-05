@@ -21,17 +21,6 @@ namespace PcmHacking
         private DashboardLayout? layout;
         private readonly Dictionary<string, double> values = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
 
-        /// <summary>
-        /// Parameter id to display name, from the most recent row.
-        /// </summary>
-        /// <remarks>
-        /// The bind menu is built from what is actually arriving rather than from the parameter
-        /// database, so it can only ever offer parameters that will really produce a value. Binding
-        /// a gauge to something the current profile does not log would leave it reading nothing with
-        /// no indication why.
-        /// </remarks>
-        private readonly SortedDictionary<string, string> available = new SortedDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-
         public DashboardView()
         {
             // The gauges repaint continuously, so draw the whole surface off-screen.
@@ -45,6 +34,9 @@ namespace PcmHacking
 
         /// <summary>Raised when the user asks to edit a gauge.</summary>
         public event EventHandler<GaugeLayout>? GaugeEditRequested;
+
+        /// <summary>Raised when the user asks to choose a parameter for a gauge.</summary>
+        public event EventHandler<GaugeLayout>? GaugeBindRequested;
 
         /// <summary>Raised when a gauge is bound to a parameter, or unbound.</summary>
         public event EventHandler<GaugeLayout>? GaugeBindingChanged;
@@ -72,7 +64,6 @@ namespace PcmHacking
                 foreach (LogRowElement element in row)
                 {
                     this.values[element.ParameterId] = element.ValueAsNumber;
-                    this.available[element.ParameterId] = element.ParameterName;
                 }
             }
 
@@ -98,34 +89,9 @@ namespace PcmHacking
             menu.Items.Add("Edit " + gauge.Title + "...", null, (s, a) => this.GaugeEditRequested?.Invoke(this, gauge));
             menu.Items.Add(new ToolStripSeparator());
 
-            ToolStripMenuItem bind = new ToolStripMenuItem("Bind to");
-            if (this.available.Count == 0)
-            {
-                // Nothing has been logged yet, so there is nothing honest to offer.
-                bind.DropDownItems.Add(new ToolStripMenuItem("(start logging to see parameters)") { Enabled = false });
-            }
-            else
-            {
-                foreach (KeyValuePair<string, string> candidate in this.available)
-                {
-                    string id = candidate.Key;
-                    ToolStripMenuItem item = new ToolStripMenuItem(candidate.Value)
-                    {
-                        Checked = string.Equals(gauge.PidId, id, StringComparison.OrdinalIgnoreCase),
-                    };
-
-                    item.Click += (s, a) =>
-                    {
-                        gauge.PidId = id;
-                        this.Invalidate();
-                        this.GaugeBindingChanged?.Invoke(this, gauge);
-                    };
-
-                    bind.DropDownItems.Add(item);
-                }
-            }
-
-            menu.Items.Add(bind);
+            // The owner offers the choice, not this view: it knows which parameters the connected
+            // PCM supports, which can be bound before anything has been logged.
+            menu.Items.Add("Choose parameter...", null, (s, a) => this.GaugeBindRequested?.Invoke(this, gauge));
 
             if (gauge.IsBound)
             {

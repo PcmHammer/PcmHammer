@@ -12,8 +12,8 @@ namespace PcmHacking
     /// </summary>
     /// <remarks>
     /// Deliberately the handful of fields that change how a gauge reads, not everything the format
-    /// can hold. Position and size are left to the layout, and the PID binding stays on the gauge's
-    /// right-click menu where it already was.
+    /// can hold. Position and size are left to the layout. The parameter can be changed here or from
+    /// the gauge's right-click menu; both use the same picker.
     ///
     /// Units rather than an expression: the conversion belongs to the parameter database, which is
     /// corrected and extended over time, and a per-gauge formula would freeze a copy of whatever was
@@ -40,9 +40,18 @@ namespace PcmHacking
         private Color normalColor;
         private Color alarmColor;
 
-        public GaugePropertiesDialog(GaugeLayout gauge, string parameterName, IEnumerable<string> unitOptions)
+        private readonly Label parameterLabel = new Label();
+        private readonly Func<ParameterChoice?>? chooseParameter;
+        private ParameterChoice? chosen;
+
+        public GaugePropertiesDialog(
+            GaugeLayout gauge,
+            string parameterName,
+            IEnumerable<string> unitOptions,
+            Func<ParameterChoice?>? chooseParameter = null)
         {
             this.gauge = gauge ?? throw new ArgumentNullException(nameof(gauge));
+            this.chooseParameter = chooseParameter;
 
             this.Text = "Gauge properties";
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -57,16 +66,19 @@ namespace PcmHacking
             int y = 12;
 
             this.AddRow("Reads", y);
-            Label parameter = new Label
+            this.parameterLabel.SetBounds(110, y + 3, 140, 18);
+            this.parameterLabel.AutoEllipsis = true;
+            this.ShowParameter(gauge.IsBound ? parameterName : null);
+            this.Controls.Add(this.parameterLabel);
+
+            if (chooseParameter != null)
             {
-                Left = 110,
-                Top = y + 3,
-                Width = 220,
-                Text = gauge.IsBound ? parameterName : "Not bound - use the gauge's right-click menu",
-                ForeColor = gauge.IsBound ? SystemColors.ControlText : SystemColors.GrayText,
-                AutoEllipsis = true,
-            };
-            this.Controls.Add(parameter);
+                Button change = new Button { Text = "C&hange..." };
+                change.SetBounds(256, y - 1, 74, 24);
+                change.Click += this.Change_Click;
+                this.Controls.Add(change);
+            }
+
             y += 28;
 
             this.AddRow("&Title", y);
@@ -174,6 +186,38 @@ namespace PcmHacking
             this.UpdateEnabledState();
         }
 
+        private void ShowParameter(string? name)
+        {
+            this.parameterLabel.Text = name ?? "Not bound";
+            this.parameterLabel.ForeColor = name != null ? SystemColors.ControlText : SystemColors.GrayText;
+        }
+
+        /// <summary>
+        /// Choose a different parameter. Held until Save, like every other field here, so Cancel
+        /// leaves the gauge as it was.
+        /// </summary>
+        private void Change_Click(object? sender, EventArgs e)
+        {
+            ParameterChoice? choice = this.chooseParameter?.Invoke();
+            if (choice == null)
+            {
+                return;
+            }
+
+            // The old title described the old reading; it stays editable here before Save.
+            this.titleBox.Text = choice.Candidate.Name;
+
+            this.chosen = choice;
+            this.ShowParameter(choice.Candidate.Name);
+            this.unitsBox.Text = choice.Candidate.Units;
+
+            if (choice.HasRange)
+            {
+                this.rangeLowBox.Text = Format(choice.RangeLow);
+                this.rangeHighBox.Text = Format(choice.RangeHigh);
+            }
+        }
+
         private void AddRow(string text, int top)
         {
             this.Controls.Add(new Label { Left = 12, Top = top + 3, Width = 95, Text = text });
@@ -242,6 +286,11 @@ namespace PcmHacking
             {
                 this.DialogResult = DialogResult.None;
                 return;
+            }
+
+            if (this.chosen != null)
+            {
+                this.gauge.PidId = this.chosen.Candidate.Id;
             }
 
             this.gauge.Title = this.titleBox.Text;

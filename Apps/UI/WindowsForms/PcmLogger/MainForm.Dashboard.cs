@@ -362,6 +362,7 @@ namespace PcmHacking
 
             this.dashboardView = new DashboardView { Dock = DockStyle.Fill };
             this.dashboardView.GaugeEditRequested += this.Gauge_EditRequested;
+            this.dashboardView.GaugeBindRequested += this.Gauge_BindRequested;
             this.dashboardView.GaugeBindingChanged += this.Gauge_BindingChanged;
 
             // Fill is added before Top so docking leaves the bar above the gauges.
@@ -1568,6 +1569,116 @@ namespace PcmHacking
             }
         }
 
+        /// <summary>
+        /// Offer every parameter the connected PCM supports, not only what is being logged.
+        /// </summary>
+        /// <remarks>
+        /// Choosing one ticks it in the grid (see Gauge_BindingChanged), so it will be polled and
+        /// the gauge will read. That is what lets a gauge be bound before logging has started.
+        /// </remarks>
+        private ParameterChoice? ChooseParameter(string? currentId)
+        {
+            IReadOnlyList<BindingCandidate> candidates = this.BindingCandidates();
+            if (candidates.Count == 0)
+            {
+                MessageBox.Show(
+                    this,
+                    "The parameters depend on the PCM's operating system, so they can be chosen once a PCM has been found.",
+                    "Choose a parameter",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+                return null;
+            }
+
+            using (ParameterPickerDialog picker = new ParameterPickerDialog(candidates, currentId, this.ParametersOnGauges(currentId)))
+            {
+                if (picker.ShowDialog(this) != DialogResult.OK || picker.Selected == null)
+                {
+                    return null;
+                }
+
+                BindingCandidate candidate = picker.Selected;
+                Conversion? conversion = this.BindingCandidateParameter(candidate.Id)?.Conversions
+                    ?.FirstOrDefault(c => string.Equals(c.Units, candidate.Units, StringComparison.OrdinalIgnoreCase));
+
+                return new ParameterChoice(
+                    candidate,
+                    conversion?.HasRange ?? false,
+                    conversion?.RangeLow ?? 0,
+                    conversion?.RangeHigh ?? 0);
+            }
+        }
+
+        /// <summary>
+        /// The parameters the package's gauges already show, other than the one being changed.
+        /// </summary>
+        /// <remarks>
+        /// The package keeps one entry per parameter, and its units decide which conversion the
+        /// logger polls. A second gauge on the same parameter in other units would change the first
+        /// one's reading while leaving its label and scale alone, so a parameter is shown on one
+        /// gauge at a time. Every dashboard counts, because the entry is shared across them.
+        /// </remarks>
+        private IReadOnlyCollection<string> ParametersOnGauges(string? exceptId)
+        {
+            if (this.dashboardPackage == null)
+            {
+                return Array.Empty<string>();
+            }
+
+            return this.dashboardPackage.Dashboards
+                .SelectMany(d => d.Gauges)
+                .Where(g => g.IsBound && !string.Equals(g.PidId, exceptId, StringComparison.OrdinalIgnoreCase))
+                .Select(g => g.PidId!)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        /// <summary>
+        /// The right-click "Choose parameter..." on a gauge.
+        /// </summary>
+        private void Gauge_BindRequested(object? sender, GaugeLayout gauge)
+        {
+            ParameterChoice? choice = this.ChooseParameter(gauge.PidId);
+            if (choice == null)
+            {
+                return;
+            }
+
+            gauge.PidId = choice.Candidate.Id;
+            gauge.Units = choice.Candidate.Units;
+
+            if (choice.HasRange)
+            {
+                gauge.RangeLow = choice.RangeLow;
+                gauge.RangeHigh = choice.RangeHigh;
+            }
+
+            // The old title described the old reading, so it would now be wrong. Edit... can set
+            // a different one.
+            gauge.Title = choice.Candidate.Name;
+
+            this.Gauge_BindingChanged(this, gauge);
+            this.SyncPackagedUnits(gauge);
+
+            this.dashboardView?.Invalidate();
+            this.SetDirtyFlag(true);
+        }
+
+        /// <summary>
+        /// Make the package's entry for a gauge's parameter use the units the gauge is drawn in, so
+        /// the logger does not poll one conversion while the face shows another.
+        /// </summary>
+        private void SyncPackagedUnits(GaugeLayout gauge)
+        {
+            PackagedPid? pid = gauge.IsBound ? this.dashboardPackage?.FindPid(gauge.PidId!) : null;
+            if (pid != null && !string.IsNullOrEmpty(gauge.Units)
+                && !string.Equals(pid.Units, gauge.Units, StringComparison.OrdinalIgnoreCase))
+            {
+                pid.Units = gauge.Units;
+                this.SelectDashboardParameters(replaceSelection: false);
+            }
+        }
+
         private void Gauge_EditRequested(object? sender, GaugeLayout gauge)
         {
             Parameter? parameter = gauge.IsBound ? this.BindingCandidateParameter(gauge.PidId!) : null;
@@ -1578,14 +1689,26 @@ namespace PcmHacking
                 ?? new List<string>();
 
             string previousUnits = gauge.Units;
+            string? previousPid = gauge.PidId;
 
-            using (GaugePropertiesDialog dialog =
-                new GaugePropertiesDialog(gauge, parameter?.Name ?? gauge.PidId ?? string.Empty, units))
+            using (GaugePropertiesDialog dialog = new GaugePropertiesDialog(
+                gauge,
+                parameter?.Name ?? gauge.PidId ?? string.Empty,
+                units,
+                () => this.ChooseParameter(gauge.PidId)))
             {
                 if (dialog.ShowDialog(this) != DialogResult.OK)
                 {
                     return;
                 }
+            }
+
+            // A different parameter goes through the same steps as a bind from the menu.
+            if (!string.Equals(previousPid, gauge.PidId, StringComparison.OrdinalIgnoreCase))
+            {
+                this.Gauge_BindingChanged(this, gauge);
+                this.SyncPackagedUnits(gauge);
+                previousUnits = gauge.Units;
             }
 
             // The units choose which conversion is logged, so the package's PID entry has to agree -
