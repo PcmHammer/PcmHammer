@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using PCMLoggerAvalonia.ViewModels;
 
@@ -17,5 +18,32 @@ public partial class MainWindow : Window
         {
             await new GaugeEditDialog(tile).ShowDialog(this);
         }
+    }
+
+    // Right-click a gauge: a small Edit / Remove menu (double-click still edits directly).
+    private void GaugeCard_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (sender is not Control control || control.DataContext is not GaugeTile tile)
+        {
+            return;
+        }
+
+        if (!e.GetCurrentPoint(control).Properties.IsRightButtonPressed)
+        {
+            return;
+        }
+
+        MenuFlyout flyout = new();
+
+        MenuItem edit = new() { Header = "Edit gauge…" };
+        edit.Click += async (_, _) => await new GaugeEditDialog(tile).ShowDialog(this);
+
+        MenuItem remove = new() { Header = "Remove gauge" };
+        remove.Click += (_, _) => (this.DataContext as MainWindowViewModel)?.RemoveGauge(tile);
+
+        flyout.Items.Add(edit);
+        flyout.Items.Add(remove);
+        flyout.ShowAt(control, showAtPointer: true);
+        e.Handled = true;
     }
 }

@@ -73,7 +73,8 @@
                                 BorderThickness="1" CornerRadius="6" Padding="4"
                                 Background="Transparent"
                                 DoubleTapped="GaugeCard_DoubleTapped"
-                                ToolTip.Tip="Double-click to edit this gauge">
+                                PointerPressed="GaugeCard_PointerPressed"
+                                ToolTip.Tip="Double-click to edit · right-click for more">
                             <Grid RowDefinitions="Auto,*">
                                 <TextBlock Grid.Row="0" Text="{Binding Title}"
                                            HorizontalAlignment="Center" FontWeight="SemiBold"

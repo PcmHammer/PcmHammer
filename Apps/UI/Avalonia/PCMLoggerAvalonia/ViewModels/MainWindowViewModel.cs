@@ -99,6 +99,16 @@ public partial class MainWindowViewModel : ViewModelBase
         }
     }
 
+    /// <summary>Remove a gauge from the dashboard (and stop feeding it).</summary>
+    public void RemoveGauge(GaugeTile tile)
+    {
+        this.Gauges.Remove(tile);
+        if (_gaugesById.TryGetValue(tile.ParameterId, out GaugeTile? existing) && ReferenceEquals(existing, tile))
+        {
+            _gaugesById.Remove(tile.ParameterId);
+        }
+    }
+
     [RelayCommand]
     private void ShowGrid() => this.ViewMode = "Grid";
 
