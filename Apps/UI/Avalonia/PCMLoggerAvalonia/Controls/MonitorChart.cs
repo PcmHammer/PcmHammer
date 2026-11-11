@@ -31,10 +31,46 @@ public sealed class MonitorChart : Control
     // Axis column rectangles from the last render, so a click can find the trace it belongs to.
     private readonly List<(Rect Bounds, MonitorSeries Series)> _axisHits = new();
 
+    private DateTime? _frozenNow;   // the time reference while paused, so the window stops scrolling
+    private double? _cursorX;        // hovered x inside the plot, for the read-out cursor
+    private Rect _plot;              // last plot rectangle, for hit-testing the cursor
+
     public MonitorChart()
     {
         _timer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(100) };
         _timer.Tick += (_, _) => this.InvalidateVisual();
+    }
+
+    // A menu of every trace with a tick beside the shown ones (the WinForms way). A code-drawn control
+    // does not get the automatic right-click ContextMenu, so it is shown explicitly from a right-click
+    // (and the toolbar "Traces" button offers the same for environments that swallow right-click).
+    private void ShowTraceFlyout()
+    {
+        MonitorTab? monitor = this.Monitor;
+        if (monitor == null)
+        {
+            return;
+        }
+
+        MenuFlyout flyout = new();
+        foreach (MonitorSeries series in monitor.Series)
+        {
+            MonitorSeries captured = series;
+            MenuItem item = new() { Header = series.Title };
+            if (series.Visible)
+            {
+                item.Icon = new TextBlock { Text = "✓", Foreground = new SolidColorBrush(series.Color) };
+            }
+
+            item.Click += (_, _) =>
+            {
+                captured.Visible = !captured.Visible;
+                this.InvalidateVisual();
+            };
+            flyout.Items.Add(item);
+        }
+
+        flyout.ShowAt(this, showAtPointer: true);
     }
 
     public static readonly StyledProperty<MonitorTab?> MonitorProperty =
@@ -46,6 +82,16 @@ public sealed class MonitorChart : Control
         set => this.SetValue(MonitorProperty, value);
     }
 
+    public static readonly StyledProperty<bool> PausedProperty =
+        AvaloniaProperty.Register<MonitorChart, bool>(nameof(Paused));
+
+    /// <summary>When true the window stops scrolling (the view is frozen at the moment of pause).</summary>
+    public bool Paused
+    {
+        get => this.GetValue(PausedProperty);
+        set => this.SetValue(PausedProperty, value);
+    }
+
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
@@ -53,6 +99,44 @@ public sealed class MonitorChart : Control
         {
             this.InvalidateVisual();
         }
+        else if (change.Property == PausedProperty)
+        {
+            _frozenNow = this.Paused ? DateTime.UtcNow : null;
+            this.InvalidateVisual();
+        }
+    }
+
+    protected override void OnPointerWheelChanged(PointerWheelEventArgs e)
+    {
+        base.OnPointerWheelChanged(e);
+        MonitorTab? monitor = this.Monitor;
+        if (monitor == null)
+        {
+            return;
+        }
+
+        // Wheel up widens the window (more history), wheel down narrows it. Clamp to a useful range.
+        double factor = e.Delta.Y > 0 ? 1.25 : 0.8;
+        monitor.WindowSeconds = Math.Max(2, Math.Min(300, monitor.WindowSeconds * factor));
+        this.InvalidateVisual();
+        e.Handled = true;
+    }
+
+    protected override void OnPointerMoved(PointerEventArgs e)
+    {
+        base.OnPointerMoved(e);
+        Point p = e.GetPosition(this);
+        _cursorX = (p.X >= _plot.Left && p.X <= _plot.Right && p.Y >= _plot.Top && p.Y <= _plot.Bottom)
+            ? p.X
+            : (double?)null;
+        this.InvalidateVisual();
+    }
+
+    protected override void OnPointerExited(PointerEventArgs e)
+    {
+        base.OnPointerExited(e);
+        _cursorX = null;
+        this.InvalidateVisual();
     }
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
@@ -70,6 +154,17 @@ public sealed class MonitorChart : Control
     protected override void OnPointerPressed(PointerPressedEventArgs e)
     {
         base.OnPointerPressed(e);
+
+        PointerPointProperties props = e.GetCurrentPoint(this).Properties;
+        if (props.IsRightButtonPressed)
+        {
+            // Show the trace menu on right-click; don't also run the axis-toggle.
+            this.ShowTraceFlyout();
+            e.Handled = true;
+            return;
+        }
+
+        // Left-click an axis column to toggle its trace (the Traces button is the easier target).
         Point p = e.GetPosition(this);
         foreach ((Rect bounds, MonitorSeries series) in _axisHits)
         {
@@ -87,9 +182,15 @@ public sealed class MonitorChart : Control
         base.Render(context);
         _axisHits.Clear();
 
-        MonitorTab? monitor = this.Monitor;
         double w = this.Bounds.Width;
         double h = this.Bounds.Height;
+
+        // Fill the whole area (transparent) so the entire chart is hit-testable. A code-drawn control
+        // otherwise only receives pointer events where it actually painted a line, which is why
+        // clicks and right-clicks only worked when the pointer was exactly on a trace.
+        context.FillRectangle(Brushes.Transparent, new Rect(0, 0, w, h));
+
+        MonitorTab? monitor = this.Monitor;
         if (monitor == null || w < 40 || h < 40)
         {
             return;
@@ -111,16 +212,18 @@ public sealed class MonitorChart : Control
         double plotTop = HeadingTop + (LineHeight * 2) + 4;
         double plotBottom = h - BottomGutter;
         Rect plot = new(plotLeft, plotTop, Math.Max(1, plotRight - plotLeft), Math.Max(1, plotBottom - plotTop));
+        _plot = plot;
 
         context.DrawRectangle(null, framePen, plot);
 
-        // Title (monitor name) top-left.
+        // Title (monitor name) over the plot, clear of the axis-column headings on either side.
+        string title = this.Paused ? monitor.Title + "   (stopped)" : monitor.Title;
         context.DrawText(
-            new FormattedText(monitor.Title, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, Typeface.Default, 12, ink),
-            new Point(EdgePadding, 1));
+            new FormattedText(title, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, Typeface.Default, 12, ink),
+            new Point(plot.Left + 4, 1));
 
         double window = monitor.WindowSeconds;
-        DateTime now = DateTime.UtcNow;
+        DateTime now = _frozenNow ?? DateTime.UtcNow;
 
         for (int index = 0; index < n; index++)
         {
@@ -220,6 +323,61 @@ public sealed class MonitorChart : Control
         context.DrawText(
             new FormattedText("now", CultureInfo.CurrentCulture, FlowDirection.LeftToRight, Typeface.Default, 9, muted),
             new Point(plot.Right - 22, plot.Bottom + 3));
+
+        // Hover cursor: a dotted vertical line, and each visible trace's value where the line crosses it.
+        if (_cursorX is double cx && cx >= plot.Left && cx <= plot.Right)
+        {
+            Pen cursorPen = new(ink, 1) { DashStyle = DashStyle.Dash };
+            context.DrawLine(cursorPen, new Point(cx, plot.Top), new Point(cx, plot.Bottom));
+
+            double cursorAge = (plot.Right - cx) / plot.Width * window; // seconds before 'now'
+            DateTime cursorTime = now - TimeSpan.FromSeconds(cursorAge);
+
+            foreach (MonitorSeries series in all)
+            {
+                if (!series.Visible || series.Points.Count == 0)
+                {
+                    continue;
+                }
+
+                double bestDelta = double.MaxValue;
+                double bestValue = double.NaN;
+                foreach ((DateTime t, double v) in series.Points)
+                {
+                    double d = Math.Abs((t - cursorTime).TotalSeconds);
+                    if (d < bestDelta)
+                    {
+                        bestDelta = d;
+                        bestValue = v;
+                    }
+                }
+
+                if (double.IsNaN(bestValue) || bestDelta > 1.5)
+                {
+                    continue;
+                }
+
+                (double low, double high) = series.Range;
+                double vspan = high - low;
+                if (vspan <= 1e-9)
+                {
+                    vspan = 1;
+                }
+
+                double norm = Math.Max(0, Math.Min(1, (bestValue - low) / vspan));
+                double y = plot.Bottom - (norm * plot.Height);
+                IBrush b = new SolidColorBrush(series.Color);
+                FormattedText vt = new(bestValue.ToString("0.##", CultureInfo.CurrentCulture), CultureInfo.CurrentCulture, FlowDirection.LeftToRight, Typeface.Default, 10, b);
+                double tx = cx + 4;
+                if (tx + vt.Width > plot.Right)
+                {
+                    tx = cx - 4 - vt.Width;
+                }
+
+                double ty = Math.Max(plot.Top, Math.Min(plot.Bottom - 12, y - 14));
+                context.DrawText(vt, new Point(tx, ty));
+            }
+        }
     }
 
     private static void DrawCentered(DrawingContext context, string text, double size, IBrush brush, double x, double width, double y)

@@ -17,10 +17,12 @@ namespace PCMLoggerAvalonia.ViewModels;
 /// </summary>
 public sealed partial class MonitorSeries : ObservableObject
 {
+    // Keep a generous buffer so the visible window can be widened without having thrown samples away.
+    private const double BufferSeconds = 600;
+
     private readonly List<(DateTime T, double V)> _points = new();
     private readonly double _rangeLow;
     private readonly double _rangeHigh;
-    private readonly double _windowSeconds;
 
     public string ParameterId { get; }
     public string Title { get; }
@@ -38,14 +40,13 @@ public sealed partial class MonitorSeries : ObservableObject
 
     public double LegendOpacity => this.Visible ? 1.0 : 0.35;
 
-    public MonitorSeries(MonitorSeriesLayout layout, Color color, double windowSeconds)
+    public MonitorSeries(MonitorSeriesLayout layout, Color color)
     {
         this.ParameterId = layout.PidId ?? string.Empty;
         this.Title = layout.Title;
         this.Units = layout.Units;
         _rangeLow = layout.RangeLow;
         _rangeHigh = layout.RangeHigh;
-        _windowSeconds = windowSeconds;
         this.Color = color;
         this.Brush = new SolidColorBrush(color);
         this.RangeText = string.Format(CultureInfo.CurrentCulture, "{0:0.##}..{1:0.##} {2}", _rangeLow, _rangeHigh, layout.Units);
@@ -61,14 +62,14 @@ public sealed partial class MonitorSeries : ObservableObject
 
     public IReadOnlyList<(DateTime T, double V)> Points => _points;
 
-    /// <summary>Record a sample now and drop anything older than the window.</summary>
+    /// <summary>Record a sample now and drop anything older than the buffer.</summary>
     public void Append(double value)
     {
         DateTime now = DateTime.UtcNow;
         _points.Add((now, value));
         this.ValueText = value.ToString("0.##", CultureInfo.CurrentCulture);
 
-        DateTime cutoff = now - TimeSpan.FromSeconds(_windowSeconds + 1);
+        DateTime cutoff = now - TimeSpan.FromSeconds(BufferSeconds);
         int drop = 0;
         while (drop < _points.Count && _points[drop].T < cutoff)
         {
@@ -98,7 +99,10 @@ public sealed class MonitorTab
     };
 
     public string Title { get; }
-    public double WindowSeconds { get; }
+
+    /// <summary>The visible time window (seconds); adjustable from the chart (mouse wheel).</summary>
+    public double WindowSeconds { get; set; }
+
     public ObservableCollection<MonitorSeries> Series { get; } = new();
 
     public MonitorTab(MonitorLayout layout)
@@ -109,7 +113,7 @@ public sealed class MonitorTab
         int index = 0;
         foreach (MonitorSeriesLayout seriesLayout in layout.Series)
         {
-            this.Series.Add(new MonitorSeries(seriesLayout, Palette[index % Palette.Length], this.WindowSeconds));
+            this.Series.Add(new MonitorSeries(seriesLayout, Palette[index % Palette.Length]));
             index++;
         }
     }

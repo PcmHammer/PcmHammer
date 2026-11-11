@@ -95,13 +95,38 @@
 
             <!-- Monitor: WinForms-style strip chart (per-trace colour axes; click an axis to hide/show) -->
             <Grid IsVisible="{Binding IsMonitor}" RowDefinitions="Auto,*">
-                <ComboBox Grid.Row="0" Margin="0,0,0,6"
-                          ItemsSource="{Binding Monitors}" SelectedItem="{Binding SelectedMonitor}"
-                          HorizontalAlignment="Left" MinWidth="160"/>
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" Margin="0,0,0,6">
+                    <ComboBox ItemsSource="{Binding Monitors}" SelectedItem="{Binding SelectedMonitor}" MinWidth="140"/>
+                    <Button Content="{Binding PauseButtonText}" Command="{Binding ToggleMonitorPauseCommand}" MinWidth="78"/>
+                    <Button Content="Traces ▾">
+                        <Button.Flyout>
+                            <Flyout>
+                                <ItemsControl ItemsSource="{Binding SelectedMonitor.Series}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:MonitorSeries">
+                                            <CheckBox IsChecked="{Binding Visible}" Margin="0,1">
+                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                    <Border Width="11" Height="11" CornerRadius="2"
+                                                            Background="{Binding Brush}" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="{Binding Title}"/>
+                                                </StackPanel>
+                                            </CheckBox>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </Flyout>
+                        </Button.Flyout>
+                    </Button>
+                    <TextBlock Text="Window:" VerticalAlignment="Center" Margin="6,0,0,0"/>
+                    <Button Content="−" Command="{Binding NarrowMonitorWindowCommand}" ToolTip.Tip="Shorter window"/>
+                    <Button Content="+" Command="{Binding WidenMonitorWindowCommand}" ToolTip.Tip="Longer window"/>
+                    <TextBlock VerticalAlignment="Center" FontSize="11" Opacity="0.6" Margin="6,0,0,0"
+                               Text="(or scroll the chart) · hover to read values"/>
+                </StackPanel>
                 <Border Grid.Row="1"
                         BorderBrush="{DynamicResource SystemControlBackgroundBaseMediumLowBrush}"
                         BorderThickness="1">
-                    <ctrl:MonitorChart Monitor="{Binding SelectedMonitor}"/>
+                    <ctrl:MonitorChart Monitor="{Binding SelectedMonitor}" Paused="{Binding IsMonitorPaused}"/>
                 </Border>
             </Grid>
         </Grid>

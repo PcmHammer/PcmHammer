@@ -71,6 +71,34 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty]
     private MonitorTab? _selectedMonitor;
 
+    /// <summary>When true the monitor view is frozen: new samples are not added to the traces.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PauseButtonText))]
+    private bool _isMonitorPaused;
+
+    public string PauseButtonText => this.IsMonitorPaused ? "Resume" : "Pause";
+
+    [RelayCommand]
+    private void ToggleMonitorPause() => this.IsMonitorPaused = !this.IsMonitorPaused;
+
+    [RelayCommand]
+    private void NarrowMonitorWindow()
+    {
+        if (this.SelectedMonitor is MonitorTab monitor)
+        {
+            monitor.WindowSeconds = Math.Max(2, monitor.WindowSeconds * 0.8);
+        }
+    }
+
+    [RelayCommand]
+    private void WidenMonitorWindow()
+    {
+        if (this.SelectedMonitor is MonitorTab monitor)
+        {
+            monitor.WindowSeconds = Math.Min(300, monitor.WindowSeconds * 1.25);
+        }
+    }
+
     [RelayCommand]
     private void ShowGrid() => this.ViewMode = "Grid";
 
@@ -306,7 +334,7 @@ public partial class MainWindowViewModel : ViewModelBase
                     gauge.SetValue(element.ValueAsNumber);
                 }
 
-                if (_seriesByPid.TryGetValue(element.ParameterId, out List<MonitorSeries>? seriesList))
+                if (!this.IsMonitorPaused && _seriesByPid.TryGetValue(element.ParameterId, out List<MonitorSeries>? seriesList))
                 {
                     foreach (MonitorSeries series in seriesList)
                     {
