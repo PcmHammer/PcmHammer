@@ -21,6 +21,7 @@
             <Border Width="1" Background="{DynamicResource SystemControlBackgroundBaseMediumLowBrush}" Margin="6,2"/>
             <Button Content="Grid" Command="{Binding ShowGridCommand}"/>
             <Button Content="Dashboard" Command="{Binding ShowDashboardCommand}"/>
+            <Button Content="Monitor" Command="{Binding ShowMonitorCommand}"/>
             <TextBlock Text="{Binding ProfileName}" VerticalAlignment="Center" Margin="12,0,0,0"
                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
         </StackPanel>
@@ -29,7 +30,7 @@
         <Grid Grid.Row="1" Margin="0,8,0,0">
 
             <!-- Grid (value list) -->
-            <Grid RowDefinitions="Auto,*" IsVisible="{Binding !IsDashboard}">
+            <Grid RowDefinitions="Auto,*" IsVisible="{Binding IsGrid}">
                 <Grid Grid.Row="0" ColumnDefinitions="2*,1.2*,1*" Margin="2,2,2,4">
                     <TextBlock Grid.Column="0" Text="Parameter" FontWeight="SemiBold"/>
                     <TextBlock Grid.Column="1" Text="Value" FontWeight="SemiBold"
@@ -91,6 +92,18 @@
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
+
+            <!-- Monitor: WinForms-style strip chart (per-trace colour axes; click an axis to hide/show) -->
+            <Grid IsVisible="{Binding IsMonitor}" RowDefinitions="Auto,*">
+                <ComboBox Grid.Row="0" Margin="0,0,0,6"
+                          ItemsSource="{Binding Monitors}" SelectedItem="{Binding SelectedMonitor}"
+                          HorizontalAlignment="Left" MinWidth="160"/>
+                <Border Grid.Row="1"
+                        BorderBrush="{DynamicResource SystemControlBackgroundBaseMediumLowBrush}"
+                        BorderThickness="1">
+                    <ctrl:MonitorChart Monitor="{Binding SelectedMonitor}"/>
+                </Border>
+            </Grid>
         </Grid>
 
         <!-- Status bar -->

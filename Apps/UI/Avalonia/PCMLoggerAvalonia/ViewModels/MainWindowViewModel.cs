@@ -35,6 +35,7 @@ public partial class MainWindowViewModel : ViewModelBase
     // parameter id -> its row/gauge, so each reading updates in place rather than rebuilding the list.
     private readonly Dictionary<string, ReadingRow> _rowsById = new();
     private readonly Dictionary<string, GaugeTile> _gaugesById = new();
+    private readonly Dictionary<string, List<MonitorSeries>> _seriesByPid = new();
 
     [ObservableProperty]
     private string _statusText = "Not connected.";
@@ -48,20 +49,36 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty]
     private bool _isLogging;
 
-    /// <summary>False shows the value grid, true shows the gauge dashboard.</summary>
+    /// <summary>"Grid", "Dashboard" or "Monitor" - which view is shown.</summary>
     [ObservableProperty]
-    private bool _isDashboard;
+    [NotifyPropertyChangedFor(nameof(IsGrid))]
+    [NotifyPropertyChangedFor(nameof(IsDashboard))]
+    [NotifyPropertyChangedFor(nameof(IsMonitor))]
+    private string _viewMode = "Grid";
+
+    public bool IsGrid => this.ViewMode == "Grid";
+    public bool IsDashboard => this.ViewMode == "Dashboard";
+    public bool IsMonitor => this.ViewMode == "Monitor";
 
     public ObservableCollection<ReadingRow> Readings { get; } = new();
 
-    /// <summary>One dial per logged parameter, seeded from the shared GaugePresets.</summary>
+    /// <summary>Gauges from the shared dashboard layout (DefaultLoggerPackage).</summary>
     public ObservableCollection<GaugeTile> Gauges { get; } = new();
 
-    [RelayCommand]
-    private void ShowGrid() => this.IsDashboard = false;
+    /// <summary>Strip-chart monitors from the shared package (Engine, Fuelling).</summary>
+    public ObservableCollection<MonitorTab> Monitors { get; } = new();
+
+    [ObservableProperty]
+    private MonitorTab? _selectedMonitor;
 
     [RelayCommand]
-    private void ShowDashboard() => this.IsDashboard = true;
+    private void ShowGrid() => this.ViewMode = "Grid";
+
+    [RelayCommand]
+    private void ShowDashboard() => this.ViewMode = "Dashboard";
+
+    [RelayCommand]
+    private void ShowMonitor() => this.ViewMode = "Monitor";
 
     public MainWindowViewModel()
     {
@@ -70,32 +87,54 @@ public partial class MainWindowViewModel : ViewModelBase
             onUserMessage: message => Dispatcher.UIThread.Post(() => this.StatusText = message),
             onDebugMessage: _ => { });
 
-        this.BuildDashboard();
+        this.BuildFromPackage();
     }
 
     /// <summary>
-    /// Build the gauge tiles from the shared default dashboard (the same DashboardLayout the WinForms
-    /// PcmLogger uses, which a TunerPro ADX import also produces) rather than inventing a front-end
-    /// preset list. Values arrive by parameter id from the logging stream.
+    /// Build the gauge dashboard and the strip-chart monitors from the shared package (the same data
+    /// the WinForms PcmLogger uses, which a TunerPro ADX import also produces) rather than inventing a
+    /// front-end layout. Values arrive by parameter id from the logging stream.
     /// </summary>
-    private void BuildDashboard()
+    private void BuildFromPackage()
     {
         LoggerPackage package = DefaultLoggerPackage.Create();
-        DashboardLayout? dashboard = package.Dashboards.FirstOrDefault();
-        if (dashboard == null)
-        {
-            return;
-        }
 
-        foreach (GaugeLayout layout in dashboard.Gauges)
+        DashboardLayout? dashboard = package.Dashboards.FirstOrDefault();
+        if (dashboard != null)
         {
-            GaugeTile tile = new(layout);
-            this.Gauges.Add(tile);
-            if (!string.IsNullOrEmpty(tile.ParameterId))
+            foreach (GaugeLayout layout in dashboard.Gauges)
             {
-                _gaugesById[tile.ParameterId] = tile;
+                GaugeTile tile = new(layout);
+                this.Gauges.Add(tile);
+                if (!string.IsNullOrEmpty(tile.ParameterId))
+                {
+                    _gaugesById[tile.ParameterId] = tile;
+                }
             }
         }
+
+        foreach (MonitorLayout monitorLayout in package.Monitors)
+        {
+            MonitorTab tab = new(monitorLayout);
+            this.Monitors.Add(tab);
+            foreach (MonitorSeries series in tab.Series)
+            {
+                if (string.IsNullOrEmpty(series.ParameterId))
+                {
+                    continue;
+                }
+
+                if (!_seriesByPid.TryGetValue(series.ParameterId, out List<MonitorSeries>? list))
+                {
+                    list = new List<MonitorSeries>();
+                    _seriesByPid[series.ParameterId] = list;
+                }
+
+                list.Add(series);
+            }
+        }
+
+        this.SelectedMonitor = this.Monitors.FirstOrDefault();
     }
 
     [RelayCommand]
@@ -265,6 +304,14 @@ public partial class MainWindowViewModel : ViewModelBase
                 if (_gaugesById.TryGetValue(element.ParameterId, out GaugeTile? gauge))
                 {
                     gauge.SetValue(element.ValueAsNumber);
+                }
+
+                if (_seriesByPid.TryGetValue(element.ParameterId, out List<MonitorSeries>? seriesList))
+                {
+                    foreach (MonitorSeries series in seriesList)
+                    {
+                        series.Append(element.ValueAsNumber);
+                    }
                 }
             }
         });
