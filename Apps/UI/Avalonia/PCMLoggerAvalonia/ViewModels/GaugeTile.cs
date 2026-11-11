@@ -22,7 +22,21 @@ public sealed class GaugeTile : ObservableObject
     private bool _hasValue;
 
     public string ParameterId { get; }
-    public GaugeKind Kind { get; }
+
+    private GaugeKind _kind;
+    public GaugeKind Kind
+    {
+        get => _kind;
+        set
+        {
+            if (SetProperty(ref _kind, value))
+            {
+                this.OnPropertyChanged(nameof(IsDial));
+                this.OnPropertyChanged(nameof(IsText));
+                this.OnPropertyChanged(nameof(IsBar));
+            }
+        }
+    }
 
     // Proportional bounds within the dashboard (0..1), straight from the layout - the dashboard panel
     // scales these to the current size, exactly as the WinForms dashboard does.
@@ -38,7 +52,7 @@ public sealed class GaugeTile : ObservableObject
     public GaugeTile(GaugeLayout layout)
     {
         this.ParameterId = layout.PidId ?? string.Empty;
-        this.Kind = layout.Kind;
+        _kind = layout.Kind;
         _title = layout.Title;
         _units = layout.Units;
         _digits = layout.Digits;
@@ -77,16 +91,16 @@ public sealed class GaugeTile : ObservableObject
     public string Units { get => _units; set => SetProperty(ref _units, value); }
 
     private double _min;
-    public double Min { get => _min; private set { if (SetProperty(ref _min, value)) { Recompute(); } } }
+    public double Min { get => _min; set { if (SetProperty(ref _min, value)) { Recompute(); } } }
 
     private double _max;
-    public double Max { get => _max; private set { if (SetProperty(ref _max, value)) { Recompute(); } } }
+    public double Max { get => _max; set { if (SetProperty(ref _max, value)) { Recompute(); } } }
 
     private double? _alarmLow;
-    public double? AlarmLow { get => _alarmLow; private set { if (SetProperty(ref _alarmLow, value)) { Recompute(); } } }
+    public double? AlarmLow { get => _alarmLow; set { if (SetProperty(ref _alarmLow, value)) { Recompute(); } } }
 
     private double? _alarmHigh;
-    public double? AlarmHigh { get => _alarmHigh; private set { if (SetProperty(ref _alarmHigh, value)) { Recompute(); } } }
+    public double? AlarmHigh { get => _alarmHigh; set { if (SetProperty(ref _alarmHigh, value)) { Recompute(); } } }
 
     private Color _normalColor;
     public Color NormalColor { get => _normalColor; private set => SetProperty(ref _normalColor, value); }

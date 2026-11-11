@@ -70,7 +70,10 @@
                     <DataTemplate x:DataType="vm:GaugeTile">
                         <Border Margin="4"
                                 BorderBrush="{DynamicResource SystemControlBackgroundBaseMediumLowBrush}"
-                                BorderThickness="1" CornerRadius="6" Padding="4">
+                                BorderThickness="1" CornerRadius="6" Padding="4"
+                                Background="Transparent"
+                                DoubleTapped="GaugeCard_DoubleTapped"
+                                ToolTip.Tip="Double-click to edit this gauge">
                             <Grid RowDefinitions="Auto,*">
                                 <TextBlock Grid.Row="0" Text="{Binding Title}"
                                            HorizontalAlignment="Center" FontWeight="SemiBold"
