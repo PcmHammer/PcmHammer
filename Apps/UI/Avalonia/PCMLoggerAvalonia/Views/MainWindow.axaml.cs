@@ -1,5 +1,7 @@
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using PCMLoggerAvalonia.ViewModels;
 
@@ -12,11 +14,21 @@ public partial class MainWindow : Window
         InitializeComponent();
     }
 
+    private async Task EditGaugeAsync(GaugeTile tile)
+    {
+        MainWindowViewModel? vm = this.DataContext as MainWindowViewModel;
+        List<ParameterOption> options = vm?.AvailableParameters.ToList() ?? new List<ParameterOption>();
+        await new GaugeEditDialog(tile, options).ShowDialog(this);
+
+        // The parameter may have changed; re-point the feed.
+        vm?.ReindexGauges();
+    }
+
     private async void GaugeCard_DoubleTapped(object? sender, TappedEventArgs e)
     {
         if (sender is Control control && control.DataContext is GaugeTile tile)
         {
-            await new GaugeEditDialog(tile).ShowDialog(this);
+            await this.EditGaugeAsync(tile);
         }
     }
 
@@ -36,7 +48,7 @@ public partial class MainWindow : Window
         MenuFlyout flyout = new();
 
         MenuItem edit = new() { Header = "Edit gauge…" };
-        edit.Click += async (_, _) => await new GaugeEditDialog(tile).ShowDialog(this);
+        edit.Click += async (_, _) => await this.EditGaugeAsync(tile);
 
         MenuItem remove = new() { Header = "Remove gauge" };
         remove.Click += (_, _) => (this.DataContext as MainWindowViewModel)?.RemoveGauge(tile);

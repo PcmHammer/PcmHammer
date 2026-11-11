@@ -34,7 +34,10 @@ public partial class MainWindowViewModel : ViewModelBase
 
     // parameter id -> its row/gauge, so each reading updates in place rather than rebuilding the list.
     private readonly Dictionary<string, ReadingRow> _rowsById = new();
-    private readonly Dictionary<string, GaugeTile> _gaugesById = new();
+
+    // A parameter can drive more than one gauge (e.g. the same PID shown twice), so each id maps to a
+    // list - otherwise repointing a gauge onto a parameter another gauge already shows leaves one unfed.
+    private readonly Dictionary<string, List<GaugeTile>> _gaugesById = new();
     private readonly Dictionary<string, List<MonitorSeries>> _seriesByPid = new();
 
     [ObservableProperty]
@@ -99,13 +102,34 @@ public partial class MainWindowViewModel : ViewModelBase
         }
     }
 
+    /// <summary>Every parameter the connected PCM supports, for the gauge parameter picker.</summary>
+    public ObservableCollection<ParameterOption> AvailableParameters { get; } = new();
+
     /// <summary>Remove a gauge from the dashboard (and stop feeding it).</summary>
     public void RemoveGauge(GaugeTile tile)
     {
         this.Gauges.Remove(tile);
-        if (_gaugesById.TryGetValue(tile.ParameterId, out GaugeTile? existing) && ReferenceEquals(existing, tile))
+        this.ReindexGauges();
+    }
+
+    /// <summary>Rebuild the id-to-gauges map (after a gauge is added, removed or repointed).</summary>
+    public void ReindexGauges()
+    {
+        _gaugesById.Clear();
+        foreach (GaugeTile tile in this.Gauges)
         {
-            _gaugesById.Remove(tile.ParameterId);
+            if (string.IsNullOrEmpty(tile.ParameterId))
+            {
+                continue;
+            }
+
+            if (!_gaugesById.TryGetValue(tile.ParameterId, out List<GaugeTile>? list))
+            {
+                list = new List<GaugeTile>();
+                _gaugesById[tile.ParameterId] = list;
+            }
+
+            list.Add(tile);
         }
     }
 
@@ -142,13 +166,10 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             foreach (GaugeLayout layout in dashboard.Gauges)
             {
-                GaugeTile tile = new(layout);
-                this.Gauges.Add(tile);
-                if (!string.IsNullOrEmpty(tile.ParameterId))
-                {
-                    _gaugesById[tile.ParameterId] = tile;
-                }
+                this.Gauges.Add(new GaugeTile(layout));
             }
+
+            this.ReindexGauges();
         }
 
         foreach (MonitorLayout monitorLayout in package.Monitors)
@@ -224,6 +245,13 @@ public partial class MainWindowViewModel : ViewModelBase
 
             _database = new ParameterDatabase(AppContext.BaseDirectory);
             _database.LoadDatabase();
+
+            this.AvailableParameters.Clear();
+            foreach (Parameter parameter in _database.ListParametersBySupportedOs(_osid).OrderBy(p => p.Name))
+            {
+                string units = parameter.Conversions.FirstOrDefault()?.Units ?? string.Empty;
+                this.AvailableParameters.Add(new ParameterOption(parameter.Id, parameter.Name, units));
+            }
 
             this.IsConnected = true;
             this.StatusText = $"Connected: {_device.GetDeviceType()}, OSID {_osid}.";
@@ -339,9 +367,14 @@ public partial class MainWindowViewModel : ViewModelBase
                     target.Value = element.ValueAsString;
                 }
 
-                if (_gaugesById.TryGetValue(element.ParameterId, out GaugeTile? gauge))
+                if (_gaugesById.TryGetValue(element.ParameterId, out List<GaugeTile>? gauges))
                 {
-                    gauge.SetValue(element.ValueAsNumber);
+                    foreach (GaugeTile gauge in gauges)
+                    {
+                        gauge.SetValue(element.ValueAsNumber);
+                        // Keep the units label matching the conversion the profile actually logs.
+                        gauge.Units = element.Units;
+                    }
                 }
 
                 if (!this.IsMonitorPaused && _seriesByPid.TryGetValue(element.ParameterId, out List<MonitorSeries>? seriesList))

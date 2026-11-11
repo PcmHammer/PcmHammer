@@ -7,6 +7,9 @@
         Title="Edit Gauge">
 
     <StackPanel Margin="16" Spacing="8">
+        <TextBlock Text="Parameter"/>
+        <ComboBox x:Name="ParameterBox" HorizontalAlignment="Stretch" MaxDropDownHeight="320"/>
+
         <TextBlock Text="Title"/>
         <TextBox x:Name="TitleBox"/>
 

@@ -21,7 +21,7 @@ public sealed class GaugeTile : ObservableObject
     private double _currentValue;
     private bool _hasValue;
 
-    public string ParameterId { get; }
+    public string ParameterId { get; set; }
 
     private GaugeKind _kind;
     public GaugeKind Kind
