@@ -1,15 +1,16 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:PCMLoggerAvalonia.ViewModels"
+        xmlns:ctrl="using:PCMLoggerAvalonia.Controls"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
         x:Class="PCMLoggerAvalonia.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
-        Width="760" Height="560"
+        Width="820" Height="600"
         Title="PCM Logger">
 
-    <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="8">
+    <Grid RowDefinitions="Auto,*,Auto" Margin="8">
 
         <!-- Toolbar -->
         <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="6">
@@ -17,42 +18,83 @@
             <Button Content="Open Profile" Command="{Binding OpenProfileCommand}"/>
             <Button Content="Start" Command="{Binding StartCommand}"/>
             <Button Content="Stop" Command="{Binding StopCommand}"/>
+            <Border Width="1" Background="{DynamicResource SystemControlBackgroundBaseMediumLowBrush}" Margin="6,2"/>
+            <Button Content="Grid" Command="{Binding ShowGridCommand}"/>
+            <Button Content="Dashboard" Command="{Binding ShowDashboardCommand}"/>
             <TextBlock Text="{Binding ProfileName}" VerticalAlignment="Center" Margin="12,0,0,0"
                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
         </StackPanel>
 
-        <!-- Column header -->
-        <Grid Grid.Row="1" ColumnDefinitions="2*,1.2*,1*" Margin="2,10,2,4">
-            <TextBlock Grid.Column="0" Text="Parameter" FontWeight="SemiBold"/>
-            <TextBlock Grid.Column="1" Text="Value" FontWeight="SemiBold"
-                       HorizontalAlignment="Right" Margin="0,0,16,0"/>
-            <TextBlock Grid.Column="2" Text="Units" FontWeight="SemiBold"/>
+        <!-- Content: grid view or dashboard view -->
+        <Grid Grid.Row="1" Margin="0,8,0,0">
+
+            <!-- Grid (value list) -->
+            <Grid RowDefinitions="Auto,*" IsVisible="{Binding !IsDashboard}">
+                <Grid Grid.Row="0" ColumnDefinitions="2*,1.2*,1*" Margin="2,2,2,4">
+                    <TextBlock Grid.Column="0" Text="Parameter" FontWeight="SemiBold"/>
+                    <TextBlock Grid.Column="1" Text="Value" FontWeight="SemiBold"
+                               HorizontalAlignment="Right" Margin="0,0,16,0"/>
+                    <TextBlock Grid.Column="2" Text="Units" FontWeight="SemiBold"/>
+                </Grid>
+                <Border Grid.Row="1"
+                        BorderBrush="{DynamicResource SystemControlBackgroundBaseMediumLowBrush}"
+                        BorderThickness="1">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding Readings}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:ReadingRow">
+                                    <Grid ColumnDefinitions="2*,1.2*,1*" Margin="2,2">
+                                        <TextBlock Grid.Column="0" Text="{Binding Name}"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding Value}"
+                                                   HorizontalAlignment="Right" Margin="0,0,16,0"
+                                                   FontFamily="Consolas, Menlo, DejaVu Sans Mono, Liberation Mono, monospace"/>
+                                        <TextBlock Grid.Column="2" Text="{Binding Units}"
+                                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Border>
+            </Grid>
+
+            <!-- Dashboard: gauges laid out at the shared layout's proportional positions -->
+            <ItemsControl ItemsSource="{Binding Gauges}" IsVisible="{Binding IsDashboard}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <ctrl:DashboardPanel/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:GaugeTile">
+                        <Border Margin="4"
+                                BorderBrush="{DynamicResource SystemControlBackgroundBaseMediumLowBrush}"
+                                BorderThickness="1" CornerRadius="6" Padding="4">
+                            <Grid RowDefinitions="Auto,*">
+                                <TextBlock Grid.Row="0" Text="{Binding Title}"
+                                           HorizontalAlignment="Center" FontWeight="SemiBold"
+                                           TextTrimming="CharacterEllipsis"/>
+
+                                <!-- Round dial -->
+                                <ctrl:GaugeDial Grid.Row="1" Tile="{Binding}" IsVisible="{Binding IsDial}"/>
+
+                                <!-- Text readout (and bar, until a bar control is added) -->
+                                <StackPanel Grid.Row="1" IsVisible="{Binding !IsDial}"
+                                            VerticalAlignment="Center" HorizontalAlignment="Center">
+                                    <TextBlock Text="{Binding ValueText}" Foreground="{Binding ValueBrush}"
+                                               FontSize="28" FontWeight="SemiBold" HorizontalAlignment="Center"
+                                               FontFamily="Consolas, Menlo, DejaVu Sans Mono, Liberation Mono, monospace"/>
+                                    <TextBlock Text="{Binding Units}" Opacity="0.7" HorizontalAlignment="Center"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
         </Grid>
 
-        <!-- Live readings -->
-        <Border Grid.Row="2"
-                BorderBrush="{DynamicResource SystemControlBackgroundBaseMediumLowBrush}"
-                BorderThickness="1">
-            <ScrollViewer VerticalScrollBarVisibility="Auto">
-                <ItemsControl ItemsSource="{Binding Readings}">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate x:DataType="vm:ReadingRow">
-                            <Grid ColumnDefinitions="2*,1.2*,1*" Margin="2,2">
-                                <TextBlock Grid.Column="0" Text="{Binding Name}"/>
-                                <TextBlock Grid.Column="1" Text="{Binding Value}"
-                                           HorizontalAlignment="Right" Margin="0,0,16,0"
-                                           FontFamily="Consolas, Menlo, DejaVu Sans Mono, Liberation Mono, monospace"/>
-                                <TextBlock Grid.Column="2" Text="{Binding Units}"
-                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
-                            </Grid>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </ScrollViewer>
-        </Border>
-
         <!-- Status bar -->
-        <TextBlock Grid.Row="3" Text="{Binding StatusText}" Margin="2,6,2,0"
+        <TextBlock Grid.Row="2" Text="{Binding StatusText}" Margin="2,6,2,0"
                    Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
     </Grid>
 </Window>

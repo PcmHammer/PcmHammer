@@ -32,8 +32,9 @@ public partial class MainWindowViewModel : ViewModelBase
     private LogProfile? _profile;
     private LoggingController? _controller;
 
-    // parameter id -> its row, so each reading updates in place rather than rebuilding the list.
+    // parameter id -> its row/gauge, so each reading updates in place rather than rebuilding the list.
     private readonly Dictionary<string, ReadingRow> _rowsById = new();
+    private readonly Dictionary<string, GaugeTile> _gaugesById = new();
 
     [ObservableProperty]
     private string _statusText = "Not connected.";
@@ -47,7 +48,20 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty]
     private bool _isLogging;
 
+    /// <summary>False shows the value grid, true shows the gauge dashboard.</summary>
+    [ObservableProperty]
+    private bool _isDashboard;
+
     public ObservableCollection<ReadingRow> Readings { get; } = new();
+
+    /// <summary>One dial per logged parameter, seeded from the shared GaugePresets.</summary>
+    public ObservableCollection<GaugeTile> Gauges { get; } = new();
+
+    [RelayCommand]
+    private void ShowGrid() => this.IsDashboard = false;
+
+    [RelayCommand]
+    private void ShowDashboard() => this.IsDashboard = true;
 
     public MainWindowViewModel()
     {
@@ -55,6 +69,33 @@ public partial class MainWindowViewModel : ViewModelBase
         _logger = new StatusLogger(
             onUserMessage: message => Dispatcher.UIThread.Post(() => this.StatusText = message),
             onDebugMessage: _ => { });
+
+        this.BuildDashboard();
+    }
+
+    /// <summary>
+    /// Build the gauge tiles from the shared default dashboard (the same DashboardLayout the WinForms
+    /// PcmLogger uses, which a TunerPro ADX import also produces) rather than inventing a front-end
+    /// preset list. Values arrive by parameter id from the logging stream.
+    /// </summary>
+    private void BuildDashboard()
+    {
+        LoggerPackage package = DefaultLoggerPackage.Create();
+        DashboardLayout? dashboard = package.Dashboards.FirstOrDefault();
+        if (dashboard == null)
+        {
+            return;
+        }
+
+        foreach (GaugeLayout layout in dashboard.Gauges)
+        {
+            GaugeTile tile = new(layout);
+            this.Gauges.Add(tile);
+            if (!string.IsNullOrEmpty(tile.ParameterId))
+            {
+                _gaugesById[tile.ParameterId] = tile;
+            }
+        }
     }
 
     [RelayCommand]
@@ -154,13 +195,16 @@ public partial class MainWindowViewModel : ViewModelBase
             LogProfileReader reader = new(_database, _osid, _logger);
             _profile = reader.Read(path);
 
+            // The grid follows the profile (what is actually polled); the gauge dashboard is the shared
+            // layout built once in the constructor and fed by parameter id.
             this.Readings.Clear();
             _rowsById.Clear();
             foreach (LogColumn column in _profile.Columns)
             {
-                ReadingRow row = new(column.Parameter.Id, column.Parameter.Name, column.Conversion.Units);
+                string id = column.Parameter.Id;
+                ReadingRow row = new(id, column.Parameter.Name, column.Conversion.Units);
                 this.Readings.Add(row);
-                _rowsById[column.Parameter.Id] = row;
+                _rowsById[id] = row;
             }
 
             this.ProfileName = System.IO.Path.GetFileName(path);
@@ -216,6 +260,11 @@ public partial class MainWindowViewModel : ViewModelBase
                 if (_rowsById.TryGetValue(element.ParameterId, out ReadingRow? target))
                 {
                     target.Value = element.ValueAsString;
+                }
+
+                if (_gaugesById.TryGetValue(element.ParameterId, out GaugeTile? gauge))
+                {
+                    gauge.SetValue(element.ValueAsNumber);
                 }
             }
         });
