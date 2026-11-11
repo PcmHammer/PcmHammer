@@ -10,6 +10,16 @@
 		<AvaloniaResource Include="Assets\**" />
 	</ItemGroup>
 
+	<!-- The logging parameter database: the shared ParameterDatabase loads these from the app's base
+	     directory (AppContext.BaseDirectory), as WinForms/PcmLogger does. Linked and copied so they
+	     land next to the exe without a second copy in the tree. -->
+	<ItemGroup>
+		<Content Include="..\..\WindowsForms\PcmLogger\Parameters*.xml">
+			<Link>%(Filename)%(Extension)</Link>
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</Content>
+	</ItemGroup>
+
 	<ItemGroup>
 		<PackageReference Include="Avalonia" />
 		<PackageReference Include="Avalonia.Themes.Fluent" />
