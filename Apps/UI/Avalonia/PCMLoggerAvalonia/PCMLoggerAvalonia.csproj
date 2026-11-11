@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<RootNamespace>PCMLoggerAvalonia</RootNamespace>
+		<TargetFramework>net10.0</TargetFramework>
+		<Nullable>enable</Nullable>
+		<LangVersion>latest</LangVersion>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<AvaloniaResource Include="Assets\**" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Avalonia" />
+		<PackageReference Include="Avalonia.Themes.Fluent" />
+		<PackageReference Include="Avalonia.Fonts.Inter" />
+		<PackageReference Include="AvaloniaUI.DiagnosticsSupport">
+			<IncludeAssets Condition="'$(Configuration)' != 'Debug'">None</IncludeAssets>
+			<PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
+		</PackageReference>
+		<PackageReference Include="CommunityToolkit.Mvvm" />
+		<PackageReference Include="FluentAvaloniaUI" />
+	</ItemGroup>
+
+	<PropertyGroup>
+		<!-- J2534DotNet and PcmLibraryWindowsApi multi-target net48;net10.0-windows and resolve via the
+		     net48 fallback on non-Windows builds (NU1702). Their Windows-only P/Invokes have no Linux
+		     equivalent, so on Linux builds define LINUX_CLI to compile out any Windows-only call sites in
+		     this project, matching the pattern used by PcmLibraryWindowsApi, the CLI and PCMHammerAvalonia. -->
+		<DefineConstants Condition="'$(RuntimeIdentifier)' != '' And $(RuntimeIdentifier.StartsWith('linux'))">$(DefineConstants);LINUX_CLI</DefineConstants>
+	</PropertyGroup>
+
+	<!-- Cross-platform reference: always included (the shared logging engine lives here). -->
+	<ItemGroup>
+		<ProjectReference Include="..\..\..\PcmLibrary\PcmLibrary.csproj" />
+	</ItemGroup>
+
+	<!-- Device/transport layer: the serial path is used on Linux; J2534 is present but unused there. -->
+	<ItemGroup Condition="'$(TargetPlatformIdentifier)' != 'android'">
+		<ProjectReference Include="..\..\..\J2534DotNet\J2534DotNet\J2534DotNet.csproj" />
+		<ProjectReference Include="..\..\..\PcmLibraryWindowsApi\PcmLibraryWindowsApi.csproj" />
+	</ItemGroup>
+</Project>

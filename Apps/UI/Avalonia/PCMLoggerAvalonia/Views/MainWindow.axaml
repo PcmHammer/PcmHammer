@@ -1,0 +1,56 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:PCMLoggerAvalonia.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        x:Class="PCMLoggerAvalonia.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Width="760" Height="560"
+        Title="PCM Logger">
+
+    <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="8">
+
+        <!-- Toolbar -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="6">
+            <Button Content="Connect" Command="{Binding ConnectCommand}"/>
+            <Button Content="Open Profile" Command="{Binding OpenProfileCommand}"/>
+            <Button Content="Start" Command="{Binding StartCommand}"/>
+            <Button Content="Stop" Command="{Binding StopCommand}"/>
+            <TextBlock Text="{Binding ProfileName}" VerticalAlignment="Center" Margin="12,0,0,0"
+                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+        </StackPanel>
+
+        <!-- Column header -->
+        <Grid Grid.Row="1" ColumnDefinitions="2*,1.2*,1*" Margin="2,10,2,4">
+            <TextBlock Grid.Column="0" Text="Parameter" FontWeight="SemiBold"/>
+            <TextBlock Grid.Column="1" Text="Value" FontWeight="SemiBold"/>
+            <TextBlock Grid.Column="2" Text="Units" FontWeight="SemiBold"/>
+        </Grid>
+
+        <!-- Live readings -->
+        <Border Grid.Row="2"
+                BorderBrush="{DynamicResource SystemControlBackgroundBaseMediumLowBrush}"
+                BorderThickness="1">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <ItemsControl ItemsSource="{Binding Readings}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:ReadingRow">
+                            <Grid ColumnDefinitions="2*,1.2*,1*" Margin="2,2">
+                                <TextBlock Grid.Column="0" Text="{Binding Name}"/>
+                                <TextBlock Grid.Column="1" Text="{Binding Value}"
+                                           FontFamily="Consolas, Menlo, DejaVu Sans Mono, Liberation Mono, monospace"/>
+                                <TextBlock Grid.Column="2" Text="{Binding Units}"
+                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Border>
+
+        <!-- Status bar -->
+        <TextBlock Grid.Row="3" Text="{Binding StatusText}" Margin="2,6,2,0"
+                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+    </Grid>
+</Window>
