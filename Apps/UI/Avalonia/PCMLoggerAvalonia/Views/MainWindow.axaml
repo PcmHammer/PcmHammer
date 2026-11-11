@@ -24,7 +24,8 @@
         <!-- Column header -->
         <Grid Grid.Row="1" ColumnDefinitions="2*,1.2*,1*" Margin="2,10,2,4">
             <TextBlock Grid.Column="0" Text="Parameter" FontWeight="SemiBold"/>
-            <TextBlock Grid.Column="1" Text="Value" FontWeight="SemiBold"/>
+            <TextBlock Grid.Column="1" Text="Value" FontWeight="SemiBold"
+                       HorizontalAlignment="Right" Margin="0,0,16,0"/>
             <TextBlock Grid.Column="2" Text="Units" FontWeight="SemiBold"/>
         </Grid>
 
@@ -39,6 +40,7 @@
                             <Grid ColumnDefinitions="2*,1.2*,1*" Margin="2,2">
                                 <TextBlock Grid.Column="0" Text="{Binding Name}"/>
                                 <TextBlock Grid.Column="1" Text="{Binding Value}"
+                                           HorizontalAlignment="Right" Margin="0,0,16,0"
                                            FontFamily="Consolas, Menlo, DejaVu Sans Mono, Liberation Mono, monospace"/>
                                 <TextBlock Grid.Column="2" Text="{Binding Units}"
                                            Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
