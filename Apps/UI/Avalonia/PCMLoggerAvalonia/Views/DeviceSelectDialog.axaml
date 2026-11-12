@@ -1,0 +1,26 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="PCMLoggerAvalonia.Views.DeviceSelectDialog"
+        Width="360" SizeToContent="Height"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Title="Select OBD2 Device">
+
+    <StackPanel Margin="16" Spacing="8">
+        <TextBlock Text="Serial port"/>
+        <ComboBox x:Name="PortBox" HorizontalAlignment="Stretch"/>
+
+        <TextBlock Text="Device type" Margin="0,4,0,0"/>
+        <ComboBox x:Name="DeviceTypeBox" HorizontalAlignment="Stretch"/>
+
+        <CheckBox x:Name="FourXCheck" Content="Enable 4x communication" Margin="0,4,0,0"/>
+
+        <TextBlock Text="Auto-detect tries each known device on the chosen port."
+                   FontSize="11" Opacity="0.6" TextWrapping="Wrap"/>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,8,0,0">
+            <Button Content="Cancel" Click="Cancel_Click"/>
+            <Button Content="OK" Click="Ok_Click" IsDefault="True"/>
+        </StackPanel>
+    </StackPanel>
+</Window>

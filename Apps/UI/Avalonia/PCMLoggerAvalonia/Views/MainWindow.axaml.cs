@@ -3,6 +3,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Interactivity;
+using PcmHacking;
 using PCMLoggerAvalonia.ViewModels;
 
 namespace PCMLoggerAvalonia.Views;
@@ -12,6 +14,25 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+    }
+
+    private async void SelectDevice_Click(object? sender, RoutedEventArgs e)
+    {
+        if (this.DataContext is not MainWindowViewModel vm)
+        {
+            return;
+        }
+
+        IReadOnlyList<SerialPortInfo> ports = vm.GetSerialPorts();
+        DeviceSelectDialog dialog = new(ports, vm.SelectedPortName, vm.SelectedDeviceType, vm.Enable4x);
+        await dialog.ShowDialog(this);
+
+        if (dialog.Accepted)
+        {
+            vm.SelectedPortName = dialog.PortName;
+            vm.SelectedDeviceType = dialog.DeviceType;
+            vm.Enable4x = dialog.Enable4x;
+        }
     }
 
     private async Task EditGaugeAsync(GaugeTile tile)

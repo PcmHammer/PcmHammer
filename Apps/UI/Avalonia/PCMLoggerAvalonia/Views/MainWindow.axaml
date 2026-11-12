@@ -12,20 +12,24 @@
 
     <Grid RowDefinitions="Auto,*,Auto" Margin="8">
 
-        <!-- Toolbar -->
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="6">
-            <Button Content="Connect" Command="{Binding ConnectCommand}"/>
-            <Button Content="Open Profile" Command="{Binding OpenProfileCommand}"/>
-            <Button Content="Start" Command="{Binding StartCommand}"/>
-            <Button Content="Stop" Command="{Binding StopCommand}"/>
-            <Button Content="{Binding RecordButtonText}" Command="{Binding ToggleRecordingCommand}"
-                    IsEnabled="{Binding IsLogging}" MinWidth="110"/>
-            <Border Width="1" Background="{DynamicResource SystemControlBackgroundBaseMediumLowBrush}" Margin="6,2"/>
-            <Button Content="Grid" Command="{Binding ShowGridCommand}"/>
-            <Button Content="Dashboard" Command="{Binding ShowDashboardCommand}"/>
-            <Button Content="Monitor" Command="{Binding ShowMonitorCommand}"/>
-            <TextBlock Text="{Binding ProfileName}" VerticalAlignment="Center" Margin="12,0,0,0"
-                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+        <!-- Toolbar: session actions, then the view tabs -->
+        <StackPanel Grid.Row="0" Spacing="6">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <Button Content="Select Device…" Click="SelectDevice_Click"/>
+                <Button Content="Connect" Command="{Binding ConnectCommand}"/>
+                <Button Content="Open Profile" Command="{Binding OpenProfileCommand}"/>
+                <Button Content="Start" Command="{Binding StartCommand}"/>
+                <Button Content="Stop" Command="{Binding StopCommand}"/>
+                <Button Content="{Binding RecordButtonText}" Command="{Binding ToggleRecordingCommand}"
+                        IsEnabled="{Binding IsLogging}" MinWidth="110"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <Button Content="Grid" Command="{Binding ShowGridCommand}"/>
+                <Button Content="Dashboard" Command="{Binding ShowDashboardCommand}"/>
+                <Button Content="Monitor" Command="{Binding ShowMonitorCommand}"/>
+                <TextBlock Text="{Binding ProfileName}" VerticalAlignment="Center" Margin="12,0,0,0"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+            </StackPanel>
         </StackPanel>
 
         <!-- Content: grid view or dashboard view -->

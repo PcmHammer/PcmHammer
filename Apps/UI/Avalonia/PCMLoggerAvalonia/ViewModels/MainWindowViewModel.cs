@@ -115,6 +115,14 @@ public partial class MainWindowViewModel : ViewModelBase
     /// <summary>Every parameter the connected PCM supports, for the gauge parameter picker.</summary>
     public ObservableCollection<ParameterOption> AvailableParameters { get; } = new();
 
+    // Device selection (from the Select Device dialog). Null port = first found; null type = auto-detect.
+    public string? SelectedPortName { get; set; }
+    public string? SelectedDeviceType { get; set; }
+    public bool Enable4x { get; set; }
+
+    /// <summary>The serial ports currently present, for the Select Device dialog.</summary>
+    public IReadOnlyList<SerialPortInfo> GetSerialPorts() => PortDiscovery.GetPorts(_logger).ToList();
+
     /// <summary>Remove a gauge from the dashboard (and stop feeding it).</summary>
     public void RemoveGauge(GaugeTile tile)
     {
@@ -314,15 +322,24 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             this.StatusText = "Looking for a serial interface...";
 
-            string? portName = PickSerialPort();
+            string? portName = this.SelectedPortName ?? PickSerialPort();
             if (portName == null)
             {
-                this.StatusText = "No serial ports found.";
+                this.StatusText = "No serial ports found - plug in an interface or use Select Device.";
                 return;
             }
 
-            this.StatusText = $"Detecting device on {portName}...";
-            _device = await DeviceFactory.AutoDetectSerialDevice(portName, _logger);
+            if (this.SelectedDeviceType == null)
+            {
+                this.StatusText = $"Detecting device on {portName}...";
+                _device = await DeviceFactory.AutoDetectSerialDevice(portName, _logger);
+            }
+            else
+            {
+                this.StatusText = $"Opening {this.SelectedDeviceType} on {portName}...";
+                _device = DeviceFactory.CreateSerialDevice(portName, this.SelectedDeviceType, _logger);
+            }
+
             if (_device == null)
             {
                 this.StatusText = $"No supported interface found on {portName}.";
@@ -338,7 +355,10 @@ public partial class MainWindowViewModel : ViewModelBase
 
             Protocol protocol = new();
             ToolPresentNotifier notifier = new(_device, protocol, _logger);
-            _vehicle = new Vehicle(_device, protocol, _logger, notifier, string.Empty);
+            _vehicle = new Vehicle(_device, protocol, _logger, notifier, string.Empty)
+            {
+                Enable4xReadWrite = this.Enable4x,
+            };
 
             Response<uint> osResponse = await _vehicle.QueryOperatingSystemId(CancellationToken.None);
             if (osResponse.Status != ResponseStatus.Success)
