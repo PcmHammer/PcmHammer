@@ -18,6 +18,12 @@
 			<Link>%(Filename)%(Extension)</Link>
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</Content>
+		<!-- Trouble-code descriptions: the shared DiagnosticCodeDefinitions.Load reads this beside the
+		     exe (AppContext.BaseDirectory), as WinForms/PcmLogger does. -->
+		<Content Include="..\..\WindowsForms\PcmLogger\DiagnosticCodes.txt">
+			<Link>%(Filename)%(Extension)</Link>
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</Content>
 	</ItemGroup>
 
 	<ItemGroup>

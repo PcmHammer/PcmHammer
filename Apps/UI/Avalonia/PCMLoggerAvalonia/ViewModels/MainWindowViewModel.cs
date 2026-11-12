@@ -63,16 +63,18 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public string RecordButtonText => this.IsRecording ? "Stop Recording" : "Record";
 
-    /// <summary>"Grid", "Dashboard" or "Monitor" - which view is shown.</summary>
+    /// <summary>"Grid", "Dashboard", "Monitor" or "Codes" - which view is shown.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsGrid))]
     [NotifyPropertyChangedFor(nameof(IsDashboard))]
     [NotifyPropertyChangedFor(nameof(IsMonitor))]
+    [NotifyPropertyChangedFor(nameof(IsTroubleCodes))]
     private string _viewMode = "Grid";
 
     public bool IsGrid => this.ViewMode == "Grid";
     public bool IsDashboard => this.ViewMode == "Dashboard";
     public bool IsMonitor => this.ViewMode == "Monitor";
+    public bool IsTroubleCodes => this.ViewMode == "Codes";
 
     public ObservableCollection<ReadingRow> Readings { get; } = new();
 
@@ -301,12 +303,195 @@ public partial class MainWindowViewModel : ViewModelBase
     [RelayCommand]
     private void ShowMonitor() => this.ViewMode = "Monitor";
 
+    [RelayCommand]
+    private void ShowTroubleCodes() => this.ViewMode = "Codes";
+
+    // --- Trouble Codes (mirrors the WinForms PcmLogger tab) --------------------------------------
+    // The read/clear work lives in the shared PcmLibrary (Vehicle.ReadTroubleCodes / ClearTroubleCodes);
+    // this only borrows the bus from the logging loop, calls the backend, and shows the result.
+
+    private DiagnosticCodeDefinitions _codeDefinitions = new();
+
+    /// <summary>What the last read found, so Clear can say what it is about to erase.</summary>
+    private IReadOnlyList<DiagnosticCode> _lastReadCodes = Array.Empty<DiagnosticCode>();
+
+    public ObservableCollection<TroubleCodeRow> TroubleCodes { get; } = new();
+
+    [ObservableProperty]
+    private string _troubleCodeStatus = "Connect, then read.";
+
+    /// <summary>True while a read or clear is in flight, so the buttons disable.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanReadCodes))]
+    private bool _isBusyWithCodes;
+
+    /// <summary>The Clear button is offered only once a read has found something to clear.</summary>
+    [ObservableProperty]
+    private bool _canClearCodes;
+
+    public bool CanReadCodes => !this.IsBusyWithCodes;
+
+    /// <summary>The confirmation text the view shows before clearing (what is about to be erased).</summary>
+    public string ClearConfirmationText
+    {
+        get
+        {
+            string list = string.Join(
+                Environment.NewLine,
+                _lastReadCodes.Select(code => code.Kind == DiagnosticCodeKind.Permanent
+                    ? code + "  (permanent)"
+                    : code.ToString()));
+
+            // Said plainly: a permanent code stays until the module's own monitor passes, so a clear
+            // that leaves one is working correctly.
+            string note = _lastReadCodes.Any(code => code.Kind == DiagnosticCodeKind.Permanent)
+                ? Environment.NewLine + Environment.NewLine +
+                  "Permanent codes are cleared by the module, not by a tool, so those will remain."
+                : string.Empty;
+
+            return "Clear these codes?" + Environment.NewLine + Environment.NewLine + list + note;
+        }
+    }
+
+    [RelayCommand]
+    private async Task ReadCodes()
+    {
+        if (_vehicle == null)
+        {
+            this.TroubleCodeStatus = "No interface is connected.";
+            return;
+        }
+
+        bool wasLogging = this.IsLogging;
+        try
+        {
+            this.IsBusyWithCodes = true;
+            this.CanClearCodes = false;
+            this.TroubleCodeStatus = "Reading...";
+
+            // The logging loop owns the bus; borrow it (stop, read, resume) rather than making the user
+            // disconnect. StopAsync is built to release the bus so a read is safe immediately after.
+            if (wasLogging)
+            {
+                await this.StopLoggingForBorrow();
+            }
+
+            IReadOnlyList<DiagnosticCode> codes =
+                await _vehicle.ReadTroubleCodes(_codeDefinitions, CancellationToken.None);
+
+            _lastReadCodes = codes;
+            this.ShowTroubleCodes(codes);
+        }
+        catch (Exception exception)
+        {
+            this.TroubleCodeStatus = "Unable to read trouble codes.";
+            _logger.AddDebugMessage(exception.ToString());
+        }
+        finally
+        {
+            this.IsBusyWithCodes = false;
+            if (wasLogging)
+            {
+                this.ResumeLoggingAfterBorrow();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Clear the codes. Called by the view after it confirms (the view owns the dialog, as the device
+    /// and gauge dialogs are). Borrows the bus like the read does.
+    /// </summary>
+    public async Task ClearTroubleCodesAsync()
+    {
+        if (_vehicle == null)
+        {
+            this.TroubleCodeStatus = "No interface is connected.";
+            return;
+        }
+
+        bool wasLogging = this.IsLogging;
+        try
+        {
+            this.IsBusyWithCodes = true;
+            this.CanClearCodes = false;
+
+            if (wasLogging)
+            {
+                await this.StopLoggingForBorrow();
+            }
+
+            // The list on screen is left alone: what actually went is a question only another read can
+            // answer, and emptying it here would assert more than is known.
+            bool accepted = await _vehicle.ClearTroubleCodes(CancellationToken.None);
+            this.TroubleCodeStatus = accepted
+                ? "Clear request sent. Read again to see what remains."
+                : "The module did not accept the clear request.";
+        }
+        catch (Exception exception)
+        {
+            this.TroubleCodeStatus = "Unable to clear trouble codes.";
+            _logger.AddDebugMessage(exception.ToString());
+        }
+        finally
+        {
+            this.IsBusyWithCodes = false;
+            this.CanClearCodes = _lastReadCodes.Count > 0;
+            if (wasLogging)
+            {
+                this.ResumeLoggingAfterBorrow();
+            }
+        }
+    }
+
+    private void ShowTroubleCodes(IReadOnlyList<DiagnosticCode> codes)
+    {
+        this.TroubleCodes.Clear();
+
+        foreach (DiagnosticCode code in codes)
+        {
+            string status = code.Status.HasValue
+                ? Protocol.DescribeTroubleCodeStatus(code.Status.Value)
+                : code.Kind.ToString();
+
+            this.TroubleCodes.Add(new TroubleCodeRow(
+                code.Name,
+                status,
+                code.Description ?? "No description available"));
+        }
+
+        this.TroubleCodeStatus = codes.Count == 0 ? "No trouble codes." : $"{codes.Count} trouble codes.";
+
+        // Offered whenever anything was found, including a list of nothing but permanent codes - letting
+        // the request run and reporting what came back beats a greyed-out button.
+        this.CanClearCodes = codes.Count > 0;
+    }
+
+    /// <summary>Stop the logging loop so the bus is free, without the full "Stopped." messaging.</summary>
+    private async Task StopLoggingForBorrow()
+    {
+        if (_controller != null)
+        {
+            await _controller.StopAsync();
+            _controller.RowAvailable -= OnRowAvailable;
+            _controller = null;
+        }
+
+        this.IsLogging = false;
+        this.IsRecording = false;
+    }
+
+    /// <summary>Resume logging after a borrow. (A recording that was running is not re-opened.)</summary>
+    private void ResumeLoggingAfterBorrow() => this.Start();
+
     public MainWindowViewModel()
     {
         // Library messages can arrive on background threads; marshal the status update to the UI.
         _logger = new StatusLogger(
             onUserMessage: message => Dispatcher.UIThread.Post(() => this.StatusText = message),
             onDebugMessage: _ => { });
+
+        // Trouble-code descriptions sit beside the exe (copied by the csproj), as WinForms/PcmLogger does.
+        _codeDefinitions = DiagnosticCodeDefinitions.Load(AppContext.BaseDirectory, _logger);
 
         this.BuildFromPackage(DefaultLoggerPackage.Create());
     }

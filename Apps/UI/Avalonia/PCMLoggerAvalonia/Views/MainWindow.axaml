@@ -27,6 +27,7 @@
                 <Button Content="Grid" Command="{Binding ShowGridCommand}"/>
                 <Button Content="Dashboard" Command="{Binding ShowDashboardCommand}"/>
                 <Button Content="Monitor" Command="{Binding ShowMonitorCommand}"/>
+                <Button Content="Trouble Codes" Command="{Binding ShowTroubleCodesCommand}"/>
                 <TextBlock Text="{Binding ProfileName}" VerticalAlignment="Center" Margin="12,0,0,0"
                            Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
             </StackPanel>
@@ -151,6 +152,42 @@
                         BorderBrush="{DynamicResource SystemControlBackgroundBaseMediumLowBrush}"
                         BorderThickness="1">
                     <ctrl:MonitorChart Monitor="{Binding SelectedMonitor}" Paused="{Binding IsMonitorPaused}"/>
+                </Border>
+            </Grid>
+
+            <!-- Trouble Codes: read/clear the module's stored, pending and permanent codes (WinForms tab) -->
+            <Grid IsVisible="{Binding IsTroubleCodes}" RowDefinitions="Auto,Auto,*">
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="6" Margin="0,0,0,6">
+                    <Button Content="Read Codes" Command="{Binding ReadCodesCommand}"
+                            IsEnabled="{Binding CanReadCodes}" MinWidth="100"/>
+                    <Button Content="Clear Codes…" Click="ClearCodes_Click"
+                            IsEnabled="{Binding CanClearCodes}" MinWidth="100"/>
+                    <TextBlock Text="{Binding TroubleCodeStatus}" VerticalAlignment="Center" Margin="8,0,0,0"
+                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                </StackPanel>
+
+                <Grid Grid.Row="1" ColumnDefinitions="90,170,*" Margin="2,2,2,4">
+                    <TextBlock Grid.Column="0" Text="Code" FontWeight="SemiBold"/>
+                    <TextBlock Grid.Column="1" Text="Status" FontWeight="SemiBold"/>
+                    <TextBlock Grid.Column="2" Text="Description" FontWeight="SemiBold"/>
+                </Grid>
+                <Border Grid.Row="2"
+                        BorderBrush="{DynamicResource SystemControlBackgroundBaseMediumLowBrush}"
+                        BorderThickness="1">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding TroubleCodes}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:TroubleCodeRow">
+                                    <Grid ColumnDefinitions="90,170,*" Margin="2,3">
+                                        <TextBlock Grid.Column="0" Text="{Binding Code}" FontWeight="SemiBold"
+                                                   FontFamily="Consolas, Menlo, DejaVu Sans Mono, Liberation Mono, monospace"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding Status}" TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Column="2" Text="{Binding Description}" TextWrapping="Wrap"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
                 </Border>
             </Grid>
         </Grid>

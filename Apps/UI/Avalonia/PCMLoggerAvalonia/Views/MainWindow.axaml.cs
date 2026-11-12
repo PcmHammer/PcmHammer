@@ -7,6 +7,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
+using FluentAvalonia.UI.Controls;
 using PcmHacking;
 using PCMLoggerAvalonia.Controls;
 using PCMLoggerAvalonia.ViewModels;
@@ -34,6 +35,35 @@ public partial class MainWindow : Window
         {
             GaugeTile tile = vm.AddGauge();
             await this.EditGaugeAsync(tile);
+        }
+    }
+
+    // Clear is confirmed first, like the WinForms tab: the codes are the evidence, and erasing them
+    // unseen is how a fault gets diagnosed twice. The dialog lives in the view (as the device/gauge
+    // dialogs do); the clear itself is the shared backend, driven by the view model.
+    private async void ClearCodes_Click(object? sender, RoutedEventArgs e)
+    {
+        if (this.DataContext is not MainWindowViewModel vm)
+        {
+            return;
+        }
+
+        FAContentDialog dialog = new()
+        {
+            Title = "Clear Trouble Codes",
+            Content = new TextBlock
+            {
+                Text = vm.ClearConfirmationText,
+                TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+            },
+            PrimaryButtonText = "Clear",
+            CloseButtonText = "Cancel",
+            DefaultButton = FAContentDialogButton.Close,
+        };
+
+        if (await dialog.ShowAsync() == FAContentDialogResult.Primary)
+        {
+            await vm.ClearTroubleCodesAsync();
         }
     }
 
