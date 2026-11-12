@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
@@ -118,10 +119,33 @@ public partial class MainWindowViewModel : ViewModelBase
     // Device selection (from the Select Device dialog). Null port = first found; null type = auto-detect.
     public string? SelectedPortName { get; set; }
     public string? SelectedDeviceType { get; set; }
+    public bool UseJ2534 { get; set; }
+    public string? SelectedJ2534Device { get; set; }
     public bool Enable4x { get; set; }
+
+    /// <summary>J2534 pass-through drivers only exist on Windows.</summary>
+    public static bool IsJ2534Supported => RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
 
     /// <summary>The serial ports currently present, for the Select Device dialog.</summary>
     public IReadOnlyList<SerialPortInfo> GetSerialPorts() => PortDiscovery.GetPorts(_logger).ToList();
+
+    /// <summary>The installed J2534 devices (Windows only; empty elsewhere).</summary>
+    public IReadOnlyList<string> GetJ2534Devices()
+    {
+        if (!IsJ2534Supported)
+        {
+            return Array.Empty<string>();
+        }
+
+        try
+        {
+            return J2534DeviceFinder.FindInstalledJ2534DLLs(_logger).Select(d => d.Name).ToList();
+        }
+        catch
+        {
+            return Array.Empty<string>();
+        }
+    }
 
     /// <summary>Remove a gauge from the dashboard (and stop feeding it).</summary>
     public void RemoveGauge(GaugeTile tile)
@@ -320,30 +344,43 @@ public partial class MainWindowViewModel : ViewModelBase
 
         try
         {
-            this.StatusText = "Looking for a serial interface...";
-
-            string? portName = this.SelectedPortName ?? PickSerialPort();
-            if (portName == null)
+            if (this.UseJ2534)
             {
-                this.StatusText = "No serial ports found - plug in an interface or use Select Device.";
-                return;
-            }
-
-            if (this.SelectedDeviceType == null)
-            {
-                this.StatusText = $"Detecting device on {portName}...";
-                _device = await DeviceFactory.AutoDetectSerialDevice(portName, _logger);
+                this.StatusText = $"Opening J2534 device {this.SelectedJ2534Device}...";
+                _device = DeviceFactory.CreateJ2534Device(this.SelectedJ2534Device, _logger);
+                if (_device == null)
+                {
+                    this.StatusText = "Could not open the selected J2534 device.";
+                    return;
+                }
             }
             else
             {
-                this.StatusText = $"Opening {this.SelectedDeviceType} on {portName}...";
-                _device = DeviceFactory.CreateSerialDevice(portName, this.SelectedDeviceType, _logger);
-            }
+                this.StatusText = "Looking for a serial interface...";
 
-            if (_device == null)
-            {
-                this.StatusText = $"No supported interface found on {portName}.";
-                return;
+                string? portName = this.SelectedPortName ?? PickSerialPort();
+                if (portName == null)
+                {
+                    this.StatusText = "No serial ports found - plug in an interface or use Select Device.";
+                    return;
+                }
+
+                if (this.SelectedDeviceType == null)
+                {
+                    this.StatusText = $"Detecting device on {portName}...";
+                    _device = await DeviceFactory.AutoDetectSerialDevice(portName, _logger);
+                }
+                else
+                {
+                    this.StatusText = $"Opening {this.SelectedDeviceType} on {portName}...";
+                    _device = DeviceFactory.CreateSerialDevice(portName, this.SelectedDeviceType, _logger);
+                }
+
+                if (_device == null)
+                {
+                    this.StatusText = $"No supported interface found on {portName}.";
+                    return;
+                }
             }
 
             if (!await _device.Initialize())

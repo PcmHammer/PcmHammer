@@ -1,22 +1,34 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="PCMLoggerAvalonia.Views.DeviceSelectDialog"
-        Width="360" SizeToContent="Height"
+        Width="380" SizeToContent="Height"
         CanResize="False"
         WindowStartupLocation="CenterOwner"
         Title="Select OBD2 Device">
 
     <StackPanel Margin="16" Spacing="8">
-        <TextBlock Text="Serial port"/>
-        <ComboBox x:Name="PortBox" HorizontalAlignment="Stretch"/>
+        <TextBlock Text="Device category" FontWeight="SemiBold"/>
+        <StackPanel Orientation="Horizontal" Spacing="16">
+            <RadioButton x:Name="SerialRadio" GroupName="Category" Content="Serial port" IsChecked="True"/>
+            <RadioButton x:Name="J2534Radio" GroupName="Category" Content="J2534"/>
+        </StackPanel>
 
-        <TextBlock Text="Device type" Margin="0,4,0,0"/>
-        <ComboBox x:Name="DeviceTypeBox" HorizontalAlignment="Stretch"/>
+        <!-- Serial options -->
+        <StackPanel x:Name="SerialPanel" Spacing="6" Margin="0,4,0,0">
+            <TextBlock Text="Serial port"/>
+            <ComboBox x:Name="PortBox" HorizontalAlignment="Stretch"/>
+            <TextBlock Text="Device type"/>
+            <ComboBox x:Name="DeviceTypeBox" HorizontalAlignment="Stretch"/>
+        </StackPanel>
+
+        <!-- J2534 options -->
+        <StackPanel x:Name="J2534Panel" Spacing="6" Margin="0,4,0,0">
+            <TextBlock Text="J2534 device"/>
+            <ComboBox x:Name="J2534Box" HorizontalAlignment="Stretch"/>
+            <TextBlock x:Name="J2534Note" FontSize="11" Opacity="0.6" TextWrapping="Wrap"/>
+        </StackPanel>
 
         <CheckBox x:Name="FourXCheck" Content="Enable 4x communication" Margin="0,4,0,0"/>
-
-        <TextBlock Text="Auto-detect tries each known device on the chosen port."
-                   FontSize="11" Opacity="0.6" TextWrapping="Wrap"/>
 
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,8,0,0">
             <Button Content="Cancel" Click="Cancel_Click"/>

@@ -24,13 +24,24 @@ public partial class MainWindow : Window
         }
 
         IReadOnlyList<SerialPortInfo> ports = vm.GetSerialPorts();
-        DeviceSelectDialog dialog = new(ports, vm.SelectedPortName, vm.SelectedDeviceType, vm.Enable4x);
+        IReadOnlyList<string> j2534Devices = vm.GetJ2534Devices();
+        DeviceSelectDialog dialog = new(
+            ports,
+            j2534Devices,
+            MainWindowViewModel.IsJ2534Supported,
+            vm.UseJ2534,
+            vm.SelectedPortName,
+            vm.SelectedDeviceType,
+            vm.SelectedJ2534Device,
+            vm.Enable4x);
         await dialog.ShowDialog(this);
 
         if (dialog.Accepted)
         {
+            vm.UseJ2534 = dialog.UseJ2534;
             vm.SelectedPortName = dialog.PortName;
             vm.SelectedDeviceType = dialog.DeviceType;
+            vm.SelectedJ2534Device = dialog.J2534DeviceType;
             vm.Enable4x = dialog.Enable4x;
         }
     }
