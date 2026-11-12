@@ -158,7 +158,9 @@ public partial class MainWindowViewModel : ViewModelBase
             AllowMultiple = false,
             FileTypeFilter = new[]
             {
+                new FilePickerFileType("Dashboards (.plz, .adx)") { Patterns = new[] { "*.plz", "*.adx" } },
                 new FilePickerFileType("PcmLogger dashboards (.plz)") { Patterns = new[] { "*.plz" } },
+                new FilePickerFileType("TunerPro definitions (.adx)") { Patterns = new[] { "*.adx" } },
                 new FilePickerFileType("All files") { Patterns = new[] { "*" } },
             },
         });
@@ -171,8 +173,15 @@ public partial class MainWindowViewModel : ViewModelBase
         string path = files[0].Path.LocalPath;
         try
         {
-            this.BuildFromPackage(PlzFormat.Load(path));
-            this.StatusText = $"Loaded dashboard '{Path.GetFileName(path)}'.";
+            bool isAdx = Path.GetExtension(path).Equals(".adx", StringComparison.OrdinalIgnoreCase);
+            LoggerPackage package = isAdx
+                ? LoggerPackage.FromAdx(AdxDocument.Load(path), Path.GetFileName(path))
+                : PlzFormat.Load(path);
+
+            this.BuildFromPackage(package);
+            this.StatusText = isAdx
+                ? $"Imported TunerPro dashboard '{Path.GetFileName(path)}'."
+                : $"Loaded dashboard '{Path.GetFileName(path)}'.";
         }
         catch (Exception exception)
         {
