@@ -41,6 +41,9 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly Dictionary<string, List<GaugeTile>> _gaugesById = new();
     private readonly Dictionary<string, List<MonitorSeries>> _seriesByPid = new();
 
+    // The package the dashboard/monitors came from, so Save can update its gauges and write it back.
+    private LoggerPackage _sourcePackage = DefaultLoggerPackage.Create();
+
     [ObservableProperty]
     private string _statusText = "Not connected.";
 
@@ -141,6 +144,88 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     [RelayCommand]
+    private async Task LoadDashboard()
+    {
+        IStorageProvider? storage = GetStorageProvider();
+        if (storage == null)
+        {
+            return;
+        }
+
+        IReadOnlyList<IStorageFile> files = await storage.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = "Load a dashboard",
+            AllowMultiple = false,
+            FileTypeFilter = new[]
+            {
+                new FilePickerFileType("PcmLogger dashboards (.plz)") { Patterns = new[] { "*.plz" } },
+                new FilePickerFileType("All files") { Patterns = new[] { "*" } },
+            },
+        });
+
+        if (files.Count == 0)
+        {
+            return;
+        }
+
+        string path = files[0].Path.LocalPath;
+        try
+        {
+            this.BuildFromPackage(PlzFormat.Load(path));
+            this.StatusText = $"Loaded dashboard '{Path.GetFileName(path)}'.";
+        }
+        catch (Exception exception)
+        {
+            this.StatusText = "Load dashboard failed: " + exception.Message;
+        }
+    }
+
+    [RelayCommand]
+    private async Task SaveDashboard()
+    {
+        IStorageProvider? storage = GetStorageProvider();
+        if (storage == null)
+        {
+            return;
+        }
+
+        IStorageFile? file = await storage.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = "Save dashboard",
+            DefaultExtension = "plz",
+            SuggestedFileName = "dashboard.plz",
+            FileTypeChoices = new[] { new FilePickerFileType("PcmLogger dashboards (.plz)") { Patterns = new[] { "*.plz" } } },
+        });
+
+        if (file == null)
+        {
+            return;
+        }
+
+        string path = file.Path.LocalPath;
+        try
+        {
+            // Update the source package's dashboard with the current gauges, then write it back.
+            DashboardLayout? dashboard = _sourcePackage.Dashboards.FirstOrDefault();
+            if (dashboard != null)
+            {
+                dashboard.Gauges.Clear();
+                foreach (GaugeTile tile in this.Gauges)
+                {
+                    dashboard.Gauges.Add(tile.ToLayout());
+                }
+            }
+
+            PlzFormat.Save(path, _sourcePackage);
+            this.StatusText = $"Saved dashboard to '{Path.GetFileName(path)}'.";
+        }
+        catch (Exception exception)
+        {
+            this.StatusText = "Save dashboard failed: " + exception.Message;
+        }
+    }
+
+    [RelayCommand]
     private void ShowGrid() => this.ViewMode = "Grid";
 
     [RelayCommand]
@@ -156,17 +241,22 @@ public partial class MainWindowViewModel : ViewModelBase
             onUserMessage: message => Dispatcher.UIThread.Post(() => this.StatusText = message),
             onDebugMessage: _ => { });
 
-        this.BuildFromPackage();
+        this.BuildFromPackage(DefaultLoggerPackage.Create());
     }
 
     /// <summary>
-    /// Build the gauge dashboard and the strip-chart monitors from the shared package (the same data
-    /// the WinForms PcmLogger uses, which a TunerPro ADX import also produces) rather than inventing a
-    /// front-end layout. Values arrive by parameter id from the logging stream.
+    /// Build the gauge dashboard and the strip-chart monitors from a shared package (the default, a
+    /// loaded .plz, or a TunerPro .adx) rather than a front-end-invented layout. Values arrive by
+    /// parameter id from the logging stream.
     /// </summary>
-    private void BuildFromPackage()
+    private void BuildFromPackage(LoggerPackage package)
     {
-        LoggerPackage package = DefaultLoggerPackage.Create();
+        _sourcePackage = package;
+
+        this.Gauges.Clear();
+        this.Monitors.Clear();
+        _gaugesById.Clear();
+        _seriesByPid.Clear();
 
         DashboardLayout? dashboard = package.Dashboards.FirstOrDefault();
         if (dashboard != null)

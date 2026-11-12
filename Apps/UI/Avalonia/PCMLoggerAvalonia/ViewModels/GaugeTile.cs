@@ -21,6 +21,9 @@ public sealed class GaugeTile : ObservableObject
     private double _currentValue;
     private bool _hasValue;
 
+    /// <summary>Decimal places for the value text (from the layout), kept so the gauge can be saved.</summary>
+    public int Digits => _digits;
+
     public string ParameterId { get; set; }
 
     private GaugeKind _kind;
@@ -119,6 +122,32 @@ public sealed class GaugeTile : ObservableObject
 
     /// <summary>The colour for a text gauge's number: the alarm colour while in alarm, else the normal colour.</summary>
     public IBrush ValueBrush => new SolidColorBrush(_inAlarm ? _alarmColor : _normalColor);
+
+    /// <summary>Convert back to a shared GaugeLayout so the dashboard can be saved to a .plz package.</summary>
+    public GaugeLayout ToLayout()
+    {
+        return new GaugeLayout
+        {
+            Kind = this.Kind,
+            PidId = this.ParameterId,
+            Title = _title,
+            Units = _units,
+            RangeLow = _min,
+            RangeHigh = _max,
+            Digits = _digits,
+            HasAlarms = _alarmLow.HasValue || _alarmHigh.HasValue,
+            AlarmLow = _alarmLow ?? _min,
+            AlarmHigh = _alarmHigh ?? _max,
+            AlarmColor = ToRgb(_alarmColor),
+            NormalColor = _normalColor == DefaultNormalColor ? 0 : ToRgb(_normalColor),
+            Left = this.Left,
+            Top = this.Top,
+            Width = this.RelWidth,
+            Height = this.RelHeight,
+        };
+    }
+
+    private static int ToRgb(Color color) => (color.R << 16) | (color.G << 8) | color.B;
 
     /// <summary>Apply the latest numeric reading and refresh the visual.</summary>
     public void SetValue(double value)
