@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -51,6 +52,12 @@ public partial class MainWindowViewModel : ViewModelBase
 
     [ObservableProperty]
     private bool _isLogging;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(RecordButtonText))]
+    private bool _isRecording;
+
+    public string RecordButtonText => this.IsRecording ? "Stop Recording" : "Record";
 
     /// <summary>"Grid", "Dashboard" or "Monitor" - which view is shown.</summary>
     [ObservableProperty]
@@ -335,10 +342,50 @@ public partial class MainWindowViewModel : ViewModelBase
         _controller.Stopped += () => Dispatcher.UIThread.Post(() => this.IsLogging = false);
         _controller.Failed += exception =>
             Dispatcher.UIThread.Post(() => this.StatusText = "Logging error: " + exception.Message);
+        _controller.RecordingStarted += path =>
+            Dispatcher.UIThread.Post(() =>
+            {
+                this.IsRecording = true;
+                this.StatusText = "Recording to " + path;
+            });
+        _controller.RecordingStopped += rows =>
+            Dispatcher.UIThread.Post(() =>
+            {
+                this.IsRecording = false;
+                this.StatusText = $"Recording stopped - {rows} rows saved.";
+            });
 
         _controller.Start(_profile.Columns.ToList());
         this.IsLogging = true;
         this.StatusText = "Logging...";
+    }
+
+    [RelayCommand]
+    private async Task ToggleRecording()
+    {
+        if (_controller == null || !this.IsLogging)
+        {
+            this.StatusText = "Start logging before recording.";
+            return;
+        }
+
+        if (_controller.IsRecording)
+        {
+            _controller.StopRecording();
+            return;
+        }
+
+        try
+        {
+            string directory = Path.Combine(AppContext.BaseDirectory, "Logs");
+            Directory.CreateDirectory(directory);
+            string path = Path.Combine(directory, "PcmLog_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".csv");
+            await _controller.StartRecordingAsync(path);
+        }
+        catch (Exception exception)
+        {
+            this.StatusText = "Could not start recording: " + exception.Message;
+        }
     }
 
     [RelayCommand]
@@ -352,6 +399,7 @@ public partial class MainWindowViewModel : ViewModelBase
         }
 
         this.IsLogging = false;
+        this.IsRecording = false;
         this.StatusText = this.IsConnected ? "Stopped." : "Not connected.";
     }
 

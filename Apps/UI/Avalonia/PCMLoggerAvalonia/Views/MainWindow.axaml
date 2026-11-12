@@ -18,6 +18,8 @@
             <Button Content="Open Profile" Command="{Binding OpenProfileCommand}"/>
             <Button Content="Start" Command="{Binding StartCommand}"/>
             <Button Content="Stop" Command="{Binding StopCommand}"/>
+            <Button Content="{Binding RecordButtonText}" Command="{Binding ToggleRecordingCommand}"
+                    IsEnabled="{Binding IsLogging}" MinWidth="110"/>
             <Border Width="1" Background="{DynamicResource SystemControlBackgroundBaseMediumLowBrush}" Margin="6,2"/>
             <Button Content="Grid" Command="{Binding ShowGridCommand}"/>
             <Button Content="Dashboard" Command="{Binding ShowDashboardCommand}"/>
