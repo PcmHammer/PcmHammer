@@ -32,6 +32,12 @@ namespace PcmHacking
         private CancellationTokenSource? cancellation;
         private Task? loopTask;
 
+        // Bus hand-over: a reader (trouble codes, etc.) can borrow the bus from the running loop. The
+        // loop yields between rows - the session and any recording stay open - so logging resumes a few
+        // rows short rather than being stopped. Mirrors the WinForms PcmLogger BorrowBus/ReturnBus.
+        private volatile bool busHandoverRequested;
+        private readonly ManualResetEventSlim busIdle = new ManualResetEventSlim(false);
+
         // CSV recording. The loop writes each row to the recorder while one is set; start/stop manage
         // the file. Guarded by recordLock so the loop never writes to a stream being closed.
         private readonly object recordLock = new object();
@@ -140,6 +146,43 @@ namespace PcmHacking
                     this.cancellation = null;
                 }
             }
+        }
+
+        /// <summary>
+        /// Borrow the bus from the running loop so the caller can read or clear codes without stopping
+        /// logging. The loop yields between rows (the session and any recording stay open), so logging
+        /// resumes with only a few rows' gap rather than being torn down. Returns true once the loop has
+        /// released the bus - or immediately if nothing is logging. Returns false if the loop did not
+        /// yield within <paramref name="timeout"/> (mid-exchange), in which case the caller should leave
+        /// it alone. Always call <see cref="ReturnBus"/> when done (a using/try-finally is simplest).
+        /// </summary>
+        public async Task<bool> BorrowBusAsync(TimeSpan timeout)
+        {
+            if (!this.IsRunning)
+            {
+                // Nothing is using the bus.
+                return true;
+            }
+
+            this.busIdle.Reset();
+            this.busHandoverRequested = true;
+
+            // Off the caller's thread: a UI thread must not block here, and the loop marshals nothing.
+            bool idle = await Task.Run(() => this.busIdle.Wait(timeout)).ConfigureAwait(false);
+
+            if (!idle)
+            {
+                // Mid-exchange and not yielding. Leave the loop alone rather than talk over it.
+                this.busHandoverRequested = false;
+            }
+
+            return idle;
+        }
+
+        /// <summary>Give the bus back to the logging loop after a <see cref="BorrowBusAsync"/>.</summary>
+        public void ReturnBus()
+        {
+            this.busHandoverRequested = false;
         }
 
         /// <summary>True while a recording file is open.</summary>
@@ -252,6 +295,32 @@ namespace PcmHacking
 
                 while (!token.IsCancellationRequested)
                 {
+                    // Between rows is the only safe moment to hand the bus over: one iteration is at most
+                    // one complete exchange, so nothing is left half-said. Suspend first so a streaming
+                    // PCM stops sending (or the borrower would read log rows instead of its own answers),
+                    // signal idle, wait for the borrower to return the bus, then resume. The session and
+                    // any recording stay open, so logging picks up where it left off, a few rows short.
+                    if (this.busHandoverRequested)
+                    {
+                        await session.Suspend().ConfigureAwait(false);
+                        this.busIdle.Set();
+
+                        while (this.busHandoverRequested && !token.IsCancellationRequested)
+                        {
+                            await Task.Delay(20, token).ConfigureAwait(false);
+                        }
+
+                        this.busIdle.Reset();
+
+                        if (token.IsCancellationRequested)
+                        {
+                            break;
+                        }
+
+                        await session.Resume().ConfigureAwait(false);
+                        continue;
+                    }
+
                     // An incomplete row comes back empty rather than null.
                     IReadOnlyList<LogRowElement> row = await session.Read(token).ConfigureAwait(false);
                     if (row.Count > 0)

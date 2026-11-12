@@ -362,19 +362,22 @@ public partial class MainWindowViewModel : ViewModelBase
             return;
         }
 
-        bool wasLogging = this.IsLogging;
+        bool borrowed = false;
         try
         {
             this.IsBusyWithCodes = true;
             this.CanClearCodes = false;
             this.TroubleCodeStatus = "Reading...";
 
-            // The logging loop owns the bus; borrow it (stop, read, resume) rather than making the user
-            // disconnect. StopAsync is built to release the bus so a read is safe immediately after.
-            if (wasLogging)
+            // Borrow the bus from the logging loop rather than stopping it, so the strip chart and any
+            // recording keep going (a few rows short), as the WinForms logger does.
+            if (!await this.BorrowBus())
             {
-                await this.StopLoggingForBorrow();
+                this.TroubleCodeStatus = "The logger did not release the interface.";
+                return;
             }
+
+            borrowed = true;
 
             IReadOnlyList<DiagnosticCode> codes =
                 await _vehicle.ReadTroubleCodes(_codeDefinitions, CancellationToken.None);
@@ -389,11 +392,12 @@ public partial class MainWindowViewModel : ViewModelBase
         }
         finally
         {
-            this.IsBusyWithCodes = false;
-            if (wasLogging)
+            if (borrowed)
             {
-                this.ResumeLoggingAfterBorrow();
+                _controller?.ReturnBus();
             }
+
+            this.IsBusyWithCodes = false;
         }
     }
 
@@ -409,16 +413,19 @@ public partial class MainWindowViewModel : ViewModelBase
             return;
         }
 
-        bool wasLogging = this.IsLogging;
+        bool borrowed = false;
         try
         {
             this.IsBusyWithCodes = true;
             this.CanClearCodes = false;
 
-            if (wasLogging)
+            if (!await this.BorrowBus())
             {
-                await this.StopLoggingForBorrow();
+                this.TroubleCodeStatus = "The logger did not release the interface.";
+                return;
             }
+
+            borrowed = true;
 
             // The list on screen is left alone: what actually went is a question only another read can
             // answer, and emptying it here would assert more than is known.
@@ -434,12 +441,13 @@ public partial class MainWindowViewModel : ViewModelBase
         }
         finally
         {
+            if (borrowed)
+            {
+                _controller?.ReturnBus();
+            }
+
             this.IsBusyWithCodes = false;
             this.CanClearCodes = _lastReadCodes.Count > 0;
-            if (wasLogging)
-            {
-                this.ResumeLoggingAfterBorrow();
-            }
         }
     }
 
@@ -466,22 +474,20 @@ public partial class MainWindowViewModel : ViewModelBase
         this.CanClearCodes = codes.Count > 0;
     }
 
-    /// <summary>Stop the logging loop so the bus is free, without the full "Stopped." messaging.</summary>
-    private async Task StopLoggingForBorrow()
+    /// <summary>
+    /// Borrow the bus from the logging loop (if one is running) so a read/clear is safe. The loop keeps
+    /// the session and recording open and resumes once <see cref="LoggingController.ReturnBus"/> is
+    /// called. Returns false only if the loop would not yield in time (caller then leaves it alone).
+    /// </summary>
+    private async Task<bool> BorrowBus()
     {
-        if (_controller != null)
+        if (_controller == null)
         {
-            await _controller.StopAsync();
-            _controller.RowAvailable -= OnRowAvailable;
-            _controller = null;
+            return true;
         }
 
-        this.IsLogging = false;
-        this.IsRecording = false;
+        return await _controller.BorrowBusAsync(TimeSpan.FromSeconds(5));
     }
-
-    /// <summary>Resume logging after a borrow. (A recording that was running is not re-opened.)</summary>
-    private void ResumeLoggingAfterBorrow() => this.Start();
 
     public MainWindowViewModel()
     {
