@@ -36,11 +36,11 @@
         </Grid>
 
         <TextBlock Text="Style"/>
-        <ComboBox x:Name="StyleBox" HorizontalAlignment="Stretch">
-            <ComboBoxItem>Dial</ComboBoxItem>
-            <ComboBoxItem>Text</ComboBoxItem>
-            <ComboBoxItem>Bar</ComboBoxItem>
-        </ComboBox>
+        <StackPanel Orientation="Horizontal" Spacing="16">
+            <RadioButton x:Name="DialRadio" GroupName="GaugeStyle" Content="Dial"/>
+            <RadioButton x:Name="TextRadio" GroupName="GaugeStyle" Content="Text"/>
+            <RadioButton x:Name="BarRadio" GroupName="GaugeStyle" Content="Bar"/>
+        </StackPanel>
 
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,8,0,0">
             <Button Content="Cancel" Click="Cancel_Click"/>

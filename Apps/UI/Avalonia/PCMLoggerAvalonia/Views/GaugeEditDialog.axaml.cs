@@ -39,7 +39,10 @@ public partial class GaugeEditDialog : Window
         this.MaxBox.Text = tile.Max.ToString(CultureInfo.CurrentCulture);
         this.AlarmLowBox.Text = tile.AlarmLow?.ToString(CultureInfo.CurrentCulture) ?? string.Empty;
         this.AlarmHighBox.Text = tile.AlarmHigh?.ToString(CultureInfo.CurrentCulture) ?? string.Empty;
-        this.StyleBox.SelectedIndex = tile.Kind == GaugeKind.Round ? 0 : tile.Kind == GaugeKind.Bar ? 2 : 1;
+
+        this.DialRadio.IsChecked = tile.Kind == GaugeKind.Round;
+        this.BarRadio.IsChecked = tile.Kind == GaugeKind.Bar;
+        this.TextRadio.IsChecked = tile.Kind != GaugeKind.Round && tile.Kind != GaugeKind.Bar;
 
         // Only after the fields are seeded, so the initial selection does not overwrite the tile's values.
         _ready = true;
@@ -125,12 +128,9 @@ public partial class GaugeEditDialog : Window
         _tile.AlarmLow = TryParse(this.AlarmLowBox.Text, out double alarmLow) ? alarmLow : null;
         _tile.AlarmHigh = TryParse(this.AlarmHighBox.Text, out double alarmHigh) ? alarmHigh : null;
 
-        _tile.Kind = this.StyleBox.SelectedIndex switch
-        {
-            0 => GaugeKind.Round,
-            2 => GaugeKind.Bar,
-            _ => GaugeKind.Text,
-        };
+        _tile.Kind = this.DialRadio.IsChecked == true ? GaugeKind.Round
+            : this.BarRadio.IsChecked == true ? GaugeKind.Bar
+            : GaugeKind.Text;
 
         this.Close();
     }

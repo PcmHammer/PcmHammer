@@ -92,8 +92,11 @@
                                 <!-- Round dial -->
                                 <ctrl:GaugeDial Grid.Row="1" Tile="{Binding}" IsVisible="{Binding IsDial}"/>
 
-                                <!-- Text readout (and bar, until a bar control is added) -->
-                                <StackPanel Grid.Row="1" IsVisible="{Binding !IsDial}"
+                                <!-- Horizontal bar -->
+                                <ctrl:BarGauge Grid.Row="1" Tile="{Binding}" IsVisible="{Binding IsBar}"/>
+
+                                <!-- Text readout -->
+                                <StackPanel Grid.Row="1" IsVisible="{Binding IsText}"
                                             VerticalAlignment="Center" HorizontalAlignment="Center">
                                     <TextBlock Text="{Binding ValueText}" Foreground="{Binding ValueBrush}"
                                                FontSize="28" FontWeight="SemiBold" HorizontalAlignment="Center"
