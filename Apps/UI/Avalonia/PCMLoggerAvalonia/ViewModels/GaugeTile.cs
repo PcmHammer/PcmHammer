@@ -41,12 +41,12 @@ public sealed class GaugeTile : ObservableObject
         }
     }
 
-    // Proportional bounds within the dashboard (0..1), straight from the layout - the dashboard panel
-    // scales these to the current size, exactly as the WinForms dashboard does.
-    public double Left { get; }
-    public double Top { get; }
-    public double RelWidth { get; }
-    public double RelHeight { get; }
+    // Proportional bounds within the dashboard (0..1) - the dashboard panel scales these to the current
+    // size, as the WinForms dashboard does. Settable so a gauge can be dragged to a new position.
+    public double Left { get; set; }
+    public double Top { get; set; }
+    public double RelWidth { get; set; }
+    public double RelHeight { get; set; }
 
     public bool IsDial => this.Kind == GaugeKind.Round;
     public bool IsText => this.Kind == GaugeKind.Text || this.Kind == GaugeKind.Indicator;

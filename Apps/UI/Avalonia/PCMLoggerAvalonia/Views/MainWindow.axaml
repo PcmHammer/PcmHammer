@@ -68,9 +68,10 @@
             <!-- Dashboard: gauges laid out at the shared layout's proportional positions -->
             <Grid IsVisible="{Binding IsDashboard}" RowDefinitions="Auto,*">
             <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="6" Margin="0,0,0,6">
+                <Button Content="Add Gauge…" Click="AddGauge_Click"/>
                 <Button Content="Load Dashboard…" Command="{Binding LoadDashboardCommand}"/>
                 <Button Content="Save Dashboard…" Command="{Binding SaveDashboardCommand}"/>
-                <TextBlock Text="Double-click a gauge to edit · right-click to remove"
+                <TextBlock Text="Double-click to edit · drag to move · right-click to remove"
                            VerticalAlignment="Center" FontSize="11" Opacity="0.6" Margin="6,0,0,0"/>
             </StackPanel>
             <ItemsControl Grid.Row="1" ItemsSource="{Binding Gauges}">
@@ -87,7 +88,9 @@
                                 Background="Transparent"
                                 DoubleTapped="GaugeCard_DoubleTapped"
                                 PointerPressed="GaugeCard_PointerPressed"
-                                ToolTip.Tip="Double-click to edit · right-click for more">
+                                PointerMoved="GaugeCard_PointerMoved"
+                                PointerReleased="GaugeCard_PointerReleased"
+                                ToolTip.Tip="Double-click to edit · drag to move · right-click for more">
                             <Grid RowDefinitions="Auto,*">
                                 <TextBlock Grid.Row="0" Text="{Binding Title}"
                                            HorizontalAlignment="Center" FontWeight="SemiBold"

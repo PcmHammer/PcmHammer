@@ -147,6 +147,32 @@ public partial class MainWindowViewModel : ViewModelBase
         }
     }
 
+    /// <summary>Add a new gauge at a default spot (the caller opens the editor to configure it).</summary>
+    public GaugeTile AddGauge()
+    {
+        ParameterOption? first = this.AvailableParameters.FirstOrDefault();
+        GaugeLayout layout = new()
+        {
+            Kind = GaugeKind.Round,
+            PidId = first?.Id ?? string.Empty,
+            Title = first?.Name ?? "New gauge",
+            Units = first?.Units ?? string.Empty,
+            RangeLow = 0,
+            RangeHigh = 100,
+            Digits = 1,
+            HasAlarms = false,
+            Left = 0.40,
+            Top = 0.40,
+            Width = 0.20,
+            Height = 0.28,
+        };
+
+        GaugeTile tile = new(layout);
+        this.Gauges.Add(tile);
+        this.ReindexGauges();
+        return tile;
+    }
+
     /// <summary>Remove a gauge from the dashboard (and stop feeding it).</summary>
     public void RemoveGauge(GaugeTile tile)
     {
