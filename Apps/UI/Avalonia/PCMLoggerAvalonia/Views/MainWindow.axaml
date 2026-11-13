@@ -14,7 +14,7 @@
 
         <!-- Session toolbar (always visible, like the WinForms top strip) -->
         <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="6">
-            <Button Content="Connect" Command="{Binding ConnectCommand}"/>
+            <Button Content="{Binding ConnectButtonText}" Command="{Binding ToggleConnectionCommand}" MinWidth="90"/>
             <Button Content="Open Profile" Command="{Binding OpenProfileCommand}"/>
             <Button Content="Start" Command="{Binding StartCommand}"/>
             <Button Content="Stop" Command="{Binding StopCommand}"/>

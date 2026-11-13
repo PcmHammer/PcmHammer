@@ -53,7 +53,11 @@ public partial class MainWindowViewModel : ViewModelBase
     private string _profileName = "(no profile)";
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ConnectButtonText))]
     private bool _isConnected;
+
+    /// <summary>The single Connect/Disconnect button's caption, as the WinForms logger does.</summary>
+    public string ConnectButtonText => this.IsConnected ? "Disconnect" : "Connect";
 
     [ObservableProperty]
     private bool _isLogging;
@@ -620,6 +624,50 @@ public partial class MainWindowViewModel : ViewModelBase
         }
 
         this.SelectedMonitor = this.Monitors.FirstOrDefault();
+    }
+
+    /// <summary>The Connect/Disconnect button: connect when idle, release the interface when connected.</summary>
+    [RelayCommand]
+    private async Task ToggleConnection()
+    {
+        if (this.IsConnected)
+        {
+            await this.Disconnect();
+        }
+        else
+        {
+            await this.Connect();
+        }
+    }
+
+    /// <summary>Release the interface and stop any live logging, back to the disconnected state.</summary>
+    private async Task Disconnect()
+    {
+        if (_controller != null)
+        {
+            await _controller.StopAsync();
+            _controller.RowAvailable -= OnRowAvailable;
+            _controller = null;
+        }
+
+        this.IsLogging = false;
+        this.IsRecording = false;
+
+        try
+        {
+            _device?.Dispose();
+        }
+        catch
+        {
+            // Best effort: the port is being released regardless.
+        }
+
+        _device = null;
+        _vehicle = null;
+        _database = null;
+        this.AvailableParameters.Clear();
+        this.IsConnected = false;
+        this.StatusText = "Disconnected.";
     }
 
     [RelayCommand]
