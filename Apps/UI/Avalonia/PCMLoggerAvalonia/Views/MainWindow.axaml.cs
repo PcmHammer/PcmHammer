@@ -57,7 +57,24 @@ public partial class MainWindow : Window
     }
 
     private void DebugMessages_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
-        => this.ScrollDebugToEnd();
+    {
+        ScrollViewer? scroller = _debugScroller;
+        if (scroller == null)
+        {
+            return;
+        }
+
+        // Only follow the tail when the view is already at (or within a line of) the bottom - the
+        // change fires before the new line lays out, so this reflects where the user was. A user who
+        // has scrolled up to read history is left where they are.
+        double maxOffset = Math.Max(0, scroller.Extent.Height - scroller.Viewport.Height);
+        if (scroller.Offset.Y < maxOffset - 24)
+        {
+            return;
+        }
+
+        this.ScrollDebugToEnd();
+    }
 
     private void ScrollDebugToEnd()
     {
