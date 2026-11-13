@@ -1428,9 +1428,17 @@ public partial class MainWindowViewModel : ViewModelBase
         _lastRowTime = default;
         _queryTimeRow.Value = "--";
 
+        // Going live: resume the chart (a previous stop left it frozen for inspection).
+        this.IsMonitorPaused = false;
+
         _controller = new LoggingController(_vehicle, _osid, _logger);
         _controller.RowAvailable += OnRowAvailable;
-        _controller.Stopped += () => Dispatcher.UIThread.Post(() => this.IsLogging = false);
+        _controller.Stopped += () => Dispatcher.UIThread.Post(() =>
+        {
+            this.IsLogging = false;
+            // Freeze the strip chart where it stopped, so the last data can be inspected.
+            this.IsMonitorPaused = true;
+        });
         _controller.Failed += exception =>
             Dispatcher.UIThread.Post(() => this.StatusText = "Logging error: " + exception.Message);
         _controller.RecordingStarted += path =>
@@ -1492,6 +1500,8 @@ public partial class MainWindowViewModel : ViewModelBase
 
         this.IsLogging = false;
         this.IsRecording = false;
+        // Freeze the strip chart where it stopped, so the last data can be inspected.
+        this.IsMonitorPaused = true;
         this.StatusText = this.IsConnected ? "Stopped." : "Not connected.";
     }
 
