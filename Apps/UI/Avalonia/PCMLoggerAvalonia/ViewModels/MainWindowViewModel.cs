@@ -350,29 +350,96 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         this.ExitPlayback();
 
-        MonitorTab tab = new("Playback: " + name, 20);
+        // Resolve each column to a parameter id (when a database is loaded), so a column can match a
+        // monitor series by id even where the series' label differs from the parameter name.
+        Dictionary<string, string> nameToId = new(StringComparer.OrdinalIgnoreCase);
+        if (_database != null)
+        {
+            foreach (Parameter parameter in _database.ListParametersBySupportedOs(_osid))
+            {
+                nameToId[parameter.Name] = parameter.Id;
+            }
+        }
+
+        // Pre-build each column's points and resolved id.
+        List<(DateTime, double)>[] columnPoints = new List<(DateTime, double)>[data.Columns.Count];
+        string?[] columnId = new string?[data.Columns.Count];
+        bool[] consumed = new bool[data.Columns.Count];
         for (int i = 0; i < data.Columns.Count; i++)
         {
-            (double low, double high) = ColumnRange(data, i);
-            MonitorSeries series = tab.AddSeries(data.Columns[i].Name, data.Columns[i].Units, low, high);
-
-            // Start with only the first few traces shown so a wide log isn't a wall of axes; the rest
-            // are a tick away in the Traces menu.
-            series.Visible = i < 6;
-
             List<(DateTime, double)> points = new(data.Samples.Count);
             for (int r = 0; r < data.Samples.Count; r++)
             {
                 points.Add((data.Timestamps[r], data.Samples[r][i]));
             }
 
-            series.SetPoints(points);
+            columnPoints[i] = points;
+            columnId[i] = nameToId.TryGetValue(data.Columns[i].Name, out string? id) ? id : null;
         }
 
-        this.Monitors.Add(tab);
-        _playbackTab = tab;
-        this.SelectedMonitor = tab;
+        // Feed the existing monitor tabs (Engine, Fuelling): each series takes the matching column by
+        // parameter id, or by name when no database is loaded. Series with no column in the log clear.
+        foreach (MonitorTab tab in this.Monitors)
+        {
+            foreach (MonitorSeries series in tab.Series)
+            {
+                int match = -1;
+                for (int i = 0; i < data.Columns.Count; i++)
+                {
+                    if (consumed[i])
+                    {
+                        continue;
+                    }
 
+                    bool idMatch = !string.IsNullOrEmpty(series.ParameterId) && columnId[i] == series.ParameterId;
+                    bool nameMatch = string.Equals(data.Columns[i].Name, series.Title, StringComparison.OrdinalIgnoreCase);
+                    if (idMatch || nameMatch)
+                    {
+                        match = i;
+                        break;
+                    }
+                }
+
+                if (match >= 0)
+                {
+                    series.SetPoints(columnPoints[match]);
+                    series.Visible = true;
+                    consumed[match] = true;
+                }
+                else
+                {
+                    series.Clear();
+                }
+            }
+        }
+
+        // Anything the standard monitors didn't claim goes on an auto-created Log tab.
+        List<int> leftover = new();
+        for (int i = 0; i < data.Columns.Count; i++)
+        {
+            if (!consumed[i])
+            {
+                leftover.Add(i);
+            }
+        }
+
+        if (leftover.Count > 0)
+        {
+            MonitorTab log = new("Log: " + name, 20);
+            for (int k = 0; k < leftover.Count; k++)
+            {
+                int i = leftover[k];
+                (double low, double high) = ColumnRange(data, i);
+                MonitorSeries series = log.AddSeries(data.Columns[i].Name, data.Columns[i].Units, low, high);
+                series.Visible = k < 6;   // keep a wide overflow readable; the rest are in the Traces menu
+                series.SetPoints(columnPoints[i]);
+            }
+
+            this.Monitors.Add(log);
+            _playbackTab = log;
+        }
+
+        // Scrub over the whole span; show a tab that actually has data.
         _playbackStart = data.Timestamps[0];
         DateTime end = data.Timestamps[data.Timestamps.Count - 1];
         this.PlaybackMaxSeconds = Math.Max(0, (end - _playbackStart).TotalSeconds);
@@ -380,6 +447,9 @@ public partial class MainWindowViewModel : ViewModelBase
         this.IsPlayback = true;
         this.PlaybackSeconds = this.PlaybackMaxSeconds;   // start at the end (triggers PlaybackNow)
         this.PlaybackNow = _playbackStart + TimeSpan.FromSeconds(this.PlaybackSeconds);
+
+        bool anyStandardMatched = consumed.Any(c => c);
+        this.SelectedMonitor = anyStandardMatched ? this.Monitors.FirstOrDefault() : (_playbackTab ?? this.Monitors.FirstOrDefault());
     }
 
     /// <summary>Min..max of a loaded column (ignoring unparseable values), padded a little.</summary>
@@ -416,10 +486,19 @@ public partial class MainWindowViewModel : ViewModelBase
     /// <summary>Leave playback: drop the Playback tab and return the chart to live.</summary>
     private void ExitPlayback()
     {
+        // Remove the overflow Log tab and clear any loaded points fed into the standard tabs.
         if (_playbackTab != null)
         {
             this.Monitors.Remove(_playbackTab);
             _playbackTab = null;
+        }
+
+        if (this.IsPlayback)
+        {
+            foreach (MonitorTab tab in this.Monitors)
+            {
+                tab.Clear();
+            }
         }
 
         this.IsPlayback = false;
