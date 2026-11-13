@@ -94,6 +94,7 @@ public partial class MainWindow : Window
             vm.SelectedDeviceType = dialog.DeviceType;
             vm.SelectedJ2534Device = dialog.J2534DeviceType;
             vm.Enable4x = dialog.Enable4x;
+            vm.UpdateDeviceSummary();
         }
     }
 

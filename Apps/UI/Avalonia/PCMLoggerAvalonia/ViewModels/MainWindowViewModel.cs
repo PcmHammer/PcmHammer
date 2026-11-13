@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform.Storage;
+using Avalonia.Styling;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -63,18 +64,99 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public string RecordButtonText => this.IsRecording ? "Stop Recording" : "Record";
 
-    /// <summary>"Grid", "Dashboard", "Monitor" or "Codes" - which view is shown.</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsGrid))]
-    [NotifyPropertyChangedFor(nameof(IsDashboard))]
-    [NotifyPropertyChangedFor(nameof(IsMonitor))]
-    [NotifyPropertyChangedFor(nameof(IsTroubleCodes))]
-    private string _viewMode = "Grid";
+    // --- Configuration tab (mirrors the WinForms PcmLogger Configuration tab) --------------------
 
-    public bool IsGrid => this.ViewMode == "Grid";
-    public bool IsDashboard => this.ViewMode == "Dashboard";
-    public bool IsMonitor => this.ViewMode == "Monitor";
-    public bool IsTroubleCodes => this.ViewMode == "Codes";
+    // Which optional tabs are shown (the "View" checkboxes). Configuration and Trouble Codes are
+    // always available; these toggle the rest.
+    [ObservableProperty] private bool _showGrid = true;
+    [ObservableProperty] private bool _showDashboard = true;
+    [ObservableProperty] private bool _showMonitors = true;
+
+    // Where recordings are written (the "Paths" section). Defaults to the user's Documents folder,
+    // as the WinForms logger does.
+    [ObservableProperty] private string _logFolder =
+        Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+
+    // Theme: "System" follows the OS; "Light"/"Dark" force a variant (FluentAvalonia honours it).
+    [ObservableProperty] private string _selectedTheme = "System";
+
+    public string[] ThemeOptions { get; } = { "System", "Light", "Dark" };
+
+    partial void OnSelectedThemeChanged(string value)
+    {
+        if (Application.Current is Application app)
+        {
+            app.RequestedThemeVariant = value switch
+            {
+                "Light" => ThemeVariant.Light,
+                "Dark" => ThemeVariant.Dark,
+                _ => ThemeVariant.Default,
+            };
+        }
+    }
+
+    // Start logging automatically once connected and a profile is open (the "Options" section).
+    [ObservableProperty] private bool _autoStartLogging;
+
+    // A short description of the chosen interface, shown in the Devices section.
+    [ObservableProperty] private string _deviceSummary = "No device selected.";
+
+    /// <summary>Recompose the Devices-section summary from the current selection.</summary>
+    public void UpdateDeviceSummary()
+    {
+        if (this.UseJ2534)
+        {
+            this.DeviceSummary = string.IsNullOrEmpty(this.SelectedJ2534Device)
+                ? "J2534 (no device selected)"
+                : "J2534: " + this.SelectedJ2534Device;
+        }
+        else
+        {
+            this.DeviceSummary = string.IsNullOrEmpty(this.SelectedPortName)
+                ? "Serial (auto-detect port)"
+                : (this.SelectedDeviceType ?? "Auto-detect") + " on " + this.SelectedPortName;
+        }
+    }
+
+    [RelayCommand]
+    private async Task SetLogFolder()
+    {
+        IStorageProvider? storage = GetStorageProvider();
+        if (storage == null)
+        {
+            return;
+        }
+
+        IReadOnlyList<IStorageFolder> folders = await storage.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            Title = "Choose the log folder",
+            AllowMultiple = false,
+        });
+
+        if (folders.Count > 0)
+        {
+            this.LogFolder = folders[0].Path.LocalPath;
+            this.StatusText = "Log folder set to " + this.LogFolder;
+        }
+    }
+
+    [RelayCommand]
+    private async Task OpenLogFolder()
+    {
+        try
+        {
+            Directory.CreateDirectory(this.LogFolder);
+            ILauncher? launcher = GetLauncher();
+            if (launcher != null)
+            {
+                await launcher.LaunchDirectoryInfoAsync(new DirectoryInfo(this.LogFolder));
+            }
+        }
+        catch (Exception exception)
+        {
+            this.StatusText = "Could not open the log folder: " + exception.Message;
+        }
+    }
 
     public ObservableCollection<ReadingRow> Readings { get; } = new();
 
@@ -294,18 +376,6 @@ public partial class MainWindowViewModel : ViewModelBase
         }
     }
 
-    [RelayCommand]
-    private void ShowGrid() => this.ViewMode = "Grid";
-
-    [RelayCommand]
-    private void ShowDashboard() => this.ViewMode = "Dashboard";
-
-    [RelayCommand]
-    private void ShowMonitor() => this.ViewMode = "Monitor";
-
-    [RelayCommand]
-    private void ShowTroubleCodes() => this.ViewMode = "Codes";
-
     // --- Trouble Codes (mirrors the WinForms PcmLogger tab) --------------------------------------
     // The read/clear work lives in the shared PcmLibrary (Vehicle.ReadTroubleCodes / ClearTroubleCodes);
     // this only borrows the bus from the logging loop, calls the backend, and shows the result.
@@ -499,6 +569,7 @@ public partial class MainWindowViewModel : ViewModelBase
         // Trouble-code descriptions sit beside the exe (copied by the csproj), as WinForms/PcmLogger does.
         _codeDefinitions = DiagnosticCodeDefinitions.Load(AppContext.BaseDirectory, _logger);
 
+        this.UpdateDeviceSummary();
         this.BuildFromPackage(DefaultLoggerPackage.Create());
     }
 
@@ -635,6 +706,12 @@ public partial class MainWindowViewModel : ViewModelBase
 
             this.IsConnected = true;
             this.StatusText = $"Connected: {_device.GetDeviceType()}, OSID {_osid}.";
+
+            // Auto start logging if asked and a profile is already open (the Configuration tab option).
+            if (this.AutoStartLogging && _profile != null && !this.IsLogging)
+            {
+                this.Start();
+            }
         }
         catch (Exception exception)
         {
@@ -694,6 +771,12 @@ public partial class MainWindowViewModel : ViewModelBase
 
             this.ProfileName = System.IO.Path.GetFileName(path);
             this.StatusText = $"Loaded profile '{this.ProfileName}' ({this.Readings.Count} parameters).";
+
+            // Auto start logging if asked and already connected (the Configuration tab option).
+            if (this.AutoStartLogging && this.IsConnected && !this.IsLogging)
+            {
+                this.Start();
+            }
         }
         catch (Exception exception)
         {
@@ -750,9 +833,8 @@ public partial class MainWindowViewModel : ViewModelBase
 
         try
         {
-            string directory = Path.Combine(AppContext.BaseDirectory, "Logs");
-            Directory.CreateDirectory(directory);
-            string path = Path.Combine(directory, "PcmLog_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".csv");
+            Directory.CreateDirectory(this.LogFolder);
+            string path = Path.Combine(this.LogFolder, "PcmLog_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".csv");
             await _controller.StartRecordingAsync(path);
         }
         catch (Exception exception)
@@ -832,6 +914,16 @@ public partial class MainWindowViewModel : ViewModelBase
         if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             return desktop.MainWindow?.StorageProvider;
+        }
+
+        return null;
+    }
+
+    private static ILauncher? GetLauncher()
+    {
+        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            return desktop.MainWindow?.Launcher;
         }
 
         return null;
