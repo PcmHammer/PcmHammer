@@ -83,8 +83,14 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty] private bool _showMonitors = true;
     [ObservableProperty] private bool _showPids = true;
 
-    // Zoom (the large zoomed-value display) is not built yet; the checkbox is present for parity.
+    // Zoom shows the parameters flagged Zoom in a large white-on-black readout (the WinForms Zoom view).
     [ObservableProperty] private bool _showZoom;
+
+    /// <summary>Enabled parameters flagged Zoom, for the big Zoom display. Shares the same ReadingRow
+    /// instances as the live-value pane, so they update together.</summary>
+    public ObservableCollection<ReadingRow> ZoomedReadings { get; } = new();
+
+    [ObservableProperty] private bool _hasZoomedReadings;
 
     /// <summary>The library's debug messages, shown on the Debug tab.</summary>
     public ObservableCollection<string> DebugMessages { get; } = new();
@@ -341,7 +347,9 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         // Enabling/disabling a parameter or changing its units reshapes the logged set and the pane.
         if (!_suppressReadingRebuild
-            && (e.PropertyName == nameof(ParameterRow.Enabled) || e.PropertyName == nameof(ParameterRow.SelectedUnit)))
+            && (e.PropertyName == nameof(ParameterRow.Enabled)
+                || e.PropertyName == nameof(ParameterRow.SelectedUnit)
+                || e.PropertyName == nameof(ParameterRow.Zoom)))
         {
             this.RebuildReadings();
         }
@@ -351,6 +359,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private void RebuildReadings()
     {
         this.Readings.Clear();
+        this.ZoomedReadings.Clear();
         _rowsById.Clear();
         foreach (ParameterRow row in this.ParameterRows)
         {
@@ -362,10 +371,18 @@ public partial class MainWindowViewModel : ViewModelBase
             ReadingRow reading = new(row.Id, row.Name, row.SelectedUnit);
             this.Readings.Add(reading);
             _rowsById[row.Id] = reading;
+
+            // Same instance drives the big Zoom readout, so it updates with the pane.
+            if (row.Zoom)
+            {
+                this.ZoomedReadings.Add(reading);
+            }
         }
 
         // Query time is always the last row, as the WinForms logger shows.
         this.Readings.Add(_queryTimeRow);
+
+        this.HasZoomedReadings = this.ZoomedReadings.Count > 0;
     }
 
     /// <summary>The log columns for the enabled parameters - what Start logs.</summary>
