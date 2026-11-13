@@ -20,6 +20,8 @@
             <Button Content="Stop" Command="{Binding StopCommand}"/>
             <Button Content="{Binding RecordButtonText}" Command="{Binding ToggleRecordingCommand}"
                     IsEnabled="{Binding IsLogging}" MinWidth="110"/>
+            <ToggleButton IsChecked="{Binding ShowPids}" Margin="12,0,0,0"
+                          ToolTip.Tip="Show or hide the live-value (PIDs) pane">PIDs</ToggleButton>
             <TextBlock Text="{Binding ProfileName}" VerticalAlignment="Center" Margin="12,0,0,0"
                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
         </StackPanel>
