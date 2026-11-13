@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -207,7 +208,9 @@ public sealed class MonitorChart : Control
             return;
         }
 
-        IReadOnlyList<MonitorSeries> all = monitor.Series;
+        // Only visible traces get an axis column, so hiding a trace frees its space (otherwise a log
+        // with many columns stacks a cramped wall of axes). Hidden traces stay in the Traces menu.
+        IReadOnlyList<MonitorSeries> all = monitor.Series.Where(s => s.Visible).ToList();
         int n = all.Count;
 
         bool dark = this.ActualThemeVariant == ThemeVariant.Dark;

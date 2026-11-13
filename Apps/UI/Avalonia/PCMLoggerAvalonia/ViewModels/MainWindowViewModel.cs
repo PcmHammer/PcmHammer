@@ -356,6 +356,10 @@ public partial class MainWindowViewModel : ViewModelBase
             (double low, double high) = ColumnRange(data, i);
             MonitorSeries series = tab.AddSeries(data.Columns[i].Name, data.Columns[i].Units, low, high);
 
+            // Start with only the first few traces shown so a wide log isn't a wall of axes; the rest
+            // are a tick away in the Traces menu.
+            series.Visible = i < 6;
+
             List<(DateTime, double)> points = new(data.Samples.Count);
             for (int r = 0; r < data.Samples.Count; r++)
             {
