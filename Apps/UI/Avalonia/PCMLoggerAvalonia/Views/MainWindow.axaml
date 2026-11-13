@@ -249,7 +249,7 @@
                             BorderBrush="{DynamicResource SystemControlBackgroundBaseMediumLowBrush}"
                             BorderThickness="1">
                         <ctrl:MonitorChart Monitor="{Binding SelectedMonitor}" Paused="{Binding IsMonitorPaused}"
-                                           PlaybackNow="{Binding PlaybackNow}"/>
+                                           PlaybackNow="{Binding PlaybackNow}" Loaded="MonitorChart_Loaded"/>
                     </Border>
 
                     <!-- Scrub bar: move the play-head through a loaded log -->

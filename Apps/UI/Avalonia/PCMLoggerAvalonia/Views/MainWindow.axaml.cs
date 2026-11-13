@@ -56,6 +56,22 @@ public partial class MainWindow : Window
         this.ScrollDebugToEnd();
     }
 
+    // Wire the strip chart's drag-zoom / double-click-fit (playback) to the view model.
+    private MonitorChart? _monitorChart;
+    private void MonitorChart_Loaded(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not MonitorChart chart || ReferenceEquals(_monitorChart, chart))
+        {
+            return;
+        }
+
+        _monitorChart = chart;
+        chart.ZoomRequested += (rightEdge, window) =>
+            (this.DataContext as MainWindowViewModel)?.ApplyPlaybackZoom(rightEdge, window);
+        chart.ResetZoomRequested += () =>
+            (this.DataContext as MainWindowViewModel)?.ResetPlaybackZoom();
+    }
+
     private void DebugMessages_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         ScrollViewer? scroller = _debugScroller;

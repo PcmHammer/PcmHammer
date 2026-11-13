@@ -35,11 +35,28 @@ public sealed class MonitorChart : Control
     private DateTime? _frozenNow;   // the time reference while paused, so the window stops scrolling
     private double? _cursorX;        // hovered x inside the plot, for the read-out cursor
     private Rect _plot;              // last plot rectangle, for hit-testing the cursor
+    private double? _zoomStartX;     // rubber-band zoom (playback): drag start / current x
+    private double? _zoomCurrentX;
+
+    /// <summary>Playback drag-zoom: the selected region's right-edge time and width in seconds.</summary>
+    public event Action<DateTime, double>? ZoomRequested;
+
+    /// <summary>Playback double-click: fit the whole log back in view.</summary>
+    public event Action? ResetZoomRequested;
 
     public MonitorChart()
     {
         _timer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(100) };
         _timer.Tick += (_, _) => this.InvalidateVisual();
+
+        // Double-click during playback fits the whole log.
+        this.DoubleTapped += (_, _) =>
+        {
+            if (this.PlaybackNow != null)
+            {
+                this.ResetZoomRequested?.Invoke();
+            }
+        };
     }
 
     // A menu of every trace with a tick beside the shown ones (the WinForms way). A code-drawn control
@@ -138,6 +155,15 @@ public sealed class MonitorChart : Control
     {
         base.OnPointerMoved(e);
         Point p = e.GetPosition(this);
+
+        if (_zoomStartX != null)
+        {
+            _zoomCurrentX = p.X;
+            _cursorX = null;
+            this.InvalidateVisual();
+            return;
+        }
+
         _cursorX = (p.X >= _plot.Left && p.X <= _plot.Right && p.Y >= _plot.Top && p.Y <= _plot.Bottom)
             ? p.X
             : (double?)null;
@@ -176,8 +202,19 @@ public sealed class MonitorChart : Control
             return;
         }
 
-        // Left-click an axis column to toggle its trace (the Traces button is the easier target).
         Point p = e.GetPosition(this);
+
+        // Playback: a left-drag inside the plot rubber-bands a region to zoom into.
+        if (this.PlaybackNow != null && _plot.Contains(p))
+        {
+            _zoomStartX = p.X;
+            _zoomCurrentX = p.X;
+            e.Pointer.Capture(this);
+            e.Handled = true;
+            return;
+        }
+
+        // Left-click an axis column to toggle its trace (the Traces button is the easier target).
         foreach ((Rect bounds, MonitorSeries series) in _axisHits)
         {
             if (bounds.Contains(p))
@@ -187,6 +224,50 @@ public sealed class MonitorChart : Control
                 break;
             }
         }
+    }
+
+    protected override void OnPointerReleased(PointerReleasedEventArgs e)
+    {
+        base.OnPointerReleased(e);
+
+        if (_zoomStartX == null || _zoomCurrentX == null)
+        {
+            return;
+        }
+
+        double x1 = _zoomStartX.Value;
+        double x2 = _zoomCurrentX.Value;
+        _zoomStartX = null;
+        _zoomCurrentX = null;
+        e.Pointer.Capture(null);
+        this.InvalidateVisual();
+
+        MonitorTab? monitor = this.Monitor;
+        if (monitor == null || _plot.Width < 1 || Math.Abs(x2 - x1) < 5)
+        {
+            return;   // a click, or nothing to zoom
+        }
+
+        double window = monitor.WindowSeconds;
+        DateTime now = this.PlaybackNow ?? _frozenNow ?? DateTime.UtcNow;
+
+        DateTime TimeAtX(double x)
+        {
+            double clamped = Math.Max(_plot.Left, Math.Min(_plot.Right, x));
+            double age = (_plot.Right - clamped) / _plot.Width * window;
+            return now - TimeSpan.FromSeconds(age);
+        }
+
+        DateTime ta = TimeAtX(x1);
+        DateTime tb = TimeAtX(x2);
+        DateTime rightEdge = ta > tb ? ta : tb;
+        double newWindow = Math.Abs((ta - tb).TotalSeconds);
+        if (newWindow < 0.5)
+        {
+            newWindow = 0.5;
+        }
+
+        this.ZoomRequested?.Invoke(rightEdge, newWindow);
     }
 
     public override void Render(DrawingContext context)
@@ -390,6 +471,19 @@ public sealed class MonitorChart : Control
 
                 double ty = Math.Max(plot.Top, Math.Min(plot.Bottom - 12, y - 14));
                 context.DrawText(vt, new Point(tx, ty));
+            }
+        }
+
+        // Rubber-band zoom selection (playback drag).
+        if (_zoomStartX != null && _zoomCurrentX != null)
+        {
+            double xa = Math.Max(plot.Left, Math.Min(_zoomStartX.Value, _zoomCurrentX.Value));
+            double xb = Math.Min(plot.Right, Math.Max(_zoomStartX.Value, _zoomCurrentX.Value));
+            if (xb > xa)
+            {
+                Rect selection = new(xa, plot.Top, xb - xa, plot.Height);
+                context.FillRectangle(new SolidColorBrush(Color.FromArgb(0x33, 0x66, 0x99, 0xFF)), selection);
+                context.DrawRectangle(null, new Pen(new SolidColorBrush(Color.FromArgb(0x99, 0x66, 0x99, 0xFF)), 1), selection);
             }
         }
     }

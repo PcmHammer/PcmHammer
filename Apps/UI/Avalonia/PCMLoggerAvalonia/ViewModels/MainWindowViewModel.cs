@@ -483,6 +483,32 @@ public partial class MainWindowViewModel : ViewModelBase
         return (min - pad, max + pad);
     }
 
+    /// <summary>Zoom the strip chart into a dragged region (playback): narrow the window to the
+    /// selection and move the play-head to its right edge.</summary>
+    public void ApplyPlaybackZoom(DateTime rightEdge, double windowSeconds)
+    {
+        if (!this.IsPlayback || this.SelectedMonitor == null)
+        {
+            return;
+        }
+
+        this.SelectedMonitor.WindowSeconds = Math.Max(0.5, Math.Min(300, windowSeconds));
+        double seconds = (rightEdge - _playbackStart).TotalSeconds;
+        this.PlaybackSeconds = Math.Max(0, Math.Min(this.PlaybackMaxSeconds, seconds));
+    }
+
+    /// <summary>Fit the whole loaded log back in view (playback double-click).</summary>
+    public void ResetPlaybackZoom()
+    {
+        if (!this.IsPlayback || this.SelectedMonitor == null)
+        {
+            return;
+        }
+
+        this.SelectedMonitor.WindowSeconds = Math.Max(2, this.PlaybackMaxSeconds);
+        this.PlaybackSeconds = this.PlaybackMaxSeconds;
+    }
+
     /// <summary>Leave playback: drop the Playback tab and return the chart to live.</summary>
     private void ExitPlayback()
     {
