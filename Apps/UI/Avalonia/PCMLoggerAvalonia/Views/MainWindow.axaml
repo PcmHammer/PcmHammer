@@ -217,6 +217,8 @@
                 <Grid RowDefinitions="Auto,*">
                     <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" Margin="0,0,0,6">
                         <ComboBox ItemsSource="{Binding Monitors}" SelectedItem="{Binding SelectedMonitor}" MinWidth="140"/>
+                        <Button Content="Clear Log" Command="{Binding ClearLogCommand}"/>
+                        <Button Content="Load Log…" Command="{Binding LoadLogCommand}"/>
                         <Button Content="{Binding PauseButtonText}" Command="{Binding ToggleMonitorPauseCommand}" MinWidth="78"/>
                         <Button Content="Traces ▾">
                             <Button.Flyout>

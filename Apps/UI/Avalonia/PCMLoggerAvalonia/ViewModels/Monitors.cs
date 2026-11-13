@@ -81,6 +81,40 @@ public sealed partial class MonitorSeries : ObservableObject
             _points.RemoveRange(0, drop);
         }
     }
+
+    /// <summary>Discard all captured samples (Clear Log restarts the strip chart).</summary>
+    public void Clear()
+    {
+        _points.Clear();
+        this.ValueText = "--";
+    }
+
+    /// <summary>Replace the samples with a loaded set (Load Log playback), keeping the last buffer.</summary>
+    public void SetPoints(IEnumerable<(DateTime T, double V)> points)
+    {
+        _points.Clear();
+        _points.AddRange(points);
+        if (_points.Count == 0)
+        {
+            this.ValueText = "--";
+            return;
+        }
+
+        this.ValueText = _points[_points.Count - 1].V.ToString("0.##", CultureInfo.CurrentCulture);
+
+        DateTime last = _points[_points.Count - 1].T;
+        DateTime cutoff = last - TimeSpan.FromSeconds(BufferSeconds);
+        int drop = 0;
+        while (drop < _points.Count && _points[drop].T < cutoff)
+        {
+            drop++;
+        }
+
+        if (drop > 0)
+        {
+            _points.RemoveRange(0, drop);
+        }
+    }
 }
 
 /// <summary>One monitor (e.g. "Engine", "Fuelling"): a titled set of traces over a time window.</summary>
@@ -115,6 +149,15 @@ public sealed class MonitorTab
         {
             this.Series.Add(new MonitorSeries(seriesLayout, Palette[index % Palette.Length]));
             index++;
+        }
+    }
+
+    /// <summary>Clear every trace (Clear Log).</summary>
+    public void Clear()
+    {
+        foreach (MonitorSeries series in this.Series)
+        {
+            series.Clear();
         }
     }
 

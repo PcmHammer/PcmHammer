@@ -223,6 +223,116 @@ public partial class MainWindowViewModel : ViewModelBase
     [RelayCommand]
     private void ToggleMonitorPause() => this.IsMonitorPaused = !this.IsMonitorPaused;
 
+    /// <summary>Clear the strip chart's captured history and resume live (Clear Log).</summary>
+    [RelayCommand]
+    private void ClearLog()
+    {
+        foreach (MonitorTab tab in this.Monitors)
+        {
+            tab.Clear();
+        }
+
+        this.IsMonitorPaused = false;
+        this.StatusText = "Strip chart cleared.";
+    }
+
+    /// <summary>Load a saved CSV log and show it on the strip chart, paused (Load Log). The parsing is
+    /// the shared <see cref="LogFileReader"/>; the end of the log is aligned to now so it sits in the
+    /// window, and widening the window reveals more.</summary>
+    [RelayCommand]
+    private async Task LoadLog()
+    {
+        if (this.IsLogging)
+        {
+            this.StatusText = "Stop logging before loading a saved log.";
+            return;
+        }
+
+        IStorageProvider? storage = GetStorageProvider();
+        if (storage == null)
+        {
+            return;
+        }
+
+        IReadOnlyList<IStorageFile> files = await storage.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = "Open a saved log",
+            AllowMultiple = false,
+            FileTypeFilter = new[]
+            {
+                new FilePickerFileType("Log files (*.csv)") { Patterns = new[] { "*.csv" } },
+                new FilePickerFileType("All files") { Patterns = new[] { "*" } },
+            },
+        });
+
+        if (files.Count == 0)
+        {
+            return;
+        }
+
+        string path = files[0].Path.LocalPath;
+        try
+        {
+            LoggedData data;
+            using (StreamReader reader = new StreamReader(path))
+            {
+                data = LogFileReader.Read(reader);
+            }
+
+            if (data.Samples.Count == 0)
+            {
+                this.StatusText = "That log has no rows.";
+                return;
+            }
+
+            this.LoadLogIntoMonitors(data);
+            this.IsMonitorPaused = true;
+            string skipped = data.MalformedRows > 0 ? $", {data.MalformedRows} unreadable rows skipped" : string.Empty;
+            this.StatusText =
+                $"Loaded '{Path.GetFileName(path)}': {data.Samples.Count} frames, {data.Columns.Count} columns{skipped}.";
+        }
+        catch (Exception exception)
+        {
+            this.StatusText = "Unable to open that log: " + exception.Message;
+        }
+    }
+
+    private void LoadLogIntoMonitors(LoggedData data)
+    {
+        // The heading's display name matches a monitor series' title.
+        Dictionary<string, int> columnIndex = new(StringComparer.OrdinalIgnoreCase);
+        for (int i = 0; i < data.Columns.Count; i++)
+        {
+            columnIndex[data.Columns[i].Name] = i;
+        }
+
+        // Shift the loaded timestamps so the last sample sits at ~now; the chart (paused) then shows the
+        // end of the log, and widening the window reveals more.
+        DateTime reference = DateTime.UtcNow;
+        DateTime logEnd = data.Timestamps[data.Timestamps.Count - 1];
+
+        foreach (MonitorTab tab in this.Monitors)
+        {
+            foreach (MonitorSeries series in tab.Series)
+            {
+                if (!columnIndex.TryGetValue(series.Title, out int idx))
+                {
+                    series.Clear();
+                    continue;
+                }
+
+                List<(DateTime, double)> points = new(data.Samples.Count);
+                for (int r = 0; r < data.Samples.Count; r++)
+                {
+                    DateTime t = reference - (logEnd - data.Timestamps[r]);
+                    points.Add((t, data.Samples[r][idx]));
+                }
+
+                series.SetPoints(points);
+            }
+        }
+    }
+
     [RelayCommand]
     private void NarrowMonitorWindow()
     {
