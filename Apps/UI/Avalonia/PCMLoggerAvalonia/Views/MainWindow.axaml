@@ -15,8 +15,6 @@
         <!-- Session toolbar (always visible, like the WinForms top strip) -->
         <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="6">
             <Button Content="{Binding ConnectButtonText}" Command="{Binding ToggleConnectionCommand}" MinWidth="90"/>
-            <Button Content="Open Profile" Command="{Binding OpenProfileCommand}"/>
-            <Button Content="Save Profile" Command="{Binding SaveProfileCommand}"/>
             <Button Content="Start" Command="{Binding StartCommand}"/>
             <Button Content="Stop" Command="{Binding StopCommand}"/>
             <Button Content="{Binding RecordButtonText}" Command="{Binding ToggleRecordingCommand}"
@@ -102,7 +100,11 @@
             <!-- Parameters: every supported PID; tick Enable to log it (the WinForms Parameters tab) -->
             <TabItem Header="Parameters">
                 <Grid RowDefinitions="Auto,Auto,*">
-                    <TextBox Grid.Row="0" Watermark="Search…" Text="{Binding ParameterFilter}" Margin="0,0,0,6"/>
+                    <Grid Grid.Row="0" ColumnDefinitions="Auto,Auto,*" Margin="0,0,0,6">
+                        <Button Grid.Column="0" Content="Open Profile" Command="{Binding OpenProfileCommand}" Margin="0,0,6,0"/>
+                        <Button Grid.Column="1" Content="Save Profile" Command="{Binding SaveProfileCommand}" Margin="0,0,10,0"/>
+                        <TextBox Grid.Column="2" Watermark="Search…" Text="{Binding ParameterFilter}"/>
+                    </Grid>
                     <Grid Grid.Row="1" ColumnDefinitions="60,60,*,150" Margin="2,2,2,4">
                         <TextBlock Grid.Column="0" Text="Enable" FontWeight="SemiBold" HorizontalAlignment="Center"/>
                         <TextBlock Grid.Column="1" Text="Zoom" FontWeight="SemiBold" HorizontalAlignment="Center"/>
