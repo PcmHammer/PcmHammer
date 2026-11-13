@@ -75,11 +75,19 @@ public partial class MainWindowViewModel : ViewModelBase
 
     // --- Configuration tab (mirrors the WinForms PcmLogger Configuration tab) --------------------
 
-    // The "View" checkboxes. PIDs toggles the always-visible live-value pane on the right; the others
-    // show/hide their tabs. Configuration, Parameters and Trouble Codes are always available.
-    [ObservableProperty] private bool _showPids = true;
+    // The "View" checkboxes (same row/order as WinForms: Debug, Dashboard, Monitors, PIDs, Zoom).
+    // PIDs toggles the always-visible live-value pane on the right; the others show/hide their tabs.
+    // Configuration, Parameters and Trouble Codes are always available.
+    [ObservableProperty] private bool _showDebug = true;
     [ObservableProperty] private bool _showDashboard = true;
     [ObservableProperty] private bool _showMonitors = true;
+    [ObservableProperty] private bool _showPids = true;
+
+    // Zoom (the large zoomed-value display) is not built yet; the checkbox is present for parity.
+    [ObservableProperty] private bool _showZoom;
+
+    /// <summary>The library's debug messages, shown on the Debug tab.</summary>
+    public ObservableCollection<string> DebugMessages { get; } = new();
 
     /// <summary>Every supported PID as a selectable row (the Parameters tab). Source of truth for what
     /// is logged - the enabled rows build the log columns.</summary>
@@ -721,7 +729,7 @@ public partial class MainWindowViewModel : ViewModelBase
         // Library messages can arrive on background threads; marshal the status update to the UI.
         _logger = new StatusLogger(
             onUserMessage: message => Dispatcher.UIThread.Post(() => this.StatusText = message),
-            onDebugMessage: _ => { });
+            onDebugMessage: message => Dispatcher.UIThread.Post(() => this.AppendDebug(message)));
 
         // Trouble-code descriptions sit beside the exe (copied by the csproj), as WinForms/PcmLogger does.
         _codeDefinitions = DiagnosticCodeDefinitions.Load(AppContext.BaseDirectory, _logger);
@@ -1069,6 +1077,17 @@ public partial class MainWindowViewModel : ViewModelBase
         this.IsLogging = false;
         this.IsRecording = false;
         this.StatusText = this.IsConnected ? "Stopped." : "Not connected.";
+    }
+
+    /// <summary>Append a debug line to the Debug tab, keeping the list bounded.</summary>
+    private void AppendDebug(string message)
+    {
+        this.DebugMessages.Add(message);
+        const int max = 2000;
+        while (this.DebugMessages.Count > max)
+        {
+            this.DebugMessages.RemoveAt(0);
+        }
     }
 
     private void OnRowAvailable(IReadOnlyList<LogRowElement> row)

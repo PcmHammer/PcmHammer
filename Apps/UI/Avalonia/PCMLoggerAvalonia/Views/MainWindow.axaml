@@ -20,8 +20,6 @@
             <Button Content="Stop" Command="{Binding StopCommand}"/>
             <Button Content="{Binding RecordButtonText}" Command="{Binding ToggleRecordingCommand}"
                     IsEnabled="{Binding IsLogging}" MinWidth="110"/>
-            <ToggleButton IsChecked="{Binding ShowPids}" Margin="12,0,0,0"
-                          ToolTip.Tip="Show or hide the live-value (PIDs) pane">PIDs</ToggleButton>
             <TextBlock Text="{Binding ProfileName}" VerticalAlignment="Center" Margin="12,0,0,0"
                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
         </StackPanel>
@@ -72,9 +70,12 @@
                             <StackPanel Spacing="8">
                                 <TextBlock Text="View" FontWeight="SemiBold"/>
                                 <WrapPanel>
-                                    <CheckBox Content="PIDs (live pane)" IsChecked="{Binding ShowPids}" Margin="0,0,18,0"/>
+                                    <CheckBox Content="Debug" IsChecked="{Binding ShowDebug}" Margin="0,0,18,0"/>
                                     <CheckBox Content="Dashboard" IsChecked="{Binding ShowDashboard}" Margin="0,0,18,0"/>
                                     <CheckBox Content="Monitors" IsChecked="{Binding ShowMonitors}" Margin="0,0,18,0"/>
+                                    <CheckBox Content="PIDs" IsChecked="{Binding ShowPids}" Margin="0,0,18,0"/>
+                                    <CheckBox Content="Zoom" IsChecked="{Binding ShowZoom}" Margin="0,0,18,0"
+                                              ToolTip.Tip="Zoomed large-value display (coming soon)"/>
                                 </WrapPanel>
                                 <StackPanel Orientation="Horizontal" Spacing="8">
                                     <TextBlock Text="Theme" VerticalAlignment="Center"/>
@@ -129,6 +130,24 @@
                         </ScrollViewer>
                     </Border>
                 </Grid>
+            </TabItem>
+
+            <!-- Debug: the library's debug messages (the WinForms Debug tab) -->
+            <TabItem Header="Debug" IsVisible="{Binding ShowDebug}">
+                <Border BorderBrush="{DynamicResource SystemControlBackgroundBaseMediumLowBrush}"
+                        BorderThickness="1">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding DebugMessages}" Padding="4">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="x:String">
+                                    <TextBlock Text="{Binding}" TextWrapping="Wrap"
+                                               FontFamily="Consolas, Menlo, DejaVu Sans Mono, Liberation Mono, monospace"
+                                               FontSize="12"/>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Border>
             </TabItem>
 
             <!-- Dashboard: gauges laid out at the shared layout's proportional positions -->
