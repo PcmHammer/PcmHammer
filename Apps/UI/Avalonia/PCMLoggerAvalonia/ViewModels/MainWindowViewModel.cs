@@ -65,7 +65,11 @@ public partial class MainWindowViewModel : ViewModelBase
     public string ConnectButtonText => this.IsConnected ? "Disconnect" : "Connect";
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(StartStopButtonText))]
     private bool _isLogging;
+
+    /// <summary>The single Start/Stop Logging button's caption.</summary>
+    public string StartStopButtonText => this.IsLogging ? "Stop Logging" : "Start Logging";
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(RecordButtonText))]
@@ -1097,6 +1101,20 @@ public partial class MainWindowViewModel : ViewModelBase
         catch (Exception exception)
         {
             this.StatusText = "Save profile failed: " + exception.Message;
+        }
+    }
+
+    /// <summary>The Start/Stop Logging button: start when idle, stop when logging.</summary>
+    [RelayCommand]
+    private async Task ToggleLogging()
+    {
+        if (this.IsLogging)
+        {
+            await this.Stop();
+        }
+        else
+        {
+            this.Start();
         }
     }
 
