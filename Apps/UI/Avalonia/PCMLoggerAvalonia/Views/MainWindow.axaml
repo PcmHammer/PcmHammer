@@ -16,6 +16,7 @@
         <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="6">
             <Button Content="{Binding ConnectButtonText}" Command="{Binding ToggleConnectionCommand}" MinWidth="90"/>
             <Button Content="Open Profile" Command="{Binding OpenProfileCommand}"/>
+            <Button Content="Save Profile" Command="{Binding SaveProfileCommand}"/>
             <Button Content="Start" Command="{Binding StartCommand}"/>
             <Button Content="Stop" Command="{Binding StopCommand}"/>
             <Button Content="{Binding RecordButtonText}" Command="{Binding ToggleRecordingCommand}"

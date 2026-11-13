@@ -1012,6 +1012,60 @@ public partial class MainWindowViewModel : ViewModelBase
         }
     }
 
+    /// <summary>Save the current Parameters-tab selection (enabled rows, with units and zoom) as a
+    /// .LogProfile, using the shared <see cref="LogProfileWriter"/>.</summary>
+    [RelayCommand]
+    private async Task SaveProfile()
+    {
+        List<LogColumn> columns = this.BuildSelectedColumns();
+        if (columns.Count == 0)
+        {
+            this.StatusText = "Enable parameters on the Parameters tab before saving a profile.";
+            return;
+        }
+
+        IStorageProvider? storage = GetStorageProvider();
+        if (storage == null)
+        {
+            return;
+        }
+
+        IStorageFile? file = await storage.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = "Save log profile",
+            DefaultExtension = "LogProfile",
+            SuggestedFileName = "Custom.LogProfile",
+            FileTypeChoices = new[]
+            {
+                new FilePickerFileType("Log profiles (*.LogProfile)") { Patterns = new[] { "*.LogProfile" } },
+            },
+        });
+
+        if (file == null)
+        {
+            return;
+        }
+
+        string path = file.Path.LocalPath;
+        try
+        {
+            LogProfile profile = new();
+            foreach (LogColumn column in columns)
+            {
+                profile.AddColumn(column);
+            }
+
+            LogProfileWriter.Write(profile, path);
+            _profile = profile;
+            this.ProfileName = Path.GetFileName(path);
+            this.StatusText = $"Saved profile '{this.ProfileName}' ({columns.Count} parameters).";
+        }
+        catch (Exception exception)
+        {
+            this.StatusText = "Save profile failed: " + exception.Message;
+        }
+    }
+
     [RelayCommand]
     private void Start()
     {
