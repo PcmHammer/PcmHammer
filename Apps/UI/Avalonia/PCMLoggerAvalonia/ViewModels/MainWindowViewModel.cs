@@ -70,11 +70,28 @@ public partial class MainWindowViewModel : ViewModelBase
 
     // --- Configuration tab (mirrors the WinForms PcmLogger Configuration tab) --------------------
 
-    // Which optional tabs are shown (the "View" checkboxes). Configuration and Trouble Codes are
-    // always available; these toggle the rest.
-    [ObservableProperty] private bool _showGrid = true;
+    // The "View" checkboxes. PIDs toggles the always-visible live-value pane on the right; the others
+    // show/hide their tabs. Configuration, Parameters and Trouble Codes are always available.
+    [ObservableProperty] private bool _showPids = true;
     [ObservableProperty] private bool _showDashboard = true;
     [ObservableProperty] private bool _showMonitors = true;
+
+    /// <summary>Every supported PID as a selectable row (the Parameters tab). Source of truth for what
+    /// is logged - the enabled rows build the log columns.</summary>
+    public ObservableCollection<ParameterRow> ParameterRows { get; } = new();
+
+    /// <summary>Search text for the Parameters tab; rows whose name doesn't contain it are hidden.</summary>
+    [ObservableProperty] private string _parameterFilter = string.Empty;
+
+    partial void OnParameterFilterChanged(string value)
+    {
+        string needle = (value ?? string.Empty).Trim();
+        foreach (ParameterRow row in this.ParameterRows)
+        {
+            row.MatchesFilter = needle.Length == 0
+                || row.Name.IndexOf(needle, StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+    }
 
     // Where recordings are written (the "Paths" section). Defaults to the user's Documents folder,
     // as the WinForms logger does.
@@ -287,6 +304,104 @@ public partial class MainWindowViewModel : ViewModelBase
 
             list.Add(tile);
         }
+    }
+
+    // While true, parameter-row changes don't rebuild the readings pane (used for bulk updates).
+    private bool _suppressReadingRebuild;
+
+    /// <summary>Build the Parameters-tab rows from the supported PIDs and watch them for changes.</summary>
+    private void PopulateParameterRows(IEnumerable<Parameter> parameters)
+    {
+        this.ParameterRows.Clear();
+        foreach (Parameter parameter in parameters)
+        {
+            ParameterRow row = new(parameter);
+            row.PropertyChanged += this.OnParameterRowChanged;
+            this.ParameterRows.Add(row);
+        }
+
+        this.OnParameterFilterChanged(this.ParameterFilter);
+        this.RebuildReadings();
+    }
+
+    private void OnParameterRowChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        // Enabling/disabling a parameter or changing its units reshapes the logged set and the pane.
+        if (!_suppressReadingRebuild
+            && (e.PropertyName == nameof(ParameterRow.Enabled) || e.PropertyName == nameof(ParameterRow.SelectedUnit)))
+        {
+            this.RebuildReadings();
+        }
+    }
+
+    /// <summary>Rebuild the right-hand live-value pane from the currently enabled parameters.</summary>
+    private void RebuildReadings()
+    {
+        this.Readings.Clear();
+        _rowsById.Clear();
+        foreach (ParameterRow row in this.ParameterRows)
+        {
+            if (!row.Enabled)
+            {
+                continue;
+            }
+
+            ReadingRow reading = new(row.Id, row.Name, row.SelectedUnit);
+            this.Readings.Add(reading);
+            _rowsById[row.Id] = reading;
+        }
+    }
+
+    /// <summary>The log columns for the enabled parameters - what Start logs.</summary>
+    private List<LogColumn> BuildSelectedColumns()
+    {
+        List<LogColumn> columns = new();
+        foreach (ParameterRow row in this.ParameterRows)
+        {
+            if (!row.Enabled)
+            {
+                continue;
+            }
+
+            LogColumn? column = row.ToColumn();
+            if (column != null)
+            {
+                columns.Add(column);
+            }
+        }
+
+        return columns;
+    }
+
+    /// <summary>Enable the Parameters-tab rows named by a loaded profile, with its units and zoom.</summary>
+    private void ApplyProfileToParameterRows(LogProfile profile)
+    {
+        _suppressReadingRebuild = true;
+        try
+        {
+            Dictionary<string, ParameterRow> byId = new();
+            foreach (ParameterRow row in this.ParameterRows)
+            {
+                row.Enabled = false;
+                byId[row.Id] = row;
+            }
+
+            foreach (LogColumn column in profile.Columns)
+            {
+                if (byId.TryGetValue(column.Parameter.Id, out ParameterRow? row))
+                {
+                    row.SelectedUnit = column.Conversion.Units;
+                    row.Zoom = column.Zoom;
+                    row.Enabled = true;
+                }
+            }
+        }
+        finally
+        {
+            _suppressReadingRebuild = false;
+        }
+
+        this.RebuildReadings();
     }
 
     [RelayCommand]
@@ -665,7 +780,11 @@ public partial class MainWindowViewModel : ViewModelBase
         _device = null;
         _vehicle = null;
         _database = null;
+        _profile = null;
         this.AvailableParameters.Clear();
+        this.ParameterRows.Clear();
+        this.Readings.Clear();
+        _rowsById.Clear();
         this.IsConnected = false;
         this.StatusText = "Disconnected.";
     }
@@ -745,18 +864,22 @@ public partial class MainWindowViewModel : ViewModelBase
             _database = new ParameterDatabase(AppContext.BaseDirectory);
             _database.LoadDatabase();
 
+            List<Parameter> supported = _database.ListParametersBySupportedOs(_osid).OrderBy(p => p.Name).ToList();
+
             this.AvailableParameters.Clear();
-            foreach (Parameter parameter in _database.ListParametersBySupportedOs(_osid).OrderBy(p => p.Name))
+            foreach (Parameter parameter in supported)
             {
                 string units = parameter.Conversions.FirstOrDefault()?.Units ?? string.Empty;
                 this.AvailableParameters.Add(new ParameterOption(parameter.Id, parameter.Name, units));
             }
 
+            this.PopulateParameterRows(supported);
+
             this.IsConnected = true;
             this.StatusText = $"Connected: {_device.GetDeviceType()}, OSID {_osid}.";
 
-            // Auto start logging if asked and a profile is already open (the Configuration tab option).
-            if (this.AutoStartLogging && _profile != null && !this.IsLogging)
+            // Auto start logging if asked and parameters are already selected (the Configuration option).
+            if (this.AutoStartLogging && !this.IsLogging && this.BuildSelectedColumns().Count > 0)
             {
                 this.Start();
             }
@@ -805,17 +928,9 @@ public partial class MainWindowViewModel : ViewModelBase
             LogProfileReader reader = new(_database, _osid, _logger);
             _profile = reader.Read(path);
 
-            // The grid follows the profile (what is actually polled); the gauge dashboard is the shared
-            // layout built once in the constructor and fed by parameter id.
-            this.Readings.Clear();
-            _rowsById.Clear();
-            foreach (LogColumn column in _profile.Columns)
-            {
-                string id = column.Parameter.Id;
-                ReadingRow row = new(id, column.Parameter.Name, column.Conversion.Units);
-                this.Readings.Add(row);
-                _rowsById[id] = row;
-            }
+            // Apply the profile to the Parameters tab: enable the matching rows, set their units and
+            // zoom. The rows are the source of truth, so the live-value pane and Start follow from them.
+            this.ApplyProfileToParameterRows(_profile);
 
             this.ProfileName = System.IO.Path.GetFileName(path);
             this.StatusText = $"Loaded profile '{this.ProfileName}' ({this.Readings.Count} parameters).";
@@ -835,9 +950,16 @@ public partial class MainWindowViewModel : ViewModelBase
     [RelayCommand]
     private void Start()
     {
-        if (_vehicle == null || _profile == null || this.IsLogging)
+        if (_vehicle == null || this.IsLogging)
         {
-            this.StatusText = "Connect and open a profile first.";
+            this.StatusText = "Connect first.";
+            return;
+        }
+
+        List<LogColumn> columns = this.BuildSelectedColumns();
+        if (columns.Count == 0)
+        {
+            this.StatusText = "Enable parameters on the Parameters tab (or open a profile) before starting.";
             return;
         }
 
@@ -859,7 +981,7 @@ public partial class MainWindowViewModel : ViewModelBase
                 this.StatusText = $"Recording stopped - {rows} rows saved.";
             });
 
-        _controller.Start(_profile.Columns.ToList());
+        _controller.Start(columns);
         this.IsLogging = true;
         this.StatusText = "Logging...";
     }

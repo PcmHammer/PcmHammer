@@ -7,7 +7,7 @@
         mc:Ignorable="d"
         x:Class="PCMLoggerAvalonia.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
-        Width="820" Height="600"
+        Width="1040" Height="620"
         Title="PCM Logger">
 
     <Grid RowDefinitions="Auto,*,Auto" Margin="8">
@@ -24,8 +24,11 @@
                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
         </StackPanel>
 
+        <!-- Content: the tab bar on the left, the always-visible live-value pane on the right -->
+        <Grid Grid.Row="1" Margin="0,8,0,0" ColumnDefinitions="*,Auto">
+
         <!-- The WinForms-style tab bar: Configuration first, then the views (shown per the View toggles) -->
-        <TabControl Grid.Row="1" Margin="0,8,0,0">
+        <TabControl Grid.Column="0">
 
             <!-- Configuration: devices, paths, which views to show, theme, options -->
             <TabItem Header="Configuration">
@@ -67,7 +70,7 @@
                             <StackPanel Spacing="8">
                                 <TextBlock Text="View" FontWeight="SemiBold"/>
                                 <WrapPanel>
-                                    <CheckBox Content="Grid (PIDs)" IsChecked="{Binding ShowGrid}" Margin="0,0,18,0"/>
+                                    <CheckBox Content="PIDs (live pane)" IsChecked="{Binding ShowPids}" Margin="0,0,18,0"/>
                                     <CheckBox Content="Dashboard" IsChecked="{Binding ShowDashboard}" Margin="0,0,18,0"/>
                                     <CheckBox Content="Monitors" IsChecked="{Binding ShowMonitors}" Margin="0,0,18,0"/>
                                 </WrapPanel>
@@ -92,29 +95,31 @@
                 </ScrollViewer>
             </TabItem>
 
-            <!-- Grid (live value list) -->
-            <TabItem Header="Grid" IsVisible="{Binding ShowGrid}">
-                <Grid RowDefinitions="Auto,*">
-                    <Grid Grid.Row="0" ColumnDefinitions="2*,1.2*,1*" Margin="2,2,2,4">
-                        <TextBlock Grid.Column="0" Text="Parameter" FontWeight="SemiBold"/>
-                        <TextBlock Grid.Column="1" Text="Value" FontWeight="SemiBold"
-                                   HorizontalAlignment="Right" Margin="0,0,16,0"/>
-                        <TextBlock Grid.Column="2" Text="Units" FontWeight="SemiBold"/>
+            <!-- Parameters: every supported PID; tick Enable to log it (the WinForms Parameters tab) -->
+            <TabItem Header="Parameters">
+                <Grid RowDefinitions="Auto,Auto,*">
+                    <TextBox Grid.Row="0" Watermark="Search…" Text="{Binding ParameterFilter}" Margin="0,0,0,6"/>
+                    <Grid Grid.Row="1" ColumnDefinitions="60,60,*,150" Margin="2,2,2,4">
+                        <TextBlock Grid.Column="0" Text="Enable" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                        <TextBlock Grid.Column="1" Text="Zoom" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                        <TextBlock Grid.Column="2" Text="Name" FontWeight="SemiBold"/>
+                        <TextBlock Grid.Column="3" Text="Units" FontWeight="SemiBold"/>
                     </Grid>
-                    <Border Grid.Row="1"
+                    <Border Grid.Row="2"
                             BorderBrush="{DynamicResource SystemControlBackgroundBaseMediumLowBrush}"
                             BorderThickness="1">
                         <ScrollViewer VerticalScrollBarVisibility="Auto">
-                            <ItemsControl ItemsSource="{Binding Readings}">
+                            <ItemsControl ItemsSource="{Binding ParameterRows}">
                                 <ItemsControl.ItemTemplate>
-                                    <DataTemplate x:DataType="vm:ReadingRow">
-                                        <Grid ColumnDefinitions="2*,1.2*,1*" Margin="2,2">
-                                            <TextBlock Grid.Column="0" Text="{Binding Name}"/>
-                                            <TextBlock Grid.Column="1" Text="{Binding Value}"
-                                                       HorizontalAlignment="Right" Margin="0,0,16,0"
-                                                       FontFamily="Consolas, Menlo, DejaVu Sans Mono, Liberation Mono, monospace"/>
-                                            <TextBlock Grid.Column="2" Text="{Binding Units}"
-                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                                    <DataTemplate x:DataType="vm:ParameterRow">
+                                        <Grid ColumnDefinitions="60,60,*,150" Margin="2,2"
+                                              IsVisible="{Binding MatchesFilter}">
+                                            <CheckBox Grid.Column="0" IsChecked="{Binding Enabled}" HorizontalAlignment="Center"/>
+                                            <CheckBox Grid.Column="1" IsChecked="{Binding Zoom}" HorizontalAlignment="Center"/>
+                                            <TextBlock Grid.Column="2" Text="{Binding Name}" VerticalAlignment="Center"/>
+                                            <ComboBox Grid.Column="3" ItemsSource="{Binding UnitOptions}"
+                                                      SelectedItem="{Binding SelectedUnit}"
+                                                      HorizontalAlignment="Stretch"/>
                                         </Grid>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
@@ -255,6 +260,36 @@
                 </Grid>
             </TabItem>
         </TabControl>
+
+            <!-- Always-visible live-value pane (the WinForms right panel): the enabled parameters -->
+            <Border Grid.Column="1" IsVisible="{Binding ShowPids}" Width="290" Margin="8,0,0,0"
+                    BorderBrush="{DynamicResource SystemControlBackgroundBaseMediumLowBrush}" BorderThickness="1">
+                <Grid RowDefinitions="Auto,*">
+                    <Grid Grid.Row="0" ColumnDefinitions="2*,1.2*,1*" Margin="6,6,6,4">
+                        <TextBlock Grid.Column="0" Text="Parameter" FontWeight="SemiBold"/>
+                        <TextBlock Grid.Column="1" Text="Value" FontWeight="SemiBold"
+                                   HorizontalAlignment="Right" Margin="0,0,10,0"/>
+                        <TextBlock Grid.Column="2" Text="Units" FontWeight="SemiBold"/>
+                    </Grid>
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding Readings}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:ReadingRow">
+                                    <Grid ColumnDefinitions="2*,1.2*,1*" Margin="6,2">
+                                        <TextBlock Grid.Column="0" Text="{Binding Name}" TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding Value}"
+                                                   HorizontalAlignment="Right" Margin="0,0,10,0"
+                                                   FontFamily="Consolas, Menlo, DejaVu Sans Mono, Liberation Mono, monospace"/>
+                                        <TextBlock Grid.Column="2" Text="{Binding Units}"
+                                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+        </Grid>
 
         <!-- Status bar -->
         <TextBlock Grid.Row="2" Text="{Binding StatusText}" Margin="2,6,2,0"
