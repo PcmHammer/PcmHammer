@@ -345,14 +345,45 @@ public partial class MainWindowViewModel : ViewModelBase
 
     private void OnParameterRowChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
-        // Enabling/disabling a parameter or changing its units reshapes the logged set and the pane.
-        if (!_suppressReadingRebuild
-            && (e.PropertyName == nameof(ParameterRow.Enabled)
-                || e.PropertyName == nameof(ParameterRow.SelectedUnit)
-                || e.PropertyName == nameof(ParameterRow.Zoom)))
+        if (_suppressReadingRebuild)
+        {
+            return;
+        }
+
+        // Enabling/disabling a parameter or changing its units reshapes the logged set; Zoom only
+        // affects the big readout.
+        bool affectsLog = e.PropertyName == nameof(ParameterRow.Enabled)
+            || e.PropertyName == nameof(ParameterRow.SelectedUnit);
+
+        if (affectsLog || e.PropertyName == nameof(ParameterRow.Zoom))
         {
             this.RebuildReadings();
         }
+
+        if (affectsLog)
+        {
+            this.ReconfigureIfLogging();
+        }
+    }
+
+    /// <summary>When logging, push the current selection to the running loop so it reopens the session
+    /// with the new columns (hot reconfigure) instead of needing a Stop/Start.</summary>
+    private void ReconfigureIfLogging()
+    {
+        if (_controller == null || !_controller.IsRunning || !this.IsLogging)
+        {
+            return;
+        }
+
+        List<LogColumn> columns = this.BuildSelectedColumns();
+        if (columns.Count == 0)
+        {
+            // Nothing selected: leave the running session alone rather than reopen with no columns.
+            return;
+        }
+
+        _controller.Reconfigure(columns);
+        this.StatusText = $"Updating logged parameters ({columns.Count})...";
     }
 
     /// <summary>Rebuild the right-hand live-value pane from the currently enabled parameters.</summary>
@@ -465,6 +496,9 @@ public partial class MainWindowViewModel : ViewModelBase
         }
 
         this.RebuildReadings();
+
+        // Opening a profile while logging swaps the whole set; reconfigure the running loop too.
+        this.ReconfigureIfLogging();
     }
 
     [RelayCommand]
@@ -1102,6 +1136,8 @@ public partial class MainWindowViewModel : ViewModelBase
                 this.IsRecording = false;
                 this.StatusText = $"Recording stopped - {rows} rows saved.";
             });
+        _controller.Reconfigured += count =>
+            Dispatcher.UIThread.Post(() => this.StatusText = $"Logging {count} parameters.");
 
         _controller.Start(columns);
         this.IsLogging = true;

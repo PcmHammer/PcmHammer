@@ -38,6 +38,11 @@ namespace PcmHacking
         private volatile bool busHandoverRequested;
         private readonly ManualResetEventSlim busIdle = new ManualResetEventSlim(false);
 
+        // Live reconfiguration: the UI can change the logged columns while running; the loop reopens
+        // the session with the new set between rows (as the WinForms logger does on a profile change).
+        private IReadOnlyList<LogColumn>? pendingColumns;
+        private volatile bool reconfigureRequested;
+
         // CSV recording. The loop writes each row to the recorder while one is set; start/stop manage
         // the file. Guarded by recordLock so the loop never writes to a stream being closed.
         private readonly object recordLock = new object();
@@ -65,6 +70,9 @@ namespace PcmHacking
         /// <summary>Raised when recording starts (with the file path) or stops (with the row count).</summary>
         public event Action<string>? RecordingStarted;
         public event Action<int>? RecordingStopped;
+
+        /// <summary>Raised on the loop thread after the session reopens with a new column set (the new count).</summary>
+        public event Action<int>? Reconfigured;
 
         public LoggingController(Vehicle vehicle, uint osid, ILogger logger)
         {
@@ -185,6 +193,32 @@ namespace PcmHacking
             this.busHandoverRequested = false;
         }
 
+        /// <summary>
+        /// Replace the logged columns while running, without stopping - the loop reopens the session
+        /// with the new set between rows (like the WinForms logger on a profile change), so a parameter
+        /// added to the view starts reading live. An active recording is closed first (its header would
+        /// no longer match the new columns); start a new recording for the new set if wanted. Does
+        /// nothing if not running - the caller should <see cref="Start"/> instead.
+        /// </summary>
+        public void Reconfigure(IReadOnlyList<LogColumn> columns)
+        {
+            if (columns == null)
+            {
+                throw new ArgumentNullException(nameof(columns));
+            }
+
+            lock (this.sync)
+            {
+                if (this.loopTask == null || this.loopTask.IsCompleted)
+                {
+                    return;
+                }
+
+                this.pendingColumns = columns;
+                this.reconfigureRequested = true;
+            }
+        }
+
         /// <summary>True while a recording file is open.</summary>
         public bool IsRecording
         {
@@ -262,39 +296,79 @@ namespace PcmHacking
             this.RecordingStopped?.Invoke(rows);
         }
 
+        /// <summary>Create, open and start a session for the given columns, publishing its headings and
+        /// any unsupported parameters. Used for the first open and each live reconfiguration.</summary>
+        private async Task<LogSession> OpenSessionAsync(IReadOnlyList<LogColumn> columns, CancellationToken token)
+        {
+            LogSession session = new LogSession(
+                new IParameterSource[]
+                {
+                    new PcmParameterSource(this.vehicle, this.osid, this.logger),
+                });
+
+            if (!await session.Open(columns, token).ConfigureAwait(false))
+            {
+                session.Dispose();
+                throw new LogStartFailedException();
+            }
+
+            await session.Start(token).ConfigureAwait(false);
+
+            // Column headings for any recording started while this session runs.
+            lock (this.recordLock)
+            {
+                this.columnNames = session.GetColumnNames().ToList();
+            }
+
+            if (session.UnsupportedParameters.Count > 0)
+            {
+                this.UnsupportedParametersReported?.Invoke(session.UnsupportedParameters);
+            }
+
+            return session;
+        }
+
         private async Task RunLoop(IReadOnlyList<LogColumn> columns, CancellationToken token)
         {
             LogSession? session = null;
             try
             {
-                session = new LogSession(
-                    new IParameterSource[]
-                    {
-                        new PcmParameterSource(this.vehicle, this.osid, this.logger),
-                    });
-
-                if (!await session.Open(columns, token).ConfigureAwait(false))
-                {
-                    throw new LogStartFailedException();
-                }
-
-                await session.Start(token).ConfigureAwait(false);
-
-                // Column headings for any recording started while this session runs.
-                lock (this.recordLock)
-                {
-                    this.columnNames = session.GetColumnNames().ToList();
-                }
-
-                if (session.UnsupportedParameters.Count > 0)
-                {
-                    this.UnsupportedParametersReported?.Invoke(session.UnsupportedParameters);
-                }
-
+                session = await this.OpenSessionAsync(columns, token).ConfigureAwait(false);
                 this.Started?.Invoke();
 
                 while (!token.IsCancellationRequested)
                 {
+                    // A live reconfiguration (the logged columns changed) reopens the session between
+                    // rows with the new set. The recording's header would no longer match the new
+                    // columns, so it is closed first; the session stays live with the new columns.
+                    if (this.reconfigureRequested)
+                    {
+                        IReadOnlyList<LogColumn> next;
+                        lock (this.sync)
+                        {
+                            next = this.pendingColumns ?? columns;
+                            this.reconfigureRequested = false;
+                        }
+
+                        this.StopRecording();
+
+                        try
+                        {
+                            await session.Close().ConfigureAwait(false);
+                        }
+                        catch
+                        {
+                            // Best effort: reopening regardless.
+                        }
+
+                        session.Dispose();
+
+                        columns = next;
+                        session = await this.OpenSessionAsync(columns, token).ConfigureAwait(false);
+                        this.Reconfigured?.Invoke(columns.Count);
+                        continue;
+                    }
+
                     // Between rows is the only safe moment to hand the bus over: one iteration is at most
                     // one complete exchange, so nothing is left half-said. Suspend first so a streaming
                     // PCM stops sending (or the borrower would read log rows instead of its own answers),
