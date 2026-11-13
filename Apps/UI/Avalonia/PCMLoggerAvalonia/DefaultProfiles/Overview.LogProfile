@@ -1,0 +1,24 @@
+<LogProfile>
+    <PidParameters>
+        <PidParameter id="EngineSpeed" units="RPM" zoom="False" />
+        <PidParameter id="ThrottlePosition" units="%" zoom="False" />
+        <PidParameter id="MAFSensor" units="g/s" zoom="False" />
+        <PidParameter id="MAPSensor" units="kPa" zoom="False" />
+        <PidParameter id="IgnitionTiming" units="°" zoom="False" />
+        <PidParameter id="TargetAFRatio" units="AFR" zoom="False" />
+        <PidParameter id="KnockRetardDegrees" units="°" zoom="False" />
+        <PidParameter id="ShortTermFTLeftBank" units="%" zoom="False" />
+        <PidParameter id="LongTermFTLeftBank" units="%" zoom="False" />
+        <PidParameter id="ShortTermFTRightBank" units="%" zoom="False" />
+        <PidParameter id="LongTermFTRightBank" units="%" zoom="False" />
+        <PidParameter id="ECTSensor" units="°F" zoom="False" />
+        <PidParameter id="IATSensor" units="°F" zoom="False" />
+        <PidParameter id="Ignition1Signal" units="Volts" zoom="False" />
+        <PidParameter id="InjectorPWMLeftBankAverage" units="ms" zoom="False" />
+    </PidParameters>
+    <RamParameters />
+    <MathParameters>
+        <MathParameter id="MathIdcBank1" units="%" zoom="False" />
+        <MathParameter id="MathLoadFromPids" units="g/cyl" zoom="False" />
+    </MathParameters>
+</LogProfile>

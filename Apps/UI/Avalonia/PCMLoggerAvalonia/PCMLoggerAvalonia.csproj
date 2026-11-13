@@ -24,6 +24,12 @@
 			<Link>%(Filename)%(Extension)</Link>
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</Content>
+		<!-- The default log profile, loaded on connect so a sensible set of PIDs is pre-selected
+		     (the WinForms logger starts with a default list too). Copied beside the exe. -->
+		<Content Include="DefaultProfiles\Overview.LogProfile">
+			<Link>%(Filename)%(Extension)</Link>
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</Content>
 	</ItemGroup>
 
 	<ItemGroup>

@@ -38,6 +38,11 @@ public partial class MainWindowViewModel : ViewModelBase
     // parameter id -> its row/gauge, so each reading updates in place rather than rebuilding the list.
     private readonly Dictionary<string, ReadingRow> _rowsById = new();
 
+    // A synthetic "Query time" row pinned to the bottom of the live-value pane (the ms between rows),
+    // as the WinForms logger shows. Not a real PID, so it is not in _rowsById; updated per row.
+    private readonly ReadingRow _queryTimeRow = new("__querytime", "Query time", "ms");
+    private DateTime _lastRowTime;
+
     // A parameter can drive more than one gauge (e.g. the same PID shown twice), so each id maps to a
     // list - otherwise repointing a gauge onto a parameter another gauge already shows leaves one unfed.
     private readonly Dictionary<string, List<GaugeTile>> _gaugesById = new();
@@ -350,6 +355,9 @@ public partial class MainWindowViewModel : ViewModelBase
             this.Readings.Add(reading);
             _rowsById[row.Id] = reading;
         }
+
+        // Query time is always the last row, as the WinForms logger shows.
+        this.Readings.Add(_queryTimeRow);
     }
 
     /// <summary>The log columns for the enabled parameters - what Start logs.</summary>
@@ -371,6 +379,36 @@ public partial class MainWindowViewModel : ViewModelBase
         }
 
         return columns;
+    }
+
+    /// <summary>
+    /// Load the bundled Overview profile on connect, so a sensible default set is pre-selected (the
+    /// WinForms logger starts with a default list too). A missing or unreadable default is not fatal.
+    /// </summary>
+    private void TryLoadDefaultProfile()
+    {
+        if (_database == null)
+        {
+            return;
+        }
+
+        try
+        {
+            string path = Path.Combine(AppContext.BaseDirectory, "Overview.LogProfile");
+            if (!File.Exists(path))
+            {
+                return;
+            }
+
+            LogProfileReader reader = new(_database, _osid, _logger);
+            _profile = reader.Read(path);
+            this.ApplyProfileToParameterRows(_profile);
+            this.ProfileName = "Overview (default)";
+        }
+        catch (Exception exception)
+        {
+            _logger.AddDebugMessage("Default profile not loaded: " + exception.Message);
+        }
     }
 
     /// <summary>Enable the Parameters-tab rows named by a loaded profile, with its units and zoom.</summary>
@@ -688,6 +726,7 @@ public partial class MainWindowViewModel : ViewModelBase
         // Trouble-code descriptions sit beside the exe (copied by the csproj), as WinForms/PcmLogger does.
         _codeDefinitions = DiagnosticCodeDefinitions.Load(AppContext.BaseDirectory, _logger);
 
+        _queryTimeRow.Value = "--";
         this.UpdateDeviceSummary();
         this.BuildFromPackage(DefaultLoggerPackage.Create());
     }
@@ -874,6 +913,7 @@ public partial class MainWindowViewModel : ViewModelBase
             }
 
             this.PopulateParameterRows(supported);
+            this.TryLoadDefaultProfile();
 
             this.IsConnected = true;
             this.StatusText = $"Connected: {_device.GetDeviceType()}, OSID {_osid}.";
@@ -962,6 +1002,9 @@ public partial class MainWindowViewModel : ViewModelBase
             this.StatusText = "Enable parameters on the Parameters tab (or open a profile) before starting.";
             return;
         }
+
+        _lastRowTime = default;
+        _queryTimeRow.Value = "--";
 
         _controller = new LoggingController(_vehicle, _osid, _logger);
         _controller.RowAvailable += OnRowAvailable;
@@ -1058,6 +1101,15 @@ public partial class MainWindowViewModel : ViewModelBase
                     }
                 }
             }
+
+            // Query time: the ms since the previous row (the WinForms "Query time" readout).
+            DateTime now = DateTime.Now;
+            if (_lastRowTime != default)
+            {
+                _queryTimeRow.Value = (now - _lastRowTime).TotalMilliseconds.ToString("0.00");
+            }
+
+            _lastRowTime = now;
         });
     }
 
