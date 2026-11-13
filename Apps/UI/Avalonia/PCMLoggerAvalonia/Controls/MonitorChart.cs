@@ -92,10 +92,21 @@ public sealed class MonitorChart : Control
         set => this.SetValue(PausedProperty, value);
     }
 
+    public static readonly StyledProperty<DateTime?> PlaybackNowProperty =
+        AvaloniaProperty.Register<MonitorChart, DateTime?>(nameof(PlaybackNow));
+
+    /// <summary>When set (log playback), the window's right edge is this time instead of real "now",
+    /// so a scrub bar can move the view through a loaded log.</summary>
+    public DateTime? PlaybackNow
+    {
+        get => this.GetValue(PlaybackNowProperty);
+        set => this.SetValue(PlaybackNowProperty, value);
+    }
+
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
-        if (change.Property == MonitorProperty)
+        if (change.Property == MonitorProperty || change.Property == PlaybackNowProperty)
         {
             this.InvalidateVisual();
         }
@@ -223,7 +234,7 @@ public sealed class MonitorChart : Control
             new Point(plot.Left + 4, 1));
 
         double window = monitor.WindowSeconds;
-        DateTime now = _frozenNow ?? DateTime.UtcNow;
+        DateTime now = this.PlaybackNow ?? _frozenNow ?? DateTime.UtcNow;
 
         for (int index = 0; index < n; index++)
         {

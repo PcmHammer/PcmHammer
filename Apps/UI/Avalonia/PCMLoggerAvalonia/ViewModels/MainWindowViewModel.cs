@@ -220,13 +220,61 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public string PauseButtonText => this.IsMonitorPaused ? "Resume" : "Pause";
 
+    // --- Log playback (scrub through a loaded log) ------------------------------------------------
+    private MonitorTab? _playbackTab;
+    private DateTime _playbackStart;
+
+    /// <summary>True while a loaded log is shown on the strip chart (the scrub bar is visible).</summary>
+    [ObservableProperty] private bool _isPlayback;
+
+    /// <summary>The loaded log's length in seconds (the scrub slider's maximum).</summary>
+    [ObservableProperty] private double _playbackMaxSeconds;
+
+    /// <summary>The scrub position in seconds from the log start (bound to the slider).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PlaybackPositionText))]
+    private double _playbackSeconds;
+
+    /// <summary>The chart's right-edge time during playback (null when live).</summary>
+    [ObservableProperty] private DateTime? _playbackNow;
+
+    public string PlaybackPositionText =>
+        $"{FormatSeconds(this.PlaybackSeconds)} / {FormatSeconds(this.PlaybackMaxSeconds)}";
+
+    partial void OnPlaybackSecondsChanged(double value)
+    {
+        if (this.IsPlayback)
+        {
+            this.PlaybackNow = _playbackStart + TimeSpan.FromSeconds(value);
+        }
+    }
+
+    private static string FormatSeconds(double seconds)
+    {
+        if (seconds < 0 || double.IsNaN(seconds))
+        {
+            seconds = 0;
+        }
+
+        int total = (int)Math.Round(seconds);
+        return $"{total / 60}:{total % 60:00}";
+    }
+
     [RelayCommand]
     private void ToggleMonitorPause() => this.IsMonitorPaused = !this.IsMonitorPaused;
 
-    /// <summary>Clear the strip chart's captured history and resume live (Clear Log).</summary>
+    /// <summary>Clear the strip chart: close a loaded log if one is shown, else discard the live
+    /// history and resume (Clear Log).</summary>
     [RelayCommand]
     private void ClearLog()
     {
+        if (this.IsPlayback)
+        {
+            this.ExitPlayback();
+            this.StatusText = "Playback closed.";
+            return;
+        }
+
         foreach (MonitorTab tab in this.Monitors)
         {
             tab.Clear();
@@ -285,8 +333,7 @@ public partial class MainWindowViewModel : ViewModelBase
                 return;
             }
 
-            this.LoadLogIntoMonitors(data);
-            this.IsMonitorPaused = true;
+            this.StartPlayback(data, Path.GetFileName(path));
             string skipped = data.MalformedRows > 0 ? $", {data.MalformedRows} unreadable rows skipped" : string.Empty;
             this.StatusText =
                 $"Loaded '{Path.GetFileName(path)}': {data.Samples.Count} frames, {data.Columns.Count} columns{skipped}.";
@@ -297,39 +344,88 @@ public partial class MainWindowViewModel : ViewModelBase
         }
     }
 
-    private void LoadLogIntoMonitors(LoggedData data)
+    /// <summary>Build a Playback monitor tab with one trace per column in the loaded log (auto-ranged),
+    /// select it, and set up the scrub bar over the log's time span.</summary>
+    private void StartPlayback(LoggedData data, string name)
     {
-        // The heading's display name matches a monitor series' title.
-        Dictionary<string, int> columnIndex = new(StringComparer.OrdinalIgnoreCase);
+        this.ExitPlayback();
+
+        MonitorTab tab = new("Playback: " + name, 20);
         for (int i = 0; i < data.Columns.Count; i++)
         {
-            columnIndex[data.Columns[i].Name] = i;
+            (double low, double high) = ColumnRange(data, i);
+            MonitorSeries series = tab.AddSeries(data.Columns[i].Name, data.Columns[i].Units, low, high);
+
+            List<(DateTime, double)> points = new(data.Samples.Count);
+            for (int r = 0; r < data.Samples.Count; r++)
+            {
+                points.Add((data.Timestamps[r], data.Samples[r][i]));
+            }
+
+            series.SetPoints(points);
         }
 
-        // Shift the loaded timestamps so the last sample sits at ~now; the chart (paused) then shows the
-        // end of the log, and widening the window reveals more.
-        DateTime reference = DateTime.UtcNow;
-        DateTime logEnd = data.Timestamps[data.Timestamps.Count - 1];
+        this.Monitors.Add(tab);
+        _playbackTab = tab;
+        this.SelectedMonitor = tab;
 
-        foreach (MonitorTab tab in this.Monitors)
+        _playbackStart = data.Timestamps[0];
+        DateTime end = data.Timestamps[data.Timestamps.Count - 1];
+        this.PlaybackMaxSeconds = Math.Max(0, (end - _playbackStart).TotalSeconds);
+        this.IsMonitorPaused = false;             // playback uses PlaybackNow, not the live pause
+        this.IsPlayback = true;
+        this.PlaybackSeconds = this.PlaybackMaxSeconds;   // start at the end (triggers PlaybackNow)
+        this.PlaybackNow = _playbackStart + TimeSpan.FromSeconds(this.PlaybackSeconds);
+    }
+
+    /// <summary>Min..max of a loaded column (ignoring unparseable values), padded a little.</summary>
+    private static (double Low, double High) ColumnRange(LoggedData data, int index)
+    {
+        double min = double.PositiveInfinity;
+        double max = double.NegativeInfinity;
+        foreach (double[] sample in data.Samples)
         {
-            foreach (MonitorSeries series in tab.Series)
+            double v = sample[index];
+            if (double.IsNaN(v))
             {
-                if (!columnIndex.TryGetValue(series.Title, out int idx))
-                {
-                    series.Clear();
-                    continue;
-                }
-
-                List<(DateTime, double)> points = new(data.Samples.Count);
-                for (int r = 0; r < data.Samples.Count; r++)
-                {
-                    DateTime t = reference - (logEnd - data.Timestamps[r]);
-                    points.Add((t, data.Samples[r][idx]));
-                }
-
-                series.SetPoints(points);
+                continue;
             }
+
+            if (v < min) { min = v; }
+            if (v > max) { max = v; }
+        }
+
+        if (double.IsInfinity(min) || double.IsInfinity(max))
+        {
+            return (0, 100);
+        }
+
+        if (max - min < 1e-6)
+        {
+            max = min + 1;
+        }
+
+        double pad = (max - min) * 0.05;
+        return (min - pad, max + pad);
+    }
+
+    /// <summary>Leave playback: drop the Playback tab and return the chart to live.</summary>
+    private void ExitPlayback()
+    {
+        if (_playbackTab != null)
+        {
+            this.Monitors.Remove(_playbackTab);
+            _playbackTab = null;
+        }
+
+        this.IsPlayback = false;
+        this.PlaybackNow = null;
+        this.PlaybackMaxSeconds = 0;
+        this.PlaybackSeconds = 0;
+
+        if (this.SelectedMonitor == null || !this.Monitors.Contains(this.SelectedMonitor))
+        {
+            this.SelectedMonitor = this.Monitors.FirstOrDefault();
         }
     }
 
@@ -1243,6 +1339,8 @@ public partial class MainWindowViewModel : ViewModelBase
             this.StatusText = "Enable parameters on the Parameters tab (or open a profile) before starting.";
             return;
         }
+
+        this.ExitPlayback();   // leave any loaded-log playback before going live
 
         _lastRowTime = default;
         _queryTimeRow.Value = "--";

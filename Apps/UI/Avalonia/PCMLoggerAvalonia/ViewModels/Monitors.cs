@@ -41,15 +41,21 @@ public sealed partial class MonitorSeries : ObservableObject
     public double LegendOpacity => this.Visible ? 1.0 : 0.35;
 
     public MonitorSeries(MonitorSeriesLayout layout, Color color)
+        : this(layout.Title, layout.Units, color, layout.RangeLow, layout.RangeHigh, layout.PidId ?? string.Empty)
     {
-        this.ParameterId = layout.PidId ?? string.Empty;
-        this.Title = layout.Title;
-        this.Units = layout.Units;
-        _rangeLow = layout.RangeLow;
-        _rangeHigh = layout.RangeHigh;
+    }
+
+    /// <summary>A trace built directly (e.g. from a loaded log column) rather than from a layout.</summary>
+    public MonitorSeries(string title, string units, Color color, double rangeLow, double rangeHigh, string? parameterId = null)
+    {
+        this.ParameterId = parameterId ?? title;
+        this.Title = title;
+        this.Units = units;
+        _rangeLow = rangeLow;
+        _rangeHigh = rangeHigh;
         this.Color = color;
         this.Brush = new SolidColorBrush(color);
-        this.RangeText = string.Format(CultureInfo.CurrentCulture, "{0:0.##}..{1:0.##} {2}", _rangeLow, _rangeHigh, layout.Units);
+        this.RangeText = string.Format(CultureInfo.CurrentCulture, "{0:0.##}..{1:0.##} {2}", _rangeLow, _rangeHigh, units);
     }
 
     partial void OnVisibleChanged(bool value) => this.OnPropertyChanged(nameof(LegendOpacity));
@@ -89,31 +95,15 @@ public sealed partial class MonitorSeries : ObservableObject
         this.ValueText = "--";
     }
 
-    /// <summary>Replace the samples with a loaded set (Load Log playback), keeping the last buffer.</summary>
+    /// <summary>Replace the samples with a loaded set (log playback). All points are kept so the scrub
+    /// bar can move anywhere in the log.</summary>
     public void SetPoints(IEnumerable<(DateTime T, double V)> points)
     {
         _points.Clear();
         _points.AddRange(points);
-        if (_points.Count == 0)
-        {
-            this.ValueText = "--";
-            return;
-        }
-
-        this.ValueText = _points[_points.Count - 1].V.ToString("0.##", CultureInfo.CurrentCulture);
-
-        DateTime last = _points[_points.Count - 1].T;
-        DateTime cutoff = last - TimeSpan.FromSeconds(BufferSeconds);
-        int drop = 0;
-        while (drop < _points.Count && _points[drop].T < cutoff)
-        {
-            drop++;
-        }
-
-        if (drop > 0)
-        {
-            _points.RemoveRange(0, drop);
-        }
+        this.ValueText = _points.Count > 0
+            ? _points[_points.Count - 1].V.ToString("0.##", CultureInfo.CurrentCulture)
+            : "--";
     }
 }
 
@@ -150,6 +140,21 @@ public sealed class MonitorTab
             this.Series.Add(new MonitorSeries(seriesLayout, Palette[index % Palette.Length]));
             index++;
         }
+    }
+
+    /// <summary>An empty monitor built by hand (e.g. a log-playback tab filled from file columns).</summary>
+    public MonitorTab(string title, double windowSeconds)
+    {
+        this.Title = title;
+        this.WindowSeconds = windowSeconds;
+    }
+
+    /// <summary>Add a trace (used when building a playback tab from a loaded log's columns).</summary>
+    public MonitorSeries AddSeries(string title, string units, double rangeLow, double rangeHigh)
+    {
+        MonitorSeries series = new(title, units, Palette[this.Series.Count % Palette.Length], rangeLow, rangeHigh);
+        this.Series.Add(series);
+        return series;
     }
 
     /// <summary>Clear every trace (Clear Log).</summary>
