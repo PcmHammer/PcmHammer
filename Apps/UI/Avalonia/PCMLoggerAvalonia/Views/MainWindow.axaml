@@ -28,6 +28,14 @@
 
         <!-- The WinForms-style tab bar: Configuration first, then the views (shown per the View toggles) -->
         <TabControl Grid.Column="0">
+            <TabControl.Styles>
+                <!-- Smaller tab headers so all tabs fit on one line (FluentAvalonia defaults to ~24px) -->
+                <Style Selector="TabItem">
+                    <Setter Property="FontSize" Value="14"/>
+                    <Setter Property="MinHeight" Value="0"/>
+                    <Setter Property="Padding" Value="8,4"/>
+                </Style>
+            </TabControl.Styles>
 
             <!-- Configuration: devices, paths, which views to show, theme, options -->
             <TabItem Header="Configuration">
