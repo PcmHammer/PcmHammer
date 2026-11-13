@@ -19,8 +19,6 @@
             <Button Content="Stop" Command="{Binding StopCommand}"/>
             <Button Content="{Binding RecordButtonText}" Command="{Binding ToggleRecordingCommand}"
                     IsEnabled="{Binding IsLogging}" MinWidth="110"/>
-            <TextBlock Text="{Binding ProfileName}" VerticalAlignment="Center" Margin="12,0,0,0"
-                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
         </StackPanel>
 
         <!-- Content: the tab bar on the left, the always-visible live-value pane on the right -->
@@ -331,14 +329,18 @@
             <!-- Always-visible live-value pane (the WinForms right panel): the enabled parameters -->
             <Border Grid.Column="1" IsVisible="{Binding ShowPids}" Width="290" Margin="8,0,0,0"
                     BorderBrush="{DynamicResource SystemControlBackgroundBaseMediumLowBrush}" BorderThickness="1">
-                <Grid RowDefinitions="Auto,*">
-                    <Grid Grid.Row="0" ColumnDefinitions="2*,1.2*,1*" Margin="6,6,6,4">
+                <Grid RowDefinitions="Auto,Auto,*">
+                    <!-- Profile name: what this pane's parameters come from -->
+                    <TextBlock Grid.Row="0" Text="{Binding ProfileName}" FontWeight="SemiBold"
+                               Margin="6,6,6,2" TextTrimming="CharacterEllipsis"
+                               ToolTip.Tip="{Binding ProfileName}"/>
+                    <Grid Grid.Row="1" ColumnDefinitions="2*,1.2*,1*" Margin="6,2,6,4">
                         <TextBlock Grid.Column="0" Text="Parameter" FontWeight="SemiBold"/>
                         <TextBlock Grid.Column="1" Text="Value" FontWeight="SemiBold"
                                    HorizontalAlignment="Right" Margin="0,0,10,0"/>
                         <TextBlock Grid.Column="2" Text="Units" FontWeight="SemiBold"/>
                     </Grid>
-                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                    <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
                         <ItemsControl ItemsSource="{Binding Readings}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="vm:ReadingRow">
