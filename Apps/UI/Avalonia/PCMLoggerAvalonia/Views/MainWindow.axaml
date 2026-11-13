@@ -147,7 +147,7 @@
             <TabItem Header="Debug" IsVisible="{Binding ShowDebug}">
                 <Border BorderBrush="{DynamicResource SystemControlBackgroundBaseMediumLowBrush}"
                         BorderThickness="1">
-                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" Loaded="DebugScroller_Loaded">
                         <ItemsControl ItemsSource="{Binding DebugMessages}" Padding="4">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="x:String">

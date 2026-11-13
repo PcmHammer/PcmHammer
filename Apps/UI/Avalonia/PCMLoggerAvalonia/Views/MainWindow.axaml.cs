@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using FluentAvalonia.UI.Controls;
 using PcmHacking;
@@ -24,9 +26,51 @@ public partial class MainWindow : Window
     private double _tileStartTop;
     private bool _dragging;
 
+    // Auto-scroll state for the Debug tab (follow the tail as lines arrive).
+    private ScrollViewer? _debugScroller;
+    private INotifyCollectionChanged? _debugMessages;
+
     public MainWindow()
     {
         InitializeComponent();
+    }
+
+    // Keep the Debug log scrolled to the newest line, so it stays current without manual scrolling.
+    private void DebugScroller_Loaded(object? sender, RoutedEventArgs e)
+    {
+        _debugScroller = sender as ScrollViewer;
+
+        if (this.DataContext is MainWindowViewModel vm
+            && vm.DebugMessages is INotifyCollectionChanged messages
+            && !ReferenceEquals(_debugMessages, messages))
+        {
+            if (_debugMessages != null)
+            {
+                _debugMessages.CollectionChanged -= DebugMessages_CollectionChanged;
+            }
+
+            _debugMessages = messages;
+            _debugMessages.CollectionChanged += DebugMessages_CollectionChanged;
+        }
+
+        this.ScrollDebugToEnd();
+    }
+
+    private void DebugMessages_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+        => this.ScrollDebugToEnd();
+
+    private void ScrollDebugToEnd()
+    {
+        ScrollViewer? scroller = _debugScroller;
+        if (scroller == null)
+        {
+            return;
+        }
+
+        // After the new line is laid out (Background priority), pin the view to the bottom.
+        Dispatcher.UIThread.Post(
+            () => scroller.Offset = new Vector(scroller.Offset.X, double.MaxValue),
+            DispatcherPriority.Background);
     }
 
     private async void AddGauge_Click(object? sender, RoutedEventArgs e)
