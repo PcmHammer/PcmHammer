@@ -6,7 +6,8 @@ using PCMLoggerAvalonia.Views;
 
 namespace PCMLoggerAvalonia;
 
-public partial class App : Application
+// Qualify Avalonia.Application: on the android target Android.App.Application is also in scope.
+public partial class App : global::Avalonia.Application
 {
     public override void Initialize()
     {

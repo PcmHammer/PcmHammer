@@ -1,7 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
 		<RootNamespace>PCMLoggerAvalonia</RootNamespace>
-		<TargetFramework>net10.0</TargetFramework>
+		<!-- net10.0 drives the desktop heads; net10.0-android lets the logger run on a phone. On the
+		     android target, TargetPlatformIdentifier == 'android', so the Windows-only device layer
+		     (J2534DotNet, PcmLibraryWindowsApi) is excluded below and an Android device path is used. -->
+		<TargetFrameworks>net10.0;net10.0-android</TargetFrameworks>
+		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">23.0</SupportedOSPlatformVersion>
 		<Nullable>enable</Nullable>
 		<LangVersion>latest</LangVersion>
 	</PropertyGroup>
@@ -57,9 +61,19 @@
 		<ProjectReference Include="..\..\..\PcmLibrary\PcmLibrary.csproj" />
 	</ItemGroup>
 
-	<!-- Device/transport layer: the serial path is used on Linux; J2534 is present but unused there. -->
+	<!-- Device/transport layer: the serial path is used on Linux; J2534 is present but unused there.
+	     Excluded on Android, which has no net48 Windows API: the Android device path (serial IPort +
+	     DeviceFactory) lives in Platforms/Android instead. -->
 	<ItemGroup Condition="'$(TargetPlatformIdentifier)' != 'android'">
 		<ProjectReference Include="..\..\..\J2534DotNet\J2534DotNet\J2534DotNet.csproj" />
 		<ProjectReference Include="..\..\..\PcmLibraryWindowsApi\PcmLibraryWindowsApi.csproj" />
+	</ItemGroup>
+
+	<!-- Android device path: serial over System.IO.Ports (the Platforms/Android shims), and the
+	     desktop-only, Windows-typed device picker dialog is left out of the Android build. -->
+	<ItemGroup Condition="'$(TargetPlatformIdentifier)' == 'android'">
+		<PackageReference Include="System.IO.Ports" />
+		<Compile Remove="Views\DeviceSelectDialog.axaml.cs" />
+		<AvaloniaXaml Remove="Views\DeviceSelectDialog.axaml" />
 	</ItemGroup>
 </Project>

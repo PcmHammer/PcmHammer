@@ -15,6 +15,9 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using PcmHacking;
 using PCMLoggerAvalonia.Services;
+// On the android target Android.App.Application is also in scope; this keeps Application meaning
+// Avalonia's (harmless on desktop, where it is the only Application).
+using Application = Avalonia.Application;
 
 namespace PCMLoggerAvalonia.ViewModels;
 
@@ -569,7 +572,10 @@ public partial class MainWindowViewModel : ViewModelBase
     /// <summary>J2534 pass-through drivers only exist on Windows.</summary>
     public static bool IsJ2534Supported => RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
 
-    /// <summary>The serial ports currently present, for the Select Device dialog.</summary>
+#if !ANDROID
+    /// <summary>The serial ports currently present, for the Select Device dialog. Desktop only - the
+    /// dialog and its Windows-only PortDiscovery/SerialPortInfo are not built for Android, which uses
+    /// its own serial enumeration (see PickSerialPort) and the Android DeviceFactory.</summary>
     public IReadOnlyList<SerialPortInfo> GetSerialPorts() => PortDiscovery.GetPorts(_logger).ToList();
 
     /// <summary>The installed J2534 devices (Windows only; empty elsewhere).</summary>
@@ -589,6 +595,7 @@ public partial class MainWindowViewModel : ViewModelBase
             return Array.Empty<string>();
         }
     }
+#endif
 
     /// <summary>Add a new gauge at a default spot (the caller opens the editor to configure it).</summary>
     public GaugeTile AddGauge()
@@ -1216,6 +1223,9 @@ public partial class MainWindowViewModel : ViewModelBase
 
         try
         {
+#if !ANDROID
+            // J2534 pass-through drivers are Windows-only; Android has no J2534 path, so it compiles
+            // down to the serial branch below.
             if (this.UseJ2534)
             {
                 this.StatusText = $"Opening J2534 device {this.SelectedJ2534Device}...";
@@ -1227,6 +1237,7 @@ public partial class MainWindowViewModel : ViewModelBase
                 }
             }
             else
+#endif
             {
                 this.StatusText = "Looking for a serial interface...";
 
@@ -1584,6 +1595,24 @@ public partial class MainWindowViewModel : ViewModelBase
         });
     }
 
+#if ANDROID
+    // Android has no PortDiscovery/SerialPortInfo (those are Windows-only); enumerate with
+    // System.IO.Ports directly. Prefer a USB/ACM port (OBDX and similar) over anything else.
+    private static string? PickSerialPort()
+    {
+        string[] ports = System.IO.Ports.SerialPort.GetPortNames();
+        if (ports.Length == 0)
+        {
+            return null;
+        }
+
+        string? preferred = ports.FirstOrDefault(p =>
+            p.IndexOf("ACM", StringComparison.OrdinalIgnoreCase) >= 0 ||
+            p.IndexOf("USB", StringComparison.OrdinalIgnoreCase) >= 0);
+
+        return preferred ?? ports[0];
+    }
+#else
     private static string? PickSerialPort()
     {
         List<SerialPortInfo> ports = PortDiscovery.GetPorts(NullLogger).ToList();
@@ -1599,6 +1628,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
         return (preferred ?? ports[0]).PortName;
     }
+#endif
 
     private static readonly ILogger NullLogger = new StatusLogger(_ => { }, _ => { });
 

@@ -149,6 +149,13 @@ public partial class MainView : UserControl
         }
     }
 
+#if ANDROID
+    // Android uses its own serial enumeration + DeviceFactory (and connects via PickSerialPort); the
+    // desktop modal device picker is not built here. A mobile picker replaces this no-op later.
+    private void SelectDevice_Click(object? sender, RoutedEventArgs e)
+    {
+    }
+#else
     private async void SelectDevice_Click(object? sender, RoutedEventArgs e)
     {
         if (this.DataContext is not MainWindowViewModel vm)
@@ -186,6 +193,7 @@ public partial class MainView : UserControl
             vm.UpdateDeviceSummary();
         }
     }
+#endif
 
     private async Task EditGaugeAsync(GaugeTile tile)
     {
