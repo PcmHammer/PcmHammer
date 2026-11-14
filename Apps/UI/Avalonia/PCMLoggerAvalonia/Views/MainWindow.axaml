@@ -8,6 +8,7 @@
         x:Class="PCMLoggerAvalonia.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         Width="1040" Height="620"
+        Icon="/Assets/pcmlogger_256px.ico"
         Title="PCM Logger">
 
     <Grid RowDefinitions="Auto,*,Auto" Margin="8">
