@@ -597,6 +597,39 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 #endif
 
+#if ANDROID
+    /// <summary>A device the Android picker can offer: a friendly label and the value to connect with
+    /// (a Bluetooth MAC for a paired adapter, or a serial port name).</summary>
+    public readonly record struct AndroidDeviceChoice(string Display, string Value);
+
+    /// <summary>Paired Bluetooth adapters first (the usual phone path), then any USB-OTG serial ports.</summary>
+    public IReadOnlyList<AndroidDeviceChoice> GetAndroidDevices()
+    {
+        List<AndroidDeviceChoice> devices = new();
+
+        foreach ((string name, string addr) in BluetoothSerialPort.GetPairedDevices())
+        {
+            devices.Add(new AndroidDeviceChoice($"{name}  (Bluetooth)", addr));
+        }
+
+        foreach (string port in System.IO.Ports.SerialPort.GetPortNames())
+        {
+            devices.Add(new AndroidDeviceChoice($"{port}  (USB serial)", port));
+        }
+
+        return devices;
+    }
+
+    /// <summary>Record the Android picker's choice; Connect auto-detects the adapter on it.</summary>
+    public void SelectAndroidDevice(AndroidDeviceChoice choice)
+    {
+        this.UseJ2534 = false;
+        this.SelectedPortName = choice.Value;
+        this.SelectedDeviceType = null;
+        this.UpdateDeviceSummary();
+    }
+#endif
+
     /// <summary>Add a new gauge at a default spot (the caller opens the editor to configure it).</summary>
     public GaugeTile AddGauge()
     {

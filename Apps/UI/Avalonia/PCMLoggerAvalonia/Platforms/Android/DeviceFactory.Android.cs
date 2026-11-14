@@ -88,7 +88,17 @@ public static class DeviceFactory
             return new MockPort(logger);
         }
 
+        // A Bluetooth MAC (AA:BB:CC:DD:EE:FF) means a paired RFCOMM adapter; anything else is a tty.
+        if (LooksLikeBluetoothAddress(serialPortName))
+        {
+            return new BluetoothSerialPort(serialPortName);
+        }
+
         return new StandardPort(serialPortName);
     }
+
+    private static bool LooksLikeBluetoothAddress(string value) =>
+        System.Text.RegularExpressions.Regex.IsMatch(
+            value ?? string.Empty, "^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$");
 }
 #endif

@@ -150,10 +150,46 @@ public partial class MainView : UserControl
     }
 
 #if ANDROID
-    // Android uses its own serial enumeration + DeviceFactory (and connects via PickSerialPort); the
-    // desktop modal device picker is not built here. A mobile picker replaces this no-op later.
-    private void SelectDevice_Click(object? sender, RoutedEventArgs e)
+    // Mobile device picker: list paired Bluetooth adapters (and any USB serial ports) in a content
+    // dialog; the chosen one is auto-detected on Connect. FAContentDialog shows in the single-view
+    // top-level overlay, so no owning Window is needed.
+    private async void SelectDevice_Click(object? sender, RoutedEventArgs e)
     {
+        if (this.DataContext is not MainWindowViewModel vm)
+        {
+            return;
+        }
+
+        IReadOnlyList<MainWindowViewModel.AndroidDeviceChoice> devices = vm.GetAndroidDevices();
+
+        ListBox list = new()
+        {
+            ItemsSource = devices.Select(d => d.Display).ToList(),
+            MaxHeight = 320,
+        };
+
+        FAContentDialog dialog = new()
+        {
+            Title = "Select OBD2 Device",
+            Content = devices.Count > 0
+                ? list
+                : new TextBlock
+                {
+                    Text = "No paired Bluetooth adapters or serial ports were found. "
+                        + "Pair your OBD adapter in Android Settings first, then try again.",
+                    TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+                },
+            PrimaryButtonText = "Connect",
+            CloseButtonText = "Cancel",
+            DefaultButton = FAContentDialogButton.Close,
+        };
+
+        if (await dialog.ShowAsync() == FAContentDialogResult.Primary
+            && list.SelectedIndex >= 0
+            && list.SelectedIndex < devices.Count)
+        {
+            vm.SelectAndroidDevice(devices[list.SelectedIndex]);
+        }
     }
 #else
     private async void SelectDevice_Click(object? sender, RoutedEventArgs e)
