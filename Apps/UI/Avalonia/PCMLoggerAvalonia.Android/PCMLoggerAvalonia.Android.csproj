@@ -18,6 +18,20 @@
     </AndroidResource>
   </ItemGroup>
 
+  <!-- Data files packed into the APK's assets (at assets root by filename). Application.OnCreate copies
+       them to the app's files dir and sets PlatformPaths.ResourceDirectory there. -->
+  <ItemGroup>
+    <AndroidAsset Include="..\..\WindowsForms\PcmLogger\Parameters*.xml">
+      <Link>Assets\%(Filename)%(Extension)</Link>
+    </AndroidAsset>
+    <AndroidAsset Include="..\..\WindowsForms\PcmLogger\DiagnosticCodes.txt">
+      <Link>Assets\%(Filename)%(Extension)</Link>
+    </AndroidAsset>
+    <AndroidAsset Include="..\PCMLoggerAvalonia\DefaultProfiles\Overview.LogProfile">
+      <Link>Assets\%(Filename)%(Extension)</Link>
+    </AndroidAsset>
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Avalonia.Android" />
     <PackageReference Include="Xamarin.AndroidX.Core.SplashScreen" />

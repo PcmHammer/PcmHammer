@@ -776,7 +776,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
         try
         {
-            string path = Path.Combine(AppContext.BaseDirectory, "Overview.LogProfile");
+            string path = Path.Combine(PlatformPaths.ResourceDirectory, "Overview.LogProfile");
             if (!File.Exists(path))
             {
                 return;
@@ -1108,8 +1108,9 @@ public partial class MainWindowViewModel : ViewModelBase
             onUserMessage: message => Dispatcher.UIThread.Post(() => this.StatusText = message),
             onDebugMessage: message => Dispatcher.UIThread.Post(() => this.AppendDebug(message)));
 
-        // Trouble-code descriptions sit beside the exe (copied by the csproj), as WinForms/PcmLogger does.
-        _codeDefinitions = DiagnosticCodeDefinitions.Load(AppContext.BaseDirectory, _logger);
+        // Trouble-code descriptions sit in the resource directory (beside the exe on desktop; a copied
+        // asset folder on Android), as WinForms/PcmLogger does.
+        _codeDefinitions = DiagnosticCodeDefinitions.Load(PlatformPaths.ResourceDirectory, _logger);
 
         _queryTimeRow.Value = "--";
         this.UpdateDeviceSummary();
@@ -1289,7 +1290,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
             _osid = osResponse.Value;
 
-            _database = new ParameterDatabase(AppContext.BaseDirectory);
+            _database = new ParameterDatabase(PlatformPaths.ResourceDirectory);
             _database.LoadDatabase();
 
             List<Parameter> supported = _database.ListParametersBySupportedOs(_osid).OrderBy(p => p.Name).ToList();

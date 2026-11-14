@@ -14,27 +14,27 @@
 		<AvaloniaResource Include="Assets\**" />
 	</ItemGroup>
 
-	<!-- The logging parameter database: the shared ParameterDatabase loads these from the app's base
-	     directory (AppContext.BaseDirectory), as WinForms/PcmLogger does. Linked and copied so they
-	     land next to the exe without a second copy in the tree. -->
-	<ItemGroup>
+	<!-- The logging data files: parameter XMLs (ParameterDatabase), DiagnosticCodes.txt
+	     (DiagnosticCodeDefinitions) and the default Overview profile. On desktop they are copied next
+	     to the exe and read from AppContext.BaseDirectory (= PlatformPaths.ResourceDirectory). -->
+	<ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) != 'android'">
 		<Content Include="..\..\WindowsForms\PcmLogger\Parameters*.xml">
 			<Link>%(Filename)%(Extension)</Link>
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</Content>
-		<!-- Trouble-code descriptions: the shared DiagnosticCodeDefinitions.Load reads this beside the
-		     exe (AppContext.BaseDirectory), as WinForms/PcmLogger does. -->
 		<Content Include="..\..\WindowsForms\PcmLogger\DiagnosticCodes.txt">
 			<Link>%(Filename)%(Extension)</Link>
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</Content>
-		<!-- The default log profile, loaded on connect so a sensible set of PIDs is pre-selected
-		     (the WinForms logger starts with a default list too). Copied beside the exe. -->
 		<Content Include="DefaultProfiles\Overview.LogProfile">
 			<Link>%(Filename)%(Extension)</Link>
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</Content>
 	</ItemGroup>
+
+	<!-- On Android there is no exe directory: the data files are packed as APK assets by the Android
+	     head (PCMLoggerAvalonia.Android), which copies them to PlatformPaths.ResourceDirectory at
+	     startup. Library AndroidAsset items do not reliably reach the APK, so they live in the head. -->
 
 	<ItemGroup>
 		<PackageReference Include="Avalonia" />
