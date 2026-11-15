@@ -607,14 +607,33 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         List<AndroidDeviceChoice> devices = new();
 
-        foreach ((string name, string addr) in BluetoothSerialPort.GetPairedDevices())
+        // Each source is enumerated defensively: Bluetooth can be off and USB-serial enumeration hits
+        // /sys/class/tty, which the Android app sandbox denies (UnauthorizedAccessException). Neither
+        // must be allowed to throw out of here, or the picker takes the whole app down.
+        try
         {
-            devices.Add(new AndroidDeviceChoice($"{name}  (Bluetooth)", addr));
+            foreach ((string name, string addr) in BluetoothSerialPort.GetPairedDevices())
+            {
+                devices.Add(new AndroidDeviceChoice($"{name}  (Bluetooth)", addr));
+            }
+        }
+        catch (Exception exception)
+        {
+            _logger.AddDebugMessage("Could not list paired Bluetooth devices: " + exception.Message);
         }
 
-        foreach (string port in System.IO.Ports.SerialPort.GetPortNames())
+        try
         {
-            devices.Add(new AndroidDeviceChoice($"{port}  (USB serial)", port));
+            foreach (string port in System.IO.Ports.SerialPort.GetPortNames())
+            {
+                devices.Add(new AndroidDeviceChoice($"{port}  (USB serial)", port));
+            }
+        }
+        catch (Exception exception)
+        {
+            // Expected on a stock (non-rooted) phone: /sys/class/tty is not readable by an app. USB-OTG
+            // serial adapters would need a USB-host driver anyway; Bluetooth is the supported path.
+            _logger.AddDebugMessage("USB serial ports are not available on this device: " + exception.Message);
         }
 
         return devices;
@@ -1634,7 +1653,17 @@ public partial class MainWindowViewModel : ViewModelBase
     // System.IO.Ports directly. Prefer a USB/ACM port (OBDX and similar) over anything else.
     private static string? PickSerialPort()
     {
-        string[] ports = System.IO.Ports.SerialPort.GetPortNames();
+        string[] ports;
+        try
+        {
+            ports = System.IO.Ports.SerialPort.GetPortNames();
+        }
+        catch (Exception)
+        {
+            // /sys/class/tty is not readable by a stock Android app; there is no USB-serial port to pick.
+            return null;
+        }
+
         if (ports.Length == 0)
         {
             return null;
