@@ -17,6 +17,12 @@ namespace PCMLoggerAvalonia.Controls;
 /// </summary>
 public sealed class BarGauge : Control
 {
+    public BarGauge()
+    {
+        // Render chooses its colours from the theme, so redraw when the theme changes at runtime.
+        this.ActualThemeVariantChanged += (_, _) => this.InvalidateVisual();
+    }
+
     public static readonly StyledProperty<GaugeTile?> TileProperty =
         AvaloniaProperty.Register<BarGauge, GaugeTile?>(nameof(Tile));
 

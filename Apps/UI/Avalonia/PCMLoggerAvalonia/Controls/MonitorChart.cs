@@ -49,6 +49,9 @@ public sealed class MonitorChart : Control
         _timer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(100) };
         _timer.Tick += (_, _) => this.InvalidateVisual();
 
+        // Render chooses its colours from the theme, so redraw when the theme changes at runtime.
+        this.ActualThemeVariantChanged += (_, _) => this.InvalidateVisual();
+
         // Double-click during playback fits the whole log.
         this.DoubleTapped += (_, _) =>
         {

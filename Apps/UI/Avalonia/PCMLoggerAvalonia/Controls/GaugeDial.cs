@@ -43,6 +43,16 @@ public sealed class GaugeDial : UserControl
         this.Content = _canvas;
         this.HorizontalContentAlignment = HorizontalAlignment.Stretch;
         this.VerticalContentAlignment = VerticalAlignment.Stretch;
+
+        // RebuildStatic picks the track/number colours from the theme, so the dial must be redrawn when
+        // the theme changes at runtime (the Theme selector, or the OS switching light/dark). Without
+        // this it keeps the colours from whatever variant was active when it was first laid out - which
+        // on mobile left the dial showing light-theme colours after a switch to dark.
+        this.ActualThemeVariantChanged += (_, _) =>
+        {
+            this.RebuildStatic();
+            this.UpdateDynamic();
+        };
     }
 
     public static readonly StyledProperty<GaugeTile?> TileProperty =
