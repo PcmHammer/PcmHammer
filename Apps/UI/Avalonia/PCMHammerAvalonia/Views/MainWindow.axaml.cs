@@ -5,12 +5,13 @@ using Avalonia.Media;
 using Avalonia.Platform;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using PcmHacking.UI;
 using PCMHammerAvalonia.ViewModels;
 using System;
 
 namespace PCMHammerAvalonia.Views;
 
-public partial class MainWindow : Window
+public partial class MainWindow : ChromeWindow
 {
     private readonly MainWindowViewModel _viewModel;
     private bool _isCleanedUp = false;
@@ -18,31 +19,10 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        ApplyWindowsOnlyChrome();
         _viewModel = new MainWindowViewModel(this);
         DataContext = _viewModel;
 
         InitializeWebViews();
-    }
-
-    /// <summary>
-    /// Mica/Acrylic transparency and the extended (custom-drawn) client area/title bar are a
-    /// Windows-specific look. On Linux (and other platforms) these hints either do nothing useful
-    /// or push the window content down to make room for a title bar that isn't actually being
-    /// drawn, so only apply them when running on Windows.
-    /// </summary>
-    private void ApplyWindowsOnlyChrome()
-    {
-        if (!OperatingSystem.IsWindows())
-        {
-            return;
-        }
-
-        TransparencyLevelHint = [WindowTransparencyLevel.Mica, WindowTransparencyLevel.AcrylicBlur];
-        Background = Brushes.Transparent;
-        ExtendClientAreaToDecorationsHint = true;
-        ExtendClientAreaTitleBarHeightHint = 30;
-        RootGrid.Margin = new Thickness(0, 30, 0, 0);
     }
 
     private async void Window_Closing(object? sender, WindowClosingEventArgs e)

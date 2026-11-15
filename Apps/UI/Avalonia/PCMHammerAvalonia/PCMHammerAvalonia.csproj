@@ -10,6 +10,12 @@
 		<AvaloniaResource Include="Assets\**" />
 	</ItemGroup>
 
+	<!-- Shared custom title-bar window (ChromeWindow), used by both PcmHammer and PcmLogger so the two
+	     apps share one house style. Lives in Apps/UI/Avalonia/Shared and is linked into each app. -->
+	<ItemGroup>
+		<Compile Include="..\Shared\ChromeWindow.cs" Link="Chrome\ChromeWindow.cs" />
+	</ItemGroup>
+
 	<ItemGroup>
 		<PackageReference Include="Avalonia" />
 		<PackageReference Include="Avalonia.Controls.WebView" />
