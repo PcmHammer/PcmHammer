@@ -213,7 +213,10 @@
             <!-- Monitors: WinForms-style strip chart (per-trace colour axes; click an axis to hide/show) -->
             <TabItem Header="Monitors" IsVisible="{Binding ShowMonitors}">
                 <Grid RowDefinitions="Auto,*,Auto">
-                    <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" Margin="0,0,0,6">
+                    <!-- WrapPanel, not a horizontal StackPanel: on a narrow phone the toolbar is wider
+                         than the screen, and a StackPanel clips the overflow off the right edge - which
+                         hid the Traces button, the only touch way to bring a hidden trace back. -->
+                    <WrapPanel Grid.Row="0" Orientation="Horizontal" ItemSpacing="8" LineSpacing="6" Margin="0,0,0,6">
                         <ComboBox ItemsSource="{Binding Monitors}" SelectedItem="{Binding SelectedMonitor}" MinWidth="140"/>
                         <Button Content="Clear Log" Command="{Binding ClearLogCommand}"/>
                         <Button Content="Load Log…" Command="{Binding LoadLogCommand}"/>
@@ -242,7 +245,7 @@
                         <Button Content="+" Command="{Binding WidenMonitorWindowCommand}" ToolTip.Tip="Longer window"/>
                         <TextBlock VerticalAlignment="Center" FontSize="11" Opacity="0.6" Margin="6,0,0,0"
                                    Text="(or scroll the chart) · hover to read values"/>
-                    </StackPanel>
+                    </WrapPanel>
                     <Border Grid.Row="1"
                             BorderBrush="{DynamicResource SystemControlBackgroundBaseMediumLowBrush}"
                             BorderThickness="1">
