@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO.Ports;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -19,6 +20,12 @@ namespace PcmHacking
     {
         private string name;
         private SerialPort? port;
+
+        // On Linux the tty holds at most 4095 unread bytes, so received data is drained into a larger
+        // buffer that Receive/GetReceiveQueueSize are served from. This GUI ships one assembly that runs
+        // on both Windows and Linux, so the pump is selected at runtime rather than by a compile define.
+        private static readonly bool RunningOnLinux = RuntimeInformation.IsOSPlatform(OSPlatform.Linux);
+        private SerialReceivePump? receivePump;
 
         /// <summary>
         /// This is an experiment that did not end well the first time, but I still think it should work.
@@ -79,6 +86,10 @@ namespace PcmHacking
             {
                 this.dataReceived = config.DataReceived;
                 _ = Task.Run(this.Receiver); // fire-and-forget background receive loop; intentionally not awaited
+            }
+            else if (RunningOnLinux)
+            {
+                this.receivePump = new SerialReceivePump(newPort);
             }
         }
 
@@ -220,6 +231,16 @@ namespace PcmHacking
         public Task ChangeBaudRate(int baudRate)
         {
             SerialPort p = this.RequirePort();
+            if (this.receivePump != null)
+            {
+                this.receivePump.Discard(() =>
+                {
+                    p.BaudRate = baudRate;
+                    p.DiscardInBuffer();
+                });
+                return Task.CompletedTask;
+            }
+
             p.BaudRate = baudRate;
             p.DiscardInBuffer();
             return Task.CompletedTask;
@@ -243,10 +264,17 @@ namespace PcmHacking
             // member treat the port as closed, even before the (possibly slow) Dispose completes.
             SerialPort? p = this.port;
             this.port = null;
+            this.StopReceivePump();
             if (p != null)
             {
                 SafeDisposeSerialPort(p);
             }
+        }
+
+        private void StopReceivePump()
+        {
+            this.receivePump?.Stop();
+            this.receivePump = null;
         }
 
         /// <summary>
@@ -259,6 +287,7 @@ namespace PcmHacking
         {
             SerialPort? p = this.port;
             this.port = null;
+            this.StopReceivePump();
             if (p == null)
             {
                 return;
@@ -356,6 +385,11 @@ namespace PcmHacking
             {
                 try
                 {
+                    if (this.receivePump is SerialReceivePump pump)
+                    {
+                        return pump.Read(buffer, offset, count, this.RequirePort().ReadTimeout);
+                    }
+
                     // If the SerialPort's internal ReadTimeout is reached, it throws a TimeoutException
                     return this.RequirePort().Read(buffer, offset, count);
                 }
@@ -377,6 +411,16 @@ namespace PcmHacking
         public Task DiscardBuffers()
         {
             SerialPort p = this.RequirePort();
+            if (this.receivePump != null)
+            {
+                this.receivePump.Discard(() =>
+                {
+                    p.DiscardInBuffer();
+                    p.DiscardOutBuffer();
+                });
+                return Task.FromResult(0);
+            }
+
             p.DiscardInBuffer();
             p.DiscardOutBuffer();
             return Task.FromResult(0);
@@ -411,6 +455,12 @@ namespace PcmHacking
         /// </summary>
         Task<int> IPort.GetReceiveQueueSize()
         {
+            if (this.receivePump is SerialReceivePump pump)
+            {
+                this.RequirePort();
+                return Task.FromResult(pump.Count);
+            }
+
             return Task.FromResult(this.RequirePort().BytesToRead);
         }
     }
