@@ -335,8 +335,11 @@
             </TabItem>
         </TabControl>
 
-            <!-- Always-visible live-value pane (the WinForms right panel): the enabled parameters -->
-            <Border Grid.Column="1" IsVisible="{Binding ShowPids}" Width="290" Margin="8,0,0,0"
+            <!-- Always-visible live-value pane (the WinForms right panel): the enabled parameters.
+                 IsVisible is managed in code-behind (UpdateResponsiveLayout): shown only when the view
+                 is wide enough AND ShowPids is on. On a narrow phone the fixed-width pane would starve
+                 the tab area, so it is hidden there and the tabs take the full width. -->
+            <Border Grid.Column="1" x:Name="PidPane" Width="290" Margin="8,0,0,0"
                     BorderBrush="{DynamicResource SystemControlBackgroundBaseMediumLowBrush}" BorderThickness="1">
                 <Grid RowDefinitions="Auto,Auto,*">
                     <!-- Profile name: what this pane's parameters come from -->

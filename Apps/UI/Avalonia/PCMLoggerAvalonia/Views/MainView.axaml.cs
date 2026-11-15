@@ -30,9 +30,57 @@ public partial class MainView : UserControl
     private ScrollViewer? _debugScroller;
     private INotifyCollectionChanged? _debugMessages;
 
+    // Below this view width (logical px) the fixed-width PID side-pane is hidden so the tab area gets
+    // the whole screen. A phone is ~384 logical px wide; a desktop window is well above this.
+    private const double NarrowWidthThreshold = 640;
+
+    private MainWindowViewModel? _responsiveVm;
+
     public MainView()
     {
         InitializeComponent();
+
+        // Re-evaluate the responsive layout when the view is resized or the view model changes.
+        this.SizeChanged += (_, _) => this.UpdateResponsiveLayout();
+        this.DataContextChanged += this.OnDataContextChangedForLayout;
+    }
+
+    private void OnDataContextChangedForLayout(object? sender, EventArgs e)
+    {
+        if (_responsiveVm != null)
+        {
+            _responsiveVm.PropertyChanged -= this.OnResponsiveVmPropertyChanged;
+        }
+
+        _responsiveVm = this.DataContext as MainWindowViewModel;
+        if (_responsiveVm != null)
+        {
+            _responsiveVm.PropertyChanged += this.OnResponsiveVmPropertyChanged;
+        }
+
+        this.UpdateResponsiveLayout();
+    }
+
+    private void OnResponsiveVmPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(MainWindowViewModel.ShowPids))
+        {
+            this.UpdateResponsiveLayout();
+        }
+    }
+
+    // The side pane is shown only when there is room for it AND the user wants PIDs. On a narrow phone
+    // it is hidden regardless, so the tabs are not squeezed into a sliver.
+    private void UpdateResponsiveLayout()
+    {
+        if (this.PidPane == null)
+        {
+            return;
+        }
+
+        bool wideEnough = this.Bounds.Width >= NarrowWidthThreshold;
+        bool showPids = _responsiveVm?.ShowPids ?? true;
+        this.PidPane.IsVisible = wideEnough && showPids;
     }
 
     // The hosting Window on desktop, or null when this view is a mobile single-view root (no Window to
@@ -143,7 +191,8 @@ public partial class MainView : UserControl
             DefaultButton = FAContentDialogButton.Close,
         };
 
-        if (await dialog.ShowAsync() == FAContentDialogResult.Primary)
+        // TopLevel passed explicitly so this works on a mobile single-view (no owning Window) too.
+        if (await dialog.ShowAsync(TopLevel.GetTopLevel(this)) == FAContentDialogResult.Primary)
         {
             await vm.ClearTroubleCodesAsync();
         }
@@ -184,7 +233,9 @@ public partial class MainView : UserControl
             DefaultButton = FAContentDialogButton.Close,
         };
 
-        if (await dialog.ShowAsync() == FAContentDialogResult.Primary
+        // Pass the TopLevel explicitly: on a mobile single-view there is no owning Window, so the
+        // parameterless ShowAsync() cannot find an overlay layer and throws (visual is null).
+        if (await dialog.ShowAsync(TopLevel.GetTopLevel(this)) == FAContentDialogResult.Primary
             && list.SelectedIndex >= 0
             && list.SelectedIndex < devices.Count)
         {

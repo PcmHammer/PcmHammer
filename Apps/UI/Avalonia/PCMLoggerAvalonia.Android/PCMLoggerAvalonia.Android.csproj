@@ -12,6 +12,15 @@
     <AndroidEnableProfiledAot>false</AndroidEnableProfiledAot>
   </PropertyGroup>
 
+  <!-- Embed the managed assemblies into the APK even in Debug. By default a Debug .NET-Android build
+       leaves the app assemblies out of the APK and relies on the IDE's Fast Deployment step to push
+       them into the device's .__override__ folder. This project is built from the CLI and sideloaded,
+       so without this a sideloaded APK finds no assemblies at startup and aborts on the splash screen
+       ("No assemblies found ... Assuming this is part of Fast Deployment. Exiting..."). -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+    <EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
+  </PropertyGroup>
+
   <ItemGroup>
     <AndroidResource Include="Icon.png">
       <Link>Resources\drawable\Icon.png</Link>
