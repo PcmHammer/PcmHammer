@@ -65,8 +65,8 @@
                                     VerticalScrollBarVisibility="Auto">
                         <SelectableTextBlock x:Name="ResultsLogTextBox"
                                                 Text="{Binding ResultsLog}"
-                                                TextWrapping="Wrap" 
-                                                FontFamily="Consolas"/>
+                                                TextWrapping="Wrap"
+                                                FontFamily="Consolas, Menlo, DejaVu Sans Mono, Liberation Mono, monospace"/>
                     </ScrollViewer>
                 </Border>
             </ContentPage>
@@ -92,8 +92,8 @@
                                     VerticalScrollBarVisibility="Auto">
                         <SelectableTextBlock x:Name="DebugLogTextBox"
                                                 Text="{Binding DebugLog}"
-                                                TextWrapping="Wrap" 
-                                                FontFamily="Consolas"/>
+                                                TextWrapping="Wrap"
+                                                FontFamily="Consolas, Menlo, DejaVu Sans Mono, Liberation Mono, monospace"/>
                     </ScrollViewer>
                 </Border>
             </ContentPage>
