@@ -55,33 +55,37 @@ public class ChromeWindow : Window
             return;
         }
 
-        this.TransparencyLevelHint = [WindowTransparencyLevel.Mica, WindowTransparencyLevel.AcrylicBlur];
-        this.Background = Brushes.Transparent;
-        this.ExtendClientAreaToDecorationsHint = true;
-        this.ExtendClientAreaTitleBarHeightHint = TitleStripHeight;
-
-        // Hide the managed chrome's own title text (we draw our own) and its full-screen button. The
-        // chrome pins the title's layout as a local value, so Opacity - not IsVisible - is the lever
-        // that takes. The caption buttons are vector glyphs, so the title is the only TextBlock in the
-        // template.
-        this.Styles.Add(HiddenInTemplate<TextBlock>(null));
-        this.Styles.Add(HiddenInTemplate<Button>("PART_FullScreenButton"));
-    }
-
-    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
-    {
-        base.OnPropertyChanged(change);
-
-        // Wrap the content once, as soon as the derived window sets it (during InitializeComponent, so
-        // before the window is shown - no flash). The re-set below re-enters here, but _wrapped guards it.
-        if (change.Property == ContentProperty && OperatingSystem.IsWindows())
+        // Guard the whole custom chrome: if anything here fails, fall back to the native title bar
+        // rather than take the window down with it.
+        try
         {
-            this.WrapContentWithTitleBar();
+            this.TransparencyLevelHint = [WindowTransparencyLevel.Mica, WindowTransparencyLevel.AcrylicBlur];
+            this.Background = Brushes.Transparent;
+            this.ExtendClientAreaToDecorationsHint = true;
+            this.ExtendClientAreaTitleBarHeightHint = TitleStripHeight;
+
+            // Hide the managed chrome's own title text (we draw our own) and its full-screen button. The
+            // chrome pins the title's layout as a local value, so Opacity - not IsVisible - is the lever
+            // that takes. The caption buttons are vector glyphs, so the title is the only TextBlock in
+            // the template.
+            this.Styles.Add(HiddenInTemplate<TextBlock>(null));
+            this.Styles.Add(HiddenInTemplate<Button>("PART_FullScreenButton"));
+
+            // Wrap the content once the window has opened - NOT during the XAML load that sets Content.
+            // Reparenting the content while it is still the window's Content throws ("already has a
+            // parent"), and doing it inside a property-change notification fails the window silently.
+            this.Opened += this.OnOpenedWrapContent;
+        }
+        catch
+        {
+            // ignore - native title bar
         }
     }
 
-    private void WrapContentWithTitleBar()
+    private void OnOpenedWrapContent(object? sender, EventArgs e)
     {
+        this.Opened -= this.OnOpenedWrapContent;
+
         if (_wrapped || this.Content is not Control inner)
         {
             return;
@@ -89,9 +93,19 @@ public class ChromeWindow : Window
 
         _wrapped = true;
 
-        // Push the app's own content below the title strip; it keeps its own margins inside the host.
-        Decorator host = new() { Child = inner, Margin = new Thickness(0, TitleStripHeight, 0, 0) };
-        this.Content = new Panel { Children = { host, this.BuildTitleBar() } };
+        try
+        {
+            // Detach the app's content from the window before reparenting it under the title strip; a
+            // control cannot have two parents. It keeps its own margins inside the host.
+            this.Content = null;
+            Decorator host = new() { Child = inner, Margin = new Thickness(0, TitleStripHeight, 0, 0) };
+            this.Content = new Panel { Children = { host, this.BuildTitleBar() } };
+        }
+        catch
+        {
+            // Put the original content back if wrapping fails, so the window is never left blank.
+            this.Content = inner;
+        }
     }
 
     private Control BuildTitleBar()
