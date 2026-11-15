@@ -16,5 +16,5 @@
 	<!-- USB host (OBDX Pro VT over a USB-OTG serial adapter). -->
 	<uses-feature android:name="android.hardware.usb.host" android:required="false" />
 
-	<application android:label="PCM Logger" android:icon="@drawable/Icon" />
+	<application android:label="PCM Logger" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round" />
 </manifest>
