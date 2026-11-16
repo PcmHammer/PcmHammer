@@ -70,7 +70,23 @@ public class FileDialogService(SettingsService settingsService) : IFileDialogSer
         };
 
         IReadOnlyList<IStorageFile> files = await storageProvider.OpenFilePickerAsync(options);
-        return files.FirstOrDefault()?.Path.LocalPath;
+        IStorageFile? picked = files.FirstOrDefault();
+        if (picked == null) return null;
+
+#if ANDROID
+        // The picked file is a content:// document with no usable local filesystem path, so copy it
+        // into a private temp .bin the flasher can read by path. (The temp lives in the app cache; the
+        // OS reclaims it.)
+        string tempPath = Path.Combine(Path.GetTempPath(), $"pcm_src_{Guid.NewGuid():N}.bin");
+        await using (Stream src = await picked.OpenReadAsync())
+        await using (Stream dst = File.Create(tempPath))
+        {
+            await src.CopyToAsync(dst);
+        }
+        return tempPath;
+#else
+        return picked.Path.LocalPath;
+#endif
     }
 
     public async Task<string?> SaveBinFileDialog()

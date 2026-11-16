@@ -3,7 +3,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="using:PCMHammerAvalonia.ViewModels"
-        xmlns:helpers="using:PCMHammerAvalonia.Helpers"
+        xmlns:dialogs="using:PCMHammerAvalonia.Views.DialogBoxes"
         x:Class="PCMHammerAvalonia.Views.DialogBoxes.WriteOperationDialogBox"
         x:DataType="vm:WriteTypeViewModel"
         mc:Ignorable="d"
@@ -12,79 +12,5 @@
         SizeToContent="WidthAndHeight"
         Title="Write Type">
 
-    <Window.Resources>
-        <helpers:PcmTypeDisplayTextConverter x:Key="PcmTypeDisplayTextConverter"/>
-        <helpers:WriteTypeDisplayTextConverter x:Key="WriteTypeDisplayTextConverter"/>
-    </Window.Resources>
-
-    <Grid Margin="12" 
-          ColumnDefinitions="Auto,Auto" 
-          RowDefinitions="Auto,Auto,Auto,Auto">
-
-        <!-- Row 0: PCM Type -->
-        <Label Content="PCM Type" 
-               VerticalAlignment="Center" 
-               Target="{Binding #PCMTypeComboBox}"/>
-        <ComboBox x:Name="PCMTypeComboBox" 
-                  Grid.Column="1" 
-                  Margin="10,5" 
-                  ItemsSource="{Binding PCMTypes}" 
-                  SelectedItem="{Binding SelectedPCMType}">
-            <ComboBox.ItemTemplate>
-                <DataTemplate>
-                    <TextBlock Text="{Binding Converter={StaticResource PcmTypeDisplayTextConverter}}"/>
-                </DataTemplate>
-            </ComboBox.ItemTemplate>
-        </ComboBox>
-
-        <!-- Row 1: Write Type -->
-        <Label Grid.Row="1" 
-               Content="Write Type" 
-               VerticalAlignment="Center" 
-               Target="{Binding #WriteTypeComboBox}"/>
-        <ComboBox x:Name="WriteTypeComboBox" 
-                  Grid.Row="1" 
-                  Grid.Column="1" 
-                  Margin="10,5"
-                  ItemsSource="{Binding WriteTypes}" 
-                  SelectedItem="{Binding SelectedWriteType}">
-            <ComboBox.ItemTemplate>
-                <DataTemplate>
-                    <TextBlock Text="{Binding Converter={StaticResource WriteTypeDisplayTextConverter}}"/>
-                </DataTemplate>
-            </ComboBox.ItemTemplate>
-        </ComboBox>
-        
-        <!-- Row 2: Reset Pin -->
-        <Label Grid.Row="2" 
-               Content="Reset Pin Used" 
-               VerticalAlignment="Center" 
-               Target="{Binding #PCMRestPinCheckBox}"/>
-        <CheckBox x:Name="PCMRestPinCheckBox" 
-                  Grid.Row="2" 
-                  Grid.Column="1" 
-                  Margin="10,5"
-                  IsChecked="{Binding SuppressOSIDWarning}"/>
-
-        <!-- Row 3: Action Buttons -->
-        <Grid Grid.Row="3" 
-              Grid.Column="1" 
-              Margin="10,5" 
-              ColumnDefinitions="*,*">
-            <Button x:Name="CancelButton" 
-                    Content="Cancel" 
-                    Margin="0,0,8,0" 
-                    HorizontalAlignment="Stretch"
-                    HorizontalContentAlignment="Center"
-                    HotKey="Escape" 
-                    Command="{Binding CloseCommand}"/>
-            <Button x:Name="OkButton" 
-                    Content="OK" 
-                    Grid.Column="1" 
-                    HorizontalAlignment="Stretch"
-                    HorizontalContentAlignment="Center"
-                    HotKey="Enter" 
-                    Command="{Binding AcceptAndCloseCommand}"/>
-        </Grid>
-    </Grid>
+    <dialogs:WriteOperationView/>
 </Window>

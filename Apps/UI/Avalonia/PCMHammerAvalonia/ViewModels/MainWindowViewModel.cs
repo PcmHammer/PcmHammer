@@ -959,6 +959,17 @@ public partial class MainWindowViewModel : ObservableObject
         if (Vehicle == null || PcmFlasher == null || IsOperationRunning)
             return;
 
+#if ANDROID
+        // Single-view: no Window to own the "powered 10s?" DelayDialog, so show the same warning as a
+        // ContentDialog confirm on the view's TopLevel instead.
+        bool proceed = await ConfirmFlashDelayAndroidAsync();
+        if (!proceed)
+        {
+            _logger.AddUserMessage("Flash operation canceled by user.");
+            StatusText = "Ready";
+            return;
+        }
+#else
         Window? owner = (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow;
         if (owner == null)
         {
@@ -975,6 +986,7 @@ public partial class MainWindowViewModel : ObservableObject
             StatusText = "Ready";
             return;
         }
+#endif
 
         // FIX 1: Await the file dialog picker
         string? selectedFilePath = await _fileDialogService.OpenBinFileDialog();
@@ -1030,6 +1042,9 @@ public partial class MainWindowViewModel : ObservableObject
     }
     private async Task ExecuteWritePCMAsyncWithDialog()
     {
+#if ANDROID
+        await ExecuteWritePCMAndroidWithDialogAsync();
+#else
         Window? owner = null;
         if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
             owner = desktop.MainWindow;
@@ -1043,7 +1058,76 @@ public partial class MainWindowViewModel : ObservableObject
         {
             await ExecuteWritePCMAsync(dialog.SelectedWriteType, dialog.SelectedPCMType, dialog.SuppressOSIDWarning);
         }
+#endif
     }
+
+#if ANDROID
+    // Mobile write-type picker: the same WriteTypeViewModel + WriteOperationView content the desktop
+    // Window hosts, shown in a FluentAvalonia ContentDialog over the view's TopLevel.
+    private async Task ExecuteWritePCMAndroidWithDialogAsync()
+    {
+        var pickerViewModel = new WriteTypeViewModel();
+        pickerViewModel.SelectedPCMType = pickerViewModel.PCMTypes[0];
+        pickerViewModel.SelectedWriteType = pickerViewModel.WriteTypes[0];
+
+        var content = new Views.DialogBoxes.WriteOperationView { DataContext = pickerViewModel };
+        var dialog = new FluentAvalonia.UI.Controls.FAContentDialog
+        {
+            Title = "Write Type",
+            Content = content,
+        };
+
+        bool accepted = false;
+        pickerViewModel.RequestClose += () => dialog.Hide();
+        pickerViewModel.RequestAcceptandClose += () =>
+        {
+            accepted = true;
+            dialog.Hide();
+        };
+
+        TopLevel? topLevel = Views.MainView.Current is { } view ? TopLevel.GetTopLevel(view) : null;
+        if (topLevel != null)
+        {
+            await dialog.ShowAsync(topLevel);
+        }
+        else
+        {
+            await dialog.ShowAsync();
+        }
+
+        if (accepted)
+        {
+            await ExecuteWritePCMAsync(
+                pickerViewModel.SelectedWriteType,
+                pickerViewModel.SelectedPCMType,
+                pickerViewModel.SuppressOSIDWarning);
+        }
+    }
+
+    // The "has the PCM been powered on for 10 seconds?" safety confirm, shown as a ContentDialog on
+    // single-view (Android) where the DelayDialog Window cannot be owned. Returns true to proceed.
+    private static async Task<bool> ConfirmFlashDelayAndroidAsync()
+    {
+        var dialog = new FluentAvalonia.UI.Controls.FAContentDialog
+        {
+            Title = "Ready to flash?",
+            Content =
+                "Has the PCM been powered on for at least 10 seconds?\n\n" +
+                "If not, please wait for it to initialize before continuing. If you skip this step, the " +
+                "write process may be interrupted, and there's a good chance you will need to temporarily " +
+                "remove the PCM's fuse to get it working properly again.",
+            PrimaryButtonText = "Continue",
+            CloseButtonText = "Cancel",
+        };
+
+        TopLevel? topLevel = Views.MainView.Current is { } view ? TopLevel.GetTopLevel(view) : null;
+        FluentAvalonia.UI.Controls.FAContentDialogResult result = topLevel != null
+            ? await dialog.ShowAsync(topLevel)
+            : await dialog.ShowAsync();
+
+        return result == FluentAvalonia.UI.Controls.FAContentDialogResult.Primary;
+    }
+#endif
     #endregion
 
     #region Private Helpers
