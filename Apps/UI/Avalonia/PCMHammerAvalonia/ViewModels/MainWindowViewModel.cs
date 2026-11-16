@@ -19,6 +19,13 @@ public partial class MainWindowViewModel : ObservableObject
     private readonly FileDialogService _fileDialogService;
     private readonly Window _parentWindow;
     private CancellationTokenSource? _cancellationTokenSource;
+
+    // A kernel operation's exit reboots the PCM; an unlock within ~10s of that reboot lands in the PCM's
+    // power-on security window and the kernel upload is refused (7F 34), or the unlock reply is odd/short.
+    // Track when the last operation finished so the next kernel op waits out the remainder of that settle
+    // time (ported from the Linux CLI's 86147d78 "Wait 10 seconds before kernel operations").
+    private DateTime _lastKernelOperationUtc = DateTime.MinValue;
+    private const int PcmReadySeconds = 10;
     private bool CanReInitialize() => SelectedDevice is not null;
     private bool CanExecuteSelectedDevice() => SelectedDevice is not null;
     private readonly SettingsService _settingsService;
@@ -52,6 +59,11 @@ public partial class MainWindowViewModel : ObservableObject
 
     [ObservableProperty]
     public partial string DebugLogText { get; set; } = string.Empty;
+
+    // Bound two-way to the mobile DrawerPage.IsOpen: the hamburger toggles it, and the sidebar commands
+    // set it false so the drawer closes when an action is chosen (desktop ignores it).
+    [ObservableProperty]
+    public partial bool IsDrawerOpen { get; set; }
 
     [ObservableProperty]
     public partial bool IsResultsCopiedFeedbackVisible { get; set; }
@@ -130,10 +142,18 @@ public partial class MainWindowViewModel : ObservableObject
 
     #region Commands (Tools Menu & Operations)
     [RelayCommand(CanExecute = nameof(CanExecuteSelectedDevice))]
-    public async Task ReadPCM() => await ExecuteReadPCMAsync(true, PcmType.Undefined);
+    public async Task ReadPCM()
+    {
+        IsDrawerOpen = false;
+        await ExecuteReadPCMAsync(true, PcmType.Undefined);
+    }
 
     [RelayCommand(CanExecute = nameof(CanExecuteSelectedDevice))]
-    public async Task VerifyPCM() => await ExecuteVerificationAsync();
+    public async Task VerifyPCM()
+    {
+        IsDrawerOpen = false;
+        await ExecuteVerificationAsync();
+    }
 
     [RelayCommand(CanExecute = nameof(CanExecuteSelectedDevice))]
     public async Task ChangeVIN() => await ExecuteChangeVINAsync();
@@ -251,8 +271,15 @@ public partial class MainWindowViewModel : ObservableObject
     [RelayCommand]
     public async Task SelectDevice()
     {
+        IsDrawerOpen = false;
         try
         {
+#if ANDROID
+            // Android is single-view: there is no Window to own a modal dialog, so host the picker
+            // content in a ContentDialog overlay on the mobile view's TopLevel instead.
+            await SelectDeviceAndroidAsync();
+            return;
+#else
             Window? owner = null;
             if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
                 owner = desktop.MainWindow;
@@ -284,6 +311,7 @@ public partial class MainWindowViewModel : ObservableObject
             {
                 StatusText = "Ready";
             }
+#endif
         }
         catch (Exception ex)
         {
@@ -291,6 +319,52 @@ public partial class MainWindowViewModel : ObservableObject
             StatusText = $"Error selecting device: {ex.Message}";
         }
     }
+
+#if ANDROID
+    // Mobile device picker: the same DevicePickerViewModel + DevicePickerView content the desktop
+    // Window hosts, shown in a FluentAvalonia ContentDialog over the view's TopLevel. The view model's
+    // RequestAcceptAndClose / RequestClose events close the overlay; on accept its SelectedDevice is used.
+    private async Task SelectDeviceAndroidAsync()
+    {
+        var pickerViewModel = new DevicePickerViewModel(_logger, _settingsService);
+        var content = new Views.DialogBoxes.DevicePickerView { DataContext = pickerViewModel };
+        var dialog = new FluentAvalonia.UI.Controls.FAContentDialog
+        {
+            Title = "Select Device",
+            Content = content,
+        };
+
+        bool accepted = false;
+        pickerViewModel.RequestClose += () => dialog.Hide();
+        pickerViewModel.RequestAcceptAndClose += () =>
+        {
+            accepted = true;
+            dialog.Hide();
+        };
+
+        StatusText = "Selecting Device...";
+
+        // Discover devices (paired Bluetooth adapters) once the dialog is up.
+        _ = pickerViewModel.InitializeAsync();
+
+        TopLevel? topLevel = Views.MainView.Current is { } view ? TopLevel.GetTopLevel(view) : null;
+        if (topLevel != null)
+        {
+            await dialog.ShowAsync(topLevel);
+        }
+        else
+        {
+            await dialog.ShowAsync();
+        }
+
+        if (accepted && pickerViewModel.SelectedDevice != null)
+        {
+            InitializeDeviceAndVehicle(pickerViewModel.SelectedDevice, pickerViewModel.Enable4xReadWrite);
+        }
+
+        StatusText = "Ready";
+    }
+#endif
 
     [RelayCommand(CanExecute = nameof(CanReInitialize))]
     public void ReInitializeDevice()
@@ -313,6 +387,7 @@ public partial class MainWindowViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanExecuteSelectedDevice))]
     public async Task ReadProperties()
     {
+        IsDrawerOpen = false;
         StatusText = "Reading Properties...";
         if (Vehicle == null) return;
         try
@@ -410,10 +485,18 @@ public partial class MainWindowViewModel : ObservableObject
     }
 
     [RelayCommand(CanExecute = nameof(CanExecuteSelectedDevice))]
-    public async Task WritePCM() => await ExecuteWritePCMAsyncWithDialog();
+    public async Task WritePCM()
+    {
+        IsDrawerOpen = false;
+        await ExecuteWritePCMAsyncWithDialog();
+    }
 
     [RelayCommand(CanExecute = nameof(CanExecuteSelectedDevice))]
-    public async Task TestWrite() => await ExecuteWritePCMAsync(WriteType.TestWrite);
+    public async Task TestWrite()
+    {
+        IsDrawerOpen = false;
+        await ExecuteWritePCMAsync(WriteType.TestWrite);
+    }
 
     [RelayCommand(CanExecute = nameof(CanExecuteSelectedDevice))]
     public async Task CancelCurrent()
@@ -466,15 +549,21 @@ public partial class MainWindowViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Parameterless constructor required for the Avalonia XAML Designer.
+    /// Parameterless constructor used by the Avalonia XAML Designer and by the mobile (single-view)
+    /// host, which has no owning Window. It wires the logger and services the same way as the desktop
+    /// constructor (so Results/Debug output flows), minus the Window-dependent startup.
     /// </summary>
     public MainWindowViewModel()
     {
-        // Design-time defaults to prevent NullReferenceExceptions in the previewer
         _parentWindow = null!;
         _logger = new MainWindowLogger(this);
         _settingsService = new SettingsService();
         _fileDialogService = new FileDialogService(_settingsService);
+        _logger.ProgressBarUpdated += (percent, visible) =>
+        {
+            ProgressPercent = percent * 100;
+        };
+        AddInitialLogMessages();
     }
 
     public async Task HandleApplicationShutdownAsync()
@@ -508,6 +597,48 @@ public partial class MainWindowViewModel : ObservableObject
 
         StatusText = "Preparing for Read...";
 
+#if ANDROID
+        // On Android the save picker hands back a content:// destination with no local file path, so
+        // read into a private temp file first and then stream it into the user's chosen location.
+        // Suggest the name without an extension: Android's save dialog appends the picker's default
+        // extension itself, so including ".bin" here would produce a doubled "...bin.bin".
+        Avalonia.Platform.Storage.IStorageFile? destination =
+            await _fileDialogService.PickBinSaveFileAsync($"PCM_Read_{DateTime.Now:yyyyMMdd_HHmmss}");
+
+        if (destination == null)
+        {
+            _logger.AddUserMessage("Read operation canceled by user (no file selected).");
+            StatusText = "Ready";
+            return;
+        }
+
+        string tempPath = Path.Combine(Path.GetTempPath(), $"pcm_read_{Guid.NewGuid():N}.bin");
+        try
+        {
+            bool success = await RunReadAsync(tempPath, useAutoPcmType, selectedPcmType);
+
+            if (success && File.Exists(tempPath))
+            {
+                StatusText = "Saving file...";
+                await using var source = File.OpenRead(tempPath);
+                await using var target = await destination.OpenWriteAsync();
+                await source.CopyToAsync(target);
+                _logger.AddUserMessage($"Saved read to: {destination.Name}");
+                StatusText = "Read Completed Successfully!";
+                await Task.Delay(2000);
+                StatusText = "Ready";
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.AddUserMessage($"Failed to save read file: {ex.Message}");
+            StatusText = "Error occurred.";
+        }
+        finally
+        {
+            try { if (File.Exists(tempPath)) File.Delete(tempPath); } catch { /* best effort cleanup */ }
+        }
+#else
         // Await the dialog directly on the UI thread to prevent deadlocks
         string? selectedFilePath = await _fileDialogService.SaveBinFileDialog();
 
@@ -518,15 +649,50 @@ public partial class MainWindowViewModel : ObservableObject
             return;
         }
 
+        await RunReadAsync(selectedFilePath, useAutoPcmType, selectedPcmType);
+#endif
+    }
+
+    // Core read loop shared by desktop (writes straight to the chosen path) and Android (writes to a
+    // temp path that is then streamed into the content:// destination). Returns whether the read
+    // completed successfully.
+    // Waits out the remainder of the PCM settle time since the last kernel operation. The previous op's
+    // kernel exit reboots the PCM; starting the next op too soon gets a refused kernel upload (7F 34). A
+    // first op, or one after the PCM has sat past the window, does not wait. Proven on a bench P01: gaps
+    // of 10s+ always worked, ~2s was refused (ported from the Linux CLI's 86147d78).
+    private async Task WaitForPcmReadyAsync()
+    {
+        double remaining = PcmReadySeconds - (DateTime.UtcNow - _lastKernelOperationUtc).TotalSeconds;
+        if (remaining <= 0)
+        {
+            return;
+        }
+
+        _logger.AddUserMessage($"Waiting {Math.Ceiling(remaining):0} seconds for the PCM to be ready after the previous operation...");
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(remaining), _cancellationTokenSource?.Token ?? CancellationToken.None);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private async Task<bool> RunReadAsync(string path, bool useAutoPcmType, PcmType selectedPcmType)
+    {
+        bool success = false;
         try
         {
             IsOperationRunning = true;
-            StatusText = "Reading PCM Contents...";
             _cancellationTokenSource = new CancellationTokenSource();
 
+            await WaitForPcmReadyAsync();
+
+            StatusText = "Reading PCM Contents...";
+
             // Await the async reader directly without wrapping in Task.Run
-            bool success = await PcmReader.ReadPcmAsync(
-                selectedFilePath,
+            success = await PcmReader!.ReadPcmAsync(
+                path,
                 useAutoPcmType,
                 selectedPcmType,
                 _cancellationTokenSource.Token);
@@ -545,6 +711,7 @@ public partial class MainWindowViewModel : ObservableObject
         }
         finally
         {
+            _lastKernelOperationUtc = DateTime.UtcNow;
             IsOperationRunning = false;
             _cancellationTokenSource?.Dispose();
             _cancellationTokenSource = null;
@@ -556,6 +723,7 @@ public partial class MainWindowViewModel : ObservableObject
                 StatusText = "Ready";
             }
         }
+        return success;
     }
     private async Task ExecuteReadPCMAsyncWithDialog()
     {
@@ -847,6 +1015,17 @@ public partial class MainWindowViewModel : ObservableObject
         if (Vehicle == null || PcmFlasher == null || IsOperationRunning)
             return;
 
+#if ANDROID
+        // Single-view: no Window to own the "powered 10s?" DelayDialog, so show the same warning as a
+        // ContentDialog confirm on the view's TopLevel instead.
+        bool proceed = await ConfirmFlashDelayAndroidAsync();
+        if (!proceed)
+        {
+            _logger.AddUserMessage("Flash operation canceled by user.");
+            StatusText = "Ready";
+            return;
+        }
+#else
         Window? owner = (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow;
         if (owner == null)
         {
@@ -863,6 +1042,7 @@ public partial class MainWindowViewModel : ObservableObject
             StatusText = "Ready";
             return;
         }
+#endif
 
         // FIX 1: Await the file dialog picker
         string? selectedFilePath = await _fileDialogService.OpenBinFileDialog();
@@ -877,8 +1057,11 @@ public partial class MainWindowViewModel : ObservableObject
         try
         {
             IsOperationRunning = true;
-            StatusText = "Writing to PCM...";
             _cancellationTokenSource = new CancellationTokenSource();
+
+            await WaitForPcmReadyAsync();
+
+            StatusText = "Writing to PCM...";
 
             bool useAuto = pcmType == PcmType.Undefined;
 
@@ -905,6 +1088,7 @@ public partial class MainWindowViewModel : ObservableObject
         }
         finally
         {
+            _lastKernelOperationUtc = DateTime.UtcNow;
             IsOperationRunning = false;
             _cancellationTokenSource?.Dispose();
             _cancellationTokenSource = null;
@@ -918,6 +1102,9 @@ public partial class MainWindowViewModel : ObservableObject
     }
     private async Task ExecuteWritePCMAsyncWithDialog()
     {
+#if ANDROID
+        await ExecuteWritePCMAndroidWithDialogAsync();
+#else
         Window? owner = null;
         if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
             owner = desktop.MainWindow;
@@ -931,7 +1118,76 @@ public partial class MainWindowViewModel : ObservableObject
         {
             await ExecuteWritePCMAsync(dialog.SelectedWriteType, dialog.SelectedPCMType, dialog.SuppressOSIDWarning);
         }
+#endif
     }
+
+#if ANDROID
+    // Mobile write-type picker: the same WriteTypeViewModel + WriteOperationView content the desktop
+    // Window hosts, shown in a FluentAvalonia ContentDialog over the view's TopLevel.
+    private async Task ExecuteWritePCMAndroidWithDialogAsync()
+    {
+        var pickerViewModel = new WriteTypeViewModel();
+        pickerViewModel.SelectedPCMType = pickerViewModel.PCMTypes[0];
+        pickerViewModel.SelectedWriteType = pickerViewModel.WriteTypes[0];
+
+        var content = new Views.DialogBoxes.WriteOperationView { DataContext = pickerViewModel };
+        var dialog = new FluentAvalonia.UI.Controls.FAContentDialog
+        {
+            Title = "Write Type",
+            Content = content,
+        };
+
+        bool accepted = false;
+        pickerViewModel.RequestClose += () => dialog.Hide();
+        pickerViewModel.RequestAcceptandClose += () =>
+        {
+            accepted = true;
+            dialog.Hide();
+        };
+
+        TopLevel? topLevel = Views.MainView.Current is { } view ? TopLevel.GetTopLevel(view) : null;
+        if (topLevel != null)
+        {
+            await dialog.ShowAsync(topLevel);
+        }
+        else
+        {
+            await dialog.ShowAsync();
+        }
+
+        if (accepted)
+        {
+            await ExecuteWritePCMAsync(
+                pickerViewModel.SelectedWriteType,
+                pickerViewModel.SelectedPCMType,
+                pickerViewModel.SuppressOSIDWarning);
+        }
+    }
+
+    // The "has the PCM been powered on for 10 seconds?" safety confirm, shown as a ContentDialog on
+    // single-view (Android) where the DelayDialog Window cannot be owned. Returns true to proceed.
+    private static async Task<bool> ConfirmFlashDelayAndroidAsync()
+    {
+        var dialog = new FluentAvalonia.UI.Controls.FAContentDialog
+        {
+            Title = "Ready to flash?",
+            Content =
+                "Has the PCM been powered on for at least 10 seconds?\n\n" +
+                "If not, please wait for it to initialize before continuing. If you skip this step, the " +
+                "write process may be interrupted, and there's a good chance you will need to temporarily " +
+                "remove the PCM's fuse to get it working properly again.",
+            PrimaryButtonText = "Continue",
+            CloseButtonText = "Cancel",
+        };
+
+        TopLevel? topLevel = Views.MainView.Current is { } view ? TopLevel.GetTopLevel(view) : null;
+        FluentAvalonia.UI.Controls.FAContentDialogResult result = topLevel != null
+            ? await dialog.ShowAsync(topLevel)
+            : await dialog.ShowAsync();
+
+        return result == FluentAvalonia.UI.Controls.FAContentDialogResult.Primary;
+    }
+#endif
     #endregion
 
     #region Private Helpers
@@ -949,10 +1205,12 @@ public partial class MainWindowViewModel : ObservableObject
             _logger
         );
 
-        // Empty base path: the library resolves kernels from AppContext.BaseDirectory (next to the
-        // exe, where BuildAll deploys them), matching WinForms/WPF. A literal here would look in a
-        // relative folder that doesn't exist and fail with "Invalid directory".
-        Vehicle = new Vehicle(workingDevice, protocolEngine, _logger, notifier, string.Empty)
+        // Base path for kernels. On desktop this is empty, so the library resolves them from
+        // AppContext.BaseDirectory (next to the exe, where BuildAll deploys them), matching WinForms/WPF.
+        // On Android there is no exe directory, so the head copies the bundled kernels into the app's
+        // files dir at startup and records it in PlatformPaths.KernelDirectory; pass that here.
+        string kernelBasePath = PlatformPaths.KernelDirectory ?? string.Empty;
+        Vehicle = new Vehicle(workingDevice, protocolEngine, _logger, notifier, kernelBasePath)
         {
             Enable4xReadWrite = Enable4xCom
         };

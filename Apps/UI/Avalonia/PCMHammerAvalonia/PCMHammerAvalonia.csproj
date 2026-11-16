@@ -1,7 +1,12 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
 		<RootNamespace>PCMHammerAvalonia</RootNamespace>
-		<TargetFramework>net10.0</TargetFramework>
+		<!-- net10.0 drives the desktop heads; net10.0-android lets the flasher run on a phone. On the
+		     android target, TargetPlatformIdentifier == 'android', so the Windows-only device layer
+		     (J2534DotNet, PcmLibraryWindowsApi) is excluded below and the Android device path
+		     (Platforms/Android: serial IPort + Bluetooth + DeviceFactory) is used instead. -->
+		<TargetFrameworks>net10.0;net10.0-android</TargetFrameworks>
+		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">23.0</SupportedOSPlatformVersion>
 		<Nullable>enable</Nullable>
 		<LangVersion>latest</LangVersion>
 	</PropertyGroup>
@@ -12,7 +17,6 @@
 
 	<ItemGroup>
 		<PackageReference Include="Avalonia" />
-		<PackageReference Include="Avalonia.Controls.WebView" />
 		<PackageReference Include="Avalonia.Themes.Fluent" />
 		<PackageReference Include="Avalonia.Fonts.Inter" />
 		<PackageReference Include="AvaloniaUI.DiagnosticsSupport">
@@ -21,6 +25,18 @@
 		</PackageReference>
 		<PackageReference Include="CommunityToolkit.Mvvm" />
 		<PackageReference Include="FluentAvaloniaUI" />
+	</ItemGroup>
+
+	<!-- The in-app Help/Credits browser (Avalonia.Controls.WebView) is desktop-only here; on Android
+	     the WebView code paths are compiled out (#if !ANDROID) and a placeholder is shown instead. -->
+	<ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) != 'android'">
+		<PackageReference Include="Avalonia.Controls.WebView" />
+	</ItemGroup>
+
+	<!-- Android device path: serial over System.IO.Ports (the Platforms/Android shims) plus the
+	     Bluetooth RFCOMM transport. -->
+	<ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
+		<PackageReference Include="System.IO.Ports" />
 	</ItemGroup>
 
 	<!-- Cross-platform references -->

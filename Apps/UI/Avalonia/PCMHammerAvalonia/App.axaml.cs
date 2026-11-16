@@ -6,7 +6,8 @@ using PCMHammerAvalonia.Views;
 
 namespace PCMHammerAvalonia;
 
-public partial class App : Application
+// Qualify Avalonia.Application: on the android target Android.App.Application is also in scope.
+public partial class App : global::Avalonia.Application
 {
     public override void Initialize()
     {
@@ -24,13 +25,15 @@ public partial class App : Application
         }
         else if (ApplicationLifetime is IActivityApplicationLifetime singleViewFactoryApplicationLifetime)
         {
-            singleViewFactoryApplicationLifetime.MainViewFactory = () => new MainView { DataContext = new MainViewModel() };
+            // Mobile hosts the same functional flasher view model as the desktop window (its
+            // parameterless ctor needs no owning Window), so Select Device / Read / Write etc. work.
+            singleViewFactoryApplicationLifetime.MainViewFactory = () => new MainView { DataContext = new MainWindowViewModel() };
         }
         else if (ApplicationLifetime is ISingleViewApplicationLifetime singleViewPlatform)
         {
             singleViewPlatform.MainView = new MainView
             {
-                DataContext = new MainViewModel()
+                DataContext = new MainWindowViewModel()
             };
         }
 

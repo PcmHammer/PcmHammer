@@ -1,7 +1,6 @@
 using Avalonia.Controls;
 using PcmHacking;
 using PCMHammerAvalonia.ViewModels;
-using System.Security.AccessControl;
 
 namespace PCMHammerAvalonia.Views.DialogBoxes;
 
@@ -20,8 +19,10 @@ public partial class WriteOperationDialogBox : Window
         _viewModel = new WriteTypeViewModel();
         DataContext = _viewModel;
 
-        PCMTypeComboBox.SelectedIndex = 0;
-        WriteTypeComboBox.SelectedIndex = 0;
+        // The combo boxes now live in the hosted WriteOperationView; seed the selected values on the
+        // view model directly rather than reaching into named controls.
+        _viewModel.SelectedPCMType = _viewModel.PCMTypes[0];
+        _viewModel.SelectedWriteType = _viewModel.WriteTypes[0];
 
         _viewModel.RequestClose += () => Close(false);
         _viewModel.RequestAcceptandClose += AcceptAndClose;

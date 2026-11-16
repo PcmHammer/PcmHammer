@@ -1,7 +1,10 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
-
+// On the android target Android.App.Application and Android.Widget.Button are also in scope; pin these
+// names to the Avalonia types so this desktop dialog still compiles for the android head.
+using Application = Avalonia.Application;
+using Button = Avalonia.Controls.Button;
 
 namespace PCMHammerAvalonia.Views;
 

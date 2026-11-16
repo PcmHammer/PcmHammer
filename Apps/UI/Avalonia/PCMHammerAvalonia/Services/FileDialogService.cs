@@ -1,6 +1,10 @@
 ﻿using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform.Storage;
+using PCMHammerAvalonia.Views;
+// On the android target Android.App.Application is also in scope; pin Application to Avalonia's.
+using Application = Avalonia.Application;
 
 namespace PCMHammerAvalonia.Services;
 
@@ -12,7 +16,10 @@ public class FileDialogService(SettingsService settingsService) : IFileDialogSer
         {
             return desktop.MainWindow?.StorageProvider;
         }
-        return null;
+
+        // On single-view platforms (Android) there is no desktop main window; reach the storage
+        // provider through the live MainView's TopLevel instead.
+        return TopLevel.GetTopLevel(MainView.Current)?.StorageProvider;
     }
 
     public async Task<string?> OpenDirectoryDialog(string? initialDirectory = null)
@@ -63,7 +70,23 @@ public class FileDialogService(SettingsService settingsService) : IFileDialogSer
         };
 
         IReadOnlyList<IStorageFile> files = await storageProvider.OpenFilePickerAsync(options);
-        return files.FirstOrDefault()?.Path.LocalPath;
+        IStorageFile? picked = files.FirstOrDefault();
+        if (picked == null) return null;
+
+#if ANDROID
+        // The picked file is a content:// document with no usable local filesystem path, so copy it
+        // into a private temp .bin the flasher can read by path. (The temp lives in the app cache; the
+        // OS reclaims it.)
+        string tempPath = Path.Combine(Path.GetTempPath(), $"pcm_src_{Guid.NewGuid():N}.bin");
+        await using (Stream src = await picked.OpenReadAsync())
+        await using (Stream dst = File.Create(tempPath))
+        {
+            await src.CopyToAsync(dst);
+        }
+        return tempPath;
+#else
+        return picked.Path.LocalPath;
+#endif
     }
 
     public async Task<string?> SaveBinFileDialog()
@@ -86,6 +109,28 @@ public class FileDialogService(SettingsService settingsService) : IFileDialogSer
 
         // Safely retrieve local OS path without throwing NRE or UriFormatException
         return file?.TryGetLocalPath();
+    }
+
+    public async Task<IStorageFile?> PickBinSaveFileAsync(string suggestedFileName = "PCM_Read")
+    {
+        var storageProvider = GetStorageProvider();
+        if (storageProvider == null) return null;
+
+        var options = new FilePickerSaveOptions
+        {
+            Title = "Save PCM Binary Content",
+            DefaultExtension = "bin",
+            SuggestedFileName = suggestedFileName,
+            FileTypeChoices = [
+                new FilePickerFileType("Binary Files (*.bin)") { Patterns = ["*.bin"] },
+                FilePickerFileTypes.All
+            ]
+        };
+
+        // Returns the picked destination itself. On Android the destination is a content:// file that
+        // has no local filesystem path, so the caller writes bytes into its stream rather than passing
+        // a path to the reader.
+        return await storageProvider.SaveFilePickerAsync(options);
     }
 
     public async Task<string?> GetLogSavePath(string defaultFileName)

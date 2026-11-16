@@ -559,16 +559,35 @@ namespace PcmHacking
             logger.AddDebugMessage($"Sending upload request for {(info.LoaderRequired ? "loader" : "kernel")} size {payload.Length}, loadaddress {loadAddress.ToString("X6")}");
             logger.AddUserMessage("Requesting upload permission.");
 
-            Query<bool> uploadPermissionQuery = new Query<bool>(
-                this.device,
-                () => protocol.CreateUploadRequest(info, claimedSize),
-                (message) => protocol.ParseUploadPermissionResponse(info, message),
-                this.logger,
-                cancellationToken,
-                this.notifier);
+            async Task<bool> RequestUploadPermission()
+            {
+                Query<bool> query = new Query<bool>(
+                    this.device,
+                    () => protocol.CreateUploadRequest(info, claimedSize),
+                    (message) => protocol.ParseUploadPermissionResponse(info, message),
+                    this.logger,
+                    cancellationToken,
+                    this.notifier);
 
-            Response<bool> permissionResponse = await uploadPermissionQuery.Execute();
-            bool uploadAllowed = permissionResponse.Status == ResponseStatus.Success && permissionResponse.Value;
+                Response<bool> response = await query.Execute();
+                return response.Status == ResponseStatus.Success && response.Value;
+            }
+
+            bool uploadAllowed = await RequestUploadPermission();
+
+            // Over a slow link (e.g. Bluetooth) the switch to VPW 4x can stall long enough for the PCM's
+            // security session to time out and re-lock, so the upload request is refused with the
+            // security code (7F 34 33) even though the earlier unlock succeeded. Re-establish security and
+            // try again. The re-unlock and the retried request can themselves be glitched by the link, so
+            // give the recovery a few attempts rather than one.
+            for (int recovery = 1; !uploadAllowed && recovery <= 3; recovery++)
+            {
+                logger.AddUserMessage($"Upload permission denied; re-unlocking and retrying (attempt {recovery})...");
+                if (await this.UnlockEcu(info.KeyAlgorithm, cancellationToken))
+                {
+                    uploadAllowed = await RequestUploadPermission();
+                }
+            }
 
             if (!uploadAllowed)
             {
