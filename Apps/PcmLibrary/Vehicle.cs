@@ -609,6 +609,7 @@ namespace PcmHacking
                 }
 
                 bool retryAfterDelay = false;
+                bool gotMalformed = false;
                 for (int attempt = 1; attempt < MaxReceiveAttempts; attempt++)
                 {
                     if (cancellationToken.IsCancellationRequested)
@@ -661,7 +662,21 @@ namespace PcmHacking
                         break;
                     }
 
-                    // Anything else: keep listening for the real reply.
+                    // Anything else (a truncated/garbled frame - e.g. a reply fragmented over
+                    // Bluetooth - or an unrelated message): keep listening for the real reply this
+                    // round, but remember we saw a non-answer so we can start over from a fresh seed
+                    // if no clean reply arrives.
+                    gotMalformed = true;
+                }
+
+                // A malformed/truncated reply is a transient comms glitch, not a security decision
+                // (the PCM already answered; the link just mangled it). Re-run the whole exchange with
+                // a fresh seed and key immediately - no forced security delay - rather than giving up.
+                // This is what makes the re-unlock recover a flaky unlock over Bluetooth.
+                if (gotMalformed && !retryAfterDelay && unlockAttempt < MaxUnlockAttempts)
+                {
+                    logger.AddUserMessage("Unlock reply was incomplete; retrying with a fresh seed.");
+                    continue;
                 }
 
                 if (!retryAfterDelay || unlockAttempt >= MaxUnlockAttempts)
