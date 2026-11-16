@@ -3,7 +3,9 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Platform;
+using Avalonia.Threading;
 using PCMHammerAvalonia.ViewModels;
+using System.ComponentModel;
 
 namespace PCMHammerAvalonia.Views;
 
@@ -15,12 +17,76 @@ public partial class MainView : UserControl
     /// </summary>
     public static MainView? Current { get; private set; }
 
+    private readonly SelectableTextBlock _resultsLog = CreateLogTextBlock();
+    private readonly SelectableTextBlock _debugLog = CreateLogTextBlock();
+    private readonly ScrollViewer _resultsScroll;
+    private readonly ScrollViewer _debugScroll;
+    private MainWindowViewModel? _viewModel;
+
     public MainView()
     {
         InitializeComponent();
         Current = this;
 
+        // The Results/Debug log views are built in code and hosted in their Border, the same way the
+        // Help/Credits views are: a SelectableTextBlock bound inside a ContentPage via XAML does not
+        // render on the mobile TabbedPage, but a code-set Border.Child does.
+        _resultsScroll = WrapInScroll(_resultsLog);
+        _debugScroll = WrapInScroll(_debugLog);
+        ResultsViewContainer.Child = _resultsScroll;
+        DebugViewContainer.Child = _debugScroll;
+
+        this.DataContextChanged += OnDataContextChanged;
+
         InitializeWebViews();
+    }
+
+    private static SelectableTextBlock CreateLogTextBlock() => new()
+    {
+        TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+        FontFamily = new Avalonia.Media.FontFamily("Consolas, Menlo, DejaVu Sans Mono, Liberation Mono, monospace"),
+        Margin = new Thickness(6),
+    };
+
+    private static ScrollViewer WrapInScroll(Control content) => new()
+    {
+        HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
+        VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
+        Content = content,
+    };
+
+    private void OnDataContextChanged(object? sender, System.EventArgs e)
+    {
+        if (_viewModel is not null)
+        {
+            _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
+        }
+
+        _viewModel = DataContext as MainWindowViewModel;
+        if (_viewModel is not null)
+        {
+            _viewModel.PropertyChanged += OnViewModelPropertyChanged;
+            UpdateLogText();
+        }
+    }
+
+    private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(MainWindowViewModel.LogText) or nameof(MainWindowViewModel.DebugLogText))
+        {
+            Dispatcher.UIThread.Post(UpdateLogText);
+        }
+    }
+
+    private void UpdateLogText()
+    {
+        if (_viewModel is null)
+        {
+            return;
+        }
+
+        _resultsLog.Text = _viewModel.LogText;
+        _debugLog.Text = _viewModel.DebugLogText;
     }
 
     private void InitializeWebViews()

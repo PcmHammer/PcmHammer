@@ -56,19 +56,11 @@
                 </Style>
             </TabbedPage.Styles>
             <ContentPage Header="Results">
-                <Border Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
+                <Border x:Name="ResultsViewContainer"
+                        Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
                         BorderBrush="{DynamicResource SystemControlBackgroundBaseMediumLowBrush}"
                         BorderThickness="1"
-                        Margin="4">
-                    <ScrollViewer x:Name="ResultsScrollViewer"
-                                    HorizontalScrollBarVisibility="Auto"
-                                    VerticalScrollBarVisibility="Auto">
-                        <SelectableTextBlock x:Name="ResultsLogTextBox"
-                                                Text="{Binding LogText}"
-                                                TextWrapping="Wrap"
-                                                FontFamily="Consolas, Menlo, DejaVu Sans Mono, Liberation Mono, monospace"/>
-                    </ScrollViewer>
-                </Border>
+                        Margin="4"/>
             </ContentPage>
             <ContentPage Header="Help">
                 <Border x:Name="HelpViewContainer"
@@ -83,19 +75,11 @@
                         Margin="4"/>
             </ContentPage>
             <ContentPage Header="Debug">
-                <Border Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
+                <Border x:Name="DebugViewContainer"
+                        Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
                         BorderBrush="{DynamicResource SystemControlBackgroundBaseMediumLowBrush}"
                         BorderThickness="1"
-                        Margin="4">
-                    <ScrollViewer x:Name="DebugScrollViewer"
-                                    HorizontalScrollBarVisibility="Auto"
-                                    VerticalScrollBarVisibility="Auto">
-                        <SelectableTextBlock x:Name="DebugLogTextBox"
-                                                Text="{Binding DebugLogText}"
-                                                TextWrapping="Wrap"
-                                                FontFamily="Consolas, Menlo, DejaVu Sans Mono, Liberation Mono, monospace"/>
-                    </ScrollViewer>
-                </Border>
+                        Margin="4"/>
             </ContentPage>
         </TabbedPage>
     </DrawerPage>

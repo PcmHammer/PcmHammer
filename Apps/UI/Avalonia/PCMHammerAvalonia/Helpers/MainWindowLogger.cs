@@ -15,10 +15,11 @@ public class MainWindowLogger : ILogger, IDisposable
     private readonly ConcurrentQueue<string> _userMessageQueue = new();
     private readonly ConcurrentQueue<string> _debugMessageQueue = new();
 
-    // UI Batching Timer (10 FPS)
-    private readonly DispatcherTimer _flushTimer;
     private readonly StringBuilder _userStringBuilder = new();
     private readonly StringBuilder _debugStringBuilder = new();
+
+    // Coalesces flushes: many enqueues schedule at most one pending UI-thread flush.
+    private int _flushScheduled;
 
     private const int MaxLogLength = 500_000;
     private bool _isDisposed;
@@ -26,13 +27,6 @@ public class MainWindowLogger : ILogger, IDisposable
     public MainWindowLogger(MainWindowViewModel viewModel)
     {
         _viewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
-
-        _flushTimer = new DispatcherTimer(DispatcherPriority.Background)
-        {
-            Interval = TimeSpan.FromMilliseconds(100)
-        };
-        _flushTimer.Tick += (s, e) => FlushQueuesToViewModel();
-        _flushTimer.Start();
     }
 
     // Events
@@ -43,11 +37,32 @@ public class MainWindowLogger : ILogger, IDisposable
     public void AddUserMessage(string message)
     {
         _userMessageQueue.Enqueue($"[{DateTime.Now:HH:mm:ss}] {message}");
+        ScheduleFlush();
     }
 
     public void AddDebugMessage(string message)
     {
         _debugMessageQueue.Enqueue($"[{DateTime.Now:HH:mm:ss.fff}] {message}");
+        ScheduleFlush();
+    }
+
+    // Flush on the UI thread. A DispatcherTimer bound at construction can be tied to a non-UI thread
+    // (the mobile view-model factory does not run on the UI thread), so it may never tick; posting to
+    // Dispatcher.UIThread always targets the UI thread. Coalesced so a burst of messages causes one flush.
+    private void ScheduleFlush()
+    {
+        if (System.Threading.Interlocked.Exchange(ref _flushScheduled, 1) == 1)
+        {
+            return;
+        }
+
+        Dispatcher.UIThread.Post(
+            () =>
+            {
+                System.Threading.Interlocked.Exchange(ref _flushScheduled, 0);
+                FlushQueuesToViewModel();
+            },
+            DispatcherPriority.Background);
     }
 
     private void FlushQueuesToViewModel()
@@ -147,8 +162,6 @@ public class MainWindowLogger : ILogger, IDisposable
     {
         if (_isDisposed) return;
         _isDisposed = true;
-
-        _flushTimer.Stop();
 
         // Perform final flush on Dispatcher to catch remaining messages
         if (Dispatcher.UIThread.CheckAccess())

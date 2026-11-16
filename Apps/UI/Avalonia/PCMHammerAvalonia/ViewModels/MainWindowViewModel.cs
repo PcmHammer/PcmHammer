@@ -519,15 +519,21 @@ public partial class MainWindowViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Parameterless constructor required for the Avalonia XAML Designer.
+    /// Parameterless constructor used by the Avalonia XAML Designer and by the mobile (single-view)
+    /// host, which has no owning Window. It wires the logger and services the same way as the desktop
+    /// constructor (so Results/Debug output flows), minus the Window-dependent startup.
     /// </summary>
     public MainWindowViewModel()
     {
-        // Design-time defaults to prevent NullReferenceExceptions in the previewer
         _parentWindow = null!;
         _logger = new MainWindowLogger(this);
         _settingsService = new SettingsService();
         _fileDialogService = new FileDialogService(_settingsService);
+        _logger.ProgressBarUpdated += (percent, visible) =>
+        {
+            ProgressPercent = percent * 100;
+        };
+        AddInitialLogMessages();
     }
 
     public async Task HandleApplicationShutdownAsync()
