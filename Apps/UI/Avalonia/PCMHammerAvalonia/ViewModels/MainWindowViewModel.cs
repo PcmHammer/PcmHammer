@@ -567,6 +567,48 @@ public partial class MainWindowViewModel : ObservableObject
 
         StatusText = "Preparing for Read...";
 
+#if ANDROID
+        // On Android the save picker hands back a content:// destination with no local file path, so
+        // read into a private temp file first and then stream it into the user's chosen location.
+        // Suggest the name without an extension: Android's save dialog appends the picker's default
+        // extension itself, so including ".bin" here would produce a doubled "...bin.bin".
+        Avalonia.Platform.Storage.IStorageFile? destination =
+            await _fileDialogService.PickBinSaveFileAsync($"PCM_Read_{DateTime.Now:yyyyMMdd_HHmmss}");
+
+        if (destination == null)
+        {
+            _logger.AddUserMessage("Read operation canceled by user (no file selected).");
+            StatusText = "Ready";
+            return;
+        }
+
+        string tempPath = Path.Combine(Path.GetTempPath(), $"pcm_read_{Guid.NewGuid():N}.bin");
+        try
+        {
+            bool success = await RunReadAsync(tempPath, useAutoPcmType, selectedPcmType);
+
+            if (success && File.Exists(tempPath))
+            {
+                StatusText = "Saving file...";
+                await using var source = File.OpenRead(tempPath);
+                await using var target = await destination.OpenWriteAsync();
+                await source.CopyToAsync(target);
+                _logger.AddUserMessage($"Saved read to: {destination.Name}");
+                StatusText = "Read Completed Successfully!";
+                await Task.Delay(2000);
+                StatusText = "Ready";
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.AddUserMessage($"Failed to save read file: {ex.Message}");
+            StatusText = "Error occurred.";
+        }
+        finally
+        {
+            try { if (File.Exists(tempPath)) File.Delete(tempPath); } catch { /* best effort cleanup */ }
+        }
+#else
         // Await the dialog directly on the UI thread to prevent deadlocks
         string? selectedFilePath = await _fileDialogService.SaveBinFileDialog();
 
@@ -577,6 +619,16 @@ public partial class MainWindowViewModel : ObservableObject
             return;
         }
 
+        await RunReadAsync(selectedFilePath, useAutoPcmType, selectedPcmType);
+#endif
+    }
+
+    // Core read loop shared by desktop (writes straight to the chosen path) and Android (writes to a
+    // temp path that is then streamed into the content:// destination). Returns whether the read
+    // completed successfully.
+    private async Task<bool> RunReadAsync(string path, bool useAutoPcmType, PcmType selectedPcmType)
+    {
+        bool success = false;
         try
         {
             IsOperationRunning = true;
@@ -584,8 +636,8 @@ public partial class MainWindowViewModel : ObservableObject
             _cancellationTokenSource = new CancellationTokenSource();
 
             // Await the async reader directly without wrapping in Task.Run
-            bool success = await PcmReader.ReadPcmAsync(
-                selectedFilePath,
+            success = await PcmReader!.ReadPcmAsync(
+                path,
                 useAutoPcmType,
                 selectedPcmType,
                 _cancellationTokenSource.Token);
@@ -615,6 +667,7 @@ public partial class MainWindowViewModel : ObservableObject
                 StatusText = "Ready";
             }
         }
+        return success;
     }
     private async Task ExecuteReadPCMAsyncWithDialog()
     {

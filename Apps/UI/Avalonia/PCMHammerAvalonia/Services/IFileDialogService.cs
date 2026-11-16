@@ -1,4 +1,5 @@
 ﻿using System.Threading.Tasks;
+using Avalonia.Platform.Storage;
 
 namespace PCMHammerAvalonia.Services;
 
@@ -22,6 +23,15 @@ public interface IFileDialogService
     /// </summary>
     /// <returns>The full path to save the file, or null if canceled.</returns>
     Task<string?> SaveBinFileDialog();
+
+    /// <summary>
+    /// Prompts the user to choose a save destination for a .bin file and returns the destination
+    /// itself. Used on platforms (Android) where the destination is a content:// file with no local
+    /// path, so the caller streams bytes into it rather than reading to a path.
+    /// </summary>
+    /// <param name="suggestedFileName">The default file name to suggest in the picker.</param>
+    /// <returns>The chosen destination file, or null if canceled.</returns>
+    Task<IStorageFile?> PickBinSaveFileAsync(string suggestedFileName = "PCM_Read");
 
     /// <summary>
     /// Handles customizable log saving locations
