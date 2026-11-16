@@ -1,0 +1,50 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="PCMLoggerAvalonia.Views.GaugeEditDialog"
+        Width="340" SizeToContent="Height"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Title="Edit Gauge">
+
+    <StackPanel Margin="16" Spacing="8">
+        <TextBlock Text="Parameter"/>
+        <ComboBox x:Name="ParameterBox" HorizontalAlignment="Stretch" MaxDropDownHeight="320"/>
+
+        <TextBlock Text="Title"/>
+        <TextBox x:Name="TitleBox"/>
+
+        <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+            <StackPanel Grid.Column="0" Spacing="2">
+                <TextBlock Text="Min"/>
+                <TextBox x:Name="MinBox"/>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Spacing="2">
+                <TextBlock Text="Max"/>
+                <TextBox x:Name="MaxBox"/>
+            </StackPanel>
+        </Grid>
+
+        <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+            <StackPanel Grid.Column="0" Spacing="2">
+                <TextBlock Text="Alarm low (blank = none)"/>
+                <TextBox x:Name="AlarmLowBox"/>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Spacing="2">
+                <TextBlock Text="Alarm high (blank = none)"/>
+                <TextBox x:Name="AlarmHighBox"/>
+            </StackPanel>
+        </Grid>
+
+        <TextBlock Text="Style"/>
+        <StackPanel Orientation="Horizontal" Spacing="16">
+            <RadioButton x:Name="DialRadio" GroupName="GaugeStyle" Content="Dial"/>
+            <RadioButton x:Name="TextRadio" GroupName="GaugeStyle" Content="Text"/>
+            <RadioButton x:Name="BarRadio" GroupName="GaugeStyle" Content="Bar"/>
+        </StackPanel>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,8,0,0">
+            <Button Content="Cancel" Click="Cancel_Click"/>
+            <Button Content="OK" Click="Ok_Click" IsDefault="True"/>
+        </StackPanel>
+    </StackPanel>
+</Window>

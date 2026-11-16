@@ -1,0 +1,18 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:PCMLoggerAvalonia.ViewModels"
+        xmlns:views="using:PCMLoggerAvalonia.Views"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        x:Class="PCMLoggerAvalonia.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Width="1040" Height="620"
+        Icon="/Assets/pcmlogger_256px.ico"
+        Title="PCM Logger">
+
+    <!-- Desktop host: the UI itself lives in MainView (a UserControl) so the same content can be hosted
+         either in this Window (desktop) or as a single-view root on mobile. MainView inherits this
+         window's DataContext. -->
+    <views:MainView/>
+</Window>

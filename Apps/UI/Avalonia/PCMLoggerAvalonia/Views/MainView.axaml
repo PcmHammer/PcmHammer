@@ -1,0 +1,382 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PCMLoggerAvalonia.ViewModels"
+             xmlns:ctrl="using:PCMLoggerAvalonia.Controls"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="1040" d:DesignHeight="620"
+             x:Class="PCMLoggerAvalonia.Views.MainView"
+             x:DataType="vm:MainWindowViewModel">
+
+    <Grid RowDefinitions="Auto,*,Auto" Margin="8">
+
+        <!-- Session toolbar (always visible, like the WinForms top strip) -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="6">
+            <Button Content="{Binding ConnectButtonText}" Command="{Binding ToggleConnectionCommand}" MinWidth="90"/>
+            <Button Content="{Binding StartStopButtonText}" Command="{Binding ToggleLoggingCommand}" MinWidth="110"/>
+            <Button Content="{Binding RecordButtonText}" Command="{Binding ToggleRecordingCommand}"
+                    IsEnabled="{Binding IsLogging}" MinWidth="110"/>
+        </StackPanel>
+
+        <!-- Content: the tab bar on the left, the always-visible live-value pane on the right -->
+        <Grid Grid.Row="1" Margin="0,8,0,0" ColumnDefinitions="*,Auto">
+
+        <!-- The WinForms-style tab bar: Configuration first, then the views (shown per the View toggles) -->
+        <TabControl Grid.Column="0">
+            <TabControl.Styles>
+                <!-- Smaller tab headers so all tabs fit on one line (FluentAvalonia defaults to ~24px) -->
+                <Style Selector="TabItem">
+                    <Setter Property="FontSize" Value="14"/>
+                    <Setter Property="MinHeight" Value="0"/>
+                    <Setter Property="Padding" Value="8,4"/>
+                </Style>
+            </TabControl.Styles>
+
+            <!-- Configuration: devices, paths, which views to show, theme, options -->
+            <TabItem Header="Configuration">
+                <ScrollViewer>
+                    <StackPanel Spacing="14" Margin="4" MaxWidth="660" HorizontalAlignment="Left">
+
+                        <!-- Devices -->
+                        <Border BorderBrush="{DynamicResource SystemControlBackgroundBaseMediumLowBrush}"
+                                BorderThickness="1" CornerRadius="6" Padding="10">
+                            <StackPanel Spacing="8">
+                                <TextBlock Text="Devices" FontWeight="SemiBold"/>
+                                <StackPanel Orientation="Horizontal" Spacing="10">
+                                    <Button Content="Select OBD2 Device…" Click="SelectDevice_Click" MinWidth="170"/>
+                                    <TextBlock Text="{Binding DeviceSummary}" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Paths -->
+                        <Border BorderBrush="{DynamicResource SystemControlBackgroundBaseMediumLowBrush}"
+                                BorderThickness="1" CornerRadius="6" Padding="10">
+                            <StackPanel Spacing="8">
+                                <TextBlock Text="Paths" FontWeight="SemiBold"/>
+                                <StackPanel Orientation="Horizontal" Spacing="10">
+                                    <Button Content="Set Log Folder…" Command="{Binding SetLogFolderCommand}" MinWidth="130"/>
+                                    <TextBlock Text="{Binding LogFolder}" VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis"
+                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                                </StackPanel>
+                                <Button Content="Open Log Folder" Command="{Binding OpenLogFolderCommand}"
+                                        MinWidth="130" HorizontalAlignment="Left"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- View -->
+                        <Border BorderBrush="{DynamicResource SystemControlBackgroundBaseMediumLowBrush}"
+                                BorderThickness="1" CornerRadius="6" Padding="10">
+                            <StackPanel Spacing="8">
+                                <TextBlock Text="View" FontWeight="SemiBold"/>
+                                <WrapPanel>
+                                    <CheckBox Content="Debug" IsChecked="{Binding ShowDebug}" Margin="0,0,18,0"/>
+                                    <CheckBox Content="Dashboard" IsChecked="{Binding ShowDashboard}" Margin="0,0,18,0"/>
+                                    <CheckBox Content="Monitors" IsChecked="{Binding ShowMonitors}" Margin="0,0,18,0"/>
+                                    <CheckBox Content="PIDs" IsChecked="{Binding ShowPids}" Margin="0,0,18,0"/>
+                                    <CheckBox Content="Zoom" IsChecked="{Binding ShowZoom}" Margin="0,0,18,0"
+                                              ToolTip.Tip="Big readout of the parameters flagged Zoom on the Parameters tab"/>
+                                </WrapPanel>
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBlock Text="Theme" VerticalAlignment="Center"/>
+                                    <ComboBox ItemsSource="{Binding ThemeOptions}"
+                                              SelectedItem="{Binding SelectedTheme}" MinWidth="120"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Options -->
+                        <Border BorderBrush="{DynamicResource SystemControlBackgroundBaseMediumLowBrush}"
+                                BorderThickness="1" CornerRadius="6" Padding="10">
+                            <StackPanel Spacing="8">
+                                <TextBlock Text="Options" FontWeight="SemiBold"/>
+                                <CheckBox Content="Auto start logging" IsChecked="{Binding AutoStartLogging}"/>
+                            </StackPanel>
+                        </Border>
+
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- Parameters: every supported PID; tick Enable to log it (the WinForms Parameters tab) -->
+            <TabItem Header="Parameters">
+                <Grid RowDefinitions="Auto,Auto,*">
+                    <Grid Grid.Row="0" ColumnDefinitions="Auto,Auto,*" Margin="0,0,0,6">
+                        <Button Grid.Column="0" Content="Open Profile" Command="{Binding OpenProfileCommand}" Margin="0,0,6,0"/>
+                        <Button Grid.Column="1" Content="Save Profile" Command="{Binding SaveProfileCommand}" Margin="0,0,10,0"/>
+                        <TextBox Grid.Column="2" Watermark="Search…" Text="{Binding ParameterFilter}"/>
+                    </Grid>
+                    <Grid Grid.Row="1" ColumnDefinitions="60,60,*,150" Margin="2,2,2,4">
+                        <TextBlock Grid.Column="0" Text="Enable" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                        <TextBlock Grid.Column="1" Text="Zoom" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                        <TextBlock Grid.Column="2" Text="Name" FontWeight="SemiBold"/>
+                        <TextBlock Grid.Column="3" Text="Units" FontWeight="SemiBold"/>
+                    </Grid>
+                    <Border Grid.Row="2"
+                            BorderBrush="{DynamicResource SystemControlBackgroundBaseMediumLowBrush}"
+                            BorderThickness="1">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <ItemsControl ItemsSource="{Binding ParameterRows}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:ParameterRow">
+                                        <Grid ColumnDefinitions="60,60,*,150" Margin="2,2"
+                                              IsVisible="{Binding MatchesFilter}">
+                                            <CheckBox Grid.Column="0" IsChecked="{Binding Enabled}" HorizontalAlignment="Center"/>
+                                            <CheckBox Grid.Column="1" IsChecked="{Binding Zoom}" HorizontalAlignment="Center"/>
+                                            <TextBlock Grid.Column="2" Text="{Binding Name}" VerticalAlignment="Center"/>
+                                            <ComboBox Grid.Column="3" ItemsSource="{Binding UnitOptions}"
+                                                      SelectedItem="{Binding SelectedUnit}"
+                                                      HorizontalAlignment="Stretch"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <!-- Debug: the library's debug messages (the WinForms Debug tab) -->
+            <TabItem Header="Debug" IsVisible="{Binding ShowDebug}">
+                <Border BorderBrush="{DynamicResource SystemControlBackgroundBaseMediumLowBrush}"
+                        BorderThickness="1">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" Loaded="DebugScroller_Loaded">
+                        <ItemsControl ItemsSource="{Binding DebugMessages}" Padding="4">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="x:String">
+                                    <TextBlock Text="{Binding}" TextWrapping="Wrap"
+                                               FontFamily="Consolas, Menlo, DejaVu Sans Mono, Liberation Mono, monospace"
+                                               FontSize="12"/>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Border>
+            </TabItem>
+
+            <!-- Dashboard: gauges laid out at the shared layout's proportional positions -->
+            <TabItem Header="Dashboard" IsVisible="{Binding ShowDashboard}">
+                <Grid RowDefinitions="Auto,*">
+                    <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="6" Margin="0,0,0,6">
+                        <Button Content="Add Gauge…" Click="AddGauge_Click"/>
+                        <Button Content="Load Dashboard…" Command="{Binding LoadDashboardCommand}"/>
+                        <Button Content="Save Dashboard…" Command="{Binding SaveDashboardCommand}"/>
+                        <TextBlock Text="Double-click to edit · drag to move · right-click to remove"
+                                   VerticalAlignment="Center" FontSize="11" Opacity="0.6" Margin="6,0,0,0"/>
+                    </StackPanel>
+                    <ItemsControl Grid.Row="1" ItemsSource="{Binding Gauges}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <ctrl:DashboardPanel/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:GaugeTile">
+                                <Border Margin="4"
+                                        BorderBrush="{DynamicResource SystemControlBackgroundBaseMediumLowBrush}"
+                                        BorderThickness="1" CornerRadius="6" Padding="4"
+                                        Background="Transparent"
+                                        DoubleTapped="GaugeCard_DoubleTapped"
+                                        PointerPressed="GaugeCard_PointerPressed"
+                                        PointerMoved="GaugeCard_PointerMoved"
+                                        PointerReleased="GaugeCard_PointerReleased"
+                                        ToolTip.Tip="Double-click to edit · drag to move · right-click for more">
+                                    <Grid RowDefinitions="Auto,*">
+                                        <TextBlock Grid.Row="0" Text="{Binding Title}"
+                                                   HorizontalAlignment="Center" FontWeight="SemiBold"
+                                                   TextTrimming="CharacterEllipsis"/>
+
+                                        <!-- Round dial -->
+                                        <ctrl:GaugeDial Grid.Row="1" Tile="{Binding}" IsVisible="{Binding IsDial}"/>
+
+                                        <!-- Horizontal bar -->
+                                        <ctrl:BarGauge Grid.Row="1" Tile="{Binding}" IsVisible="{Binding IsBar}"/>
+
+                                        <!-- Text readout -->
+                                        <StackPanel Grid.Row="1" IsVisible="{Binding IsText}"
+                                                    VerticalAlignment="Center" HorizontalAlignment="Center">
+                                            <TextBlock Text="{Binding ValueText}" Foreground="{Binding ValueBrush}"
+                                                       FontSize="28" FontWeight="SemiBold" HorizontalAlignment="Center"
+                                                       FontFamily="Consolas, Menlo, DejaVu Sans Mono, Liberation Mono, monospace"/>
+                                            <TextBlock Text="{Binding Units}" Opacity="0.7" HorizontalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </Grid>
+            </TabItem>
+
+            <!-- Monitors: WinForms-style strip chart (per-trace colour axes; click an axis to hide/show) -->
+            <TabItem Header="Monitors" IsVisible="{Binding ShowMonitors}">
+                <Grid RowDefinitions="Auto,*,Auto">
+                    <!-- WrapPanel, not a horizontal StackPanel: on a narrow phone the toolbar is wider
+                         than the screen, and a StackPanel clips the overflow off the right edge - which
+                         hid the Traces button, the only touch way to bring a hidden trace back. -->
+                    <WrapPanel Grid.Row="0" Orientation="Horizontal" ItemSpacing="8" LineSpacing="6" Margin="0,0,0,6">
+                        <ComboBox ItemsSource="{Binding Monitors}" SelectedItem="{Binding SelectedMonitor}" MinWidth="140"/>
+                        <Button Content="Clear Log" Command="{Binding ClearLogCommand}"/>
+                        <Button Content="Load Log…" Command="{Binding LoadLogCommand}"/>
+                        <Button Content="{Binding PauseButtonText}" Command="{Binding ToggleMonitorPauseCommand}" MinWidth="78"/>
+                        <Button Content="Traces ▾">
+                            <Button.Flyout>
+                                <Flyout>
+                                    <ItemsControl ItemsSource="{Binding SelectedMonitor.Series}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:MonitorSeries">
+                                                <CheckBox IsChecked="{Binding Visible}" Margin="0,1">
+                                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                                        <Border Width="11" Height="11" CornerRadius="2"
+                                                                Background="{Binding Brush}" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="{Binding Title}"/>
+                                                    </StackPanel>
+                                                </CheckBox>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </Flyout>
+                            </Button.Flyout>
+                        </Button>
+                        <TextBlock Text="Window:" VerticalAlignment="Center" Margin="6,0,0,0"/>
+                        <Button Content="−" Command="{Binding NarrowMonitorWindowCommand}" ToolTip.Tip="Shorter window"/>
+                        <Button Content="+" Command="{Binding WidenMonitorWindowCommand}" ToolTip.Tip="Longer window"/>
+                        <TextBlock VerticalAlignment="Center" FontSize="11" Opacity="0.6" Margin="6,0,0,0"
+                                   Text="(or scroll the chart) · hover to read values"/>
+                    </WrapPanel>
+                    <Border Grid.Row="1"
+                            BorderBrush="{DynamicResource SystemControlBackgroundBaseMediumLowBrush}"
+                            BorderThickness="1">
+                        <ctrl:MonitorChart Monitor="{Binding SelectedMonitor}" Paused="{Binding IsMonitorPaused}"
+                                           PlaybackNow="{Binding PlaybackNow}" Loaded="MonitorChart_Loaded"/>
+                    </Border>
+
+                    <!-- Scrub bar: move the play-head through a loaded log -->
+                    <Grid Grid.Row="2" IsVisible="{Binding IsPlayback}" ColumnDefinitions="Auto,*,Auto" Margin="0,6,0,0">
+                        <TextBlock Grid.Column="0" Text="Playback" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <Slider Grid.Column="1" Minimum="0" Maximum="{Binding PlaybackMaxSeconds}"
+                                Value="{Binding PlaybackSeconds}" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Column="2" Text="{Binding PlaybackPositionText}" VerticalAlignment="Center"
+                                   Margin="8,0,0,0" FontFamily="Consolas, Menlo, DejaVu Sans Mono, Liberation Mono, monospace"/>
+                    </Grid>
+                </Grid>
+            </TabItem>
+
+            <!-- Zoom: a big white-on-black readout of the parameters flagged Zoom (the WinForms Zoom view) -->
+            <TabItem Header="Zoom" IsVisible="{Binding ShowZoom}">
+                <Border Background="Black">
+                    <Panel>
+                        <ItemsControl ItemsSource="{Binding ZoomedReadings}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <UniformGrid Columns="1"/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:ReadingRow">
+                                    <Viewbox Stretch="Uniform" Margin="24,8">
+                                        <StackPanel HorizontalAlignment="Center">
+                                            <TextBlock Text="{Binding Name}" Foreground="#CCCCCC"
+                                                       FontSize="20" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="{Binding Value}" Foreground="White"
+                                                       FontSize="90" FontWeight="Bold" HorizontalAlignment="Center"
+                                                       FontFamily="Consolas, Menlo, DejaVu Sans Mono, Liberation Mono, monospace"/>
+                                            <TextBlock Text="{Binding Units}" Foreground="#CCCCCC"
+                                                       FontSize="20" HorizontalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Viewbox>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <!-- Hint when nothing is flagged for zoom -->
+                        <TextBlock IsVisible="{Binding !HasZoomedReadings}" Foreground="#888888"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center"
+                                   Text="Tick the Zoom box next to a parameter on the Parameters tab&#10;to show it here in a large readout."/>
+                    </Panel>
+                </Border>
+            </TabItem>
+
+            <!-- Trouble Codes: read/clear the module's stored, pending and permanent codes -->
+            <TabItem Header="Trouble Codes">
+                <Grid RowDefinitions="Auto,Auto,*">
+                    <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="6" Margin="0,0,0,6">
+                        <Button Content="Read Codes" Command="{Binding ReadCodesCommand}"
+                                IsEnabled="{Binding CanReadCodes}" MinWidth="100"/>
+                        <Button Content="Clear Codes…" Click="ClearCodes_Click"
+                                IsEnabled="{Binding CanClearCodes}" MinWidth="100"/>
+                        <TextBlock Text="{Binding TroubleCodeStatus}" VerticalAlignment="Center" Margin="8,0,0,0"
+                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                    </StackPanel>
+
+                    <Grid Grid.Row="1" ColumnDefinitions="90,170,*" Margin="2,2,2,4">
+                        <TextBlock Grid.Column="0" Text="Code" FontWeight="SemiBold"/>
+                        <TextBlock Grid.Column="1" Text="Status" FontWeight="SemiBold"/>
+                        <TextBlock Grid.Column="2" Text="Description" FontWeight="SemiBold"/>
+                    </Grid>
+                    <Border Grid.Row="2"
+                            BorderBrush="{DynamicResource SystemControlBackgroundBaseMediumLowBrush}"
+                            BorderThickness="1">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <ItemsControl ItemsSource="{Binding TroubleCodes}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:TroubleCodeRow">
+                                        <Grid ColumnDefinitions="90,170,*" Margin="2,3">
+                                            <TextBlock Grid.Column="0" Text="{Binding Code}" FontWeight="SemiBold"
+                                                       FontFamily="Consolas, Menlo, DejaVu Sans Mono, Liberation Mono, monospace"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding Status}" TextWrapping="Wrap"/>
+                                            <TextBlock Grid.Column="2" Text="{Binding Description}" TextWrapping="Wrap"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Border>
+                </Grid>
+            </TabItem>
+        </TabControl>
+
+            <!-- Always-visible live-value pane (the WinForms right panel): the enabled parameters.
+                 IsVisible is managed in code-behind (UpdateResponsiveLayout): shown only when the view
+                 is wide enough AND ShowPids is on. On a narrow phone the fixed-width pane would starve
+                 the tab area, so it is hidden there and the tabs take the full width. -->
+            <Border Grid.Column="1" x:Name="PidPane" Width="290" Margin="8,0,0,0"
+                    BorderBrush="{DynamicResource SystemControlBackgroundBaseMediumLowBrush}" BorderThickness="1">
+                <Grid RowDefinitions="Auto,Auto,*">
+                    <!-- Profile name: what this pane's parameters come from -->
+                    <TextBlock Grid.Row="0" Text="{Binding ProfileName}" FontWeight="SemiBold"
+                               Margin="6,6,6,2" TextTrimming="CharacterEllipsis" TextAlignment="Center"
+                               ToolTip.Tip="{Binding ProfileName}"/>
+                    <Grid Grid.Row="1" ColumnDefinitions="2*,1.2*,1*" Margin="6,2,6,4">
+                        <TextBlock Grid.Column="0" Text="Parameter" FontWeight="SemiBold"/>
+                        <TextBlock Grid.Column="1" Text="Value" FontWeight="SemiBold"
+                                   HorizontalAlignment="Right" Margin="0,0,10,0"/>
+                        <TextBlock Grid.Column="2" Text="Units" FontWeight="SemiBold"/>
+                    </Grid>
+                    <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding Readings}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:ReadingRow">
+                                    <Grid ColumnDefinitions="2*,1.2*,1*" Margin="6,2">
+                                        <TextBlock Grid.Column="0" Text="{Binding Name}" TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding Value}"
+                                                   HorizontalAlignment="Right" Margin="0,0,10,0"
+                                                   FontFamily="Consolas, Menlo, DejaVu Sans Mono, Liberation Mono, monospace"/>
+                                        <TextBlock Grid.Column="2" Text="{Binding Units}"
+                                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- Status bar -->
+        <TextBlock Grid.Row="2" Text="{Binding StatusText}" Margin="2,6,2,0"
+                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+    </Grid>
+</UserControl>
