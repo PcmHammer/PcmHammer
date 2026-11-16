@@ -28,31 +28,30 @@
         </DrawerPage.Drawer>
         <TabbedPage TabPlacement="Bottom">
             <TabbedPage.Styles>
+                <!-- Explicit colours: the theme's SystemControl brushes resolved to dark text on the
+                     dark bottom bar, so the tab labels were nearly invisible. These read clearly in
+                     either theme: light grey when unselected, bright blue + bold when selected. -->
+
                 <!-- Base / Unselected Tab Style -->
                 <Style Selector="TabItem">
                     <Setter Property="FontWeight" Value="Normal" />
-                    <Setter Property="Background" Value="{DynamicResource SystemControlBackgroundBaseLowBrush}" />
-                    <Setter Property="Foreground" Value="{DynamicResource SystemControlForegroundBaseMediumBrush}" />
+                    <Setter Property="Foreground" Value="#D0D0D0" />
                 </Style>
 
                 <!-- Selected Tab Style -->
                 <Style Selector="TabItem:selected">
                     <Setter Property="FontWeight" Value="Bold" />
-                    <Setter Property="Background" Value="{DynamicResource SystemControlBackgroundAltHighBrush}" />
-                    <Setter Property="Foreground" Value="{DynamicResource SystemControlForegroundAccentBrush}" />
+                    <Setter Property="Foreground" Value="#4FA3FF" />
                 </Style>
 
                 <!-- Hover / Pointer-Over State -->
                 <Style Selector="TabItem:pointerover">
-                    <!-- Interactive feedback tint -->
-                    <Setter Property="Background" Value="{DynamicResource SystemControlBackgroundBaseMediumLowBrush}" />
-                    <Setter Property="Foreground" Value="{DynamicResource SystemControlForegroundBaseHighBrush}" />
+                    <Setter Property="Foreground" Value="#FFFFFF" />
                 </Style>
 
-                <!-- Optional: Selected + Hover State (Prevents hover from overwriting selected style) -->
+                <!-- Selected + Hover State (Prevents hover from overwriting selected style) -->
                 <Style Selector="TabItem:selected:pointerover">
-                    <Setter Property="Background" Value="{DynamicResource SystemControlBackgroundAltHighBrush}" />
-                    <Setter Property="Foreground" Value="{DynamicResource SystemControlForegroundAccentBrush}" />
+                    <Setter Property="Foreground" Value="#4FA3FF" />
                 </Style>
             </TabbedPage.Styles>
             <ContentPage Header="Results">
