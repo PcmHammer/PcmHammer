@@ -559,16 +559,34 @@ namespace PcmHacking
             logger.AddDebugMessage($"Sending upload request for {(info.LoaderRequired ? "loader" : "kernel")} size {payload.Length}, loadaddress {loadAddress.ToString("X6")}");
             logger.AddUserMessage("Requesting upload permission.");
 
-            Query<bool> uploadPermissionQuery = new Query<bool>(
-                this.device,
-                () => protocol.CreateUploadRequest(info, claimedSize),
-                (message) => protocol.ParseUploadPermissionResponse(info, message),
-                this.logger,
-                cancellationToken,
-                this.notifier);
+            async Task<bool> RequestUploadPermission()
+            {
+                Query<bool> query = new Query<bool>(
+                    this.device,
+                    () => protocol.CreateUploadRequest(info, claimedSize),
+                    (message) => protocol.ParseUploadPermissionResponse(info, message),
+                    this.logger,
+                    cancellationToken,
+                    this.notifier);
 
-            Response<bool> permissionResponse = await uploadPermissionQuery.Execute();
-            bool uploadAllowed = permissionResponse.Status == ResponseStatus.Success && permissionResponse.Value;
+                Response<bool> response = await query.Execute();
+                return response.Status == ResponseStatus.Success && response.Value;
+            }
+
+            bool uploadAllowed = await RequestUploadPermission();
+
+            if (!uploadAllowed)
+            {
+                // Over a slow link (e.g. Bluetooth) the switch to VPW 4x can stall long enough for the
+                // PCM's security session to time out and re-lock, so this first request is refused with
+                // the security code (7F 34 33) even though the earlier unlock succeeded. Re-establish
+                // security and try once more before giving up.
+                logger.AddUserMessage("Upload permission denied; re-unlocking and retrying...");
+                if (await this.UnlockEcu(info.KeyAlgorithm, cancellationToken))
+                {
+                    uploadAllowed = await RequestUploadPermission();
+                }
+            }
 
             if (!uploadAllowed)
             {
