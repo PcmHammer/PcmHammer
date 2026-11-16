@@ -19,6 +19,13 @@ public partial class MainWindowViewModel : ObservableObject
     private readonly FileDialogService _fileDialogService;
     private readonly Window _parentWindow;
     private CancellationTokenSource? _cancellationTokenSource;
+
+    // A kernel operation's exit reboots the PCM; an unlock within ~10s of that reboot lands in the PCM's
+    // power-on security window and the kernel upload is refused (7F 34), or the unlock reply is odd/short.
+    // Track when the last operation finished so the next kernel op waits out the remainder of that settle
+    // time (ported from the Linux CLI's 86147d78 "Wait 10 seconds before kernel operations").
+    private DateTime _lastKernelOperationUtc = DateTime.MinValue;
+    private const int PcmReadySeconds = 10;
     private bool CanReInitialize() => SelectedDevice is not null;
     private bool CanExecuteSelectedDevice() => SelectedDevice is not null;
     private readonly SettingsService _settingsService;
@@ -52,6 +59,11 @@ public partial class MainWindowViewModel : ObservableObject
 
     [ObservableProperty]
     public partial string DebugLogText { get; set; } = string.Empty;
+
+    // Bound two-way to the mobile DrawerPage.IsOpen: the hamburger toggles it, and the sidebar commands
+    // set it false so the drawer closes when an action is chosen (desktop ignores it).
+    [ObservableProperty]
+    public partial bool IsDrawerOpen { get; set; }
 
     [ObservableProperty]
     public partial bool IsResultsCopiedFeedbackVisible { get; set; }
@@ -130,10 +142,18 @@ public partial class MainWindowViewModel : ObservableObject
 
     #region Commands (Tools Menu & Operations)
     [RelayCommand(CanExecute = nameof(CanExecuteSelectedDevice))]
-    public async Task ReadPCM() => await ExecuteReadPCMAsync(true, PcmType.Undefined);
+    public async Task ReadPCM()
+    {
+        IsDrawerOpen = false;
+        await ExecuteReadPCMAsync(true, PcmType.Undefined);
+    }
 
     [RelayCommand(CanExecute = nameof(CanExecuteSelectedDevice))]
-    public async Task VerifyPCM() => await ExecuteVerificationAsync();
+    public async Task VerifyPCM()
+    {
+        IsDrawerOpen = false;
+        await ExecuteVerificationAsync();
+    }
 
     [RelayCommand(CanExecute = nameof(CanExecuteSelectedDevice))]
     public async Task ChangeVIN() => await ExecuteChangeVINAsync();
@@ -251,6 +271,7 @@ public partial class MainWindowViewModel : ObservableObject
     [RelayCommand]
     public async Task SelectDevice()
     {
+        IsDrawerOpen = false;
         try
         {
 #if ANDROID
@@ -366,6 +387,7 @@ public partial class MainWindowViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanExecuteSelectedDevice))]
     public async Task ReadProperties()
     {
+        IsDrawerOpen = false;
         StatusText = "Reading Properties...";
         if (Vehicle == null) return;
         try
@@ -463,10 +485,18 @@ public partial class MainWindowViewModel : ObservableObject
     }
 
     [RelayCommand(CanExecute = nameof(CanExecuteSelectedDevice))]
-    public async Task WritePCM() => await ExecuteWritePCMAsyncWithDialog();
+    public async Task WritePCM()
+    {
+        IsDrawerOpen = false;
+        await ExecuteWritePCMAsyncWithDialog();
+    }
 
     [RelayCommand(CanExecute = nameof(CanExecuteSelectedDevice))]
-    public async Task TestWrite() => await ExecuteWritePCMAsync(WriteType.TestWrite);
+    public async Task TestWrite()
+    {
+        IsDrawerOpen = false;
+        await ExecuteWritePCMAsync(WriteType.TestWrite);
+    }
 
     [RelayCommand(CanExecute = nameof(CanExecuteSelectedDevice))]
     public async Task CancelCurrent()
@@ -534,6 +564,12 @@ public partial class MainWindowViewModel : ObservableObject
             ProgressPercent = percent * 100;
         };
         AddInitialLogMessages();
+
+#if ANDROID
+        // Temporary: route the Bluetooth transport's raw TX/RX trace into the Debug log so the write
+        // handshakes can be diagnosed on-device (USB logcat keeps dropping on the test phone).
+        PcmHacking.BluetoothSerialPort.Trace = msg => _logger.AddDebugMessage("[BT] " + msg);
+#endif
     }
 
     public async Task HandleApplicationShutdownAsync()
@@ -626,14 +662,39 @@ public partial class MainWindowViewModel : ObservableObject
     // Core read loop shared by desktop (writes straight to the chosen path) and Android (writes to a
     // temp path that is then streamed into the content:// destination). Returns whether the read
     // completed successfully.
+    // Waits out the remainder of the PCM settle time since the last kernel operation. The previous op's
+    // kernel exit reboots the PCM; starting the next op too soon gets a refused kernel upload (7F 34). A
+    // first op, or one after the PCM has sat past the window, does not wait. Proven on a bench P01: gaps
+    // of 10s+ always worked, ~2s was refused (ported from the Linux CLI's 86147d78).
+    private async Task WaitForPcmReadyAsync()
+    {
+        double remaining = PcmReadySeconds - (DateTime.UtcNow - _lastKernelOperationUtc).TotalSeconds;
+        if (remaining <= 0)
+        {
+            return;
+        }
+
+        _logger.AddUserMessage($"Waiting {Math.Ceiling(remaining):0} seconds for the PCM to be ready after the previous operation...");
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(remaining), _cancellationTokenSource?.Token ?? CancellationToken.None);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
     private async Task<bool> RunReadAsync(string path, bool useAutoPcmType, PcmType selectedPcmType)
     {
         bool success = false;
         try
         {
             IsOperationRunning = true;
-            StatusText = "Reading PCM Contents...";
             _cancellationTokenSource = new CancellationTokenSource();
+
+            await WaitForPcmReadyAsync();
+
+            StatusText = "Reading PCM Contents...";
 
             // Await the async reader directly without wrapping in Task.Run
             success = await PcmReader!.ReadPcmAsync(
@@ -656,6 +717,7 @@ public partial class MainWindowViewModel : ObservableObject
         }
         finally
         {
+            _lastKernelOperationUtc = DateTime.UtcNow;
             IsOperationRunning = false;
             _cancellationTokenSource?.Dispose();
             _cancellationTokenSource = null;
@@ -1001,8 +1063,11 @@ public partial class MainWindowViewModel : ObservableObject
         try
         {
             IsOperationRunning = true;
-            StatusText = "Writing to PCM...";
             _cancellationTokenSource = new CancellationTokenSource();
+
+            await WaitForPcmReadyAsync();
+
+            StatusText = "Writing to PCM...";
 
             bool useAuto = pcmType == PcmType.Undefined;
 
@@ -1029,6 +1094,7 @@ public partial class MainWindowViewModel : ObservableObject
         }
         finally
         {
+            _lastKernelOperationUtc = DateTime.UtcNow;
             IsOperationRunning = false;
             _cancellationTokenSource?.Dispose();
             _cancellationTokenSource = null;

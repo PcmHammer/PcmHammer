@@ -16,6 +16,11 @@ public class BluetoothSerialPort : IPort
     // Standard Serial Port Profile (SPP) UUID.
     private static readonly UUID SppUuid = UUID.FromString("00001101-0000-1000-8000-00805F9B34FB")!;
 
+    // Temporary diagnostic hook: when set, raw TX/RX bytes are reported here (wired to the in-app Debug
+    // log) so the Bluetooth write handshakes can be traced on-device without a USB logcat. Remove once
+    // the write path is proven.
+    public static Action<string>? Trace;
+
     private readonly string address;
     private BluetoothSocket? socket;
     private System.IO.Stream? input;
@@ -151,6 +156,7 @@ public class BluetoothSerialPort : IPort
                 int read = await this.input.ReadAsync(buffer, 0, buffer.Length, token);
                 if (read > 0)
                 {
+                    Trace?.Invoke($"RX-chunk[{read}] {BitConverter.ToString(buffer, 0, read)}");
                     if (dataReceived != null)
                     {
                         dataReceived(buffer, read);
@@ -183,6 +189,7 @@ public class BluetoothSerialPort : IPort
             throw new InvalidOperationException("Port is not open.");
         }
 
+        Trace?.Invoke($"TX[{buffer.Length}] {BitConverter.ToString(buffer)}");
         await this.output.WriteAsync(buffer, 0, buffer.Length);
         await this.output.FlushAsync();
     }
@@ -230,6 +237,7 @@ public class BluetoothSerialPort : IPort
             }
         }
 
+        Trace?.Invoke($"RX-return got={got}/{count} {BitConverter.ToString(buffer, offset, got)}");
         return got;
     }
 

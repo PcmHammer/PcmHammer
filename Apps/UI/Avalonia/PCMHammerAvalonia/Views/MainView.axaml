@@ -13,7 +13,7 @@
         <vm:MainWindowViewModel />
     </Design.DataContext>
 
-    <DrawerPage IsGestureEnabled="True" DrawerPlacement="Right">
+    <DrawerPage IsOpen="{Binding IsDrawerOpen, Mode=TwoWay}" IsGestureEnabled="True" DrawerPlacement="Right">
         <DrawerPage.Header>
             <StackPanel Orientation="Horizontal" Spacing="8">
                 <Image Source="avares://PCMHammerAvalonia/Assets/0411_256px.ico"
