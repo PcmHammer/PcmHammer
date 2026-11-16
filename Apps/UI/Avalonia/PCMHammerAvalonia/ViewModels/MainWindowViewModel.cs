@@ -253,6 +253,12 @@ public partial class MainWindowViewModel : ObservableObject
     {
         try
         {
+#if ANDROID
+            // Android is single-view: there is no Window to own a modal dialog, so host the picker
+            // content in a ContentDialog overlay on the mobile view's TopLevel instead.
+            await SelectDeviceAndroidAsync();
+            return;
+#else
             Window? owner = null;
             if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
                 owner = desktop.MainWindow;
@@ -284,6 +290,7 @@ public partial class MainWindowViewModel : ObservableObject
             {
                 StatusText = "Ready";
             }
+#endif
         }
         catch (Exception ex)
         {
@@ -291,6 +298,52 @@ public partial class MainWindowViewModel : ObservableObject
             StatusText = $"Error selecting device: {ex.Message}";
         }
     }
+
+#if ANDROID
+    // Mobile device picker: the same DevicePickerViewModel + DevicePickerView content the desktop
+    // Window hosts, shown in a FluentAvalonia ContentDialog over the view's TopLevel. The view model's
+    // RequestAcceptAndClose / RequestClose events close the overlay; on accept its SelectedDevice is used.
+    private async Task SelectDeviceAndroidAsync()
+    {
+        var pickerViewModel = new DevicePickerViewModel(_logger, _settingsService);
+        var content = new Views.DialogBoxes.DevicePickerView { DataContext = pickerViewModel };
+        var dialog = new FluentAvalonia.UI.Controls.FAContentDialog
+        {
+            Title = "Select Device",
+            Content = content,
+        };
+
+        bool accepted = false;
+        pickerViewModel.RequestClose += () => dialog.Hide();
+        pickerViewModel.RequestAcceptAndClose += () =>
+        {
+            accepted = true;
+            dialog.Hide();
+        };
+
+        StatusText = "Selecting Device...";
+
+        // Discover devices (paired Bluetooth adapters) once the dialog is up.
+        _ = pickerViewModel.InitializeAsync();
+
+        TopLevel? topLevel = Views.MainView.Current is { } view ? TopLevel.GetTopLevel(view) : null;
+        if (topLevel != null)
+        {
+            await dialog.ShowAsync(topLevel);
+        }
+        else
+        {
+            await dialog.ShowAsync();
+        }
+
+        if (accepted && pickerViewModel.SelectedDevice != null)
+        {
+            InitializeDeviceAndVehicle(pickerViewModel.SelectedDevice, pickerViewModel.Enable4xReadWrite);
+        }
+
+        StatusText = "Ready";
+    }
+#endif
 
     [RelayCommand(CanExecute = nameof(CanReInitialize))]
     public void ReInitializeDevice()

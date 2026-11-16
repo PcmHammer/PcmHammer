@@ -7,10 +7,10 @@
              xmlns:ic="using:FluentIcons.Avalonia.Fluent"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="360"
              x:Class="PCMHammerAvalonia.Views.MainView"
-             x:DataType="vm:MainViewModel">
+             x:DataType="vm:MainWindowViewModel">
     <!-- Design-Time DataContext for Previewer -->
     <Design.DataContext>
-        <vm:MainViewModel />
+        <vm:MainWindowViewModel />
     </Design.DataContext>
 
     <DrawerPage IsGestureEnabled="True" DrawerPlacement="Right">
@@ -64,7 +64,7 @@
                                     HorizontalScrollBarVisibility="Auto"
                                     VerticalScrollBarVisibility="Auto">
                         <SelectableTextBlock x:Name="ResultsLogTextBox"
-                                                Text="{Binding ResultsLog}"
+                                                Text="{Binding LogText}"
                                                 TextWrapping="Wrap"
                                                 FontFamily="Consolas, Menlo, DejaVu Sans Mono, Liberation Mono, monospace"/>
                     </ScrollViewer>
@@ -91,7 +91,7 @@
                                     HorizontalScrollBarVisibility="Auto"
                                     VerticalScrollBarVisibility="Auto">
                         <SelectableTextBlock x:Name="DebugLogTextBox"
-                                                Text="{Binding DebugLog}"
+                                                Text="{Binding DebugLogText}"
                                                 TextWrapping="Wrap"
                                                 FontFamily="Consolas, Menlo, DejaVu Sans Mono, Liberation Mono, monospace"/>
                     </ScrollViewer>

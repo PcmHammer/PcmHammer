@@ -5,54 +5,54 @@
              xmlns:vm="using:PCMHammerAvalonia.ViewModels"
              xmlns:ic="using:FluentIcons.Avalonia.Fluent"
              mc:Ignorable="d" d:DesignWidth="450" d:DesignHeight="800"
-             x:DataType="vm:SideBarMenuViewModel"
+             x:DataType="vm:MainWindowViewModel"
              x:Class="PCMHammerAvalonia.Views.SideBarMenu">
     <Border HorizontalAlignment="Stretch"
             VerticalAlignment="Stretch">
             <Grid RowDefinitions="auto,*,auto" Margin="8" >
                 <StackPanel Spacing="8">
-                    <Button Padding="8" HorizontalAlignment="Stretch">
+                    <Button Padding="8" HorizontalAlignment="Stretch" Command="{Binding SelectDeviceCommand}">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <ic:FluentIcon Icon="PlugConnectedAdd" VerticalAlignment="Center"/>
                             <TextBlock Text="Select Device" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
-                    <Button Padding="8" HorizontalAlignment="Stretch">
+                    <Button Padding="8" HorizontalAlignment="Stretch" Command="{Binding ReInitializeDeviceCommand}">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <ic:FluentIcon Icon="PlugConnectedSettings" VerticalAlignment="Center"/>
                             <TextBlock Text="Reinitialize Device" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
                     <Separator/>
-                    <Button Padding="8" HorizontalAlignment="Stretch">
+                    <Button Padding="8" HorizontalAlignment="Stretch" Command="{Binding ReadPropertiesCommand}">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <Image Source="avares://PCMHammerAvalonia/Assets/0411_256px.ico"
                                    Width="24" Height="24"/>
                             <TextBlock Text="Properties" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
-                    <Button Padding="8" HorizontalAlignment="Stretch">
+                    <Button Padding="8" HorizontalAlignment="Stretch" Command="{Binding ReadPCMCommand}">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <Image Source="avares://PCMHammerAvalonia/Assets/0411_256px.ico"
                                    Width="24" Height="24"/>
                             <TextBlock Text="Read" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
-                    <Button Padding="8" HorizontalAlignment="Stretch">
+                    <Button Padding="8" HorizontalAlignment="Stretch" Command="{Binding WritePCMCommand}">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <Image Source="avares://PCMHammerAvalonia/Assets/0411_256px.ico"
                                    Width="24" Height="24"/>
                             <TextBlock Text="Write" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
-                    <Button Padding="8" HorizontalAlignment="Stretch">
+                    <Button Padding="8" HorizontalAlignment="Stretch" Command="{Binding TestWriteCommand}">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <Image Source="avares://PCMHammerAvalonia/Assets/0411_256px.ico"
                                    Width="24" Height="24"/>
                             <TextBlock Text="Test" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
-                    <Button Padding="8" HorizontalAlignment="Stretch">
+                    <Button Padding="8" HorizontalAlignment="Stretch" Command="{Binding VerifyPCMCommand}">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <Image Source="avares://PCMHammerAvalonia/Assets/0411_256px.ico"
                                    Width="24" Height="24"/>
@@ -60,45 +60,45 @@
                         </StackPanel>
                     </Button>
                     <Separator/>
-                    <Button Padding="8" HorizontalAlignment="Stretch">
+                    <Button Padding="8" HorizontalAlignment="Stretch" Command="{Binding ChangeVINCommand}">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <ic:FluentIcon Icon="VehicleCar" VerticalAlignment="Center"/>
                             <TextBlock Text="Change VIN" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
-                    <Button Padding="8" HorizontalAlignment="Stretch">
+                    <Button Padding="8" HorizontalAlignment="Stretch" Command="{Binding TestFileChecksumsCommand}">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <ic:FluentIcon Icon="DocumentCatchUp" VerticalAlignment="Center"/>
                             <TextBlock Text="Test File Checksums" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
-                    <Button Padding="8" HorizontalAlignment="Stretch">
+                    <Button Padding="8" HorizontalAlignment="Stretch" Command="{Binding BruteForceUnlockCommand}">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <ic:FluentIcon Icon="ShieldLock" VerticalAlignment="Center"/>
                             <TextBlock Text="Brute Force" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
-                    <Button Padding="8" HorizontalAlignment="Stretch">
+                    <Button Padding="8" HorizontalAlignment="Stretch" Command="{Binding UserDefinedKeyCommand}">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <ic:FluentIcon Icon="Key" VerticalAlignment="Center"/>
                             <TextBlock Text="User Defined Key" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
                 </StackPanel>
-                
+
                 <StackPanel Grid.Row="2" Spacing="8">
-                    <Button HorizontalAlignment="Stretch">
+                    <Button HorizontalAlignment="Stretch" Command="{Binding HaltRunningKernelCommand}">
                             <StackPanel Orientation="Horizontal" Spacing="8">
-                                <ic:FluentIcon Icon="RecordStop" 
-                                               Width="24" Height="24" 
+                                <ic:FluentIcon Icon="RecordStop"
+                                               Width="24" Height="24"
                                                VerticalAlignment="Center"/>
                                 <TextBlock Text="Halt Kernel" VerticalAlignment="Center"/>
                             </StackPanel>
                     </Button>
-                    <Button HorizontalAlignment="Stretch">
+                    <Button HorizontalAlignment="Stretch" Command="{Binding CancelCurrentCommand}">
                             <StackPanel Orientation="Horizontal" Spacing="8">
-                                <ic:FluentIcon Icon="DismissCircle" 
-                                               Width="24" Height="24" 
+                                <ic:FluentIcon Icon="DismissCircle"
+                                               Width="24" Height="24"
                                                VerticalAlignment="Center"/>
                                 <TextBlock Text="Cancel" VerticalAlignment="Center"/>
                             </StackPanel>

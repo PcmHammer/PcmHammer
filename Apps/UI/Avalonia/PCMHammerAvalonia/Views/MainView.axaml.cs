@@ -9,9 +9,16 @@ namespace PCMHammerAvalonia.Views;
 
 public partial class MainView : UserControl
 {
+    /// <summary>
+    /// The live mobile view, so the (Window-less) view model can reach a TopLevel to host overlay
+    /// dialogs (e.g. the device picker) on Android. Null on desktop, where a Window owns dialogs.
+    /// </summary>
+    public static MainView? Current { get; private set; }
+
     public MainView()
     {
         InitializeComponent();
+        Current = this;
 
         InitializeWebViews();
     }
