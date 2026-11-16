@@ -248,6 +248,9 @@ namespace PcmHacking
         /// <summary>Raised when a trace is ticked or unticked, so the PID selection can be redone.</summary>
         public event EventHandler? SeriesVisibilityChanged;
 
+        /// <summary>Raised when the user asks for this monitor's built-in traces back.</summary>
+        public event EventHandler? ResetRequested;
+
         private IEnumerable<MonitorSeriesLayout> VisibleSeries =>
             this.layout == null
                 ? Enumerable.Empty<MonitorSeriesLayout>()
@@ -602,6 +605,10 @@ namespace PcmHacking
                 menu.Items.Add(
                     new ToolStripMenuItem("Nothing to plot - start logging first") { Enabled = false });
             }
+
+            // Last, away from the traces, so it is not hit while ticking one.
+            menu.Items.Add(new ToolStripSeparator());
+            menu.Items.Add("Reset to standard traces", null, (s, e) => this.ResetRequested?.Invoke(this, EventArgs.Empty));
 
             menu.Show(this, location);
         }

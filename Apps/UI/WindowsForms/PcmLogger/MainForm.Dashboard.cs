@@ -429,6 +429,7 @@ namespace PcmHacking
             foreach (MonitorView existing in this.monitorViews)
             {
                 existing.SeriesVisibilityChanged -= this.MonitorView_SeriesVisibilityChanged;
+                existing.ResetRequested -= this.MonitorView_ResetRequested;
                 existing.CursorMoved -= this.MonitorView_CursorMoved;
                 existing.SpanChanged -= this.MonitorView_SpanChanged;
             }
@@ -458,6 +459,7 @@ namespace PcmHacking
                 };
 
                 view.SeriesVisibilityChanged += this.MonitorView_SeriesVisibilityChanged;
+                view.ResetRequested += this.MonitorView_ResetRequested;
                 view.CursorMoved += this.MonitorView_CursorMoved;
                 view.SpanChanged += this.MonitorView_SpanChanged;
 
@@ -803,6 +805,38 @@ namespace PcmHacking
             this.SelectDashboardParameters(replaceSelection: false);
             this.ApplyDashboardLocks();
             this.UpdateMonitorStatus();
+        }
+
+        /// <summary>
+        /// Put a monitor's traces back to the built-in ones, after ticking on others from a log.
+        /// </summary>
+        /// <remarks>
+        /// Matched by monitor id, so a monitor the built-in package does not have is left alone.
+        /// Only the traces are replaced: the title, order and time span are the user's to keep.
+        /// </remarks>
+        private void MonitorView_ResetRequested(object? sender, EventArgs e)
+        {
+            if (!(sender is MonitorView view) || view.MonitorLayout == null)
+            {
+                return;
+            }
+
+            MonitorLayout current = view.MonitorLayout;
+            MonitorLayout? standard = DefaultLoggerPackage.Create().Monitors
+                .FirstOrDefault(m => string.Equals(m.Id, current.Id, StringComparison.OrdinalIgnoreCase));
+
+            if (standard == null)
+            {
+                this.AddUserMessage("The built-in dashboard has no standard traces for " + current.Title + ".");
+                return;
+            }
+
+            current.Series.Clear();
+            current.Series.AddRange(standard.Series);
+
+            view.MonitorLayout = current;
+            view.Invalidate();
+            this.MonitorView_SeriesVisibilityChanged(view, EventArgs.Empty);
         }
 
         /// <summary>
