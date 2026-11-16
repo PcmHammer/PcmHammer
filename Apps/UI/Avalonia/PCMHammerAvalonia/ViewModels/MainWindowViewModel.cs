@@ -564,23 +564,6 @@ public partial class MainWindowViewModel : ObservableObject
             ProgressPercent = percent * 100;
         };
         AddInitialLogMessages();
-
-#if ANDROID
-        // Temporary: write the Bluetooth transport's raw TX/RX trace to a file on the phone (pullable
-        // via adb, immune to the on-screen Debug log being flooded by a read) for diagnosing the write
-        // handshake. Fresh per launch. Remove once the write path is hardened.
-        try
-        {
-            string? traceDir = Android.App.Application.Context.GetExternalFilesDir(null)?.AbsolutePath;
-            if (traceDir != null)
-            {
-                string tracePath = System.IO.Path.Combine(traceDir, "bttrace.txt");
-                try { System.IO.File.Delete(tracePath); } catch { /* fresh file */ }
-                PcmHacking.BluetoothSerialPort.TraceFilePath = tracePath;
-            }
-        }
-        catch { /* diagnostics only */ }
-#endif
     }
 
     public async Task HandleApplicationShutdownAsync()
