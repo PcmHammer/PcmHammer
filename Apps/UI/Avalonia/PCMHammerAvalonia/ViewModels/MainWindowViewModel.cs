@@ -949,10 +949,12 @@ public partial class MainWindowViewModel : ObservableObject
             _logger
         );
 
-        // Empty base path: the library resolves kernels from AppContext.BaseDirectory (next to the
-        // exe, where BuildAll deploys them), matching WinForms/WPF. A literal here would look in a
-        // relative folder that doesn't exist and fail with "Invalid directory".
-        Vehicle = new Vehicle(workingDevice, protocolEngine, _logger, notifier, string.Empty)
+        // Base path for kernels. On desktop this is empty, so the library resolves them from
+        // AppContext.BaseDirectory (next to the exe, where BuildAll deploys them), matching WinForms/WPF.
+        // On Android there is no exe directory, so the head copies the bundled kernels into the app's
+        // files dir at startup and records it in PlatformPaths.KernelDirectory; pass that here.
+        string kernelBasePath = PlatformPaths.KernelDirectory ?? string.Empty;
+        Vehicle = new Vehicle(workingDevice, protocolEngine, _logger, notifier, kernelBasePath)
         {
             Enable4xReadWrite = Enable4xCom
         };

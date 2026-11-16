@@ -26,6 +26,16 @@
     </AndroidResource>
   </ItemGroup>
 
+  <!-- PCM kernels packed into the APK's assets (at assets root by filename). Application.OnCreate copies
+       them to the app's files dir and sets PlatformPaths.KernelDirectory there, so the shared kernel
+       loader finds them on Android. Kernels\build is populated by Kernels\BuildAll.cmd (the committed CAN
+       kernels plus the built VPW ones), matching the WPF/Uno heads. -->
+  <ItemGroup>
+    <AndroidAsset Include="..\..\..\..\Kernels\build\*.bin">
+      <Link>Assets\%(Filename)%(Extension)</Link>
+    </AndroidAsset>
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Avalonia.Android" />
     <PackageReference Include="Xamarin.AndroidX.Core.SplashScreen" />
