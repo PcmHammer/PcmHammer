@@ -20,7 +20,7 @@
     <PackageVersion Include="FluentIcons.Avalonia.Fluent" Version="2.1.337" />
     <PackageVersion Include="NativeWebView" Version="12.0.4.8" />
     <PackageVersion Include="Xamarin.AndroidX.Core.SplashScreen" Version="1.0.1.14" />
-    <!-- Android serial path (the flasher/logger Platforms/Android StandardPort shim). -->
+    <!-- Serial transport for the Android logger (Platforms/Android serial IPort). -->
     <PackageVersion Include="System.IO.Ports" Version="10.0.11" />
   </ItemGroup>
 </Project>

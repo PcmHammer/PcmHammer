@@ -1,0 +1,52 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>PCMLoggerAvalonia</RootNamespace>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-android</TargetFramework>
+    <SupportedOSPlatformVersion>23</SupportedOSPlatformVersion>
+    <Nullable>enable</Nullable>
+    <ApplicationId>net.pcmhacking.pcmloggeravalonia</ApplicationId>
+    <ApplicationVersion>1</ApplicationVersion>
+    <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+    <AndroidPackageFormat>apk</AndroidPackageFormat>
+    <AndroidEnableProfiledAot>false</AndroidEnableProfiledAot>
+  </PropertyGroup>
+
+  <!-- Embed the managed assemblies into the APK even in Debug. By default a Debug .NET-Android build
+       leaves the app assemblies out of the APK and relies on the IDE's Fast Deployment step to push
+       them into the device's .__override__ folder. This project is built from the CLI and sideloaded,
+       so without this a sideloaded APK finds no assemblies at startup and aborts on the splash screen
+       ("No assemblies found ... Assuming this is part of Fast Deployment. Exiting..."). -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+    <EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <AndroidResource Include="Icon.png">
+      <Link>Resources\drawable\Icon.png</Link>
+    </AndroidResource>
+  </ItemGroup>
+
+  <!-- Data files packed into the APK's assets (at assets root by filename). Application.OnCreate copies
+       them to the app's files dir and sets PlatformPaths.ResourceDirectory there. -->
+  <ItemGroup>
+    <AndroidAsset Include="..\..\WindowsForms\PcmLogger\Parameters*.xml">
+      <Link>Assets\%(Filename)%(Extension)</Link>
+    </AndroidAsset>
+    <AndroidAsset Include="..\..\WindowsForms\PcmLogger\DiagnosticCodes.txt">
+      <Link>Assets\%(Filename)%(Extension)</Link>
+    </AndroidAsset>
+    <AndroidAsset Include="..\PCMLoggerAvalonia\DefaultProfiles\Overview.LogProfile">
+      <Link>Assets\%(Filename)%(Extension)</Link>
+    </AndroidAsset>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia.Android" />
+    <PackageReference Include="Xamarin.AndroidX.Core.SplashScreen" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\PCMLoggerAvalonia\PCMLoggerAvalonia.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,79 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<RootNamespace>PCMLoggerAvalonia</RootNamespace>
+		<!-- net10.0 drives the desktop heads; net10.0-android lets the logger run on a phone. On the
+		     android target, TargetPlatformIdentifier == 'android', so the Windows-only device layer
+		     (J2534DotNet, PcmLibraryWindowsApi) is excluded below and an Android device path is used. -->
+		<TargetFrameworks>net10.0;net10.0-android</TargetFrameworks>
+		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">23.0</SupportedOSPlatformVersion>
+		<Nullable>enable</Nullable>
+		<LangVersion>latest</LangVersion>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<AvaloniaResource Include="Assets\**" />
+	</ItemGroup>
+
+	<!-- The logging data files: parameter XMLs (ParameterDatabase), DiagnosticCodes.txt
+	     (DiagnosticCodeDefinitions) and the default Overview profile. On desktop they are copied next
+	     to the exe and read from AppContext.BaseDirectory (= PlatformPaths.ResourceDirectory). -->
+	<ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) != 'android'">
+		<Content Include="..\..\WindowsForms\PcmLogger\Parameters*.xml">
+			<Link>%(Filename)%(Extension)</Link>
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</Content>
+		<Content Include="..\..\WindowsForms\PcmLogger\DiagnosticCodes.txt">
+			<Link>%(Filename)%(Extension)</Link>
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</Content>
+		<Content Include="DefaultProfiles\Overview.LogProfile">
+			<Link>%(Filename)%(Extension)</Link>
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</Content>
+	</ItemGroup>
+
+	<!-- On Android there is no exe directory: the data files are packed as APK assets by the Android
+	     head (PCMLoggerAvalonia.Android), which copies them to PlatformPaths.ResourceDirectory at
+	     startup. Library AndroidAsset items do not reliably reach the APK, so they live in the head. -->
+
+	<ItemGroup>
+		<PackageReference Include="Avalonia" />
+		<PackageReference Include="Avalonia.Themes.Fluent" />
+		<PackageReference Include="Avalonia.Fonts.Inter" />
+		<PackageReference Include="AvaloniaUI.DiagnosticsSupport">
+			<IncludeAssets Condition="'$(Configuration)' != 'Debug'">None</IncludeAssets>
+			<PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
+		</PackageReference>
+		<PackageReference Include="CommunityToolkit.Mvvm" />
+		<PackageReference Include="FluentAvaloniaUI" />
+	</ItemGroup>
+
+	<PropertyGroup>
+		<!-- J2534DotNet and PcmLibraryWindowsApi multi-target net48;net10.0-windows and resolve via the
+		     net48 fallback on non-Windows builds (NU1702). Their Windows-only P/Invokes have no Linux
+		     equivalent, so on Linux builds define LINUX_CLI to compile out any Windows-only call sites in
+		     this project, matching the pattern used by PcmLibraryWindowsApi, the CLI and PCMHammerAvalonia. -->
+		<DefineConstants Condition="'$(RuntimeIdentifier)' != '' And $(RuntimeIdentifier.StartsWith('linux'))">$(DefineConstants);LINUX_CLI</DefineConstants>
+	</PropertyGroup>
+
+	<!-- Cross-platform reference: always included (the shared logging engine lives here). -->
+	<ItemGroup>
+		<ProjectReference Include="..\..\..\PcmLibrary\PcmLibrary.csproj" />
+	</ItemGroup>
+
+	<!-- Device/transport layer: the serial path is used on Linux; J2534 is present but unused there.
+	     Excluded on Android, which has no net48 Windows API: the Android device path (serial IPort +
+	     DeviceFactory) lives in Platforms/Android instead. -->
+	<ItemGroup Condition="'$(TargetPlatformIdentifier)' != 'android'">
+		<ProjectReference Include="..\..\..\J2534DotNet\J2534DotNet\J2534DotNet.csproj" />
+		<ProjectReference Include="..\..\..\PcmLibraryWindowsApi\PcmLibraryWindowsApi.csproj" />
+	</ItemGroup>
+
+	<!-- Android device path: serial over System.IO.Ports (the Platforms/Android shims), and the
+	     desktop-only, Windows-typed device picker dialog is left out of the Android build. -->
+	<ItemGroup Condition="'$(TargetPlatformIdentifier)' == 'android'">
+		<PackageReference Include="System.IO.Ports" />
+		<Compile Remove="Views\DeviceSelectDialog.axaml.cs" />
+		<AvaloniaXaml Remove="Views\DeviceSelectDialog.axaml" />
+	</ItemGroup>
+</Project>
