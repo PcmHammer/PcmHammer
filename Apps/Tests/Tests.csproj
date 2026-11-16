@@ -109,6 +109,7 @@
     <Compile Include="AdxDocumentTests.cs" />
     <Compile Include="LogHistoryTests.cs" />
     <Compile Include="LoggerPackageTests.cs" />
+    <Compile Include="GaugePlacementTests.cs" />
     <Compile Include="LatestValueFeedTests.cs" />
     <Compile Include="UsbCanAnalyzerProtocolTests.cs" />
     <Compile Include="DeviceSelectionTests.cs" />

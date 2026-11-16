@@ -363,6 +363,7 @@ namespace PcmHacking
             this.dashboardView = new DashboardView { Dock = DockStyle.Fill };
             this.dashboardView.GaugeEditRequested += this.Gauge_EditRequested;
             this.dashboardView.GaugeBindingChanged += this.Gauge_BindingChanged;
+            this.dashboardView.LayoutEdited += this.DashboardView_LayoutEdited;
 
             // Fill is added before Top so docking leaves the bar above the gauges.
             this.dashboardTab.Controls.Add(this.dashboardView);
@@ -1552,6 +1553,18 @@ namespace PcmHacking
             // Add, don't replace: binding one gauge must not discard parameters the user picked by
             // hand in the grid.
             this.SelectDashboardParameters(replaceSelection: false);
+        }
+
+        /// <summary>
+        /// A gauge was added or deleted. Removing a bound gauge can leave a parameter nobody needs,
+        /// so the locks are worked out again; the grid selection is left alone, as it is for an
+        /// unbind.
+        /// </summary>
+        private void DashboardView_LayoutEdited(object? sender, EventArgs e)
+        {
+            this.UpdateDashboardStatus();
+            this.ApplyDashboardLocks();
+            this.SetDirtyFlag(true);
         }
 
         private Parameter? BindingCandidateParameter(string id)
