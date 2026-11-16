@@ -1,19 +1,13 @@
-﻿<Window xmlns="https://github.com/avaloniaui"
+﻿<chrome:ChromeWindow xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:PCMHammerAvalonia.ViewModels"
+        xmlns:chrome="using:PcmHacking.UI"
         x:Class="PCMHammerAvalonia.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         Icon="/Assets/0411_256px.ico"
+        TitleBarIconSource="/Assets/titlebar_icon.png"
         Title="PCM Hammer" Height="638" Width="800"
         Closing="Window_Closing">
-
-    <Window.Styles>
-        <Style Selector="WindowDrawnDecorations /template/ Button#PART_FullScreenButton">
-            <Setter Property="Opacity" Value="0"/>
-            <Setter Property="IsHitTestVisible" Value="False"/>
-            <Setter Property="Focusable" Value="False"/>
-        </Style>
-    </Window.Styles>
 
     <Design.DataContext>
         <vm:MainViewModel />
@@ -233,4 +227,4 @@
             </Grid>
         </Border>
     </Grid>
-</Window>
+</chrome:ChromeWindow>
