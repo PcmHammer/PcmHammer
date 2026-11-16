@@ -566,9 +566,20 @@ public partial class MainWindowViewModel : ObservableObject
         AddInitialLogMessages();
 
 #if ANDROID
-        // Temporary: route the Bluetooth transport's raw TX/RX trace into the Debug log so the write
-        // handshakes can be diagnosed on-device (USB logcat keeps dropping on the test phone).
-        PcmHacking.BluetoothSerialPort.Trace = msg => _logger.AddDebugMessage("[BT] " + msg);
+        // Temporary: write the Bluetooth transport's raw TX/RX trace to a file on the phone (pullable
+        // via adb, immune to the on-screen Debug log being flooded by a read) for diagnosing the write
+        // handshake. Fresh per launch. Remove once the write path is hardened.
+        try
+        {
+            string? traceDir = Android.App.Application.Context.GetExternalFilesDir(null)?.AbsolutePath;
+            if (traceDir != null)
+            {
+                string tracePath = System.IO.Path.Combine(traceDir, "bttrace.txt");
+                try { System.IO.File.Delete(tracePath); } catch { /* fresh file */ }
+                PcmHacking.BluetoothSerialPort.TraceFilePath = tracePath;
+            }
+        }
+        catch { /* diagnostics only */ }
 #endif
     }
 

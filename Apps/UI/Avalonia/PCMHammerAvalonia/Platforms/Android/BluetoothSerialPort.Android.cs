@@ -16,10 +16,35 @@ public class BluetoothSerialPort : IPort
     // Standard Serial Port Profile (SPP) UUID.
     private static readonly UUID SppUuid = UUID.FromString("00001101-0000-1000-8000-00805F9B34FB")!;
 
-    // Temporary diagnostic hook: when set, raw TX/RX bytes are reported here (wired to the in-app Debug
-    // log) so the Bluetooth write handshakes can be traced on-device without a USB logcat. Remove once
-    // the write path is proven.
+    // Temporary diagnostic hooks for the Bluetooth write handshake. `Trace` can mirror lines to the UI;
+    // `TraceFilePath`, when set, appends every line to a file on the phone (pullable via adb, immune to
+    // the on-screen log being flooded by a read). Remove both once the write path is hardened.
     public static Action<string>? Trace;
+    public static string? TraceFilePath;
+    private static StreamWriter? traceWriter;
+    private static readonly object traceLock = new();
+
+    private static void WriteTrace(string msg)
+    {
+        Trace?.Invoke(msg);
+        if (TraceFilePath == null)
+        {
+            return;
+        }
+
+        try
+        {
+            lock (traceLock)
+            {
+                traceWriter ??= new StreamWriter(TraceFilePath, append: true) { AutoFlush = true };
+                traceWriter.WriteLine($"{DateTime.Now:HH:mm:ss.fff} {msg}");
+            }
+        }
+        catch
+        {
+            // Diagnostics must never break comms.
+        }
+    }
 
     private readonly string address;
     private BluetoothSocket? socket;
@@ -156,7 +181,7 @@ public class BluetoothSerialPort : IPort
                 int read = await this.input.ReadAsync(buffer, 0, buffer.Length, token);
                 if (read > 0)
                 {
-                    Trace?.Invoke($"RX-chunk[{read}] {BitConverter.ToString(buffer, 0, read)}");
+                    WriteTrace($"RX-chunk[{read}] {BitConverter.ToString(buffer, 0, read)}");
                     if (dataReceived != null)
                     {
                         dataReceived(buffer, read);
@@ -189,7 +214,7 @@ public class BluetoothSerialPort : IPort
             throw new InvalidOperationException("Port is not open.");
         }
 
-        Trace?.Invoke($"TX[{buffer.Length}] {BitConverter.ToString(buffer)}");
+        WriteTrace($"TX[{buffer.Length}] {BitConverter.ToString(buffer)}");
         await this.output.WriteAsync(buffer, 0, buffer.Length);
         await this.output.FlushAsync();
     }
@@ -237,7 +262,7 @@ public class BluetoothSerialPort : IPort
             }
         }
 
-        Trace?.Invoke($"RX-return got={got}/{count} {BitConverter.ToString(buffer, offset, got)}");
+        WriteTrace($"RX-return got={got}/{count} {BitConverter.ToString(buffer, offset, got)}");
         return got;
     }
 
