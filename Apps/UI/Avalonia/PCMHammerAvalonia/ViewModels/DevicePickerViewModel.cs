@@ -155,7 +155,7 @@ namespace PCMHammerAvalonia.ViewModels
                 onPort = " on " + (SerialPort!.PortName ?? "(no port)");
                 target = (SerialPortDeviceType ?? "serial device") + onPort;
             }
-            #if !LINUX_CLI
+            #if !LINUX_CLI && !ANDROID
             else if (DeviceCategory == DeviceConfiguration.Constants.DeviceCategoryJ2534)
             {
                 device = DeviceFactory.CreateJ2534Device(J2534DeviceType, logger);
@@ -407,7 +407,7 @@ namespace PCMHammerAvalonia.ViewModels
 
         private async Task AddDiscoveredJ2534DevicesAsync()
         {
-#if !LINUX_CLI
+#if !LINUX_CLI && !ANDROID
             try
             {
                 Task<List<J2534DotNet.J2534Device>> devicesTask = Task.Run(() => J2534DeviceFinder.FindInstalledJ2534DLLs(logger));
@@ -527,7 +527,7 @@ namespace PCMHammerAvalonia.ViewModels
                 onPort = " on " + (SerialPort!.PortName! ?? "(no port)");
                 target = (SerialPortDeviceType ?? "serial device") + onPort;
             }
-            #if !LINUX_CLI
+            #if !LINUX_CLI && !ANDROID
             else if (IsJ2534DeviceSelected)
             {
                 device = DeviceFactory.CreateJ2534Device(J2534DeviceType, logger);

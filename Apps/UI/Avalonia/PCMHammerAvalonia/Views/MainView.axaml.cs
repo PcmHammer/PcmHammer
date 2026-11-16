@@ -41,6 +41,22 @@ public partial class MainView : UserControl
             return;
         }
 
+#if ANDROID
+        // Avalonia.Controls.WebView is desktop-only and is not referenced on Android; show the Help
+        // and Credits content as plain text there instead of a native browser.
+        HelpViewContainer.Child = new TextBlock
+        {
+            Text = "Help is available in the desktop app.",
+            Margin = new Thickness(16),
+            TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+        };
+        CreditsViewContainer.Child = new TextBlock
+        {
+            Text = "Credits are available in the desktop app.",
+            Margin = new Thickness(16),
+            TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+        };
+#else
         var helpWebView = new NativeWebView();
         var creditsWebView = new NativeWebView();
 
@@ -49,8 +65,10 @@ public partial class MainView : UserControl
 
         HelpViewContainer.Child = helpWebView;
         CreditsViewContainer.Child = creditsWebView;
+#endif
     }
 
+#if !ANDROID
     private static void LoadEmbeddedHtml(string resourceName, NativeWebView browser)
     {
         try
@@ -76,5 +94,6 @@ public partial class MainView : UserControl
             System.Diagnostics.Debug.WriteLine($"Error loading document: {ex.Message}");
         }
     }
+#endif
 
 }

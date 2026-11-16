@@ -91,6 +91,23 @@ public partial class MainWindow : Window
             return;
         }
 
+#if ANDROID
+        // Avalonia.Controls.WebView is desktop-only and is not referenced on Android; show the Help
+        // and Credits content as plain text there instead of a native browser. (MainWindow itself is
+        // not used on Android - the activity hosts MainView - but it must still compile for the head.)
+        HelpViewContainer.Child = new TextBlock
+        {
+            Text = "Help is available in the desktop app.",
+            Margin = new Thickness(16),
+            TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+        };
+        CreditsViewContainer.Child = new TextBlock
+        {
+            Text = "Credits are available in the desktop app.",
+            Margin = new Thickness(16),
+            TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+        };
+#else
         var helpWebView = new NativeWebView();
         var creditsWebView = new NativeWebView();
 
@@ -99,8 +116,10 @@ public partial class MainWindow : Window
 
         HelpViewContainer.Child = helpWebView;
         CreditsViewContainer.Child = creditsWebView;
+#endif
     }
 
+#if !ANDROID
     private static void LoadEmbeddedHtml(string resourceName, NativeWebView browser)
     {
         try
@@ -126,6 +145,7 @@ public partial class MainWindow : Window
             System.Diagnostics.Debug.WriteLine($"Error loading document: {ex.Message}");
         }
     }
+#endif
 
     private void Border_PointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)
     {

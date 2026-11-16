@@ -1,6 +1,8 @@
 ﻿using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform.Storage;
+// On the android target Android.App.Application is also in scope; pin Application to Avalonia's.
+using Application = Avalonia.Application;
 
 namespace PCMHammerAvalonia.Services;
 

@@ -5,11 +5,19 @@
     <TargetFramework>net10.0-android</TargetFramework>
     <SupportedOSPlatformVersion>23</SupportedOSPlatformVersion>
     <Nullable>enable</Nullable>
-    <ApplicationId>com.CompanyName.PCMHammerAvalonia</ApplicationId>
+    <ApplicationId>net.pcmhacking.pcmhammeravalonia</ApplicationId>
     <ApplicationVersion>1</ApplicationVersion>
     <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
     <AndroidPackageFormat>apk</AndroidPackageFormat>
     <AndroidEnableProfiledAot>false</AndroidEnableProfiledAot>
+  </PropertyGroup>
+
+  <!-- Embed the managed assemblies into the APK even in Debug. By default a Debug .NET-Android build
+       leaves the app assemblies out of the APK and relies on the IDE's Fast Deployment step to push
+       them onto the device. This project is built from the CLI and sideloaded, so without this a
+       sideloaded APK finds no assemblies at startup and aborts on the splash screen. -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+    <EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
   </PropertyGroup>
 
   <ItemGroup>
