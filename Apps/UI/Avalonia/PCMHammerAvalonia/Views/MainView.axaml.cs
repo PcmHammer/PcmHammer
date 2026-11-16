@@ -85,9 +85,35 @@ public partial class MainView : UserControl
             return;
         }
 
+        // Decide BEFORE changing the text whether each log is parked at the bottom. If it is, follow the
+        // newest lines as they arrive during a read/write; if the user has scrolled up to read, leave
+        // their position alone.
+        bool followResults = IsNearBottom(_resultsScroll);
+        bool followDebug = IsNearBottom(_debugScroll);
+
         _resultsLog.Text = _viewModel.LogText;
         _debugLog.Text = _viewModel.DebugLogText;
+
+        // Scroll after the text's layout pass (Background runs once the new extent is measured).
+        Dispatcher.UIThread.Post(
+            () =>
+            {
+                if (followResults)
+                {
+                    _resultsScroll.ScrollToEnd();
+                }
+
+                if (followDebug)
+                {
+                    _debugScroll.ScrollToEnd();
+                }
+            },
+            DispatcherPriority.Background);
     }
+
+    // True when the view is at (or within a line of) the bottom, or there is nothing to scroll yet.
+    private static bool IsNearBottom(ScrollViewer scroll)
+        => scroll.ScrollBarMaximum.Y <= 0 || scroll.Offset.Y >= scroll.ScrollBarMaximum.Y - 40;
 
     private void InitializeWebViews()
     {
