@@ -575,13 +575,14 @@ namespace PcmHacking
 
             bool uploadAllowed = await RequestUploadPermission();
 
-            if (!uploadAllowed)
+            // Over a slow link (e.g. Bluetooth) the switch to VPW 4x can stall long enough for the PCM's
+            // security session to time out and re-lock, so the upload request is refused with the
+            // security code (7F 34 33) even though the earlier unlock succeeded. Re-establish security and
+            // try again. The re-unlock and the retried request can themselves be glitched by the link, so
+            // give the recovery a few attempts rather than one.
+            for (int recovery = 1; !uploadAllowed && recovery <= 3; recovery++)
             {
-                // Over a slow link (e.g. Bluetooth) the switch to VPW 4x can stall long enough for the
-                // PCM's security session to time out and re-lock, so this first request is refused with
-                // the security code (7F 34 33) even though the earlier unlock succeeded. Re-establish
-                // security and try once more before giving up.
-                logger.AddUserMessage("Upload permission denied; re-unlocking and retrying...");
+                logger.AddUserMessage($"Upload permission denied; re-unlocking and retrying (attempt {recovery})...");
                 if (await this.UnlockEcu(info.KeyAlgorithm, cancellationToken))
                 {
                     uploadAllowed = await RequestUploadPermission();
