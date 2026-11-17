@@ -69,7 +69,7 @@ public class ChromeWindow : Window
             // that takes. The caption buttons are vector glyphs, so the title is the only TextBlock in
             // the template.
             this.Styles.Add(HiddenInTemplate<TextBlock>(null));
-            this.Styles.Add(HiddenInTemplate<Button>("PART_FullScreenButton"));
+            this.Styles.Add(HiddenInTemplate<Avalonia.Controls.Button>("PART_FullScreenButton"));
 
             // Wrap the content once the window has opened - NOT during the XAML load that sets Content.
             // Reparenting the content while it is still the window's Content throws ("already has a
@@ -113,7 +113,7 @@ public class ChromeWindow : Window
         // IsHitTestVisible=False so the strip still drags the window.
         StackPanel bar = new()
         {
-            Orientation = Orientation.Horizontal,
+            Orientation = Avalonia.Layout.Orientation.Horizontal,
             Spacing = 8,
             Height = TitleStripHeight,
             VerticalAlignment = VerticalAlignment.Top,
