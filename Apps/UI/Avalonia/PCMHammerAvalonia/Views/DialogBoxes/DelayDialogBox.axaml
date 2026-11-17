@@ -1,0 +1,54 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:local="using:PCMHammerAvalonia.Views.DialogBoxes"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="using:PCMHammerAvalonia.ViewModels"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        x:Class="PCMHammerAvalonia.Views.DialogBoxes.DelayDialogBox"
+        x:DataType="vm:DelayViewModel"
+        WindowStartupLocation="CenterOwner"
+        SizeToContent="Height"
+        Width="449"
+        CanResize="False"
+        Title="DelayDialogBox">
+    <Grid RowDefinitions="Auto,Auto,Auto" Margin="16">
+
+        <StackPanel>
+            <TextBlock 
+                Text="Has the PCM been powered on for at least 10 seconds?"
+                FontWeight="Bold"/>
+            <TextBlock 
+                TextWrapping="Wrap" 
+                Margin="0,5">
+                <TextBlock.Text>
+                    If not, please wait for it to initialize before continuing. If you skip this step, the read process may be interrupted, 
+                    and there's a good chance that you will need to temporarily remove the PCM's fuse to get it to work properly again.
+                </TextBlock.Text>
+            </TextBlock>
+        </StackPanel>
+
+        <TextBlock 
+            Grid.Row="1" 
+            Text="{Binding TimerText}" 
+            Margin="0,5"
+            FontStyle="Italic" 
+            Opacity="0.5" 
+            HorizontalAlignment="Center"/>
+
+        <StackPanel 
+            Orientation="Horizontal" 
+            Grid.Row="2" 
+            HorizontalAlignment="Right" 
+            Margin="0,5">
+            <Button 
+                Grid.Row="2" 
+                Content="Skip"
+                HorizontalAlignment="Right" 
+                Width="100" 
+                Margin="5" 
+                IsCancel="True" 
+                Command="{Binding CloseCommand}"/>
+        </StackPanel>
+    </Grid>
+</Window>

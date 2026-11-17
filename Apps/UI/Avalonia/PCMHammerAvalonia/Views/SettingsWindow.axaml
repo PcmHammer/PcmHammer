@@ -1,0 +1,112 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="using:PCMHammerAvalonia.ViewModels"
+        x:Class="PCMHammerAvalonia.Views.SettingsWindow"
+        x:DataType="vm:SettingsViewModel"
+        SizeToContent="Height"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Title="Settings" 
+        Width="629">
+
+    <Window.Styles>
+        <!-- Custom GroupBox styling via HeaderedContentControl -->
+        <Style Selector="HeaderedContentControl">
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}" 
+                            BorderThickness="1" 
+                            CornerRadius="4" 
+                            Padding="10" 
+                            Margin="0,0,0,12">
+                        <StackPanel>
+                            <TextBlock Text="{TemplateBinding Header}" 
+                                       FontWeight="Bold" 
+                                       Margin="0,0,0,8" 
+                                       Foreground="{DynamicResource SystemControlHighlightAccentBrush}"/>
+                            <ContentPresenter Content="{TemplateBinding Content}"/>
+                        </StackPanel>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+    </Window.Styles>
+
+    <StackPanel Margin="16">
+        <!-- Device Section -->
+        <HeaderedContentControl Header="Device">
+            <StackPanel Spacing="4">
+                <CheckBox Content="Retain device configuration" 
+                          IsChecked="{Binding RetainDeviceConfigurationOnExit}"/>
+                <TextBlock FontStyle="Oblique" 
+                           Opacity="0.5" 
+                           Text="This will retain the current device configuration (serial, port, and device or J2534) on exit." 
+                           TextWrapping="Wrap"/>
+            </StackPanel>
+        </HeaderedContentControl>
+
+        <!-- Bin Files Section -->
+        <HeaderedContentControl Header="Bin Files">
+            <Grid ColumnDefinitions="Auto, *">
+                <Button Content="Bin Directory" 
+                        Width="120" 
+                        Margin="5,0" 
+                        Command="{Binding SelectBinDirectoryCommand}"/>
+                <TextBox Grid.Column="1" 
+                         Margin="5,0" 
+                         Text="{Binding BinDirectory}"/>
+            </Grid>
+        </HeaderedContentControl>
+
+        <!-- Logging Section -->
+        <HeaderedContentControl Header="Logging">
+            <StackPanel Spacing="4">
+                <CheckBox Content="Use Log SaveAs Dialog" 
+                          IsChecked="{Binding UseLogSaveAsDialog}"/>
+                <TextBlock FontStyle="Oblique" 
+                           Opacity="0.5" 
+                           Text="Show a dialog to select the log file location when saving logs."/>
+                
+                <!-- Avalonia native boolean negation replaces ConverterParameter=Inverse -->
+                <Grid ColumnDefinitions="Auto, *" 
+                      IsVisible="{Binding !UseLogSaveAsDialog}" 
+                      Margin="0,4">
+                    <Button Content="Log Directory" 
+                            Margin="5,0" 
+                            Width="120" 
+                            Command="{Binding SelectLogDirectoryCommand}"/>
+                    <TextBox Grid.Column="1" 
+                             Text="{Binding LogDirectory}"/>
+                </Grid>
+
+                <CheckBox Content="Save results log on application exit" 
+                          IsChecked="{Binding SaveResultsLogOnExit}"/>
+                <TextBlock FontStyle="Oblique" 
+                           Opacity="0.5" 
+                           Text="Automatically save the results log on application exit."/>
+                
+                <CheckBox Content="Save debug log on application exit" 
+                          IsChecked="{Binding SaveDebugLogOnExit}"/>
+                <TextBlock FontStyle="Oblique" 
+                           Opacity="0.5" 
+                           Text="Automatically save the debug log on application exit."/>
+            </StackPanel>
+        </HeaderedContentControl>
+
+        <!-- Action Buttons -->
+        <Grid ColumnDefinitions="*, *" 
+              Margin="0,16,0,0" 
+              HorizontalAlignment="Right">
+            <Button Content="Cancel" 
+                    Width="120" 
+                    Margin="5,0" 
+                    Command="{Binding CloseCommand}"/>
+            <Button Content="OK" 
+                    Width="120" 
+                    Margin="5,0" 
+                    Grid.Column="1" 
+                    Command="{Binding AcceptCommand}"/>
+        </Grid>
+    </StackPanel>
+</Window>

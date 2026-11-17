@@ -1,0 +1,99 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="using:PCMHammerAvalonia.ViewModels"
+        x:Class="PCMHammerAvalonia.Views.DialogBoxes.BruteForceDialogBox"
+        x:DataType="vm:BruteForceViewModel"
+        mc:Ignorable="d"
+        WindowStartupLocation="CenterOwner"
+        SizeToContent="Height"
+        Width="400"
+        CanResize="False"
+        Title="Brute Force Unlock">
+
+    <DockPanel>
+        <!-- Bottom Status Bar Replacement -->
+        <Border DockPanel.Dock="Bottom" 
+                BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}" 
+                BorderThickness="0,1,0,0" 
+                Padding="8,4" 
+                Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
+            <TextBlock Text="{Binding StatusText}" d:Text="Ready." VerticalAlignment="Center"/>
+        </Border>
+
+        <Grid Margin="15" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Row 0: Start / End Keys -->
+            <Label Content="Start:" Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Target="StartKeyTextBox" />
+            <TextBox x:Name="StartKeyTextBox" Grid.Row="0" Grid.Column="1" 
+                     Margin="5" Height="24" VerticalContentAlignment="Center"
+                     FontFamily="Consolas, Monospace"
+                     Text="{Binding StartKey, Mode=TwoWay, Converter={StaticResource HexConverter}}"/>
+
+            <Label Content="End:" Grid.Row="0" Grid.Column="2" Margin="15,0,5,0" VerticalAlignment="Center" Target="EndKeyTextBox" />
+            <TextBox x:Name="EndKeyTextBox" Grid.Row="0" Grid.Column="3" 
+                     Margin="5" Height="24" VerticalContentAlignment="Center"
+                     FontFamily="Consolas, Monospace"
+                     Text="{Binding EndKey, Mode=TwoWay, Converter={StaticResource HexConverter}}"/>
+
+            <!-- Row 1: Speed Options -->
+            <Label Content="Speed:" Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Target="SpeedComboBox"/>
+            <ComboBox x:Name="SpeedComboBox" Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="3"
+                      Margin="5" Height="24" VerticalContentAlignment="Center"
+                      ItemsSource="{Binding SpeedOptions}"
+                      SelectedValue="{Binding BruteForceSpeed, Mode=TwoWay}">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding DisplayText}"/>
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+
+            <!-- Row 2: Algo Sweep -->
+            <CheckBox Content="Algo sweep first" Grid.Row="2" Grid.ColumnSpan="4"
+                      Margin="5,10"
+                      IsChecked="{Binding AlgoSweepFirst, Mode=TwoWay}"/>
+
+            <!-- Row 3: Progress -->
+            <StackPanel Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="4" Margin="0,5"
+                        IsVisible="{Binding BruteForceRunning}">
+                <!-- Bound directly to a formatted string property on the ViewModel -->
+                <Label Content="{Binding ProgressText}" d:Content="Progress: 0000 / FFFF" Target="ProgressBar"/>
+                <ProgressBar x:Name="ProgressBar" Height="22" Value="{Binding ProgressValue}"/>
+            </StackPanel>
+
+            <!-- Row 4: Lockout Timer -->
+            <StackPanel Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="4" Margin="0,5"
+                        IsVisible="{Binding BruteForceRunning}">
+                <Label Content="Lockout Timer" Target="LockoutTimerProgressBar" />
+                <ProgressBar x:Name="LockoutTimerProgressBar" Height="22" Minimum="0" Maximum="1" Value="{Binding LockoutProgress}"/>
+            </StackPanel>
+
+            <!-- Row 5: Action Buttons -->
+            <UniformGrid Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="4" Rows="1" Margin="0,15,0,5">
+                <Button Content="Exit"
+                        Width="96" 
+                        HorizontalAlignment="Center" 
+                        HorizontalContentAlignment="Center"
+                        Command="{Binding ExitCommand}"/>
+                <Button Content="Stop" 
+                        Width="96" 
+                        HorizontalAlignment="Center" 
+                        HorizontalContentAlignment="Center"
+                        Command="{Binding StopBruteForceCommand}"/>
+                <Button Content="Start" 
+                        Width="96" 
+                        HorizontalAlignment="Center" 
+                        HorizontalContentAlignment="Center"
+                        Command="{Binding StartBruteForceCommand}"/>
+            </UniformGrid>
+        </Grid>
+    </DockPanel>
+</Window>

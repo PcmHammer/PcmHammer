@@ -1,0 +1,80 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<RootNamespace>PCMHammerAvalonia</RootNamespace>
+		<!-- net10.0 drives the desktop heads; net10.0-android lets the flasher run on a phone. On the
+		     android target, TargetPlatformIdentifier == 'android', so the Windows-only device layer
+		     (J2534DotNet, PcmLibraryWindowsApi) is excluded below and the Android device path
+		     (Platforms/Android: serial IPort + Bluetooth + DeviceFactory) is used instead. -->
+		<TargetFrameworks>net10.0;net10.0-android</TargetFrameworks>
+		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">23.0</SupportedOSPlatformVersion>
+		<Nullable>enable</Nullable>
+		<LangVersion>latest</LangVersion>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<AvaloniaResource Include="Assets\**" />
+	</ItemGroup>
+
+	<!-- Shared custom title-bar window (ChromeWindow), used by both PcmHammer and PcmLogger so the two
+	     apps share one house style. Lives in Apps/UI/Avalonia/Shared and is linked into each app. -->
+	<ItemGroup>
+		<Compile Include="..\Shared\ChromeWindow.cs" Link="Chrome\ChromeWindow.cs" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Avalonia" />
+		<PackageReference Include="Avalonia.Themes.Fluent" />
+		<PackageReference Include="Avalonia.Fonts.Inter" />
+		<PackageReference Include="AvaloniaUI.DiagnosticsSupport">
+			<IncludeAssets Condition="'$(Configuration)' != 'Debug'">None</IncludeAssets>
+			<PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
+		</PackageReference>
+		<PackageReference Include="CommunityToolkit.Mvvm" />
+		<PackageReference Include="FluentAvaloniaUI" />
+	</ItemGroup>
+
+	<!-- The in-app Help/Credits browser (Avalonia.Controls.WebView) is desktop-only here; on Android
+	     the WebView code paths are compiled out (#if !ANDROID) and a placeholder is shown instead. -->
+	<ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) != 'android'">
+		<PackageReference Include="Avalonia.Controls.WebView" />
+	</ItemGroup>
+
+	<!-- Android device path: serial over System.IO.Ports (the Platforms/Android shims) plus the
+	     Bluetooth RFCOMM transport. -->
+	<ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
+		<PackageReference Include="System.IO.Ports" />
+	</ItemGroup>
+
+	<!-- Cross-platform references -->
+	<ItemGroup>
+	  <PackageReference Include="FluentIcons.Avalonia.Fluent" />
+	</ItemGroup>
+
+	<PropertyGroup>
+		<!-- J2534DotNet and PcmLibraryWindowsApi only multi-target net48;net10.0-windows and are
+			 resolved via the net48 fallback on non-Windows builds (NU1702). Their Windows-only
+			 P/Invokes (kernel32.dll, J2534 pass-thru drivers) have no Linux equivalent, so on
+			 Linux builds we still reference them (so the app compiles) but define LINUX_CLI so
+			 call sites in this project skip the Windows-only code paths at compile time,
+			 matching the existing LINUX_CLI pattern used by PcmLibraryWindowsApi and the
+			 Linux CLI projects. -->
+		<DefineConstants Condition="'$(RuntimeIdentifier)' != '' And $(RuntimeIdentifier.StartsWith('linux'))">$(DefineConstants);LINUX_CLI</DefineConstants>
+	</PropertyGroup>
+
+	<!-- Cross-platform reference: always included -->
+	<ItemGroup>
+		<ProjectReference Include="..\..\..\PcmLibrary\PcmLibrary.csproj" />
+	</ItemGroup>
+
+	<!-- Windows-only reference: completely omitted from Android builds -->
+	<ItemGroup Condition="'$(TargetPlatformIdentifier)' != 'android'">
+		<ProjectReference Include="..\..\..\J2534DotNet\J2534DotNet\J2534DotNet.csproj" />
+		<ProjectReference Include="..\..\..\PcmLibraryWindowsApi\PcmLibraryWindowsApi.csproj" />
+	</ItemGroup>
+	<ItemGroup>
+	  <Compile Update="Views\SideBarMenu.axaml.cs">
+	    <DependentUpon>SideBarMenu.axaml</DependentUpon>
+	  </Compile>
+	</ItemGroup>
+
+</Project>

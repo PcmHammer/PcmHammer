@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Management;
+using System.Runtime.InteropServices;
 using Microsoft.Win32;
 
 namespace PcmHacking
@@ -16,6 +17,18 @@ namespace PcmHacking
     {
         public static IEnumerable<SerialPortInfo> GetPorts(ILogger logger)
         {
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                // WMI (Win32_PnPEntity) and the Windows registry are not available on Linux.
+                // Fall back to the cross-platform port name enumeration without friendly names.
+                List<SerialPortInfo> linuxResult = new List<SerialPortInfo>();
+                foreach (string portName in System.IO.Ports.SerialPort.GetPortNames())
+                {
+                    linuxResult.Add(new SerialPortInfo(portName));
+                }
+                return linuxResult;
+            }
+
             List<SerialPortInfo> result = new List<SerialPortInfo>();
             ManagementClass processClass = new ManagementClass("Win32_PnPEntity");
             ManagementObjectCollection Ports = processClass.GetInstances();
@@ -77,6 +90,17 @@ namespace PcmHacking
         public string? PortName { get; private set; }
         public string DeviceID { get; private set; }
         public int PortNumber { get; private set; }
+
+        /// <summary>
+        /// Linux-safe constructor used when WMI/registry metadata is unavailable.
+        /// </summary>
+        public SerialPortInfo(string portName)
+        {
+            this.Name = portName;
+            this.DeviceID = portName;
+            this.PortName = portName;
+            this.PortNumber = 0;
+        }
 
         public SerialPortInfo(ManagementObject property, ILogger logger)
         {

@@ -1,0 +1,74 @@
+﻿<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="using:PCMHammerAvalonia"
+             xmlns:styling="using:FluentAvalonia.Styling"
+             xmlns:ic="using:FluentIcons.Avalonia.Fluent"
+             x:Class="PCMHammerAvalonia.App"
+             RequestedThemeVariant="Default">
+             <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
+
+    <Application.DataTemplates>
+        <local:ViewLocator />
+    </Application.DataTemplates>
+
+    <Application.Styles>
+        <styling:FluentAvaloniaTheme />
+    
+        <Style Selector="Button.CopyButtonStyle">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="4"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="ToolTip.Tip" Value="Copy to Clipboard"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="PART_Border"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="4"
+                            Padding="{TemplateBinding Padding}">
+                        <Panel>
+                            <!-- Default Copy Icon -->
+                            <ic:FluentIcon Name="PART_CopyIcon" 
+                                           Icon="Copy" 
+                                           FontSize="14"
+                                           Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                        
+                            <!-- Success Checkmark Icon (Hidden initially) -->
+                            <ic:FluentIcon Name="PART_CheckIcon" 
+                                           Icon="Checkmark" 
+                                           FontSize="14"
+                                           Opacity="0"
+                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                        </Panel>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+
+        <!-- Hover State -->
+        <Style Selector="Button.CopyButtonStyle:pointerover /template/ Border#PART_Border">
+            <Setter Property="Background" Value="{DynamicResource SystemControlHighlightListLowBrush}"/>
+        </Style>
+        <Style Selector="Button.CopyButtonStyle:pointerover /template/ ic|FluentIcon#PART_CopyIcon">
+            <Setter Property="Foreground" Value="{DynamicResource SystemControlForegroundBaseHighBrush}"/>
+        </Style>
+
+        <!-- Pressed State -->
+        <Style Selector="Button.CopyButtonStyle:pressed /template/ Border#PART_Border">
+            <Setter Property="Background" Value="{DynamicResource SystemControlHighlightListMediumBrush}"/>
+        </Style>
+
+        <!-- Copied / Feedback Active State -->
+        <Style Selector="Button.CopyButtonStyle.copied">
+            <Setter Property="ToolTip.Tip" Value="Copied!"/>
+        </Style>
+        <Style Selector="Button.CopyButtonStyle.copied /template/ ic|FluentIcon#PART_CopyIcon">
+            <Setter Property="Opacity" Value="0"/>
+        </Style>
+        <Style Selector="Button.CopyButtonStyle.copied /template/ ic|FluentIcon#PART_CheckIcon">
+            <Setter Property="Opacity" Value="1"/>
+        </Style>
+    </Application.Styles>
+</Application>

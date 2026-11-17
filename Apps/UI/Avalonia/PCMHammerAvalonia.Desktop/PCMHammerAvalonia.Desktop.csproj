@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>PCMHammerAvalonia</RootNamespace>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia.Desktop" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\PCMHammerAvalonia\PCMHammerAvalonia.csproj" />
+  </ItemGroup>
+
+	<Target Name="PackageLinuxTarGz" AfterTargets="Publish" Condition="'$(RuntimeIdentifier)' != '' And $(RuntimeIdentifier.StartsWith('linux'))">
+		<PropertyGroup>
+			<!-- Resolve absolute path for the output tar.gz in the build output parent directory -->
+			<PublishDirAbs>$([System.IO.Path]::GetFullPath('$(PublishDir)'))</PublishDirAbs>
+			<TarGzFileName>$([System.IO.Path]::GetFullPath('$(PublishDir)..\PCMHammer.tar.gz'))</TarGzFileName>
+		</PropertyGroup>
+
+		<!-- Clean unwanted files BEFORE creating the archive -->
+		<Delete Files="$(PublishDir)SimpleBrowser.dll.config" Condition="Exists('$(PublishDir)SimpleBrowser.dll.config')" />
+
+		<!-- Safe PowerShell invocation using Get-ChildItem and absolute paths -->
+		<Exec Command="powershell -NoProfile -Command &quot;Set-Location '$(PublishDirAbs)'; tar -czf '$(TarGzFileName)' (Get-ChildItem .)&quot;" />
+
+		<Message Text="Successfully created archive: $(TarGzFileName)" Importance="high" />
+	</Target>
+
+	<!-- Custom Publish Shortcut: Publish-Linux -->
+	<Target Name="PublishLinux">
+		<MSBuild Projects="$(MSBuildProjectFullPath)" Targets="Restore;Publish" Properties="Configuration=Release;RuntimeIdentifier=linux-x64;SelfContained=true;PublishSingleFile=true;IncludeNativeLibrariesForSelfExtract=true;DebugType=embedded" />
+	</Target>
+</Project>

@@ -1,0 +1,230 @@
+﻿<chrome:ChromeWindow xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:PCMHammerAvalonia.ViewModels"
+        xmlns:chrome="using:PcmHacking.UI"
+        x:Class="PCMHammerAvalonia.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Icon="/Assets/0411_256px.ico"
+        TitleBarIconSource="/Assets/titlebar_icon.png"
+        Title="PCM Hammer" Height="638" Width="800"
+        Closing="Window_Closing">
+
+    <Design.DataContext>
+        <vm:MainViewModel />
+    </Design.DataContext>
+
+    <Grid x:Name="RootGrid" RowDefinitions="auto,*,auto">
+        <!-- Main Navigation Menu -->
+        <Border Background="Transparent"
+                BorderBrush="{DynamicResource ControlElevationBorderBrush}"
+                BorderThickness="0,0,0,1"
+                PointerPressed="Border_PointerPressed">
+            <Menu Margin="0,-4" HorizontalAlignment="Left">
+                <MenuItem Header="_File">
+                    <MenuItem Header="Save _Results Log"     Command="{Binding SaveResultsLogCommand}"/>
+                    <MenuItem Header="Save _Debug Log"       Command="{Binding SaveDebugLogCommand}"/>
+                    <Separator/>
+                    <MenuItem Header="E_xit"                 Command="{Binding ExitCommand}"/>
+                </MenuItem>
+                <MenuItem Header="_Tools">
+                    <MenuItem Header="_Read Entire PCM"      Command="{Binding ReadPCMCommand}" />
+                    <MenuItem Header="_Verify Entire PCM"    Command="{Binding VerifyPCMCommand}" />
+                    <MenuItem Header="_Change VIN"           Command="{Binding ChangeVINCommand}" />
+                    <Separator Height="2"/>
+                    <MenuItem Header="Write _Parameters"     Command="{Binding WriteParametersCommand}" />
+                    <MenuItem Header="Write _OS, Calibration &amp; Boot" Command="{Binding WriteOSCalibrationBootCommand}" />
+                    <MenuItem Header="Write _Full Flash (Clone)" Command="{Binding WriteFullFlashCloneCommand}" />
+                    <Separator Height="2"/>
+                    <MenuItem Header="_Test File Checksums..." Command="{Binding TestFileChecksumsCommand}"/>
+                    <MenuItem Header="Brute Force _Unlock..." Command="{Binding BruteForceUnlockCommand}" />
+                    <Separator Height="2"/>
+                    <MenuItem Header="_Halt Running Kernel" Command="{Binding HaltRunningKernelCommand}" />
+                </MenuItem>
+                <MenuItem Header="_Options">
+                    <MenuItem Header="_User Defined Key" Command="{Binding UserDefinedKeyCommand}" />
+                    <MenuItem Header="_Settings" Command="{Binding SettingsCommand}"/>
+                </MenuItem>
+            </Menu>
+        </Border>
+
+        <!-- Main Body Area -->
+        <Grid ColumnDefinitions="auto,*" Grid.Row="1">
+            <!-- Left Side Control Panel -->
+            <Border Background="{DynamicResource LayerFillColorDefaultBrush}" 
+                    BorderBrush="{DynamicResource ControlElevationBorderBrush}"
+                    BorderThickness="0,0,1,0"
+                    Padding="12,4">
+                <StackPanel Spacing="8">
+                    <GroupBox Header="Device">
+                        <StackPanel Spacing="5">
+                            <Button Content="_Select Device"    
+                                    Command="{Binding SelectDeviceCommand}"
+                                    CommandParameter="{Binding RelativeSource={RelativeSource AncestorType=Window}}"
+                                    HorizontalAlignment="Stretch"/>
+                            <Button Content="Re-_Initialize Device" 
+                                    Command="{Binding ReInitializeDeviceCommand}" 
+                                    HorizontalAlignment="Stretch"/>
+                        </StackPanel>
+                    </GroupBox>
+                
+                    <GroupBox Header="Operations">
+                        <StackPanel Spacing="5">
+                            <Button Content="Read _Properties"      Command="{Binding ReadPropertiesCommand}"    HorizontalAlignment="Stretch"/>
+                            <Button Content="Read P_CM"             Command="{Binding ReadPCMCommand}"          HorizontalAlignment="Stretch"/>
+                            <Button Content="_Write PCM"            Command="{Binding WritePCMCommand}"         HorizontalAlignment="Stretch"/>
+                            <Button Content="T_est Write"           Command="{Binding TestWriteCommand}"        HorizontalAlignment="Stretch"/>
+                            <Button Content="_Verify PCM"           Command="{Binding VerifyPCMCommand}"        HorizontalAlignment="Stretch"/>
+                        </StackPanel>
+                    </GroupBox>
+                
+                    <GroupBox Header="Kernel">
+                        <StackPanel Spacing="5">
+                            <Button Content="_Halt Running Kernel"  Command="{Binding HaltRunningKernelCommand}" HorizontalAlignment="Stretch"/>
+                            <Button Content="_Cancel"               Command="{Binding CancelCurrentCommand}"     HorizontalAlignment="Stretch"/>
+                        </StackPanel>
+                    </GroupBox>
+                </StackPanel>
+            </Border>
+            
+            <!-- Right Side Tab Content -->
+            <Border Grid.Column="1" Background="{DynamicResource LayerFillColorAltBrush}">
+                <Grid>
+                    <TabControl x:Name="MainTabControl" Margin="0,0,0,12">
+                        <TabItem>
+                            <TabItem.Header>
+                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <TextBlock Text="Results"/>
+                                    <Button Classes="CopyButtonStyle"
+                                            Classes.copied="{Binding IsResultsCopiedFeedbackVisible}"
+                                            Command="{Binding CopyLogCommand}" 
+                                            CommandParameter="{Binding Text, ElementName=ResultsLogTextBox}"/>
+                                </StackPanel>
+                            </TabItem.Header>
+                            <Border Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
+                                    BorderBrush="{DynamicResource SystemControlBackgroundBaseMediumLowBrush}"
+                                    BorderThickness="1"
+                                    Margin="0,4,0,0">
+                                <ScrollViewer x:Name="ResultsScrollViewer"
+                                              HorizontalScrollBarVisibility="Auto"
+                                              VerticalScrollBarVisibility="Auto">
+                                    <SelectableTextBlock x:Name="ResultsLogTextBox"
+                                                         Text="{Binding LogText}"
+                                                         TextWrapping="Wrap"
+                                                         FontFamily="Consolas, Menlo, DejaVu Sans Mono, Liberation Mono, monospace"/>
+                                </ScrollViewer>
+                            </Border>
+                        </TabItem>
+                    
+                        <TabItem Header="Help">
+                            <Border x:Name="HelpViewContainer"
+                                    BorderBrush="{DynamicResource SystemControlBackgroundBaseMediumLowBrush}"
+                                    BorderThickness="1"
+                                    Margin="0,4,0,0"/>
+                        </TabItem>
+                    
+                        <TabItem Header="Credits">
+                            <Border x:Name="CreditsViewContainer"
+                                    BorderBrush="{DynamicResource SystemControlBackgroundBaseMediumLowBrush}"
+                                    BorderThickness="1"
+                                    Margin="0,4,0,0"/>
+                        </TabItem>
+                    
+                        <TabItem>
+                            <TabItem.Header>
+                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <TextBlock Text="Debug"/>
+                                    <Button Classes="CopyButtonStyle"
+                                            Classes.copied="{Binding IsDebugCopiedFeedbackVisible}"
+                                            Command="{Binding CopyLogCommand}"
+                                            CommandParameter="{Binding Text, ElementName=DebugLogTextBox}"/>
+                                </StackPanel>
+                            </TabItem.Header>
+                            <Border Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
+                                    BorderBrush="{DynamicResource SystemControlBackgroundBaseMediumLowBrush}"
+                                    BorderThickness="1"
+                                    Margin="0,4,0,0">
+                                <ScrollViewer x:Name="DebugScrollViewer"
+                                              HorizontalScrollBarVisibility="Auto"
+                                              VerticalScrollBarVisibility="Auto">
+                                    <SelectableTextBlock x:Name="DebugLogTextBox"
+                                                         Text="{Binding DebugLogText}"
+                                                         TextWrapping="Wrap"
+                                                         FontFamily="Consolas, Menlo, DejaVu Sans Mono, Liberation Mono, monospace"/>
+                                </ScrollViewer>
+                            </Border>
+                        </TabItem>
+                    </TabControl>
+                </Grid>
+            </Border>
+        </Grid>
+        
+        <!-- Bottom Status Bar -->
+        <Border Grid.Row="2" 
+                Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
+                BorderBrush="{DynamicResource ControlElevationBorderBrush}"
+                BorderThickness="0,1,0,0"
+                Padding="8,4">
+            <Grid ColumnDefinitions="*, Auto">
+
+                <!-- Status Activity Text -->
+                <TextBlock Grid.Column="0" 
+                           x:Name="ActivityTextBlock" 
+                           Text="{Binding StatusText}" 
+                           HorizontalAlignment="Stretch" 
+                           VerticalAlignment="Center"/>
+
+                <!-- Operational Progress Indicators -->
+                <StackPanel Grid.Column="1" 
+                            Orientation="Horizontal"
+                            Spacing="10"
+                            IsVisible="{Binding IsOperationRunning}">
+
+                    <!-- Retry Count -->
+                    <TextBlock x:Name="RetryCountTextBlock" 
+                               Text="{Binding RetryCount, StringFormat='Retries: {0}'}" 
+                               VerticalAlignment="Center"/>
+            
+                    <Rectangle Width="1" 
+                               Height="12" 
+                               Fill="{DynamicResource SystemControlForegroundBaseLowBrush}"/>
+
+                    <!-- Transfer Rate -->
+                    <TextBlock x:Name="KbpsTextBlock" 
+                               Text="{Binding TransferRate, StringFormat='{}{0} kbps'}" 
+                               VerticalAlignment="Center"/>
+            
+                    <Rectangle Width="1" 
+                               Height="12" 
+                               Fill="{DynamicResource SystemControlForegroundBaseLowBrush}"/>
+
+                    <!-- Progress Bar -->
+                    <ProgressBar x:Name="ProgressBar" 
+                                 Value="{Binding ProgressPercent}" 
+                                 IsVisible="{Binding IsOperationRunning}"
+                                 Minimum="0"
+                                 Maximum="100" 
+                                 Width="150" 
+                                 Height="14" 
+                                 VerticalAlignment="Center"/>
+
+                    <!-- Progress Percentage -->
+                    <TextBlock x:Name="ProgressBarPercentTextBlock" 
+                               Text="{Binding ProgressPercent, StringFormat='{}{0:0}%'}" 
+                               VerticalAlignment="Center"/>
+            
+                    <Rectangle Width="1" 
+                               Height="12" 
+                               Fill="{DynamicResource SystemControlForegroundBaseLowBrush}"
+                               IsVisible="{Binding TimeRemaining, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+
+                    <!-- Time Remaining -->
+                    <TextBlock x:Name="TimeRemainingTextBlock" 
+                               Text="{Binding TimeRemaining}" 
+                               VerticalAlignment="Center" 
+                               Margin="0,0,5,0"
+                               IsVisible="{Binding TimeRemaining, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</chrome:ChromeWindow>

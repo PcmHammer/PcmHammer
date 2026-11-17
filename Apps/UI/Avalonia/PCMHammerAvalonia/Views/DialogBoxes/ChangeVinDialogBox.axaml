@@ -1,0 +1,55 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="using:PCMHammerAvalonia.ViewModels"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        x:Class="PCMHammerAvalonia.Views.DialogBoxes.ChangeVinDialogBox"
+        x:DataType="vm:ChangeVinViewModel"
+        Title="Change VIN" 
+        Width="485" 
+        SizeToContent="Height"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner">
+
+    <Grid Margin="15" RowDefinitions="Auto,Auto,Auto,Auto">
+
+        <!-- Title Prompt -->
+        <TextBlock Text="Enter New VIN:" 
+                   FontWeight="Bold" 
+                   Margin="0,0,0,5"/>
+
+        <!-- VIN Input Box -->
+        <TextBox Grid.Row="1" 
+                 Text="{Binding Vin}"
+                 FontFamily="Consolas, Monospace" 
+                 FontSize="16" 
+                 MaxLength="17" 
+                 Padding="5"/>
+
+        <!-- Validation Output Prompt -->
+        <TextBlock Grid.Row="2" 
+                   Text="{Binding ValidationPrompt}" 
+                   TextWrapping="Wrap" 
+                   Margin="0,10,0,0"/>
+
+        <!-- Action Buttons -->
+        <StackPanel Grid.Row="3" 
+                    Orientation="Horizontal" 
+                    HorizontalAlignment="Right" 
+                    Margin="0,15,0,0">
+            <Button Content="Cancel" 
+                    Command="{Binding CancelCommand}" 
+                    Width="80" 
+                    Margin="5" 
+                    HotKey="Escape"
+                    HorizontalContentAlignment="Center"/>
+            <Button Content="OK" 
+                    Command="{Binding OkCommand}" 
+                    Width="80" 
+                    Margin="5" 
+                    HotKey="Enter"
+                    HorizontalContentAlignment="Center"/>
+        </StackPanel>
+    </Grid>
+</Window>

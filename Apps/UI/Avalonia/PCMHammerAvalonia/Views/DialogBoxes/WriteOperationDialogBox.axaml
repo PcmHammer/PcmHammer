@@ -1,0 +1,16 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="using:PCMHammerAvalonia.ViewModels"
+        xmlns:dialogs="using:PCMHammerAvalonia.Views.DialogBoxes"
+        x:Class="PCMHammerAvalonia.Views.DialogBoxes.WriteOperationDialogBox"
+        x:DataType="vm:WriteTypeViewModel"
+        mc:Ignorable="d"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        SizeToContent="WidthAndHeight"
+        Title="Write Type">
+
+    <dialogs:WriteOperationView/>
+</Window>

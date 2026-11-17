@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>PCMHammerAvalonia</RootNamespace>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-android</TargetFramework>
+    <SupportedOSPlatformVersion>23</SupportedOSPlatformVersion>
+    <Nullable>enable</Nullable>
+    <ApplicationId>net.pcmhacking.pcmhammeravalonia</ApplicationId>
+    <ApplicationVersion>1</ApplicationVersion>
+    <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+    <AndroidPackageFormat>apk</AndroidPackageFormat>
+    <AndroidEnableProfiledAot>false</AndroidEnableProfiledAot>
+  </PropertyGroup>
+
+  <!-- Embed the managed assemblies into the APK even in Debug. By default a Debug .NET-Android build
+       leaves the app assemblies out of the APK and relies on the IDE's Fast Deployment step to push
+       them onto the device. This project is built from the CLI and sideloaded, so without this a
+       sideloaded APK finds no assemblies at startup and aborts on the splash screen. -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+    <EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <AndroidResource Include="Icon.png">
+      <Link>Resources\drawable\Icon.png</Link>
+    </AndroidResource>
+  </ItemGroup>
+
+  <!-- PCM kernels packed into the APK's assets (at assets root by filename). Application.OnCreate copies
+       them to the app's files dir and sets PlatformPaths.KernelDirectory there, so the shared kernel
+       loader finds them on Android. Kernels\build is populated by Kernels\BuildAll.cmd (the committed CAN
+       kernels plus the built VPW ones), matching the WPF/Uno heads. -->
+  <ItemGroup>
+    <AndroidAsset Include="..\..\..\..\Kernels\build\*.bin">
+      <Link>Assets\%(Filename)%(Extension)</Link>
+    </AndroidAsset>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia.Android" />
+    <PackageReference Include="Xamarin.AndroidX.Core.SplashScreen" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\PCMHammerAvalonia\PCMHammerAvalonia.csproj" />
+  </ItemGroup>
+</Project>

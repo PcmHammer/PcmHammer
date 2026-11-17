@@ -1,0 +1,25 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>PCMHammerAvalonia</RootNamespace>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+	<BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+	<!-- Define compilation constants to exclude J2534 -->
+	<DefineConstants>$(DefineConstants);LINUX_CLI</DefineConstants>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+	<PropertyGroup>
+		<ApplicationManifest>app.manifest</ApplicationManifest>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Avalonia" />
+		<PackageReference Include="Avalonia.Desktop" />
+		<PackageReference Include="Avalonia.Themes.Fluent" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\PCMHammerAvalonia\PCMHammerAvalonia.csproj" />
+	</ItemGroup>
+</Project>

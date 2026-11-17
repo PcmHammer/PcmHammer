@@ -1,0 +1,20 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" android:installLocation="auto">
+	<uses-permission android:name="android.permission.INTERNET" />
+
+	<!-- Bluetooth: scan/connect for an OBD adapter. The *_SCAN/_CONNECT runtime perms arrive at API 31;
+	     the legacy BLUETOOTH/BLUETOOTH_ADMIN cover older devices (maxSdkVersion 30). -->
+	<uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+	<uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+	<uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
+	<uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+
+	<!-- Location is required to discover Bluetooth devices on Android < 12. -->
+	<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" android:maxSdkVersion="30" />
+	<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" android:maxSdkVersion="30" />
+
+	<!-- USB host (OBDX Pro VT over a USB-OTG serial adapter). -->
+	<uses-feature android:name="android.hardware.usb.host" android:required="false" />
+
+	<application android:label="PCM Hammer" android:icon="@drawable/Icon" />
+</manifest>

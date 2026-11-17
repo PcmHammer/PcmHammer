@@ -1,0 +1,27 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="PCMHammerAvalonia.Views.MessageBoxWindow"
+        Title="Message"
+        SizeToContent="WidthAndHeight"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        MinWidth="320" MaxWidth="550"
+        WindowDecorations="Full">
+
+    <Grid RowDefinitions="*, Auto" Margin="16">
+        <!-- Message Content -->
+        <SelectableTextBlock x:Name="MessageText"
+                             Grid.Row="0"
+                             TextWrapping="Wrap"
+                             MaxWidth="500"
+                             Margin="0,0,0,20"
+                             VerticalAlignment="Center"/>
+
+        <!-- Button Container -->
+        <StackPanel x:Name="ButtonPanel"
+                    Grid.Row="1"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    Spacing="8"/>
+    </Grid>
+</Window>

@@ -30,6 +30,7 @@
   <ItemGroup>
     <PackageReference Include="InTheHand.Net.Bluetooth" />
     <PackageReference Include="System.Configuration.ConfigurationManager" />
+    <PackageReference Include="System.IO.Ports" />
     <PackageReference Include="System.Management" />
   </ItemGroup>
 

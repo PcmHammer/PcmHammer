@@ -1,0 +1,85 @@
+﻿<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:PCMHammerAvalonia.ViewModels;assembly=PCMHammerAvalonia"
+             xmlns:views="clr-namespace:PCMHammerAvalonia.Views;assembly=PCMHammerAvalonia"
+             xmlns:ic="using:FluentIcons.Avalonia.Fluent"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="360"
+             x:Class="PCMHammerAvalonia.Views.MainView"
+             x:DataType="vm:MainWindowViewModel">
+    <!-- Design-Time DataContext for Previewer -->
+    <Design.DataContext>
+        <vm:MainWindowViewModel />
+    </Design.DataContext>
+
+    <DrawerPage IsOpen="{Binding IsDrawerOpen, Mode=TwoWay}" IsGestureEnabled="True" DrawerPlacement="Right">
+        <DrawerPage.Header>
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <Image Source="avares://PCMHammerAvalonia/Assets/0411_256px.ico"
+                        Width="48" Height="48"/>
+                <TextBlock Text="PCMHammer" VerticalAlignment="Center"/>
+            </StackPanel>
+        </DrawerPage.Header>
+        <DrawerPage.Drawer>
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <views:SideBarMenu/>
+            </ScrollViewer>
+        </DrawerPage.Drawer>
+        <TabbedPage TabPlacement="Bottom">
+            <TabbedPage.Styles>
+                <!-- Explicit colours: the theme's SystemControl brushes resolved to dark text on the
+                     dark bottom bar, so the tab labels were nearly invisible. These read clearly in
+                     either theme: light grey when unselected, bright blue + bold when selected. -->
+
+                <!-- Base / Unselected Tab Style -->
+                <Style Selector="TabItem">
+                    <Setter Property="FontWeight" Value="Normal" />
+                    <Setter Property="Foreground" Value="#D0D0D0" />
+                </Style>
+
+                <!-- Selected Tab Style -->
+                <Style Selector="TabItem:selected">
+                    <Setter Property="FontWeight" Value="Bold" />
+                    <Setter Property="Foreground" Value="#4FA3FF" />
+                </Style>
+
+                <!-- Hover / Pointer-Over State -->
+                <Style Selector="TabItem:pointerover">
+                    <Setter Property="Foreground" Value="#FFFFFF" />
+                </Style>
+
+                <!-- Selected + Hover State (Prevents hover from overwriting selected style) -->
+                <Style Selector="TabItem:selected:pointerover">
+                    <Setter Property="Foreground" Value="#4FA3FF" />
+                </Style>
+            </TabbedPage.Styles>
+            <ContentPage Header="Results">
+                <Border x:Name="ResultsViewContainer"
+                        Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
+                        BorderBrush="{DynamicResource SystemControlBackgroundBaseMediumLowBrush}"
+                        BorderThickness="1"
+                        Margin="4"/>
+            </ContentPage>
+            <ContentPage Header="Help">
+                <Border x:Name="HelpViewContainer"
+                        BorderBrush="{DynamicResource SystemControlBackgroundBaseMediumLowBrush}"
+                        BorderThickness="1"
+                        Margin="4"/>
+            </ContentPage>
+            <ContentPage Header="Credits">
+                <Border x:Name="CreditsViewContainer"
+                        BorderBrush="{DynamicResource SystemControlBackgroundBaseMediumLowBrush}"
+                        BorderThickness="1"
+                        Margin="4"/>
+            </ContentPage>
+            <ContentPage Header="Debug">
+                <Border x:Name="DebugViewContainer"
+                        Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
+                        BorderBrush="{DynamicResource SystemControlBackgroundBaseMediumLowBrush}"
+                        BorderThickness="1"
+                        Margin="4"/>
+            </ContentPage>
+        </TabbedPage>
+    </DrawerPage>
+</UserControl>

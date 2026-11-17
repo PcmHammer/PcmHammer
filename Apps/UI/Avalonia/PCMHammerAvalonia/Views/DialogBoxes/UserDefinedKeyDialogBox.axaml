@@ -1,0 +1,54 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="using:PCMHammerAvalonia.ViewModels"
+        x:Class="PCMHammerAvalonia.Views.DialogBoxes.UserDefinedKeyDialogBox"
+        x:DataType="vm:UserDefinedKeyViewModel"
+        mc:Ignorable="d"
+        CanResize="False"
+        SizeToContent="WidthAndHeight"
+        WindowStartupLocation="CenterOwner"
+        Title="User Defined Key">
+
+    <Grid Margin="16" RowDefinitions="Auto,Auto,Auto">
+
+        <!-- Input Row -->
+        <Grid ColumnDefinitions="Auto,*">
+            <TextBlock Text="Enter Key:" 
+                       Margin="0,0,8,0" 
+                       VerticalAlignment="Center"/>
+            <TextBox x:Name="UserDefinedKeyTextBox" 
+                     Grid.Column="1" 
+                     Width="132" 
+                     VerticalAlignment="Center" 
+                     FontFamily="Consolas, Monospace"
+                     MaxLength="4"
+                     Text="{Binding UserDefinedKey}"/>
+        </Grid>
+
+        <!-- Help Text -->
+        <TextBlock Grid.Row="1" 
+                   Text="Valid range: 0000 - FFFF" 
+                   FontStyle="Italic" 
+                   Opacity="0.5" 
+                   Margin="0,8"/>
+
+        <!-- Action Buttons -->
+        <Grid Grid.Row="2" ColumnDefinitions="*,*">
+            <Button Content="Cancel" 
+                    HorizontalAlignment="Stretch" 
+                    HorizontalContentAlignment="Center"
+                    Margin="5,0" 
+                    HotKey="Escape" 
+                    Command="{Binding CancelCommand}"/>
+            <Button Content="OK" 
+                    Grid.Column="1" 
+                    HorizontalAlignment="Stretch" 
+                    HorizontalContentAlignment="Center"
+                    Margin="5,0" 
+                    HotKey="Enter" 
+                    Command="{Binding AcceptCommand}"/>
+        </Grid>
+    </Grid>
+</Window>
