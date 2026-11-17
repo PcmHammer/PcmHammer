@@ -12,6 +12,7 @@
 # 2026-08-11 - Antus <pcmhacking.net> Delete the temp kernels artifact in its own job, after
 #                                     all consumers, instead of racing them from the app jobs
 # 2026-08-21 - Antus <pcmhacking.net> Add the WPF front end
+# 2026-11-17 - Antus <pcmhacking.net> Add the Avalonia front ends (Windows, Linux, Android)
 #
 
 name: CheckBuild
@@ -336,6 +337,38 @@ jobs:
         name: PCMHammer_Linux_CLI_${{ env.CLI_ARTIFACT_SUFFIX }}_${{ github.sha }}
         path: TemporaryArtifactStorage/LinuxCLI
 
+    # Avalonia builds on a release tag too, carrying the tag version (see WindowsApps). The kernels
+    # staged above are embedded in the flasher.
+    - name: Publish Avalonia Linux (self-contained, single-file)
+      shell: pwsh
+      run: |
+        $versionArgs = @()
+        if ("${{ startsWith(github.ref, 'refs/tags/') }}" -eq "true") {
+          . "Apps/build/Get-BuildVersion.ps1"
+          $versionArgs = Get-VersionProperties (Get-BuildVersion -Version "${{ github.ref_name }}")
+        }
+        foreach ($p in 'PCMHammerAvalonia.Linux', 'PCMLoggerAvalonia.Desktop') {
+          dotnet publish "Apps/UI/Avalonia/$p/$p.csproj" -c Release -r linux-x64 @versionArgs
+          if ($LASTEXITCODE -ne 0) { throw "$p publish failed." }
+        }
+
+    - name: Stage Avalonia Linux payload
+      run: |
+        dest=TemporaryArtifactStorage/AvaloniaLinux
+        mkdir -p "$dest"
+        for p in PCMHammerAvalonia.Linux PCMLoggerAvalonia.Desktop; do
+          pub=Apps/UI/Avalonia/$p/bin/Release/net10.0/linux-x64/publish
+          [ -f "$pub/$p" ] || { echo "::error::Avalonia output not found at $pub/$p"; exit 1; }
+          cp "$pub"/* "$dest/"
+          chmod +x "$dest/$p"
+        done
+
+    - name: Upload Avalonia Linux artifact (experimental)
+      uses: actions/upload-artifact@v7
+      with:
+        name: PCMHammer_Avalonia_Linux_experimental_${{ env.CLI_ARTIFACT_SUFFIX }}_${{ github.sha }}
+        path: TemporaryArtifactStorage/AvaloniaLinux
+
     # On a release tag, attach the binary to the GitHub Release so it is a public download
     # rather than a login-only workflow artifact. The WindowsApps job publishes the same
     # release with the Windows assets; whichever job gets there first creates it and the
@@ -381,6 +414,7 @@ jobs:
       WINFORMS_ARTIFACT_SUFFIX: ''
       UNO_ARTIFACT_SUFFIX: ''
       WPF_ARTIFACT_SUFFIX: ''
+      AVALONIA_ARTIFACT_SUFFIX: ''
       CLI_ARTIFACT_SUFFIX: ''
       PACKAGE_TOKEN: ''
 
@@ -542,6 +576,28 @@ jobs:
         Copy-Item -Path "TemporaryArtifactStorage/Kernels/*.bin" -Destination "Kernels/build" -Force
         dotnet publish Apps/UI/WPF/PCMHammer/PCMHammer.csproj -c Release -r win-x86
 
+    # Avalonia is where the front ends are heading, so unlike Uno and WPF it also builds on a
+    # release tag, carrying the tag version. win-x86 for the same 32-bit J2534 reason as WPF.
+    - name: Publish Avalonia Windows + Android
+      shell: pwsh
+      run: |
+        New-Item -ItemType Directory -Force -Path Kernels/build | Out-Null
+        Copy-Item -Path "TemporaryArtifactStorage/Kernels/*.bin" -Destination "Kernels/build" -Force
+        if (!(Get-ChildItem "Kernels/build/*.bin")) { throw "No kernels in Kernels/build to embed." }
+        $versionArgs = @()
+        if ($env:IS_RELEASE_TAG -eq 'True') {
+          . "Apps/build/Get-BuildVersion.ps1"
+          $versionArgs = Get-VersionProperties (Get-BuildVersion -Version $env:RELEASE_TAG)
+        }
+        foreach ($p in 'PCMHammerAvalonia.Desktop', 'PCMLoggerAvalonia.Desktop') {
+          dotnet publish "Apps/UI/Avalonia/$p/$p.csproj" -c Release -r win-x86 @versionArgs
+          if ($LASTEXITCODE -ne 0) { throw "$p publish failed." }
+        }
+        foreach ($p in 'PCMHammerAvalonia.Android', 'PCMLoggerAvalonia.Android') {
+          dotnet publish "Apps/UI/Avalonia/$p/$p.csproj" -c Release @versionArgs
+          if ($LASTEXITCODE -ne 0) { throw "$p publish failed." }
+        }
+
     - name: Compute artifact names
       shell: pwsh
       run: |
@@ -585,12 +641,15 @@ jobs:
 
         # CLI shares the same version as WinForms since they are built from the same codebase.
         $cliArtifactSuffix = $winFormsArtifactSuffix
+        # Avalonia is stamped from the tag on a release, so it is named after the tag too.
+        $avaloniaArtifactSuffix = $winFormsArtifactSuffix
 
         "UNO_DISPLAY_VERSION=$unoDisplay" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         "UNO_APP_VERSION=$unoVersion" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         "WINFORMS_ARTIFACT_SUFFIX=$winFormsArtifactSuffix" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         "UNO_ARTIFACT_SUFFIX=$unoArtifactSuffix" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         "WPF_ARTIFACT_SUFFIX=$wpfArtifactSuffix" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        "AVALONIA_ARTIFACT_SUFFIX=$avaloniaArtifactSuffix" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         "CLI_ARTIFACT_SUFFIX=$cliArtifactSuffix" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
     - name: Stage Uno Windows artifact payload
@@ -730,6 +789,36 @@ jobs:
           throw "WPF exe is only $exeSizeMb MB - expected ~59 MB self-contained; the bundle looks incomplete."
         }
 
+    - name: Stage Avalonia artifact payloads
+      shell: pwsh
+      run: |
+        $win = "TemporaryArtifactStorage/AvaloniaWindows"
+        New-Item -ItemType Directory -Force -Path $win | Out-Null
+        foreach ($p in 'PCMHammerAvalonia.Desktop', 'PCMLoggerAvalonia.Desktop') {
+          $pub = "Apps/UI/Avalonia/$p/bin/Release/net10.0/win-x86/publish"
+          if (!(Test-Path "$pub/$p.exe")) { throw "Avalonia single-file output not found at $pub/$p.exe" }
+          # SkiaSharp and HarfBuzz ship native .pdbs that land beside the exe.
+          Copy-Item -Path "$pub/*" -Destination $win -Exclude *.pdb -Force
+        }
+
+        $android = "TemporaryArtifactStorage/AvaloniaAndroid"
+        New-Item -ItemType Directory -Force -Path $android | Out-Null
+        foreach ($p in 'PCMHammerAvalonia.Android', 'PCMLoggerAvalonia.Android') {
+          Copy-Item -Path "Apps/UI/Avalonia/$p/bin/Release/net10.0-android/publish/*.apk" -Destination $android -Force
+        }
+
+        # The flasher copies its kernels out of the APK's asset root at startup.
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        $apk = Get-Item "$android/net.pcmhacking.pcmhammeravalonia-Signed.apk"
+        $zip = [System.IO.Compression.ZipFile]::OpenRead($apk.FullName)
+        try {
+          if (!($zip.Entries | Where-Object { $_.FullName -like 'assets/Kernel-*.bin' })) {
+            throw "APK '$($apk.Name)' does not contain kernel assets."
+          }
+        } finally {
+          $zip.Dispose()
+        }
+
     # --- Package the WinForms apps into the installer + portable, in this same job, so
     #     no redundant intermediate (raw WinForms/CLI) artifacts are published.
     #     PACKAGE_TOKEN / PACKAGE_APP_VERSION are set by the
@@ -749,8 +838,9 @@ jobs:
         & "Apps/build/Build-Portable.ps1" `
           -StagingRoot $staging -OutputName "PCMHammer_$($env:PACKAGE_TOKEN)_Portable" -OutputDir $dist
 
-    # GitHub lists run artifacts alphabetically: Linux_CLI (from the LinuxApps job), then
-    # Portable, Setup, Uno_Android, Uno_Windows, WPF_Windows.
+    # GitHub lists run artifacts alphabetically: Avalonia_Android, Avalonia_Linux (from the
+    # LinuxApps job), Avalonia_Windows, Linux_CLI (LinuxApps), then Portable, Setup, Uno_Android,
+    # Uno_Windows, WPF_Windows.
     - name: Upload installer artifact
       uses: actions/upload-artifact@v7
       with:
@@ -788,6 +878,18 @@ jobs:
       with:
         name: PCMHammer_WPF_Windows_experimental_${{ env.WPF_ARTIFACT_SUFFIX }}_${{ github.sha }}
         path: TemporaryArtifactStorage/WPF
+
+    - name: Upload Avalonia Android artifact (experimental)
+      uses: actions/upload-artifact@v7
+      with:
+        name: PCMHammer_Avalonia_Android_experimental_${{ env.AVALONIA_ARTIFACT_SUFFIX }}_${{ github.sha }}
+        path: TemporaryArtifactStorage/AvaloniaAndroid
+
+    - name: Upload Avalonia Windows artifact (experimental)
+      uses: actions/upload-artifact@v7
+      with:
+        name: PCMHammer_Avalonia_Windows_experimental_${{ env.AVALONIA_ARTIFACT_SUFFIX }}_${{ github.sha }}
+        path: TemporaryArtifactStorage/AvaloniaWindows
 
     # On an x.x.x / x.x.x.x tag push, publish a GitHub Release and attach the WinForms
     # installer + portable zip (the public, supported downloads). The Uno and WPF targets

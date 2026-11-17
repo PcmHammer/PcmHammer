@@ -6,8 +6,10 @@
     <SupportedOSPlatformVersion>23</SupportedOSPlatformVersion>
     <Nullable>enable</Nullable>
     <ApplicationId>net.pcmhacking.pcmhammeravalonia</ApplicationId>
+    <!-- Dev builds are 0.0.0.0, as in the Uno app; CI passes the tag version for a release. -->
+    <Version>0.0.0.0</Version>
     <ApplicationVersion>1</ApplicationVersion>
-    <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+    <ApplicationDisplayVersion>0.0.0.0</ApplicationDisplayVersion>
     <AndroidPackageFormat>apk</AndroidPackageFormat>
     <AndroidEnableProfiledAot>false</AndroidEnableProfiledAot>
   </PropertyGroup>

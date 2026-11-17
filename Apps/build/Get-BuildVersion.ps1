@@ -47,6 +47,18 @@ function Get-BuildVersion {
     return [pscustomobject]@{ IsRelease=$false; Display="0.0.0.0"; Version="0.0.0.0"; NameToken=$stamp; Stamp=$stamp; Ticks=$ticks; Source="dev" }
 }
 
+# dotnet publish arguments that stamp a Get-BuildVersion result into an SDK-style project.
+# The Android versionCode is derived the same way Release.ps1 derives the Uno one.
+function Get-VersionProperties($Info) {
+    $p = $Info.Version.Split('.')
+    $code = [int]$p[0] * 1000000 + [int]$p[1] * 10000 + [int]$p[2] * 100 + [int]$p[3]
+    @(
+        "-p:Version=$($Info.Version)", "-p:FileVersion=$($Info.Version)", "-p:AssemblyVersion=$($Info.Version)",
+        "-p:InformationalVersion=$($Info.Display)", "-p:IncludeSourceRevisionInInformationalVersion=false",
+        "-p:ApplicationDisplayVersion=$($Info.Display)", "-p:ApplicationVersion=$code"
+    )
+}
+
 if ($MyInvocation.InvocationName -ne '.') {
     Get-BuildVersion -Version $args[0]
 }

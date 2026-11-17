@@ -6,6 +6,8 @@
 		     (J2534DotNet, PcmLibraryWindowsApi) is excluded below and the Android device path
 		     (Platforms/Android: serial IPort + Bluetooth + DeviceFactory) is used instead. -->
 		<TargetFrameworks>net10.0;net10.0-android</TargetFrameworks>
+		<!-- A desktop head's -r flows in here, and restore would want an Android runtime for that RID. -->
+		<TargetFrameworks Condition="'$(RuntimeIdentifier)' != '' And !$(RuntimeIdentifier.StartsWith('android'))">net10.0</TargetFrameworks>
 		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">23.0</SupportedOSPlatformVersion>
 		<Nullable>enable</Nullable>
 		<LangVersion>latest</LangVersion>
@@ -71,6 +73,22 @@
 		<ProjectReference Include="..\..\..\J2534DotNet\J2534DotNet\J2534DotNet.csproj" />
 		<ProjectReference Include="..\..\..\PcmLibraryWindowsApi\PcmLibraryWindowsApi.csproj" />
 	</ItemGroup>
+
+	<!-- Android has no PcmLibraryWindowsApi, so it compiles its own copy of the version helper. -->
+	<ItemGroup Condition="'$(TargetPlatformIdentifier)' == 'android'">
+		<Compile Include="..\..\..\PcmLibraryWindowsApi\AppInfo.cs" Link="AppInfo.cs" />
+	</ItemGroup>
+
+	<!-- Generated.BuildTime for the "Build: <date>" line, as in the WPF/CLI projects. -->
+	<Target Name="Date" BeforeTargets="CoreCompile">
+		<PropertyGroup>
+			<BuildTicks Condition="'$(BuildTicks)' == ''">$([System.DateTime]::UtcNow.Ticks)</BuildTicks>
+		</PropertyGroup>
+		<WriteLinesToFile File="$(IntermediateOutputPath)generated.cs" Lines="static partial class Generated { public static long BuildTime = $(BuildTicks)%3B }" Overwrite="true" />
+		<ItemGroup>
+			<Compile Include="$(IntermediateOutputPath)generated.cs" />
+		</ItemGroup>
+	</Target>
 	<ItemGroup>
 	  <Compile Update="Views\SideBarMenu.axaml.cs">
 	    <DependentUpon>SideBarMenu.axaml</DependentUpon>
