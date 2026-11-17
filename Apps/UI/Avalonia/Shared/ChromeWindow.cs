@@ -9,6 +9,9 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Styling;
+// The Android implicit usings import Android.Widget, which has its own Button and Orientation.
+using Button = Avalonia.Controls.Button;
+using Orientation = Avalonia.Layout.Orientation;
 
 namespace PcmHacking.UI;
 

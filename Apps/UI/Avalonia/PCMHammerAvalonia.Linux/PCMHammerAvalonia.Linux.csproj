@@ -11,7 +11,31 @@
 
 	<PropertyGroup>
 		<ApplicationManifest>app.manifest</ApplicationManifest>
+		<!-- Dev builds report 0.0.0.0; CI passes the tag version for a release. -->
+		<Version>0.0.0.0</Version>
+		<FileVersion>0.0.0.0</FileVersion>
+		<AssemblyVersion>0.0.0.0</AssemblyVersion>
 	</PropertyGroup>
+
+	<!-- Single file only for a RID-specific publish, so IDE builds stay framework-dependent. -->
+	<PropertyGroup Condition="'$(RuntimeIdentifier)' != ''">
+		<SelfContained>true</SelfContained>
+		<PublishSingleFile>true</PublishSingleFile>
+		<IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+		<EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+		<!-- JSON/XML serialization and DynamicExpresso use reflection and break when trimmed. -->
+		<PublishTrimmed>false</PublishTrimmed>
+		<DebugType>none</DebugType>
+		<AllowedReferenceRelatedFileExtensions>none</AllowedReferenceRelatedFileExtensions>
+	</PropertyGroup>
+
+	<!-- A loose .bin beside the exe still overrides the embedded copy. -->
+	<ItemGroup>
+		<KernelBinary Include="../../../../Kernels/build/*.bin" />
+		<EmbeddedResource Include="@(KernelBinary)">
+			<LogicalName>%(Filename)%(Extension)</LogicalName>
+		</EmbeddedResource>
+	</ItemGroup>
 
 	<ItemGroup>
 		<PackageReference Include="Avalonia" />

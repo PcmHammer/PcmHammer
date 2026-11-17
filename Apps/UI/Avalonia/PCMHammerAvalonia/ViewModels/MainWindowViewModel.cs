@@ -1227,17 +1227,20 @@ public partial class MainWindowViewModel : ObservableObject
     /// </summary>
     private void AddInitialLogMessages()
     {
+        // "Build: <date>" unless the exe carries a release file version (see Apps/RELEASE.md).
+        string versionLine = AppInfo.GetVersionOrBuildLine(Generated.BuildTime);
+
         // Add user messages to the log
         _logger.AddUserMessage("PCM Hammer");
-        _logger.AddUserMessage("Copyright (C) 2018-2026 PcmHacking.net - GPL v3");
-        _logger.AddUserMessage("Version: 2.0.0");
-        _logger.AddUserMessage($"Running at: {DateTime.Now:dddd, MMMM d yyyy, HH:mm:ss}");
+        _logger.AddUserMessage(AppInfo.CopyrightNotice);
+        _logger.AddUserMessage(versionLine);
+        _logger.AddUserMessage(AppInfo.GetRunningAtMessage());
         _logger.AddUserMessage("Thanks for using PCM Hammer.");
         // Add debug messages to the debug log
         _logger.AddDebugMessage("PCM Hammer");
-        _logger.AddDebugMessage("Copyright (C) 2018-2026 PcmHacking.net - GPL v3");
-        _logger.AddDebugMessage("Version: 2.0.0");
-        _logger.AddDebugMessage($"Running at: {DateTime.Now:dddd, MMMM d yyyy, HH:mm:ss}");
+        _logger.AddDebugMessage(AppInfo.CopyrightNotice);
+        _logger.AddDebugMessage(versionLine);
+        _logger.AddDebugMessage(AppInfo.GetRunningAtMessage());
         _logger.AddDebugMessage("Thanks for using PCM Hammer.");
     }
 
