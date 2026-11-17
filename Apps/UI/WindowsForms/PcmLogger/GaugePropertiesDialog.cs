@@ -31,6 +31,9 @@ namespace PcmHacking
         private readonly TextBox rangeHighBox = new TextBox();
         private readonly NumericUpDown digitsBox = new NumericUpDown();
         private readonly NumericUpDown arcBox = new NumericUpDown();
+        private readonly CheckBox scaleBox = new CheckBox();
+        private readonly NumericUpDown majorBox = new NumericUpDown();
+        private readonly NumericUpDown minorBox = new NumericUpDown();
         private readonly CheckBox alarmsBox = new CheckBox();
         private readonly TextBox alarmLowBox = new TextBox();
         private readonly TextBox alarmHighBox = new TextBox();
@@ -49,7 +52,7 @@ namespace PcmHacking
             this.MaximizeBox = false;
             this.MinimizeBox = false;
             this.StartPosition = FormStartPosition.CenterParent;
-            this.ClientSize = new Size(344, 332);
+            this.ClientSize = new Size(344, 366);
 
             this.normalColor = FromPacked(gauge.NormalColor);
             this.alarmColor = FromPacked(gauge.AlarmColor);
@@ -127,6 +130,27 @@ namespace PcmHacking
             this.Controls.Add(new Label { Left = 288, Top = y + 3, Width = 20, Text = "deg" });
             y += 34;
 
+            this.scaleBox.SetBounds(12, y, 95, 22);
+            this.scaleBox.Text = "Sca&le";
+            this.scaleBox.Checked = gauge.ShowScale;
+            this.scaleBox.CheckedChanged += (s, e) => this.UpdateEnabledState();
+            this.Controls.Add(this.scaleBox);
+
+            this.majorBox.SetBounds(110, y, 50, 22);
+            this.majorBox.Minimum = 0;
+            this.majorBox.Maximum = 20;
+            this.majorBox.Value = Math.Max(0, Math.Min(20, gauge.MajorTicks));
+            this.Controls.Add(this.majorBox);
+            this.Controls.Add(new Label { Left = 164, Top = y + 3, Width = 60, Text = "major (0=auto)" , AutoSize = true });
+
+            this.minorBox.SetBounds(274, y, 50, 22);
+            this.minorBox.Minimum = 0;
+            this.minorBox.Maximum = 9;
+            this.minorBox.Value = Math.Max(0, Math.Min(9, gauge.MinorTicks));
+            this.Controls.Add(this.minorBox);
+            this.Controls.Add(new Label { Left = 244, Top = y + 3, Width = 28, Text = "minor", AutoSize = true });
+            y += 34;
+
             this.alarmsBox.SetBounds(12, y, 200, 22);
             this.alarmsBox.Text = "&Alarm outside this range";
             this.alarmsBox.Checked = gauge.HasAlarms;
@@ -187,7 +211,11 @@ namespace PcmHacking
             this.alarmColorButton.Enabled = alarms;
 
             // Only a round gauge has a sweep to set.
-            this.arcBox.Enabled = (this.kindBox.SelectedItem as GaugeKind?) == GaugeKind.Round;
+            bool round = (this.kindBox.SelectedItem as GaugeKind?) == GaugeKind.Round;
+            this.arcBox.Enabled = round;
+            this.scaleBox.Enabled = round;
+            this.majorBox.Enabled = round && this.scaleBox.Checked;
+            this.minorBox.Enabled = round && this.scaleBox.Checked;
         }
 
         private void PickColor(ref Color current, Button button)
@@ -251,6 +279,9 @@ namespace PcmHacking
             this.gauge.RangeHigh = rangeHigh;
             this.gauge.Digits = (int)this.digitsBox.Value;
             this.gauge.ArcDegrees = (int)this.arcBox.Value;
+            this.gauge.ShowScale = this.scaleBox.Checked;
+            this.gauge.MajorTicks = (int)this.majorBox.Value;
+            this.gauge.MinorTicks = (int)this.minorBox.Value;
             this.gauge.HasAlarms = this.alarmsBox.Checked;
             this.gauge.AlarmLow = alarmLow;
             this.gauge.AlarmHigh = alarmHigh;
