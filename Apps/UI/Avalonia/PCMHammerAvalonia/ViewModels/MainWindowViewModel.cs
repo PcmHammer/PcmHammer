@@ -758,6 +758,44 @@ public partial class MainWindowViewModel : ObservableObject
         if (Vehicle == null || PcmFlasher == null || IsOperationRunning)
             return;
 
+        bool useAutoPcmType;
+        PcmType selectedPcmType;
+
+#if ANDROID
+        var pickerViewModel = new PcmSelectViewModel();
+        pickerViewModel.SelectedPCMType = pickerViewModel.PCMTypes[0];
+
+        var pickerContent = new Views.DialogBoxes.PcmTypeSelectView { DataContext = pickerViewModel };
+        var typeDialog = new FluentAvalonia.UI.Controls.FAContentDialog
+        {
+            Title = "PCM Type",
+            Content = pickerContent,
+        };
+
+        bool typeAccepted = false;
+        pickerViewModel.RequestClose += () => typeDialog.Hide();
+        pickerViewModel.RequestAcceptandClose += () =>
+        {
+            typeAccepted = true;
+            typeDialog.Hide();
+        };
+
+        TopLevel? typeTopLevel = Views.MainView.Current is { } tv ? TopLevel.GetTopLevel(tv) : null;
+        if (typeTopLevel != null)
+            await typeDialog.ShowAsync(typeTopLevel);
+        else
+            await typeDialog.ShowAsync();
+
+        if (!typeAccepted)
+        {
+            _logger.AddUserMessage("Comparison canceled by user (dialog closed).");
+            StatusText = "Ready";
+            return;
+        }
+
+        useAutoPcmType = pickerViewModel.SelectedPCMType == PcmType.Undefined;
+        selectedPcmType = pickerViewModel.SelectedPCMType;
+#else
         // Resolve owner window for modal presentation
         Window? activeWindow = (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow;
         if (activeWindow == null)
@@ -766,8 +804,8 @@ public partial class MainWindowViewModel : ObservableObject
             return;
         }
 
-        PcmTypeSelectDialogBox dialog = new();
-        bool? dialogResult = await dialog.ShowDialog<bool?>(activeWindow);
+        PcmTypeSelectDialogBox desktopTypeDialog = new();
+        bool? dialogResult = await desktopTypeDialog.ShowDialog<bool?>(activeWindow);
 
         if (dialogResult != true)
         {
@@ -776,7 +814,9 @@ public partial class MainWindowViewModel : ObservableObject
             return;
         }
 
-        bool useAutoPcmType = dialog.SelectedPCMType == PcmType.Undefined;
+        useAutoPcmType = desktopTypeDialog.SelectedPCMType == PcmType.Undefined;
+        selectedPcmType = desktopTypeDialog.SelectedPCMType;
+#endif
         StatusText = "Preparing for Comparison...";
 
         // FIX: Await the async file picker call
@@ -795,7 +835,7 @@ public partial class MainWindowViewModel : ObservableObject
             StatusText = "Comparing PCM Blocks...";
             _cancellationTokenSource = new CancellationTokenSource();
 
-            PcmType forcedPcmType = useAutoPcmType ? PcmType.Undefined : dialog.SelectedPCMType;
+            PcmType forcedPcmType = useAutoPcmType ? PcmType.Undefined : selectedPcmType;
 
             bool success = await PcmFlasher.WritePcmAsync(
                 WriteType.Compare,
