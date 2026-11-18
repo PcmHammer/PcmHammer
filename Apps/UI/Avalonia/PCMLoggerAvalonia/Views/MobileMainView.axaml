@@ -78,12 +78,15 @@
                 </ScrollViewer>
             </DrawerPage.Drawer>
 
-            <!-- Bottom-tabbed main content: the views you switch between during a session -->
-            <TabbedPage TabPlacement="Bottom">
-                <TabbedPage.Styles>
+            <!-- Bottom-tabbed main content -->
+            <TabControl TabStripPlacement="Bottom">
+                <TabControl.Styles>
                     <Style Selector="TabItem">
                         <Setter Property="FontWeight" Value="Normal"/>
                         <Setter Property="Foreground" Value="#D0D0D0"/>
+                        <Setter Property="FontSize" Value="13"/>
+                        <Setter Property="MinHeight" Value="0"/>
+                        <Setter Property="Padding" Value="10,6"/>
                     </Style>
                     <Style Selector="TabItem:selected">
                         <Setter Property="FontWeight" Value="Bold"/>
@@ -95,10 +98,10 @@
                     <Style Selector="TabItem:selected:pointerover">
                         <Setter Property="Foreground" Value="#4FA3FF"/>
                     </Style>
-                </TabbedPage.Styles>
+                </TabControl.Styles>
 
                 <!-- Live Values: the primary logging view on mobile -->
-                <ContentPage Header="Live Values">
+                <TabItem Header="Live">
                     <Grid RowDefinitions="Auto,Auto,*" Margin="4">
                         <TextBlock Grid.Row="0" Text="{Binding ProfileName}" FontWeight="SemiBold"
                                    Margin="6,6,6,2" TextTrimming="CharacterEllipsis"/>
@@ -131,10 +134,10 @@
                             </ScrollViewer>
                         </Border>
                     </Grid>
-                </ContentPage>
+                </TabItem>
 
                 <!-- Parameters: enable/disable PIDs, load/save profiles -->
-                <ContentPage Header="Parameters">
+                <TabItem Header="Params">
                     <Grid RowDefinitions="Auto,Auto,*" Margin="4">
                         <Grid Grid.Row="0" ColumnDefinitions="Auto,Auto,*" Margin="0,0,0,6">
                             <Button Grid.Column="0" Content="Open Profile" Command="{Binding OpenProfileCommand}" Margin="0,0,6,0"/>
@@ -169,10 +172,10 @@
                             </ScrollViewer>
                         </Border>
                     </Grid>
-                </ContentPage>
+                </TabItem>
 
                 <!-- Dashboard: gauges -->
-                <ContentPage Header="Dashboard">
+                <TabItem Header="Dashboard">
                     <Grid RowDefinitions="Auto,*" Margin="4">
                         <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="6" Margin="0,0,0,6">
                             <Button Content="Add Gauge…" Click="AddGauge_Click"/>
@@ -211,13 +214,13 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
                     </Grid>
-                </ContentPage>
+                </TabItem>
 
                 <!-- Monitors: strip chart -->
-                <ContentPage Header="Monitors">
+                <TabItem Header="Monitors">
                     <Grid RowDefinitions="Auto,*,Auto" Margin="4">
                         <WrapPanel Grid.Row="0" Orientation="Horizontal" ItemSpacing="8" LineSpacing="6" Margin="0,0,0,6">
-                            <ComboBox ItemsSource="{Binding Monitors}" SelectedItem="{Binding SelectedMonitor}" MinWidth="140"/>
+                            <ComboBox x:Name="MonitorPicker" ItemsSource="{Binding Monitors}" MinWidth="140"/>
                             <Button Content="Clear" Command="{Binding ClearLogCommand}"/>
                             <Button Content="Load…" Command="{Binding LoadLogCommand}"/>
                             <Button Content="{Binding PauseButtonText}" Command="{Binding ToggleMonitorPauseCommand}" MinWidth="78"/>
@@ -255,10 +258,10 @@
                                        Margin="8,0,0,0" FontFamily="Consolas, Menlo, DejaVu Sans Mono, Liberation Mono, monospace"/>
                         </Grid>
                     </Grid>
-                </ContentPage>
+                </TabItem>
 
                 <!-- Trouble Codes -->
-                <ContentPage Header="Codes">
+                <TabItem Header="DTCs">
                     <Grid RowDefinitions="Auto,Auto,*" Margin="4">
                         <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="6" Margin="0,0,0,6">
                             <Button Content="Read Codes" Command="{Binding ReadCodesCommand}"
@@ -290,10 +293,10 @@
                             </ScrollViewer>
                         </Border>
                     </Grid>
-                </ContentPage>
+                </TabItem>
 
                 <!-- Debug: library messages (always available, rarely needed) -->
-                <ContentPage Header="Debug">
+                <TabItem Header="Debug">
                     <Border BorderBrush="{DynamicResource SystemControlBackgroundBaseMediumLowBrush}"
                             BorderThickness="1" Margin="4">
                         <ScrollViewer VerticalScrollBarVisibility="Auto" Loaded="DebugScroller_Loaded">
@@ -308,9 +311,9 @@
                             </ItemsControl>
                         </ScrollViewer>
                     </Border>
-                </ContentPage>
+                </TabItem>
 
-            </TabbedPage>
+            </TabControl>
         </DrawerPage>
 
         <!-- Status bar -->

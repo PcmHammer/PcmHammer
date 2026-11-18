@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
+using System.ComponentModel;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia;
@@ -18,10 +20,66 @@ public partial class MobileMainView : UserControl
     private ScrollViewer? _debugScroller;
     private INotifyCollectionChanged? _debugMessages;
     private MonitorChart? _monitorChart;
+    private MainWindowViewModel? _monitorVm;
 
     public MobileMainView()
     {
         InitializeComponent();
+        this.DataContextChanged += this.OnDataContextChangedForMonitor;
+    }
+
+    private void OnDataContextChangedForMonitor(object? sender, EventArgs e)
+    {
+        if (_monitorVm != null)
+        {
+            _monitorVm.PropertyChanged -= this.OnMonitorVmPropertyChanged;
+        }
+
+        _monitorVm = this.DataContext as MainWindowViewModel;
+
+        if (_monitorVm != null)
+        {
+            _monitorVm.PropertyChanged += this.OnMonitorVmPropertyChanged;
+            this.SyncMonitorPickerFromVm();
+        }
+
+        ComboBox? picker = this.FindControl<ComboBox>("MonitorPicker");
+        if (picker != null)
+        {
+            picker.SelectionChanged -= this.MonitorPicker_SelectionChanged;
+            picker.SelectionChanged += this.MonitorPicker_SelectionChanged;
+        }
+    }
+
+    private void OnMonitorVmPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(MainWindowViewModel.SelectedMonitor))
+        {
+            this.SyncMonitorPickerFromVm();
+        }
+    }
+
+    private void SyncMonitorPickerFromVm()
+    {
+        ComboBox? picker = this.FindControl<ComboBox>("MonitorPicker");
+        if (picker == null || _monitorVm == null) return;
+
+        MonitorTab? target = _monitorVm.SelectedMonitor;
+        if (!ReferenceEquals(picker.SelectedItem, target))
+        {
+            picker.SelectedItem = target;
+        }
+    }
+
+    private void MonitorPicker_SelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (_monitorVm == null) return;
+
+        MonitorTab? picked = e.AddedItems.OfType<MonitorTab>().FirstOrDefault();
+        if (!ReferenceEquals(_monitorVm.SelectedMonitor, picked))
+        {
+            _monitorVm.SelectedMonitor = picked;
+        }
     }
 
     private void DebugScroller_Loaded(object? sender, RoutedEventArgs e)
