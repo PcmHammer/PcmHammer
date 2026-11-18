@@ -88,7 +88,7 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty] private bool _showDebug = true;
     [ObservableProperty] private bool _showDashboard = true;
     [ObservableProperty] private bool _showMonitors = true;
-    [ObservableProperty] private bool _showPids = true;
+    [ObservableProperty] private bool _showPids = false;
 
     // Zoom shows the parameters flagged Zoom in a large white-on-black readout (the WinForms Zoom view).
     [ObservableProperty] private bool _showZoom;
@@ -790,6 +790,12 @@ public partial class MainWindowViewModel : ViewModelBase
 
         // Query time is always the last row, as the WinForms logger shows.
         this.Readings.Add(_queryTimeRow);
+
+        // Shade every other row (Live Values table and side pane).
+        for (int i = 0; i < this.Readings.Count; i++)
+        {
+            this.Readings[i].IsAlternate = (i % 2) == 1;
+        }
 
         this.HasZoomedReadings = this.ZoomedReadings.Count > 0;
     }
