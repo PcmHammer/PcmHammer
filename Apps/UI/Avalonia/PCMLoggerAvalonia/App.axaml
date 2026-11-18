@@ -3,7 +3,7 @@
              xmlns:local="using:PCMLoggerAvalonia"
              xmlns:styling="using:FluentAvalonia.Styling"
              x:Class="PCMLoggerAvalonia.App"
-             RequestedThemeVariant="Light">
+             RequestedThemeVariant="Default">
 
     <Application.DataTemplates>
         <local:ViewLocator />
