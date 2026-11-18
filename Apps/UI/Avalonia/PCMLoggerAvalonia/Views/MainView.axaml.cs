@@ -79,7 +79,7 @@ public partial class MainView : UserControl
         }
 
         bool wideEnough = this.Bounds.Width >= NarrowWidthThreshold;
-        bool showPids = _responsiveVm?.ShowPids ?? true;
+        bool showPids = _responsiveVm?.ShowPids ?? false;
         this.PidPane.IsVisible = wideEnough && showPids;
     }
 

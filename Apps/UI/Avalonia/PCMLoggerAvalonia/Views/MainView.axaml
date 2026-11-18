@@ -8,6 +8,13 @@
              x:Class="PCMLoggerAvalonia.Views.MainView"
              x:DataType="vm:MainWindowViewModel">
 
+    <UserControl.Styles>
+        <!-- Alternate-row shading for the live-value tables: a translucent gray reads in light and dark -->
+        <Style Selector="Border.readingRow.alt">
+            <Setter Property="Background" Value="#1F808080"/>
+        </Style>
+    </UserControl.Styles>
+
     <Grid RowDefinitions="Auto,*,Auto" Margin="8">
 
         <!-- Session toolbar (always visible, like the WinForms top strip) -->
@@ -130,6 +137,44 @@
                                                       SelectedItem="{Binding SelectedUnit}"
                                                       HorizontalAlignment="Stretch"/>
                                         </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <!-- Live Values: the enabled parameters' current readings on their own tab, so they are
+                 reachable on a narrow phone (where the side pane is hidden) and the Dashboard/Monitors
+                 can use the full screen. Same Readings collection as the side pane. -->
+            <TabItem Header="Live Values">
+                <Grid RowDefinitions="Auto,Auto,*">
+                    <TextBlock Grid.Row="0" Text="{Binding ProfileName}" FontWeight="SemiBold"
+                               Margin="6,6,6,2" TextTrimming="CharacterEllipsis"/>
+                    <Grid Grid.Row="1" ColumnDefinitions="2*,1.2*,1*" Margin="6,2,6,4">
+                        <TextBlock Grid.Column="0" Text="Parameter" FontWeight="SemiBold"/>
+                        <TextBlock Grid.Column="1" Text="Value" FontWeight="SemiBold"
+                                   HorizontalAlignment="Right" Margin="0,0,10,0"/>
+                        <TextBlock Grid.Column="2" Text="Units" FontWeight="SemiBold"/>
+                    </Grid>
+                    <Border Grid.Row="2"
+                            BorderBrush="{DynamicResource SystemControlBackgroundBaseMediumLowBrush}"
+                            BorderThickness="1">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <ItemsControl ItemsSource="{Binding Readings}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:ReadingRow">
+                                        <Border Classes="readingRow" Classes.alt="{Binding IsAlternate}" Padding="6,3">
+                                            <Grid ColumnDefinitions="2*,1.2*,1*">
+                                                <TextBlock Grid.Column="0" Text="{Binding Name}" TextTrimming="CharacterEllipsis"/>
+                                                <TextBlock Grid.Column="1" Text="{Binding Value}"
+                                                           HorizontalAlignment="Right" Margin="0,0,10,0"
+                                                           FontFamily="Consolas, Menlo, DejaVu Sans Mono, Liberation Mono, monospace"/>
+                                                <TextBlock Grid.Column="2" Text="{Binding Units}"
+                                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                                            </Grid>
+                                        </Border>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
@@ -359,14 +404,16 @@
                         <ItemsControl ItemsSource="{Binding Readings}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="vm:ReadingRow">
-                                    <Grid ColumnDefinitions="2*,1.2*,1*" Margin="6,2">
-                                        <TextBlock Grid.Column="0" Text="{Binding Name}" TextTrimming="CharacterEllipsis"/>
-                                        <TextBlock Grid.Column="1" Text="{Binding Value}"
-                                                   HorizontalAlignment="Right" Margin="0,0,10,0"
-                                                   FontFamily="Consolas, Menlo, DejaVu Sans Mono, Liberation Mono, monospace"/>
-                                        <TextBlock Grid.Column="2" Text="{Binding Units}"
-                                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
-                                    </Grid>
+                                    <Border Classes="readingRow" Classes.alt="{Binding IsAlternate}" Padding="6,3">
+                                        <Grid ColumnDefinitions="2*,1.2*,1*">
+                                            <TextBlock Grid.Column="0" Text="{Binding Name}" TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding Value}"
+                                                       HorizontalAlignment="Right" Margin="0,0,10,0"
+                                                       FontFamily="Consolas, Menlo, DejaVu Sans Mono, Liberation Mono, monospace"/>
+                                            <TextBlock Grid.Column="2" Text="{Binding Units}"
+                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                                        </Grid>
+                                    </Border>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>

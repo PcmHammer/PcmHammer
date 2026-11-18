@@ -16,6 +16,10 @@ public partial class ReadingRow : ObservableObject
     [ObservableProperty]
     private string _value = string.Empty;
 
+    /// <summary>True on every other row, so the grid can shade alternate rows for readability.</summary>
+    [ObservableProperty]
+    private bool _isAlternate;
+
     public ReadingRow(string parameterId, string name, string units)
     {
         this.ParameterId = parameterId;
