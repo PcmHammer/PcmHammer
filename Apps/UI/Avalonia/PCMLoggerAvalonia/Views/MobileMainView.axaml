@@ -1,0 +1,320 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PCMLoggerAvalonia.ViewModels"
+             xmlns:ctrl="using:PCMLoggerAvalonia.Controls"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="390" d:DesignHeight="844"
+             x:Class="PCMLoggerAvalonia.Views.MobileMainView"
+             x:DataType="vm:MainWindowViewModel">
+
+    <UserControl.Styles>
+        <Style Selector="Border.readingRow.alt">
+            <Setter Property="Background" Value="#1F808080"/>
+        </Style>
+    </UserControl.Styles>
+
+    <Grid RowDefinitions="Auto,*,Auto">
+
+        <!-- Session action bar: always visible at top -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="6" Margin="8,8,8,4">
+            <Button Content="{Binding ConnectButtonText}" Command="{Binding ToggleConnectionCommand}" MinWidth="90"/>
+            <Button Content="{Binding StartStopButtonText}" Command="{Binding ToggleLoggingCommand}" MinWidth="110"/>
+            <Button Content="{Binding RecordButtonText}" Command="{Binding ToggleRecordingCommand}"
+                    IsEnabled="{Binding IsLogging}" MinWidth="90"/>
+        </StackPanel>
+
+        <!-- DrawerPage: settings drawer (left) + bottom-tabbed content -->
+        <DrawerPage Grid.Row="1" IsGestureEnabled="True" DrawerPlacement="Left">
+
+            <DrawerPage.Header>
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                    <Image Source="avares://PCMLoggerAvalonia/Assets/pcmlogger_256px.ico"
+                           Width="36" Height="36" VerticalAlignment="Center"/>
+                    <TextBlock Text="PCM Logger" VerticalAlignment="Center" FontSize="18"/>
+                </StackPanel>
+            </DrawerPage.Header>
+
+            <!-- Settings drawer: device, log folder, theme, options -->
+            <DrawerPage.Drawer>
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Spacing="10" Margin="12">
+
+                        <!-- Device -->
+                        <TextBlock Text="Device" FontWeight="SemiBold" FontSize="13" Opacity="0.7"/>
+                        <Button Content="Select OBD2 Device…" Click="SelectDevice_Click"
+                                HorizontalAlignment="Stretch" Padding="12,10"/>
+                        <TextBlock Text="{Binding DeviceSummary}" TextWrapping="Wrap"
+                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" FontSize="12"/>
+
+                        <Separator Margin="0,4"/>
+
+                        <!-- Log folder -->
+                        <TextBlock Text="Logging" FontWeight="SemiBold" FontSize="13" Opacity="0.7"/>
+                        <Button Content="Set Log Folder…" Command="{Binding SetLogFolderCommand}"
+                                HorizontalAlignment="Stretch" Padding="12,10"/>
+                        <TextBlock Text="{Binding LogFolder}" TextWrapping="Wrap"
+                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" FontSize="12"/>
+                        <Button Content="Open Log Folder" Command="{Binding OpenLogFolderCommand}"
+                                HorizontalAlignment="Stretch" Padding="12,10"/>
+
+                        <Separator Margin="0,4"/>
+
+                        <!-- Theme -->
+                        <TextBlock Text="Appearance" FontWeight="SemiBold" FontSize="13" Opacity="0.7"/>
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <TextBlock Text="Theme" VerticalAlignment="Center"/>
+                            <ComboBox ItemsSource="{Binding ThemeOptions}"
+                                      SelectedItem="{Binding SelectedTheme}" MinWidth="130"/>
+                        </StackPanel>
+
+                        <Separator Margin="0,4"/>
+
+                        <!-- Options -->
+                        <TextBlock Text="Options" FontWeight="SemiBold" FontSize="13" Opacity="0.7"/>
+                        <CheckBox Content="Auto start logging" IsChecked="{Binding AutoStartLogging}"
+                                  Padding="4,8"/>
+                    </StackPanel>
+                </ScrollViewer>
+            </DrawerPage.Drawer>
+
+            <!-- Bottom-tabbed main content: the views you switch between during a session -->
+            <TabbedPage TabPlacement="Bottom">
+                <TabbedPage.Styles>
+                    <Style Selector="TabItem">
+                        <Setter Property="FontWeight" Value="Normal"/>
+                        <Setter Property="Foreground" Value="#D0D0D0"/>
+                    </Style>
+                    <Style Selector="TabItem:selected">
+                        <Setter Property="FontWeight" Value="Bold"/>
+                        <Setter Property="Foreground" Value="#4FA3FF"/>
+                    </Style>
+                    <Style Selector="TabItem:pointerover">
+                        <Setter Property="Foreground" Value="#FFFFFF"/>
+                    </Style>
+                    <Style Selector="TabItem:selected:pointerover">
+                        <Setter Property="Foreground" Value="#4FA3FF"/>
+                    </Style>
+                </TabbedPage.Styles>
+
+                <!-- Live Values: the primary logging view on mobile -->
+                <ContentPage Header="Live Values">
+                    <Grid RowDefinitions="Auto,Auto,*" Margin="4">
+                        <TextBlock Grid.Row="0" Text="{Binding ProfileName}" FontWeight="SemiBold"
+                                   Margin="6,6,6,2" TextTrimming="CharacterEllipsis"/>
+                        <Grid Grid.Row="1" ColumnDefinitions="2*,1.2*,1*" Margin="6,2,6,4">
+                            <TextBlock Grid.Column="0" Text="Parameter" FontWeight="SemiBold"/>
+                            <TextBlock Grid.Column="1" Text="Value" FontWeight="SemiBold"
+                                       HorizontalAlignment="Right" Margin="0,0,10,0"/>
+                            <TextBlock Grid.Column="2" Text="Units" FontWeight="SemiBold"/>
+                        </Grid>
+                        <Border Grid.Row="2"
+                                BorderBrush="{DynamicResource SystemControlBackgroundBaseMediumLowBrush}"
+                                BorderThickness="1">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <ItemsControl ItemsSource="{Binding Readings}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:ReadingRow">
+                                            <Border Classes="readingRow" Classes.alt="{Binding IsAlternate}" Padding="6,4">
+                                                <Grid ColumnDefinitions="2*,1.2*,1*">
+                                                    <TextBlock Grid.Column="0" Text="{Binding Name}" TextTrimming="CharacterEllipsis"/>
+                                                    <TextBlock Grid.Column="1" Text="{Binding Value}"
+                                                               HorizontalAlignment="Right" Margin="0,0,10,0"
+                                                               FontFamily="Consolas, Menlo, DejaVu Sans Mono, Liberation Mono, monospace"/>
+                                                    <TextBlock Grid.Column="2" Text="{Binding Units}"
+                                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Border>
+                    </Grid>
+                </ContentPage>
+
+                <!-- Parameters: enable/disable PIDs, load/save profiles -->
+                <ContentPage Header="Parameters">
+                    <Grid RowDefinitions="Auto,Auto,*" Margin="4">
+                        <Grid Grid.Row="0" ColumnDefinitions="Auto,Auto,*" Margin="0,0,0,6">
+                            <Button Grid.Column="0" Content="Open Profile" Command="{Binding OpenProfileCommand}" Margin="0,0,6,0"/>
+                            <Button Grid.Column="1" Content="Save Profile" Command="{Binding SaveProfileCommand}" Margin="0,0,10,0"/>
+                            <TextBox Grid.Column="2" PlaceholderText="Search…" Text="{Binding ParameterFilter}"/>
+                        </Grid>
+                        <Grid Grid.Row="1" ColumnDefinitions="60,60,*,150" Margin="2,2,2,4">
+                            <TextBlock Grid.Column="0" Text="Enable" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                            <TextBlock Grid.Column="1" Text="Zoom" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                            <TextBlock Grid.Column="2" Text="Name" FontWeight="SemiBold"/>
+                            <TextBlock Grid.Column="3" Text="Units" FontWeight="SemiBold"/>
+                        </Grid>
+                        <Border Grid.Row="2"
+                                BorderBrush="{DynamicResource SystemControlBackgroundBaseMediumLowBrush}"
+                                BorderThickness="1">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <ItemsControl ItemsSource="{Binding ParameterRows}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:ParameterRow">
+                                            <Grid ColumnDefinitions="60,60,*,150" Margin="2,2"
+                                                  IsVisible="{Binding MatchesFilter}">
+                                                <CheckBox Grid.Column="0" IsChecked="{Binding Enabled}" HorizontalAlignment="Center"/>
+                                                <CheckBox Grid.Column="1" IsChecked="{Binding Zoom}" HorizontalAlignment="Center"/>
+                                                <TextBlock Grid.Column="2" Text="{Binding Name}" VerticalAlignment="Center"/>
+                                                <ComboBox Grid.Column="3" ItemsSource="{Binding UnitOptions}"
+                                                          SelectedItem="{Binding SelectedUnit}"
+                                                          HorizontalAlignment="Stretch"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Border>
+                    </Grid>
+                </ContentPage>
+
+                <!-- Dashboard: gauges -->
+                <ContentPage Header="Dashboard">
+                    <Grid RowDefinitions="Auto,*" Margin="4">
+                        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="6" Margin="0,0,0,6">
+                            <Button Content="Add Gauge…" Click="AddGauge_Click"/>
+                            <Button Content="Load…" Command="{Binding LoadDashboardCommand}"/>
+                            <Button Content="Save…" Command="{Binding SaveDashboardCommand}"/>
+                        </StackPanel>
+                        <ItemsControl Grid.Row="1" ItemsSource="{Binding Gauges}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <ctrl:DashboardPanel/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:GaugeTile">
+                                    <Border Margin="4"
+                                            BorderBrush="{DynamicResource SystemControlBackgroundBaseMediumLowBrush}"
+                                            BorderThickness="1" CornerRadius="6" Padding="4"
+                                            Background="Transparent"
+                                            DoubleTapped="GaugeCard_DoubleTapped">
+                                        <Grid RowDefinitions="Auto,*">
+                                            <TextBlock Grid.Row="0" Text="{Binding Title}"
+                                                       HorizontalAlignment="Center" FontWeight="SemiBold"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                            <ctrl:GaugeDial Grid.Row="1" Tile="{Binding}" IsVisible="{Binding IsDial}"/>
+                                            <ctrl:BarGauge Grid.Row="1" Tile="{Binding}" IsVisible="{Binding IsBar}"/>
+                                            <StackPanel Grid.Row="1" IsVisible="{Binding IsText}"
+                                                        VerticalAlignment="Center" HorizontalAlignment="Center">
+                                                <TextBlock Text="{Binding ValueText}" Foreground="{Binding ValueBrush}"
+                                                           FontSize="28" FontWeight="SemiBold" HorizontalAlignment="Center"
+                                                           FontFamily="Consolas, Menlo, DejaVu Sans Mono, Liberation Mono, monospace"/>
+                                                <TextBlock Text="{Binding Units}" Opacity="0.7" HorizontalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Grid>
+                </ContentPage>
+
+                <!-- Monitors: strip chart -->
+                <ContentPage Header="Monitors">
+                    <Grid RowDefinitions="Auto,*,Auto" Margin="4">
+                        <WrapPanel Grid.Row="0" Orientation="Horizontal" ItemSpacing="8" LineSpacing="6" Margin="0,0,0,6">
+                            <ComboBox ItemsSource="{Binding Monitors}" SelectedItem="{Binding SelectedMonitor}" MinWidth="140"/>
+                            <Button Content="Clear" Command="{Binding ClearLogCommand}"/>
+                            <Button Content="Load…" Command="{Binding LoadLogCommand}"/>
+                            <Button Content="{Binding PauseButtonText}" Command="{Binding ToggleMonitorPauseCommand}" MinWidth="78"/>
+                            <Button Content="Traces ▾">
+                                <Button.Flyout>
+                                    <Flyout>
+                                        <ItemsControl ItemsSource="{Binding SelectedMonitor.Series}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="vm:MonitorSeries">
+                                                    <CheckBox IsChecked="{Binding Visible}" Margin="0,1">
+                                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                                            <Border Width="11" Height="11" CornerRadius="2"
+                                                                    Background="{Binding Brush}" VerticalAlignment="Center"/>
+                                                            <TextBlock Text="{Binding Title}"/>
+                                                        </StackPanel>
+                                                    </CheckBox>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </Flyout>
+                                </Button.Flyout>
+                            </Button>
+                        </WrapPanel>
+                        <Border Grid.Row="1"
+                                BorderBrush="{DynamicResource SystemControlBackgroundBaseMediumLowBrush}"
+                                BorderThickness="1">
+                            <ctrl:MonitorChart Monitor="{Binding SelectedMonitor}" Paused="{Binding IsMonitorPaused}"
+                                               PlaybackNow="{Binding PlaybackNow}" Loaded="MonitorChart_Loaded"/>
+                        </Border>
+                        <Grid Grid.Row="2" IsVisible="{Binding IsPlayback}" ColumnDefinitions="Auto,*,Auto" Margin="0,6,0,0">
+                            <TextBlock Grid.Column="0" Text="Playback" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <Slider Grid.Column="1" Minimum="0" Maximum="{Binding PlaybackMaxSeconds}"
+                                    Value="{Binding PlaybackSeconds}" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="2" Text="{Binding PlaybackPositionText}" VerticalAlignment="Center"
+                                       Margin="8,0,0,0" FontFamily="Consolas, Menlo, DejaVu Sans Mono, Liberation Mono, monospace"/>
+                        </Grid>
+                    </Grid>
+                </ContentPage>
+
+                <!-- Trouble Codes -->
+                <ContentPage Header="Codes">
+                    <Grid RowDefinitions="Auto,Auto,*" Margin="4">
+                        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="6" Margin="0,0,0,6">
+                            <Button Content="Read Codes" Command="{Binding ReadCodesCommand}"
+                                    IsEnabled="{Binding CanReadCodes}" MinWidth="100"/>
+                            <Button Content="Clear Codes…" Click="ClearCodes_Click"
+                                    IsEnabled="{Binding CanClearCodes}" MinWidth="100"/>
+                        </StackPanel>
+                        <Grid Grid.Row="1" ColumnDefinitions="90,170,*" Margin="2,2,2,4">
+                            <TextBlock Grid.Column="0" Text="Code" FontWeight="SemiBold"/>
+                            <TextBlock Grid.Column="1" Text="Status" FontWeight="SemiBold"/>
+                            <TextBlock Grid.Column="2" Text="Description" FontWeight="SemiBold"/>
+                        </Grid>
+                        <Border Grid.Row="2"
+                                BorderBrush="{DynamicResource SystemControlBackgroundBaseMediumLowBrush}"
+                                BorderThickness="1">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <ItemsControl ItemsSource="{Binding TroubleCodes}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:TroubleCodeRow">
+                                            <Grid ColumnDefinitions="90,170,*" Margin="2,3">
+                                                <TextBlock Grid.Column="0" Text="{Binding Code}" FontWeight="SemiBold"
+                                                           FontFamily="Consolas, Menlo, DejaVu Sans Mono, Liberation Mono, monospace"/>
+                                                <TextBlock Grid.Column="1" Text="{Binding Status}" TextWrapping="Wrap"/>
+                                                <TextBlock Grid.Column="2" Text="{Binding Description}" TextWrapping="Wrap"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Border>
+                    </Grid>
+                </ContentPage>
+
+                <!-- Debug: library messages (always available, rarely needed) -->
+                <ContentPage Header="Debug">
+                    <Border BorderBrush="{DynamicResource SystemControlBackgroundBaseMediumLowBrush}"
+                            BorderThickness="1" Margin="4">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" Loaded="DebugScroller_Loaded">
+                            <ItemsControl ItemsSource="{Binding DebugMessages}" Padding="4">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="x:String">
+                                        <TextBlock Text="{Binding}" TextWrapping="Wrap"
+                                                   FontFamily="Consolas, Menlo, DejaVu Sans Mono, Liberation Mono, monospace"
+                                                   FontSize="12"/>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Border>
+                </ContentPage>
+
+            </TabbedPage>
+        </DrawerPage>
+
+        <!-- Status bar -->
+        <TextBlock Grid.Row="2" Text="{Binding StatusText}" Margin="8,4,8,6"
+                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis"/>
+    </Grid>
+</UserControl>

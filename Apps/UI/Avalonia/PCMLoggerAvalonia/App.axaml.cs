@@ -26,8 +26,8 @@ public partial class App : global::Avalonia.Application
         }
         else if (ApplicationLifetime is IActivityApplicationLifetime activity)
         {
-            // Android: a fresh MainView is built per activity (e.g. after a rotation re-create).
-            activity.MainViewFactory = () => new MainView { DataContext = new MainWindowViewModel() };
+            // Android: mobile-optimized shell (drawer + bottom tabs) instead of the desktop tab strip.
+            activity.MainViewFactory = () => new MobileMainView { DataContext = new MainWindowViewModel() };
         }
         else if (ApplicationLifetime is ISingleViewApplicationLifetime singleView)
         {
