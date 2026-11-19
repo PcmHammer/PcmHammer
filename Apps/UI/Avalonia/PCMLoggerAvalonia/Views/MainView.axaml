@@ -47,6 +47,23 @@
                                     <TextBlock Text="{Binding DeviceSummary}" VerticalAlignment="Center"
                                                Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
                                 </StackPanel>
+
+                                <!-- Aftermarket CAN sensors (e.g. an AEM wideband) through a second interface.
+                                     Desktop only; hidden on Android. -->
+                                <StackPanel Spacing="6" Margin="0,6,0,0" IsVisible="{Binding AuxiliaryBusSupported}">
+                                    <CheckBox Content="Read an auxiliary CAN bus (SeeedStudio USB-CAN analyzer)"
+                                              IsChecked="{Binding AuxiliaryBusEnabled}"/>
+                                    <StackPanel Orientation="Horizontal" Spacing="10"
+                                                IsEnabled="{Binding AuxiliaryBusEnabled}">
+                                        <TextBlock Text="Analyzer port" VerticalAlignment="Center"/>
+                                        <ComboBox ItemsSource="{Binding AuxiliaryPorts}"
+                                                  SelectedItem="{Binding AuxiliaryPortName, Mode=TwoWay}"
+                                                  MinWidth="160"/>
+                                        <Button Content="Refresh" Command="{Binding RefreshAuxiliaryPortsCommand}"/>
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding AuxiliaryStatus}" TextWrapping="Wrap"
+                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                                </StackPanel>
                             </StackPanel>
                         </Border>
 

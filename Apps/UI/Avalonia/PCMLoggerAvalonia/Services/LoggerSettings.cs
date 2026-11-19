@@ -24,6 +24,12 @@ public class LoggerSettings
     /// <summary>Full paths of recently opened or saved profiles, newest first.</summary>
     public List<string> RecentProfiles { get; set; } = new();
 
+    /// <summary>Whether to read an auxiliary CAN bus (a SeeedStudio USB-CAN analyzer) while logging.</summary>
+    public bool AuxiliaryBusEnabled { get; set; }
+
+    /// <summary>The serial port the auxiliary CAN analyzer is on, when one has been chosen.</summary>
+    public string AuxiliaryPort { get; set; } = string.Empty;
+
     public static LoggerSettings Load()
     {
         try

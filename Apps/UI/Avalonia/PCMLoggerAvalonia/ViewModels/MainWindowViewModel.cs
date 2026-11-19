@@ -811,6 +811,29 @@ public partial class MainWindowViewModel : ViewModelBase
             }
         }
 
+        // Auxiliary bus values follow the PCM's, as in the log file. They are always read when the bus is
+        // on, so they have rows whether or not anything is ticked. An id that is already shown (an
+        // aftermarket parameter ticked on the Parameters tab) keeps its one row.
+        if (_auxiliaryLogger != null && _database != null)
+        {
+            foreach (BusParameter parameter in _database.BusParameters
+                .OrderBy(p => p.MessageId)
+                .ThenBy(p => p.Id, StringComparer.Ordinal))
+            {
+                if (_rowsById.ContainsKey(parameter.Id))
+                {
+                    continue;
+                }
+
+                // The values are formatted with the selected conversion, or the first one when none is
+                // selected, so the units label follows the same rule.
+                Conversion? conversion = parameter.SelectedConversion ?? parameter.Conversions.FirstOrDefault();
+                ReadingRow auxiliary = new(parameter.Id, parameter.Name, conversion?.Units ?? string.Empty);
+                this.Readings.Add(auxiliary);
+                _rowsById[parameter.Id] = auxiliary;
+            }
+        }
+
         // Query time is always the last row, as the WinForms logger shows.
         this.Readings.Add(_queryTimeRow);
 
@@ -1191,6 +1214,16 @@ public partial class MainWindowViewModel : ViewModelBase
 
         _queryTimeRow.Value = "--";
         this.LoadRecentProfiles();
+
+        // Backing fields, so loading the saved choice doesn't save it straight back or try to open it
+        // before there is a PCM connection to go with it.
+        _auxiliaryBusEnabled = _settings.AuxiliaryBusEnabled;
+        _auxiliaryPortName = string.IsNullOrEmpty(_settings.AuxiliaryPort) ? null : _settings.AuxiliaryPort;
+        if (_auxiliaryPortName != null)
+        {
+            this.AuxiliaryPorts.Add(_auxiliaryPortName);
+        }
+
         this.UpdateDeviceSummary();
         this.BuildFromPackage(DefaultLoggerPackage.Create());
     }
@@ -1270,6 +1303,18 @@ public partial class MainWindowViewModel : ViewModelBase
 
         this.IsLogging = false;
         this.IsRecording = false;
+
+        // Release the analyzer with the PCM interface; it is opened again on the next connect.
+        await _auxiliaryGate.WaitAsync();
+        try
+        {
+            await this.StopAuxiliaryBusAsync();
+            this.AuxiliaryStatus = this.AuxiliaryBusEnabled ? "Will start when the PCM is connected." : "Off.";
+        }
+        finally
+        {
+            _auxiliaryGate.Release();
+        }
 
         try
         {
@@ -1387,6 +1432,14 @@ public partial class MainWindowViewModel : ViewModelBase
 
             this.IsConnected = true;
             this.StatusText = $"Connected: {_device.GetDeviceType()}, OSID {_osid}.";
+
+            // Bring the auxiliary bus up first, so a log that starts by itself already has its columns.
+            // A failure there is reported on the Configuration tab and does not stop the connection.
+            if (this.AuxiliaryBusEnabled)
+            {
+                this.RefreshAuxiliaryPorts();
+                await this.ApplyAuxiliaryBusAsync();
+            }
 
             // Auto start logging if asked and parameters are already selected (the Configuration option).
             if (this.AutoStartLogging && !this.IsLogging && this.BuildSelectedColumns().Count > 0)
@@ -1696,6 +1749,9 @@ public partial class MainWindowViewModel : ViewModelBase
         this.IsMonitorPaused = false;
 
         _controller = new LoggingController(_vehicle, _osid, _logger);
+
+        // Set before Start so the first session already includes the auxiliary columns, if the bus is on.
+        _controller.SetAuxiliaryBus(_auxiliaryLogger);
         _controller.RowAvailable += OnRowAvailable;
         _controller.Stopped += () => Dispatcher.UIThread.Post(() =>
         {
@@ -1767,6 +1823,226 @@ public partial class MainWindowViewModel : ViewModelBase
         // Freeze the strip chart where it stopped, so the last data can be inspected.
         this.IsMonitorPaused = true;
         this.StatusText = this.IsConnected ? "Stopped." : "Not connected.";
+    }
+
+    // ---- Auxiliary CAN bus (SeeedStudio USB-CAN analyzer) ------------------------------------------------
+    // Reads aftermarket CAN sensors (an AEM wideband and the like) from a second interface while the PCM
+    // is logged, as the WinForms logger does. The analyzer is a separate device from the OBD2 interface,
+    // so it has its own port. Desktop only: it needs serial-port enumeration, which Android doesn't have
+    // here. A failure to open it is reported and ignored, because a second bus that won't open is no
+    // reason to stop logging the PCM.
+
+#if ANDROID
+    public bool AuxiliaryBusSupported => false;
+#else
+    public bool AuxiliaryBusSupported => true;
+#endif
+
+    [ObservableProperty]
+    private bool _auxiliaryBusEnabled;
+
+    [ObservableProperty]
+    private string? _auxiliaryPortName;
+
+    [ObservableProperty]
+    private string _auxiliaryStatus = "Off.";
+
+    public ObservableCollection<string> AuxiliaryPorts { get; } = new();
+
+    private AuxiliaryBusLogger? _auxiliaryLogger;
+    private Device? _auxiliaryDevice;
+    private bool _refreshingAuxiliaryPorts;
+
+    // Opening and closing the analyzer must not overlap (a toggle followed quickly by a port change).
+    private readonly SemaphoreSlim _auxiliaryGate = new(1, 1);
+
+    partial void OnAuxiliaryBusEnabledChanged(bool value)
+    {
+        _settings.AuxiliaryBusEnabled = value;
+        _settings.Save();
+
+        if (value)
+        {
+            this.RefreshAuxiliaryPorts();
+        }
+
+        _ = this.ApplyAuxiliaryBusAsync();
+    }
+
+    partial void OnAuxiliaryPortNameChanged(string? value)
+    {
+        // The list being rebuilt clears the ComboBox selection; that is not the user's choice.
+        if (_refreshingAuxiliaryPorts)
+        {
+            return;
+        }
+
+        _settings.AuxiliaryPort = value ?? string.Empty;
+        _settings.Save();
+
+        if (this.AuxiliaryBusEnabled)
+        {
+            _ = this.ApplyAuxiliaryBusAsync();
+        }
+    }
+
+    /// <summary>List the serial ports, keeping the saved choice selected even if it isn't plugged in.</summary>
+    [RelayCommand]
+    private void RefreshAuxiliaryPorts()
+    {
+#if !ANDROID
+        string? current = this.AuxiliaryPortName;
+        _refreshingAuxiliaryPorts = true;
+        try
+        {
+            this.AuxiliaryPorts.Clear();
+            foreach (SerialPortInfo port in PortDiscovery.GetPorts(_logger))
+            {
+                if (!string.IsNullOrEmpty(port.PortName) && !this.AuxiliaryPorts.Contains(port.PortName))
+                {
+                    this.AuxiliaryPorts.Add(port.PortName);
+                }
+            }
+
+            if (!string.IsNullOrEmpty(current) && !this.AuxiliaryPorts.Contains(current))
+            {
+                this.AuxiliaryPorts.Add(current);
+            }
+
+            this.AuxiliaryPortName = current;
+        }
+        catch (Exception exception)
+        {
+            _logger.AddDebugMessage("Unable to list serial ports for the auxiliary bus: " + exception.Message);
+        }
+        finally
+        {
+            _refreshingAuxiliaryPorts = false;
+        }
+#endif
+    }
+
+    /// <summary>Open the analyzer and start reading it, or stop, to match the settings and connection.</summary>
+    private async Task ApplyAuxiliaryBusAsync()
+    {
+#if !ANDROID
+        await _auxiliaryGate.WaitAsync();
+        try
+        {
+            await this.StopAuxiliaryBusAsync();
+
+            if (!this.AuxiliaryBusEnabled)
+            {
+                this.AuxiliaryStatus = "Off.";
+                return;
+            }
+
+            ParameterDatabase? database = _database;
+            if (database == null)
+            {
+                this.AuxiliaryStatus = "Will start when the PCM is connected.";
+                return;
+            }
+
+            string? port = this.AuxiliaryPortName;
+            if (string.IsNullOrEmpty(port))
+            {
+                this.AuxiliaryStatus = "Choose the analyzer's port.";
+                return;
+            }
+
+            if (string.Equals(port, this.SelectedPortName, StringComparison.OrdinalIgnoreCase))
+            {
+                this.AuxiliaryStatus = $"{port} is the OBD2 interface's port. The analyzer needs its own.";
+                return;
+            }
+
+            Device? device = null;
+            try
+            {
+                this.AuxiliaryStatus = $"Opening {port}...";
+
+                device = await Task.Run(() =>
+                    DeviceFactory.CreateSerialDevice(port, UsbCanAnalyzerDevice.DeviceType, _logger));
+
+                if (device == null || !await device.Initialize())
+                {
+                    device?.Dispose();
+                    this.AuxiliaryStatus = $"Unable to open the analyzer on {port}.";
+                    return;
+                }
+
+                AuxiliaryBusLogger busLogger = new(database, _logger);
+                await busLogger.Start(device, BusProtocol.Can500k);
+                if (!busLogger.IsRunning)
+                {
+                    device.Dispose();
+                    this.AuxiliaryStatus = $"The analyzer on {port} could not start reading CAN.";
+                    return;
+                }
+
+                _auxiliaryDevice = device;
+                _auxiliaryLogger = busLogger;
+                _controller?.SetAuxiliaryBus(busLogger);
+                this.RebuildReadings();
+                this.AuxiliaryStatus = $"Reading CAN 500k on {port}.";
+            }
+            catch (Exception exception)
+            {
+                // Opening a port that is absent or held by something else throws rather than returning
+                // false. Logging the PCM carries on without the second bus.
+                device?.Dispose();
+                this.AuxiliaryStatus = $"Unable to open {port}: {exception.Message}";
+                _logger.AddDebugMessage(exception.ToString());
+            }
+        }
+        finally
+        {
+            _auxiliaryGate.Release();
+        }
+#else
+        await Task.CompletedTask;
+#endif
+    }
+
+    /// <summary>Stop reading the analyzer and release it. The read loop must end before the device is
+    /// disposed, or the driver can still be servicing a read when the port closes.</summary>
+    private async Task StopAuxiliaryBusAsync()
+    {
+        _controller?.SetAuxiliaryBus(null);
+
+        AuxiliaryBusLogger? busLogger = _auxiliaryLogger;
+        Device? device = _auxiliaryDevice;
+        _auxiliaryLogger = null;
+        _auxiliaryDevice = null;
+
+        if (busLogger != null)
+        {
+            try
+            {
+                await busLogger.Stop();
+            }
+            catch (Exception exception)
+            {
+                _logger.AddDebugMessage("Auxiliary bus did not stop cleanly: " + exception.Message);
+            }
+
+            busLogger.Dispose();
+        }
+
+        try
+        {
+            device?.Dispose();
+        }
+        catch (Exception exception)
+        {
+            _logger.AddDebugMessage("Unable to close the auxiliary device: " + exception.Message);
+        }
+
+        if (busLogger != null)
+        {
+            this.RebuildReadings();
+        }
     }
 
     /// <summary>Append a debug line to the Debug tab, keeping the list bounded.</summary>
