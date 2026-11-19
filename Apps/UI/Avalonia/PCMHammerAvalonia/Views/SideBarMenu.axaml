@@ -95,6 +95,14 @@
                                 <TextBlock Text="Halt Kernel" VerticalAlignment="Center"/>
                             </StackPanel>
                     </Button>
+                    <Button HorizontalAlignment="Stretch" Command="{Binding OpenCrankRelearnCommand}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <ic:FluentIcon Icon="ArrowSync"
+                                               Width="24" Height="24"
+                                               VerticalAlignment="Center"/>
+                                <TextBlock Text="Crank Relearn" VerticalAlignment="Center"/>
+                            </StackPanel>
+                    </Button>
                     <Button HorizontalAlignment="Stretch" Command="{Binding CancelCurrentCommand}">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <ic:FluentIcon Icon="DismissCircle"
