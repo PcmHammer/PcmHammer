@@ -85,13 +85,20 @@
 
             <!-- Bottom-tabbed main content -->
             <TabControl TabStripPlacement="Bottom">
+                <!-- One equal-width cell per tab so the strip fills the row in portrait and landscape. -->
+                <TabControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <UniformGrid Rows="1"/>
+                    </ItemsPanelTemplate>
+                </TabControl.ItemsPanel>
                 <TabControl.Styles>
                     <Style Selector="TabItem">
                         <Setter Property="FontWeight" Value="Normal"/>
                         <Setter Property="Foreground" Value="#D0D0D0"/>
                         <Setter Property="FontSize" Value="13"/>
                         <Setter Property="MinHeight" Value="0"/>
-                        <Setter Property="Padding" Value="10,6"/>
+                        <Setter Property="Padding" Value="4,6"/>
+                        <Setter Property="HorizontalContentAlignment" Value="Center"/>
                     </Style>
                     <Style Selector="TabItem:selected">
                         <Setter Property="FontWeight" Value="Bold"/>
@@ -180,7 +187,7 @@
                 </TabItem>
 
                 <!-- Dashboard: gauges -->
-                <TabItem Header="Dashboard">
+                <TabItem Header="Dash">
                     <Grid RowDefinitions="Auto,*" Margin="4">
                         <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="6" Margin="0,0,0,6">
                             <Button Content="Add Gauge…" Click="AddGauge_Click"/>
