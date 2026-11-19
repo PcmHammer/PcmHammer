@@ -48,6 +48,7 @@ public partial class MainWindowViewModel : ObservableObject
     [NotifyCanExecuteChangedFor(nameof(WriteFullFlashCloneCommand))]
     [NotifyCanExecuteChangedFor(nameof(BruteForceUnlockCommand))]
     [NotifyCanExecuteChangedFor(nameof(HaltRunningKernelCommand))]
+    [NotifyCanExecuteChangedFor(nameof(OpenDumpRamCommand))]
     [NotifyCanExecuteChangedFor(nameof(ReadPropertiesCommand))]
     [NotifyCanExecuteChangedFor(nameof(WritePCMCommand))]
     [NotifyCanExecuteChangedFor(nameof(TestWriteCommand))]
@@ -233,6 +234,53 @@ public partial class MainWindowViewModel : ObservableObject
             // Visual delay to let the user visually inspect the final status message
             await Task.Delay(2000);
             if (!IsOperationRunning) StatusText = "Ready";
+        }
+    }
+
+    /// <summary>
+    /// Opens Dump RAM (ports the Uno Dump RAM page). It reads the PCM's RAM into a file and never writes
+    /// to the PCM. The window is modal, so no other operation can use the device while it is open.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanExecuteSelectedDevice))]
+    public async Task OpenDumpRam()
+    {
+        if (Vehicle == null) return;
+        if (IsOperationRunning) return;
+
+        IsDrawerOpen = false;
+        StatusText = "Dump RAM";
+
+        try
+        {
+            IsOperationRunning = true;
+#if ANDROID
+            var viewModel = new DumpRamViewModel(Vehicle, _logger, _fileDialogService);
+            var dialog = new FluentAvalonia.UI.Controls.FAContentDialog
+            {
+                Title = "Dump RAM",
+                Content = new Views.DialogBoxes.DumpRamView { DataContext = viewModel },
+                CloseButtonText = "Close",
+            };
+
+            TopLevel? topLevel = Views.MainView.Current is { } view ? TopLevel.GetTopLevel(view) : null;
+            if (topLevel != null) await dialog.ShowAsync(topLevel);
+            else await dialog.ShowAsync();
+
+            // Closing the dialog must stop any dump still running so the device is released.
+            viewModel.Stop();
+#else
+            Window? owner = null;
+            if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+                owner = desktop.MainWindow;
+
+            var dialog = new DumpRamDialogBox(Vehicle, _logger, _fileDialogService);
+            await dialog.ShowDialog<bool?>(owner!);
+#endif
+        }
+        finally
+        {
+            IsOperationRunning = false;
+            StatusText = "Ready";
         }
     }
     #endregion

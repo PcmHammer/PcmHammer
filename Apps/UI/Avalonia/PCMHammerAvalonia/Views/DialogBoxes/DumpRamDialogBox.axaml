@@ -1,0 +1,14 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="using:PCMHammerAvalonia.ViewModels"
+        xmlns:views="using:PCMHammerAvalonia.Views.DialogBoxes"
+        x:Class="PCMHammerAvalonia.Views.DialogBoxes.DumpRamDialogBox"
+        x:DataType="vm:DumpRamViewModel"
+        mc:Ignorable="d"
+        WindowStartupLocation="CenterOwner"
+        Width="620" Height="500" MinWidth="420" MinHeight="360"
+        Title="Dump RAM">
+    <views:DumpRamView/>
+</Window>

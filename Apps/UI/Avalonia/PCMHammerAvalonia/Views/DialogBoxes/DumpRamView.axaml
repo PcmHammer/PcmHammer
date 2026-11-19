@@ -1,0 +1,39 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:PCMHammerAvalonia.ViewModels"
+             mc:Ignorable="d" d:DesignWidth="560" d:DesignHeight="420"
+             x:DataType="vm:DumpRamViewModel"
+             x:Class="PCMHammerAvalonia.Views.DialogBoxes.DumpRamView">
+
+    <Grid RowDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto" ColumnDefinitions="*,*" Margin="10">
+        <StackPanel Grid.Row="0" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="10" Margin="0,0,0,8">
+            <Button Content="Choose File" Command="{Binding ChooseFileCommand}"/>
+            <TextBlock Text="{Binding PathText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+        </StackPanel>
+
+        <Button Grid.Row="1" Grid.Column="0" Content="Start Dump" Margin="0,0,4,8"
+                HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                Command="{Binding StartCommand}"/>
+        <Button Grid.Row="1" Grid.Column="1" Content="Cancel" Margin="4,0,0,8"
+                HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                Command="{Binding CancelCommand}"/>
+
+        <Border Grid.Row="2" Grid.ColumnSpan="2" BorderThickness="1" Margin="0,0,0,8"
+                BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}">
+            <ScrollViewer x:Name="LogScroller">
+                <SelectableTextBlock Margin="8" Text="{Binding LogText}" TextWrapping="Wrap"
+                                     FontFamily="Consolas, Menlo, DejaVu Sans Mono, Liberation Mono, monospace"/>
+            </ScrollViewer>
+        </Border>
+
+        <ProgressBar Grid.Row="3" Grid.ColumnSpan="2" Height="20" Minimum="0" Maximum="100"
+                     Value="{Binding Progress}" Margin="0,0,0,6"/>
+        <TextBlock Grid.Row="4" Grid.ColumnSpan="2" Text="{Binding Activity}" Margin="0,0,0,4"/>
+        <TextBlock Grid.Row="5" Grid.Column="0" Text="{Binding TimeRemaining}" Margin="0,0,0,2"/>
+        <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding Rate}" Margin="0,0,0,2"/>
+        <TextBlock Grid.Row="6" Grid.Column="0" Text="{Binding PercentDone}"/>
+        <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding ErrorCount}"/>
+    </Grid>
+</UserControl>
