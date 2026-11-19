@@ -1,0 +1,47 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:PCMHammerAvalonia.ViewModels"
+             mc:Ignorable="d" d:DesignWidth="520" d:DesignHeight="420"
+             x:DataType="vm:CrankRelearnViewModel"
+             x:Class="PCMHammerAvalonia.Views.DialogBoxes.CrankRelearnView">
+
+    <StackPanel Margin="12" Spacing="12">
+        <TextBlock TextWrapping="Wrap"
+                   Text="The engine must be at operating temperature and idling, with the brake pedal pressed and the A/C off. After you press Start, you will be asked to raise the RPM, then release the throttle."/>
+
+        <Grid ColumnDefinitions="2*,*,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto" RowSpacing="6">
+            <TextBlock Grid.Row="0" Grid.Column="0" Text="Condition" FontWeight="SemiBold"/>
+            <TextBlock Grid.Row="0" Grid.Column="1" Text="Value" FontWeight="SemiBold"/>
+            <TextBlock Grid.Row="0" Grid.Column="2" Text="Status" FontWeight="SemiBold"/>
+
+            <TextBlock Grid.Row="1" Grid.Column="0" Text="Coolant above 80 °C"/>
+            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding CoolantTemperature}"/>
+            <TextBlock Grid.Row="1" Grid.Column="2" Text="{Binding CoolantTemperatureStatus}"/>
+
+            <TextBlock Grid.Row="2" Grid.Column="0" Text="Idling (under 1100 RPM)"/>
+            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding Rpm}"/>
+            <TextBlock Grid.Row="2" Grid.Column="2" Text="{Binding RpmStatus}"/>
+
+            <TextBlock Grid.Row="3" Grid.Column="0" Text="Brake pedal pressed"/>
+            <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding BrakePedal}"/>
+            <TextBlock Grid.Row="3" Grid.Column="2" Text="{Binding BrakePedalStatus}"/>
+
+            <TextBlock Grid.Row="4" Grid.Column="0" Text="A/C off"/>
+            <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding AirConditioning}"/>
+            <TextBlock Grid.Row="4" Grid.Column="2" Text="{Binding AirConditioningStatus}"/>
+        </Grid>
+
+        <Border BorderThickness="1" Padding="10"
+                BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}">
+            <StackPanel Spacing="4">
+                <TextBlock Text="{Binding Status}" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                <TextBlock Text="{Binding Instructions}" TextWrapping="Wrap"/>
+            </StackPanel>
+        </Border>
+
+        <Button Content="Start" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                Command="{Binding StartCommand}"/>
+    </StackPanel>
+</UserControl>

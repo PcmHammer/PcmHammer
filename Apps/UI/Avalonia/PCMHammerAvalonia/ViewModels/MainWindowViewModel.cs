@@ -48,6 +48,7 @@ public partial class MainWindowViewModel : ObservableObject
     [NotifyCanExecuteChangedFor(nameof(WriteFullFlashCloneCommand))]
     [NotifyCanExecuteChangedFor(nameof(BruteForceUnlockCommand))]
     [NotifyCanExecuteChangedFor(nameof(HaltRunningKernelCommand))]
+    [NotifyCanExecuteChangedFor(nameof(OpenCrankRelearnCommand))]
     [NotifyCanExecuteChangedFor(nameof(ReadPropertiesCommand))]
     [NotifyCanExecuteChangedFor(nameof(WritePCMCommand))]
     [NotifyCanExecuteChangedFor(nameof(TestWriteCommand))]
@@ -233,6 +234,54 @@ public partial class MainWindowViewModel : ObservableObject
             // Visual delay to let the user visually inspect the final status message
             await Task.Delay(2000);
             if (!IsOperationRunning) StatusText = "Ready";
+        }
+    }
+
+    /// <summary>
+    /// Opens Crank Relearn (ports the Uno Crank Relearn page). It reads the entry conditions from the
+    /// PCM and, only when the user presses Start, sends the relearn request. It does not touch flash.
+    /// The window is modal, so no other operation can use the device while it is open.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanExecuteSelectedDevice))]
+    public async Task OpenCrankRelearn()
+    {
+        if (Vehicle == null) return;
+        if (IsOperationRunning) return;
+
+        IsDrawerOpen = false;
+        StatusText = "Crank Relearn";
+
+        try
+        {
+            IsOperationRunning = true;
+#if ANDROID
+            var viewModel = new CrankRelearnViewModel(Vehicle, _logger);
+            var dialog = new FluentAvalonia.UI.Controls.FAContentDialog
+            {
+                Title = "Crank Relearn",
+                Content = new Views.DialogBoxes.CrankRelearnView { DataContext = viewModel },
+                CloseButtonText = "Close",
+            };
+
+            TopLevel? topLevel = Views.MainView.Current is { } view ? TopLevel.GetTopLevel(view) : null;
+            if (topLevel != null) await dialog.ShowAsync(topLevel);
+            else await dialog.ShowAsync();
+
+            // Closing the dialog must stop polling the PCM so the device is released.
+            viewModel.Stop();
+#else
+            Window? owner = null;
+            if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+                owner = desktop.MainWindow;
+
+            var dialog = new CrankRelearnDialogBox(Vehicle, _logger);
+            await dialog.ShowDialog<bool?>(owner!);
+#endif
+        }
+        finally
+        {
+            IsOperationRunning = false;
+            StatusText = "Ready";
         }
     }
     #endregion
