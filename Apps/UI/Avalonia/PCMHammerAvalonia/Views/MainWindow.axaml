@@ -39,6 +39,8 @@
                     <MenuItem Header="Brute Force _Unlock..." Command="{Binding BruteForceUnlockCommand}" />
                     <Separator Height="2"/>
                     <MenuItem Header="_Halt Running Kernel" Command="{Binding HaltRunningKernelCommand}" />
+                    <Separator Height="2"/>
+                    <MenuItem Header="_Bus Monitor..." Command="{Binding OpenBusMonitorCommand}" />
                 </MenuItem>
                 <MenuItem Header="_Options">
                     <MenuItem Header="_User Defined Key" Command="{Binding UserDefinedKeyCommand}" />

@@ -1,0 +1,58 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:PCMHammerAvalonia.ViewModels"
+             mc:Ignorable="d" d:DesignWidth="560" d:DesignHeight="420"
+             x:DataType="vm:BusMonitorViewModel"
+             x:Class="PCMHammerAvalonia.Views.DialogBoxes.BusMonitorView">
+
+    <Grid RowDefinitions="Auto,Auto,Auto,*" Margin="10">
+        <!-- A radio pair rather than a list, to match the WinForms monitor. Each is disabled when the
+             connected interface cannot watch that bus, or while a capture is running. -->
+        <WrapPanel Grid.Row="0" Margin="0,0,0,8">
+            <TextBlock Text="Bus:" VerticalAlignment="Center" Margin="0,0,10,0"/>
+            <RadioButton Content="VPW" GroupName="Bus"
+                         IsChecked="{Binding UseVpw, Mode=TwoWay}">
+                <RadioButton.IsEnabled>
+                    <MultiBinding Converter="{x:Static BoolConverters.And}">
+                        <Binding Path="VpwBusAvailable"/>
+                        <Binding Path="IsStopped"/>
+                    </MultiBinding>
+                </RadioButton.IsEnabled>
+            </RadioButton>
+            <RadioButton Content="CAN 500k" GroupName="Bus" Margin="16,0,0,0"
+                         IsChecked="{Binding UseCan, Mode=TwoWay}">
+                <RadioButton.IsEnabled>
+                    <MultiBinding Converter="{x:Static BoolConverters.And}">
+                        <Binding Path="CanBusAvailable"/>
+                        <Binding Path="IsStopped"/>
+                    </MultiBinding>
+                </RadioButton.IsEnabled>
+            </RadioButton>
+            <TextBlock Text="CAN IDs:" VerticalAlignment="Center" Margin="24,0,10,0"/>
+            <TextBox Text="{Binding CanFilter, Mode=TwoWay}"
+                     IsEnabled="{Binding CanFilterEnabled}"
+                     MinWidth="200"/>
+        </WrapPanel>
+
+        <Grid Grid.Row="1" ColumnDefinitions="*,*" Margin="0,0,0,8">
+            <Button Grid.Column="0" Margin="0,0,4,0" HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Center"
+                    Content="{Binding StartStopText}" Command="{Binding StartStopCommand}"/>
+            <Button Grid.Column="1" Margin="4,0,0,0" HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Center"
+                    Content="Clear" Command="{Binding ClearCommand}"/>
+        </Grid>
+
+        <TextBlock Grid.Row="2" Text="{Binding StatusText}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+
+        <Border Grid.Row="3" BorderThickness="1"
+                BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}">
+            <ScrollViewer x:Name="TrafficScroller" HorizontalScrollBarVisibility="Auto">
+                <SelectableTextBlock Margin="8" Text="{Binding Traffic}"
+                                     FontFamily="Consolas, Menlo, DejaVu Sans Mono, Liberation Mono, monospace"/>
+            </ScrollViewer>
+        </Border>
+    </Grid>
+</UserControl>

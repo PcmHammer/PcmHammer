@@ -48,6 +48,7 @@ public partial class MainWindowViewModel : ObservableObject
     [NotifyCanExecuteChangedFor(nameof(WriteFullFlashCloneCommand))]
     [NotifyCanExecuteChangedFor(nameof(BruteForceUnlockCommand))]
     [NotifyCanExecuteChangedFor(nameof(HaltRunningKernelCommand))]
+    [NotifyCanExecuteChangedFor(nameof(OpenBusMonitorCommand))]
     [NotifyCanExecuteChangedFor(nameof(ReadPropertiesCommand))]
     [NotifyCanExecuteChangedFor(nameof(WritePCMCommand))]
     [NotifyCanExecuteChangedFor(nameof(TestWriteCommand))]
@@ -233,6 +234,53 @@ public partial class MainWindowViewModel : ObservableObject
             // Visual delay to let the user visually inspect the final status message
             await Task.Delay(2000);
             if (!IsOperationRunning) StatusText = "Ready";
+        }
+    }
+
+    /// <summary>
+    /// Opens the passive bus monitor (ports the Uno Bus Monitor page). It only listens; nothing is sent
+    /// to the PCM. The window is modal, so no other operation can use the device while it is open.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanExecuteSelectedDevice))]
+    public async Task OpenBusMonitor()
+    {
+        if (Vehicle == null) return;
+        if (IsOperationRunning) return;
+
+        IsDrawerOpen = false;
+        StatusText = "Bus Monitor";
+
+        try
+        {
+            IsOperationRunning = true;
+#if ANDROID
+            var viewModel = new BusMonitorViewModel(Vehicle, _logger);
+            var dialog = new FluentAvalonia.UI.Controls.FAContentDialog
+            {
+                Title = "Bus Monitor",
+                Content = new Views.DialogBoxes.BusMonitorView { DataContext = viewModel },
+                CloseButtonText = "Close",
+            };
+
+            TopLevel? topLevel = Views.MainView.Current is { } view ? TopLevel.GetTopLevel(view) : null;
+            if (topLevel != null) await dialog.ShowAsync(topLevel);
+            else await dialog.ShowAsync();
+
+            // Closing the dialog must end the capture so the device is released.
+            viewModel.Stop();
+#else
+            Window? owner = null;
+            if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+                owner = desktop.MainWindow;
+
+            var dialog = new BusMonitorDialogBox(Vehicle, _logger);
+            await dialog.ShowDialog<bool?>(owner!);
+#endif
+        }
+        finally
+        {
+            IsOperationRunning = false;
+            StatusText = "Ready";
         }
     }
     #endregion
