@@ -50,6 +50,12 @@ namespace PcmHacking
         private StreamWriter? recordStream;
         private IReadOnlyList<string> columnNames = Array.Empty<string>();
         private int recordedRows;
+
+        // The last few seconds of rows, so a recording that starts on an event (auto-save) can include the
+        // lead-up to it. Off (zero seconds) unless a front end asks for it. Guarded by recordLock.
+        private readonly Queue<(DateTime Time, string[] Values)> preTriggerRows =
+            new Queue<(DateTime Time, string[] Values)>();
+        private double preTriggerSeconds;
         private string? recordPath;
 
         /// <summary>Raised once per complete row of readings, in column order.</summary>
@@ -220,6 +226,27 @@ namespace PcmHacking
         }
 
         /// <summary>True while a recording file is open.</summary>
+        /// <summary>
+        /// How many seconds of rows to keep, so that a recording started on an event also contains what
+        /// led up to it. The kept rows are written at the start of the recording, before the rows that
+        /// follow. Zero, the default, keeps none and leaves recording exactly as it was.
+        /// </summary>
+        public double PreTriggerSeconds
+        {
+            get { lock (this.recordLock) { return this.preTriggerSeconds; } }
+            set
+            {
+                lock (this.recordLock)
+                {
+                    this.preTriggerSeconds = Math.Max(0, value);
+                    if (this.preTriggerSeconds == 0)
+                    {
+                        this.preTriggerRows.Clear();
+                    }
+                }
+            }
+        }
+
         public bool IsRecording
         {
             get { lock (this.recordLock) { return this.recorder != null; } }
@@ -250,15 +277,35 @@ namespace PcmHacking
 
             this.StopRecording();
 
+            // With a lead-up to include, count elapsed time from the start of it, so the first kept row
+            // reads zero and the trigger falls PreTriggerSeconds in.
+            DateTime? start = null;
+            lock (this.recordLock)
+            {
+                if (this.preTriggerSeconds > 0 && this.preTriggerRows.Count > 0)
+                {
+                    start = DateTime.Now.AddSeconds(-this.preTriggerSeconds);
+                }
+            }
+
             StreamWriter stream = new StreamWriter(path, append: false);
-            LogFileWriter writer = new LogFileWriter(stream, null);
+            LogFileWriter writer = new LogFileWriter(stream, start);
             await writer.WriteHeader(columns).ConfigureAwait(false);
 
             lock (this.recordLock)
             {
+                this.recordedRows = 0;
+
+                // The lead-up first, then the rows the loop writes from here on. Both happen under the
+                // lock the loop holds when it adds a row, so no row is missed or written twice.
+                foreach ((DateTime Time, string[] Values) buffered in this.preTriggerRows)
+                {
+                    writer.WriteLine(buffered.Values, buffered.Time);
+                    this.recordedRows++;
+                }
+
                 this.recordStream = stream;
                 this.recorder = writer;
-                this.recordedRows = 0;
                 this.recordPath = path;
             }
 
@@ -318,6 +365,9 @@ namespace PcmHacking
             lock (this.recordLock)
             {
                 this.columnNames = session.GetColumnNames().ToList();
+
+                // Rows kept from an earlier session have different columns.
+                this.preTriggerRows.Clear();
             }
 
             if (session.UnsupportedParameters.Count > 0)
@@ -408,6 +458,17 @@ namespace PcmHacking
                                 this.recorder.WriteLine(row.Select(element => element.ValueAsString));
                                 this.recordedRows++;
                             }
+
+                            if (this.preTriggerSeconds > 0)
+                            {
+                                DateTime now = DateTime.Now;
+                                this.preTriggerRows.Enqueue((now, row.Select(element => element.ValueAsString).ToArray()));
+                                while (this.preTriggerRows.Count > 0
+                                    && (now - this.preTriggerRows.Peek().Time).TotalSeconds > this.preTriggerSeconds)
+                                {
+                                    this.preTriggerRows.Dequeue();
+                                }
+                            }
                         }
                     }
                 }
@@ -429,6 +490,7 @@ namespace PcmHacking
                 lock (this.recordLock)
                 {
                     this.columnNames = Array.Empty<string>();
+                    this.preTriggerRows.Clear();
                 }
 
                 if (session != null)
