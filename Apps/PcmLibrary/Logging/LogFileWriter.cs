@@ -62,5 +62,22 @@ namespace PcmHacking
                 this.writer.WriteLine(string.Join(", ", values));
             }
         }
+
+        /// <summary>
+        /// Write a row stamped with the time it was read rather than the time it is written. For rows
+        /// that were kept before a recording began, which would otherwise all carry the moment the
+        /// recording started.
+        /// </summary>
+        public void WriteLine(IEnumerable<string> values, DateTime time)
+        {
+            lock (this.writer)
+            {
+                this.writer.Write(time.ToString("u"));
+                this.writer.Write(", ");
+                this.writer.Write(time.Subtract(this.startTime).ToString());
+                this.writer.Write(", ");
+                this.writer.WriteLine(string.Join(", ", values));
+            }
+        }
     }
 }
