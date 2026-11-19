@@ -86,6 +86,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(StartStopButtonText))]
+    [NotifyPropertyChangedFor(nameof(CanRecordManually))]
     private bool _isLogging;
 
     /// <summary>The single Start/Stop Logging button's caption.</summary>
@@ -95,7 +96,11 @@ public partial class MainWindowViewModel : ViewModelBase
     [NotifyPropertyChangedFor(nameof(RecordButtonText))]
     private bool _isRecording;
 
-    public string RecordButtonText => this.IsRecording ? "Stop Recording" : "Record";
+    public string RecordButtonText =>
+        this.AutoSaveActive ? "Auto" : (this.IsRecording ? "Stop Recording" : "Record");
+
+    /// <summary>The Record button works only while logging, and not when auto-save decides by itself.</summary>
+    public bool CanRecordManually => this.IsLogging && !this.AutoSaveActive;
 
     // --- Configuration tab (mirrors the WinForms PcmLogger Configuration tab) --------------------
 
@@ -815,6 +820,7 @@ public partial class MainWindowViewModel : ViewModelBase
         this.Readings.Add(_queryTimeRow);
 
         this.HasZoomedReadings = this.ZoomedReadings.Count > 0;
+        this.UpdateAutoSaveAvailability();
     }
 
     /// <summary>The log columns for the enabled parameters - what Start logs.</summary>
@@ -1191,6 +1197,11 @@ public partial class MainWindowViewModel : ViewModelBase
 
         _queryTimeRow.Value = "--";
         this.LoadRecentProfiles();
+
+        // Backing fields, so loading the saved choices doesn't save them straight back.
+        _autoSaveAccelerator = _settings.AutoSaveAccelerator;
+        _autoSaveKnockRetard = _settings.AutoSaveKnockRetard;
+        _autoSaveCruiseButton = _settings.AutoSaveCruiseButton;
         this.UpdateDeviceSummary();
         this.BuildFromPackage(DefaultLoggerPackage.Create());
     }
@@ -1290,6 +1301,8 @@ public partial class MainWindowViewModel : ViewModelBase
         this.ParameterRows.Clear();
         this.Readings.Clear();
         _rowsById.Clear();
+        _autoRecording = false;
+        this.UpdateAutoSaveAvailability();
         this.IsConnected = false;
         this.StatusText = "Disconnected.";
     }
@@ -1696,6 +1709,7 @@ public partial class MainWindowViewModel : ViewModelBase
         this.IsMonitorPaused = false;
 
         _controller = new LoggingController(_vehicle, _osid, _logger);
+        _controller.PreTriggerSeconds = this.AutoSaveActive ? AutoSavePreTriggerSeconds : 0;
         _controller.RowAvailable += OnRowAvailable;
         _controller.Stopped += () => Dispatcher.UIThread.Post(() =>
         {
@@ -1762,11 +1776,193 @@ public partial class MainWindowViewModel : ViewModelBase
             _controller = null;
         }
 
+        _autoRecording = false;
         this.IsLogging = false;
         this.IsRecording = false;
         // Freeze the strip chart where it stopped, so the last data can be inspected.
         this.IsMonitorPaused = true;
         this.StatusText = this.IsConnected ? "Stopped." : "Not connected.";
+    }
+
+    // ---- Auto-save --------------------------------------------------------------------------------------
+    // Records by itself while a condition holds, instead of on the Record button: the accelerator pedal
+    // above 80, knock retard above 0, or the cruise Set button pressed (the Uno logger's options). The two
+    // seconds before the condition began are included. An option only counts while its parameter is
+    // ticked on the Parameters tab, since without it there is nothing to watch.
+
+    private const string AcceleratorPedalPositionId = "AcceleratorPedalPosition";
+    private const string AcceleratorPedalId = "AcceleratorPedal";
+    private const string KnockRetardId = "KnockRetardDegrees";
+    private const string CruiseSetCoastSwitchId = "CruiseSetCoastSwitch";
+    private const double AutoSavePreTriggerSeconds = 2;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AutoSaveActive))]
+    private bool _autoSaveAccelerator;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AutoSaveActive))]
+    private bool _autoSaveKnockRetard;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AutoSaveActive))]
+    private bool _autoSaveCruiseButton;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AutoSaveActive))]
+    private bool _autoSaveAcceleratorAvailable;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AutoSaveActive))]
+    private bool _autoSaveKnockRetardAvailable;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AutoSaveActive))]
+    private bool _autoSaveCruiseButtonAvailable;
+
+    /// <summary>True when at least one ticked auto-save condition can actually be watched.</summary>
+    public bool AutoSaveActive =>
+        (this.AutoSaveAccelerator && this.AutoSaveAcceleratorAvailable)
+        || (this.AutoSaveKnockRetard && this.AutoSaveKnockRetardAvailable)
+        || (this.AutoSaveCruiseButton && this.AutoSaveCruiseButtonAvailable);
+
+    // True while a recording started by auto-save is open, so only that one is stopped by it.
+    private bool _autoRecording;
+
+    // A start is under way (it writes a header first); don't begin a second one meanwhile.
+    private bool _autoSaveStarting;
+
+    partial void OnAutoSaveAcceleratorChanged(bool value) => this.AutoSaveOptionChanged();
+
+    partial void OnAutoSaveKnockRetardChanged(bool value) => this.AutoSaveOptionChanged();
+
+    partial void OnAutoSaveCruiseButtonChanged(bool value) => this.AutoSaveOptionChanged();
+
+    private void AutoSaveOptionChanged()
+    {
+        _settings.AutoSaveAccelerator = this.AutoSaveAccelerator;
+        _settings.AutoSaveKnockRetard = this.AutoSaveKnockRetard;
+        _settings.AutoSaveCruiseButton = this.AutoSaveCruiseButton;
+        _settings.Save();
+        this.ApplyAutoSaveState();
+    }
+
+    partial void OnAutoSaveAcceleratorAvailableChanged(bool value) => this.ApplyAutoSaveState();
+
+    partial void OnAutoSaveKnockRetardAvailableChanged(bool value) => this.ApplyAutoSaveState();
+
+    partial void OnAutoSaveCruiseButtonAvailableChanged(bool value) => this.ApplyAutoSaveState();
+
+    /// <summary>Keep the Record button and the controller's lead-up buffer in step with the options.</summary>
+    private void ApplyAutoSaveState()
+    {
+        this.OnPropertyChanged(nameof(RecordButtonText));
+        this.OnPropertyChanged(nameof(CanRecordManually));
+
+        if (_controller != null)
+        {
+            _controller.PreTriggerSeconds = this.AutoSaveActive ? AutoSavePreTriggerSeconds : 0;
+        }
+
+        // Turning auto-save off while it is recording ends that recording.
+        if (!this.AutoSaveActive && _autoRecording)
+        {
+            _autoRecording = false;
+            _controller?.StopRecording();
+        }
+    }
+
+    /// <summary>Enable each option only if its parameter is among the ticked ones.</summary>
+    private void UpdateAutoSaveAvailability()
+    {
+        bool accelerator = false;
+        bool knock = false;
+        bool cruise = false;
+
+        foreach (ParameterRow row in this.ParameterRows)
+        {
+            if (!row.Enabled)
+            {
+                continue;
+            }
+
+            if (row.Id == AcceleratorPedalPositionId || row.Id == AcceleratorPedalId)
+            {
+                accelerator = true;
+            }
+            else if (row.Id == KnockRetardId)
+            {
+                knock = true;
+            }
+            else if (row.Id == CruiseSetCoastSwitchId)
+            {
+                cruise = true;
+            }
+        }
+
+        this.AutoSaveAcceleratorAvailable = accelerator;
+        this.AutoSaveKnockRetardAvailable = knock;
+        this.AutoSaveCruiseButtonAvailable = cruise;
+    }
+
+    /// <summary>Start or stop the recording to match the conditions in this row. UI thread.</summary>
+    private void EvaluateAutoSave(IReadOnlyList<LogRowElement> row)
+    {
+        LoggingController? controller = _controller;
+        if (controller == null || !this.AutoSaveActive)
+        {
+            return;
+        }
+
+        bool shouldBeRecording = false;
+        foreach (LogRowElement element in row)
+        {
+            if (this.AutoSaveAccelerator
+                && (element.ParameterId == AcceleratorPedalPositionId || element.ParameterId == AcceleratorPedalId))
+            {
+                shouldBeRecording |= element.ValueAsNumber > 80;
+            }
+
+            if (this.AutoSaveKnockRetard && element.ParameterId == KnockRetardId)
+            {
+                shouldBeRecording |= element.ValueAsNumber > 0;
+            }
+
+            if (this.AutoSaveCruiseButton && element.ParameterId == CruiseSetCoastSwitchId)
+            {
+                shouldBeRecording |= element.ValueAsString == "Pressed";
+            }
+        }
+
+        if (shouldBeRecording && !controller.IsRecording && !_autoSaveStarting)
+        {
+            _autoSaveStarting = true;
+            _ = this.StartAutoRecordingAsync(controller);
+        }
+        else if (!shouldBeRecording && _autoRecording && controller.IsRecording)
+        {
+            _autoRecording = false;
+            controller.StopRecording();
+        }
+    }
+
+    private async Task StartAutoRecordingAsync(LoggingController controller)
+    {
+        try
+        {
+            Directory.CreateDirectory(this.LogFolder);
+            string path = Path.Combine(this.LogFolder, "PcmLog_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".csv");
+            await controller.StartRecordingAsync(path);
+            _autoRecording = true;
+        }
+        catch (Exception exception)
+        {
+            this.StatusText = "Auto-save could not start recording: " + exception.Message;
+        }
+        finally
+        {
+            _autoSaveStarting = false;
+        }
     }
 
     /// <summary>Append a debug line to the Debug tab, keeping the list bounded.</summary>
@@ -1810,6 +2006,8 @@ public partial class MainWindowViewModel : ViewModelBase
                     }
                 }
             }
+
+            this.EvaluateAutoSave(row);
 
             // Query time: the ms since the previous row (the WinForms "Query time" readout).
             DateTime now = DateTime.Now;

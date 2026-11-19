@@ -24,6 +24,11 @@ public class LoggerSettings
     /// <summary>Full paths of recently opened or saved profiles, newest first.</summary>
     public List<string> RecentProfiles { get; set; } = new();
 
+    // Auto-save: record only while the chosen condition holds. Which of them are ticked is remembered.
+    public bool AutoSaveAccelerator { get; set; }
+    public bool AutoSaveKnockRetard { get; set; }
+    public bool AutoSaveCruiseButton { get; set; }
+
     public static LoggerSettings Load()
     {
         try

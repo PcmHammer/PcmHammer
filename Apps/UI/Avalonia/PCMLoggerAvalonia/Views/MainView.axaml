@@ -15,7 +15,7 @@
             <Button Content="{Binding ConnectButtonText}" Command="{Binding ToggleConnectionCommand}" MinWidth="90"/>
             <Button Content="{Binding StartStopButtonText}" Command="{Binding ToggleLoggingCommand}" MinWidth="110"/>
             <Button Content="{Binding RecordButtonText}" Command="{Binding ToggleRecordingCommand}"
-                    IsEnabled="{Binding IsLogging}" MinWidth="110"/>
+                    IsEnabled="{Binding CanRecordManually}" MinWidth="110"/>
         </StackPanel>
 
         <!-- Content: the tab bar on the left, the always-visible live-value pane on the right -->
@@ -93,6 +93,22 @@
                             <StackPanel Spacing="8">
                                 <TextBlock Text="Options" FontWeight="SemiBold"/>
                                 <CheckBox Content="Auto start logging" IsChecked="{Binding AutoStartLogging}"/>
+
+                                <!-- Record by itself while a condition holds (the Uno logger's auto-save). -->
+                                <TextBlock Text="Auto-save: record only while" Margin="0,6,0,0"
+                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                                <CheckBox Content="the accelerator pedal is above 80"
+                                          IsChecked="{Binding AutoSaveAccelerator}"
+                                          IsEnabled="{Binding AutoSaveAcceleratorAvailable}"/>
+                                <CheckBox Content="knock retard is above 0"
+                                          IsChecked="{Binding AutoSaveKnockRetard}"
+                                          IsEnabled="{Binding AutoSaveKnockRetardAvailable}"/>
+                                <CheckBox Content="the cruise Set button is pressed"
+                                          IsChecked="{Binding AutoSaveCruiseButton}"
+                                          IsEnabled="{Binding AutoSaveCruiseButtonAvailable}"/>
+                                <TextBlock Text="Each needs its parameter ticked on the Parameters tab. The 2 seconds before are kept."
+                                           TextWrapping="Wrap"
+                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
                             </StackPanel>
                         </Border>
 
