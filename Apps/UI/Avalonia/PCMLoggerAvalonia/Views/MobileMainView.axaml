@@ -14,29 +14,34 @@
         </Style>
     </UserControl.Styles>
 
-    <Grid RowDefinitions="Auto,*,Auto">
+    <Grid RowDefinitions="Auto,Auto,*,Auto">
+
+        <!-- App header: menu button, logo, title -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="10" Margin="8,4,8,0">
+            <ToggleButton x:Name="MenuToggle" Content="☰" FontSize="20" Padding="12,4"
+                          VerticalAlignment="Center"/>
+            <Image Source="avares://PCMLoggerAvalonia/Assets/pcmlogger_256px.ico"
+                   Width="36" Height="36" VerticalAlignment="Center"/>
+            <TextBlock Text="PCM Logger" VerticalAlignment="Center" FontSize="18"/>
+        </StackPanel>
 
         <!-- Session action bar: always visible at top -->
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="6" Margin="8,8,8,4">
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="6" Margin="8,4,8,4">
             <Button Content="{Binding ConnectButtonText}" Command="{Binding ToggleConnectionCommand}" MinWidth="90"/>
             <Button Content="{Binding StartStopButtonText}" Command="{Binding ToggleLoggingCommand}" MinWidth="110"/>
             <Button Content="{Binding RecordButtonText}" Command="{Binding ToggleRecordingCommand}"
                     IsEnabled="{Binding IsLogging}" MinWidth="90"/>
         </StackPanel>
 
-        <!-- DrawerPage: settings drawer (left) + bottom-tabbed content -->
-        <DrawerPage Grid.Row="1" IsGestureEnabled="True" DrawerPlacement="Left">
+        <!-- Header bar + slide-out settings pane (plain SplitView) + bottom-tabbed content -->
+        <Grid Grid.Row="2">
 
-            <DrawerPage.Header>
-                <StackPanel Orientation="Horizontal" Spacing="10">
-                    <Image Source="avares://PCMLoggerAvalonia/Assets/pcmlogger_256px.ico"
-                           Width="36" Height="36" VerticalAlignment="Center"/>
-                    <TextBlock Text="PCM Logger" VerticalAlignment="Center" FontSize="18"/>
-                </StackPanel>
-            </DrawerPage.Header>
 
-            <!-- Settings drawer: device, log folder, theme, options -->
-            <DrawerPage.Drawer>
+            <SplitView DisplayMode="Overlay" PanePlacement="Left" OpenPaneLength="300"
+                       IsPaneOpen="{Binding #MenuToggle.IsChecked, Mode=TwoWay}">
+
+            <!-- Settings pane: device, log folder, theme, options -->
+            <SplitView.Pane>
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Spacing="10" Margin="12">
 
@@ -76,7 +81,7 @@
                                   Padding="4,8"/>
                     </StackPanel>
                 </ScrollViewer>
-            </DrawerPage.Drawer>
+            </SplitView.Pane>
 
             <!-- Bottom-tabbed main content -->
             <TabControl TabStripPlacement="Bottom">
@@ -314,10 +319,11 @@
                 </TabItem>
 
             </TabControl>
-        </DrawerPage>
+            </SplitView>
+        </Grid>
 
         <!-- Status bar -->
-        <TextBlock Grid.Row="2" Text="{Binding StatusText}" Margin="8,4,8,6"
+        <TextBlock Grid.Row="3" Text="{Binding StatusText}" Margin="8,4,8,6"
                    Foreground="{DynamicResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis"/>
     </Grid>
 </UserControl>
