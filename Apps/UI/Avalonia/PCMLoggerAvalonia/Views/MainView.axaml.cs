@@ -64,6 +64,23 @@ public partial class MainView : UserControl
         this.UpdateResponsiveLayout();
     }
 
+    private void RecentProfile_SelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (sender is not ListBox list || list.SelectedItem is not RecentProfileItem item)
+        {
+            return;
+        }
+
+        // Clear the selection so choosing the same entry again later still counts, then close the list.
+        list.SelectedItem = null;
+        this.RecentProfilesButton.Flyout?.Hide();
+
+        if (this.DataContext is MainWindowViewModel vm)
+        {
+            vm.OpenRecentProfileCommand.Execute(item.Path);
+        }
+    }
+
     private async Task<bool> ConfirmDiscardAsync(string message)
     {
         FAContentDialog dialog = new()

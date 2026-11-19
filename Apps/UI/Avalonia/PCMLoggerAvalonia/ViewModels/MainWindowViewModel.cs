@@ -1190,6 +1190,7 @@ public partial class MainWindowViewModel : ViewModelBase
         _codeDefinitions = DiagnosticCodeDefinitions.Load(PlatformPaths.ResourceDirectory, _logger);
 
         _queryTimeRow.Value = "--";
+        this.LoadRecentProfiles();
         this.UpdateDeviceSummary();
         this.BuildFromPackage(DefaultLoggerPackage.Create());
     }
@@ -1437,8 +1438,55 @@ public partial class MainWindowViewModel : ViewModelBase
                 return;
             }
 
-            string path = files[0].Path.LocalPath;
+            this.LoadProfileFromPath(files[0].Path.LocalPath);
+        }
+        catch (Exception exception)
+        {
+            this.StatusText = "Open profile failed: " + exception.Message;
+        }
+    }
 
+    /// <summary>Open a profile from the recent list. A file that has since been moved or deleted is
+    /// dropped from the list instead of failing.</summary>
+    [RelayCommand]
+    private async Task OpenRecentProfile(string? path)
+    {
+        if (string.IsNullOrEmpty(path))
+        {
+            return;
+        }
+
+        if (!this.IsConnected || _database == null)
+        {
+            this.StatusText = "Connect to a PCM before opening a profile.";
+            return;
+        }
+
+        if (!File.Exists(path))
+        {
+            this.RemoveRecentProfile(path);
+            this.StatusText = $"'{Path.GetFileName(path)}' no longer exists and was removed from the recent list.";
+            return;
+        }
+
+        if (!await this.ConfirmDiscardChangesAsync())
+        {
+            return;
+        }
+
+        this.LoadProfileFromPath(path);
+    }
+
+    /// <summary>Read a .LogProfile and apply it to the Parameters tab.</summary>
+    private void LoadProfileFromPath(string path)
+    {
+        if (_database == null)
+        {
+            return;
+        }
+
+        try
+        {
             LogProfileReader reader = new(_database, _osid, _logger);
             _profile = reader.Read(path);
 
@@ -1449,6 +1497,7 @@ public partial class MainWindowViewModel : ViewModelBase
             this.ProfileName = System.IO.Path.GetFileName(path);
             _profilePath = path;
             this.IsProfileModified = false;
+            this.AddRecentProfile(path);
             this.StatusText = $"Loaded profile '{this.ProfileName}' ({this.Readings.Count} parameters).";
 
             // Auto start logging if asked and already connected (the Configuration tab option).
@@ -1461,6 +1510,34 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             this.StatusText = "Open profile failed: " + exception.Message;
         }
+    }
+
+    // Recently opened or saved profiles, newest first, kept across runs in the logger's settings file.
+    private readonly LoggerSettings _settings = LoggerSettings.Load();
+
+    public ObservableCollection<RecentProfileItem> RecentProfiles { get; } = new();
+
+    private void LoadRecentProfiles()
+    {
+        this.RecentProfiles.Clear();
+        foreach (string path in _settings.RecentProfiles)
+        {
+            this.RecentProfiles.Add(new RecentProfileItem(path));
+        }
+    }
+
+    private void AddRecentProfile(string path)
+    {
+        _settings.AddRecentProfile(path);
+        _settings.Save();
+        this.LoadRecentProfiles();
+    }
+
+    private void RemoveRecentProfile(string path)
+    {
+        _settings.RemoveRecentProfile(path);
+        _settings.Save();
+        this.LoadRecentProfiles();
     }
 
     /// <summary>If the profile has unsaved changes, ask before they are thrown away. True means go on.</summary>
@@ -1534,6 +1611,7 @@ public partial class MainWindowViewModel : ViewModelBase
             _profilePath = path;
             this.ProfileName = Path.GetFileName(path);
             this.IsProfileModified = false;
+            this.AddRecentProfile(path);
             this.StatusText = $"Saved profile '{this.ProfileName}' ({columns.Count} parameters).";
         }
         catch (Exception exception)
