@@ -43,6 +43,13 @@ namespace PcmHacking
         private IReadOnlyList<LogColumn>? pendingColumns;
         private volatile bool reconfigureRequested;
 
+        // The columns the running session was last opened with, so the session can be rebuilt with the
+        // same columns when only the auxiliary bus changes. Guarded by sync.
+        private IReadOnlyList<LogColumn> activeColumns = Array.Empty<LogColumn>();
+
+        // Optional second bus read alongside the PCM. Null means no auxiliary columns. Guarded by sync.
+        private AuxiliaryBusLogger? auxiliaryBus;
+
         // CSV recording. The loop writes each row to the recorder while one is set; start/stop manage
         // the file. Guarded by recordLock so the loop never writes to a stream being closed.
         private readonly object recordLock = new object();
@@ -113,7 +120,38 @@ namespace PcmHacking
 
                 this.cancellation = new CancellationTokenSource();
                 CancellationToken token = this.cancellation.Token;
+                this.activeColumns = columns;
                 this.loopTask = Task.Run(() => this.RunLoop(columns, token));
+            }
+        }
+
+        /// <summary>
+        /// Read broadcast parameters from a second bus alongside the PCM, or stop doing so by passing
+        /// null. The auxiliary columns follow the PCM's in each row and in the recording. The caller owns
+        /// the logger and the device behind it (opening, starting and stopping them); this only decides
+        /// whether the session includes its columns.
+        /// </summary>
+        /// <remarks>
+        /// If logging is running, the session is reopened between rows with the same columns, as for a
+        /// profile change, so the new column set takes effect without a Stop and Start. Any recording is
+        /// closed by that, because its header would no longer match.
+        /// </remarks>
+        public void SetAuxiliaryBus(AuxiliaryBusLogger? busLogger)
+        {
+            lock (this.sync)
+            {
+                if (ReferenceEquals(this.auxiliaryBus, busLogger))
+                {
+                    return;
+                }
+
+                this.auxiliaryBus = busLogger;
+
+                if (this.loopTask != null && !this.loopTask.IsCompleted)
+                {
+                    this.pendingColumns = this.pendingColumns ?? this.activeColumns;
+                    this.reconfigureRequested = true;
+                }
             }
         }
 
@@ -300,11 +338,25 @@ namespace PcmHacking
         /// any unsupported parameters. Used for the first open and each live reconfiguration.</summary>
         private async Task<LogSession> OpenSessionAsync(IReadOnlyList<LogColumn> columns, CancellationToken token)
         {
-            LogSession session = new LogSession(
-                new IParameterSource[]
-                {
-                    new PcmParameterSource(this.vehicle, this.osid, this.logger),
-                });
+            // Source order is column order: the PCM first, then the auxiliary bus if one is set, which
+            // is the order the WinForms logger's log file and display use.
+            List<IParameterSource> sources = new List<IParameterSource>
+            {
+                new PcmParameterSource(this.vehicle, this.osid, this.logger),
+            };
+
+            AuxiliaryBusLogger? auxiliary;
+            lock (this.sync)
+            {
+                auxiliary = this.auxiliaryBus;
+            }
+
+            if (auxiliary != null)
+            {
+                sources.Add(new AuxiliaryBusParameterSource(auxiliary, enabled: true));
+            }
+
+            LogSession session = new LogSession(sources);
 
             if (!await session.Open(columns, token).ConfigureAwait(false))
             {
@@ -347,6 +399,8 @@ namespace PcmHacking
                         lock (this.sync)
                         {
                             next = this.pendingColumns ?? columns;
+                            this.pendingColumns = null;
+                            this.activeColumns = next;
                             this.reconfigureRequested = false;
                         }
 
