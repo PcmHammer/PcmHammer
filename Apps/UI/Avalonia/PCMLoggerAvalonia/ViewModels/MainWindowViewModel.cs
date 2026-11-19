@@ -58,7 +58,24 @@ public partial class MainWindowViewModel : ViewModelBase
     private string _statusText = "Not connected.";
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ProfileTitle))]
     private string _profileName = "(no profile)";
+
+    // True once the Parameters tab has been changed since the profile was loaded or last saved.
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ProfileTitle))]
+    private bool _isProfileModified;
+
+    /// <summary>The profile name as shown to the user, with a star when it has unsaved changes.</summary>
+    public string ProfileTitle => this.IsProfileModified ? this.ProfileName + " *" : this.ProfileName;
+
+    // The file the current profile was opened from or last saved to. Null for the bundled default and
+    // for a new profile, so Save asks where instead of overwriting the bundled Overview profile.
+    private string? _profilePath;
+
+    /// <summary>Asks the user to confirm (supplied by the view, which owns the dialogs). Returns true to
+    /// go ahead. Unset means "just proceed", for a host with no dialog.</summary>
+    public Func<string, Task<bool>>? ConfirmAsync { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ConnectButtonText))]
@@ -69,6 +86,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(StartStopButtonText))]
+    [NotifyPropertyChangedFor(nameof(CanRecordManually))]
     private bool _isLogging;
 
     /// <summary>The single Start/Stop Logging button's caption.</summary>
@@ -78,7 +96,11 @@ public partial class MainWindowViewModel : ViewModelBase
     [NotifyPropertyChangedFor(nameof(RecordButtonText))]
     private bool _isRecording;
 
-    public string RecordButtonText => this.IsRecording ? "Stop Recording" : "Record";
+    public string RecordButtonText =>
+        this.AutoSaveActive ? "Auto" : (this.IsRecording ? "Stop Recording" : "Record");
+
+    /// <summary>The Record button works only while logging, and not when auto-save decides by itself.</summary>
+    public bool CanRecordManually => this.IsLogging && !this.AutoSaveActive;
 
     // --- Configuration tab (mirrors the WinForms PcmLogger Configuration tab) --------------------
 
@@ -733,6 +755,12 @@ public partial class MainWindowViewModel : ViewModelBase
         bool affectsLog = e.PropertyName == nameof(ParameterRow.Enabled)
             || e.PropertyName == nameof(ParameterRow.SelectedUnit);
 
+        // Any of these is saved in a profile, so the profile now differs from its file.
+        if (affectsLog || e.PropertyName == nameof(ParameterRow.Zoom))
+        {
+            this.IsProfileModified = true;
+        }
+
         if (affectsLog || e.PropertyName == nameof(ParameterRow.Zoom))
         {
             this.RebuildReadings();
@@ -792,6 +820,7 @@ public partial class MainWindowViewModel : ViewModelBase
         this.Readings.Add(_queryTimeRow);
 
         this.HasZoomedReadings = this.ZoomedReadings.Count > 0;
+        this.UpdateAutoSaveAvailability();
     }
 
     /// <summary>The log columns for the enabled parameters - what Start logs.</summary>
@@ -838,6 +867,8 @@ public partial class MainWindowViewModel : ViewModelBase
             _profile = reader.Read(path);
             this.ApplyProfileToParameterRows(_profile);
             this.ProfileName = "Overview (default)";
+            _profilePath = null;
+            this.IsProfileModified = false;
         }
         catch (Exception exception)
         {
@@ -1165,6 +1196,12 @@ public partial class MainWindowViewModel : ViewModelBase
         _codeDefinitions = DiagnosticCodeDefinitions.Load(PlatformPaths.ResourceDirectory, _logger);
 
         _queryTimeRow.Value = "--";
+        this.LoadRecentProfiles();
+
+        // Backing fields, so loading the saved choices doesn't save them straight back.
+        _autoSaveAccelerator = _settings.AutoSaveAccelerator;
+        _autoSaveKnockRetard = _settings.AutoSaveKnockRetard;
+        _autoSaveCruiseButton = _settings.AutoSaveCruiseButton;
         this.UpdateDeviceSummary();
         this.BuildFromPackage(DefaultLoggerPackage.Create());
     }
@@ -1258,10 +1295,14 @@ public partial class MainWindowViewModel : ViewModelBase
         _vehicle = null;
         _database = null;
         _profile = null;
+        _profilePath = null;
+        this.IsProfileModified = false;
         this.AvailableParameters.Clear();
         this.ParameterRows.Clear();
         this.Readings.Clear();
         _rowsById.Clear();
+        _autoRecording = false;
+        this.UpdateAutoSaveAvailability();
         this.IsConnected = false;
         this.StatusText = "Disconnected.";
     }
@@ -1381,6 +1422,11 @@ public partial class MainWindowViewModel : ViewModelBase
             return;
         }
 
+        if (!await this.ConfirmDiscardChangesAsync())
+        {
+            return;
+        }
+
         try
         {
             IStorageProvider? storage = GetStorageProvider();
@@ -1405,8 +1451,55 @@ public partial class MainWindowViewModel : ViewModelBase
                 return;
             }
 
-            string path = files[0].Path.LocalPath;
+            this.LoadProfileFromPath(files[0].Path.LocalPath);
+        }
+        catch (Exception exception)
+        {
+            this.StatusText = "Open profile failed: " + exception.Message;
+        }
+    }
 
+    /// <summary>Open a profile from the recent list. A file that has since been moved or deleted is
+    /// dropped from the list instead of failing.</summary>
+    [RelayCommand]
+    private async Task OpenRecentProfile(string? path)
+    {
+        if (string.IsNullOrEmpty(path))
+        {
+            return;
+        }
+
+        if (!this.IsConnected || _database == null)
+        {
+            this.StatusText = "Connect to a PCM before opening a profile.";
+            return;
+        }
+
+        if (!File.Exists(path))
+        {
+            this.RemoveRecentProfile(path);
+            this.StatusText = $"'{Path.GetFileName(path)}' no longer exists and was removed from the recent list.";
+            return;
+        }
+
+        if (!await this.ConfirmDiscardChangesAsync())
+        {
+            return;
+        }
+
+        this.LoadProfileFromPath(path);
+    }
+
+    /// <summary>Read a .LogProfile and apply it to the Parameters tab.</summary>
+    private void LoadProfileFromPath(string path)
+    {
+        if (_database == null)
+        {
+            return;
+        }
+
+        try
+        {
             LogProfileReader reader = new(_database, _osid, _logger);
             _profile = reader.Read(path);
 
@@ -1415,6 +1508,9 @@ public partial class MainWindowViewModel : ViewModelBase
             this.ApplyProfileToParameterRows(_profile);
 
             this.ProfileName = System.IO.Path.GetFileName(path);
+            _profilePath = path;
+            this.IsProfileModified = false;
+            this.AddRecentProfile(path);
             this.StatusText = $"Loaded profile '{this.ProfileName}' ({this.Readings.Count} parameters).";
 
             // Auto start logging if asked and already connected (the Configuration tab option).
@@ -1429,10 +1525,118 @@ public partial class MainWindowViewModel : ViewModelBase
         }
     }
 
-    /// <summary>Save the current Parameters-tab selection (enabled rows, with units and zoom) as a
-    /// .LogProfile, using the shared <see cref="LogProfileWriter"/>.</summary>
+    // Recently opened or saved profiles, newest first, kept across runs in the logger's settings file.
+    private readonly LoggerSettings _settings = LoggerSettings.Load();
+
+    public ObservableCollection<RecentProfileItem> RecentProfiles { get; } = new();
+
+    private void LoadRecentProfiles()
+    {
+        this.RecentProfiles.Clear();
+        foreach (string path in _settings.RecentProfiles)
+        {
+            this.RecentProfiles.Add(new RecentProfileItem(path));
+        }
+    }
+
+    private void AddRecentProfile(string path)
+    {
+        _settings.AddRecentProfile(path);
+        _settings.Save();
+        this.LoadRecentProfiles();
+    }
+
+    private void RemoveRecentProfile(string path)
+    {
+        _settings.RemoveRecentProfile(path);
+        _settings.Save();
+        this.LoadRecentProfiles();
+    }
+
+    /// <summary>If the profile has unsaved changes, ask before they are thrown away. True means go on.</summary>
+    private async Task<bool> ConfirmDiscardChangesAsync()
+    {
+        if (!this.IsProfileModified || this.ConfirmAsync == null)
+        {
+            return true;
+        }
+
+        return await this.ConfirmAsync(
+            $"'{this.ProfileName}' has unsaved changes. Discard them?");
+    }
+
+    /// <summary>Start an empty profile: every parameter off, ready to be picked on the Parameters tab.</summary>
+    [RelayCommand]
+    private async Task NewProfile()
+    {
+        if (!this.IsConnected || _database == null)
+        {
+            this.StatusText = "Connect to a PCM before creating a profile.";
+            return;
+        }
+
+        if (!await this.ConfirmDiscardChangesAsync())
+        {
+            return;
+        }
+
+        _profile = new LogProfile();
+        this.ApplyProfileToParameterRows(_profile);
+        this.ProfileName = "(new profile)";
+        _profilePath = null;
+        this.IsProfileModified = false;
+        this.StatusText = "New profile. Enable parameters on the Parameters tab.";
+    }
+
+    /// <summary>Save the current selection to the file this profile came from. A new profile, or the
+    /// bundled default (which must not be overwritten), asks where to save instead.</summary>
     [RelayCommand]
     private async Task SaveProfile()
+    {
+        if (_profilePath == null)
+        {
+            await this.SaveProfileAs();
+            return;
+        }
+
+        List<LogColumn> columns = this.BuildSelectedColumns();
+        if (columns.Count == 0)
+        {
+            this.StatusText = "Enable parameters on the Parameters tab before saving a profile.";
+            return;
+        }
+
+        this.WriteProfile(columns, _profilePath);
+    }
+
+    private void WriteProfile(List<LogColumn> columns, string path)
+    {
+        try
+        {
+            LogProfile profile = new();
+            foreach (LogColumn column in columns)
+            {
+                profile.AddColumn(column);
+            }
+
+            LogProfileWriter.Write(profile, path);
+            _profile = profile;
+            _profilePath = path;
+            this.ProfileName = Path.GetFileName(path);
+            this.IsProfileModified = false;
+            this.AddRecentProfile(path);
+            this.StatusText = $"Saved profile '{this.ProfileName}' ({columns.Count} parameters).";
+        }
+        catch (Exception exception)
+        {
+            this.StatusText = "Save profile failed: " + exception.Message;
+        }
+    }
+
+    /// <summary>Save the current Parameters-tab selection (enabled rows, with units and zoom) as a
+    /// .LogProfile under a name the user picks, using the shared <see cref="LogProfileWriter"/>.</summary>
+    [RelayCommand]
+    private async Task SaveProfileAs()
     {
         List<LogColumn> columns = this.BuildSelectedColumns();
         if (columns.Count == 0)
@@ -1463,24 +1667,7 @@ public partial class MainWindowViewModel : ViewModelBase
             return;
         }
 
-        string path = file.Path.LocalPath;
-        try
-        {
-            LogProfile profile = new();
-            foreach (LogColumn column in columns)
-            {
-                profile.AddColumn(column);
-            }
-
-            LogProfileWriter.Write(profile, path);
-            _profile = profile;
-            this.ProfileName = Path.GetFileName(path);
-            this.StatusText = $"Saved profile '{this.ProfileName}' ({columns.Count} parameters).";
-        }
-        catch (Exception exception)
-        {
-            this.StatusText = "Save profile failed: " + exception.Message;
-        }
+        this.WriteProfile(columns, file.Path.LocalPath);
     }
 
     /// <summary>The Start/Stop Logging button: start when idle, stop when logging.</summary>
@@ -1522,6 +1709,7 @@ public partial class MainWindowViewModel : ViewModelBase
         this.IsMonitorPaused = false;
 
         _controller = new LoggingController(_vehicle, _osid, _logger);
+        _controller.PreTriggerSeconds = this.AutoSaveActive ? AutoSavePreTriggerSeconds : 0;
         _controller.RowAvailable += OnRowAvailable;
         _controller.Stopped += () => Dispatcher.UIThread.Post(() =>
         {
@@ -1588,11 +1776,193 @@ public partial class MainWindowViewModel : ViewModelBase
             _controller = null;
         }
 
+        _autoRecording = false;
         this.IsLogging = false;
         this.IsRecording = false;
         // Freeze the strip chart where it stopped, so the last data can be inspected.
         this.IsMonitorPaused = true;
         this.StatusText = this.IsConnected ? "Stopped." : "Not connected.";
+    }
+
+    // ---- Auto-save --------------------------------------------------------------------------------------
+    // Records by itself while a condition holds, instead of on the Record button: the accelerator pedal
+    // above 80, knock retard above 0, or the cruise Set button pressed (the Uno logger's options). The two
+    // seconds before the condition began are included. An option only counts while its parameter is
+    // ticked on the Parameters tab, since without it there is nothing to watch.
+
+    private const string AcceleratorPedalPositionId = "AcceleratorPedalPosition";
+    private const string AcceleratorPedalId = "AcceleratorPedal";
+    private const string KnockRetardId = "KnockRetardDegrees";
+    private const string CruiseSetCoastSwitchId = "CruiseSetCoastSwitch";
+    private const double AutoSavePreTriggerSeconds = 2;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AutoSaveActive))]
+    private bool _autoSaveAccelerator;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AutoSaveActive))]
+    private bool _autoSaveKnockRetard;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AutoSaveActive))]
+    private bool _autoSaveCruiseButton;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AutoSaveActive))]
+    private bool _autoSaveAcceleratorAvailable;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AutoSaveActive))]
+    private bool _autoSaveKnockRetardAvailable;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AutoSaveActive))]
+    private bool _autoSaveCruiseButtonAvailable;
+
+    /// <summary>True when at least one ticked auto-save condition can actually be watched.</summary>
+    public bool AutoSaveActive =>
+        (this.AutoSaveAccelerator && this.AutoSaveAcceleratorAvailable)
+        || (this.AutoSaveKnockRetard && this.AutoSaveKnockRetardAvailable)
+        || (this.AutoSaveCruiseButton && this.AutoSaveCruiseButtonAvailable);
+
+    // True while a recording started by auto-save is open, so only that one is stopped by it.
+    private bool _autoRecording;
+
+    // A start is under way (it writes a header first); don't begin a second one meanwhile.
+    private bool _autoSaveStarting;
+
+    partial void OnAutoSaveAcceleratorChanged(bool value) => this.AutoSaveOptionChanged();
+
+    partial void OnAutoSaveKnockRetardChanged(bool value) => this.AutoSaveOptionChanged();
+
+    partial void OnAutoSaveCruiseButtonChanged(bool value) => this.AutoSaveOptionChanged();
+
+    private void AutoSaveOptionChanged()
+    {
+        _settings.AutoSaveAccelerator = this.AutoSaveAccelerator;
+        _settings.AutoSaveKnockRetard = this.AutoSaveKnockRetard;
+        _settings.AutoSaveCruiseButton = this.AutoSaveCruiseButton;
+        _settings.Save();
+        this.ApplyAutoSaveState();
+    }
+
+    partial void OnAutoSaveAcceleratorAvailableChanged(bool value) => this.ApplyAutoSaveState();
+
+    partial void OnAutoSaveKnockRetardAvailableChanged(bool value) => this.ApplyAutoSaveState();
+
+    partial void OnAutoSaveCruiseButtonAvailableChanged(bool value) => this.ApplyAutoSaveState();
+
+    /// <summary>Keep the Record button and the controller's lead-up buffer in step with the options.</summary>
+    private void ApplyAutoSaveState()
+    {
+        this.OnPropertyChanged(nameof(RecordButtonText));
+        this.OnPropertyChanged(nameof(CanRecordManually));
+
+        if (_controller != null)
+        {
+            _controller.PreTriggerSeconds = this.AutoSaveActive ? AutoSavePreTriggerSeconds : 0;
+        }
+
+        // Turning auto-save off while it is recording ends that recording.
+        if (!this.AutoSaveActive && _autoRecording)
+        {
+            _autoRecording = false;
+            _controller?.StopRecording();
+        }
+    }
+
+    /// <summary>Enable each option only if its parameter is among the ticked ones.</summary>
+    private void UpdateAutoSaveAvailability()
+    {
+        bool accelerator = false;
+        bool knock = false;
+        bool cruise = false;
+
+        foreach (ParameterRow row in this.ParameterRows)
+        {
+            if (!row.Enabled)
+            {
+                continue;
+            }
+
+            if (row.Id == AcceleratorPedalPositionId || row.Id == AcceleratorPedalId)
+            {
+                accelerator = true;
+            }
+            else if (row.Id == KnockRetardId)
+            {
+                knock = true;
+            }
+            else if (row.Id == CruiseSetCoastSwitchId)
+            {
+                cruise = true;
+            }
+        }
+
+        this.AutoSaveAcceleratorAvailable = accelerator;
+        this.AutoSaveKnockRetardAvailable = knock;
+        this.AutoSaveCruiseButtonAvailable = cruise;
+    }
+
+    /// <summary>Start or stop the recording to match the conditions in this row. UI thread.</summary>
+    private void EvaluateAutoSave(IReadOnlyList<LogRowElement> row)
+    {
+        LoggingController? controller = _controller;
+        if (controller == null || !this.AutoSaveActive)
+        {
+            return;
+        }
+
+        bool shouldBeRecording = false;
+        foreach (LogRowElement element in row)
+        {
+            if (this.AutoSaveAccelerator
+                && (element.ParameterId == AcceleratorPedalPositionId || element.ParameterId == AcceleratorPedalId))
+            {
+                shouldBeRecording |= element.ValueAsNumber > 80;
+            }
+
+            if (this.AutoSaveKnockRetard && element.ParameterId == KnockRetardId)
+            {
+                shouldBeRecording |= element.ValueAsNumber > 0;
+            }
+
+            if (this.AutoSaveCruiseButton && element.ParameterId == CruiseSetCoastSwitchId)
+            {
+                shouldBeRecording |= element.ValueAsString == "Pressed";
+            }
+        }
+
+        if (shouldBeRecording && !controller.IsRecording && !_autoSaveStarting)
+        {
+            _autoSaveStarting = true;
+            _ = this.StartAutoRecordingAsync(controller);
+        }
+        else if (!shouldBeRecording && _autoRecording && controller.IsRecording)
+        {
+            _autoRecording = false;
+            controller.StopRecording();
+        }
+    }
+
+    private async Task StartAutoRecordingAsync(LoggingController controller)
+    {
+        try
+        {
+            Directory.CreateDirectory(this.LogFolder);
+            string path = Path.Combine(this.LogFolder, "PcmLog_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".csv");
+            await controller.StartRecordingAsync(path);
+            _autoRecording = true;
+        }
+        catch (Exception exception)
+        {
+            this.StatusText = "Auto-save could not start recording: " + exception.Message;
+        }
+        finally
+        {
+            _autoSaveStarting = false;
+        }
     }
 
     /// <summary>Append a debug line to the Debug tab, keeping the list bounded.</summary>
@@ -1636,6 +2006,8 @@ public partial class MainWindowViewModel : ViewModelBase
                     }
                 }
             }
+
+            this.EvaluateAutoSave(row);
 
             // Query time: the ms since the previous row (the WinForms "Query time" readout).
             DateTime now = DateTime.Now;
