@@ -48,6 +48,7 @@ public partial class MainWindowViewModel : ObservableObject
     [NotifyCanExecuteChangedFor(nameof(WriteFullFlashCloneCommand))]
     [NotifyCanExecuteChangedFor(nameof(BruteForceUnlockCommand))]
     [NotifyCanExecuteChangedFor(nameof(HaltRunningKernelCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ClearTroubleCodesCommand))]
     [NotifyCanExecuteChangedFor(nameof(ReadPropertiesCommand))]
     [NotifyCanExecuteChangedFor(nameof(WritePCMCommand))]
     [NotifyCanExecuteChangedFor(nameof(TestWriteCommand))]
@@ -233,6 +234,43 @@ public partial class MainWindowViewModel : ObservableObject
             // Visual delay to let the user visually inspect the final status message
             await Task.Delay(2000);
             if (!IsOperationRunning) StatusText = "Ready";
+        }
+    }
+
+    /// <summary>
+    /// Clears the PCM's trouble codes (ports the Uno "Reset Codes" action). Same call the other UIs use;
+    /// it does not touch flash.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanExecuteSelectedDevice))]
+    public async Task ClearTroubleCodes()
+    {
+        if (Vehicle == null) return;
+        if (IsOperationRunning) return;
+
+        IsDrawerOpen = false;
+        StatusText = "Clearing trouble codes...";
+
+        try
+        {
+            IsOperationRunning = true;
+            await Task.Run(async () =>
+            {
+                // A kernel left running would swallow the request, so leave it first, as Uno does.
+                await Vehicle.ExitKernel();
+                await Vehicle.ClearTroubleCodes();
+            });
+
+            StatusText = "Trouble codes cleared.";
+        }
+        catch (Exception ex)
+        {
+            _logger.AddUserMessage("Exception while clearing trouble codes.");
+            _logger.AddDebugMessage(ex.ToString());
+            StatusText = "Clearing trouble codes failed.";
+        }
+        finally
+        {
+            IsOperationRunning = false;
         }
     }
     #endregion

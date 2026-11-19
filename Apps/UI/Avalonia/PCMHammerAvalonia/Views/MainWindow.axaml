@@ -39,6 +39,7 @@
                     <MenuItem Header="Brute Force _Unlock..." Command="{Binding BruteForceUnlockCommand}" />
                     <Separator Height="2"/>
                     <MenuItem Header="_Halt Running Kernel" Command="{Binding HaltRunningKernelCommand}" />
+                    <MenuItem Header="Cl_ear Trouble Codes" Command="{Binding ClearTroubleCodesCommand}" />
                 </MenuItem>
                 <MenuItem Header="_Options">
                     <MenuItem Header="_User Defined Key" Command="{Binding UserDefinedKeyCommand}" />
@@ -80,6 +81,7 @@
                     <GroupBox Header="Kernel">
                         <StackPanel Spacing="5">
                             <Button Content="_Halt Running Kernel"  Command="{Binding HaltRunningKernelCommand}" HorizontalAlignment="Stretch"/>
+                            <Button Content="Cl_ear Codes"          Command="{Binding ClearTroubleCodesCommand}" HorizontalAlignment="Stretch"/>
                             <Button Content="_Cancel"               Command="{Binding CancelCurrentCommand}"     HorizontalAlignment="Stretch"/>
                         </StackPanel>
                     </GroupBox>
