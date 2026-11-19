@@ -56,9 +56,48 @@ public partial class MainView : UserControl
         if (_responsiveVm != null)
         {
             _responsiveVm.PropertyChanged += this.OnResponsiveVmPropertyChanged;
+
+            // The view owns the dialogs (as for Clear Codes), so the view model asks through this.
+            _responsiveVm.ConfirmAsync = this.ConfirmDiscardAsync;
         }
 
         this.UpdateResponsiveLayout();
+    }
+
+    private void RecentProfile_SelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (sender is not ListBox list || list.SelectedItem is not RecentProfileItem item)
+        {
+            return;
+        }
+
+        // Clear the selection so choosing the same entry again later still counts, then close the list.
+        list.SelectedItem = null;
+        this.RecentProfilesButton.Flyout?.Hide();
+
+        if (this.DataContext is MainWindowViewModel vm)
+        {
+            vm.OpenRecentProfileCommand.Execute(item.Path);
+        }
+    }
+
+    private async Task<bool> ConfirmDiscardAsync(string message)
+    {
+        FAContentDialog dialog = new()
+        {
+            Title = "Unsaved changes",
+            Content = new TextBlock
+            {
+                Text = message,
+                TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+            },
+            PrimaryButtonText = "Discard",
+            CloseButtonText = "Cancel",
+            DefaultButton = FAContentDialogButton.Close,
+        };
+
+        // TopLevel passed explicitly so this works on a mobile single-view (no owning Window) too.
+        return await dialog.ShowAsync(TopLevel.GetTopLevel(this)) == FAContentDialogResult.Primary;
     }
 
     private void OnResponsiveVmPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)

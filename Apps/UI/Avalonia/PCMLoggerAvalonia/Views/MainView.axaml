@@ -103,10 +103,28 @@
             <!-- Parameters: every supported PID; tick Enable to log it (the WinForms Parameters tab) -->
             <TabItem Header="Parameters">
                 <Grid RowDefinitions="Auto,Auto,*">
-                    <Grid Grid.Row="0" ColumnDefinitions="Auto,Auto,*" Margin="0,0,0,6">
-                        <Button Grid.Column="0" Content="Open Profile" Command="{Binding OpenProfileCommand}" Margin="0,0,6,0"/>
-                        <Button Grid.Column="1" Content="Save Profile" Command="{Binding SaveProfileCommand}" Margin="0,0,10,0"/>
-                        <TextBox Grid.Column="2" Watermark="Search…" Text="{Binding ParameterFilter}"/>
+                    <Grid Grid.Row="0" ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,*" Margin="0,0,0,6">
+                        <Button Grid.Column="0" Content="New Profile" Command="{Binding NewProfileCommand}" Margin="0,0,6,0"/>
+                        <Button Grid.Column="1" Content="Open Profile" Command="{Binding OpenProfileCommand}" Margin="0,0,6,0"/>
+                        <Button Grid.Column="2" Content="Save Profile" Command="{Binding SaveProfileCommand}" Margin="0,0,6,0"/>
+                        <Button Grid.Column="3" Content="Save As…" Command="{Binding SaveProfileAsCommand}" Margin="0,0,6,0"/>
+                        <!-- Recently opened or saved profiles, newest first. -->
+                        <DropDownButton Grid.Column="4" x:Name="RecentProfilesButton" Content="Recent" Margin="0,0,10,0">
+                            <DropDownButton.Flyout>
+                                <Flyout Placement="BottomEdgeAlignedLeft">
+                                    <ListBox x:Name="RecentProfilesList" ItemsSource="{Binding RecentProfiles}"
+                                             MinWidth="260" MaxHeight="320"
+                                             SelectionChanged="RecentProfile_SelectionChanged">
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:RecentProfileItem">
+                                                <TextBlock Text="{Binding DisplayName}" ToolTip.Tip="{Binding Path}"/>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+                                </Flyout>
+                            </DropDownButton.Flyout>
+                        </DropDownButton>
+                        <TextBox Grid.Column="5" Watermark="Search…" Text="{Binding ParameterFilter}"/>
                     </Grid>
                     <Grid Grid.Row="1" ColumnDefinitions="60,60,*,150" Margin="2,2,2,4">
                         <TextBlock Grid.Column="0" Text="Enable" FontWeight="SemiBold" HorizontalAlignment="Center"/>
@@ -346,7 +364,7 @@
                     BorderBrush="{DynamicResource SystemControlBackgroundBaseMediumLowBrush}" BorderThickness="1">
                 <Grid RowDefinitions="Auto,Auto,*">
                     <!-- Profile name: what this pane's parameters come from -->
-                    <TextBlock Grid.Row="0" Text="{Binding ProfileName}" FontWeight="SemiBold"
+                    <TextBlock Grid.Row="0" Text="{Binding ProfileTitle}" FontWeight="SemiBold"
                                Margin="6,6,6,2" TextTrimming="CharacterEllipsis" TextAlignment="Center"
                                ToolTip.Tip="{Binding ProfileName}"/>
                     <Grid Grid.Row="1" ColumnDefinitions="2*,1.2*,1*" Margin="6,2,6,4">

@@ -58,7 +58,24 @@ public partial class MainWindowViewModel : ViewModelBase
     private string _statusText = "Not connected.";
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ProfileTitle))]
     private string _profileName = "(no profile)";
+
+    // True once the Parameters tab has been changed since the profile was loaded or last saved.
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ProfileTitle))]
+    private bool _isProfileModified;
+
+    /// <summary>The profile name as shown to the user, with a star when it has unsaved changes.</summary>
+    public string ProfileTitle => this.IsProfileModified ? this.ProfileName + " *" : this.ProfileName;
+
+    // The file the current profile was opened from or last saved to. Null for the bundled default and
+    // for a new profile, so Save asks where instead of overwriting the bundled Overview profile.
+    private string? _profilePath;
+
+    /// <summary>Asks the user to confirm (supplied by the view, which owns the dialogs). Returns true to
+    /// go ahead. Unset means "just proceed", for a host with no dialog.</summary>
+    public Func<string, Task<bool>>? ConfirmAsync { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ConnectButtonText))]
@@ -733,6 +750,12 @@ public partial class MainWindowViewModel : ViewModelBase
         bool affectsLog = e.PropertyName == nameof(ParameterRow.Enabled)
             || e.PropertyName == nameof(ParameterRow.SelectedUnit);
 
+        // Any of these is saved in a profile, so the profile now differs from its file.
+        if (affectsLog || e.PropertyName == nameof(ParameterRow.Zoom))
+        {
+            this.IsProfileModified = true;
+        }
+
         if (affectsLog || e.PropertyName == nameof(ParameterRow.Zoom))
         {
             this.RebuildReadings();
@@ -838,6 +861,8 @@ public partial class MainWindowViewModel : ViewModelBase
             _profile = reader.Read(path);
             this.ApplyProfileToParameterRows(_profile);
             this.ProfileName = "Overview (default)";
+            _profilePath = null;
+            this.IsProfileModified = false;
         }
         catch (Exception exception)
         {
@@ -1165,6 +1190,7 @@ public partial class MainWindowViewModel : ViewModelBase
         _codeDefinitions = DiagnosticCodeDefinitions.Load(PlatformPaths.ResourceDirectory, _logger);
 
         _queryTimeRow.Value = "--";
+        this.LoadRecentProfiles();
         this.UpdateDeviceSummary();
         this.BuildFromPackage(DefaultLoggerPackage.Create());
     }
@@ -1258,6 +1284,8 @@ public partial class MainWindowViewModel : ViewModelBase
         _vehicle = null;
         _database = null;
         _profile = null;
+        _profilePath = null;
+        this.IsProfileModified = false;
         this.AvailableParameters.Clear();
         this.ParameterRows.Clear();
         this.Readings.Clear();
@@ -1381,6 +1409,11 @@ public partial class MainWindowViewModel : ViewModelBase
             return;
         }
 
+        if (!await this.ConfirmDiscardChangesAsync())
+        {
+            return;
+        }
+
         try
         {
             IStorageProvider? storage = GetStorageProvider();
@@ -1405,8 +1438,55 @@ public partial class MainWindowViewModel : ViewModelBase
                 return;
             }
 
-            string path = files[0].Path.LocalPath;
+            this.LoadProfileFromPath(files[0].Path.LocalPath);
+        }
+        catch (Exception exception)
+        {
+            this.StatusText = "Open profile failed: " + exception.Message;
+        }
+    }
 
+    /// <summary>Open a profile from the recent list. A file that has since been moved or deleted is
+    /// dropped from the list instead of failing.</summary>
+    [RelayCommand]
+    private async Task OpenRecentProfile(string? path)
+    {
+        if (string.IsNullOrEmpty(path))
+        {
+            return;
+        }
+
+        if (!this.IsConnected || _database == null)
+        {
+            this.StatusText = "Connect to a PCM before opening a profile.";
+            return;
+        }
+
+        if (!File.Exists(path))
+        {
+            this.RemoveRecentProfile(path);
+            this.StatusText = $"'{Path.GetFileName(path)}' no longer exists and was removed from the recent list.";
+            return;
+        }
+
+        if (!await this.ConfirmDiscardChangesAsync())
+        {
+            return;
+        }
+
+        this.LoadProfileFromPath(path);
+    }
+
+    /// <summary>Read a .LogProfile and apply it to the Parameters tab.</summary>
+    private void LoadProfileFromPath(string path)
+    {
+        if (_database == null)
+        {
+            return;
+        }
+
+        try
+        {
             LogProfileReader reader = new(_database, _osid, _logger);
             _profile = reader.Read(path);
 
@@ -1415,6 +1495,9 @@ public partial class MainWindowViewModel : ViewModelBase
             this.ApplyProfileToParameterRows(_profile);
 
             this.ProfileName = System.IO.Path.GetFileName(path);
+            _profilePath = path;
+            this.IsProfileModified = false;
+            this.AddRecentProfile(path);
             this.StatusText = $"Loaded profile '{this.ProfileName}' ({this.Readings.Count} parameters).";
 
             // Auto start logging if asked and already connected (the Configuration tab option).
@@ -1429,10 +1512,118 @@ public partial class MainWindowViewModel : ViewModelBase
         }
     }
 
-    /// <summary>Save the current Parameters-tab selection (enabled rows, with units and zoom) as a
-    /// .LogProfile, using the shared <see cref="LogProfileWriter"/>.</summary>
+    // Recently opened or saved profiles, newest first, kept across runs in the logger's settings file.
+    private readonly LoggerSettings _settings = LoggerSettings.Load();
+
+    public ObservableCollection<RecentProfileItem> RecentProfiles { get; } = new();
+
+    private void LoadRecentProfiles()
+    {
+        this.RecentProfiles.Clear();
+        foreach (string path in _settings.RecentProfiles)
+        {
+            this.RecentProfiles.Add(new RecentProfileItem(path));
+        }
+    }
+
+    private void AddRecentProfile(string path)
+    {
+        _settings.AddRecentProfile(path);
+        _settings.Save();
+        this.LoadRecentProfiles();
+    }
+
+    private void RemoveRecentProfile(string path)
+    {
+        _settings.RemoveRecentProfile(path);
+        _settings.Save();
+        this.LoadRecentProfiles();
+    }
+
+    /// <summary>If the profile has unsaved changes, ask before they are thrown away. True means go on.</summary>
+    private async Task<bool> ConfirmDiscardChangesAsync()
+    {
+        if (!this.IsProfileModified || this.ConfirmAsync == null)
+        {
+            return true;
+        }
+
+        return await this.ConfirmAsync(
+            $"'{this.ProfileName}' has unsaved changes. Discard them?");
+    }
+
+    /// <summary>Start an empty profile: every parameter off, ready to be picked on the Parameters tab.</summary>
+    [RelayCommand]
+    private async Task NewProfile()
+    {
+        if (!this.IsConnected || _database == null)
+        {
+            this.StatusText = "Connect to a PCM before creating a profile.";
+            return;
+        }
+
+        if (!await this.ConfirmDiscardChangesAsync())
+        {
+            return;
+        }
+
+        _profile = new LogProfile();
+        this.ApplyProfileToParameterRows(_profile);
+        this.ProfileName = "(new profile)";
+        _profilePath = null;
+        this.IsProfileModified = false;
+        this.StatusText = "New profile. Enable parameters on the Parameters tab.";
+    }
+
+    /// <summary>Save the current selection to the file this profile came from. A new profile, or the
+    /// bundled default (which must not be overwritten), asks where to save instead.</summary>
     [RelayCommand]
     private async Task SaveProfile()
+    {
+        if (_profilePath == null)
+        {
+            await this.SaveProfileAs();
+            return;
+        }
+
+        List<LogColumn> columns = this.BuildSelectedColumns();
+        if (columns.Count == 0)
+        {
+            this.StatusText = "Enable parameters on the Parameters tab before saving a profile.";
+            return;
+        }
+
+        this.WriteProfile(columns, _profilePath);
+    }
+
+    private void WriteProfile(List<LogColumn> columns, string path)
+    {
+        try
+        {
+            LogProfile profile = new();
+            foreach (LogColumn column in columns)
+            {
+                profile.AddColumn(column);
+            }
+
+            LogProfileWriter.Write(profile, path);
+            _profile = profile;
+            _profilePath = path;
+            this.ProfileName = Path.GetFileName(path);
+            this.IsProfileModified = false;
+            this.AddRecentProfile(path);
+            this.StatusText = $"Saved profile '{this.ProfileName}' ({columns.Count} parameters).";
+        }
+        catch (Exception exception)
+        {
+            this.StatusText = "Save profile failed: " + exception.Message;
+        }
+    }
+
+    /// <summary>Save the current Parameters-tab selection (enabled rows, with units and zoom) as a
+    /// .LogProfile under a name the user picks, using the shared <see cref="LogProfileWriter"/>.</summary>
+    [RelayCommand]
+    private async Task SaveProfileAs()
     {
         List<LogColumn> columns = this.BuildSelectedColumns();
         if (columns.Count == 0)
@@ -1463,24 +1654,7 @@ public partial class MainWindowViewModel : ViewModelBase
             return;
         }
 
-        string path = file.Path.LocalPath;
-        try
-        {
-            LogProfile profile = new();
-            foreach (LogColumn column in columns)
-            {
-                profile.AddColumn(column);
-            }
-
-            LogProfileWriter.Write(profile, path);
-            _profile = profile;
-            this.ProfileName = Path.GetFileName(path);
-            this.StatusText = $"Saved profile '{this.ProfileName}' ({columns.Count} parameters).";
-        }
-        catch (Exception exception)
-        {
-            this.StatusText = "Save profile failed: " + exception.Message;
-        }
+        this.WriteProfile(columns, file.Path.LocalPath);
     }
 
     /// <summary>The Start/Stop Logging button: start when idle, stop when logging.</summary>
